@@ -10,9 +10,9 @@ import sys
 from ConfigParser import SafeConfigParser, NoOptionError
 
 import btc
-from client.jsonrpc import JsonRpc
-from base.support import get_log, joinmarket_alert, core_alert, debug_silence
-from client.podle import set_commitment_file
+from jmclient.jsonrpc import JsonRpc
+from jmbase.support import get_log, joinmarket_alert, core_alert, debug_silence
+from jmclient.podle import set_commitment_file
 
 log = get_log()
 
@@ -341,9 +341,9 @@ def load_program_config(config_path=None, bs=None):
 def get_blockchain_interface_instance(_config):
     # todo: refactor joinmarket module to get rid of loops
     # importing here is necessary to avoid import loops
-    from client.blockchaininterface import BitcoinCoreInterface, \
+    from jmclient.blockchaininterface import BitcoinCoreInterface, \
         RegtestBitcoinCoreInterface, BlockrInterface, ElectrumWalletInterface
-    from client.blockchaininterface import CliJsonRpc
+    from jmclient.blockchaininterface import CliJsonRpc
 
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()

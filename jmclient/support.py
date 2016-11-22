@@ -5,7 +5,7 @@ import sys
 import logging
 import pprint
 import random
-from base.support import get_log
+from jmbase.support import get_log
 from decimal import Decimal
 
 from math import exp

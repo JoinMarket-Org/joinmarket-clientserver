@@ -21,9 +21,9 @@ import btc
 # This can be removed once CliJsonRpc is gone.
 import subprocess
 
-from client.jsonrpc import JsonRpcConnectionError, JsonRpcError
-from client.configure import get_p2pk_vbyte, jm_single
-from base.support import get_log, chunks
+from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
+from jmclient.configure import get_p2pk_vbyte, jm_single
+from jmbase.support import get_log, chunks
 
 log = get_log()
 
@@ -682,7 +682,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             sys.exit(0)
 
     def sync_addresses(self, wallet):
-        from client.wallet import BitcoinCoreWallet
+        from jmclient.wallet import BitcoinCoreWallet
 
         if isinstance(wallet, BitcoinCoreWallet):
             return
@@ -812,7 +812,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         self.wallet_synced = True
 
     def sync_unspent(self, wallet):
-        from client.wallet import BitcoinCoreWallet
+        from jmclient.wallet import BitcoinCoreWallet
 
         if isinstance(wallet, BitcoinCoreWallet):
             return

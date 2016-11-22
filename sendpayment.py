@@ -25,7 +25,7 @@ from optparse import OptionParser
 
 import time
 
-from client import (Taker, load_program_config,
+from jmclient import (Taker, load_program_config,
                               JMTakerClientProtocolFactory, start_reactor,
                               validate_address, jm_single,
                               choose_orders, choose_sweep_orders, pick_order,
@@ -33,7 +33,7 @@ from client import (Taker, load_program_config,
                               Wallet, BitcoinCoreWallet,
                               estimate_tx_fee)
 
-from base.support import get_log, debug_dump_object
+from jmbase.support import get_log, debug_dump_object
 
 log = get_log()
 

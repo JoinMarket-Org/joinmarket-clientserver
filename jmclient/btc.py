@@ -6,7 +6,7 @@ BTC_P2PK_VBYTE = {"mainnet": 0x00, "testnet": 0x6f}
 BTC_P2SH_VBYTE = {"mainnet": 0x05, "testnet": 0xc4}
 PODLE_COMMIT_FILE = None
 
-from base.support import get_log
+from jmbase.support import get_log
 import binascii, sys, re, hashlib, base64
 from pprint import pformat
 log = get_log()
@@ -17,7 +17,7 @@ N = 1157920892373161954235709850086879078528375642790749043826051631415181614943
 interface = "joinmarket-joinmarket"
 
 try:
-    from bitcoin import *
+    from jmbitcoin import *
     bjm = True
 except ImportError:
     #TODO figure out the right flexibility structure

@@ -1,4 +1,4 @@
-from bitcoin.secp256k1_main import *
+from jmbitcoin.secp256k1_main import *
 import hmac
 import hashlib
 from binascii import hexlify

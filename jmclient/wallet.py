@@ -9,11 +9,11 @@ from ConfigParser import NoSectionError
 from getpass import getpass
 
 import btc
-from client.slowaes import decryptData
-from client.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
-from client.configure import jm_single, get_network, get_p2pk_vbyte
-from base.support import get_log
-from client.support import select_gradual, select_greedy,select_greediest, select
+from jmclient.slowaes import decryptData
+from jmclient.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
+from jmclient.configure import jm_single, get_network, get_p2pk_vbyte
+from jmbase.support import get_log
+from jmclient.support import select_gradual, select_greedy,select_greediest, select
 
 log = get_log()
 

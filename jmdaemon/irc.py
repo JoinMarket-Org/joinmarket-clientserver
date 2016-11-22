@@ -10,7 +10,7 @@ import Queue
 
 
 from daemon.message_channel import MessageChannel
-from base.support import get_log, chunks
+from jmbase.support import get_log, chunks
 from daemon.socks import socksocket, setdefaultproxy, PROXY_TYPE_SOCKS5
 from daemon.protocol import *
 MAX_PRIVMSG_LEN = 450

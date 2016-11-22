@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import binascii, re, json, copy, sys
-from bitcoin.secp256k1_main import *
+from jmbitcoin.secp256k1_main import *
 from _functools import reduce
 import os
 

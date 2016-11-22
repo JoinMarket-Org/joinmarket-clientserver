@@ -14,7 +14,7 @@ import string
 import time
 import hashlib
 import os
-from client import (Taker, Wallet, jm_single, get_irc_mchannels,
+from jmclient import (Taker, Wallet, jm_single, get_irc_mchannels,
                         load_program_config, get_log)
 
 import btc

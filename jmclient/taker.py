@@ -9,11 +9,11 @@ import time
 import copy
 
 import btc
-from client.configure import jm_single, get_p2pk_vbyte, donation_address
-from base.support import get_log
-from client.support import calc_cj_fee, weighted_order_choose, choose_orders
-from client.wallet import estimate_tx_fee
-from client.podle import (generate_podle, get_podle_commitments,
+from jmclient.configure import jm_single, get_p2pk_vbyte, donation_address
+from jmbase.support import get_log
+from jmclient.support import calc_cj_fee, weighted_order_choose, choose_orders
+from jmclient.wallet import estimate_tx_fee
+from jmclient.podle import (generate_podle, get_podle_commitments,
                                     PoDLE, PoDLEError)
 jlog = get_log()
 
