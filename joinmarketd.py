@@ -1,13 +1,13 @@
 #! /usr/bin/env python
 from __future__ import print_function
 import sys
-from joinmarketdaemon import (IRCMessageChannel, MessageChannelCollection,
+from daemon import (IRCMessageChannel, MessageChannelCollection,
                         OrderbookWatch, as_init_encryption, init_pubkey,
                         NaclError, init_keypair, COMMAND_PREFIX, ORDER_KEYS,
                         NICK_HASH_LENGTH, NICK_MAX_ENCODED, JM_VERSION,
                         JOINMARKET_NICK_HEADER)
 
-from joinmarketdaemon.commands import *
+from base.commands import *
 from twisted.protocols import amp
 from twisted.internet import reactor
 from twisted.internet.protocol import ServerFactory

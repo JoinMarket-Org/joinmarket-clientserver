@@ -8,10 +8,9 @@ import logging
 #be implemented as an interface in btc.py
 from btc import *
 
-from .support import get_log, calc_cj_fee, debug_dump_object, \
-    choose_sweep_orders, choose_orders, \
-    pick_order, cheapest_order_choose, weighted_order_choose, \
-    rand_norm_array, rand_pow_array, rand_exp_array, joinmarket_alert, core_alert
+from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
+                      pick_order, cheapest_order_choose, weighted_order_choose,
+                      rand_norm_array, rand_pow_array, rand_exp_array)
 from .jsonrpc import JsonRpcError, JsonRpcConnectionError, JsonRpc
 from .old_mnemonic import mn_decode, mn_encode
 from .slowaes import decryptData, encryptData

@@ -9,10 +9,10 @@ import time
 import Queue
 
 
-from joinmarketdaemon.message_channel import MessageChannel
-from joinmarketdaemon.support import get_log, chunks
-from joinmarketdaemon.socks import socksocket, setdefaultproxy, PROXY_TYPE_SOCKS5
-from joinmarketdaemon.protocol import *
+from daemon.message_channel import MessageChannel
+from base.support import get_log, chunks
+from daemon.socks import socksocket, setdefaultproxy, PROXY_TYPE_SOCKS5
+from daemon.protocol import *
 MAX_PRIVMSG_LEN = 450
 PING_INTERVAL = 300
 PING_TIMEOUT = 60

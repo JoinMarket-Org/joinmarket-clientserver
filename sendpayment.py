@@ -25,13 +25,15 @@ from optparse import OptionParser
 
 import time
 
-from joinmarketclient import (Taker, load_program_config,
+from client import (Taker, load_program_config,
                               JMTakerClientProtocolFactory, start_reactor,
-                              validate_address, jm_single, get_log,
+                              validate_address, jm_single,
                               choose_orders, choose_sweep_orders, pick_order,
                               cheapest_order_choose, weighted_order_choose,
-                              debug_dump_object, Wallet, BitcoinCoreWallet,
+                              Wallet, BitcoinCoreWallet,
                               estimate_tx_fee)
+
+from base.support import get_log, debug_dump_object
 
 log = get_log()
 

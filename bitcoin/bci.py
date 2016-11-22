@@ -4,7 +4,7 @@ import random
 import sys
 import time
 import platform
-from joinmarketclient.support import get_log
+from base.support import get_log
 if platform.system() == "Windows":
     import ssl
     import urllib2

@@ -9,11 +9,11 @@ import time
 import copy
 
 import btc
-from joinmarketclient.configure import jm_single, get_p2pk_vbyte, donation_address
-from joinmarketclient.support import (get_log, calc_cj_fee, weighted_order_choose,
-                                choose_orders)
-from joinmarketclient.wallet import estimate_tx_fee
-from joinmarketclient.podle import (generate_podle, get_podle_commitments,
+from client.configure import jm_single, get_p2pk_vbyte, donation_address
+from base.support import get_log
+from client.support import calc_cj_fee, weighted_order_choose, choose_orders
+from client.wallet import estimate_tx_fee
+from client.podle import (generate_podle, get_podle_commitments,
                                     PoDLE, PoDLEError)
 jlog = get_log()
 
@@ -94,14 +94,14 @@ class Taker(object):
             try:
                 self.my_cj_addr = self.wallet.get_external_addr(self.mixdepth + 1)
             except:
-                self.taker_error_callback("ABORT", "Failed to get an address")
+                self.taker_info_callback("ABORT", "Failed to get an address")
                 return False
         self.my_change_addr = None
         if self.cjamount != 0:
             try:
                 self.my_change_addr = self.wallet.get_internal_addr(self.mixdepth)
             except:
-                self.taker_error_callback("ABORT", "Failed to get a change address")
+                self.taker_info_callback("ABORT", "Failed to get a change address")
                 return False
         #TODO sweep, doesn't apply here
         self.total_txfee = 2 * self.txfee_default * self.n_counterparties
@@ -116,7 +116,7 @@ class Taker(object):
             self.input_utxos = self.wallet.select_utxos(self.mixdepth,
                                                         total_amount)
         except Exception as e:
-            self.taker_error_callback("ABORT",
+            self.taker_info_callback("ABORT",
                                 "Unable to select sufficient coins: " + repr(e))
             return False
         self.utxos = {None: self.input_utxos.keys()}

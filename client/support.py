@@ -5,63 +5,15 @@ import sys
 import logging
 import pprint
 import random
-
+from base.support import get_log
 from decimal import Decimal
 
 from math import exp
 
-# todo: this was the date format used in the original debug().  Use it?
-# logging.basicConfig(filename='logs/joinmarket.log',
-#                     stream=sys.stdout,
-#                     level=logging.DEBUG,
-#                     format='%(asctime)s %(message)s',
-#                     dateformat='[%Y/%m/%d %H:%M:%S] ')
-
-logFormatter = logging.Formatter(
-    "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
-log = logging.getLogger('joinmarket')
-log.setLevel(logging.DEBUG)
-
 ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
               'cjfee']
 
-joinmarket_alert = ['']
-core_alert = ['']
-debug_silence = [False]
-
-
-#consoleHandler = logging.StreamHandler(stream=sys.stdout)
-class JoinMarketStreamHandler(logging.StreamHandler):
-
-    def __init__(self, stream):
-        super(JoinMarketStreamHandler, self).__init__(stream)
-
-    def emit(self, record):
-        if joinmarket_alert[0]:
-            print('JoinMarket Alert Message: ' + joinmarket_alert[0])
-        if core_alert[0]:
-            print('Core Alert Message: ' + core_alert[0])
-        if not debug_silence[0]:
-            super(JoinMarketStreamHandler, self).emit(record)
-
-
-consoleHandler = JoinMarketStreamHandler(stream=sys.stdout)
-consoleHandler.setFormatter(logFormatter)
-log.addHandler(consoleHandler)
-
-# log = logging.getLogger('joinmarket')
-# log.addHandler(logging.NullHandler())
-
-log.debug('hello joinmarket')
-
-
-def get_log():
-    """
-    provides joinmarket logging instance
-    :return: log instance
-    """
-    return log
-
+log = get_log()
 
 """
 Random functions - replacing some NumPy features
@@ -106,10 +58,6 @@ def rand_weighted_choice(n, p_arr):
     return sorted(cum_pr + [r]).index(r)
 
 # End random functions
-
-
-def chunks(d, n):
-    return [d[x:x + n] for x in xrange(0, len(d), n)]
 
 def select(unspent, value):
     """Default coin selection algorithm.
@@ -409,21 +357,3 @@ def choose_sweep_orders(db,
     log.debug('cj amount = ' + str(cj_amount))
     return result, cj_amount, total_fee
 
-
-def debug_dump_object(obj, skip_fields=None):
-    if skip_fields is None:
-        skip_fields = []
-    log.debug('Class debug dump, name:' + obj.__class__.__name__)
-    for k, v in obj.__dict__.iteritems():
-        if k in skip_fields:
-            continue
-        if k == 'password' or k == 'given_password':
-            continue
-        log.debug('key=' + k)
-        if isinstance(v, str):
-            log.debug('string: len:' + str(len(v)))
-            log.debug(v)
-        elif isinstance(v, dict) or isinstance(v, list):
-            log.debug(pprint.pformat(v))
-        else:
-            log.debug(str(v))

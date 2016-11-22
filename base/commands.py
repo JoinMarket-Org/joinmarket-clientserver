@@ -1,3 +1,9 @@
+from __future__ import print_function
+"""
+Commands defining client-server (daemon)
+messaging protocol (*not* Joinmarket p2p protocol).
+Used for AMP asynchronous messages.
+"""
 from twisted.protocols.amp import Integer, String, Unicode, Boolean, Command
 
 class DaemonNotReady(Exception):

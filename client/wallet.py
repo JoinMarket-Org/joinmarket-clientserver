@@ -9,12 +9,11 @@ from ConfigParser import NoSectionError
 from getpass import getpass
 
 import btc
-from joinmarketclient.slowaes import decryptData
-from joinmarketclient.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
-from joinmarketclient.configure import jm_single, get_network, get_p2pk_vbyte
-
-from joinmarketclient.support import get_log, select_gradual, select_greedy, \
-    select_greediest, select
+from client.slowaes import decryptData
+from client.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
+from client.configure import jm_single, get_network, get_p2pk_vbyte
+from base.support import get_log
+from client.support import select_gradual, select_greedy,select_greediest, select
 
 log = get_log()
 

@@ -11,9 +11,9 @@ import threading
 import json
 from decimal import InvalidOperation, Decimal
 
-from joinmarketdaemon.protocol import JM_VERSION
-from joinmarketdaemon.support import get_log, joinmarket_alert, DUST_THRESHOLD
-from joinmarketdaemon.irc import B_PER_SEC
+from daemon.protocol import JM_VERSION
+from base.support import get_log, joinmarket_alert, DUST_THRESHOLD
+from daemon.irc import B_PER_SEC
 log = get_log()
 
 
