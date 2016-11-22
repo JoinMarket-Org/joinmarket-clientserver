@@ -9,10 +9,10 @@ import time
 import Queue
 
 
-from daemon.message_channel import MessageChannel
+from jmdaemon.message_channel import MessageChannel
 from jmbase.support import get_log, chunks
-from daemon.socks import socksocket, setdefaultproxy, PROXY_TYPE_SOCKS5
-from daemon.protocol import *
+from jmdaemon.socks import socksocket, setdefaultproxy, PROXY_TYPE_SOCKS5
+from jmdaemon.protocol import *
 MAX_PRIVMSG_LEN = 450
 PING_INTERVAL = 300
 PING_TIMEOUT = 60

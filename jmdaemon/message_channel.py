@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function
 import base64, abc, threading, time
-from daemon import (
+from jmdaemon import (
     encrypt_encode, decode_decrypt, COMMAND_PREFIX, ORDER_KEYS,
     NICK_HASH_LENGTH, NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER,
     nickname, plaintext_commands, encrypted_commands, commitment_broadcast_list,
