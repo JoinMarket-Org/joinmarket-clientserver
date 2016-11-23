@@ -47,13 +47,18 @@ class JMTakerClientProtocol(amp.AMP):
             reactor.stop()
 
     def connectionMade(self):
+        self.factory.setClient(self)
+        self.clientStart()
+
+    def clientStart(self):
         """Upon confirmation of network connection
         to daemon, request message channel initialization
         with relevant config data for our message channels
         """
-        #needed only for channel naming convention
+        #needed only for naming convention in IRC currently
         blockchain_source = jm_single().config.get("BLOCKCHAIN",
                                                    "blockchain_source")
+        #needed only for channel naming convention
         network = jm_single().config.get("BLOCKCHAIN", "network")
         irc_configs = get_irc_mchannels()
         minmakers = jm_single().config.getint("POLICY", "minimum_makers")
@@ -65,9 +70,6 @@ class JMTakerClientProtocol(amp.AMP):
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec)
         d.addCallback(self.checkClientResponse)
-
-    def send_data(self, cmd, data):
-        JMProtocol.send_data(self, cmd, data)
 
     def set_nick(self):
         self.nick_pubkey = btc.privtopub(self.nick_priv)
@@ -220,6 +222,11 @@ class JMTakerClientProtocolFactory(protocol.ClientFactory):
 
     def __init__(self, taker):
         self.taker = taker
+        self.proto_client = None
+    def setClient(self, client):
+        self.proto_client = client
+    def getClient(self):
+        return self.proto_client
 
     def buildProtocol(self, addr):
         return JMTakerClientProtocol(self, self.taker)

@@ -4,9 +4,26 @@ from __future__ import absolute_import, print_function
 """
 A sample implementation of a single coinjoin script,
 adapted from `sendpayment.py` in Joinmarket-Org/joinmarket.
+This is primitive and not yet well tested, but it is designed
+to illustrate the main functionality of the new architecture:
+this code can be run in a separate environment (but not safely
+over the internet, better on one machine) to the joinmarketdaemon.
+Moreover, it can run several transactions using the -b option, e.g.:
+
+`python sendpayment.py -b 3 -N 3 -m 1 walletseed amount address`;
+
+note here only one destination address for multiple transactions,
+only one mixdepth and other settings; this is just a proof of concept.
+The idea is that the "backend" (daemon) will keep its orderbook and stay
+connected on the message channel between runs, only shutting down
+after all are complete.
+
+It should be very easy to extend this further, of course.
+
 More complex applications can extend from Taker and add
-more features, such as repeated joins. This will also allow
-easier coding of non-CLI interfaces.
+more features. This will also allow
+easier coding of non-CLI interfaces. A plugin for Electrum is in process
+and already working.
 
 Other potential customisations of the Taker object instantiation
 include:
@@ -22,7 +39,7 @@ import random
 import sys
 import threading
 from optparse import OptionParser
-
+from twisted.internet import reactor
 import time
 
 from jmclient import (Taker, load_program_config,
@@ -36,7 +53,8 @@ from jmclient import (Taker, load_program_config,
 from jmbase.support import get_log, debug_dump_object
 
 log = get_log()
-
+txcount = 1
+wallet = None
 
 def check_high_fee(total_fee_pc):
     WARNING_THRESHOLD = 0.02  # 2%
@@ -94,6 +112,13 @@ def main():
                       dest='daemonport',
                       help='port on which joinmarketd is running',
                       default='12345')
+    parser.add_option('-b',
+                      '--txcount',
+                      type='int',
+                      dest='txcount',
+                      help=('optionally do more than 1 transaction to the '
+                      'same destination, of the same amount'),
+                      default=1)
     parser.add_option(
         '-C',
         '--choose-cheapest',
@@ -181,19 +206,40 @@ def main():
     assert (options.txfee >= 0)
 
     log.debug('starting sendpayment')
-
+    global wallet
     if not options.userpcwallet:
         wallet = Wallet(wallet_name, options.amtmixdepths, options.gaplimit)
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     jm_single().bc_interface.sync_wallet(wallet)
+    def taker_finished(res):
+        global wallet
+        global txcount
+        txcount += 1
+        if res:
+            log.debug("Transaction finished OK, result was: ")
+        else:
+            log.info("A transaction failed, quitting")
+            sys.exit(1)
+        if txcount > options.txcount:
+            log.debug("Shutting down")
+            reactor.stop()
+        else:
+            #need to update for new transactions; only working for
+            #regtest at the moment (otherwise too slow)
+            jm_single().bc_interface.sync_wallet(wallet)
+            time.sleep(3) #for blocks to mine
+            #restarts from the entry point of the client-server protocol (JMInit)
+            #with the *same* Taker object.
+            clientfactory.getClient().clientStart()
 
     taker = Taker(wallet,
                   options.mixdepth,
                   amount,
                   options.makercount,
                   order_chooser=chooseOrdersFunc,
-                  external_addr=destaddr)
+                  external_addr=destaddr,
+                  callbacks=(None, None, taker_finished))
     clientfactory = JMTakerClientProtocolFactory(taker)
     start_reactor("localhost", options.daemonport, clientfactory)
 

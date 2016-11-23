@@ -15,7 +15,12 @@ class JMCommand(Command):
 
 #commands from client to daemon
 
-class JMInit(JMCommand):   
+class JMInit(JMCommand):
+    """Communicates the client's required setup
+    configuration.
+    Blockchain source is communicated only as a naming
+    tag for messagechannels (currently IRC 'realname' field).
+    """
     arguments = [('bcsource', String()),
                  ('network', String()),
                  ('irc_configs', String()),
@@ -24,6 +29,9 @@ class JMInit(JMCommand):
     errors = {DaemonNotReady: 'daemon is not ready'}
 
 class JMStartMC(JMCommand):
+    """Will restart message channel connections if config
+    has changed; otherwise will only change nym/nick on MCs.
+    """
     arguments = [('nick', String())]
 
 class JMSetup(JMCommand):

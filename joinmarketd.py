@@ -49,12 +49,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     def __init__(self, factory):
         self.factory = factory
-        #Set of messages we can receive from a client:
-        self.supported_messages = ["JM_INIT", "JM_SETUP", "JM_FILL",
-                                   "JM_MAKE_TX", "JM_REQUEST_OFFERS",
-                                   "JM_MAKE_TX", "JM_MSGSIGNATURE",
-                                   "JM_MSGSIGNATURE_VERIFY", "JM_START_MC"]
         self.jm_state = 0
+        self.restart_mc_required = False
+        self.irc_configs = None
+        self.mcc = None
+        self.sig_lock = threading.Lock()
 
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
@@ -66,21 +65,37 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
                    maker_timeout_sec):
+        """Reads in required configuration from client for a new
+        session; feeds back joinmarket messaging protocol constants
+        (required for nick creation).
+        If a new message channel configuration is required, the current
+        one is shutdown in preparation.
+        """
         self.maker_timeout_sec = int(maker_timeout_sec)
         self.minmakers = int(minmakers)
         irc_configs = json.loads(irc_configs)
-        mcs = [IRCMessageChannel(c,
-                                 daemon=self,
-                                 realname='btcint=' + bcsource)
-               for c in irc_configs]
         #(bitcoin) network only referenced in channel name construction
         self.network = network
-        self.mcc = MessageChannelCollection(mcs)
-        OrderbookWatch.set_msgchan(self, self.mcc)
-        #register taker-specific msgchan callbacks here
-        self.mcc.register_taker_callbacks(self.on_error, self.on_pubkey,
-                                          self.on_ioauth, self.on_sig)
-        self.mcc.set_daemon(self)
+        if irc_configs == self.irc_configs:
+            self.restart_mc_required = False
+            log.msg("New init received did not require a new message channel"
+                    " setup.")
+        else:
+            if self.irc_configs:
+                #close the existing connections
+                self.mc_shutdown()
+            self.irc_configs = irc_configs
+            self.restart_mc_required = True
+            mcs = [IRCMessageChannel(c,
+                                     daemon=self,
+                                     realname='btcint=' + bcsource)
+                   for c in self.irc_configs]
+            self.mcc = MessageChannelCollection(mcs)
+            OrderbookWatch.set_msgchan(self, self.mcc)
+            #register taker-specific msgchan callbacks here
+            self.mcc.register_taker_callbacks(self.on_error, self.on_pubkey,
+                                              self.on_ioauth, self.on_sig)
+            self.mcc.set_daemon(self)
         d = self.callRemote(JMInitProto,
                             nick_hash_length=NICK_HASH_LENGTH,
                             nick_max_encoded=NICK_MAX_ENCODED,
@@ -91,7 +106,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMStartMC.responder
     def on_JM_START_MC(self, nick):
-        """Starts message channel threads;
+        """Starts message channel threads, if we are working with
+        a new message channel configuration. Sets new nick if required.
         JM_UP will be called when the welcome messages are received.
         """
         self.init_connections(nick)
@@ -99,8 +115,15 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     def init_connections(self, nick):
         self.jm_state = 0  #uninited
+        if self.restart_mc_required:
+            MCThread(self.mcc).start()
+            self.restart_mc_required = False
+        else:
+            #if we are not restarting the MC,
+            #we must simulate the on_welcome message:
+            self.on_welcome()
         self.mcc.set_nick(nick)
-        MCThread(self.mcc).start()
+
 
     def on_welcome(self):
         """Fired when channel indicated state readiness
@@ -241,26 +264,28 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         duplication is so that the client does not need to know the
         message syntax.
         """
-        d = self.callRemote(JMRequestMsgSig,
-                        nick=str(nick),
-                        cmd=str(cmd),
-                        msg=str(msg),
-                        msg_to_be_signed=str(msg_to_be_signed),
-                        hostid=str(hostid))
-        d.addCallback(self.checkClientResponse)
+        with self.sig_lock:
+            d = self.callRemote(JMRequestMsgSig,
+                            nick=str(nick),
+                            cmd=str(cmd),
+                            msg=str(msg),
+                            msg_to_be_signed=str(msg_to_be_signed),
+                            hostid=str(hostid))
+            d.addCallback(self.checkClientResponse)
 
     def request_signature_verify(self, msg, fullmsg, sig, pubkey, nick, hashlen,
                                  max_encoded, hostid):
-        d = self.callRemote(JMRequestMsgSigVerify,
-                            msg=msg,
-                            fullmsg=fullmsg,
-                            sig=sig,
-                            pubkey=pubkey,
-                            nick=nick,
-                            hashlen=hashlen,
-                            max_encoded=max_encoded,
-                            hostid=hostid)
-        d.addCallback(self.checkClientResponse)
+        with self.sig_lock:
+            d = self.callRemote(JMRequestMsgSigVerify,
+                                msg=msg,
+                                fullmsg=fullmsg,
+                                sig=sig,
+                                pubkey=pubkey,
+                                nick=nick,
+                                hashlen=hashlen,
+                                max_encoded=max_encoded,
+                                hostid=hostid)
+            d.addCallback(self.checkClientResponse)
 
     @JMMsgSignature.responder
     def on_JM_MSGSIGNATURE(self, nick, cmd, msg_to_return, hostid):
@@ -287,8 +312,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         log.msg("Unimplemented on_error")
 
     def mc_shutdown(self):
-        log.msg("Message channels shut down in proto")
-        self.mcc.shutdown()
+        log.msg("Message channels being shutdown by daemon")
+        if self.mcc:
+            self.mcc.shutdown()
 
 
 class JMDaemonServerProtocolFactory(ServerFactory):

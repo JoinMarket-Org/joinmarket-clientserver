@@ -106,13 +106,15 @@ class MessageChannelCollection(object):
         self.welcomed = False
         #control access
         self.mc_lock = threading.Lock()
+        self.nick=None
 
     def set_nick(self, nick):
-        self.nick = nick
-        #protocol level var:
-        nickname = self.nick
-        for mc in self.mchannels:
-            mc.set_nick(self.nick)
+        if nick != self.nick:
+            self.nick = nick
+            #protocol level var:
+            nickname = self.nick
+            for mc in self.mchannels:
+                mc.set_nick(self.nick)
 
     def available_channels(self):
         return [x for x in self.mchannels if self.mc_status[x] == 1]

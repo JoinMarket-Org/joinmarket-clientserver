@@ -48,20 +48,32 @@ class Taker(object):
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
         self.sign_method = sign_method
+        #External callers can set any of the 3 callbacks for filtering orders,
+        #sending info messages to client, and action on completion.
         if callbacks:
-            self.filter_orders_callback, self.taker_info_callback = callbacks
+            self.filter_orders_callback, self.taker_info_callback, self.on_finished_callback = callbacks
+            if not self.taker_info_callback:
+                self.taker_info_callback = self.default_taker_info_callback
+            if not self.on_finished_callback:
+                self.on_finished_callback = self.default_on_finished_callback
         else:
             self.filter_orders_callback = None
             self.taker_info_callback = self.default_taker_info_callback
+            self.on_finished_callback = self.default_on_finished_callback
 
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
+
+    def default_on_finished_callback(self, result):
+        jlog.debug("Taker default on finished callback: " + str(result))
 
     def initialize(self, orderbook):
         """Once the daemon is active and has returned the current orderbook,
         select offers and prepare a commitment, then send it to the protocol
         to fill offers.
         """
+        #reset destinations
+        self.outputs = []
         if not self.filter_orderbook(orderbook):
             return (False,)
         #choose coins to spend
@@ -555,7 +567,7 @@ class Taker(object):
         self.txid = btc.txhash(tx)
         jlog.debug('txid = ' + self.txid)
         pushed = jm_single().bc_interface.pushtx(tx)
-        return pushed
+        self.on_finished_callback(pushed)
 
     def self_sign_and_push(self):
         self.self_sign()

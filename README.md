@@ -28,3 +28,5 @@ Next, you can install in 3 different modes:
 supported, see https://github.com/AdamISZ/electrum-joinmarket-plugin for details):
 
     `python setup.py --client-only install`
+
+ You can then access the library via `import jmclient`.
