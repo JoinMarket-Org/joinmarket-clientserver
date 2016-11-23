@@ -58,20 +58,6 @@ from jmclient import (Taker, load_program_config,
 from jmbase.support import get_log, debug_dump_object
 
 log = get_log()
-txcount = 1
-wallet = None
-
-def check_high_fee(total_fee_pc):
-    WARNING_THRESHOLD = 0.02  # 2%
-    if total_fee_pc > WARNING_THRESHOLD:
-        print('\n'.join(['=' * 60] * 3))
-        print('WARNING   ' * 6)
-        print('\n'.join(['=' * 60] * 1))
-        print('OFFERED COINJOIN FEE IS UNUSUALLY HIGH. DOUBLE/TRIPLE CHECK.')
-        print('\n'.join(['=' * 60] * 1))
-        print('WARNING   ' * 6)
-        print('\n'.join(['=' * 60] * 3))
-
 
 def main():
     parser = OptionParser(
@@ -117,13 +103,6 @@ def main():
                       dest='daemonport',
                       help='port on which joinmarketd is running',
                       default='12345')
-    parser.add_option('-b',
-                      '--txcount',
-                      type='int',
-                      dest='txcount',
-                      help=('optionally do more than 1 transaction to the '
-                      'same destination, of the same amount'),
-                      default=1)
     parser.add_option(
         '-C',
         '--choose-cheapest',
@@ -229,7 +208,8 @@ def main():
         else:
             if not res:
                 log.info("Did not complete successfully, shutting down")
-            log.info("All transactions completed correctly")
+            else:
+                log.info("All transactions completed correctly")
             reactor.stop()
 
     #just a sample schedule; twice from same mixdepth
@@ -240,11 +220,11 @@ def main():
         jm_single().bc_interface.tick_forward_chain_interval = 10
     taker = Taker(wallet,
                   schedule,
+                  options.answeryes,
                   order_chooser=chooseOrdersFunc,
                   callbacks=(None, None, taker_finished))
     clientfactory = JMTakerClientProtocolFactory(taker)
     start_reactor("localhost", options.daemonport, clientfactory)
-
 
 if __name__ == "__main__":
     main()

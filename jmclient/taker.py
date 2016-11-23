@@ -27,6 +27,7 @@ class Taker(object):
     def __init__(self,
                  wallet,
                  schedule,
+                 answeryes,
                  order_chooser=weighted_order_choose,
                  sign_method=None,
                  callbacks=None):
@@ -41,6 +42,7 @@ class Taker(object):
         """
         self.wallet = wallet
         self.schedule = schedule
+        self.answeryes = answeryes
         self.order_chooser = order_chooser
         self.ignored_makers = None
         self.schedule_index = -1
@@ -51,20 +53,38 @@ class Taker(object):
         #sending info messages to client, and action on completion.
         if callbacks:
             self.filter_orders_callback = callbacks[0]
+            if not self.filter_orders_callback:
+                self.filter_orders_callback = self.default_filter_orders_callback
             self.taker_info_callback = callbacks[1]
-            self.on_finished_callback = callbacks[2]
             if not self.taker_info_callback:
                 self.taker_info_callback = self.default_taker_info_callback
+            self.on_finished_callback = callbacks[2]
             if not self.on_finished_callback:
                 self.on_finished_callback = self.default_on_finished_callback
-        else:
-            #default settings; currently not possible, see default_on_finished
-            self.filter_orders_callback = None
-            self.taker_info_callback = self.default_taker_info_callback
-            self.on_finished_callback = self.default_on_finished_callback
 
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
+
+    def default_filter_orders_callback(self, orders_fees):
+        orders, total_cj_fee = orders_fees
+        jlog.info("Chose these orders: " +pprint.pformat(orders))
+        jlog.info('total cj fee = ' + str(total_cj_fee))
+        total_fee_pc = 1.0 * total_cj_fee / self.cjamount
+        jlog.info('total coinjoin fee = ' + str(float('%.3g' % (
+            100.0 * total_fee_pc))) + '%')
+        WARNING_THRESHOLD = 0.02  # 2%
+        if total_fee_pc > WARNING_THRESHOLD:
+            jlog.info('\n'.join(['=' * 60] * 3))
+            jlog.info('WARNING   ' * 6)
+            jlog.info('\n'.join(['=' * 60] * 1))
+            jlog.info('OFFERED COINJOIN FEE IS UNUSUALLY HIGH. DOUBLE/TRIPLE CHECK.')
+            jlog.info('\n'.join(['=' * 60] * 1))
+            jlog.info('WARNING   ' * 6)
+            jlog.info('\n'.join(['=' * 60] * 3))
+        if not self.answeryes:
+            if raw_input('send with these orders? (y/n):')[0] != 'y':
+                self.on_finished_callback(False)
+        return True
 
     def default_on_finished_callback(self, result, fromtx=False):
         """Currently not possible without access to the client protocol factory"""
