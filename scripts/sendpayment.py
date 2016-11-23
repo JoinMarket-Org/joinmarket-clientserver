@@ -8,12 +8,17 @@ This is primitive and not yet well tested, but it is designed
 to illustrate the main functionality of the new architecture:
 this code can be run in a separate environment (but not safely
 over the internet, better on one machine) to the joinmarketdaemon.
-Moreover, it can run several transactions using the -b option, e.g.:
+Moreover, it can run several transactions as specified in a "schedule", like:
 
-`python sendpayment.py -b 3 -N 3 -m 1 walletseed amount address`;
+[(mixdepth, amount, N, destination),(m,a,N,d),..]
 
-note here only one destination address for multiple transactions,
-only one mixdepth and other settings; this is just a proof of concept.
+call it like the normal Joinmarket sendpayment, but optionally add
+a port for the daemon:
+
+`python sendpayment.py -p 12345 -N 3 -m 1 walletseed amount address`;
+
+TODO: schedule can be read from file.
+
 The idea is that the "backend" (daemon) will keep its orderbook and stay
 connected on the message channel between runs, only shutting down
 after all are complete.
@@ -48,7 +53,7 @@ from jmclient import (Taker, load_program_config,
                               choose_orders, choose_sweep_orders, pick_order,
                               cheapest_order_choose, weighted_order_choose,
                               Wallet, BitcoinCoreWallet,
-                              estimate_tx_fee)
+                              RegtestBitcoinCoreInterface, estimate_tx_fee)
 
 from jmbase.support import get_log, debug_dump_object
 
@@ -212,33 +217,30 @@ def main():
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     jm_single().bc_interface.sync_wallet(wallet)
-    def taker_finished(res):
-        global wallet
-        global txcount
-        txcount += 1
-        if res:
-            log.debug("Transaction finished OK, result was: ")
-        else:
-            log.info("A transaction failed, quitting")
-            sys.exit(1)
-        if txcount > options.txcount:
-            log.debug("Shutting down")
-            reactor.stop()
-        else:
-            #need to update for new transactions; only working for
-            #regtest at the moment (otherwise too slow)
-            jm_single().bc_interface.sync_wallet(wallet)
-            time.sleep(3) #for blocks to mine
-            #restarts from the entry point of the client-server protocol (JMInit)
-            #with the *same* Taker object.
-            clientfactory.getClient().clientStart()
 
+    def taker_finished(res, fromtx=False):
+        if fromtx:
+            if res:
+                jm_single().bc_interface.sync_wallet(wallet)
+                clientfactory.getClient().clientStart()
+            else:
+                #a transaction failed; just stop
+                reactor.stop()
+        else:
+            if not res:
+                log.info("Did not complete successfully, shutting down")
+            log.info("All transactions completed correctly")
+            reactor.stop()
+
+    #just a sample schedule; twice from same mixdepth
+    schedule = [(options.mixdepth, amount, options.makercount, destaddr),
+                (options.mixdepth, amount, options.makercount, destaddr)]
+    if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
+        #to allow testing of confirm/unconfirm callback for multiple txs
+        jm_single().bc_interface.tick_forward_chain_interval = 10
     taker = Taker(wallet,
-                  options.mixdepth,
-                  amount,
-                  options.makercount,
+                  schedule,
                   order_chooser=chooseOrdersFunc,
-                  external_addr=destaddr,
                   callbacks=(None, None, taker_finished))
     clientfactory = JMTakerClientProtocolFactory(taker)
     start_reactor("localhost", options.daemonport, clientfactory)

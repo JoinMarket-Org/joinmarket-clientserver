@@ -26,37 +26,39 @@ class Taker(object):
 
     def __init__(self,
                  wallet,
-                 mixdepth,
-                 amount,
-                 n_counterparties,
+                 schedule,
                  order_chooser=weighted_order_choose,
-                 external_addr=None,
                  sign_method=None,
                  callbacks=None):
+        """Schedule must be a list of tuples: [(mixdepth,cjamount,N, destaddr),..]
+        which will be a sequence of joins to do.
+        callbacks:
+        1.filter orders callback: called to allow the client to decide whether
+        to accept the proposed offers.
+        2.taker info callback: called to allow the client to read updates
+        3.on finished callback: called on completion, either of the whole schedule
+        or early if a transactoin fails.
+        """
         self.wallet = wallet
-        self.mixdepth = mixdepth
-        self.cjamount = amount
-        self.my_cj_addr = external_addr
+        self.schedule = schedule
         self.order_chooser = order_chooser
-        self.n_counterparties = n_counterparties
         self.ignored_makers = None
-        self.outputs = []
-        self.cjfee_total = 0
-        self.maker_txfee_contributions = 0
-        self.txfee_default = 5000
-        self.txid = None
+        self.schedule_index = -1
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
         self.sign_method = sign_method
         #External callers can set any of the 3 callbacks for filtering orders,
         #sending info messages to client, and action on completion.
         if callbacks:
-            self.filter_orders_callback, self.taker_info_callback, self.on_finished_callback = callbacks
+            self.filter_orders_callback = callbacks[0]
+            self.taker_info_callback = callbacks[1]
+            self.on_finished_callback = callbacks[2]
             if not self.taker_info_callback:
                 self.taker_info_callback = self.default_taker_info_callback
             if not self.on_finished_callback:
                 self.on_finished_callback = self.default_on_finished_callback
         else:
+            #default settings; currently not possible, see default_on_finished
             self.filter_orders_callback = None
             self.taker_info_callback = self.default_taker_info_callback
             self.on_finished_callback = self.default_on_finished_callback
@@ -64,16 +66,34 @@ class Taker(object):
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
 
-    def default_on_finished_callback(self, result):
-        jlog.debug("Taker default on finished callback: " + str(result))
+    def default_on_finished_callback(self, result, fromtx=False):
+        """Currently not possible without access to the client protocol factory"""
+        raise NotImplementedError
 
     def initialize(self, orderbook):
         """Once the daemon is active and has returned the current orderbook,
-        select offers and prepare a commitment, then send it to the protocol
-        to fill offers.
+        select offers, re-initialize variables and prepare a commitment,
+        then send it to the protocol to fill offers.
         """
-        #reset destinations
-        self.outputs = []
+        #choose the next item in the schedule
+        self.schedule_index += 1
+        if self.schedule_index == len(self.schedule):
+            jlog.debug("Finished all scheduled transactions")
+            self.on_finished_callback(True)
+            return (False,)
+        else:
+            #read the settings from the schedule entry
+            si = self.schedule[self.schedule_index]
+            self.mixdepth = si[0]
+            self.cjamount = si[1]
+            self.n_counterparties = si[2]
+            self.my_cj_addr = si[3]
+            self.outputs = []
+            self.cjfee_total = 0
+            self.maker_txfee_contributions = 0
+            self.txfee_default = 5000
+            self.txid = None
+
         if not self.filter_orderbook(orderbook):
             return (False,)
         #choose coins to spend
@@ -567,8 +587,17 @@ class Taker(object):
         self.txid = btc.txhash(tx)
         jlog.debug('txid = ' + self.txid)
         pushed = jm_single().bc_interface.pushtx(tx)
-        self.on_finished_callback(pushed)
+        jm_single().bc_interface.add_tx_notify(
+                self.latest_tx, self.unconfirm_callback,
+                self.confirm_callback, self.my_cj_addr)
+        self.on_finished_callback(pushed, fromtx=True)
 
     def self_sign_and_push(self):
         self.self_sign()
         return self.push()
+
+    def unconfirm_callback(self, txd, txid):
+        jlog.debug("Unconfirmed callback in sendpayment, ignoring")
+
+    def confirm_callback(self, txd, txid, confirmations):
+        jlog.debug("Confirmed callback in sendpayment, confs: " + str(confirmations))

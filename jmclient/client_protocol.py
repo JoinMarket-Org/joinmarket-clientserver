@@ -149,7 +149,7 @@ class JMTakerClientProtocol(amp.AMP):
         #True, self.cjamount, commitment, revelation, self.filtered_orderbook)
         if not retval[0]:
             jlog.info("Taker not continuing after receipt of orderbook")
-            return
+            return {'accepted': True}
         amt, cmt, rev, foffers = retval[1:]
         d = self.callRemote(commands.JMFill,
                             amount=amt,
