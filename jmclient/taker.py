@@ -45,6 +45,7 @@ class Taker(object):
         self.answeryes = answeryes
         self.order_chooser = order_chooser
         self.ignored_makers = None
+        self.txid = None
         self.schedule_index = -1
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
