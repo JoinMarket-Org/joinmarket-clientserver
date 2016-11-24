@@ -2,6 +2,7 @@
 from __future__ import print_function
 from twisted.python.log import startLogging, err
 from twisted.internet import protocol, reactor
+from twisted.internet.task import LoopingCall
 from twisted.protocols import amp
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.endpoints import TCP4ClientEndpoint
@@ -38,6 +39,16 @@ class JMTakerClientProtocol(amp.AMP):
             self.nick_priv = hashlib.sha256(os.urandom(16)).hexdigest() + '01'
         else:
             self.nick_priv = nick_priv
+
+        self.shutdown_requested = False
+        lc = LoopingCall(self.checkForShutdown)
+        lc.start(0.2)
+
+    def checkForShutdown(self):
+        if self.shutdown_requested:
+            jlog.info("Client shutdown was requested, complying.")
+            self.shutdown_requested = False
+            reactor.stop()
 
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
