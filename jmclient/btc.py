@@ -28,7 +28,43 @@ except ImportError:
         raise NotImplementedError
     
     not_supported_string = "not supported by: " + interface
-    
+
+    # Base switching
+    code_strings = {
+            2: '01',
+            10: '0123456789',
+            16: '0123456789abcdef',
+            32: 'abcdefghijklmnopqrstuvwxyz234567',
+            58: '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
+            256: ''.join([chr(x) for x in range(256)])
+        }
+    def get_code_string(base):
+            if base in code_strings:
+                return code_strings[base]
+            else:
+                raise ValueError("Invalid base!")
+
+    def encode(val, base, minlen=0):
+        base, minlen = int(base), int(minlen)
+        code_string = get_code_string(base)
+        result = ""
+        while val > 0:
+            result = code_string[val % base] + result
+            val //= base
+        return code_string[0] * max(minlen - len(result), 0) + result
+
+    def decode(string, base):
+        base = int(base)
+        code_string = get_code_string(base)
+        result = 0
+        if base == 16:
+            string = string.lower()
+        while len(string) > 0:
+            result *= base
+            result += code_string.find(string[0])
+            string = string[1:]
+        return result
+
     #Electrum specific code starts here
     import electrum.bitcoin as ebt
     import electrum.transaction as etr

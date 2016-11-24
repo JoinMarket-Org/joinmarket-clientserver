@@ -157,7 +157,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         rows = self.db.execute('SELECT * FROM orderbook;').fetchall()
         self.orderbook = [dict([(k, o[k]) for k in ORDER_KEYS]) for o in rows]
         log.msg("About to send orderbook of size: " + str(len(self.orderbook)))
-        string_orderbook = json.dumps(self.orderbook)
+        string_orderbook = json.dumps(self.orderbook[:100])
         d = self.callRemote(JMOffers,
                         orderbook=string_orderbook)
         d.addCallback(self.checkClientResponse)
@@ -177,7 +177,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             offer_fill_msg = " ".join([str(offer_dict["oid"]), str(amount), str(
                 self.kp.hex_pk()), str(commitment)])
             self.mcc.prepare_privmsg(nick, "fill", offer_fill_msg)
-        self.first_stage_timer = time.time()
+        reactor.callLater(self.maker_timeout_sec, self.completeStage1)
         self.jm_state = 2
         return {'accepted': True}
 
@@ -203,34 +203,34 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         they've all been received; note that we must also pass back the maker_pk
         so it can be verified against the btc-sigs for anti-MITM
         """
-        def respond(accepted):
-            d = self.callRemote(JMFillResponse,
-                                success=accepted,
-                                ioauth_data = json.dumps(self.ioauth_data))
-            if not accepted:
-                #Client simply accepts failure TODO
-                d.addCallback(self.checkClientResponse)
-            else:
-                #Act differently if *we* provided utxos, but
-                #client does not accept for some reason
-                d.addCallback(self.checkUtxosAccepted)
-
         if nick not in self.active_orders.keys():
             print("Got an unexpected ioauth from nick: " + str(nick))
             return
         self.ioauth_data[nick] = [utxo_list, auth_pub, cj_addr, change_addr,
                                   btc_sig, self.crypto_boxes[nick][0]]
         if self.ioauth_data.keys() == self.active_orders.keys():
-            respond(True)
+            #Finish early if we got all
+            self.respondToIoauths(True)
+
+    def respondToIoauths(self, accepted):
+        d = self.callRemote(JMFillResponse,
+                                success=accepted,
+                                ioauth_data = json.dumps(self.ioauth_data))
+        if not accepted:
+            #Client simply accepts failure TODO
+            d.addCallback(self.checkClientResponse)
         else:
-            time_taken = time.time() - self.first_stage_timer
-            #if the timer has run out, either pass through if we have
-            #at least minmakers, else return a failure condition
-            if time_taken > self.maker_timeout_sec:
-                if len(self.ioauth_data.keys()) >= self.minmakers:
-                    respond(True)
-                else:
-                    respond(False)
+            #Act differently if *we* provided utxos, but
+            #client does not accept for some reason
+            d.addCallback(self.checkUtxosAccepted)
+
+    def completeStage1(self):
+        """Timeout of stage 1 requests;
+        either send success + ioauth data if enough makers,
+        else send failure to client.
+        """
+        response = True if len(self.ioauth_data.keys()) >= self.minmakers else False
+        self.respondToIoauths(response)
 
     def checkUtxosAccepted(self, accepted):
         if not accepted:

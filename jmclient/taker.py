@@ -591,7 +591,7 @@ class Taker(object):
                 if utxo not in self.input_utxos.keys():
                     continue
                 addrs[index] = self.input_utxos[utxo]['address']
-            tx = self.wallet.sign_tx(btc.serialize(wallet_tx), addrs)
+            tx = self.wallet.sign_tx(tx, addrs)
         else:
             for index, ins in enumerate(self.latest_tx['ins']):
                 utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
