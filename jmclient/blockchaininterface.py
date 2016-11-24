@@ -658,7 +658,7 @@ class BitcoinCoreInterface(BlockchainInterface):
     def __init__(self, jsonRpc, network):
         super(BitcoinCoreInterface, self).__init__()
         self.jsonRpc = jsonRpc
-
+        self.fast_sync_called = False
         blockchainInfo = self.jsonRpc.call("getblockchaininfo", [])
         actualNet = blockchainInfo['chain']
 
@@ -694,12 +694,79 @@ class BitcoinCoreInterface(BlockchainInterface):
             print(' otherwise just restart this joinmarket script')
             sys.exit(0)
 
+    def sync_wallet(self, wallet, fast=False):
+        #trigger fast sync if the index_cache is available
+        #(and not specifically disabled).
+        if fast and wallet.index_cache != [[0,0]] * wallet.max_mix_depth:
+            self.sync_wallet_fast(wallet)
+            self.fast_sync_called = True
+            return
+        super(BitcoinCoreInterface, self).sync_wallet(wallet)
+        self.fast_sync_called = False
+
+    def sync_wallet_fast(self, wallet):
+        """Exploits the fact that given an index_cache,
+        all addresses necessary should be imported, so we
+        can just list all used addresses to find the right
+        index values.
+        """
+        self.get_address_usages(wallet)
+        self.sync_unspent(wallet)
+
+    def get_address_usages(self, wallet):
+        """Use rpc `listaddressgroupings` to locate all used
+        addresses in the account (whether spent or unspent outputs).
+        This will not result in a full sync if working with a new
+        Bitcoin Core instance, in which case "fast" should have been
+        specifically disabled by the user.
+        """
+        from jmclient.wallet import BitcoinCoreWallet
+        if isinstance(wallet, BitcoinCoreWallet):
+            return
+        wallet_name = self.get_wallet_name(wallet)
+        agd = self.rpc('listaddressgroupings', [])
+        #flatten all groups into a single list; then, remove duplicates
+        fagd = [tuple(item) for sublist in agd for item in sublist]
+        #"deduplicated flattened address grouping data" = dfagd
+        dfagd = list(set(fagd))
+        #for lookup, want dict of form {"address": amount}
+        used_address_dict = {}
+        for addr_info in dfagd:
+            if len(addr_info) < 3 or addr_info[2] != wallet_name:
+                continue
+            used_address_dict[addr_info[0]] = (addr_info[1], addr_info[2])
+
+        log.debug("Fast sync in progress. Got this many used addresses: " + str(
+            len(used_address_dict)))
+        #Need to have wallet.index point to the last used address
+        #and fill addr_cache.
+        #For each branch:
+        #If index value is present, collect all addresses up to index+gap limit
+        #For each address in that list, mark used if seen in used_address_dict
+        used_indices = {}
+        for md in range(wallet.max_mix_depth):
+            used_indices[md] = {}
+            for fc in [0, 1]:
+                used_indices[md][fc] = []
+                for i in range(wallet.index_cache[md][fc]+wallet.gaplimit):
+                    if wallet.get_addr(md, fc, i) in used_address_dict.keys():
+                        used_indices[md][fc].append(i)
+                        wallet.addr_cache[wallet.get_addr(md, fc, i)] = (md, fc, i)
+                if len(used_indices[md][fc]):
+                    wallet.index[md][fc] = used_indices[md][fc][-1]
+                else:
+                    wallet.index[md][fc] = 0
+                if not is_index_ahead_of_cache(wallet, md, fc):
+                    wallet.index[md][fc] = wallet.index_cache[md][fc]
+        self.wallet_synced = True
+
+
     def sync_addresses(self, wallet):
         from jmclient.wallet import BitcoinCoreWallet
 
         if isinstance(wallet, BitcoinCoreWallet):
             return
-        log.debug('requesting wallet history')
+        log.debug('requesting detailed wallet history')
         wallet_name = self.get_wallet_name(wallet)
         #TODO It is worth considering making this user configurable:
         addr_req_count = 20
