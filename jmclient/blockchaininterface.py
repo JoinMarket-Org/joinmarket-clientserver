@@ -154,7 +154,6 @@ class ElectrumWalletInterface(BlockchainInterface):
 
     def pushtx(self, txhex, timeout=10):
         #synchronous send
-        log.debug("About to push over electrum")
         from electrum.transaction import Transaction
         etx = Transaction(txhex)
         etx.deserialize()
@@ -173,7 +172,10 @@ class ElectrumWalletInterface(BlockchainInterface):
         return True
 
     def query_utxo_set(self, txout, includeconf=False):
-        """Needed even for a simple dummy interface.
+        """Behaves as for Core; TODO make it faster if possible.
+        Note in particular a failed connection should result in
+        a result list containing at least one "None" which the
+        caller can use as a flag for failure.
 	"""
         self.current_height = self.wallet.network.blockchain.local_height
         if not isinstance(txout, list):
@@ -194,7 +196,8 @@ class ElectrumWalletInterface(BlockchainInterface):
                 if u['tx_hash'] == ut[0] and u['tx_pos'] == ut[1]:
                     utxo = u
             if utxo is None:
-                raise Exception("UTXO Not Found")
+                result.append(None)
+                continue
             r = {
                 'value': u['value'],
                 'address': address,
