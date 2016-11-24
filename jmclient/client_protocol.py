@@ -3,6 +3,9 @@ from __future__ import print_function
 from twisted.python.log import startLogging, err
 from twisted.internet import protocol, reactor
 from twisted.internet.task import LoopingCall
+from twisted.internet.error import (ConnectionLost, ConnectionAborted,
+                                    ConnectionClosed, ConnectionDone)
+from twisted.python import failure
 from twisted.protocols import amp
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.endpoints import TCP4ClientEndpoint
@@ -57,6 +60,13 @@ class JMTakerClientProtocol(amp.AMP):
         if 'accepted' not in response or not response['accepted']:
             reactor.stop()
 
+    def defaultErrback(self, failure):
+        failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone, ConnectionLost)
+
+    def defaultCallbacks(self, d):
+        d.addCallback(self.checkClientResponse)
+        d.addErrback(self.defaultErrback)
+
     def connectionMade(self):
         self.factory.setClient(self)
         self.clientStart()
@@ -80,7 +90,7 @@ class JMTakerClientProtocol(amp.AMP):
                             irc_configs=json.dumps(irc_configs),
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
 
     def set_nick(self):
         self.nick_pubkey = btc.privtopub(self.nick_priv)
@@ -108,7 +118,7 @@ class JMTakerClientProtocol(amp.AMP):
         self.set_nick()
         d = self.callRemote(commands.JMStartMC,
                             nick=self.nick)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         return {'accepted': True}
 
     @commands.JMUp.responder
@@ -116,7 +126,7 @@ class JMTakerClientProtocol(amp.AMP):
         d = self.callRemote(commands.JMSetup,
                             role="TAKER",
                             n_counterparties=4) #TODO this number should be set
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         return {'accepted': True}
 
     @commands.JMSetupDone.responder
@@ -167,7 +177,7 @@ class JMTakerClientProtocol(amp.AMP):
                             commitment=str(cmt),
                             revelation=str(rev),
                             filled_offers=json.dumps(foffers))
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         return {'accepted': True}
 
     @commands.JMSigReceived.responder
@@ -188,7 +198,7 @@ class JMTakerClientProtocol(amp.AMP):
                             cmd=cmd,
                             msg_to_return=msg_to_return,
                             hostid=hostid)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         return {'accepted': True}
 
     @commands.JMRequestMsgSigVerify.responder
@@ -214,18 +224,18 @@ class JMTakerClientProtocol(amp.AMP):
                             nick=nick,
                             fullmsg=fullmsg,
                             hostid=hostid)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         return {'accepted': True}
 
     def get_offers(self):
         d = self.callRemote(commands.JMRequestOffers)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
 
     def make_tx(self, nick_list, txhex):
         d = self.callRemote(commands.JMMakeTx,
                             nick_list= json.dumps(nick_list),
                             txhex=txhex)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
 
 
 class JMTakerClientProtocolFactory(protocol.ClientFactory):

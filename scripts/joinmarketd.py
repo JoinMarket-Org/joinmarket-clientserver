@@ -12,7 +12,9 @@ from twisted.protocols import amp
 from twisted.internet import reactor
 from twisted.internet.protocol import ServerFactory
 from twisted.python.log import startLogging, err
-from twisted.python import log
+from twisted.internet.error import (ConnectionLost, ConnectionAborted,
+                                    ConnectionClosed, ConnectionDone)
+from twisted.python import failure, log
 import json
 import time
 import threading
@@ -62,6 +64,13 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if 'accepted' not in response or not response['accepted']:
             reactor.stop()
 
+    def defaultErrback(self, failure):
+        failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone, ConnectionLost)
+
+    def defaultCallbacks(self, d):
+        d.addCallback(self.checkClientResponse)
+        d.addErrback(self.defaultErrback)
+
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
                    maker_timeout_sec):
@@ -101,7 +110,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                             nick_max_encoded=NICK_MAX_ENCODED,
                             joinmarket_nick_header=JOINMARKET_NICK_HEADER,
                             joinmarket_version=JM_VERSION)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMStartMC.responder
@@ -129,7 +138,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """Fired when channel indicated state readiness
         """
         d = self.callRemote(JMUp)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
 
     @JMSetup.responder
     def on_JM_SETUP(self, role, n_counterparties):
@@ -142,7 +151,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.kp = init_keypair()
         print("Received setup command")
         d = self.callRemote(JMSetupDone)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         #Request orderbook here, on explicit setup request from client,
         #assumes messagechannels are in "up" state. Orders are read
         #in the callback on_order_seen in OrderbookWatch.
@@ -160,7 +169,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         string_orderbook = json.dumps(self.orderbook[:100])
         d = self.callRemote(JMOffers,
                         orderbook=string_orderbook)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMFill.responder
@@ -218,11 +227,12 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                                 ioauth_data = json.dumps(self.ioauth_data))
         if not accepted:
             #Client simply accepts failure TODO
-            d.addCallback(self.checkClientResponse)
+            self.defaultCallbacks(d)
         else:
             #Act differently if *we* provided utxos, but
             #client does not accept for some reason
             d.addCallback(self.checkUtxosAccepted)
+            d.addErrback(self.defaultErrback)
 
     def completeStage1(self):
         """Timeout of stage 1 requests;
@@ -251,7 +261,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         d = self.callRemote(JMSigReceived,
                         nick=nick,
                         sig=sig)
-        d.addCallback(self.checkClientResponse)
+        self.defaultCallbacks(d)
 
     """The following functions handle requests and responses
     from client for messaging signing and verifying.
@@ -271,7 +281,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                             msg=str(msg),
                             msg_to_be_signed=str(msg_to_be_signed),
                             hostid=str(hostid))
-            d.addCallback(self.checkClientResponse)
+            self.defaultCallbacks(d)
 
     def request_signature_verify(self, msg, fullmsg, sig, pubkey, nick, hashlen,
                                  max_encoded, hostid):
@@ -285,7 +295,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                                 hashlen=hashlen,
                                 max_encoded=max_encoded,
                                 hostid=hostid)
-            d.addCallback(self.checkClientResponse)
+            self.defaultCallbacks(d)
 
     @JMMsgSignature.responder
     def on_JM_MSGSIGNATURE(self, nick, cmd, msg_to_return, hostid):
