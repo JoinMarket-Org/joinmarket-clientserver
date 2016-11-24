@@ -67,6 +67,16 @@ def is_index_ahead_of_cache(wallet, mix_depth, forchange):
     return wallet.index[mix_depth][forchange] >= wallet.index_cache[mix_depth][
         forchange]
 
+def sync_wallet(wallet, fast=False):
+    """Wrapper function to choose fast syncing where it's
+    both possible and requested.
+    """
+    if fast and (
+        isinstance(jm_single().bc_interface, BitcoinCoreInterface) or isinstance(
+                jm_single().bc_interface, RegtestBitcoinCoreInterface)):
+        jm_single().bc_interface.sync_wallet(wallet, fast=True)
+    else:
+        jm_single().bc_interface.sync_wallet(wallet)
 
 class BlockchainInterface(object):
     __metaclass__ = abc.ABCMeta
