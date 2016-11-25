@@ -611,7 +611,6 @@ class Taker(object):
         jm_single().bc_interface.add_tx_notify(
                 self.latest_tx, self.unconfirm_callback,
                 self.confirm_callback, self.my_cj_addr)
-        self.on_finished_callback(pushed, fromtx=True)
 
     def self_sign_and_push(self):
         self.self_sign()
@@ -621,4 +620,6 @@ class Taker(object):
         jlog.debug("Unconfirmed callback in sendpayment, ignoring")
 
     def confirm_callback(self, txd, txid, confirmations):
-        jlog.debug("Confirmed callback in sendpayment, confs: " + str(confirmations))
+        jlog.debug("Confirmed callback in taker, confs: " + str(confirmations))
+        fromtx=False if self.schedule_index + 1 == len(self.schedule) else True
+        self.on_finished_callback(True, fromtx=fromtx)
