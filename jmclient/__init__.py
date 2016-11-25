@@ -23,7 +23,8 @@ from .configure import load_program_config, jm_single, get_p2pk_vbyte, \
 from .blockchaininterface import (BlockrInterface, BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .client_protocol import JMTakerClientProtocolFactory, start_reactor
-from .podle import set_commitment_file, get_commitment_file
+from .podle import (set_commitment_file, get_commitment_file,
+                    generate_podle_error_string)
 from .commands import *
 from .schedule import get_schedule
 # Set default logging handler to avoid "No handler found" warnings.

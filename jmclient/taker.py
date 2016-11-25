@@ -14,7 +14,7 @@ from jmbase.support import get_log
 from jmclient.support import calc_cj_fee, weighted_order_choose, choose_orders
 from jmclient.wallet import estimate_tx_fee
 from jmclient.podle import (generate_podle, get_podle_commitments,
-                                    PoDLE, PoDLEError)
+                                    PoDLE, PoDLEError, generate_podle_error_string)
 jlog = get_log()
 
 
@@ -472,55 +472,10 @@ class Taker(object):
             return (commit_type_byte + podle_data["commit"], revelation,
                     "Commitment sourced OK")
         else:
-            #we know that priv_utxo_pairs all passed age and size tests, so
-            #they must have failed the retries test. Summarize this info,
-            #return error message to caller, and also dump to commitments_debug.txt
-            errmsg = ""
-            errmsgheader = ("Failed to source a commitment; this debugging information"
-                      " may help:\n\n")
-            errmsg += ("1: Utxos that passed age and size limits, but have "
-                        "been used too many times (see taker_utxo_retries "
-                        "in the config):\n")
-            if len(priv_utxo_pairs) == 0:
-                errmsg += ("None\n")
-            else:
-                for p, u in priv_utxo_pairs:
-                    errmsg += (str(u) + "\n")
-            errmsg += ("2: Utxos that have less than " + jm_single(
-            ).config.get("POLICY", "taker_utxo_age") + " confirmations:\n")
-            if len(to) == 0:
-                errmsg += ("None\n")
-            else:
-                for t in to:
-                    errmsg += (str(t) + "\n")
-            errmsg += ("3: Utxos that were not at least " + \
-                    jm_single().config.get(
-                        "POLICY", "taker_utxo_amtpercent") + "% of the "
-                    "size of the coinjoin amount " + str(
-                        self.cjamount) + "\n")
-            if len(ts) == 0:
-                errmsg += ("None\n")
-            else:
-                for t in ts:
-                    errmsg += (str(t) + "\n")
-            errmsg += ('***\n')
-            errmsg += ("Utxos that appeared in item 1 cannot be used again.\n")
-            errmsg += (
-                "Utxos only in item 2 can be used by waiting for more "
-                "confirmations, (set by the value of taker_utxo_age).\n")
-            errmsg += ("Utxos only in item 3 are not big enough for this "
-                    "coinjoin transaction, set by the value "
-                    "of taker_utxo_amtpercent.\n")
-            errmsg += (
-                "If you cannot source a utxo from your wallet according "
-                "to these rules, use the tool add-utxo.py to source a "
-                "utxo external to your joinmarket wallet. Read the help "
-                "with 'python add-utxo.py --help'\n\n")
-            errmsg += ("You can also reset the rules in the joinmarket.cfg "
-                    "file, but this is generally inadvisable.\n")
-            errmsg += (
-                "***\nFor reference, here are the utxos in your wallet:\n")
-            errmsg += ("\n" + str(self.wallet.unspent))
+            errmsgheader, errmsg = generate_podle_error_string(priv_utxo_pairs,
+                        to, ts, self.wallet.unspent, self.cjamount,
+                        jm_single().config.get("POLICY", "taker_utxo_age"),
+                        jm_single().config.get("POLICY", "taker_utxo_amtpercent"))
 
             with open("commitments_debug.txt", "wb") as f:
                 errmsgfileheader = ("THIS IS A TEMPORARY FILE FOR DEBUGGING; "
