@@ -4,7 +4,7 @@ from __future__ import absolute_import, print_function
 """
 A sample implementation of a single coinjoin script,
 adapted from `sendpayment.py` in Joinmarket-Org/joinmarket.
-This is primitive and not yet well tested, but it is designed
+This is designed
 to illustrate the main functionality of the new architecture:
 this code can be run in a separate environment (but not safely
 over the internet, better on one machine) to the joinmarketdaemon.
@@ -17,11 +17,13 @@ a port for the daemon:
 
 `python sendpayment.py -p 12345 -N 3 -m 1 walletseed amount address`;
 
-TODO: schedule can be read from file.
+Schedule can be read from a file with the -S option, in which case no need to
+provide amount, mixdepth, number of counterparties or destination from command line.
 
 The idea is that the "backend" (daemon) will keep its orderbook and stay
 connected on the message channel between runs, only shutting down
-after all are complete.
+after all are complete. Joins are sequenced using the wallet-notify function as
+previously for Joinmarket.
 
 It should be very easy to extend this further, of course.
 
@@ -52,7 +54,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
                               validate_address, jm_single,
                               choose_orders, choose_sweep_orders, pick_order,
                               cheapest_order_choose, weighted_order_choose,
-                              Wallet, BitcoinCoreWallet,
+                              Wallet, BitcoinCoreWallet, sync_wallet,
                               RegtestBitcoinCoreInterface, estimate_tx_fee)
 
 from jmbase.support import get_log, debug_dump_object
@@ -159,6 +161,12 @@ def main():
         help=('Use the Bitcoin Core wallet through json rpc, instead '
               'of the internal joinmarket wallet. Requires '
               'blockchain_source=json-rpc'))
+    parser.add_option('--fast',
+                      action='store_true',
+                      dest='fastsync',
+                      default=False,
+                      help=('choose to do fast wallet sync, only for Core and '
+                            'only for previously synced wallet'))
 
     (options, args) = parser.parse_args()
     load_program_config()
@@ -226,12 +234,12 @@ def main():
         wallet = Wallet(wallet_name, max_mix_depth, options.gaplimit)
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
-    jm_single().bc_interface.sync_wallet(wallet)
+    sync_wallet(wallet, fast=options.fastsync)
 
     def taker_finished(res, fromtx=False):
         if fromtx:
             if res:
-                jm_single().bc_interface.sync_wallet(wallet)
+                sync_wallet(wallet, fast=options.fastsync)
                 clientfactory.getClient().clientStart()
             else:
                 #a transaction failed; just stop
