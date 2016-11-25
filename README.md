@@ -47,13 +47,8 @@ Next, you can install in 3 different modes:
  
     `python setup.py --client-bitcoin install`
 
- Then, once the daemon is up, you can run sendpayment (e.g. against regtest):
-
-     `cd scripts; python sendpayment.py -p <port number> <other params> ..` 
- 
- with similar parameters as for normal Joinmarket, see the notes at the top of the file.
- This is currently only for testing, but is nearly in a real-world usable state, and is
- working OK on regtest.
+If you have installed this "full" version of the client, you can use it with the
+command line scripts as explained in the [scripts README](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/scripts).
 
 3. For the client code, using another bitcoin backend library (currently only Electrum
 supported, see https://github.com/AdamISZ/electrum-joinmarket-plugin for details):
