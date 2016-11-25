@@ -172,7 +172,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         rows = self.db.execute('SELECT * FROM orderbook;').fetchall()
         self.orderbook = [dict([(k, o[k]) for k in ORDER_KEYS]) for o in rows]
         log.msg("About to send orderbook of size: " + str(len(self.orderbook)))
-        string_orderbook = json.dumps(self.orderbook[:100])
+        string_orderbook = json.dumps(self.orderbook)
         d = self.callRemote(JMOffers,
                         orderbook=string_orderbook)
         self.defaultCallbacks(d)
