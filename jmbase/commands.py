@@ -5,6 +5,7 @@ messaging protocol (*not* Joinmarket p2p protocol).
 Used for AMP asynchronous messages.
 """
 from twisted.protocols.amp import Integer, String, Unicode, Boolean, Command
+from bigstring import BigString
 
 class DaemonNotReady(Exception):
     pass
@@ -78,7 +79,7 @@ class JMSetupDone(JMCommand):
     arguments = []
 
 class JMOffers(JMCommand):
-    arguments = [('orderbook', String())]
+    arguments = [('orderbook', BigString())]
 
 class JMFillResponse(JMCommand):
     arguments = [('success', Boolean()),
