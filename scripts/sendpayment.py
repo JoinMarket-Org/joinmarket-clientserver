@@ -47,7 +47,7 @@ from optparse import OptionParser
 from twisted.internet import reactor
 import time
 
-from jmclient import (Taker, load_program_config,
+from jmclient import (Taker, load_program_config, get_schedule,
                               JMTakerClientProtocolFactory, start_reactor,
                               validate_address, jm_single,
                               choose_orders, choose_sweep_orders, pick_order,
@@ -103,6 +103,12 @@ def main():
                       dest='daemonport',
                       help='port on which joinmarketd is running',
                       default='12345')
+    parser.add_option('-S',
+                      '--schedule-file',
+                      type='str',
+                      dest='schedule',
+                      help='schedule file name',
+                      default='')
     parser.add_option(
         '-C',
         '--choose-cheapest',
@@ -153,26 +159,50 @@ def main():
         help=('Use the Bitcoin Core wallet through json rpc, instead '
               'of the internal joinmarket wallet. Requires '
               'blockchain_source=json-rpc'))
-    (options, args) = parser.parse_args()
 
-    if len(args) < 3:
+    (options, args) = parser.parse_args()
+    load_program_config()
+
+    if options.schedule == '' and len(args) < 3:
         parser.error('Needs a wallet, amount and destination address')
         sys.exit(0)
-    wallet_name = args[0]
-    amount = int(args[1])
-    destaddr = args[2]
 
-    load_program_config()
+    #without schedule file option, use the arguments to create a schedule
+    #of a single transaction
+    sweeping = False
+    if options.schedule == '':
+        amount = int(args[1])
+        if amount == 0:
+            sweeping = True
+        destaddr = args[2]
+        mixdepth = options.mixdepth
+        addr_valid, errormsg = validate_address(destaddr)
+        if not addr_valid:
+            print('ERROR: Address invalid. ' + errormsg)
+            return
+        schedule = [(options.mixdepth, amount, options.makercount, destaddr)]
+    else:
+        result, schedule = get_schedule(options.schedule)
+        if not result:
+            log.info("Failed to load schedule file, quitting. Check the syntax.")
+            log.info("Error was: " + str(schedule))
+            sys.exit(0)
+        mixdepth = 0
+        for s in schedule:
+            if s[1] == 0:
+                sweeping = True
+            #only used for checking the maximum mixdepth required
+            mixdepth = max([mixdepth, s[0]])
+
+    wallet_name = args[0]
+
+    #for testing, TODO remove
     jm_single().maker_timeout_sec = 5
-    addr_valid, errormsg = validate_address(destaddr)
-    if not addr_valid:
-        print('ERROR: Address invalid. ' + errormsg)
-        return
 
     chooseOrdersFunc = None
     if options.pickorders:
         chooseOrdersFunc = pick_order
-        if amount == 0:
+        if sweeping:
             print('WARNING: You may have to pick offers multiple times')
             print('WARNING: due to manual offer picking while sweeping')
     elif options.choosecheapest:
@@ -190,9 +220,10 @@ def main():
     assert (options.txfee >= 0)
 
     log.debug('starting sendpayment')
-    global wallet
+
     if not options.userpcwallet:
-        wallet = Wallet(wallet_name, options.amtmixdepths, options.gaplimit)
+        max_mix_depth = max([mixdepth, options.amtmixdepths])
+        wallet = Wallet(wallet_name, max_mix_depth, options.gaplimit)
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     jm_single().bc_interface.sync_wallet(wallet)
@@ -212,9 +243,6 @@ def main():
                 log.info("All transactions completed correctly")
             reactor.stop()
 
-    #just a sample schedule; twice from same mixdepth
-    schedule = [(options.mixdepth, amount, options.makercount, destaddr),
-                (options.mixdepth, amount, options.makercount, destaddr)]
     if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
         #to allow testing of confirm/unconfirm callback for multiple txs
         jm_single().bc_interface.tick_forward_chain_interval = 10

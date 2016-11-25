@@ -25,6 +25,7 @@ from .blockchaininterface import (BlockrInterface, BlockchainInterface, sync_wal
 from .client_protocol import JMTakerClientProtocolFactory, start_reactor
 from .podle import set_commitment_file, get_commitment_file
 from .commands import *
+from .schedule import get_schedule
 # Set default logging handler to avoid "No handler found" warnings.
 
 try:

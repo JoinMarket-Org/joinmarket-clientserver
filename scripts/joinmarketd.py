@@ -123,6 +123,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         return {'accepted': True}
 
     def init_connections(self, nick):
+        """Sets up message channel connections
+        if they are not already up; re-sets joinmarket state to 0
+        for a new transaction; effectively means any previous
+        incomplete transaction is wiped.
+        """
         self.jm_state = 0  #uninited
         if self.restart_mc_required:
             MCThread(self.mcc).start()
@@ -155,6 +160,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         #Request orderbook here, on explicit setup request from client,
         #assumes messagechannels are in "up" state. Orders are read
         #in the callback on_order_seen in OrderbookWatch.
+        #TODO: pubmsg should not (usually?) fire if already up from previous run.
         self.mcc.pubmsg(COMMAND_PREFIX + "orderbook")
         self.jm_state = 1
         return {'accepted': True}
@@ -222,6 +228,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             self.respondToIoauths(True)
 
     def respondToIoauths(self, accepted):
+        if self.jm_state != 2:
+            #this can be called a second time on timeout, in which case we
+            #do nothing
+            return
         d = self.callRemote(JMFillResponse,
                                 success=accepted,
                                 ioauth_data = json.dumps(self.ioauth_data))
@@ -246,10 +256,14 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if not accepted:
             log.msg("Taker rejected utxos provided; resetting.")
             #TODO create re-set function to start again
+        else:
+            #only update state if client accepted
+            self.jm_state = 3
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
-        if not self.jm_state == 2:
+        if not self.jm_state == 3:
+            log.msg("Make tx was called in wrong state, rejecting")
             return {'accepted': False}
         nick_list = json.loads(nick_list)
         self.mcc.send_tx(nick_list, txhex)
