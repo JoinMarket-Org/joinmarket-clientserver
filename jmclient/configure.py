@@ -74,7 +74,7 @@ global_singleton.config = SafeConfigParser()
 #This is reset to a full path after load_program_config call
 global_singleton.config_location = 'joinmarket.cfg'
 #as above
-global_singleton.commit_file_location = 'cmttools/commitments.json'
+global_singleton.commit_file_location = 'cmtdata/commitments.json'
 global_singleton.wait_for_commitments = 0
 
 
@@ -186,8 +186,8 @@ taker_utxo_amtpercent = 20
 accept_commitment_broadcasts = 1
 
 #Location of your commitments.json file (stores commitments you've used
-#and those you want to use in future), relative to root joinmarket directory.
-commit_file_location = cmttools/commitments.json
+#and those you want to use in future), relative to the scripts directory.
+commit_file_location = cmtdata/commitments.json
 """
 
 
