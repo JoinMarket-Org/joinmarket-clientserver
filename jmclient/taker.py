@@ -109,6 +109,13 @@ class Taker(object):
             self.cjamount = si[1]
             self.n_counterparties = si[2]
             self.my_cj_addr = si[3]
+            #if destination is flagged "INTERNAL", choose a destination
+            #from the next mixdepth modulo the maxmixdepth
+            if self.my_cj_addr == "INTERNAL":
+                next_mixdepth = (self.mixdepth + 1) % self.wallet.max_mix_depth
+                jlog.info("Choosing a destination from mixdepth: " + str(next_mixdepth))
+                self.my_cj_addr = self.wallet.get_internal_addr(next_mixdepth)
+                jlog.info("Chose destination address: " + self.my_cj_addr)
             self.outputs = []
             self.cjfee_total = 0
             self.maker_txfee_contributions = 0

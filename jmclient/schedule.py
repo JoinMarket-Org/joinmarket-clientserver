@@ -25,8 +25,9 @@ def get_schedule(filename):
                 destaddr = destaddr.strip()
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
-            success, errmsg = validate_address(destaddr)
-            if not success:
-                return (False, "Invalid address: " + destaddr + "," + errmsg)
+            if destaddr != "INTERNAL":
+                success, errmsg = validate_address(destaddr)
+                if not success:
+                    return (False, "Invalid address: " + destaddr + "," + errmsg)
             schedule.append((mixdepth, amount, makercount, destaddr))
     return (True, schedule)
