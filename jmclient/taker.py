@@ -165,14 +165,14 @@ class Taker(object):
             except:
                 self.taker_info_callback("ABORT", "Failed to get a change address")
                 return False
-            self.total_txfee = 2 * self.txfee_default * self.n_counterparties
-            total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
-            jlog.debug('total estimated amount spent = ' + str(total_amount))
             #adjust the required amount upwards to anticipate an increase in
             #transaction fees after re-estimation; this is sufficiently conservative
             #to make failures unlikely while keeping the occurence of failure to
             #find sufficient utxos extremely rare. Indeed, a doubling of 'normal'
             #txfee indicates undesirable behaviour on maker side anyway.
+            self.total_txfee = 2 * self.txfee_default * self.n_counterparties
+            total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
+            jlog.debug('total estimated amount spent = ' + str(total_amount))
             try:
                 self.input_utxos = self.wallet.select_utxos(self.mixdepth,
                                                             total_amount)
@@ -208,14 +208,9 @@ class Taker(object):
                                 "Could not find orders to complete transaction")
                 self.on_finished_callback(False)
                 return False
-            if not self.answeryes:
-                jlog.info('total cj fee = ' + str(self.total_cj_fee))
-                total_fee_pc = 1.0 * self.total_cj_fee / self.cjamount
-                jlog.info('total coinjoin fee = ' + str(float('%.3g' % (
-                    100.0 * total_fee_pc))) + '%')
-                if raw_input('send with these orders? (y/n):')[0] != 'y':
-                    self.on_finished_callback(False)
-                    return False
+            if not self.filter_orders_callback((self.orderbook, total_cj_fee)):
+                self.on_finished_callback(False)
+                return False
 
         self.utxos = {None: self.input_utxos.keys()}
         return True
