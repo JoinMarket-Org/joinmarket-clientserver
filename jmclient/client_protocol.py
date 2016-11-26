@@ -9,7 +9,7 @@ from twisted.python import failure
 from twisted.protocols import amp
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.endpoints import TCP4ClientEndpoint
-import commands
+from jmbase import commands
 from sys import stdout
 
 import json

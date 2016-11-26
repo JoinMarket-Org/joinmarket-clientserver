@@ -15,7 +15,7 @@ Moreover, it can run several transactions as specified in a "schedule", like:
 call it like the normal Joinmarket sendpayment, but optionally add
 a port for the daemon:
 
-`python sendpayment.py -p 12345 -N 3 -m 1 walletseed amount address`;
+`python sendpayment.py -p 27183 -N 3 -m 1 walletseed amount address`;
 
 Schedule can be read from a file with the -S option, in which case no need to
 provide amount, mixdepth, number of counterparties or destination from command line.
@@ -104,7 +104,7 @@ def main():
                       type='int',
                       dest='daemonport',
                       help='port on which joinmarketd is running',
-                      default='12345')
+                      default='27183')
     parser.add_option('-S',
                       '--schedule-file',
                       type='str',

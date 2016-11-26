@@ -9,6 +9,7 @@ from jmbase.support import get_log
 from .message_channel import MessageChannel, MessageChannelCollection
 from .orderbookwatch import OrderbookWatch
 from jmbase import commands
+from .daemon_protocol import JMDaemonServerProtocolFactory
 
 # Set default logging handler to avoid "No handler found" warnings.
 try:

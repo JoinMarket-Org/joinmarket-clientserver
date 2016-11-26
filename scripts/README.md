@@ -37,9 +37,9 @@ This is the same as in normal Joinmarket.
 ###joinmarketd.py
 
 This file's role is explained in the main README in the top level directory. It only
-takes one argument, the port it serves on:
+takes one argument, the port it serves on (default 27183):
 
-    `python joinmarketd.py 12345`
+    `python joinmarketd.py 27183`
 
 ###add-utxo.py
 
