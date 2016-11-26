@@ -11,7 +11,8 @@ import copy
 import btc
 from jmclient.configure import jm_single, get_p2pk_vbyte, donation_address
 from jmbase.support import get_log
-from jmclient.support import calc_cj_fee, weighted_order_choose, choose_orders
+from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
+                              choose_sweep_orders)
 from jmclient.wallet import estimate_tx_fee
 from jmclient.podle import (generate_podle, get_podle_commitments,
                                     PoDLE, PoDLEError, generate_podle_error_string)
@@ -122,7 +123,8 @@ class Taker(object):
             self.txfee_default = 5000
             self.txid = None
 
-        if not self.filter_orderbook(orderbook):
+        sweep = True if self.cjamount == 0 else False
+        if not self.filter_orderbook(orderbook, sweep):
             return (False,)
         #choose coins to spend
         if not self.prepare_my_bitcoin_data():
@@ -136,26 +138,26 @@ class Taker(object):
             self.taker_info_callback("INFO", errmsg)
         return (True, self.cjamount, commitment, revelation, self.orderbook)
 
-    def filter_orderbook(self, orderbook):
-        self.orderbook, self.total_cj_fee = choose_orders(
-            orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
-            self.ignored_makers)
-        if self.filter_orders_callback:
-            accepted = self.filter_orders_callback([self.orderbook,
-                                                    self.total_cj_fee])
-            if not accepted:
-                return False
+    def filter_orderbook(self, orderbook, sweep=False):
+        if sweep:
+            self.orderbook = orderbook #offers choosing deferred to next step
+        else:
+            self.orderbook, self.total_cj_fee = choose_orders(
+                orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
+                self.ignored_makers)
+            if self.filter_orders_callback:
+                accepted = self.filter_orders_callback([self.orderbook,
+                                                        self.total_cj_fee])
+                if not accepted:
+                    return False
         return True
 
     def prepare_my_bitcoin_data(self):
         """Get a coinjoin address and a change address; prepare inputs
         appropriate for this transaction"""
         if not self.my_cj_addr:
-            try:
-                self.my_cj_addr = self.wallet.get_external_addr(self.mixdepth + 1)
-            except:
-                self.taker_info_callback("ABORT", "Failed to get an address")
-                return False
+            #previously used for donations; TODO reimplement?
+            raise NotImplementedError
         self.my_change_addr = None
         if self.cjamount != 0:
             try:
@@ -163,22 +165,58 @@ class Taker(object):
             except:
                 self.taker_info_callback("ABORT", "Failed to get a change address")
                 return False
-        #TODO sweep, doesn't apply here
-        self.total_txfee = 2 * self.txfee_default * self.n_counterparties
-        total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
-        jlog.debug('total estimated amount spent = ' + str(total_amount))
-        #adjust the required amount upwards to anticipate an increase in 
-        #transaction fees after re-estimation; this is sufficiently conservative
-        #to make failures unlikely while keeping the occurence of failure to
-        #find sufficient utxos extremely rare. Indeed, a doubling of 'normal'
-        #txfee indicates undesirable behaviour on maker side anyway.
-        try:
-            self.input_utxos = self.wallet.select_utxos(self.mixdepth,
-                                                        total_amount)
-        except Exception as e:
-            self.taker_info_callback("ABORT",
-                                "Unable to select sufficient coins: " + repr(e))
-            return False
+            self.total_txfee = 2 * self.txfee_default * self.n_counterparties
+            total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
+            jlog.debug('total estimated amount spent = ' + str(total_amount))
+            #adjust the required amount upwards to anticipate an increase in
+            #transaction fees after re-estimation; this is sufficiently conservative
+            #to make failures unlikely while keeping the occurence of failure to
+            #find sufficient utxos extremely rare. Indeed, a doubling of 'normal'
+            #txfee indicates undesirable behaviour on maker side anyway.
+            try:
+                self.input_utxos = self.wallet.select_utxos(self.mixdepth,
+                                                            total_amount)
+            except Exception as e:
+                self.taker_info_callback("ABORT",
+                                    "Unable to select sufficient coins: " + repr(e))
+                return False
+        else:
+            #sweep
+            self.input_utxos = self.wallet.get_utxos_by_mixdepth()[self.mixdepth]
+            #do our best to estimate the fee based on the number of
+            #our own utxos; this estimate may be significantly higher
+            #than the default set in option.txfee * makercount, where
+            #we have a large number of utxos to spend. If it is smaller,
+            #we'll be conservative and retain the original estimate.
+            est_ins = len(self.input_utxos)+3*self.n_counterparties
+            jlog.debug("Estimated ins: "+str(est_ins))
+            est_outs = 2*self.n_counterparties + 1
+            jlog.debug("Estimated outs: "+str(est_outs))
+            estimated_fee = estimate_tx_fee(est_ins, est_outs)
+            jlog.info("We have a fee estimate: "+str(estimated_fee))
+            jlog.info("And a requested fee of: "+str(
+                self.txfee_default * self.n_counterparties))
+            self.total_txfee = max([estimated_fee,
+                                    self.n_counterparties * self.txfee_default])
+            total_value = sum([va['value'] for va in self.input_utxos.values()])
+            self.orderbook, self.cjamount, self.total_cj_fee = choose_sweep_orders(
+                self.orderbook, total_value, self.total_txfee,
+                self.n_counterparties, self.order_chooser,
+                self.ignored_makers)
+            if not self.orderbook:
+                self.taker_info_callback("ABORT",
+                                "Could not find orders to complete transaction")
+                self.on_finished_callback(False)
+                return False
+            if not self.answeryes:
+                jlog.info('total cj fee = ' + str(self.total_cj_fee))
+                total_fee_pc = 1.0 * self.total_cj_fee / self.cjamount
+                jlog.info('total coinjoin fee = ' + str(float('%.3g' % (
+                    100.0 * total_fee_pc))) + '%')
+                if raw_input('send with these orders? (y/n):')[0] != 'y':
+                    self.on_finished_callback(False)
+                    return False
+
         self.utxos = {None: self.input_utxos.keys()}
         return True
 

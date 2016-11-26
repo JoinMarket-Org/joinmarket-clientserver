@@ -275,9 +275,9 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None):
     return result, total_cj_fee
 
 
-def choose_sweep_orders(db,
+def choose_sweep_orders(offers,
                         total_input_value,
-                        txfee,
+                        total_txfee,
                         n,
                         chooseOrdersBy,
                         ignored_makers=None):
@@ -291,7 +291,6 @@ def choose_sweep_orders(db,
     => 0 = totalin - mytxfee - sum(absfee) - cjamount*(1 + sum(relfee))
     => cjamount = (totalin - mytxfee - sum(absfee)) / (1 + sum(relfee))
     """
-    total_txfee = txfee * n
 
     if ignored_makers is None:
         ignored_makers = []
@@ -317,14 +316,13 @@ def choose_sweep_orders(db,
 
     log.debug('choosing sweep orders for total_input_value = ' + str(
         total_input_value) + ' n=' + str(n))
-    sqlorders = db.execute('SELECT * FROM orderbook WHERE minsize <= ?;',
-                           (total_input_value,)).fetchall()
-    orderlist = [dict([(k, o[k]) for k in ORDER_KEYS])
-                 for o in sqlorders if o['counterparty'] not in ignored_makers]
+    #Filter ignored makers and inappropriate amounts
+    offers = [o for o in offers if o['counterparty'] not in ignored_makers]
+    offers = [o for o in offers if o['minsize'] < total_input_value]
 
-    log.debug('orderlist = \n' + '\n'.join([str(o) for o in orderlist]))
+    log.debug('orderlist = \n' + '\n'.join([str(o) for o in offers]))
     orders_fees = [(o, calc_cj_fee(o['ordertype'], o['cjfee'],
-                                   total_input_value)) for o in orderlist]
+                                   total_input_value)) for o in offers]
 
     feekey = lambda x: x[1]
     # sort from smallest to biggest cj fee
