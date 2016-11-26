@@ -204,7 +204,6 @@ class JMTakerClientProtocol(amp.AMP):
     @commands.JMRequestMsgSigVerify.responder
     def on_JM_REQUEST_MSGSIG_VERIFY(self, msg, fullmsg, sig, pubkey, nick,
                                     hashlen, max_encoded, hostid):
-        jlog.info("Got a request to verify a signature")
         verif_result = True
         if not btc.ecdsa_verify(str(msg), sig, pubkey):
             jlog.debug("nick signature verification failed, ignoring.")
@@ -218,7 +217,6 @@ class JMTakerClientProtocol(amp.AMP):
             jlog.debug("Nick hash check failed, expected: " + str(nick_unpadded)
                        + ", got: " + str(btc.changebase(nick_pkh_raw, 256, 58)))
             verif_result = False
-        jlog.info("Sending a verifcation result: " + str(verif_result))
         d = self.callRemote(commands.JMMsgSignatureVerify,
                             verif_result=verif_result,
                             nick=nick,
