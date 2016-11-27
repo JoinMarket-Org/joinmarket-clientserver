@@ -126,21 +126,14 @@ class ElectrumWrapWallet(AbstractWallet):
     def get_key_from_addr(self, addr):
         if self.ewallet.has_password() and self.password is None:
             raise Exception("Cannot extract private key without password")
-        log.debug("in get key from addr")
-        log.debug("password is: " + str(self.password))
-        log.debug("address is: " + str(addr))
         key = self.ewallet.get_private_key(addr, self.password)
-        #TODO remove after testing!
-        log.debug("Got WIF key: " + str(key))
         #Convert from wif compressed to hex compressed
         #TODO check if compressed
         hex_key = btc.from_wif_privkey(key[0], vbyte=get_p2pk_vbyte())
-        log.debug("Got hex key: " + str(hex_key))
         return hex_key
 
     def get_external_addr(self, mixdepth):
         addr = self.ewallet.get_unused_address()
-        log.debug("Retrieved unused: " + addr)
         return addr
 
     def get_internal_addr(self, mixdepth):
@@ -184,7 +177,6 @@ class ElectrumWrapWallet(AbstractWallet):
             del etx._inputs[i]['scriptSig']
             self.ewallet.add_input_sig_info(etx._inputs[i], addrs[i])
             etx._inputs[i]['address'] = addrs[i]
-            log.debug("Input is now: " + str(etx._inputs[i]))
         self.ewallet.sign_transaction(etx, self.password)
         return etx.raw
 
