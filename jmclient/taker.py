@@ -86,6 +86,7 @@ class Taker(object):
         if not self.answeryes:
             if raw_input('send with these orders? (y/n):')[0] != 'y':
                 self.on_finished_callback(False)
+                return False
         return True
 
     def default_on_finished_callback(self, result, fromtx=False):
