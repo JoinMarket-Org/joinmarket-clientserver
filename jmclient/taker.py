@@ -97,10 +97,11 @@ class Taker(object):
         select offers, re-initialize variables and prepare a commitment,
         then send it to the protocol to fill offers.
         """
+        self.taker_info_callback("INFO", "Received offers from joinmarket pit")
         #choose the next item in the schedule
         self.schedule_index += 1
         if self.schedule_index == len(self.schedule):
-            jlog.debug("Finished all scheduled transactions")
+            self.taker_info_callback("INFO", "Finished all scheduled transactions")
             self.on_finished_callback(True)
             return (False,)
         else:
@@ -127,6 +128,7 @@ class Taker(object):
         if not self.filter_orderbook(orderbook, sweep):
             return (False,)
         #choose coins to spend
+        self.taker_info_callback("INFO", "Preparing bitcoin data..")
         if not self.prepare_my_bitcoin_data():
             return (False,)
         #Prepare a commitment
@@ -225,7 +227,7 @@ class Taker(object):
         for nick, nickdata in ioauth_data.iteritems():
             utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
             if not self.auth_counterparty(btc_sig, auth_pub, maker_pk):
-                print("Counterparty encryption verification failed, aborting")
+                jlog.debug("Counterparty encryption verification failed, aborting")
                 #This counterparty must be rejected
                 rejected_counterparties.append(nick)
 
@@ -291,10 +293,11 @@ class Taker(object):
         #Apply business logic of how many counterparties are enough:
         if len(self.maker_utxo_data.keys()) < jm_single().config.getint(
                 "POLICY", "minimum_makers"):
+            self.taker_info_callback("INFO", "Not enough counterparties, aborting.")
             return (False,
                     "Not enough counterparties responded to fill, giving up")
 
-        jlog.info('got all parts, enough to build a tx')
+        self.taker_info_callback("INFO", "Got all parts, enough to build a tx")
         self.nonrespondants = list(self.maker_utxo_data.keys())
 
         my_total_in = sum([va['value'] for u, va in self.input_utxos.iteritems()
@@ -355,7 +358,7 @@ class Taker(object):
                 continue
             # placeholders required
             ins['script'] = 'deadbeef'
-
+        self.taker_info_callback("INFO", "Built tx, sending to counterparties.")
         return (True, self.maker_utxo_data.keys(), tx)
 
     def auth_counterparty(self, btc_sig, auth_pub, maker_pk):
@@ -418,6 +421,7 @@ class Taker(object):
             return False
         assert not len(self.nonrespondants)
         jlog.debug('all makers have sent their signatures')
+        self.taker_info_callback("INFO", "Transaction is valid, signing..")
         self.self_sign_and_push()
         return True
 
@@ -524,39 +528,6 @@ class Taker(object):
                 f.write(errmsgfileheader + errmsg)
 
             return (None, None, errmsgheader + errmsg)
-
-    def get_commitment(self, utxos, amount):
-        """Create commitment to fulfil anti-DOS requirement of makers,
-        storing the corresponding reveal/proof data for next step.
-        """
-        while True:
-            self.commitment, self.reveal_commitment = self.make_commitment(
-                self.wallet, utxos, amount)
-            if (self.commitment) or (jm_single().wait_for_commitments == 0):
-                break
-            jlog.debug("Failed to source commitments, waiting 3 minutes")
-            time.sleep(3 * 60)
-        if not self.commitment:
-            jlog.debug(
-                "Cannot construct transaction, failed to generate "
-                "commitment, shutting down. Please read commitments_debug.txt "
-                "for some information on why this is, and what can be "
-                "done to remedy it.")
-            #TODO: would like to raw_input here to show the user, but
-            #interactivity is undesirable here.
-            #Test only:
-            if jm_single().config.get("BLOCKCHAIN",
-                                      "blockchain_source") == 'regtest':
-                raise PoDLEError("For testing raising podle exception")
-            #The timeout/recovery code is designed to handle non-responsive
-            #counterparties, but this condition means that the current bot
-            #is not able to create transactions following its *own* rules,
-            #so shutting down is appropriate no matter what style
-            #of bot this is.
-            #These two settings shut down the timeout thread and avoid recovery.
-            self.all_responded = True
-            self.end_timeout_thread = True
-            self.msgchan.shutdown()
 
     def coinjoin_address(self):
         if self.my_cj_addr:
