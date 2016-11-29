@@ -39,13 +39,13 @@ Next, you can install in 3 different modes:
 
 1. For the "backend", a daemon, install:
 
-    `python setup.py --backend install`
+    `python setupall.py --daemon`
 
  Then, you can run the daemon with `cd scripts; python joinmarketd.py <port number>`
  
 2. For the client code, using joinmarket's own bitcoin library on the command line:
  
-    `python setup.py --client-bitcoin install`
+    `python setupall.py --client-bitcoin`
 
 If you have installed this "full" version of the client, you can use it with the
 command line scripts as explained in the [scripts README](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/scripts).
@@ -53,7 +53,7 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
 3. For the client code, using another bitcoin backend library (currently only Electrum
 supported, see https://github.com/AdamISZ/electrum-joinmarket-plugin for details):
 
-    `python setup.py --client-only install`
+    `python setupall.py --client-only`
 
  You can then access the library via `import jmclient`. In particular the
  jmclient.Taker class must be instantiated.
