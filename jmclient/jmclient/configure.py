@@ -343,7 +343,6 @@ def get_blockchain_interface_instance(_config):
     # importing here is necessary to avoid import loops
     from jmclient.blockchaininterface import BitcoinCoreInterface, \
         RegtestBitcoinCoreInterface, BlockrInterface, ElectrumWalletInterface
-    from jmclient.blockchaininterface import CliJsonRpc
 
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
@@ -354,11 +353,6 @@ def get_blockchain_interface_instance(_config):
         rpc_user = _config.get("BLOCKCHAIN", "rpc_user")
         rpc_password = _config.get("BLOCKCHAIN", "rpc_password")
         rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password)
-        bc_interface = BitcoinCoreInterface(rpc, network)
-    elif source == 'json-rpc':
-        bitcoin_cli_cmd = _config.get("BLOCKCHAIN",
-                                      "bitcoin_cli_cmd").split(' ')
-        rpc = CliJsonRpc(bitcoin_cli_cmd, testnet)
         bc_interface = BitcoinCoreInterface(rpc, network)
     elif source == 'regtest':
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")

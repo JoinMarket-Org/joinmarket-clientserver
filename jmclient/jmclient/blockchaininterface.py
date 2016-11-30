@@ -18,48 +18,11 @@ from decimal import Decimal
 
 import btc
 
-# This can be removed once CliJsonRpc is gone.
-import subprocess
-
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import get_p2pk_vbyte, jm_single
 from jmbase.support import get_log, chunks
 
 log = get_log()
-
-
-class CliJsonRpc(object):
-    """
-    Fake JsonRpc class that uses the Bitcoin CLI executable.  This is used
-    as temporary fall back before we switch completely (and exclusively)
-    to the real JSON-RPC interface.
-    """
-
-    def __init__(self, cli, testnet):
-        self.cli = cli
-        if testnet:
-            self.cli.append("-testnet")
-
-    def call(self, method, params):
-        fullCall = []
-        fullCall.extend(self.cli)
-        fullCall.append(method)
-        for p in params:
-            if isinstance(p, basestring):
-                fullCall.append(p)
-            else:
-                fullCall.append(json.dumps(p))
-
-        res = subprocess.check_output(fullCall)
-
-        if res == '':
-            return None
-
-        try:
-            return json.loads(res)
-        except ValueError:
-            return res.strip()
-
 
 def is_index_ahead_of_cache(wallet, mix_depth, forchange):
     if mix_depth >= len(wallet.index_cache):
