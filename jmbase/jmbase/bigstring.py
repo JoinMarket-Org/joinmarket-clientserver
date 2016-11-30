@@ -1,7 +1,7 @@
 try:
     from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
+except ImportError: #pragma: no cover
+    from StringIO import StringIO #pragma: no cover
 from itertools import count
 from twisted.protocols import amp
 
@@ -45,20 +45,3 @@ class BigString(amp.Argument):
 
     def fromvalue(self, value):
         return value
-
-class BigUnicode(BigString):
-    """
-    A unicode-string amp.Argument with no 65,535 length limit.
-
-    Each value for a key/value pair in an AMP box may not
-    exceed 65,535 bytes in length. So if we *really* want to
-    send potentially larger values, this class will implicitly
-    encode/decode them to/from an arbitrary additional
-    number of key/value pairs that are given automatic key
-    names by prefixing this Argument's key name to a counter.
-    """
-    def buildvalue(self, value):
-        return value.decode('utf-8')
-
-    def fromvalue(self, value):
-        return value.encode('utf-8')

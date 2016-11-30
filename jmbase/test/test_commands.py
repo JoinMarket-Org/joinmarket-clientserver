@@ -84,8 +84,10 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMRequestOffers.responder
     def on_JM_REQUEST_OFFERS(self):
         show_receipt("JMREQUESTOFFERS")
+        #build a huge orderbook to test BigString Argument
+        orderbook = ["aaaa" for _ in range(2**15)]
         d = self.callRemote(JMOffers,
-                        orderbook=json.dumps(["This", "is", "an", "orderbook"]))
+                        orderbook=json.dumps(orderbook))
         self.defaultCallbacks(d)
         return {'accepted': True}
 
