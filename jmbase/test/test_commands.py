@@ -3,23 +3,14 @@ from __future__ import print_function
 from twisted.python.log import startLogging, err
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor
-from twisted.internet.task import LoopingCall
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
 from twisted.protocols.amp import UnknownRemoteError
 from twisted.python import failure
 from twisted.protocols import amp
-from twisted.internet.protocol import ClientFactory
-from twisted.internet.endpoints import TCP4ClientEndpoint
 from jmbase.commands import *
-from sys import stdout
 
 import json
-import random
-import string
-import time
-import hashlib
-import os
 import pytest
 
 test_completed = False
