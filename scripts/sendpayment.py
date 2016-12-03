@@ -236,6 +236,27 @@ def main():
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     sync_wallet(wallet, fast=options.fastsync)
 
+    def filter_orders_callback(orders_fees, cjamount):
+        orders, total_cj_fee = orders_fees
+        jlog.info("Chose these orders: " +pprint.pformat(orders))
+        jlog.info('total cj fee = ' + str(total_cj_fee))
+        total_fee_pc = 1.0 * total_cj_fee / cjamount
+        jlog.info('total coinjoin fee = ' + str(float('%.3g' % (
+            100.0 * total_fee_pc))) + '%')
+        WARNING_THRESHOLD = 0.02  # 2%
+        if total_fee_pc > WARNING_THRESHOLD:
+            jlog.info('\n'.join(['=' * 60] * 3))
+            jlog.info('WARNING   ' * 6)
+            jlog.info('\n'.join(['=' * 60] * 1))
+            jlog.info('OFFERED COINJOIN FEE IS UNUSUALLY HIGH. DOUBLE/TRIPLE CHECK.')
+            jlog.info('\n'.join(['=' * 60] * 1))
+            jlog.info('WARNING   ' * 6)
+            jlog.info('\n'.join(['=' * 60] * 3))
+        if not options.answeryes:
+            if raw_input('send with these orders? (y/n):')[0] != 'y':
+                return False
+        return True
+
     def taker_finished(res, fromtx=False):
         if fromtx:
             if res:
@@ -256,9 +277,8 @@ def main():
         jm_single().bc_interface.tick_forward_chain_interval = 10
     taker = Taker(wallet,
                   schedule,
-                  options.answeryes,
                   order_chooser=chooseOrdersFunc,
-                  callbacks=(None, None, taker_finished))
+                  callbacks=(filter_orders_callback, None, taker_finished))
     clientfactory = JMTakerClientProtocolFactory(taker)
     start_reactor("localhost", options.daemonport, clientfactory)
 

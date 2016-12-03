@@ -4,7 +4,8 @@ import random
 
 import pytest
 
-from joinmarket import init_keypair, get_pubkey, init_pubkey, as_init_encryption, NaclError
+from jmdaemon import (init_keypair, get_pubkey, init_pubkey, as_init_encryption,
+                      NaclError)
 
 
 @pytest.mark.parametrize("ab_message,ba_message,num_iterations",

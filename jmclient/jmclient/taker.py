@@ -28,7 +28,6 @@ class Taker(object):
     def __init__(self,
                  wallet,
                  schedule,
-                 answeryes,
                  order_chooser=weighted_order_choose,
                  sign_method=None,
                  callbacks=None):
@@ -43,7 +42,6 @@ class Taker(object):
         """
         self.wallet = wallet
         self.schedule = schedule
-        self.answeryes = answeryes
         self.order_chooser = order_chooser
         self.ignored_makers = None
         self.txid = None
@@ -51,47 +49,22 @@ class Taker(object):
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
         self.sign_method = sign_method
-        #External callers can set any of the 3 callbacks for filtering orders,
+        #External callers set the 3 callbacks for filtering orders,
         #sending info messages to client, and action on completion.
+        #"None" is allowable for taker_info_callback, defaults to log msg.
         if callbacks:
+            """Signature of filter_orders:
+            args: orders_fees, cjamount
+            returns: boolean representing accept/reject
+            """
             self.filter_orders_callback = callbacks[0]
-            if not self.filter_orders_callback:
-                self.filter_orders_callback = self.default_filter_orders_callback
             self.taker_info_callback = callbacks[1]
             if not self.taker_info_callback:
                 self.taker_info_callback = self.default_taker_info_callback
             self.on_finished_callback = callbacks[2]
-            if not self.on_finished_callback:
-                self.on_finished_callback = self.default_on_finished_callback
 
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
-
-    def default_filter_orders_callback(self, orders_fees):
-        orders, total_cj_fee = orders_fees
-        jlog.info("Chose these orders: " +pprint.pformat(orders))
-        jlog.info('total cj fee = ' + str(total_cj_fee))
-        total_fee_pc = 1.0 * total_cj_fee / self.cjamount
-        jlog.info('total coinjoin fee = ' + str(float('%.3g' % (
-            100.0 * total_fee_pc))) + '%')
-        WARNING_THRESHOLD = 0.02  # 2%
-        if total_fee_pc > WARNING_THRESHOLD:
-            jlog.info('\n'.join(['=' * 60] * 3))
-            jlog.info('WARNING   ' * 6)
-            jlog.info('\n'.join(['=' * 60] * 1))
-            jlog.info('OFFERED COINJOIN FEE IS UNUSUALLY HIGH. DOUBLE/TRIPLE CHECK.')
-            jlog.info('\n'.join(['=' * 60] * 1))
-            jlog.info('WARNING   ' * 6)
-            jlog.info('\n'.join(['=' * 60] * 3))
-        if not self.answeryes:
-            if raw_input('send with these orders? (y/n):')[0] != 'y':
-                self.on_finished_callback(False)
-                return False
-        return True
-
-    def default_on_finished_callback(self, result, fromtx=False):
-        """Currently not possible without access to the client protocol factory"""
-        raise NotImplementedError
 
     def initialize(self, orderbook):
         """Once the daemon is active and has returned the current orderbook,
@@ -150,8 +123,10 @@ class Taker(object):
                 self.ignored_makers)
             if self.filter_orders_callback:
                 accepted = self.filter_orders_callback([self.orderbook,
-                                                        self.total_cj_fee])
+                                                        self.total_cj_fee],
+                                                       self.cjamount)
                 if not accepted:
+                    self.on_finished_callback(False)
                     return False
         return True
 
@@ -211,7 +186,8 @@ class Taker(object):
                                 "Could not find orders to complete transaction")
                 self.on_finished_callback(False)
                 return False
-            if not self.filter_orders_callback((self.orderbook, total_cj_fee)):
+            if not self.filter_orders_callback((self.orderbook, self.total_cj_fee),
+                                               self.cjamount):
                 self.on_finished_callback(False)
                 return False
 
@@ -262,7 +238,6 @@ class Taker(object):
                 #this will not be added to the transaction, so we will have
                 #to recheck if we have enough
                 continue
-
             total_input = sum([d['value'] for d in utxo_data])
             real_cjfee = calc_cj_fee(self.orderbook[nick]['ordertype'],
                                      self.orderbook[nick]['cjfee'],
@@ -367,8 +342,13 @@ class Taker(object):
         address/pubkey that will be used for coinjoining
         with an ecdsa verification.
         """
-        if not btc.ecdsa_verify(maker_pk, btc_sig, auth_pub):
-            jlog.debug('signature didnt match pubkey and message')
+        try:
+            if not btc.ecdsa_verify(maker_pk, btc_sig, auth_pub):
+                jlog.debug('signature didnt match pubkey and message')
+                return False
+        except Exception as e:
+            jlog.info("Failed ecdsa verify for maker pubkey: " + str(maker_pk))
+            jlog.info("Exception was: " + repr(e))
             return False
         return True
 
@@ -383,8 +363,8 @@ class Taker(object):
         for index, ins in enumerate(self.latest_tx['ins']):
             utxo_for_checking = ins['outpoint']['hash'] + ':' + str(ins[
                 'outpoint']['index'])
-            if (ins['script'] != '' or
-                    utxo_for_checking in self.input_utxos.keys()):
+             #'deadbeef' markers mean our own input scripts are not ''
+            if (ins['script'] != ''):
                 continue
             utxo[ctr] = [index, utxo_for_checking]
             ctr += 1
@@ -534,17 +514,15 @@ class Taker(object):
         if self.my_cj_addr:
             return self.my_cj_addr
         else:
-            addr, self.sign_k = donation_address()
-            return addr
+            #Note: donation code removed (possibly temporarily)
+            raise NotImplementedError
 
     def sign_tx(self, tx, i, priv):
         if self.my_cj_addr:
             return btc.sign(tx, i, priv)
         else:
-            return btc.sign(tx,
-                            i,
-                            priv,
-                            usenonce=btc.safe_hexlify(self.sign_k))
+            #Note: donation code removed (possibly temporarily)
+            raise NotImplementedError
 
     def self_sign(self):
         # now sign it ourselves
