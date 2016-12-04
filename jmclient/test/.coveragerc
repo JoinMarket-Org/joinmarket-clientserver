@@ -1,0 +1,5 @@
+# .coveragerc to control coverage.py
+[run]
+omit =
+ ../jmclient/jsonrpc.py
+ ../jmclient/btc.py

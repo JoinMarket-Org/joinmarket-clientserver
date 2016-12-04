@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from jmclient import AbstractWallet
-from jmclient import BlockchainInterface
-from jmclient import Taker
+from commontest import DummyBlockchainInterface
 import jmbitcoin as bitcoin
 import binascii
 import os
@@ -12,7 +10,7 @@ import pytest
 import json
 from base64 import b64encode
 from jmclient import (load_program_config, jm_single, set_commitment_file,
-                      get_commitment_file)
+                      get_commitment_file, AbstractWallet, Taker)
 from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
                              t_maker_response, t_chosen_orders, t_dummy_ext)
 
@@ -57,79 +55,6 @@ class DummyWallet(AbstractWallet):
             if a == addr:
                 return binascii.hexlify(p)
         raise ValueError("No such keypair")
-
-class DummyBlockchainInterface(BlockchainInterface):
-    def __init__(self):
-        self.fake_query_results = None
-        self.qusfail = False
-
-    def sync_addresses(self, wallet):
-        pass
-    def sync_unspent(self, wallet):
-        pass
-    def add_tx_notify(self,
-                      txd,
-                      unconfirmfun,
-                      confirmfun,
-                      notifyaddr,
-                      timeoutfun=None):
-        pass
-    
-    def pushtx(self, txhex):
-        print("pushing: " + str(txhex))
-        return True
-    
-    def insert_fake_query_results(self, fqr):
-        self.fake_query_results = fqr
-
-    def setQUSFail(self, state):
-        self.qusfail = state
-    
-    def query_utxo_set(self, txouts,includeconf=False):
-        if self.qusfail:
-            #simulate failure to find the utxo
-            return [None]
-        if self.fake_query_results:
-            result = []
-            for x in self.fake_query_results:
-                for y in txouts:
-                    if y == x['utxo']:
-                        result.append(x)
-            return result
-        result = []
-        #external maker utxos
-        known_outs = {"03243f4a659e278a1333f8308f6aaf32db4692ee7df0340202750fd6c09150f6:1": "03a2d1cbe977b1feaf8d0d5cc28c686859563d1520b28018be0c2661cf1ebe4857",
-                      "498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3:0": "02b4b749d54e96b04066b0803e372a43d6ffa16e75a001ae0ed4b235674ab286be",
-                      "3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c:1": "023bcbafb4f68455e0d1d117c178b0e82a84e66414f0987453d78da034b299c3a9"}
-        #our wallet utxos, faked, for podle tests: utxos are doctored (leading 'f'),
-        #and the lists are (amt, age)
-        wallet_outs = {'f34b635ed8891f16c4ec5b8236ae86164783903e8e8bb47fa9ef2ca31f3c2d7a:0': [10000000, 2],
-                       'f780d6e5e381bff01a3519997bb4fcba002493103a198fde334fd264f9835d75:1': [20000000, 6],
-                       'fe574db96a4d43a99786b3ea653cda9e4388f377848f489332577e018380cff1:0': [50000000, 3],
-                       'fd9711a2ef340750db21efb761f5f7d665d94b312332dc354e252c77e9c48349:0': [50000000, 6]}
-        
-        if includeconf and set(txouts).issubset(set(wallet_outs)):
-            #includeconf used as a trigger for a podle check;
-            #here we simulate a variety of amount/age returns
-            results = []
-            for to in txouts:
-                results.append({'value': wallet_outs[to][0],
-                                'confirms': wallet_outs[to][1]})
-            return results
-        if txouts[0] in known_outs:
-            return [{'value': 200000000,
-                    'address': bitcoin.pubkey_to_address(known_outs[txouts[0]], magicbyte=0x6f),
-                    'confirms': 20}]
-        for t in txouts:
-            result_dict = {'value': 10000000000,
-                        'address': "mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ"}
-            if includeconf:
-                result_dict['confirms'] = 20
-            result.append(result_dict)        
-        return result
-
-    def estimate_fee_per_kb(self, N):
-        return 30000
 
 def dummy_order_chooser():
     return t_chosen_orders

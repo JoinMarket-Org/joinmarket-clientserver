@@ -99,7 +99,7 @@ class BlockchainInterface(object):
 	'''
 
 
-class ElectrumWalletInterface(BlockchainInterface):
+class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
     """A pseudo-blockchain interface using the existing 
     Electrum server connection in an Electrum wallet.
     Usage requires calling set_wallet with a valid Electrum

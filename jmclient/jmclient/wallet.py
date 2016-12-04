@@ -109,98 +109,6 @@ class AbstractWallet(object):
                     [addrval['value'] for addrval in utxos.values()])
         return mix_balance
 
-class ElectrumWrapWallet(AbstractWallet):
-    """A thin wrapper class over Electrum's own
-    wallet for joinmarket compatibility
-    """
-    def __init__(self, ewallet):
-        self.ewallet = ewallet
-        #TODO: populate self.unspent with all utxos in Electrum wallet.
-
-        # None is valid for unencrypted electrum wallets;
-        # calling functions must set the password otherwise
-        # for private key operations to work
-        self.password = None
-        super(ElectrumWrapWallet, self).__init__()
-
-    def get_key_from_addr(self, addr):
-        if self.ewallet.has_password() and self.password is None:
-            raise Exception("Cannot extract private key without password")
-        key = self.ewallet.get_private_key(addr, self.password)
-        #Convert from wif compressed to hex compressed
-        #TODO check if compressed
-        hex_key = btc.from_wif_privkey(key[0], vbyte=get_p2pk_vbyte())
-        return hex_key
-
-    def get_external_addr(self, mixdepth):
-        addr = self.ewallet.get_unused_address()
-        return addr
-
-    def get_internal_addr(self, mixdepth):
-        try:
-            addrs = self.ewallet.get_change_addresses()[
-                -self.ewallet.gap_limit_for_change:]
-        except Exception as e:
-            log.debug("Failed get change addresses: " + repr(e))
-            raise
-        #filter by unused
-        try:
-            change_addrs = [addr for addr in addrs if
-                        self.ewallet.get_num_tx(addr) == 0]
-        except Exception as e:
-            log.debug("Failed to filter chadr: " + repr(e))
-            raise
-        #if no unused Electrum re-uses randomly TODO consider
-        #(of course, all coins in same mixdepth are in principle linkable,
-        #so I suspect it is better to stick with Electrum's own model, considering
-        #gap limit issues)
-        if not change_addrs:
-            try:
-                change_addrs = [random.choice(addrs)]
-            except Exception as e:
-                log.debug("Failed random: " + repr(e))
-                raise
-        return change_addrs[0]
-
-    def sign_tx(self, tx, addrs):
-        """tx should be a serialized hex tx.
-        If self.password is correctly set,
-        will return the raw transaction with all
-        inputs from this wallet signed.
-        """
-        if not self.password:
-            raise Exception("No password, cannot sign")
-        from electrum.transaction import Transaction
-        etx = Transaction(tx)
-        etx.deserialize()
-        for i in addrs.keys():
-            del etx._inputs[i]['scriptSig']
-            self.ewallet.add_input_sig_info(etx._inputs[i], addrs[i])
-            etx._inputs[i]['address'] = addrs[i]
-        self.ewallet.sign_transaction(etx, self.password)
-        return etx.raw
-
-    def sign_message(self, address, message):
-        #TODO: not currently used, can we use it for auth?
-        return self.ewallet.sign_message(address, message, self.password)
-
-    def get_utxos_by_mixdepth(self):
-        """Initial version: all underlying utxos are mixdepth 0.
-        Format of return is therefore: {0:
-        {txid:n : {"address": addr, "value": value},
-        txid:n: {"address": addr, "value": value},..}}
-        TODO this should use the account feature in Electrum,
-        which is exactly that from BIP32, to implement
-        multiple mixdepths.
-        """
-        ubym = {0:{}}
-        coins = self.ewallet.get_spendable_coins()
-        log.debug(pprint.pformat(coins))
-        for c in coins:
-            utxo = c["prevout_hash"] + ":" + str(c["prevout_n"])
-            ubym[0][utxo] = {"address": c["address"], "value": c["value"]}
-        return ubym
-
 class Wallet(AbstractWallet):
     def __init__(self,
                  seedarg,
@@ -218,6 +126,8 @@ class Wallet(AbstractWallet):
         self.spent_utxos = []
         self.imported_privkeys = {}
         self.seed = self.read_wallet_file_data(seedarg)
+        if not self.seed:
+            raise ValueError("Failed to decrypt wallet")
         if extend_mixdepth and len(self.index_cache) > max_mix_depth:
             self.max_mix_depth = len(self.index_cache)
         self.gaplimit = gaplimit
@@ -245,42 +155,34 @@ class Wallet(AbstractWallet):
                 return filename
             else:
                 raise IOError('wallet file not found')
+        if not pwd:
+            log.info("Password required for non-testnet seed wallet")
+            return None
         self.path = path
         fd = open(path, 'r')
         walletfile = fd.read()
         fd.close()
         walletdata = json.loads(walletfile)
         if walletdata['network'] != get_network():
-            print ('wallet network(%s) does not match '
+            raise ValueError('wallet network(%s) does not match '
                    'joinmarket configured network(%s)' % (
                 walletdata['network'], get_network()))
-            sys.exit(0)
         if 'index_cache' in walletdata:
             self.index_cache = walletdata['index_cache']
-        decrypted = False
-        while not decrypted:
-            if pwd:
-                password = pwd
-            else:
-                password = getpass('Enter wallet decryption passphrase: ')
-            password_key = btc.bin_dbl_sha256(password)
-            encrypted_seed = walletdata['encrypted_seed']
-            try:
-                decrypted_seed = decryptData(
-                        password_key,
-                        encrypted_seed.decode('hex')).encode('hex')
-                # there is a small probability of getting a valid PKCS7
-                # padding by chance from a wrong password; sanity check the
-                # seed length
-                if len(decrypted_seed) == 32:
-                    decrypted = True
-                else:
-                    raise ValueError
-            except ValueError:
-                print('Incorrect password')
-                if pwd:
-                    raise
-                decrypted = False
+        password_key = btc.bin_dbl_sha256(pwd)
+        encrypted_seed = walletdata['encrypted_seed']
+        try:
+            decrypted_seed = decryptData(
+                    password_key,
+                    encrypted_seed.decode('hex')).encode('hex')
+            # there is a small probability of getting a valid PKCS7
+            # padding by chance from a wrong password; sanity check the
+            # seed length
+            if len(decrypted_seed) != 32:
+                raise ValueError
+        except ValueError:
+            log.info('Incorrect password')
+            return None
         if self.storepassword:
             self.password_key = password_key
             self.walletdata = walletdata
@@ -402,7 +304,7 @@ class Wallet(AbstractWallet):
         return mix_utxo_list
 
 
-class BitcoinCoreWallet(AbstractWallet):
+class BitcoinCoreWallet(AbstractWallet): #pragma: no cover
     def __init__(self, fromaccount):
         super(BitcoinCoreWallet, self).__init__()
         if not isinstance(jm_single().bc_interface,
