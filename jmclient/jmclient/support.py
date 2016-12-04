@@ -109,6 +109,7 @@ def select_greedy(unspent, value):
     UTXO selection algorithm for greedy dust reduction, but leaves out
     extraneous utxos, preferring to keep multiple small ones.
     """
+    original_value = value
     value, key, cursor = int(value), lambda u: u['value'], 0
     utxos, picked = sorted(unspent, key=key), []
     for utxo in utxos:  # find the smallest consecutive sum >= value
@@ -119,13 +120,15 @@ def select_greedy(unspent, value):
             picked += [utxo]  # definitely need this utxo
             break  # proceed to dilution
         cursor += 1
-    for utxo in utxos[cursor - 1::-1]:  # dilution loop
+    for utxo in utxos[max(cursor-1, 0)::-1]:  # dilution loop
         value += key(utxo)  # see if we can skip this one
         if value > 0:  # no, that drops us below the target
             picked += [utxo]  # so we need this one too
             value -= key(utxo)  # 'backtrack' the counter
     if len(picked) > 0:
-        return picked
+        if len(picked) < len(utxos) or sum(
+            key(u) for u in picked) >= original_value:
+            return picked
     raise Exception('Not enough funds')  # if all else fails, we do too
 
 
@@ -202,29 +205,8 @@ def cheapest_order_choose(orders, n):
     return orders[0]
 
 
-def pick_order(orders, n):
-    print("Considered orders:")
-    for i, o in enumerate(orders):
-        print("    %2d. %20s, CJ fee: %6s, tx fee: %6d" %
-              (i, o[0]['counterparty'], str(o[0]['cjfee']), o[0]['txfee']))
-    pickedOrderIndex = -1
-    if i == 0:
-        print("Only one possible pick, picking it.")
-        return orders[0]
-    while pickedOrderIndex == -1:
-        try:
-            pickedOrderIndex = int(raw_input('Pick an order between 0 and ' +
-                                             str(i) + ': '))
-        except ValueError:
-            pickedOrderIndex = -1
-            continue
-
-        if 0 <= pickedOrderIndex < len(orders):
-            return orders[pickedOrderIndex]
-        pickedOrderIndex = -1
-
-
-def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None):
+def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
+                  pick=False):
     if ignored_makers is None:
         ignored_makers = []
     #Filter ignored makers and inappropriate amounts
@@ -248,7 +230,7 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None):
     all of them. however, if orders are picked manually, allow duplicates.
     """
     feekey = lambda x: x[1]
-    if chooseOrdersBy != pick_order:
+    if not pick:
         orders_fees = sorted(
             dict((v[0]['counterparty'], v)
                  for v in sorted(orders_fees,
@@ -256,8 +238,7 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None):
                                  reverse=True)).values(),
             key=feekey)
     else:
-        orders_fees = sorted(orders_fees, key=feekey)  #sort by ascending cjfee
-
+        orders_fees = sorted(orders_fees, key=feekey)  #pragma: no cover
     log.debug('considered orders = \n' + '\n'.join([str(o) for o in orders_fees
                                                    ]))
     total_cj_fee = 0
@@ -305,7 +286,8 @@ def choose_sweep_orders(offers,
                 sumabsfee += int(order['cjfee'])
             elif order['ordertype'] == 'reloffer':
                 sumrelfee += Decimal(order['cjfee'])
-            else:
+            #this is unreachable since calc_cj_fee must already have been called
+            else: #pragma: no cover
                 raise RuntimeError('unknown order type: {}'.format(order[
                     'ordertype']))
 

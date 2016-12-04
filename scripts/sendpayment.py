@@ -52,7 +52,7 @@ import time
 from jmclient import (Taker, load_program_config, get_schedule,
                               JMTakerClientProtocolFactory, start_reactor,
                               validate_address, jm_single,
-                              choose_orders, choose_sweep_orders, pick_order,
+                              choose_orders, choose_sweep_orders,
                               cheapest_order_choose, weighted_order_choose,
                               Wallet, BitcoinCoreWallet, sync_wallet,
                               RegtestBitcoinCoreInterface, estimate_tx_fee)
@@ -60,6 +60,27 @@ from jmclient import (Taker, load_program_config, get_schedule,
 from jmbase.support import get_log, debug_dump_object
 
 log = get_log()
+
+def pick_order(orders, n): #pragma: no cover
+    print("Considered orders:")
+    for i, o in enumerate(orders):
+        print("    %2d. %20s, CJ fee: %6s, tx fee: %6d" %
+              (i, o[0]['counterparty'], str(o[0]['cjfee']), o[0]['txfee']))
+    pickedOrderIndex = -1
+    if i == 0:
+        print("Only one possible pick, picking it.")
+        return orders[0]
+    while pickedOrderIndex == -1:
+        try:
+            pickedOrderIndex = int(raw_input('Pick an order between 0 and ' +
+                                             str(i) + ': '))
+        except ValueError:
+            pickedOrderIndex = -1
+            continue
+
+        if 0 <= pickedOrderIndex < len(orders):
+            return orders[pickedOrderIndex]
+        pickedOrderIndex = -1
 
 def main():
     parser = OptionParser(
