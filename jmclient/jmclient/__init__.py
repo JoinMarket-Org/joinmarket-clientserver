@@ -16,8 +16,8 @@ from .jsonrpc import JsonRpcError, JsonRpcConnectionError, JsonRpc
 from .old_mnemonic import mn_decode, mn_encode
 from .slowaes import decryptData, encryptData
 from .taker import Taker
-from .wallet import AbstractWallet, BitcoinCoreInterface, Wallet, \
-    BitcoinCoreWallet, estimate_tx_fee
+from .wallet import (AbstractWallet, BitcoinCoreInterface, Wallet,
+                     BitcoinCoreWallet, estimate_tx_fee, WalletError)
 from .configure import load_program_config, jm_single, get_p2pk_vbyte, \
     get_network, jm_single, get_network, validate_address, get_irc_mchannels, \
     check_utxo_blacklist

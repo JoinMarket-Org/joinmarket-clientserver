@@ -211,9 +211,9 @@ def make_wallets(n,
     wallets = {}
     for i in range(n):
         if test_wallet:
-            w = TestWallet(seeds[i], max_mix_depth=5, pwd=passwords[i])
+            w = Wallet(seeds[i], passwords[i], max_mix_depth=5)
         else:
-            w = Wallet(seeds[i], max_mix_depth=5)
+            w = Wallet(seeds[i], None, max_mix_depth=5)
         wallets[i + start_index] = {'seed': seeds[i],
                                     'wallet': w}
         for j in range(5):

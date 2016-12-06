@@ -5,6 +5,7 @@ import sys
 import logging
 import pprint
 import random
+from getpass import getpass
 
 logFormatter = logging.Formatter(
     "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
@@ -49,6 +50,9 @@ def get_log():
 
 def chunks(d, n):
     return [d[x:x + n] for x in xrange(0, len(d), n)]
+
+def get_password(msg):
+    return getpass(msg)
 
 def debug_dump_object(obj, skip_fields=None):
     if skip_fields is None:

@@ -17,6 +17,9 @@ from jmclient.support import select_gradual, select_greedy,select_greediest, sel
 
 log = get_log()
 
+class WalletError(Exception):
+    pass
+
 def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     '''Returns an estimate of the number of satoshis required
     for a transaction with the given number of inputs and outputs,
@@ -112,6 +115,7 @@ class AbstractWallet(object):
 class Wallet(AbstractWallet):
     def __init__(self,
                  seedarg,
+                 pwd,
                  max_mix_depth=2,
                  gaplimit=6,
                  extend_mixdepth=False,
@@ -125,9 +129,9 @@ class Wallet(AbstractWallet):
         self.unspent = {}
         self.spent_utxos = []
         self.imported_privkeys = {}
-        self.seed = self.read_wallet_file_data(seedarg)
+        self.seed = self.read_wallet_file_data(seedarg, pwd)
         if not self.seed:
-            raise ValueError("Failed to decrypt wallet")
+            raise WalletError("Failed to decrypt wallet")
         if extend_mixdepth and len(self.index_cache) > max_mix_depth:
             self.max_mix_depth = len(self.index_cache)
         self.gaplimit = gaplimit

@@ -59,7 +59,7 @@ def test_blockr_estimate_fee(setup_blockr):
     ])
 def test_blockr_sync(setup_blockr, net, seed, gaplimit, showprivkey, method):
     jm_single().config.set("BLOCKCHAIN", "network", net)
-    wallet = Wallet(seed, max_mix_depth = 5)
+    wallet = Wallet(seed, None, max_mix_depth = 5)
     sync_wallet(wallet)
 
     #copy pasted from wallet-tool; some boiled down form of

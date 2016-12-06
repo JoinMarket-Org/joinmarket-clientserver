@@ -4,7 +4,7 @@ import sys, os
 import jmclient.btc as btc
 from jmclient import jm_single, get_p2pk_vbyte
 
-def quit(parser, errmsg):
+def quit(parser, errmsg): #pragma: no cover
     parser.error(errmsg)
     sys.exit(0)
 
@@ -24,10 +24,12 @@ def get_utxo_info(upriv):
     except:
         #not sending data to stdout in case privkey info
         print("Failed to parse utxo information for utxo")
+        raise
     try:
         hexpriv = btc.from_wif_privkey(priv, vbyte=get_p2pk_vbyte())
     except:
         print("failed to parse privkey, make sure it's WIF compressed format.")
+        raise
     return u, priv
     
 def validate_utxo_data(utxo_datas, retrieve=False):
@@ -45,7 +47,7 @@ def validate_utxo_data(utxo_datas, retrieve=False):
         print('claimed address: ' + addr)
         res = jm_single().bc_interface.query_utxo_set([u])
         print('blockchain shows this data: ' + str(res))
-        if len(res) != 1:
+        if len(res) != 1 or None in res:
             print("utxo not found on blockchain: " + str(u))
             return False
         if res[0]['address'] != addr:

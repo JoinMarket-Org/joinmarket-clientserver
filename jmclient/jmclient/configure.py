@@ -244,7 +244,8 @@ def validate_address(addr):
     return True, 'address validated'
 
 
-def donation_address(reusable_donation_pubkey=None):
+def donation_address(reusable_donation_pubkey=None): #pragma: no cover
+    #Donation code currently disabled, so not tested.
     if not reusable_donation_pubkey:
         reusable_donation_pubkey = ('02be838257fbfddabaea03afbb9f16e852'
                                     '9dfe2de921260a5c46036d97b5eacf2a')
@@ -347,7 +348,8 @@ def get_blockchain_interface_instance(_config):
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
     testnet = network == 'testnet'
-    if source == 'bitcoin-rpc':
+    if source == 'bitcoin-rpc': #pragma: no cover
+        #This cannot be tested without mainnet or testnet blockchain (not regtest)
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
         rpc_user = _config.get("BLOCKCHAIN", "rpc_user")

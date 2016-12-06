@@ -11,7 +11,9 @@ from optparse import OptionParser
 from jmclient import (load_program_config, get_network, Wallet,
                       encryptData, get_p2pk_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
-                      JsonRpcError, sync_wallet)
+                      JsonRpcError, sync_wallet, WalletError)
+
+from jmbase.support import get_password
 
 import jmclient.btc as btc
 
@@ -103,11 +105,21 @@ if args[0] in noseed_methods:
 else:
     seed = args[0]
     method = ('display' if len(args) == 1 else args[1].lower())
-    wallet = Wallet(seed,
+    while True:
+        try:
+            pwd = get_password("Enter wallet decryption passphrase: ")
+            wallet = Wallet(seed, pwd,
                     options.maxmixdepth,
                     options.gaplimit,
                     extend_mixdepth=not maxmixdepth_configured,
                     storepassword=(method == 'importprivkey'))
+        except WalletError:
+            print("Wrong password, try again.")
+            continue
+        except Exception as e:
+            print("Failed to load wallet, error message: " + repr(e))
+            sys.exit(0)
+        break
     if method == 'history' and not isinstance(jm_single().bc_interface,
             BitcoinCoreInterface):
         print('showing history only available when using the Bitcoin Core ' +

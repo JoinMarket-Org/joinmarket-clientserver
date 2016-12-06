@@ -74,12 +74,10 @@ class BlockchainInterface(object):
             whether this is the timeout for unconfirmed or confirmed
             timeout for uncontirmed = False
         """
-        pass
 
     @abc.abstractmethod
     def pushtx(self, txhex):
         """pushes tx to the network, returns False if failed"""
-        pass
 
     @abc.abstractmethod
     def query_utxo_set(self, txouts, includeconf=False):
@@ -194,7 +192,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         return fee_per_kb_sat
 
 
-class BlockrInterface(BlockchainInterface):
+class BlockrInterface(BlockchainInterface): #pragma: no cover
     BLOCKR_MAX_ADDR_REQ_COUNT = 20
 
     def __init__(self, testnet=False):
@@ -510,7 +508,9 @@ class NotifyRequestHeader(BaseHTTPServer.BaseHTTPRequestHandler):
             except (JsonRpcError, JsonRpcConnectionError) as e:
                 log.debug('transaction not found, probably a conflict')
                 return
-            if not re.match('^[0-9a-fA-F]*$', tx):
+            #the following condition shouldn't be possible I believe;
+            #the rpc server wil return an error as above if the tx is not found.
+            if not re.match('^[0-9a-fA-F]*$', tx): #pragma: no cover
                 log.debug('not a txhex')
                 return
             txd = btc.deserialize(tx)
@@ -651,7 +651,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         for addr in addr_list:
             self.rpc('importaddress', [addr, wallet_name, False])
         if jm_single().config.get("BLOCKCHAIN",
-                                  "blockchain_source") != 'regtest':
+                                  "blockchain_source") != 'regtest': #pragma: no cover
+            #Exit conditions cannot be included in tests
             print('restart Bitcoin Core with -rescan if you\'re '
                   'recovering an existing wallet from backup seed')
             print(' otherwise just restart this joinmarket script')
@@ -955,7 +956,7 @@ class BitcoinCoreInterface(BlockchainInterface):
 # running on local daemon. Only
 # to be instantiated after network is up
 # with > 100 blocks.
-class RegtestBitcoinCoreInterface(BitcoinCoreInterface):
+class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
 
     def __init__(self, jsonRpc):
         super(RegtestBitcoinCoreInterface, self).__init__(jsonRpc, 'regtest')
@@ -1049,19 +1050,3 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface):
                         'balance': int(round(Decimal(1e8) * Decimal(self.rpc(
                             'getreceivedbyaddress', [address]))))})
         return {'data': res}
-
-# todo: won't run anyways
-# def main():
-#     #TODO some useful quick testing here, so people know if they've set it up right
-#     myBCI = RegtestBitcoinCoreInterface()
-#     #myBCI.send_tx('stuff')
-#     print myBCI.get_utxos_from_addr(["n4EjHhGVS4Rod8ociyviR3FH442XYMWweD"])
-#     print myBCI.get_balance_at_addr(["n4EjHhGVS4Rod8ociyviR3FH442XYMWweD"])
-#     txid = myBCI.grab_coins('mygp9fsgEJ5U7jkPpDjX9nxRj8b5nC3Hnd', 23)
-#     print txid
-#     print myBCI.get_balance_at_addr(['mygp9fsgEJ5U7jkPpDjX9nxRj8b5nC3Hnd'])
-#     print myBCI.get_utxos_from_addr(['mygp9fsgEJ5U7jkPpDjX9nxRj8b5nC3Hnd'])
-#
-#
-# if __name__ == '__main__':
-#     main()

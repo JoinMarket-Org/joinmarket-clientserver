@@ -51,13 +51,13 @@ import time
 
 from jmclient import (Taker, load_program_config, get_schedule,
                               JMTakerClientProtocolFactory, start_reactor,
-                              validate_address, jm_single,
+                              validate_address, jm_single, WalletError,
                               choose_orders, choose_sweep_orders,
                               cheapest_order_choose, weighted_order_choose,
                               Wallet, BitcoinCoreWallet, sync_wallet,
                               RegtestBitcoinCoreInterface, estimate_tx_fee)
 
-from jmbase.support import get_log, debug_dump_object
+from jmbase.support import get_log, debug_dump_object, get_password
 
 log = get_log()
 
@@ -252,7 +252,16 @@ def main():
 
     if not options.userpcwallet:
         max_mix_depth = max([mixdepth, options.amtmixdepths])
-        wallet = Wallet(wallet_name, max_mix_depth, options.gaplimit)
+        try:
+            pwd = get_password("Enter wallet decryption passphrase: ")
+            wallet = Wallet(wallet_name, pwd, max_mix_depth, options.gaplimit)
+        except WalletError:
+            print("Wrong password, try again.")
+            continue
+        except Exception as e:
+            print("Failed to load wallet, error message: " + repr(e))
+            sys.exit(0)
+        break
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     sync_wallet(wallet, fast=options.fastsync)

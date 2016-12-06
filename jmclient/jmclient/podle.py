@@ -107,6 +107,8 @@ class PoDLE(object):
         else:
             self.P2 = None
         #These sig values should be passed in hex.
+        self.s = None
+        self.e = None
         if s:
             self.s = binascii.unhexlify(s)
         if e:
@@ -115,12 +117,6 @@ class PoDLE(object):
         self.used = used
         #the H(P2) value
         self.commitment = None
-
-    def mark_used(self):
-        self.used = True
-
-    def mark_unused(self):
-        self.used = False
 
     def get_commitment(self):
         """Set the commitment to sha256(serialization of public key P2)
@@ -222,7 +218,7 @@ class PoDLE(object):
         one NUMS point as defined by the range in index_range
         """
         if not all([self.P, self.P2, self.s, self.e]):
-            raise PoDLE("Verify called without sufficient data")
+            raise PoDLEError("Verify called without sufficient data")
         if not self.get_commitment() == commitment:
             return False
         for J in [getNUMS(i) for i in index_range]:
@@ -354,7 +350,8 @@ def update_commitments(commitment=None,
         with open(PODLE_COMMIT_FILE, "rb") as f:
             try:
                 c = json.loads(f.read())
-            except ValueError:
+            except ValueError: #pragma: no cover
+                #Exit conditions cannot be included in tests.
                 print("the file: " + PODLE_COMMIT_FILE + " is not valid json.")
                 sys.exit(0)
 
