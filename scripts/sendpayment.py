@@ -48,6 +48,8 @@ import threading
 from optparse import OptionParser
 from twisted.internet import reactor
 import time
+import os
+import pprint
 
 from jmclient import (Taker, load_program_config, get_schedule,
                               JMTakerClientProtocolFactory, start_reactor,
@@ -252,36 +254,40 @@ def main():
 
     if not options.userpcwallet:
         max_mix_depth = max([mixdepth, options.amtmixdepths])
-        try:
-            pwd = get_password("Enter wallet decryption passphrase: ")
-            wallet = Wallet(wallet_name, pwd, max_mix_depth, options.gaplimit)
-        except WalletError:
-            print("Wrong password, try again.")
-            continue
-        except Exception as e:
-            print("Failed to load wallet, error message: " + repr(e))
-            sys.exit(0)
-        break
+        if not os.path.exists(os.path.join('wallets', wallet_name)):
+            wallet = Wallet(wallet_name, None, max_mix_depth, options.gaplimit)
+        else:
+            while True:
+                try:
+                    pwd = get_password("Enter wallet decryption passphrase: ")
+                    wallet = Wallet(wallet_name, pwd, max_mix_depth, options.gaplimit)
+                except WalletError:
+                    print("Wrong password, try again.")
+                    continue
+                except Exception as e:
+                    print("Failed to load wallet, error message: " + repr(e))
+                    sys.exit(0)
+                break
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     sync_wallet(wallet, fast=options.fastsync)
 
     def filter_orders_callback(orders_fees, cjamount):
         orders, total_cj_fee = orders_fees
-        jlog.info("Chose these orders: " +pprint.pformat(orders))
-        jlog.info('total cj fee = ' + str(total_cj_fee))
+        log.info("Chose these orders: " +pprint.pformat(orders))
+        log.info('total cj fee = ' + str(total_cj_fee))
         total_fee_pc = 1.0 * total_cj_fee / cjamount
-        jlog.info('total coinjoin fee = ' + str(float('%.3g' % (
+        log.info('total coinjoin fee = ' + str(float('%.3g' % (
             100.0 * total_fee_pc))) + '%')
         WARNING_THRESHOLD = 0.02  # 2%
         if total_fee_pc > WARNING_THRESHOLD:
-            jlog.info('\n'.join(['=' * 60] * 3))
-            jlog.info('WARNING   ' * 6)
-            jlog.info('\n'.join(['=' * 60] * 1))
-            jlog.info('OFFERED COINJOIN FEE IS UNUSUALLY HIGH. DOUBLE/TRIPLE CHECK.')
-            jlog.info('\n'.join(['=' * 60] * 1))
-            jlog.info('WARNING   ' * 6)
-            jlog.info('\n'.join(['=' * 60] * 3))
+            log.info('\n'.join(['=' * 60] * 3))
+            log.info('WARNING   ' * 6)
+            log.info('\n'.join(['=' * 60] * 1))
+            log.info('OFFERED COINJOIN FEE IS UNUSUALLY HIGH. DOUBLE/TRIPLE CHECK.')
+            log.info('\n'.join(['=' * 60] * 1))
+            log.info('WARNING   ' * 6)
+            log.info('\n'.join(['=' * 60] * 3))
         if not options.answeryes:
             if raw_input('send with these orders? (y/n):')[0] != 'y':
                 return False
