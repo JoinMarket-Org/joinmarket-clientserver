@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
-'''test schedule module.'''
+'''test configure module.'''
 
 import pytest
 from jmclient import (load_program_config, jm_single, get_irc_mchannels,
@@ -12,6 +12,25 @@ import jmbitcoin as bitcoin
 import copy
 import os
 
+def test_attribute_dict():
+    from jmclient.configure import AttributeDict
+    ad = AttributeDict(foo=1, bar=2, baz={"x":3, "y":4})
+    assert ad.foo == 1
+    assert ad.bar == 2
+    assert ad.baz.x == 3
+    assert ad["foo"] == 1
+
+def test_load_config():
+    load_program_config(bs="regtest")
+    os.makedirs("dummydirforconfig")
+    ncp = os.path.join(os.getcwd(), "dummydirforconfig")
+    #need to erase remembered data in global config
+    jm_single().config_location = "joinmarket.cfg"
+    load_program_config(config_path=ncp)
+    os.remove("dummydirforconfig/joinmarket.cfg")
+    os.removedirs("dummydirforconfig")
+    jm_single().config_location = "joinmarket.cfg"
+    load_program_config()
 
 def test_config_get_irc_channel():
     load_program_config()

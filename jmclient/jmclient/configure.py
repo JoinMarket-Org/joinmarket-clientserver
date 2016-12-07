@@ -306,12 +306,15 @@ def load_program_config(config_path=None, bs=None):
             configfile.write(defaultconfig)
 
     # check for sections
-    for s in required_options:
+    #These are left as sanity checks but currently impossible
+    #since any edits are overlays to the default, these sections/options will
+    #always exist.
+    for s in required_options: #pragma: no cover
         if s not in global_singleton.config.sections():
             raise Exception(
                 "Config file does not contain the required section: " + s)
     # then check for specific options
-    for k, v in required_options.iteritems():
+    for k, v in required_options.iteritems(): #pragma: no cover
         for o in v:
             if o not in global_singleton.config.options(k):
                 raise Exception(
@@ -320,7 +323,7 @@ def load_program_config(config_path=None, bs=None):
     try:
         global_singleton.maker_timeout_sec = global_singleton.config.getint(
             'TIMEOUT', 'maker_timeout_sec')
-    except NoOptionError:
+    except NoOptionError: #pragma: no cover
         log.debug('TIMEOUT/maker_timeout_sec not found in .cfg file, '
                   'using default value')
 
@@ -332,9 +335,9 @@ def load_program_config(config_path=None, bs=None):
     try:
         global_singleton.commit_file_location = global_singleton.config.get(
             "POLICY", "commit_file_location")
-    except NoOptionError:
+    except NoOptionError: #pragma: no cover
         log.debug("No commitment file location in config, using default "
-                  "location cmttools/commitments.json")
+                  "location cmtdata/commitments.json")
     set_commitment_file(os.path.join(config_path,
                                          global_singleton.commit_file_location))
 

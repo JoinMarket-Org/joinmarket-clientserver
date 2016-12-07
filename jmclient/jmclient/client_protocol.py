@@ -58,10 +58,13 @@ class JMTakerClientProtocol(amp.AMP):
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop()
+            #Unintended client shutdown cannot be tested easily in twisted
+            reactor.stop() #pragma: no cover
 
     def defaultErrback(self, failure):
-        failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone, ConnectionLost)
+        #see testing note above
+        failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone,
+                     ConnectionLost) #pragma: no cover
 
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
