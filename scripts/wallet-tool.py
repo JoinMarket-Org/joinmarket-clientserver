@@ -105,21 +105,26 @@ if args[0] in noseed_methods:
 else:
     seed = args[0]
     method = ('display' if len(args) == 1 else args[1].lower())
-    while True:
-        try:
-            pwd = get_password("Enter wallet decryption passphrase: ")
-            wallet = Wallet(seed, pwd,
-                    options.maxmixdepth,
-                    options.gaplimit,
-                    extend_mixdepth=not maxmixdepth_configured,
-                    storepassword=(method == 'importprivkey'))
-        except WalletError:
-            print("Wrong password, try again.")
-            continue
-        except Exception as e:
-            print("Failed to load wallet, error message: " + repr(e))
-            sys.exit(0)
-        break
+    if not os.path.exists(os.path.join('wallets', seed)):
+        wallet = Wallet(seed, None, options.maxmixdepth,
+                        options.gaplimit, extend_mixdepth= not maxmixdepth_configured,
+                        storepassword=(method == 'importprivkey'))
+    else:
+        while True:
+            try:
+                pwd = get_password("Enter wallet decryption passphrase: ")
+                wallet = Wallet(seed, pwd,
+                        options.maxmixdepth,
+                        options.gaplimit,
+                        extend_mixdepth=not maxmixdepth_configured,
+                        storepassword=(method == 'importprivkey'))
+            except WalletError:
+                print("Wrong password, try again.")
+                continue
+            except Exception as e:
+                print("Failed to load wallet, error message: " + repr(e))
+                sys.exit(0)
+            break
     if method == 'history' and not isinstance(jm_single().bc_interface,
             BitcoinCoreInterface):
         print('showing history only available when using the Bitcoin Core ' +
