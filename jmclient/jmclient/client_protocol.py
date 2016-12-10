@@ -44,14 +44,6 @@ class JMTakerClientProtocol(amp.AMP):
             self.nick_priv = nick_priv
 
         self.shutdown_requested = False
-        lc = LoopingCall(self.checkForShutdown)
-        lc.start(0.2)
-
-    def checkForShutdown(self):
-        if self.shutdown_requested:
-            jlog.info("Client shutdown was requested, complying.")
-            self.shutdown_requested = False
-            reactor.stop()
 
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
@@ -254,6 +246,7 @@ class JMTakerClientProtocolFactory(protocol.ClientFactory):
         return JMTakerClientProtocol(self, self.taker)
 
 
-def start_reactor(host, port, factory, ish=True):
+def start_reactor(host, port, factory, ish=True): #pragma: no cover
+    #(Cannot start the reactor in tests)
     reactor.connectTCP(host, port, factory)
     reactor.run(installSignalHandlers=ish)

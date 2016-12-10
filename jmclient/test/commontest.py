@@ -160,30 +160,6 @@ def make_sign_and_push(ins_full,
     else:
         return False
 
-def local_command(command, bg=False, redirect=''):
-    if redirect == 'NULL':
-        if OS == 'Windows':
-            command.append(' > NUL 2>&1')
-        elif OS == 'Linux':
-            command.extend(['>', '/dev/null', '2>&1'])
-        else:
-            print "OS not recognised, quitting."
-    elif redirect:
-        command.extend(['>', redirect])
-
-    if bg:
-        #using subprocess.PIPE seems to cause problems
-        FNULL = open(os.devnull, 'w')
-        return subprocess.Popen(command,
-                                stdout=FNULL,
-                                stderr=subprocess.STDOUT,
-                                close_fds=True)
-    else:
-        #in case of foreground execution, we can use the output; if not
-        #it doesn't matter
-        return subprocess.check_output(command)
-
-
 def make_wallets(n,
                  wallet_structures=None,
                  mean_amt=1,

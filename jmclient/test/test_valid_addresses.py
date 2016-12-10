@@ -2,7 +2,8 @@ from jmclient.configure import validate_address, load_program_config
 from jmclient import jm_single
 import json
 import pytest
-
+import os
+testdir = os.path.dirname(os.path.realpath(__file__))
 
 def test_non_addresses(setup_addresses):
     #could flesh this out with other examples
@@ -11,7 +12,7 @@ def test_non_addresses(setup_addresses):
 
 def test_b58_invalid_addresses(setup_addresses):
     #none of these are valid as any kind of key or address
-    with open("base58_keys_invalid.json", "r") as f:
+    with open(os.path.join(testdir,"base58_keys_invalid.json"), "r") as f:
         json_data = f.read()
     invalid_key_list = json.loads(json_data)
     for k in invalid_key_list:
@@ -21,7 +22,7 @@ def test_b58_invalid_addresses(setup_addresses):
 
 
 def test_b58_valid_addresses():
-    with open("base58_keys_valid.json", "r") as f:
+    with open(os.path.join(testdir,"base58_keys_valid.json"), "r") as f:
         json_data = f.read()
     valid_keys_list = json.loads(json_data)
     for a in valid_keys_list:

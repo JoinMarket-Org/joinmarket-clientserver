@@ -9,17 +9,21 @@ from jmclient.client_protocol import JMProtocolError, JMTakerClientProtocol
 import os
 from twisted.python.log import startLogging, err
 from twisted.python.log import msg as tmsg
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol, reactor, task
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
 from twisted.protocols.amp import UnknownRemoteError
 from twisted.python import failure
 from twisted.protocols import amp
+from twisted.trial import unittest
 from jmbase.commands import *
 from taker_test_data import t_raw_signed_tx
 import json
 import time
 import jmbitcoin as bitcoin
+
+import twisted
+twisted.internet.base.DelayedCall.debug = True
 
 test_completed = False
 
@@ -62,6 +66,9 @@ class DummyTaker(Taker):
 
 
     def on_sig(self, nick, sigb64):
+        """For test, we exit 'early' on first message, since this marks the end
+        of client-server communication with the daemon.
+        """
         jlog.debug("We got a sig: " + sigb64)
         end_test()
         return True
@@ -88,30 +95,13 @@ def show_receipt(name, *args):
     tmsg("Received msgtype: " + name + ", args: " + ",".join([str(x) for x in args]))
 
 def end_client(client):
-    client.shutdown_requested = True
+    pass
 
 def end_test():
-    #global runno
     global test_completed
-    #runno += 1
-    #jlog.info("Updated runno to: " + str(runno))
-    #taker = DummyTaker(None, None)
-    #if runno == 1:
-    #    jlog.info("Run number was less than 2")    
-    #    taker.set_fail_init(True)
-    #    taker.set_fail_utxos(False)
-    #    cfactory = JMTakerClientProtocolFactory(taker) 
-    #    reactor.connectTCP("localhost", 27184, cfactory)
-    #    return
-    #elif runno == 2:
-    #    taker.set_fail_init(False)
-    #    taker.set_fail_utxos(True)
-    #    cfactory = JMTakerClientProtocolFactory(taker) 
-    #    reactor.connectTCP("localhost", 27184, cfactory)
-    #    return
     test_completed = True
     client = clientfactory.getClient()
-    reactor.callLater(2, end_client, client)
+    reactor.callLater(1, end_client, client)
 
 class JMTestServerProtocol(JMBaseProtocol):
 
@@ -215,32 +205,38 @@ class DummyClientProtocolFactory(JMTakerClientProtocolFactory):
     def buildProtocol(self, addr):
         return JMTakerClientProtocol(self, self.taker, nick_priv="aa"*32)
 
-def test_jm_protocol():
-    """We cannot use parametrize for different options as
-    we can't run in sequence; hence, parameters hardcoded as lists here
-    """
-    params = [[False, False], [True, False], [False, True], [-1, False]]
-    global clientfactory
-    load_program_config()
-    jm_single().maker_timeout_sec = 1
-    reactor.listenTCP(27184, JMTestServerProtocolFactory())
-    clientfactories = []
-    takers = [DummyTaker(None, None) for _ in range(len(params))]
-    for i, p in enumerate(params):
-        takers[i].set_fail_init(p[0])
-        takers[i].set_fail_utxos(p[1])
-        if i != 0:
-            clientfactories.append(JMTakerClientProtocolFactory(takers[i]))
-            reactor.connectTCP("localhost", 27184, clientfactories[i])
-        else:
-            clientfactories.append(DummyClientProtocolFactory(takers[i]))
-    clientfactory = clientfactories[0]
-    start_reactor("localhost", 27184, clientfactories[0])
-    print("Got here")
-    if not test_completed:
-        raise Exception("Failed test")
-            
-            
+class TrialTestJMClientProto(unittest.TestCase):
 
-        
-    
+    def setUp(self):
+        global clientfactory
+        print("setUp()")
+        params = [[False, False], [True, False], [False, True], [-1, False]]
+        load_program_config()
+        jm_single().maker_timeout_sec = 1
+        self.port = reactor.listenTCP(27184, JMTestServerProtocolFactory())
+        self.addCleanup(self.port.stopListening)
+        def cb(client):
+            self.client = client
+            self.addCleanup(self.client.transport.loseConnection)
+        clientfactories = []
+        takers = [DummyTaker(None, None) for _ in range(len(params))]
+        for i, p in enumerate(params):
+            takers[i].set_fail_init(p[0])
+            takers[i].set_fail_utxos(p[1])
+            if i != 0:
+                clientfactories.append(JMTakerClientProtocolFactory(takers[i]))
+                clientconn = reactor.connectTCP("localhost", 27184, clientfactories[i])
+                self.addCleanup(clientconn.disconnect)
+            else:
+                clientfactories.append(DummyClientProtocolFactory(takers[i]))
+                clientfactory = clientfactories[0]
+                clientconn = reactor.connectTCP("localhost", 27184, clientfactories[0])
+                self.addCleanup(clientconn.disconnect)
+        print("Got here")
+
+    def test_waiter(self):
+        print("test_main()")
+        return task.deferLater(reactor, 3, self._called_by_deffered)
+
+    def _called_by_deffered(self):
+        pass

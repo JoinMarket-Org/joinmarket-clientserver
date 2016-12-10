@@ -2,14 +2,34 @@ import pytest
 import os
 import time
 import subprocess
-from commontest import local_command
-from jmclient import load_program_config
 
 bitcoin_path = None
 bitcoin_conf = None
 bitcoin_rpcpassword = None
 bitcoin_rpcusername = None
 
+def local_command(command, bg=False, redirect=''):
+    if redirect == 'NULL':
+        if OS == 'Windows':
+            command.append(' > NUL 2>&1')
+        elif OS == 'Linux':
+            command.extend(['>', '/dev/null', '2>&1'])
+        else:
+            print "OS not recognised, quitting."
+    elif redirect:
+        command.extend(['>', redirect])
+
+    if bg:
+        #using subprocess.PIPE seems to cause problems
+        FNULL = open(os.devnull, 'w')
+        return subprocess.Popen(command,
+                                stdout=FNULL,
+                                stderr=subprocess.STDOUT,
+                                close_fds=True)
+    else:
+        #in case of foreground execution, we can use the output; if not
+        #it doesn't matter
+        return subprocess.check_output(command)
 
 def pytest_addoption(parser):
     parser.addoption("--btcroot", action="store", default='',

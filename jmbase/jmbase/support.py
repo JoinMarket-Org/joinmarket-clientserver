@@ -51,7 +51,7 @@ def get_log():
 def chunks(d, n):
     return [d[x:x + n] for x in xrange(0, len(d), n)]
 
-def get_password(msg):
+def get_password(msg): #pragma: no cover
     return getpass(msg)
 
 def debug_dump_object(obj, skip_fields=None):

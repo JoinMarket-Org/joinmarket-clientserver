@@ -1,0 +1,12 @@
+# .coveragerc to control coverage.py
+[run]
+omit =
+ jmclient/jmclient/jsonrpc.py
+ jmclient/jmclient/slowaes.py
+ jmclient/jmclient/btc.py
+ jmclient/test/*
+ jmclient/setup.py
+ jmbitcoin/test/*
+ jmbitcoin/setup.py
+ jmbase/test/*
+ jmbase/setup.py

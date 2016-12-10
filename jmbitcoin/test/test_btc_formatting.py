@@ -45,3 +45,24 @@ def test_changebase(st, frm, to, minlen, res):
     ])
 def test_compact_size(num, compactsize):
     assert btc.num_to_var_int(num) == binascii.unhexlify(compactsize)
+
+@pytest.mark.parametrize("frm, to", [
+    (("16001405481b7f1d90c5a167a15b00e8af76eb6984ea59"),
+     ["001405481b7f1d90c5a167a15b00e8af76eb6984ea59"]),
+    (("483045022100ad0dda327945e581a5effd83d75d76a9f07c3128f4dc6d25a54"
+      "e5ad5dd629bd00220487a992959bd540dbc335c655e6485ebfb394129eb48038f"
+      "0a2d319782f7cb690121039319452b6abafb5fcf06096196d0c141b8bd18a3de7"
+      "e9b9352da800d671ccd84"),
+     ["3045022100ad0dda327945e581a5effd83d75d76a9f07c3128f4dc6d25a54e5ad5dd629bd00220487a992959bd540dbc335c655e6485ebfb394129eb48038f0a2d319782f7cb6901",
+      "039319452b6abafb5fcf06096196d0c141b8bd18a3de7e9b9352da800d671ccd84"]),
+    (("51"), [1]),
+    (("00"), [None]),
+    (("510000"), [1, None, None]),
+    (("636505aaaaaaaaaa53"), [99, 101, "aaaaaaaaaa", 3]),
+    (("51" + "4d0101" + "aa"*257), [1, "aa"*257]),
+    (("4e" + "03000100" + "aa"*65539), ["aa"*65539]),
+])
+def test_deserialize_script(frm, to):
+    #print(len(btc.deserialize_script(frm)[0]))
+    assert btc.deserialize_script(frm) == to
+    assert btc.serialize_script(to) == frm

@@ -8,6 +8,9 @@ from twisted.internet.error import (ConnectionLost, ConnectionAborted,
 from twisted.protocols.amp import UnknownRemoteError
 from twisted.python import failure
 from twisted.protocols import amp
+from twisted.trial import unittest
+from twisted.internet import reactor, task
+
 from jmbase.commands import *
 
 import json
@@ -36,12 +39,12 @@ class JMBaseProtocol(amp.AMP):
         d.addErrback(self.defaultErrback)
 
 def show_receipt(name, *args):
-    tmsg("Received msgtype: " + name + ", args: " + ",".join([str(x) for x in args]))
+    print("Received msgtype: " + name + ", args: " + ",".join([str(x) for x in args]))
 
 def end_test():
     global test_completed
     test_completed = True
-    reactor.stop()
+
 
 class JMTestServerProtocol(JMBaseProtocol):
 
@@ -131,7 +134,6 @@ class JMTestServerProtocol(JMBaseProtocol):
 class JMTestClientProtocol(JMBaseProtocol):
 
     def connectionMade(self):
-        print("Connection made")
         self.clientStart()
 
     def clientStart(self):
@@ -193,7 +195,7 @@ class JMTestClientProtocol(JMBaseProtocol):
     def on_JM_SIG_RECEIVED(self, nick, sig):
         show_receipt("JMSIGRECEIVED", nick, sig)
         #end of test
-        reactor.callLater(2, end_test)
+        reactor.callLater(1, end_test)
         return {'accepted': True}
 
     @JMRequestMsgSig.responder
@@ -226,10 +228,21 @@ class JMTestClientProtocolFactory(protocol.ClientFactory):
 class JMTestServerProtocolFactory(protocol.ServerFactory):
     protocol = JMTestServerProtocol
 
-def test_jm_protocol():
-    reactor.connectTCP("localhost", 27184, JMTestClientProtocolFactory())
-    reactor.listenTCP(27184, JMTestServerProtocolFactory())
-    reactor.run()
-    print("Got here")
-    if not test_completed:
-        raise Exception("Failed test")
+class TrialTestJMProto(unittest.TestCase):
+
+    def setUp(self):
+        print("setUp()")
+        self.port = reactor.listenTCP(27184, JMTestServerProtocolFactory())
+        self.addCleanup(self.port.stopListening)
+        def cb(client):
+            self.client = client
+            self.addCleanup(self.client.transport.loseConnection)
+        creator = protocol.ClientCreator(reactor, JMTestClientProtocol)
+        creator.connectTCP("localhost", 27184).addCallback(cb)
+
+    def test_waiter(self):
+        print("test_main()")
+        return task.deferLater(reactor, 3, self._called_by_deffered)
+
+    def _called_by_deffered(self):
+        pass

@@ -2,7 +2,8 @@ import sys
 import jmbitcoin as btc
 import pytest
 import json
-
+import os
+testdir = os.path.dirname(os.path.realpath(__file__))
 
 #TODO: fold these examples into the tx_valid.json file
 @pytest.mark.parametrize(
@@ -221,7 +222,7 @@ def test_serialization_roundtrip2():
     #still valid.
     #Note that of course this is only a serialization, not validity test, so
     #only currently of very limited significance
-    with open("tx_valid.json", "r") as f:
+    with open(os.path.join(testdir,"tx_valid.json"), "r") as f:
         json_data = f.read()
     valid_txs = json.loads(json_data)
     for j in valid_txs:

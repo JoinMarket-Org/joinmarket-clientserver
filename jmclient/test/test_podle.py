@@ -9,7 +9,7 @@ import pytest
 import copy
 import subprocess
 import signal
-from commontest import local_command, make_wallets
+from commontest import make_wallets
 import time
 from pprint import pformat
 from jmclient import (load_program_config, get_log, jm_single, generate_podle,

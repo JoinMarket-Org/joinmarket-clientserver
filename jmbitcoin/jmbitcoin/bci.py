@@ -5,7 +5,7 @@ import sys
 import time
 import platform
 from jmbase.support import get_log
-if platform.system() == "Windows":
+if platform.system() == "Windows": #pragma: no cover
     import ssl
     import urllib2
 else:
@@ -18,7 +18,7 @@ log = get_log()
 
 # Makes a request to a given URL (first arg) and optional params (second arg)
 def make_request(*args):
-    if platform.system() == "Windows":
+    if platform.system() == "Windows": #pragma: no cover
         sctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         sh = urllib2.HTTPSHandler(debuglevel=0, context=sctx)
         opener = urllib2.build_opener(sh)

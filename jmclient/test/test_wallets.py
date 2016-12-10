@@ -13,7 +13,7 @@ import datetime
 import unittest
 from ConfigParser import SafeConfigParser, NoSectionError
 from decimal import Decimal
-from commontest import (local_command, interact, make_wallets,
+from commontest import (interact, make_wallets,
                         make_sign_and_push, DummyBlockchainInterface)
 import json
 
@@ -26,7 +26,7 @@ from jmclient import (load_program_config, jm_single, sync_wallet,
                       BitcoinCoreWallet, BitcoinCoreInterface)
 from jmbase.support import chunks
 from taker_test_data import t_obtained_tx, t_raw_signed_tx
-
+testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 
 

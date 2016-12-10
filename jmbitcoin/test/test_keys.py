@@ -6,7 +6,8 @@ import jmbitcoin as btc
 import binascii
 import json
 import pytest
-
+import os
+testdir = os.path.dirname(os.path.realpath(__file__))
 
 def test_read_raw_privkeys():
     badkeys = ['', '\x07'*31,'\x07'*34, '\x07'*33]
@@ -39,7 +40,7 @@ def test_wif_privkeys_invalid():
 
     #Some invalid b58 from bitcoin repo;
     #none of these are valid as any kind of key or address
-    with open("base58_keys_invalid.json", "r") as f:
+    with open(os.path.join(testdir,"base58_keys_invalid.json"), "r") as f:
         json_data = f.read()
     invalid_key_list = json.loads(json_data)
     for k in invalid_key_list:
@@ -58,7 +59,7 @@ def test_wif_privkeys_invalid():
                     raise Exception("Invalid version byte")
 
 def test_wif_privkeys_valid():
-    with open("base58_keys_valid.json", "r") as f:
+    with open(os.path.join(testdir,"base58_keys_valid.json"), "r") as f:
         json_data = f.read()
     valid_keys_list = json.loads(json_data)
     for a in valid_keys_list:

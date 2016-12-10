@@ -8,7 +8,7 @@ is_python2 = sys.version_info.major == 2
 
 ### Hex to bin converter and vice versa for objects
 def json_is_base(obj, base):
-    if not is_python2 and isinstance(obj, bytes):
+    if not is_python2 and isinstance(obj, bytes): #pragma: no cover
         return False
 
     alpha = get_code_string(base)
@@ -270,7 +270,7 @@ def serialize_script_unit(unit):
         if unit < 16:
             return from_int_to_byte(unit + 80)
         else:
-            return bytes([unit])
+            return from_int_to_byte(unit)
     elif unit is None:
         return b'\x00'
     else:
@@ -287,11 +287,22 @@ def serialize_script_unit(unit):
 if is_python2:
 
     def serialize_script(script):
+        #bugfix: if *every* item in the script is of type int,
+        #for example a script of OP_TRUE, or None,
+        #then the previous version would always report json_is_base as True,
+        #resulting in an infinite loop (look who's demented now).
+        #There is no easy solution without being less flexible;
+        #here we default to returning a hex serialization in cases where
+        #there are no strings to use as flags.
+        if all([(isinstance(x, int) or x is None) for x in script]):
+            #no indication given whether output should be hex or binary, so..?
+            return binascii.hexlify(''.join(map(serialize_script_unit, script)))
         if json_is_base(script, 16):
             return binascii.hexlify(serialize_script(json_changebase(
                 script, lambda x: binascii.unhexlify(x))))
         return ''.join(map(serialize_script_unit, script))
-else:
+
+else: #pragma: no cover
 
     def serialize_script(script):
         if json_is_base(script, 16):

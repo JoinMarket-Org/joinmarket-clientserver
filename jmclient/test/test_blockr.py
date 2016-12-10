@@ -18,6 +18,10 @@ log = get_log()
 #TODO: some kind of mainnet testing, harder.
 blockr_root_url = "https://tbtc.blockr.io/api/v1/"
 
+def test_bci_bad_req():
+    with pytest.raises(Exception) as e_info:
+        btc.make_request("1")
+
 def test_blockr_bad_request():
     with pytest.raises(Exception) as e_info:
         btc.make_request_blockr(blockr_root_url+"address/txs/", "0000")

@@ -7,7 +7,8 @@ import jmbitcoin as btc
 import binascii
 import json
 import pytest
-
+import os
+testdir = os.path.dirname(os.path.realpath(__file__))
 vectors = None
 
 def test_valid_sigs(setup_ecc):
@@ -38,6 +39,6 @@ def test_valid_sigs(setup_ecc):
 @pytest.fixture(scope='module')
 def setup_ecc():
     global vectors
-    with open("ecc_sigs_rfc6979_valid.json", "r") as f:
+    with open(os.path.join(testdir, "ecc_sigs_rfc6979_valid.json"), "r") as f:
         json_data = f.read()
     vectors = json.loads(json_data)    

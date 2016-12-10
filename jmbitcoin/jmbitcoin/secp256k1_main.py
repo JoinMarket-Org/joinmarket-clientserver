@@ -131,15 +131,8 @@ if sys.version_info.major == 2:
         return result
 
 else:
-    raise NotImplementedError("Only Python2 currently supported by btc interface")
+    raise NotImplementedError("Only Python2 currently supported by btc interface") #pragma: no cover
 
-def tweak_mul(point, scalar):
-    """Temporary hack because Windows binding had a bug in tweak_mul.
-    Can be removed when Windows binding is updated.
-    """
-    return secp256k1._tweak_public(point,
-                                   secp256k1.lib.secp256k1_ec_pubkey_tweak_mul,
-                                   scalar)
 """PoDLE related primitives
 """
 def getG(compressed=True):
@@ -405,7 +398,7 @@ def ecdsa_raw_sign(msg,
     '''Take the binary message msg and sign it with the private key
     priv.
     By default priv is just a 32 byte string, if rawpriv is false
-    it is assumed to be DER encoded.
+    it is assumed to be hex encoded (note only works if usehex=False).
     If rawmsg is True, no sha256 hash is applied to msg before signing.
     In this case, msg must be a precalculated hash (256 bit).
     If rawmsg is False, the secp256k1 lib will hash the message as part
@@ -422,14 +415,15 @@ def ecdsa_raw_sign(msg,
         newpriv = secp256k1.PrivateKey(p, raw=True, ctx=ctx)
     else:
         newpriv = secp256k1.PrivateKey(priv, raw=False, ctx=ctx)
-    if usenonce:
+    #Donations, thus custom nonce, currently disabled, hence not covered.
+    if usenonce: #pragma: no cover
         if len(usenonce) != 32:
             raise ValueError("Invalid nonce passed to ecdsa_sign: " + str(
                 usenonce))
         nf = ffi.addressof(_noncefunc.lib, "nonce_function_rand")
         ndata = ffi.new("char [32]", usenonce)
         usenonce = (nf, ndata)
-    if usenonce:
+    if usenonce: #pragma: no cover
         sig = newpriv.ecdsa_sign(msg, raw=rawmsg, custom_nonce=usenonce)
     else:
         #partial fix for secp256k1-transient not including customnonce;
