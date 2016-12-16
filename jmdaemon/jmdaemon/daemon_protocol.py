@@ -56,6 +56,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.restart_mc_required = False
         self.irc_configs = None
         self.mcc = None
+        self.crypto_boxes = {}
         self.sig_lock = threading.Lock()
 
     def checkClientResponse(self, response):
@@ -63,7 +64,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop()
+            reactor.stop() #pragma: no cover
 
     def defaultErrback(self, failure):
         failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone, ConnectionLost)

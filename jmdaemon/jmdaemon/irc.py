@@ -404,6 +404,12 @@ class IRCMessageChannel(MessageChannel):
         self.pingQ = Queue.Queue()
         self.throttleQ = Queue.Queue()
         self.obQ = Queue.Queue()
+        self.reconnect_interval = 30
+
+    def set_reconnect_interval(self, interval):
+        """For testing reconnection functions.
+        """
+        self.reconnect_interval = interval
 
     def run(self):
         self.give_up = False
@@ -467,6 +473,6 @@ class IRCMessageChannel(MessageChannel):
             log.info("disconnected from irc host %s" %
                 (self.hostid))
             if not self.give_up:
-                time.sleep(30)
+                time.sleep(self.reconnect_interval)
         log.info('ending irc')
         self.give_up = True

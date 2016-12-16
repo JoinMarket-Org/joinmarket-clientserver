@@ -148,7 +148,7 @@ class MessageChannelCollection(object):
         for mc in self.mchannels:
             mc.daemon = daemon
 
-    def add_channel(self, mchannel):
+    def add_channel(self, mchannel): #pragma: no cover
         """TODO Not currently in use,
         may be some issues with intialization.
         """
@@ -277,7 +277,7 @@ class MessageChannelCollection(object):
                 matching_channels = [x
                                      for x in self.available_channels()
                                      if mc == x.hostid]
-                if len(matching_channels) != 1:
+                if len(matching_channels) != 1: #pragma: no cover
                     #raise because implies logic error
                     raise Exception(
                         "Tried to privmsg on an unavailable message channel.")
@@ -850,7 +850,6 @@ class MessageChannel(object):
     def send_error(self, nick, errormsg):
         log.info('error<%s> : %s' % (nick, errormsg))
         self.privmsg(nick, 'error', errormsg)
-        raise CJPeerError()
 
     def pubmsg(self, message):
         log.debug('>>pubmsg ' + message)
@@ -892,7 +891,7 @@ class MessageChannel(object):
             elif _chunks[0] == 'orderbook':
                 if self.on_orderbook_requested:
                     self.on_orderbook_requested(nick, self)
-            else:
+            else: #pragma: no cover
                 # TODO this is for testing/debugging, should be removed, see taker.py
                 if hasattr(self, 'debug_on_pubmsg_cmd'):
                     self.debug_on_pubmsg_cmd(nick, _chunks)
@@ -949,8 +948,8 @@ class MessageChannel(object):
                     to_decrypt = ''.join(_chunks[1:])
                     try:
                         decrypted = decode_decrypt(to_decrypt, box)
-                    except ValueError as e:
-                        log.debug('valueerror when decrypting, skipping: ' +
+                    except (ValueError, TypeError) as e:
+                        log.debug('Error when decrypting, skipping: ' +
                                   repr(e))
                         return
                     #rebuild the chunks array as if it had been plaintext
@@ -997,13 +996,13 @@ class MessageChannel(object):
                             commit = None
                     except (ValueError, IndexError) as e:
                         self.send_error(nick, str(e))
+                        return
                     if self.on_order_fill:
                         self.on_order_fill(nick, oid, amount, taker_pk, commit)
                 elif _chunks[0] == 'auth':
-                    try:
-                        cr = _chunks[1]
-                    except (ValueError, IndexError) as e:
-                        self.send_error(nick, str(e))
+                    #Note index error logically impossible, would have thrown
+                    #in sig check (zero message after cmd not allowed)
+                    cr = _chunks[1]
                     if self.on_seen_auth:
                         self.on_seen_auth(nick, cr)
                 elif _chunks[0] == 'tx':
@@ -1012,6 +1011,7 @@ class MessageChannel(object):
                         txhex = base64.b64decode(b64tx).encode('hex')
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
+                        return
                     if self.on_seen_tx:
                         self.on_seen_tx(nick, txhex)
                 elif _chunks[0] == 'push':
@@ -1020,9 +1020,10 @@ class MessageChannel(object):
                         txhex = base64.b64decode(b64tx).encode('hex')
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
+                        return
                     if self.on_push_tx:
                         self.on_push_tx(nick, txhex)
-            except CJPeerError:
+            except (IndexError, ValueError):
                 # TODO proper error handling
                 log.debug('cj peer error TODO handle')
                 continue

@@ -10,3 +10,7 @@ omit =
  jmbitcoin/setup.py
  jmbase/test/*
  jmbase/setup.py
+ jmdaemon/test/*
+ jmdaemon/setup.py
+ jmdaemon/jmdaemon/socks.py
+ jmdaemon/jmdaemon/irc.py

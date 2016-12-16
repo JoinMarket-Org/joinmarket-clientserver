@@ -65,7 +65,7 @@ class OrderbookWatch(object):
             if int(oid) < 0 or int(oid) > sys.maxint:
                 log.debug("Got invalid order ID: " + oid + " from " +
                           counterparty)
-                return (False, [])
+                return
             # delete orders eagerly, so in case a buggy maker sends an
             # invalid offer, we won't accidentally !fill based on the ghost
             # of its previous message.
@@ -76,7 +76,7 @@ class OrderbookWatch(object):
             if int(minsize) < 0 or int(minsize) > 21 * 10**14:
                 log.debug("Got invalid minsize: {} from {}".format(
                     minsize, counterparty))
-                return (False, [])
+                return
             if int(minsize) < DUST_THRESHOLD:
                 minsize = DUST_THRESHOLD
                 log.debug("{} has dusty minsize, capping at {}".format(
@@ -85,24 +85,24 @@ class OrderbookWatch(object):
             if int(maxsize) < 0 or int(maxsize) > 21 * 10**14:
                 log.debug("Got invalid maxsize: " + maxsize + " from " +
                           counterparty)
-                return (False, [])
+                return
             if int(txfee) < 0:
                 log.debug("Got invalid txfee: {} from {}".format(txfee,
                                                                  counterparty))
-                return (False, [])
+                return
             if int(minsize) > int(maxsize):
 
                 fmt = ("Got minsize bigger than maxsize: {} - {} "
                        "from {}").format
                 log.debug(fmt(minsize, maxsize, counterparty))
-                return (False, [])
+                return
             if ordertype == 'absoffer' and not isinstance(cjfee, int):
                 try:
                     cjfee = int(cjfee)
                 except ValueError:
                     log.debug("Got non integer coinjoin fee: " + str(cjfee) +
                               " for an absoffer from " + counterparty)
-                    return (False, [])
+                    return
             self.db.execute(
                 'INSERT INTO orderbook VALUES(?, ?, ?, ?, ?, ?, ?);',
                 (counterparty, oid, ordertype, minsize, maxsize, txfee,
@@ -114,7 +114,6 @@ class OrderbookWatch(object):
             log.debug("Exception was: " + repr(e))
         finally:
             self.dblock.release()
-            return (True, [])
 
     def on_order_cancel(self, counterparty, oid):
         with self.dblock:

@@ -5,7 +5,7 @@ import random
 import pytest
 
 from jmdaemon import (init_keypair, get_pubkey, init_pubkey, as_init_encryption,
-                      NaclError)
+                      NaclError, encrypt_encode, decode_decrypt)
 
 
 @pytest.mark.parametrize("ab_message,ba_message,num_iterations",
@@ -43,6 +43,7 @@ def test_enc_wrapper(alice_bob_boxes, ab_message, ba_message, num_iterations):
         alice_ptext = alice_box.decrypt(otw_bmsg)
         assert alice_ptext == ba_message, "Encryption test: FAILED. Bob sent: %s, Alice received: " % (
             ba_message, alice_ptext)
+        assert decode_decrypt(encrypt_encode(ab_message, bob_box), bob_box) == ab_message
 
 @pytest.mark.parametrize("invalid_pubkey",
                          [
@@ -68,8 +69,8 @@ def test_invalid_nacl_keys(alice_bob_boxes, invalid_pubkey):
 
 @pytest.fixture()
 def alice_bob_boxes():
-    alice_kp = init_keypair()
-    bob_kp = init_keypair()
+    alice_kp = init_keypair("alicekey")
+    bob_kp = init_keypair("bobkey")
 
     # this is the DH key exchange part
     bob_otwpk = get_pubkey(bob_kp, True)
@@ -77,7 +78,7 @@ def alice_bob_boxes():
 
     bob_pk = init_pubkey(bob_otwpk)
     alice_box = as_init_encryption(alice_kp, bob_pk)
-    alice_pk = init_pubkey(alice_otwpk)
+    alice_pk = init_pubkey(alice_otwpk, "alicepubkey")
     bob_box = as_init_encryption(bob_kp, alice_pk)
 
     # now Alice and Bob can use their 'box'
