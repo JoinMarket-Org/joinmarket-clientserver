@@ -4,7 +4,7 @@ import logging
 from protocol import *
 from .enc_wrapper import as_init_encryption, decode_decrypt, \
     encrypt_encode, init_keypair, init_pubkey, get_pubkey, NaclError
-from .irc import IRCMessageChannel, B_PER_SEC
+from .irc import IRCMessageChannel
 from jmbase.support import get_log
 from .message_channel import MessageChannel, MessageChannelCollection
 from .orderbookwatch import OrderbookWatch

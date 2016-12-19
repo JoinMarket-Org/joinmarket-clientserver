@@ -27,9 +27,16 @@ import json
 import time
 import base64
 from dummy_mc import DummyMessageChannel
+from test_message_channel import make_valid_nick
 test_completed = False
 end_early = False
 jlog = get_log()
+
+class DummyMC(DummyMessageChannel):
+    #override run() for twisted compatibility
+    def run(self):
+        if self.on_welcome:
+            reactor.callLater(1, self.on_welcome, self)
 
 class JMProtocolError(Exception):
     pass
@@ -215,7 +222,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
                    maker_timeout_sec):
         self.maker_timeout_sec = int(maker_timeout_sec)
         self.minmakers = int(minmakers)
-        mcs = [DummyMessageChannel(None)]
+        mcs = [DummyMC(None)]
         self.mcc = MessageChannelCollection(mcs)
         #The following is a hack to get the counterparties marked seen/active;
         #note it must happen before callign set_msgchan for OrderbookWatch
@@ -274,6 +281,16 @@ class JMDaemonTestServerProtocolFactory(ServerFactory):
         return JMDaemonTestServerProtocol(self)
 
 
+class JMDaemonTest2ServerProtocol(JMDaemonServerProtocol):
+    #override here to avoid actually instantiating IRCMessageChannels
+    def init_connections(self, nick):
+        self.mc_shutdown()
+
+class JMDaemonTest2ServerProtocolFactory(ServerFactory):
+    protocol = JMDaemonTest2ServerProtocol
+    def buildProtocol(self, addr):
+        return JMDaemonTest2ServerProtocol(self)
+
 class TrialTestJMDaemonProto(unittest.TestCase):
 
     def setUp(self):
@@ -284,10 +301,8 @@ class TrialTestJMDaemonProto(unittest.TestCase):
         clientconn = reactor.connectTCP("localhost", 27184,
                                         JMTestClientProtocolFactory())
         self.addCleanup(clientconn.disconnect)
-        print("Got here")
 
     def test_waiter(self):
-        print("test_main()")
         return task.deferLater(reactor, 12, self._called_by_deffered)
 
     def _called_by_deffered(self):
@@ -299,18 +314,15 @@ class TestJMDaemonProtoInit(unittest.TestCase):
     def setUp(self):
         global end_early
         end_early = True
-        print("setUp()")
         load_program_config()
         jm_single().maker_timeout_sec = 1
-        self.port = reactor.listenTCP(27184, JMDaemonServerProtocolFactory())
+        self.port = reactor.listenTCP(27184, JMDaemonTest2ServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
         clientconn = reactor.connectTCP("localhost", 27184,
                                         JMTestClientProtocolFactory())
         self.addCleanup(clientconn.disconnect)
-        print("Got here")
 
     def test_waiter(self):
-        print("test_main()")
         return task.deferLater(reactor, 5, self._called_by_deffered)
 
     def _called_by_deffered(self):

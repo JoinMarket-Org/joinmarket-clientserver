@@ -13,4 +13,3 @@ omit =
  jmdaemon/test/*
  jmdaemon/setup.py
  jmdaemon/jmdaemon/socks.py
- jmdaemon/jmdaemon/irc.py

@@ -34,17 +34,6 @@ The client-daemon two-way communication is documented in jmbase.commands.py
 """
 
 
-class MCThread(threading.Thread):
-
-    def __init__(self, mc):
-        threading.Thread.__init__(self, name='MCThread')
-        self.mc = mc
-        self.daemon = True
-
-    def run(self):
-        self.mc.run()
-
-
 class JMProtocolError(Exception):
     pass
 
@@ -132,7 +121,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         self.jm_state = 0  #uninited
         if self.restart_mc_required:
-            MCThread(self.mcc).start()
+            self.mcc.run()
             self.restart_mc_required = False
         else:
             #if we are not restarting the MC,

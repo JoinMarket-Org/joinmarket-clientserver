@@ -13,7 +13,6 @@ from decimal import InvalidOperation, Decimal
 
 from jmdaemon.protocol import JM_VERSION
 from jmbase.support import get_log, joinmarket_alert, DUST_THRESHOLD
-from jmdaemon.irc import B_PER_SEC
 log = get_log()
 
 

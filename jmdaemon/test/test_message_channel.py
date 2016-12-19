@@ -22,7 +22,7 @@ import traceback
 import threading
 import jmbitcoin as bitcoin
 from dummy_mc import DummyMessageChannel
-
+from twisted.internet import reactor
 jlog = get_log()
 
 def make_valid_nick(i=0):
@@ -350,25 +350,10 @@ def test_mc_run(failuretype, mcindex, wait):
     ob.set_msgchan(mcc)
     dummydaemon = DaemonForSigns(mcc)
     mcc.set_daemon(dummydaemon)
-    #to externally trigger give up condition, start mcc itself in a thread
-    MChannelThread(mcc).start()
-    time.sleep(0.2)
-    mcc.give_up = True
-    time.sleep(1.2)
-    #wipe state, this time use failure injections
-    mcc = MessageChannelCollection(dmcs)
-    #to test exception raise on bad failure inject, don't use thread:
-    if failuretype == "bad":
-        with pytest.raises(NotImplementedError) as e_info:
-            mcc.run(failures=[failuretype, mcindex, wait])
-    else:
-        #need to override thread run()
-        class FIThread(MChannelThread):
-            def run(self):
-                self.mc.run(failures=self.failures)
-        fi = FIThread(mcc)
-        fi.failures = [failuretype, mcindex, wait]
-        fi.start()
-        time.sleep(wait+0.5)
-    
-    
+    #need to override thread run()
+    class FIThread(MChannelThread):
+        def run(self):
+            self.mc.run()
+    fi = FIThread(mcc)
+    fi.start()
+    time.sleep(wait+0.5)

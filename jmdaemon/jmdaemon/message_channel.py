@@ -167,36 +167,8 @@ class MessageChannelCollection(object):
             self.nicks_seen[mc] = self.nicks_seen[mc].difference(set([nick]))
 
     def run(self, failures=None):
-        """At the moment this is effectively a
-        do-nothing main loop. May be suboptimal.
-        For now it allows us to receive the
-        shutdown() signal for all message channels
-        and propagate it.
-        Additionally, for testing, a parameter 'failures'
-        may be passed, a tuple (type, message channel index, count)
-        which will perform a connection shutdown of type type
-        after iteration count count on message channel
-        self.mchannels[channel index].
-        """
         for mc in self.mchannels:
-            MChannelThread(mc).start()
-        i = 0
-        while True:
-            time.sleep(1)
-            i += 1
-            if self.give_up:
-                log.info("Shutting down all connections")
-                break
-            #feature only used for testing:
-            #deliberately shutdown a connection at a certain time.
-            #TODO may not be sufficiently deterministic.
-            if failures and i == failures[2]:
-                if failures[0] == 'break':
-                    self.mchannels[failures[1]].close()
-                elif failures[0] == 'shutdown':
-                    self.mchannels[failures[1]].shutdown()
-                else:
-                    raise NotImplementedError("Failure injection type unknown")
+            mc.run()
 
     #UNCONDITIONAL PUBLIC/BROADCAST: use all message
     #channels for these functions.
@@ -696,7 +668,7 @@ class MessageChannel(object):
         """Send a message to a specific counterparty"""
 
     @abc.abstractmethod
-    def _announce_orders(self, orderlist, nick):
+    def _announce_orders(self, offerlist, nick):
         """Send orders defined in list orderlist either
         to the shared public channel (pit), if nick=None,
         or to an individual counterparty nick. Note that
