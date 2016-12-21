@@ -28,12 +28,39 @@ and the specification of the communication between the client and server is isol
 The server is currently implemented as a daemon (see `scripts/joinmarketd.py`), in future
 it may be convenient to create the option to run it within the same process as the client.
 
-Use `virtualenv` to manage dependencies, e.g. follow this workflow:
+
+####Installation on Linux
+
+This is a WIP.
+
+To install everything (client and server), install these packages:
+
+sudo apt-get install python-dev python-pip git build-essential
+automake pkg-config libtool libffi-dev libssl-dev
+
+(+ libsodium-dev if you can find it, else build after)
+
+(to build libsodium after):
+
+    git clone git://github.com/jedisct1/libsodium.git
+    cd libsodium
+    git checkout tags/1.0.4
+    ./autogen.sh
+    ./configure
+    make check
+    sudo make install
+    cd ..
+
+Then:
+
+    sudo pip install virtualenv
+    mkdir jmvenv
+    cd jmvenv; source bin/activate; cd ..
+
+Install this repo in the virtualenv:
 
     git clone https://github.com/AdamISZ/joinmarket-clientserver
     cd joinmarket-clientserver
-    virtualenv .
-    source bin/activate
     
 Next, you can install in 3 different modes:
 
@@ -58,4 +85,26 @@ supported, see https://github.com/AdamISZ/electrum-joinmarket-plugin for details
  You can then access the library via `import jmclient`. In particular the
  jmclient.Taker class must be instantiated.
 
-Test instructions and test scripts: todo.
+#####Test instructions (for developers):
+
+This is a rough sketch, some more background is found in [JM wiki](https://github.com/Joinmarket-Org/joinmarket/wiki/Testing)
+
+Make sure to have bitcoind installed. Also need miniircd installed to the root dir:
+
+    git clone https://github.com/Joinmarket-Org/miniircd
+
+Install the test requirements (still in your virtualenv as mentioned above):
+
+    pip install -r requirements-dev.txt
+
+Curl is also needed:
+
+    sudo apt-get install curl
+
+Running the test suite should be done like:
+
+    python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --btcconf=/path/to/bitcoin.conf --nirc=2
+    
+(you'll first want to copy bitcoin.conf in the test/ directory to a place you choose, and
+copy the regtest_joinmarket.cfg file from the test/ directory to the root directory,
+both files will need minor edits for your btc configuration)
