@@ -1,0 +1,48 @@
+sudo: required
+dist: trusty
+language: python
+python:
+ - "2.7_with_system_site_packages"
+
+before_install:
+ - sudo apt-get install -y curl
+ - sudo apt-get install -y python-dev
+ - sudo apt-get install -y libssl-dev
+ - sudo apt-add-repository ppa:bitcoin/bitcoin -y
+ - sudo apt-get update -q
+ - sudo apt-get install --no-install-recommends --no-upgrade -qq bitcoind
+ - sudo apt-get install -y build-essential
+ - sudo apt-get install -y automake
+ - sudo apt-get install -y pkg-config
+ - sudo apt-get install -y libtool
+ - sudo apt-get install -y libffi-dev
+install:
+ - pip install -r requirements-dev.txt
+ - python setupall.py --daemon
+ - python setupall.py --client-bitcoin 
+script:
+#install and test libsodium
+ - git clone git://github.com/jedisct1/libsodium.git
+ - cd libsodium
+ - git checkout tags/1.0.4
+ - ./autogen.sh
+ - ./configure
+ - make check
+ - sudo make install
+ - cd ..
+#set up joinmarket.cfg
+ - cp test/regtest_joinmarket.cfg joinmarket.cfg
+#install miniircd
+ - git clone git://github.com/Joinmarket-Org/miniircd.git
+#setup bitcoin config file
+ - mkdir /home/travis/.bitcoin
+ - cp test/bitcoin.conf /home/travis/.bitcoin/.
+ - chmod 600 /home/travis/.bitcoin/bitcoin.conf
+ - mkdir logs
+ - mkdir wallets
+ -  python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --btcconf=/home/travis/.bitcoin/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 
+after_success:
+ - coveralls
+branches:
+ only:
+  - master 
