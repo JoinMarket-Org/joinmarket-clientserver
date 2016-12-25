@@ -15,6 +15,7 @@ import urllib
 import urllib2
 import traceback
 from decimal import Decimal
+from twisted.internet import reactor
 
 import btc
 
@@ -484,7 +485,7 @@ def bitcoincore_timeout_callback(uc_called, txout_set, txnotify_fun_list,
         return
     txnotify_fun_list.remove(txnotify_tuple)
     log.debug('timeoutfun txout_set=\n' + pprint.pformat(txout_set))
-    timeoutfun(uc_called)
+    reactor.callFromThread(timeoutfun, uc_called)
 
 
 class NotifyRequestHeader(BaseHTTPServer.BaseHTTPRequestHandler):
@@ -538,7 +539,7 @@ class NotifyRequestHeader(BaseHTTPServer.BaseHTTPRequestHandler):
                         break
                 assert txdata is not None
                 if txdata['confirmations'] == 0:
-                    unconfirmfun(txd, txid)
+                    reactor.callFromThread(unconfirmfun, txd, txid)
                     # TODO pass the total transfered amount value here somehow
                     # wallet_name = self.get_wallet_name()
                     # amount =
@@ -556,10 +557,10 @@ class NotifyRequestHeader(BaseHTTPServer.BaseHTTPRequestHandler):
                                               timeoutfun)).start()
                 else:
                     if not uc_called:
-                        unconfirmfun(txd, txid)
+                        reactor.callFromThread(unconfirmfun, txd, txid)
                         log.debug('saw confirmed tx before unconfirmed, ' +
                                   'running unconfirmfun first')
-                    confirmfun(txd, txid, txdata['confirmations'])
+                    reactor.callFromThread(confirmfun, txd, txid, txdata['confirmations'])
                     self.btcinterface.txnotify_fun.remove(txnotify_tuple)
                     log.debug('ran confirmfun')
 

@@ -10,7 +10,8 @@ import subprocess
 import jmbitcoin as bitcoin
 import pytest
 from jmclient import (load_program_config, jm_single, get_log, Wallet, sync_wallet)
-
+from twisted.trial import unittest
+from twisted.internet import reactor, task
 log = get_log()
 
 unconfirm_called = [False]
@@ -34,7 +35,11 @@ def timeout_callback(confirmed):
         timeout_confirm_called[0] = True
         log.debug('timeout confirm callback()')
 
-def test_notify_handler_errors(setup_tx_notify):
+def run_tests():
+    #TODO: rewrite with deferreds not callLater()
+    no_timeout()
+
+def notify_handler_errors():
     #TODO this has hardcoded 62612 which is from regtest_joinmarket.cfg
     #default testing config
     txhex = make_tx_add_notify()
@@ -49,39 +54,32 @@ def test_notify_handler_errors(setup_tx_notify):
             "http://localhost:62612/dummycommand"])
     #alertnotifys with an alert message should be accepted (todo, deprecate)
     res = subprocess.check_output(["curl", "-I", "--connect-timeout", "1",
-                "http://localhost:62612/alertnotify?dummyalertmessage"])    
+                "http://localhost:62612/alertnotify?dummyalertmessage"])
+    jm_single().bc_interface.tick_forward_chain_interval = 2
 
-def test_no_timeout(setup_tx_notify):
+def no_timeout():
     txhex = make_tx_add_notify()
     jm_single().bc_interface.pushtx(txhex)
-    time.sleep(6)
-    assert unconfirm_called[0]
-    assert confirm_called[0]
-    assert not timeout_unconfirm_called[0]
-    assert not timeout_confirm_called[0]
-    return True
+    reactor.callLater(6, checkstate, True, True, False, False, unconfirm_timeout)
 
-def test_unconfirm_timeout(setup_tx_notify):
+def checkstate(uc, c, tu, tc, f=None):
+    assert unconfirm_called[0] == uc
+    assert confirm_called[0] == c
+    assert timeout_unconfirm_called[0] == tu
+    assert timeout_confirm_called[0] == tc
+    if f:
+        f()
+
+def unconfirm_timeout():
     txhex = make_tx_add_notify()
     #dont pushtx
-    time.sleep(6)
-    assert not unconfirm_called[0]
-    assert not confirm_called[0]
-    assert timeout_unconfirm_called[0]
-    assert not timeout_confirm_called[0]
-    return True
+    reactor.callLater(6, checkstate, False, False, True, False)
 
-def test_confirm_timeout(setup_tx_notify):
+def confirm_timeout():
     txhex = make_tx_add_notify()
     jm_single().bc_interface.tick_forward_chain_interval = -1
     jm_single().bc_interface.pushtx(txhex)
-    time.sleep(10)
-    jm_single().bc_interface.tick_forward_chain_interval = 2
-    assert unconfirm_called[0]
-    assert not confirm_called[0]
-    assert not timeout_unconfirm_called[0]
-    assert timeout_confirm_called[0]
-    return True
+    reactor.callLater(True, False, False, True, notify_handler_errors)
 
 def make_tx_add_notify():
     wallet_dict = make_wallets(1, [[1, 0, 0, 0, 0]], mean_amt=4, sdev_amt=0)[0]
@@ -111,7 +109,19 @@ def make_tx_add_notify():
         confirm_callback, output_addr, timeout_callback)
     return tx
 
-@pytest.fixture(scope="module")
+class TxNotifies(unittest.TestCase):
+
+    def setUp(self):
+        setup_tx_notify()
+        reactor.callLater(0.0, run_tests)
+
+    def test_waiter(self):
+        #TODO fixed timeout, horrible..
+        return task.deferLater(reactor, 30, self._called_by_deferred)
+
+    def _called_by_deferred(self):
+        pass
+
 def setup_tx_notify():
     load_program_config()
     jm_single().config.set('TIMEOUT', 'unconfirm_timeout_sec', '3')
