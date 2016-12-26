@@ -246,7 +246,19 @@ class JMTakerClientProtocolFactory(protocol.ClientFactory):
         return JMTakerClientProtocol(self, self.taker)
 
 
-def start_reactor(host, port, factory, ish=True): #pragma: no cover
+def start_reactor(host, port, factory, ish=True, daemon=False): #pragma: no cover
     #(Cannot start the reactor in tests)
+    if daemon:
+        try:
+            from jmdaemon import JMDaemonServerProtocolFactory
+        except ImportError:
+            jlog.error("Cannot start daemon without jmdaemon package; "
+                       "either install it, and restart, or, if you want "
+                       "to run the daemon separately, edit the DAEMON "
+                       "section of the config. Quitting.")
+            return
+        dfactory = JMDaemonServerProtocolFactory()
+        reactor.listenTCP(port, dfactory)
+
     reactor.connectTCP(host, port, factory)
     reactor.run(installSignalHandlers=ish)

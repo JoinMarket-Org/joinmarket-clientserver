@@ -56,9 +56,10 @@ class TxIRCFactory(protocol.ClientFactory):
     def clientConnectionLost(self, connector, reason):
         log.info('IRC connection lost: ' + str(reason))
         if not self.wrapper.give_up:
-            log.info('Attempting to reconnect...')
-            reactor.callLater(self.wrapper.reconnect_interval,
-                              connector.connect())
+            if reactor.running:
+                log.info('Attempting to reconnect...')
+                reactor.callLater(self.wrapper.reconnect_interval,
+                                  connector.connect())
 
     def clientConnectionFailed(self, connector, reason):
         log.info('IRC connection failed: ' + reason)

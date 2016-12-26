@@ -89,6 +89,17 @@ required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
 
 defaultconfig = \
     """
+[DAEMON]
+#set to 1 to run the daemon service within this process;
+#set to 0 if the daemon is run separately (using script joinmarketd.py)
+no_daemon = 1
+#port on which daemon serves; note that communication still
+#occurs over this port even if no_daemon = 1
+daemon_port = 27183
+#currently, running the daemon on a remote host is
+#*NOT* supported, so don't change this variable
+daemon_host = localhost
+
 [BLOCKCHAIN]
 blockchain_source = blockr
 #options: blockr, bitcoin-rpc, regtest

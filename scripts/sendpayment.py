@@ -122,12 +122,6 @@ def main():
         dest='makercount',
         help='how many makers to coinjoin with, default random from 4 to 6',
         default=random.randint(4, 6))
-    parser.add_option('-p',
-                      '--port',
-                      type='int',
-                      dest='daemonport',
-                      help='port on which joinmarketd is running',
-                      default='27183')
     parser.add_option('-S',
                       '--schedule-file',
                       type='str',
@@ -316,7 +310,11 @@ def main():
                   order_chooser=chooseOrdersFunc,
                   callbacks=(filter_orders_callback, None, taker_finished))
     clientfactory = JMTakerClientProtocolFactory(taker)
-    start_reactor("localhost", options.daemonport, clientfactory)
+    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
+    daemon = True if nodaemon == 1 else False
+    start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
+                  jm_single().config.getint("DAEMON", "daemon_port"),
+                  clientfactory, daemon=daemon)
 
 if __name__ == "__main__":
     main()
