@@ -99,6 +99,9 @@ daemon_port = 27183
 #currently, running the daemon on a remote host is
 #*NOT* supported, so don't change this variable
 daemon_host = localhost
+#by default the client-daemon connection is plaintext, set to 'true' to use TLS;
+#for this, you need to have a valid (self-signed) certificate installed
+use_ssl = false
 
 [BLOCKCHAIN]
 blockchain_source = blockr

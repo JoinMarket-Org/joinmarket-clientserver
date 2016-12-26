@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function
 from twisted.python.log import startLogging, err
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol, reactor, ssl
 from twisted.internet.task import LoopingCall
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
@@ -9,6 +9,7 @@ from twisted.python import failure
 from twisted.protocols import amp
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.internet.ssl import ClientContextFactory
 from jmbase import commands
 from sys import stdout
 
@@ -248,6 +249,7 @@ class JMTakerClientProtocolFactory(protocol.ClientFactory):
 
 def start_reactor(host, port, factory, ish=True, daemon=False): #pragma: no cover
     #(Cannot start the reactor in tests)
+    usessl = True if jm_single().config.get("DAEMON", "use_ssl") != 'false' else False
     if daemon:
         try:
             from jmdaemon import JMDaemonServerProtocolFactory
@@ -258,7 +260,16 @@ def start_reactor(host, port, factory, ish=True, daemon=False): #pragma: no cove
                        "section of the config. Quitting.")
             return
         dfactory = JMDaemonServerProtocolFactory()
-        reactor.listenTCP(port, dfactory)
+        if usessl:
+            reactor.listenSSL(port, dfactory,
+                          ssl.DefaultOpenSSLContextFactory(
+                              "./ssl/key.pem", "./ssl/cert.pem"))
+        else:
+            reactor.listenTCP(port, dfactory)
 
-    reactor.connectTCP(host, port, factory)
+    if usessl:
+        ctx = ClientContextFactory()
+        reactor.connectSSL(host, port, factory, ctx)
+    else:
+        reactor.connectTCP(host, port, factory)
     reactor.run(installSignalHandlers=ish)
