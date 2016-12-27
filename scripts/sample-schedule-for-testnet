@@ -1,3 +1,5 @@
 #sample for testing
-1, 110000000, 3, INTERNAL
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw
+#fields: source mixdepth, amount (satoshis or fraction if non-int),
+# makercount, destination, waittime (ignored if 0)
+1, 110000000, 3, INTERNAL, 0
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0

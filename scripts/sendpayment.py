@@ -60,6 +60,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
                               RegtestBitcoinCoreInterface, estimate_tx_fee)
 
 from jmbase.support import get_log, debug_dump_object, get_password
+from cli_options import get_sendpayment_parser
 
 log = get_log()
 
@@ -85,106 +86,7 @@ def pick_order(orders, n): #pragma: no cover
         pickedOrderIndex = -1
 
 def main():
-    parser = OptionParser(
-        usage=
-        'usage: %prog [options] [wallet file / fromaccount] [amount] [destaddr]',
-        description='Sends a single payment from a given mixing depth of your '
-        +
-        'wallet to an given address using coinjoin and then switches off. Also sends from bitcoinqt. '
-        +
-        'Setting amount to zero will do a sweep, where the entire mix depth is emptied')
-    parser.add_option(
-        '-f',
-        '--txfee',
-        action='store',
-        type='int',
-        dest='txfee',
-        default=-1,
-        help=
-        'number of satoshis per participant to use as the initial estimate ' +
-        'for the total transaction fee, default=dynamically estimated, note that this is adjusted '
-        +
-        'based on the estimated fee calculated after tx construction, based on '
-        + 'policy set in joinmarket.cfg.')
-    parser.add_option(
-        '-w',
-        '--wait-time',
-        action='store',
-        type='float',
-        dest='waittime',
-        help='wait time in seconds to allow orders to arrive, default=15',
-        default=15)
-    parser.add_option(
-        '-N',
-        '--makercount',
-        action='store',
-        type='int',
-        dest='makercount',
-        help='how many makers to coinjoin with, default random from 4 to 6',
-        default=random.randint(4, 6))
-    parser.add_option('-S',
-                      '--schedule-file',
-                      type='str',
-                      dest='schedule',
-                      help='schedule file name',
-                      default='')
-    parser.add_option(
-        '-C',
-        '--choose-cheapest',
-        action='store_true',
-        dest='choosecheapest',
-        default=False,
-        help=
-        'override weightened offers picking and choose cheapest. this might reduce anonymity.')
-    parser.add_option(
-        '-P',
-        '--pick-orders',
-        action='store_true',
-        dest='pickorders',
-        default=False,
-        help=
-        'manually pick which orders to take. doesn\'t work while sweeping.')
-    parser.add_option('-m',
-                      '--mixdepth',
-                      action='store',
-                      type='int',
-                      dest='mixdepth',
-                      help='mixing depth to spend from, default=0',
-                      default=0)
-    parser.add_option('-a',
-                      '--amtmixdepths',
-                      action='store',
-                      type='int',
-                      dest='amtmixdepths',
-                      help='number of mixdepths in wallet, default 5',
-                      default=5)
-    parser.add_option('-g',
-                      '--gap-limit',
-                      type="int",
-                      action='store',
-                      dest='gaplimit',
-                      help='gap limit for wallet, default=6',
-                      default=6)
-    parser.add_option('--yes',
-                      action='store_true',
-                      dest='answeryes',
-                      default=False,
-                      help='answer yes to everything')
-    parser.add_option(
-        '--rpcwallet',
-        action='store_true',
-        dest='userpcwallet',
-        default=False,
-        help=('Use the Bitcoin Core wallet through json rpc, instead '
-              'of the internal joinmarket wallet. Requires '
-              'blockchain_source=json-rpc'))
-    parser.add_option('--fast',
-                      action='store_true',
-                      dest='fastsync',
-                      default=False,
-                      help=('choose to do fast wallet sync, only for Core and '
-                            'only for previously synced wallet'))
-
+    parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
     load_program_config()
 
@@ -287,11 +189,11 @@ def main():
                 return False
         return True
 
-    def taker_finished(res, fromtx=False):
+    def taker_finished(res, fromtx=False, waittime=0.0):
         if fromtx:
             if res:
                 sync_wallet(wallet, fast=options.fastsync)
-                clientfactory.getClient().clientStart()
+                reactor.callLater(waittime, clientfactory.getClient().clientStart)
             else:
                 #a transaction failed; just stop
                 reactor.stop()

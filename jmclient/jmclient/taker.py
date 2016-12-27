@@ -83,6 +83,14 @@ class Taker(object):
             si = self.schedule[self.schedule_index]
             self.mixdepth = si[0]
             self.cjamount = si[1]
+            #non-integer coinjoin amounts are treated as fractions
+            #this is currently used by the tumbler algo
+            if isinstance(self.cjamount, float):
+                mixdepthbal = self.wallet.get_balance_by_mixdepth()[self.mixdepth]
+                self.cjamount = int(self.cjamount * mixdepthbal)
+                if self.cjamount < jm_single().mincjamount:
+                    jlog.debug("Coinjoin amount too low, bringing up.")
+                    self.cjamount = jm_single().mincjamount
             self.n_counterparties = si[2]
             self.my_cj_addr = si[3]
             #if destination is flagged "INTERNAL", choose a destination
@@ -403,6 +411,7 @@ class Taker(object):
         assert not len(self.nonrespondants)
         jlog.debug('all makers have sent their signatures')
         self.taker_info_callback("INFO", "Transaction is valid, signing..")
+        jlog.debug("schedule item was: " + str(self.schedule[self.schedule_index]))
         self.self_sign_and_push()
         return True
 
@@ -567,4 +576,5 @@ class Taker(object):
     def confirm_callback(self, txd, txid, confirmations):
         jlog.debug("Confirmed callback in taker, confs: " + str(confirmations))
         fromtx=False if self.schedule_index + 1 == len(self.schedule) else True
-        self.on_finished_callback(True, fromtx=fromtx)
+        waittime = self.schedule[self.schedule_index][4]
+        self.on_finished_callback(True, fromtx=fromtx, waittime=waittime)
