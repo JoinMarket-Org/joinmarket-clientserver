@@ -62,7 +62,7 @@ class TxIRCFactory(protocol.ClientFactory):
                                   connector.connect())
 
     def clientConnectionFailed(self, connector, reason):
-        log.info('IRC connection failed: ' + reason)
+        log.info('IRC connection failed')
 
 class IRCMessageChannel(MessageChannel):
 

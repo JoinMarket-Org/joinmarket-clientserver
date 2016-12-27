@@ -59,7 +59,7 @@ class DummyWallet(AbstractWallet):
 def dummy_order_chooser():
     return t_chosen_orders
 
-def taker_finished(res, fromtx=False):
+def taker_finished(res, fromtx=False, waittime=0):
     print("called taker finished callback")
 
 def dummy_filter_orderbook(orders_fees, cjamount):
@@ -69,7 +69,8 @@ def dummy_filter_orderbook(orders_fees, cjamount):
 def get_taker(schedule=None, schedule_len=0, sign_method=None, on_finished=None,
               filter_orders=None):
     if not schedule:
-        schedule = ['a']*schedule_len #note, for taker.initalize() this will result in junk
+        #note, for taker.initalize() this will result in junk
+        schedule = [('a', 'b', 'c', 'd', 'e')]*schedule_len
     print("Using schedule: " + str(schedule))
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
@@ -82,11 +83,11 @@ def test_filter_rejection(createcmtdata):
         print("calling filter orders rejection")
         return False
     taker = get_taker(filter_orders=filter_orders_reject)
-    taker.schedule = [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")]
+    taker.schedule = [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]
     res = taker.initialize(t_orderbook)
     assert not res[0]
     taker = get_taker(filter_orders=filter_orders_reject)
-    taker.schedule = [(0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")]
+    taker.schedule = [(0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]
     res = taker.initialize(t_orderbook)
     assert not res[0]
 
@@ -138,7 +139,7 @@ def test_make_commitment(createcmtdata, failquery, external):
     clean_up()
     
 def test_not_found_maker_utxos(createcmtdata):
-    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")])
+    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
     orderbook = copy.deepcopy(t_orderbook)
     res = taker.initialize(orderbook)
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
@@ -150,7 +151,7 @@ def test_not_found_maker_utxos(createcmtdata):
     jm_single().bc_interface.setQUSFail(False)
 
 def test_auth_pub_not_found(createcmtdata):
-    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")])
+    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
     orderbook = copy.deepcopy(t_orderbook)
     res = taker.initialize(orderbook)
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
@@ -173,30 +174,32 @@ def test_auth_pub_not_found(createcmtdata):
     [
         ([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, False,
          2, False, None, None),
-        ([(0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, False,
+        ([(0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
          2, False, None, None), #sweep
+        ([(0, 0.2, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+         2, False, None, None), #tumble style non-int amounts
         #edge case triggers that don't fail
-        ([(0, 0, 4, "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf")], False, False,
+        ([(0, 0, 4, "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf", 0)], False, False,
          2, False, None, None), #sweep rounding error case
-        ([(0, 199850001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, False,
+        ([(0, 199850001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
          2, False, None, None), #trigger sub dust change for taker
         #edge case triggers that do fail
-        ([(0, 199850000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, False,
+        ([(0, 199850000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
          2, False, None, None), #trigger negative change        
-        ([(0, 199599800, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, False,
+        ([(0, 199599800, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
          2, False, None, None), #trigger sub dust change for maker
-        ([(0, 20000000, 3, "INTERNAL")], True, False,
+        ([(0, 20000000, 3, "INTERNAL", 0)], True, False,
          2, False, None, None), #test high fee
-        ([(0, 20000000, 3, "INTERNAL")], False, False,
+        ([(0, 20000000, 3, "INTERNAL", 0)], False, False,
          7, False, None, None), #test not enough cp
-        ([(0, 80000000, 3, "INTERNAL")], False, False,
+        ([(0, 80000000, 3, "INTERNAL", 0)], False, False,
          2, False, None, "30000"), #test failed commit       
-        ([(0, 20000000, 3, "INTERNAL")], False, False,
+        ([(0, 20000000, 3, "INTERNAL", 0)], False, False,
          2, True, None, None), #test unauthed response
-        ([(0, 5000000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, True,
+        ([(0, 5000000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, True,
          2, False, None, None), #test too much coins
-        ([(0, 0, 5, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, False,
-         2, False, ["J559UPUSLLjHJpaB", "J55z23xdjxJjC7er"], None), #test inadequate for sweep
+        ([(0, 0, 5, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+         2, False, ["J559UPUSLLjHJpaB", "J55z23xdjxJjC7er", 0], None), #test inadequate for sweep
     ])
 def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
                     notauthed, ignored, nocommit):
@@ -220,6 +223,13 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         taker.ignored_makers = ignored
     if nocommit:
         jm_single().config.set("POLICY", "taker_utxo_amtpercent", nocommit)
+    if schedule[0][1] == 0.2:
+        #triggers calc-ing amount based on a fraction
+        jm_single().mincjamount = 50000000 #bigger than 40m = 0.2 * 200m
+        res = taker.initialize(orderbook)
+        assert res[0]
+        assert res[1] == jm_single().mincjamount
+        return clean_up()
     res = taker.initialize(orderbook)
     if toomuchcoins or ignored:
         assert not res[0]
@@ -321,7 +331,7 @@ def test_unconfirm_confirm(schedule_len):
     variable as "False" once the schedule is complete.
     """
     test_unconfirm_confirm.txflag = True
-    def finished_for_confirms(res, fromtx=False):
+    def finished_for_confirms(res, fromtx=False, waittime=0):
         assert res #confirmed should always send true
         test_unconfirm_confirm.txflag = fromtx
 
@@ -339,9 +349,9 @@ def test_unconfirm_confirm(schedule_len):
     "dummyaddr, signmethod, schedule",
     [
         ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ", None,
-         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")]),
+         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]),
         ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ", "wallet",
-         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")]),        
+         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]),
     ])
 def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
     #plan: create a new transaction with known inputs and dummy outputs;
