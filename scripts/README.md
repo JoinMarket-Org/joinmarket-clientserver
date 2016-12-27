@@ -27,8 +27,38 @@ Do:
 Note that the magic string `INTERNAL` in the file creates a payment to a new address
 in the next mixdepth (wrapping around to zero if you reach the maximum mixdepth).
 
+To pay a fraction of the total in a mixdepth you can simply make the amount field
+in the schedule a decimal instead of an integer (0.0 < amt < 1.0 of course).
+
 The schedule file can have any name, and is a comma separated value file, the lists
-must follow that format (length 4 items).
+must follow that format; see the comment in the sample file above (each list is length 5 items).
+
+*This part can be ignored for a first run:
+
+Additional fields in config: in the config section `[DAEMON]` you can specify whether
+to run the daemon as a separate process or not. By default, the daemon will run in the
+same Python process, for maximum convenience, so you needn't separately start `joinmarketd.py` (see below).
+
+You can run the daemon separately by setting `nodaemon=0` in `[DAEMON]`. You can choose to use ssl within this single-process configuration with `use_ssl=true` (again, see below for more on this).*
+
+###tumbler.py
+
+This is an extension of the functionality of `sendpayment.py` in that it auto-generates
+a schedule of payments to internal and external addresses, following the same algo
+as in normal Joinmarket and described [here](https://github.com/JoinMarket-Org/joinmarket/wiki/Step-by-step-running-the-tumbler).
+
+The main difference is that the command line options allow you to specify multiple destination addresses and all the various
+parameters controlling the transaction sequence (see `python tumbler.py --help` for details).
+
+It is also of course possible to create your own tumble schedule manually, just using
+`sendpayment.py` as above, by creating a schedule file, but this is a little complicated to figure out at first.
+
+(The two scripts `sendpayment.py` and `tumbler.py` may be folded together later.)
+
+Shortly I'll try to make this somewhat idempotent by having the schedule auto-generate work by reading
+the current state of the wallet (simple example, if the 0th mixdepth is empty, start from the first).
+It's quite fiddly, but to the extent that this works it could create a simple workflow of "restart until complete", accounting
+for various failure modes that can occur.
 
 ###wallet-tool.py
 
@@ -37,9 +67,13 @@ This is the same as in normal Joinmarket.
 ###joinmarketd.py
 
 This file's role is explained in the main README in the top level directory. It only
-takes one argument, the port it serves on (default 27183):
+takes two arguments, the port it serves on (default 27183), and whether to use TLS for
+client-server communication (default 0=no tls, 1=tls):
 
-    `python joinmarketd.py 27183`
+    `python joinmarketd.py [port number] [1/0]`
+
+To use tls you must create a `key.pem` and `cert.pem` in a subdirectory `/ssl`, representing
+a self-signed certificate. This needs some work to be cleaned up, but does work already.
 
 ###add-utxo.py
 
@@ -49,5 +83,3 @@ of the `commitments.json` file, explained above.
 ###sendtomany.py
 
 As above.
-
-More details above, and probably more scripts, will be added later.
