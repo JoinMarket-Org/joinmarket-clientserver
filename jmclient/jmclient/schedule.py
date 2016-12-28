@@ -34,7 +34,7 @@ def get_schedule(filename):
                 success, errmsg = validate_address(destaddr)
                 if not success:
                     return (False, "Invalid address: " + destaddr + "," + errmsg)
-            schedule.append((mixdepth, amount, makercount, destaddr))
+            schedule.append((mixdepth, amount, makercount, destaddr, waittime))
     return (True, schedule)
 
 def get_tumble_schedule(options, destaddrs):
