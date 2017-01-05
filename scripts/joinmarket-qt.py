@@ -1240,11 +1240,6 @@ class SpendTab(QWidget):
             #not the final finished transaction
             if self.taker_finished_res:
                 w.statusBar().showMessage("Transaction completed successfully.")
-                #notify
-                JMQtMessageBox(self,
-                           "Transaction has been broadcast.\n" + "Txid: " +
-                           str(self.taker.txid),
-                           title="Success")
                 self.persistTxToHistory(self.taker.my_cj_addr,
                                         self.taker.cjamount,
                                         self.taker.txid)
@@ -1259,9 +1254,16 @@ class SpendTab(QWidget):
                 log.info("Did not complete successfully, shutting down")
             else:
                 log.info("All transactions completed correctly")
+                w.statusBar().showMessage("All transaction(s) completed successfully.")
                 self.persistTxToHistory(self.taker.my_cj_addr,
                                         self.taker.cjamount,
                                         self.taker.txid)
+                if len(self.taker.schedule) == 1:
+                    msg = "Transaction has been broadcast.\n" + "Txid: " + \
+                           str(self.taker.txid)
+                else:
+                    msg = "All transactions have been broadcast."
+                JMQtMessageBox(self, msg, title="Success")
             self.cleanUp()
 
     def persistTxToHistory(self, addr, amt, txid):
