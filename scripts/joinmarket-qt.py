@@ -52,12 +52,15 @@ from jmclient import (load_program_config, get_network, Wallet,
                       get_p2pk_vbyte, jm_single, validate_address,
                       get_log, weighted_order_choose, Taker,
                       JMTakerClientProtocolFactory, WalletError,
-                      start_reactor)
+                      start_reactor, get_schedule, get_tumble_schedule)
 #from joinmarket import load_program_config, get_network, Wallet, encryptData, \
 #    get_p2pk_vbyte, jm_single, mn_decode, mn_encode, create_wallet_file, \
 #    validate_address, random_nick, get_log, IRCMessageChannel, \
 #    weighted_order_choose, get_blockchain_interface_instance, joinmarket_alert, \
 #    core_alert
+
+def satoshis_to_amt_str(x):
+    return str(Decimal(x)/Decimal('1e8')) + " BTC"
 
 log = get_log()
 donation_address = '1LT6rwv26bV7mgvRosoSCyGM7ttVRsYidP'
@@ -74,6 +77,7 @@ config_types = {'rpc_port': int,
                 'usessl': bool,
                 'socks5': bool,
                 'network': bool,
+                'checktx': bool,
                 'socks5_port': int,
                 'maker_timeout_sec': int,
                 'tx_fees': int,
@@ -86,6 +90,7 @@ config_types = {'rpc_port': int,
 config_tips = {
     'blockchain_source': 'options: blockr, bitcoin-rpc',
     'network': 'one of "testnet" or "mainnet"',
+    'checktx': 'whether to check fees before completing transaction',
     'rpc_host':
     'the host for bitcoind; only used if blockchain_source is bitcoin-rpc',
     'rpc_port': 'port for connecting to bitcoind over rpc',
@@ -143,9 +148,9 @@ def update_config_for_gui():
     '''
     gui_config_names = ['gaplimit', 'history_file', 'check_high_fee',
                         'max_mix_depth', 'txfee_default', 'order_wait_time',
-                        'daemon_port']
+                        'daemon_port', 'checktx']
     gui_config_default_vals = ['6', 'jm-tx-history.txt', '2', '5', '5000', '30',
-                               '27183']
+                               '27183', 'true']
     if "GUI" not in jm_single().config.sections():
         jm_single().config.add_section("GUI")
     gui_items = jm_single().config.items("GUI")
@@ -163,6 +168,42 @@ def persist_config():
     TODO: possibly correct that.'''
     with open('joinmarket.cfg', 'w') as f:
         jm_single().config.write(f)
+
+def checkAddress(parent, addr):
+    valid, errmsg = validate_address(str(addr))
+    if not valid:
+        JMQtMessageBox(parent,
+                       "Bitcoin address not valid.\n" + errmsg,
+                       mbtype='warn',
+                       title="Error")
+
+def getSettingsWidgets():
+    results = []
+    sN = ['Recipient address', 'Number of counterparties', 'Mixdepth',
+          'Amount in bitcoins (BTC)']
+    sH = ['The address you want to send the payment to',
+          'How many other parties to send to; if you enter 4\n' +
+          ', there will be 5 participants, including you',
+          'The mixdepth of the wallet to send the payment from',
+          'The amount IN BITCOINS to send.\n' +
+          'If you enter 0, a SWEEP transaction\nwill be performed,' +
+          ' spending all the coins \nin the given mixdepth.']
+    sT = [str, int, int, float]
+    #todo maxmixdepth
+    sMM = ['', (2, 20),
+           (0, jm_single().config.getint("GUI", "max_mix_depth") - 1),
+           (0.00000001, 100.0, 8)]
+    sD = ['', '3', '0', '']
+    for x in zip(sN, sH, sT, sD, sMM):
+        ql = QLabel(x[0])
+        ql.setToolTip(x[1])
+        qle = QLineEdit(x[3])
+        if x[2] == int:
+            qle.setValidator(QIntValidator(*x[4]))
+        if x[2] == float:
+            qle.setValidator(QDoubleValidator(*x[4]))
+        results.append((ql, qle))
+    return results
 
 class TaskThread(QtCore.QThread):
     '''Thread that runs background tasks.  Callbacks are guaranteed
@@ -653,6 +694,162 @@ class SettingsTab(QDialog):
             results.append((QLabel(label), qt))
         return results
 
+""" TODO implement this option
+class SchStaticPage(QWizardPage):
+    def __init__(self, parent):
+        super(SchStaticPage, self).__init__(parent)
+        self.setTitle("Manually create a schedule entry")
+        layout = QGridLayout()
+        wdgts = getSettingsWidgets()
+        for i, x in enumerate(wdgts):
+            layout.addWidget(x[0], i + 1, 0)
+            layout.addWidget(x[1], i + 1, 1, 1, 2)
+        wdgts[0][1].editingFinished.connect(
+                    lambda: checkAddress(self, wdgts[0][1].text()))
+        self.setLayout(layout)
+"""
+
+class SchDynamicPage1(QWizardPage):
+    def __init__(self, parent):
+        super(SchDynamicPage1, self).__init__(parent)
+        self.setTitle("Tumble schedule generation")
+        self.setSubTitle("Set parameters for the sequence of transactions in the tumble.")
+        results = []
+        sN = ['Starting mixdepth', 'Average number of counterparties',
+              'How many mixdepths to tumble through',
+              'Average wait time between transactions, in seconds',
+              'Average number of transactions per mixdepth']
+        #Tooltips
+        sH = ["The starting mixdepth can be decided from the Wallet tab; it must "
+        "have coins in it, but it's OK if some coins are in other mixdepths.",
+        "How many other participants are in each coinjoin, on average; but "
+        "each individual coinjoin will have a number that's slightly varied "
+        "from this, randomly",
+        "For example, if you start at mixdepth 1 and enter 4 here, the tumble "
+        "will move coins from mixdepth 1 to mixdepth 5",
+        "This is the time waited *after* 1 confirmation has occurred, and is "
+        "varied randomly.",
+        "Will be varied randomly, with a minimum of 1 per mixdepth"]
+        #types
+        sT = [int, int, int, float, int]
+        #constraints
+        sMM = [(0, jm_single().config.getint("GUI", "max_mix_depth") - 1), (3, 20),
+               (1, 5), (0.00000001, 100.0, 8), (2, 10)]
+        sD = ['', '', '', '', '']
+        for x in zip(sN, sH, sT, sD, sMM):
+            ql = QLabel(x[0])
+            ql.setToolTip(x[1])
+            qle = QLineEdit(x[3])
+            if x[2] == int:
+                qle.setValidator(QIntValidator(*x[4]))
+            if x[2] == float:
+                qle.setValidator(QDoubleValidator(*x[4]))
+            results.append((ql, qle))
+        layout = QGridLayout()
+        layout.setSpacing(4)
+        for i, x in enumerate(results):
+            layout.addWidget(x[0], i + 1, 0)
+            layout.addWidget(x[1], i + 1, 1, 1, 2)
+        self.setLayout(layout)
+        self.registerField("mixdepthsrc*", results[0][1])
+        self.registerField("makercount*", results[1][1])
+        self.registerField("mixdepthcount*", results[2][1])
+        self.registerField("timelambda*", results[3][1])
+        self.registerField("txcountparams*", results[4][1])
+
+class SchDynamicPage2(QWizardPage):
+
+    def __init__(self, parent):
+        super(SchDynamicPage2, self).__init__(parent)
+        self.setTitle("Tumble schedule generation 2")
+        self.setSubTitle("Set destination addresses for tumble.")
+        layout = QGridLayout()
+        layout.setSpacing(4)
+        #by default create three address fields
+        addrLEs = []
+        #for testing
+        testaddrs = ["mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS",
+                     "msFGHeut3rfJk5sKuoZNfpUq9MeVMqmido",
+                     "mkZfBXCRPs8fCmwWLrspjCvYozDhK6Eepz"]
+        for i in range(3):
+            layout.addWidget(QLabel("Destination address: " + str(i)), i, 0)
+            addrLEs.append(QLineEdit(testaddrs[i]))
+            layout.addWidget(addrLEs[-1], i, 1, 1, 2)
+            #addrLEs[-1].editingFinished.connect(
+            #    lambda: checkAddress(self, addrLEs[-1].text()))
+            self.registerField("destaddr"+str(i), addrLEs[-1])
+        self.setLayout(layout)
+
+class SchFinishPage(QWizardPage):
+    def __init__(self, parent):
+        super(SchFinishPage, self).__init__(parent)
+        self.setTitle("Save your schedule")
+        self.setSubTitle("The schedule will be saved to this file when you click Finish")
+        layout = QGridLayout()
+        layout.setSpacing(4)
+        layout.addWidget(QLabel("Enter schedule name: "), 0, 0)
+        self.schedName = QLineEdit()
+        layout.addWidget(self.schedName, 0, 1, 1, 2)
+        self.registerField("schedfilename*", self.schedName)
+        self.setLayout(layout)
+
+class SchIntroPage(QWizardPage):
+    def __init__(self, parent):
+        super(SchIntroPage, self).__init__(parent)
+        self.setTitle("Generate a join transaction schedule")
+        self.rbgroup = QButtonGroup(self)
+        self.r0 = QRadioButton("Define schedule manually (not yet implemented)")
+        self.r0.setEnabled(False)
+        self.r1 = QRadioButton("Generate a tumble schedule automatically")
+        self.rbgroup.addButton(self.r0)
+        self.rbgroup.addButton(self.r1)
+        layout = QVBoxLayout()
+        layout.addWidget(self.r0)
+        layout.addWidget(self.r1)
+        self.setLayout(layout)
+
+"""
+    def nextId(self):
+        if self.rbgroup.checkedButton() == self.r0:
+            self.parent().staticSchedule = True
+            return 3
+        elif self.rbgroup.checkedButton() == self.r1:
+            self.parent().staticSchedule = False
+            return 1
+        else:
+            return 0
+"""
+
+class ScheduleWizard(QWizard):
+    def __init__(self):
+        super(ScheduleWizard, self).__init__()
+        self.setWindowTitle("Joinmarket schedule generator")
+        self.setPage(0, SchIntroPage(self))
+        self.setPage(1, SchDynamicPage1(self))
+        self.setPage(2, SchDynamicPage2(self))
+        #self.setPage(3, SchStaticPage(self))
+        self.setPage(3, SchFinishPage(self))
+
+    def get_schedule(self):
+        destaddrs = [str(x) for x in [self.field("destaddr0").toString(),
+                     self.field("destaddr1").toString(),
+                     self.field("destaddr2").toString()]]
+        opts = {}
+        opts['mixdepthsrc'] = int(self.field("mixdepthsrc").toString())
+        opts['mixdepthcount'] = int(self.field("mixdepthcount").toString())
+        opts['txfee'] = -1
+        opts['addrcount'] = 3
+        opts['makercountrange'] = (int(self.field("makercount").toString()), 1)
+        opts['minmakercount'] = 2
+        opts['txcountparams'] = (int(self.field("txcountparams").toString()), 1)
+        opts['mintxcount'] = 1
+        opts['amountpower'] = 100.0
+        opts['timelambda'] = float(self.field("timelambda").toString())
+        opts['waittime'] = 20
+        opts['mincjamount'] = 1000000
+        #needed for Taker to check:
+        jm_single().mincjamount = opts['mincjamount']
+        return get_tumble_schedule(opts, destaddrs)
 
 class SpendTab(QWidget):
 
@@ -674,7 +871,39 @@ class SpendTab(QWidget):
                                   self.takerInfo)
         #Signal indicating Taker has finished its work
         self.jmclient_obj.connect(self.jmclient_obj, QtCore.SIGNAL('JMCLIENT:finished'),
-                                  self.takerFinished)        
+                                  self.takerFinished)
+        #will be set in 'multiple join' tab if the user chooses to run a schedule
+        self.loaded_schedule = None
+
+    def generateTumbleSchedule(self):
+        #needs a set of tumbler options and destination addresses, so needs
+        #a wizard
+        wizard = ScheduleWizard()
+        wizard.exec_()
+        self.loaded_schedule = wizard.get_schedule()
+        print(str(self.loaded_schedule))
+        self.toggleButtons(False, False, True, False)
+
+
+    def selectSchedule(self):
+        current_path = os.path.dirname(os.path.realpath(__file__))
+        firstarg = QFileDialog.getOpenFileName(self,
+                                               'Choose Schedule File',
+                                               directory=current_path)
+        #TODO validate the schedule
+        log.debug('Looking for schedule in: ' + firstarg)
+        if not firstarg:
+            return
+        res, schedule = get_schedule(firstarg)
+        if not res:
+            JMQtMessageBox(self, "Not a valid JM schedule file", mbtype='crit',
+                           title='Error')
+        else:
+            w.statusBar().showMessage("Schedule loaded OK.")
+            self.sch_label2.setText(os.path.basename(str(firstarg)))
+            self.schedule_set_button.setEnabled(True)
+            self.toggleButtons(False, False, True, False)
+            self.loaded_schedule = schedule
 
     def initUI(self):
         vbox = QVBoxLayout(self)
@@ -685,11 +914,48 @@ class SpendTab(QWidget):
         sA = QScrollArea()
         sA.setWidgetResizable(True)
         topLayout.addWidget(sA)
-        iFrame = QFrame()
-        sA.setWidget(iFrame)
+        self.qtw = QTabWidget()
+        sA.setWidget(self.qtw)
+        self.single_join_tab = QWidget()
+        self.schedule_tab = QWidget()
+        self.qtw.addTab(self.single_join_tab, "Single Join")
+        self.qtw.addTab(self.schedule_tab, "Multiple Join")
+
+        #construct layout for scheduler
+        sch_layout = QGridLayout()
+        sch_layout.setSpacing(4)
+        self.schedule_tab.setLayout(sch_layout)
+        current_schedule_layout = QHBoxLayout()
+        sch_label1=QLabel("Current schedule: ")
+        sch_label1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.sch_label2 = QLabel("None")
+        current_schedule_layout.addWidget(sch_label1)
+        current_schedule_layout.addWidget(self.sch_label2)
+        sch_layout.addLayout(current_schedule_layout, 0, 0, 1, 2)
+        self.schedule_set_button = QPushButton('Choose schedule file')
+        self.schedule_set_button.clicked.connect(self.selectSchedule)
+        self.schedule_generate_button = QPushButton('Generate tumble schedule')
+        self.schedule_generate_button.clicked.connect(self.generateTumbleSchedule)
+        #TODO Is it possible to re-use buttons? (start, abort)
+        self.sch_startButton = QPushButton('Run schedule')
+        self.sch_startButton.setEnabled(False) #not runnable until schedule chosen
+        self.sch_startButton.clicked.connect(self.startMultiple)
+        self.sch_abortButton = QPushButton('Abort')
+        self.sch_abortButton.setEnabled(False)
+        self.sch_abortButton.clicked.connect(self.giveUp)
+        sch_buttons = QHBoxLayout()
+        sch_buttons.addStretch(1)
+        sch_buttons.addWidget(self.schedule_set_button)
+        sch_buttons.addWidget(self.schedule_generate_button)
+        sch_buttons.addWidget(self.sch_startButton)
+        sch_buttons.addWidget(self.sch_abortButton)
+        sch_layout.addLayout(sch_buttons, 1, 0, 1, 2)
+
+
+
         innerTopLayout = QGridLayout()
         innerTopLayout.setSpacing(4)
-        iFrame.setLayout(innerTopLayout)
+        self.single_join_tab.setLayout(innerTopLayout)
 
         donateLayout = QHBoxLayout()
         self.donateCheckBox = QCheckBox()
@@ -728,25 +994,25 @@ class SpendTab(QWidget):
         donateLayout.addWidget(label3)
         donateLayout.addStretch(1)
         innerTopLayout.addLayout(donateLayout, 0, 0, 1, 2)
-        self.widgets = self.getSettingsWidgets()
+        self.widgets = getSettingsWidgets()
         for i, x in enumerate(self.widgets):
             innerTopLayout.addWidget(x[0], i + 1, 0)
             innerTopLayout.addWidget(x[1], i + 1, 1, 1, 2)
         self.widgets[0][1].editingFinished.connect(
-            lambda: self.checkAddress(self.widgets[0][1].text()))
+            lambda: checkAddress(self, self.widgets[0][1].text()))
         self.startButton = QPushButton('Start')
         self.startButton.setToolTip(
             'You will be prompted to decide whether to accept\n' +
             'the transaction after connecting, and shown the\n' +
             'fees to pay; you can cancel at that point if you wish.')
         self.startButton.clicked.connect(self.startSendPayment)
-        #TODO: how to make the Abort button work, at least some of the time..
         self.abortButton = QPushButton('Abort')
         self.abortButton.setEnabled(False)
         buttons = QHBoxLayout()
         buttons.addStretch(1)
         buttons.addWidget(self.startButton)
         buttons.addWidget(self.abortButton)
+        self.abortButton.clicked.connect(self.giveUp)
         innerTopLayout.addLayout(buttons, len(self.widgets) + 1, 0, 1, 2)
         splitter1 = QSplitter(QtCore.Qt.Vertical)
         self.textedit = QTextEdit()
@@ -780,9 +1046,13 @@ class SpendTab(QWidget):
     def resizeScroll(self, mini, maxi):
         self.textedit.verticalScrollBar().setValue(maxi)
 
-    def startSendPayment(self, ignored_makers=None):
+    def startMultiple(self):
+        self.qtw.setTabEnabled(0, False)
+        self.startSendPayment(multiple=True)
+
+    def startSendPayment(self, ignored_makers=None, multiple=False):
         self.aborted = False
-        if not self.validateSettings():
+        if not multiple and not self.validateSettings():
             return
         if jm_single().config.get("BLOCKCHAIN",
                                   "blockchain_source") == 'blockr':
@@ -795,27 +1065,39 @@ class SpendTab(QWidget):
             self,
             "Connecting to IRC.\nView real-time log in the lower pane.",
             title="Sendpayment")
-        self.startButton.setEnabled(False)
-        self.abortButton.setEnabled(True)
 
-        log.debug('starting sendpayment')
+        if multiple:
+            self.toggleButtons(False, False, False, True)
+        else:
+            self.toggleButtons(False, True, False, False)
+
+        log.debug('starting coinjoin(s)..')
 
         w.statusBar().showMessage("Syncing wallet ...")
         jm_single().bc_interface.sync_wallet(w.wallet, fast=True)
-        self.destaddr = str(self.widgets[0][1].text())
-        #convert from bitcoins (enforced by QDoubleValidator) to satoshis
-        self.btc_amount_str = str(self.widgets[3][1].text())
-        amount = int(Decimal(self.btc_amount_str) * Decimal('1e8'))
-        makercount = int(self.widgets[1][1].text())
-        mixdepth = int(self.widgets[2][1].text())
-        #note 'amount' is integer, so not interpreted as fraction
-        #TODO allow fractional for mixdepth? would need a dialog/warning
-        self.taker_schedule = [(mixdepth, amount, makercount,
-                                self.destaddr, 0)]
+        if not multiple:
+            destaddr = str(self.widgets[0][1].text())
+            #convert from bitcoins (enforced by QDoubleValidator) to satoshis
+            btc_amount_str = str(self.widgets[3][1].text())
+            amount = int(Decimal(btc_amount_str) * Decimal('1e8'))
+            makercount = int(self.widgets[1][1].text())
+            mixdepth = int(self.widgets[2][1].text())
+            #note 'amount' is integer, so not interpreted as fraction
+            self.taker_schedule = [(mixdepth, amount, makercount, destaddr, 0)]
+        else:
+            assert self.loaded_schedule
+            self.taker_schedule = self.loaded_schedule
+
+        #Decide whether to interrupt processing to sanity check the fees
+        if jm_single().config.get("GUI", "checktx") == "true":
+            check_offers_callback = self.callback_checkOffers
+        else:
+            check_offers_callback = None
+
         self.taker = Taker(w.wallet,
                            self.taker_schedule,
                            order_chooser=weighted_order_choose,
-                           callbacks=[self.callback_checkOffers,
+                           callbacks=[check_offers_callback,
                                       self.callback_takerInfo,
                                       self.callback_takerFinished])
         if ignored_makers:
@@ -832,6 +1114,7 @@ class SpendTab(QWidget):
                    ish=False,
                    daemon=True))
         else:
+            #This will re-use IRC connections in background (daemon), no restart
             self.clientfactory.getClient().taker = self.taker
             self.clientfactory.getClient().clientStart()
         w.statusBar().showMessage("Connecting to IRC ...")
@@ -839,20 +1122,26 @@ class SpendTab(QWidget):
     def callback_checkOffers(self, offers_fee, cjamount):
         """Receives the signal from the JMClient thread
         """
+        if self.aborted:
+            log.debug("Not processing orders, user has aborted.")
+            return False
         self.offers_fee = offers_fee
-        self.proposed_amount = cjamount
         self.jmclient_obj.emit(QtCore.SIGNAL('JMCLIENT:offers'))
         #The JMClient thread must wait for user input
         while not self.filter_offers_response:
             time.sleep(0.1)
         if self.filter_offers_response == "ACCEPT":
             self.filter_offers_response = None
+            #The user is now committed to the transaction
+            self.abortButton.setEnabled(False)
             return True
         self.filter_offers_response = None
         return False
 
     def callback_takerInfo(self, infotype, infomsg):
         if infotype == "ABORT":
+            #Abort signal explicitly means this transaction will not continue.
+            self.giveUp()
             self.taker_info_type = 'warn'
         elif infotype == "INFO":
             self.taker_info_type = 'info'
@@ -893,11 +1182,9 @@ class SpendTab(QWidget):
             self.giveUp()
             return
         offers, total_cj_fee = self.offers_fee
-        total_fee_pc = 1.0 * total_cj_fee / self.proposed_amount
-        #reset the btc amount display string if it's a sweep:
-        if self.taker.cjamount == 0:
-            self.btc_amount_str = str(
-                (Decimal(self.proposed_amount) / Decimal('1e8'))) + " BTC"
+        total_fee_pc = 1.0 * total_cj_fee / self.taker.cjamount
+        #Note this will be a new value if sweep, else same as previously entered
+        btc_amount_str = satoshis_to_amt_str(self.taker.cjamount)
 
         #TODO separate this out into a function
         mbinfo = []
@@ -912,14 +1199,14 @@ class SpendTab(QWidget):
                           core_alert[0] + "</font></b>")
             mbinfo.append(" ")
         """
-        mbinfo.append("Sending amount: " + self.btc_amount_str)
+        mbinfo.append("Sending amount: " + btc_amount_str)
         mbinfo.append("to address: " + self.destaddr)
         mbinfo.append(" ")
         mbinfo.append("Counterparties chosen:")
         mbinfo.append('Name,     Order id, Coinjoin fee (sat.)')
         for k, o in offers.iteritems():
             if o['ordertype'] == 'reloffer':
-                display_fee = int(self.proposed_amount *
+                display_fee = int(self.taker.cjamount *
                                   float(o['cjfee'])) - int(o['txfee'])
             elif o['ordertype'] == 'absoffer':
                 display_fee = int(o['cjfee']) - int(o['txfee'])
@@ -943,7 +1230,6 @@ class SpendTab(QWidget):
                                title=title)
         if reply == QMessageBox.Yes:
             #amount is now accepted; pass control back to reactor
-            self.cjamount = self.proposed_amount
             self.filter_offers_response = "ACCEPT"
         else:
             self.filter_offers_response = "REJECT"
@@ -951,24 +1237,56 @@ class SpendTab(QWidget):
 
     def takerFinished(self):
         if self.taker_finished_fromtx:
+            #not the final finished transaction
             if self.taker_finished_res:
-                jm_single().bc_interface.sync_wallet(wallet)
+                w.statusBar().showMessage("Transaction completed successfully.")
+                #notify
+                JMQtMessageBox(self,
+                           "Transaction has been broadcast.\n" + "Txid: " +
+                           str(self.taker.txid),
+                           title="Success")
+                self.persistTxToHistory(self.taker.my_cj_addr,
+                                        self.taker.cjamount,
+                                        self.taker.txid)
+                jm_single().bc_interface.sync_wallet(w.wallet)
                 self.clientfactory.getClient().clientStart()
             else:
                 #a transaction failed; just stop
                 self.giveUp()
         else:
+            #the final, or a permanent failure
             if not self.taker_finished_res:
                 log.info("Did not complete successfully, shutting down")
             else:
                 log.info("All transactions completed correctly")
+                self.persistTxToHistory(self.taker.my_cj_addr,
+                                        self.taker.cjamount,
+                                        self.taker.txid)
             self.cleanUp()
+
+    def persistTxToHistory(self, addr, amt, txid):
+        #persist the transaction to history
+        with open(jm_single().config.get("GUI", "history_file"), 'ab') as f:
+            f.write(','.join([addr, satoshis_to_amt_str(amt), txid,
+                              datetime.datetime.now(
+                                  ).strftime("%Y/%m/%d %H:%M:%S")]))
+            f.write('\n')  #TODO: Windows
+        #update the TxHistory tab
+        txhist = w.centralWidget().widget(3)
+        txhist.updateTxInfo()
+
+    def toggleButtons(self, send, abort, schsend, schabort):
+        self.startButton.setEnabled(send)
+        self.abortButton.setEnabled(abort)
+        self.sch_startButton.setEnabled(schsend)
+        self.sch_abortButton.setEnabled(schabort)
 
     def giveUp(self):
         self.aborted = True
         log.debug("Transaction aborted.")
-        self.abortButton.setEnabled(False)
-        self.startButton.setEnabled(True)
+        self.qtw.setTabEnabled(0, True)
+        self.qtw.setTabEnabled(1, True)
+        self.toggleButtons(True, False, False, False)
         w.statusBar().showMessage("Transaction aborted.")
 
     def cleanUp(self):
@@ -999,25 +1317,9 @@ class SpendTab(QWidget):
                     else:
                         self.giveUp()
                         return
-
-        else:
-            w.statusBar().showMessage("Transaction completed successfully.")
-            JMQtMessageBox(self,
-                           "Transaction has been broadcast.\n" + "Txid: " +
-                           str(self.taker.txid),
-                           title="Success")
-            #persist the transaction to history
-            with open(jm_single().config.get("GUI", "history_file"), 'ab') as f:
-                f.write(','.join([self.destaddr, self.btc_amount_str,
-                                  self.taker.txid, datetime.datetime.now(
-                                  ).strftime("%Y/%m/%d %H:%M:%S")]))
-                f.write('\n')  #TODO: Windows
-            #update the TxHistory tab
-            txhist = w.centralWidget().widget(3)
-            txhist.updateTxInfo()
-
-        self.startButton.setEnabled(True)
-        self.abortButton.setEnabled(False)
+        self.qtw.setTabEnabled(0, True)
+        self.qtw.setTabEnabled(1, True)
+        self.toggleButtons(True, False, False, False)
 
     def validateSettings(self):
         valid, errmsg = validate_address(self.widgets[0][1].text())
@@ -1070,42 +1372,6 @@ class SpendTab(QWidget):
         else:
             log.debug("GUI error: unrecognized button, canceling.")
             return True
-
-    def checkAddress(self, addr):
-        valid, errmsg = validate_address(str(addr))
-        if not valid:
-            JMQtMessageBox(self,
-                           "Bitcoin address not valid.\n" + errmsg,
-                           mbtype='warn',
-                           title="Error")
-
-    def getSettingsWidgets(self):
-        results = []
-        sN = ['Recipient address', 'Number of counterparties', 'Mixdepth',
-              'Amount in bitcoins (BTC)']
-        sH = ['The address you want to send the payment to',
-              'How many other parties to send to; if you enter 4\n' +
-              ', there will be 5 participants, including you',
-              'The mixdepth of the wallet to send the payment from',
-              'The amount IN BITCOINS to send.\n' +
-              'If you enter 0, a SWEEP transaction\nwill be performed,' +
-              ' spending all the coins \nin the given mixdepth.']
-        sT = [str, int, int, float]
-        #todo maxmixdepth
-        sMM = ['', (2, 20),
-               (0, jm_single().config.getint("GUI", "max_mix_depth") - 1),
-               (0.00000001, 100.0, 8)]
-        sD = ['', '3', '0', '']
-        for x in zip(sN, sH, sT, sD, sMM):
-            ql = QLabel(x[0])
-            ql.setToolTip(x[1])
-            qle = QLineEdit(x[3])
-            if x[2] == int:
-                qle.setValidator(QIntValidator(*x[4]))
-            if x[2] == float:
-                qle.setValidator(QDoubleValidator(*x[4]))
-            results.append((ql, qle))
-        return results
 
 
 class TxHistoryTab(QWidget):

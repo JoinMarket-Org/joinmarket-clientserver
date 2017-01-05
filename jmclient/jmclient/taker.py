@@ -194,10 +194,12 @@ class Taker(object):
                                 "Could not find orders to complete transaction")
                 self.on_finished_callback(False)
                 return False
-            if not self.filter_orders_callback((self.orderbook, self.total_cj_fee),
-                                               self.cjamount):
-                self.on_finished_callback(False)
-                return False
+            if self.filter_orders_callback:
+                if not self.filter_orders_callback((self.orderbook,
+                                                    self.total_cj_fee),
+                                                   self.cjamount):
+                    self.on_finished_callback(False)
+                    return False
 
         self.utxos = {None: self.input_utxos.keys()}
         return True
