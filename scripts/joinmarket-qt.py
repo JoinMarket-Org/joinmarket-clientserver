@@ -894,6 +894,10 @@ class SpendTab(QWidget):
         log.debug('Looking for schedule in: ' + firstarg)
         if not firstarg:
             return
+        #extract raw text before processing
+        with open(firstarg, 'rb') as f:
+            rawsched = f.read()
+
         res, schedule = get_schedule(firstarg)
         if not res:
             JMQtMessageBox(self, "Not a valid JM schedule file", mbtype='crit',
@@ -901,62 +905,12 @@ class SpendTab(QWidget):
         else:
             w.statusBar().showMessage("Schedule loaded OK.")
             self.sch_label2.setText(os.path.basename(str(firstarg)))
+            self.sched_view.setText(rawsched)
             self.schedule_set_button.setEnabled(True)
             self.toggleButtons(False, False, True, False)
             self.loaded_schedule = schedule
 
-    def initUI(self):
-        vbox = QVBoxLayout(self)
-        top = QFrame()
-        top.setFrameShape(QFrame.StyledPanel)
-        topLayout = QGridLayout()
-        top.setLayout(topLayout)
-        sA = QScrollArea()
-        sA.setWidgetResizable(True)
-        topLayout.addWidget(sA)
-        self.qtw = QTabWidget()
-        sA.setWidget(self.qtw)
-        self.single_join_tab = QWidget()
-        self.schedule_tab = QWidget()
-        self.qtw.addTab(self.single_join_tab, "Single Join")
-        self.qtw.addTab(self.schedule_tab, "Multiple Join")
-
-        #construct layout for scheduler
-        sch_layout = QGridLayout()
-        sch_layout.setSpacing(4)
-        self.schedule_tab.setLayout(sch_layout)
-        current_schedule_layout = QHBoxLayout()
-        sch_label1=QLabel("Current schedule: ")
-        sch_label1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.sch_label2 = QLabel("None")
-        current_schedule_layout.addWidget(sch_label1)
-        current_schedule_layout.addWidget(self.sch_label2)
-        sch_layout.addLayout(current_schedule_layout, 0, 0, 1, 2)
-        self.schedule_set_button = QPushButton('Choose schedule file')
-        self.schedule_set_button.clicked.connect(self.selectSchedule)
-        self.schedule_generate_button = QPushButton('Generate tumble schedule')
-        self.schedule_generate_button.clicked.connect(self.generateTumbleSchedule)
-        #TODO Is it possible to re-use buttons? (start, abort)
-        self.sch_startButton = QPushButton('Run schedule')
-        self.sch_startButton.setEnabled(False) #not runnable until schedule chosen
-        self.sch_startButton.clicked.connect(self.startMultiple)
-        self.sch_abortButton = QPushButton('Abort')
-        self.sch_abortButton.setEnabled(False)
-        self.sch_abortButton.clicked.connect(self.giveUp)
-        sch_buttons = QHBoxLayout()
-        sch_buttons.addStretch(1)
-        sch_buttons.addWidget(self.schedule_set_button)
-        sch_buttons.addWidget(self.schedule_generate_button)
-        sch_buttons.addWidget(self.sch_startButton)
-        sch_buttons.addWidget(self.sch_abortButton)
-        sch_layout.addLayout(sch_buttons, 1, 0, 1, 2)
-
-
-
-        innerTopLayout = QGridLayout()
-        innerTopLayout.setSpacing(4)
-        self.single_join_tab.setLayout(innerTopLayout)
-
+    def getDonateLayout(self):
         donateLayout = QHBoxLayout()
         self.donateCheckBox = QCheckBox()
         self.donateCheckBox.setChecked(False)
@@ -993,6 +947,64 @@ class SpendTab(QWidget):
         donateLayout.setAlignment(label3, QtCore.Qt.AlignLeft)
         donateLayout.addWidget(label3)
         donateLayout.addStretch(1)
+        return donateLayout
+
+    def initUI(self):
+        vbox = QVBoxLayout(self)
+        top = QFrame()
+        top.setFrameShape(QFrame.StyledPanel)
+        topLayout = QGridLayout()
+        top.setLayout(topLayout)
+        sA = QScrollArea()
+        sA.setWidgetResizable(True)
+        topLayout.addWidget(sA)
+        self.qtw = QTabWidget()
+        sA.setWidget(self.qtw)
+        self.single_join_tab = QWidget()
+        self.schedule_tab = QWidget()
+        self.qtw.addTab(self.single_join_tab, "Single Join")
+        self.qtw.addTab(self.schedule_tab, "Multiple Join")
+
+        #construct layout for scheduler
+        sch_layout = QGridLayout()
+        sch_layout.setSpacing(4)
+        self.schedule_tab.setLayout(sch_layout)
+        current_schedule_layout = QVBoxLayout()
+        sch_label1=QLabel("Current schedule: ")
+        sch_label1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.sch_label2 = QLabel("None")
+        current_schedule_layout.addWidget(sch_label1)
+        current_schedule_layout.addWidget(self.sch_label2)
+        self.sched_view = QTextEdit()
+        self.sched_view.setReadOnly(True)
+        self.sched_view.setLineWrapMode(QTextEdit.NoWrap)
+        current_schedule_layout.addWidget(self.sched_view)
+        sch_layout.addLayout(current_schedule_layout, 0, 0, 1, 1)
+        self.schedule_set_button = QPushButton('Choose schedule file')
+        self.schedule_set_button.clicked.connect(self.selectSchedule)
+        self.schedule_generate_button = QPushButton('Generate tumble schedule')
+        self.schedule_generate_button.clicked.connect(self.generateTumbleSchedule)
+        self.sch_startButton = QPushButton('Run schedule')
+        self.sch_startButton.setEnabled(False) #not runnable until schedule chosen
+        self.sch_startButton.clicked.connect(self.startMultiple)
+        self.sch_abortButton = QPushButton('Abort')
+        self.sch_abortButton.setEnabled(False)
+        self.sch_abortButton.clicked.connect(self.giveUp)
+
+        sch_buttons_box = QGroupBox("Actions")
+        sch_buttons_layout = QVBoxLayout()
+        sch_buttons_layout.addWidget(self.schedule_set_button)
+        sch_buttons_layout.addWidget(self.schedule_generate_button)
+        sch_buttons_layout.addWidget(self.sch_startButton)
+        sch_buttons_layout.addWidget(self.sch_abortButton)
+        sch_buttons_box.setLayout(sch_buttons_layout)
+        sch_layout.addWidget(sch_buttons_box, 0, 1, 1, 1)
+
+        innerTopLayout = QGridLayout()
+        innerTopLayout.setSpacing(4)
+        self.single_join_tab.setLayout(innerTopLayout)
+
+        donateLayout = self.getDonateLayout()
         innerTopLayout.addLayout(donateLayout, 0, 0, 1, 2)
         self.widgets = getSettingsWidgets()
         for i, x in enumerate(self.widgets):
@@ -1051,6 +1063,10 @@ class SpendTab(QWidget):
         self.startSendPayment(multiple=True)
 
     def startSendPayment(self, ignored_makers=None, multiple=False):
+        if not w.wallet:
+            JMQtMessageBox(self, "Cannot start without a loaded wallet.",
+                           mbtype="crit", title="Error")
+            return
         self.aborted = False
         if not multiple and not self.validateSettings():
             return
