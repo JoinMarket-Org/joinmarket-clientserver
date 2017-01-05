@@ -1171,11 +1171,11 @@ class SpendTab(QWidget):
         self.taker_info_response = None
         return
 
-    def callback_takerFinished(self, res, fromtx=False, waittime=0):
+    def callback_takerFinished(self, res, fromtx=False, waittime=0.0):
         self.taker_finished_res = res
         self.taker_finished_fromtx = fromtx
         #TODO; equivalent of reactor.callLater to deliberately delay (for tumbler)
-        self.taker_finished_waittime = waittime
+        self.taker_finished_waittime = int(waittime*1000)
         self.jmclient_obj.emit(QtCore.SIGNAL('JMCLIENT:finished'))
         return
 
@@ -1251,6 +1251,11 @@ class SpendTab(QWidget):
             self.filter_offers_response = "REJECT"
             self.giveUp()
 
+    def startNextTransaction(self):
+        log.debug("SNT being called")
+        jm_single().bc_interface.sync_wallet(w.wallet)
+        self.clientfactory.getClient().clientStart()
+
     def takerFinished(self):
         if self.taker_finished_fromtx:
             #not the final finished transaction
@@ -1259,8 +1264,9 @@ class SpendTab(QWidget):
                 self.persistTxToHistory(self.taker.my_cj_addr,
                                         self.taker.cjamount,
                                         self.taker.txid)
-                jm_single().bc_interface.sync_wallet(w.wallet)
-                self.clientfactory.getClient().clientStart()
+                log.debug("Waiting for: " + str(
+                    self.taker_finished_waittime/1000.0) + " secs.")
+                QtCore.QTimer.singleShot(self.taker_finished_waittime, self.startNextTransaction)
             else:
                 #a transaction failed; just stop
                 self.giveUp()
