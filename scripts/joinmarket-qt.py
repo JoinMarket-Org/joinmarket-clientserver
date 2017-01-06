@@ -21,7 +21,7 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 '''
 
 import sys, base64, textwrap, datetime, os, logging
-import Queue, platform, csv, threading, time
+import platform, csv, threading, time
 
 from decimal import Decimal
 from functools import partial
@@ -592,7 +592,7 @@ class SpendTab(QWidget):
             mbinfo.append(" ")
         """
         mbinfo.append("Sending amount: " + btc_amount_str)
-        mbinfo.append("to address: " + self.destaddr)
+        mbinfo.append("to address: " + self.taker.my_cj_addr)
         mbinfo.append(" ")
         mbinfo.append("Counterparties chosen:")
         mbinfo.append('Name,     Order id, Coinjoin fee (sat.)')

@@ -572,9 +572,12 @@ class SchDynamicPage2(QWizardPage):
         #by default create three address fields
         addrLEs = []
         #for testing
-        testaddrs = ["mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS",
+        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
+            testaddrs = ["mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS",
                      "msFGHeut3rfJk5sKuoZNfpUq9MeVMqmido",
                      "mkZfBXCRPs8fCmwWLrspjCvYozDhK6Eepz"]
+        else:
+            testaddrs = ["","",""]
         for i in range(3):
             layout.addWidget(QLabel("Destination address: " + str(i)), i, 0)
             addrLEs.append(QLineEdit(testaddrs[i]))
