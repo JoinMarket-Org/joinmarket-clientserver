@@ -21,35 +21,6 @@ dummy_pub = secp256k1.PublicKey(ctx=ctx)
 #Standard prefix for Bitcoin message signing.
 BITCOIN_MESSAGE_MAGIC = '\x18' + 'Bitcoin Signed Message:\n'
 
-"""A custom nonce function acting as a pass-through.
-Only used for reusable donation pubkeys (stealth).
-"""
-from cffi import FFI
-
-ffi = FFI()
-ffi.cdef('static int nonce_function_rand(unsigned char *nonce32,'
-         'const unsigned char *msg32,const unsigned char *key32,'
-         'const unsigned char *algo16,void *data,unsigned int attempt);')
-
-ffi.set_source("_noncefunc",
-"""
-static int nonce_function_rand(unsigned char *nonce32,
-const unsigned char *msg32,
-const unsigned char *key32,
-const unsigned char *algo16,
-void *data,
-unsigned int attempt)
-{
-memcpy(nonce32,data,32);
-return 1;
-}
-""")
-
-ffi.compile()
-
-import _noncefunc
-from _noncefunc import ffi
-
 if sys.version_info.major == 2:
     string_types = (str, unicode)
     string_or_bytes_types = string_types
@@ -417,14 +388,16 @@ def ecdsa_raw_sign(msg,
         newpriv = secp256k1.PrivateKey(priv, raw=False, ctx=ctx)
     #Donations, thus custom nonce, currently disabled, hence not covered.
     if usenonce: #pragma: no cover
-        if len(usenonce) != 32:
-            raise ValueError("Invalid nonce passed to ecdsa_sign: " + str(
-                usenonce))
-        nf = ffi.addressof(_noncefunc.lib, "nonce_function_rand")
-        ndata = ffi.new("char [32]", usenonce)
-        usenonce = (nf, ndata)
+        raise NotImplementedError
+        #if len(usenonce) != 32:
+        #    raise ValueError("Invalid nonce passed to ecdsa_sign: " + str(
+        #        usenonce))
+        #nf = ffi.addressof(_noncefunc.lib, "nonce_function_rand")
+        #ndata = ffi.new("char [32]", usenonce)
+        #usenonce = (nf, ndata)
     if usenonce: #pragma: no cover
-        sig = newpriv.ecdsa_sign(msg, raw=rawmsg, custom_nonce=usenonce)
+        raise NotImplementedError
+        #sig = newpriv.ecdsa_sign(msg, raw=rawmsg, custom_nonce=usenonce)
     else:
         #partial fix for secp256k1-transient not including customnonce;
         #partial because donations will crash on windows in the "if".

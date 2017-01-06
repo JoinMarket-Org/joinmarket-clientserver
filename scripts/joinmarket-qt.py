@@ -1410,7 +1410,7 @@ tabWidget = QTabWidget(w)
 tabWidget.addTab(JMWalletTab(), "JM Wallet")
 settingsTab = SettingsTab()
 tabWidget.addTab(settingsTab, "Settings")
-tabWidget.addTab(SpendTab(), "Send Payment")
+tabWidget.addTab(SpendTab(), "Coinjoins")
 tabWidget.addTab(TxHistoryTab(), "Tx History")
 w.resize(600, 500)
 suffix = ' - Testnet' if get_network() == 'testnet' else ''
