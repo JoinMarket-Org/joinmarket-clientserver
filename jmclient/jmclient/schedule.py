@@ -109,3 +109,6 @@ def get_tumble_schedule(options, destaddrs):
         schedule.append((t['srcmixdepth'], t['amount_fraction'],
                   t['makercount'], t['destination'], t['wait']))
     return schedule
+
+def schedule_to_text(schedule):
+    return "\n".join([",".join([str(y) for y in x]) for x in schedule])
