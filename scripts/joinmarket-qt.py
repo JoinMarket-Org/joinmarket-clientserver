@@ -38,6 +38,9 @@ else:
 
 import jmbitcoin as btc
 
+#General Joinmarket donation address; TODO
+donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
+
 JM_CORE_VERSION = '0.2.2'
 JM_GUI_VERSION = '5'
 
