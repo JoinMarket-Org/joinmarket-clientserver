@@ -3,13 +3,14 @@ import json
 import os
 import pprint
 import sys
+import datetime
 from decimal import Decimal
 
 from ConfigParser import NoSectionError
 from getpass import getpass
 
 import btc
-from jmclient.slowaes import decryptData
+from jmclient.slowaes import encryptData, decryptData
 from jmclient.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
 from jmclient.configure import jm_single, get_network, get_p2pk_vbyte
 from jmbase.support import get_log
@@ -36,6 +37,15 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
                          str(absurd_fee) + ", quitting.")
     log.debug("got estimated tx bytes: "+str(tx_estimated_bytes))
     return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
+
+def create_wallet_file(pwd, seed):
+    password_key = btc.bin_dbl_sha256(pwd)
+    encrypted_seed = encryptData(password_key, seed.decode('hex'))
+    timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    return json.dumps({'creator': 'joinmarket project',
+                             'creation_time': timestamp,
+                             'encrypted_seed': encrypted_seed.encode('hex'),
+                             'network': get_network()})
 
 class AbstractWallet(object):
     """
