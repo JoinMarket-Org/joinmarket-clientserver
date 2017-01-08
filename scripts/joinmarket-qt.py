@@ -493,7 +493,10 @@ class SpendTab(QWidget):
         log.debug('starting coinjoin ..')
 
         w.statusBar().showMessage("Syncing wallet ...")
-        jm_single().bc_interface.sync_wallet(w.wallet, fast=True)
+        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "blockr":
+            jm_single().bc_interface.sync_wallet(w.wallet, fast=True)
+        else:
+            jm_single().bc_interface.sync_wallet(w.wallet)
         if not multiple:
             destaddr = str(self.widgets[0][1].text())
             #convert from bitcoins (enforced by QDoubleValidator) to satoshis

@@ -573,7 +573,7 @@ class Taker(object):
         return self.push()
 
     def unconfirm_callback(self, txd, txid):
-        jlog.debug("Unconfirmed callback in sendpayment, ignoring")
+        jlog.debug("Transaction seen on network, waiting for confirmation")
 
     def confirm_callback(self, txd, txid, confirmations):
         jlog.debug("Confirmed callback in taker, confs: " + str(confirmations))

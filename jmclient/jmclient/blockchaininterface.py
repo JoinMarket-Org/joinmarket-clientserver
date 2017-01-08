@@ -240,8 +240,8 @@ class BlockrInterface(BlockchainInterface): #pragma: no cover
     def sync_unspent(self, wallet):
         # finds utxos in the wallet
         st = time.time()
-        # dont refresh unspent dict more often than 10 minutes
-        rate_limit_time = 10 * 60
+        # dont refresh unspent dict more often than 1 minutes
+        rate_limit_time = 1 * 60
         if st - self.last_sync_unspent < rate_limit_time:
             log.debug(
                 'blockr sync_unspent() happened too recently (%dsec), skipping'
@@ -436,7 +436,7 @@ class BlockrInterface(BlockchainInterface): #pragma: no cover
         data = []
         for ids in txids:
             blockr_url = 'https://' + self.blockr_domain + '.blockr.io/api/v1/tx/info/'
-            data = btc.make_request_blockr(blockr_url + ','.join(ids))['data']
+            blockr_data = btc.make_request_blockr(blockr_url + ','.join(ids))['data']
             if not isinstance(blockr_data, list):
                 blockr_data = [blockr_data]
             data += blockr_data

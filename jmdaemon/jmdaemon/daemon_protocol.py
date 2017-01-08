@@ -223,6 +223,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #this can be called a second time on timeout, in which case we
             #do nothing
             return
+        self.jm_state = 3
         d = self.callRemote(JMFillResponse,
                                 success=accepted,
                                 ioauth_data = json.dumps(self.ioauth_data))
@@ -249,11 +250,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #TODO create re-set function to start again
         else:
             #only update state if client accepted
-            self.jm_state = 3
+            self.jm_state = 4
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
-        if not self.jm_state == 3:
+        if not self.jm_state == 4:
             log.msg("Make tx was called in wrong state, rejecting")
             return {'accepted': False}
         nick_list = json.loads(nick_list)
