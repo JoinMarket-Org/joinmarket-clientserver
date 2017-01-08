@@ -54,9 +54,9 @@ from jmclient import (load_program_config, get_network, Wallet,
 from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
                        TaskThread, QtHandler, XStream, Buttons, CloseButton,
                        CopyButton, CopyCloseButton, OkButton, CancelButton,
-                       HelpLabel, check_password_strength,
-                       update_password_strength, make_password_dialog,
-                       PasswordDialog, MyTreeWidget, JMQtMessageBox)
+                       check_password_strength, update_password_strength,
+                       make_password_dialog, PasswordDialog, MyTreeWidget,
+                       JMQtMessageBox, BLUE_FG)
 
 def satoshis_to_amt_str(x):
     return str(Decimal(x)/Decimal('1e8')) + " BTC"
@@ -133,6 +133,30 @@ def getSettingsWidgets():
 handler = QtHandler()
 handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
 log.addHandler(handler)
+
+class HelpLabel(QLabel):
+
+    def __init__(self, text, help_text, wtitle):
+        QLabel.__init__(self, text)
+        self.help_text = help_text
+        self.wtitle = wtitle
+        self.font = QFont()
+        self.setStyleSheet(BLUE_FG)
+
+    def mouseReleaseEvent(self, x):
+        QMessageBox.information(w, self.wtitle, self.help_text, 'OK')
+
+    def enterEvent(self, event):
+        self.font.setUnderline(True)
+        self.setFont(self.font)
+        app.setOverrideCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        return QLabel.enterEvent(self, event)
+
+    def leaveEvent(self, event):
+        self.font.setUnderline(False)
+        self.setFont(self.font)
+        app.setOverrideCursor(QCursor(QtCore.Qt.ArrowCursor))
+        return QLabel.leaveEvent(self, event)
 
 class SettingsTab(QDialog):
 

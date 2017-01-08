@@ -242,31 +242,6 @@ class CancelButton(QPushButton):
         self.clicked.connect(dialog.reject)
 
 
-class HelpLabel(QLabel):
-
-    def __init__(self, text, help_text, wtitle):
-        QLabel.__init__(self, text)
-        self.help_text = help_text
-        self.wtitle = wtitle
-        self.font = QFont()
-        self.setStyleSheet(BLUE_FG)
-
-    def mouseReleaseEvent(self, x):
-        QMessageBox.information(w, self.wtitle, self.help_text, 'OK')
-
-    def enterEvent(self, event):
-        self.font.setUnderline(True)
-        self.setFont(self.font)
-        app.setOverrideCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        return QLabel.enterEvent(self, event)
-
-    def leaveEvent(self, event):
-        self.font.setUnderline(False)
-        self.setFont(self.font)
-        app.setOverrideCursor(QCursor(QtCore.Qt.ArrowCursor))
-        return QLabel.leaveEvent(self, event)
-
-
 def check_password_strength(password):
     '''
     Check the strength of the password entered by the user and return back the same
