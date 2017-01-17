@@ -1427,9 +1427,6 @@ except Exception as e:
     exit(1)
 update_config_for_gui()
 
-#for testing, TODO remove
-jm_single().maker_timeout_sec = 5
-
 #we're not downloading from github, so logs dir
 #might not exist
 if not os.path.exists('logs'):
