@@ -395,7 +395,7 @@ class SpendTab(QWidget):
         self.sch_startButton.clicked.connect(self.startMultiple)
         self.sch_abortButton = QPushButton('Abort')
         self.sch_abortButton.setEnabled(False)
-        self.sch_abortButton.clicked.connect(self.giveUp)
+        self.sch_abortButton.clicked.connect(self.abortTransactions)
 
         sch_buttons_box = QGroupBox("Actions")
         sch_buttons_layout = QVBoxLayout()
@@ -430,7 +430,7 @@ class SpendTab(QWidget):
         buttons.addStretch(1)
         buttons.addWidget(self.startButton)
         buttons.addWidget(self.abortButton)
-        self.abortButton.clicked.connect(self.giveUp)
+        self.abortButton.clicked.connect(self.abortTransactions)
         innerTopLayout.addLayout(buttons, len(self.widgets) + 1, 0, 1, 2)
         splitter1 = QSplitter(QtCore.Qt.Vertical)
         self.textedit = QTextEdit()
@@ -473,7 +473,6 @@ class SpendTab(QWidget):
             JMQtMessageBox(self, "Cannot start without a loaded wallet.",
                            mbtype="crit", title="Error")
             return
-        self.aborted = False
         if not multiple and not self.validateSettings():
             return
         if jm_single().config.get("BLOCKCHAIN",
@@ -544,7 +543,7 @@ class SpendTab(QWidget):
     def callback_checkOffers(self, offers_fee, cjamount):
         """Receives the signal from the JMClient thread
         """
-        if self.aborted:
+        if self.taker.aborted:
             log.debug("Not processing orders, user has aborted.")
             return False
         self.offers_fee = offers_fee
@@ -562,8 +561,6 @@ class SpendTab(QWidget):
 
     def callback_takerInfo(self, infotype, infomsg):
         if infotype == "ABORT":
-            #Abort signal explicitly means this transaction will not continue.
-            self.giveUp()
             self.taker_info_type = 'warn'
         elif infotype == "INFO":
             self.taker_info_type = 'info'
@@ -588,8 +585,10 @@ class SpendTab(QWidget):
     def takerInfo(self):
         if self.taker_info_type == "info":
             w.statusBar().showMessage(self.taker_infomsg)
-        else:
+        elif self.taker_info_type == "warn":
             JMQtMessageBox(self, self.taker_infomsg, mbtype=self.taker_info_type)
+            #Abort signal explicitly means this transaction will not continue.
+            self.abortTransactions()
         self.taker_info_response = True
 
     def checkOffers(self):
@@ -727,8 +726,11 @@ class SpendTab(QWidget):
         for b, s in zip(btns, btnsettings):
             b.setEnabled(s)
 
+    def abortTransactions(self):
+        self.taker.aborted = True
+        self.giveUp()
+
     def giveUp(self):
-        self.aborted = True
         log.debug("Transaction aborted.")
         self.qtw.setTabEnabled(0, True)
         self.qtw.setTabEnabled(1, True)
@@ -737,7 +739,7 @@ class SpendTab(QWidget):
 
     def cleanUp(self):
         if not self.taker.txid:
-            if not self.aborted:
+            if not self.taker.aborted:
                 if not self.taker.ignored_makers:
                     w.statusBar().showMessage("Transaction failed.")
                     JMQtMessageBox(self,

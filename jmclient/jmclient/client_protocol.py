@@ -143,7 +143,7 @@ class JMTakerClientProtocol(amp.AMP):
         """
         ioauth_data = json.loads(ioauth_data)
         if not success:
-            jlog.info("Makers didnt respond blah blah")
+            jlog.info("Makers didnt respond")
             return {'accepted': True}
         else:
             jlog.info("Makers responded with: " + json.dumps(ioauth_data))
@@ -179,10 +179,6 @@ class JMTakerClientProtocol(amp.AMP):
     @commands.JMSigReceived.responder
     def on_JM_SIG_RECEIVED(self, nick, sig):
         retval = self.taker.on_sig(nick, sig)
-        if retval:
-            #flag indicating completion; but Taker
-            #handles tx pushing, just update state
-            self.state = 4
         return {'accepted': True}
 
     @commands.JMRequestMsgSig.responder

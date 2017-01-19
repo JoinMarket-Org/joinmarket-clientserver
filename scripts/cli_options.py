@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import, print_function
+import random
 
 """This exists as a separate module for two reasons:
 to reduce clutter in main scripts, and (TODO) refactor out

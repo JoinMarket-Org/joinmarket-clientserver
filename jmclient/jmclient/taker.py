@@ -22,7 +22,6 @@ jlog = get_log()
 class JMTakerError(Exception):
     pass
 
-#Taker is now a class to do 1 coinjoin
 class Taker(object):
 
     def __init__(self,
@@ -40,6 +39,7 @@ class Taker(object):
         3.on finished callback: called on completion, either of the whole schedule
         or early if a transactoin fails.
         """
+        self.aborted = False
         self.wallet = wallet
         self.schedule = schedule
         self.order_chooser = order_chooser
@@ -52,16 +52,25 @@ class Taker(object):
         #External callers set the 3 callbacks for filtering orders,
         #sending info messages to client, and action on completion.
         #"None" is allowable for taker_info_callback, defaults to log msg.
-        if callbacks:
-            """Signature of filter_orders:
-            args: orders_fees, cjamount
-            returns: boolean representing accept/reject
-            """
-            self.filter_orders_callback = callbacks[0]
-            self.taker_info_callback = callbacks[1]
-            if not self.taker_info_callback:
-                self.taker_info_callback = self.default_taker_info_callback
-            self.on_finished_callback = callbacks[2]
+        #"None" is allowable for filter_orders_callback, in which case offers
+        #are automatically accepted (bar insane fees).
+        #"None" is *not* allowable for taker_finished_callback, as it controls
+        #process flow after tx finished.
+        """Signature of filter_orders_callback:
+        args: orders_fees, cjamount
+        returns: boolean representing accept/reject
+        """
+        self.filter_orders_callback = callbacks[0]
+        self.taker_info_callback = callbacks[1]
+        if not self.taker_info_callback:
+            self.taker_info_callback = self.default_taker_info_callback
+        """Signature of on_finished_callback:
+        args: res: True/False to flag success
+        from_tx: indicating whether all txs finished, or more to do
+        waittime: how long to wait before continuing to next.
+        returns: None
+        """
+        self.on_finished_callback = callbacks[2]
 
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
@@ -71,6 +80,8 @@ class Taker(object):
         select offers, re-initialize variables and prepare a commitment,
         then send it to the protocol to fill offers.
         """
+        if self.aborted:
+            return (False,)
         self.taker_info_callback("INFO", "Received offers from joinmarket pit")
         #choose the next item in the schedule
         self.schedule_index += 1
@@ -209,6 +220,8 @@ class Taker(object):
         makers who responded; this is the completion of phase 1
         of the protocol
         """
+        if self.aborted:
+            return (False, "User aborted")
         rejected_counterparties = []
         #Enough data, but need to authorize against the btc pubkey first.
         for nick, nickdata in ioauth_data.iteritems():
@@ -363,6 +376,12 @@ class Taker(object):
         return True
 
     def on_sig(self, nick, sigb64):
+        """Processes transaction signatures from counterparties.
+        Returns True if all signatures received correctly, else
+        returns False
+        """
+        if self.aborted:
+            return False
         sig = base64.b64decode(sigb64).encode('hex')
         inserted_sig = False
         txhex = btc.serialize(self.latest_tx)
