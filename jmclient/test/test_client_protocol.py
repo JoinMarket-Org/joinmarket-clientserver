@@ -31,6 +31,9 @@ clientfactory = None
 runno = 0
 jlog = get_log()
 
+def dummy_taker_finished(res, fromtx, waittime=0.0):
+    pass
+
 class DummyTaker(Taker):
 
     def set_fail_init(self, val):
@@ -219,7 +222,7 @@ class TrialTestJMClientProto(unittest.TestCase):
             self.client = client
             self.addCleanup(self.client.transport.loseConnection)
         clientfactories = []
-        takers = [DummyTaker(None, None) for _ in range(len(params))]
+        takers = [DummyTaker(None, None, callbacks=(None, None, dummy_taker_finished)) for _ in range(len(params))]
         for i, p in enumerate(params):
             takers[i].set_fail_init(p[0])
             takers[i].set_fail_utxos(p[1])
