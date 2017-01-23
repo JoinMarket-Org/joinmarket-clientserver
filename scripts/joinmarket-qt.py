@@ -49,7 +49,8 @@ from jmclient import (load_program_config, get_network, Wallet,
                       get_log, weighted_order_choose, Taker,
                       JMTakerClientProtocolFactory, WalletError,
                       start_reactor, get_schedule, get_tumble_schedule,
-                      schedule_to_text, mn_decode, mn_encode, create_wallet_file)
+                      schedule_to_text, mn_decode, mn_encode, create_wallet_file,
+                      get_blockchain_interface_instance)
 
 from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
                        TaskThread, QtHandler, XStream, Buttons, CloseButton,
