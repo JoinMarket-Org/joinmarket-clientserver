@@ -63,7 +63,7 @@ def test_check_blacklist():
     
 def test_blockchain_sources():
     load_program_config()
-    for src in ["blockr", "electrum", "dummy"]:
+    for src in ["blockr", "electrum", "dummy", "bc.i"]:
         jm_single().config.set("BLOCKCHAIN", "blockchain_source", src)
         if src=="electrum":
             jm_single().config.set("BLOCKCHAIN", "network", "mainnet")

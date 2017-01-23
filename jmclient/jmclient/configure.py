@@ -360,7 +360,8 @@ def get_blockchain_interface_instance(_config):
     # todo: refactor joinmarket module to get rid of loops
     # importing here is necessary to avoid import loops
     from jmclient.blockchaininterface import BitcoinCoreInterface, \
-        RegtestBitcoinCoreInterface, BlockrInterface, ElectrumWalletInterface
+        RegtestBitcoinCoreInterface, BlockrInterface, ElectrumWalletInterface, \
+        BlockchaininfoInterface
 
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
@@ -382,6 +383,8 @@ def get_blockchain_interface_instance(_config):
         bc_interface = RegtestBitcoinCoreInterface(rpc)
     elif source == 'blockr':
         bc_interface = BlockrInterface(testnet)
+    elif source == 'bc.i':
+        bc_interface = BlockchaininfoInterface(testnet)
     elif source == 'electrum':
         bc_interface = ElectrumWalletInterface(testnet)
     else:

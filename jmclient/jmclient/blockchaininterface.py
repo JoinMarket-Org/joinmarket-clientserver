@@ -97,6 +97,336 @@ class BlockchainInterface(object):
         required for inclusion in the next N blocks.
 	'''
 
+class BlockchaininfoInterface(BlockchainInterface):
+    BCINFO_MAX_ADDR_REQ_COUNT = 20
+
+    def __init__(self, testnet=False):
+        super(BlockchaininfoInterface, self).__init__()
+
+        # blockchain.info doesn't support testnet via API :(
+        if testnet:
+            log.debug("Blockchain.info doesn't support testnet, "
+            "try blockr as blockchain source. Quitting.")
+            return None
+
+        # see bci.py in bitcoin module
+        self.network = 'btc'
+        self.last_sync_unspent = 0
+
+    @staticmethod
+    def make_bci_request(bci_api_req_url):
+        while True:
+            try:
+                log.info("making request to: " + str(bci_api_req_url))
+                res = btc.make_request(bci_api_req_url)
+                log.info("got result")
+            except Exception as e:
+                if str(e) == 'No free outputs to spend':
+                    return False
+                elif str(e) == 'Quota Exceeded (Req Count Limit)':
+                    log.info('Request count limit reached (+500 req in 5 minutes)')
+                    log.info('Waiting for 60 seconds before retrying')
+                    time.sleep(60)
+                    continue
+                elif str(e) == 'Transaction not found':
+                    log.info(str(e))
+                    return False
+                elif str(e) == 'No Free Cluster Connection' or str(e) == 'Maximum concurrent requests for this endpoint reached. Please try again shortly.' or '<!DOCTYPE html>' in str(e):
+                    log.info('Issues connecting to Blockchain.info API - waiting it out for 60s')
+                    time.sleep(60)
+                    continue
+                else:
+                    log.info(Exception(e))
+                    continue
+            return res
+
+    def sync_addresses(self, wallet):
+        log.info('downloading wallet history')
+        # sets Wallet internal indexes to be at the next unused address
+        for mix_depth in range(wallet.max_mix_depth):
+            for forchange in [0, 1]:
+                unused_addr_count = 0
+                last_used_addr = ''
+                while (unused_addr_count < wallet.gaplimit or
+                           not is_index_ahead_of_cache(
+                                   wallet, mix_depth, forchange)):
+                    addrs = [wallet.get_new_addr(mix_depth, forchange)
+                             for _ in range(self.BCINFO_MAX_ADDR_REQ_COUNT)]
+
+                    bcinfo_url = 'https://blockchain.info/multiaddr?active='
+
+                    # request info on all addresses
+                    res = self.make_bci_request(bcinfo_url + '|'.join(addrs))
+                    data = json.loads(res)['addresses']
+
+                    # get data returned in same order as the address list passed to the API
+                    new_data = []
+                    for a in addrs:
+                        new_data.append([d for d in data if d['address']==a][0])
+
+                    # for each address in data
+                    for addr in new_data:
+                        if addr['n_tx'] != 0:
+                            last_used_addr = addr['address']
+                            unused_addr_count = 0
+                        else:
+                            unused_addr_count += 1
+
+                if last_used_addr == '':
+                    wallet.index[mix_depth][forchange] = 0
+                else:
+                    wallet.index[mix_depth][forchange] = wallet.addr_cache[
+                                                             last_used_addr][
+                                                             2] + 1
+
+    def sync_unspent(self, wallet):
+        # finds utxos in the wallet
+        st = time.time()
+        # dont refresh unspent dict more often than 10 minutes
+        rate_limit_time = 10 * 60
+        if st - self.last_sync_unspent < rate_limit_time:
+            log.info(
+                    'blockchaininfo sync_unspent() happened too recently (%dsec), skipping'
+                    % (st - self.last_sync_unspent))
+            return
+        wallet.unspent = {}
+
+        addrs = wallet.addr_cache.keys()
+        if len(addrs) == 0:
+            log.debug('no tx used')
+            return
+        i = 0
+        count = 0
+        while i < len(addrs):
+            inc = min(len(addrs) - i, self.BCINFO_MAX_ADDR_REQ_COUNT)
+
+            req = addrs[i:i + inc]
+            i += inc
+
+            bcinfo_url = 'https://blockchain.info/en/unspent?active='
+
+            # Request unspent outputs in address chunks (20 at once)
+            res = self.make_bci_request(bcinfo_url + '|'.join(req))
+
+            count = count + 1
+            if res == False:
+                continue
+
+            # request data on addresses in chunks of five
+            req_blocks = []
+            for j in range(0, 20, 5):
+                req_blocks.append(req[j:j+5])
+
+            for req_block in req_blocks:
+                res = self.make_bci_request(bcinfo_url + '|'.join(req_block))
+                count = count + 1
+                if res == False:
+                    continue
+                # If there are addresses in the chunk with unspent outputs, get data
+                for addr in req_block:
+                    res = self.make_bci_request(bcinfo_url + addr)
+                    count = count + 1
+                    if res == False:
+                        continue
+                    data = json.loads(res)['unspent_outputs']
+
+                    # for each unspent output
+                    for uo in data:
+                        wallet.unspent[uo['tx_hash_big_endian'] + ':' + str(uo['tx_output_n'])] = {
+                            'address' : addr,
+                            'value' : int(uo['value'])}
+        for u in wallet.spent_utxos:
+            wallet.unspent.pop(u, None)
+
+        self.last_sync_unspent = time.time()
+        log.info('blockchaininfo sync_unspent took ' +
+                        str((self.last_sync_unspent - st)) + 'sec')
+
+    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr):
+        unconfirm_timeout = 10 * 60  # seconds
+        unconfirm_poll_period = 15
+        confirm_timeout = 2 * 60 * 60
+        confirm_poll_period = 5 * 60
+
+        class NotifyThread(threading.Thread):
+
+            def __init__(self, txd, unconfirmfun, confirmfun):
+                threading.Thread.__init__(self)
+                self.daemon = True
+                self.unconfirmfun = unconfirmfun
+                self.confirmfun = confirmfun
+                self.tx_output_set = set([(sv['script'], sv['value'])
+                                          for sv in txd['outs']])
+                self.output_addresses = [
+                    btc.script_to_address(scrval[0], get_p2pk_vbyte())
+                    for scrval in self.tx_output_set]
+                log.debug('txoutset=' + pprint.pformat(self.tx_output_set))
+                log.debug('outaddrs=' + ','.join(self.output_addresses))
+
+            def run(self):
+                st = int(time.time())
+                unconfirmed_txid = None
+                unconfirmed_txhex = None
+                while not unconfirmed_txid:
+                    time.sleep(unconfirm_poll_period)
+                    if int(time.time()) - st > unconfirm_timeout:
+                        log.debug('checking for unconfirmed tx timed out')
+                        return
+                    bcinfo_url = 'https://blockchain.info/unspent?active='
+                    random.shuffle(self.output_addresses)
+
+                    # create list for requests of all addresses
+                    data_list = []
+                    #for each of the output addresses, request data and add it to list
+                    for output_address in self.output_addresses:
+                        res = BlockchaininfoInterface.make_bci_request(bcinfo_url + output_address)
+                        data = json.loads(res)
+                        data_list.append(data)
+
+                    shared_txid = None
+                    for unspent_list in data_list:
+                        txs = set([str(txdata['tx_hash_big_endian'])
+                                   for txdata in unspent_list['unspent_outputs']])
+                        if not shared_txid:
+                            shared_txid = txs
+                        else:
+                            shared_txid = shared_txid.intersection(txs)
+                    log.debug('sharedtxid = ' + str(shared_txid))
+                    if len(shared_txid) == 0:
+                        continue
+                    time.sleep(2)  # here for some possible race conditions, maybe could do without
+
+                    bcinfo_url = 'https://blockchain.info/rawtx/'
+                    # get data of tx and hex repressentation
+                    # for each tx the outputs addresses share (should only be one?)
+                    data_list = []
+                    for tx in shared_txid:
+                        res = BlockchaininfoInterface.make_bci_request(bcinfo_url + tx)
+                        if res == False:
+                            continue
+                        data_tx = json.loads(res)
+                        res = BlockchaininfoInterface.make_bci_request(bcinfo_url + tx + '?format=hex')
+                        data_tx['hex'] = str(res)
+                        data_list.append(data_tx)
+
+                    if not isinstance(data_list, list):
+                        data_list = [data_list]
+
+                    for txinfo in data_list:
+                        txhex = str(txinfo['hex'])
+                        outs = set([(sv['script'], sv['value'])
+                                    for sv in btc.deserialize(txhex)['outs']])
+                        log.debug('unconfirm query outs = ' + str(outs))
+                        if outs == self.tx_output_set:
+                            unconfirmed_txid = txinfo['hash']
+                            unconfirmed_txhex = str(txinfo['hex'])
+                            break
+
+                self.unconfirmfun(
+                        btc.deserialize(unconfirmed_txhex), unconfirmed_txid)
+
+                st = int(time.time())
+                confirmed_txid = None
+                confirmed_txhex = None
+                bcinfo_url = 'https://blockchain.info/rawtx/'
+
+                while not confirmed_txid:
+                    time.sleep(confirm_poll_period)
+                    if int(time.time()) - st > confirm_timeout:
+                        log.debug('checking for confirmed tx timed out')
+                        return
+
+                    for tx in shared_txid:
+                        res = btc.make_request(bcinfo_url + tx)
+                        data = json.loads(res)
+
+                        # Not yet confirmed
+                        if 'block_height' not in data:
+                            continue
+                        else:
+                            res = BlockchaininfoInterface.make_bci_request(bcinfo_url + tx + '?format=hex')
+                            txhex = str(res)
+                            outs = set([(sv['script'], sv['value'])
+                                    for sv in btc.deserialize(txhex)['outs']])
+                            log.debug('confirm query outs = ' + str(outs))
+                            if outs == self.tx_output_set:
+                                confirmed_txid = txinfo['hash']
+                                confirmed_txhex = str(txinfo['hex'])
+                                break
+
+                self.confirmfun(
+                        btc.deserialize(confirmed_txhex), confirmed_txid, 1)
+
+        NotifyThread(txd, unconfirmfun, confirmfun).start()
+
+    def pushtx(self, txhex):
+        try:
+            json_str = btc.bci_pushtx(txhex)
+        except Exception:
+            log.debug('failed blockchain.info pushtx')
+            return None
+
+        txhash = btc.txhash(txhex)
+        return txhash
+
+    def query_utxo_set(self, txout, includeconf=False):
+        self.current_height = int(self.make_bci_request("https://blockchain.info/q/getblockcount"))
+        log.info("Got block height: " + str(self.current_height))
+        if not isinstance(txout, list):
+            txout = [txout]
+        txids = [h[:64] for h in txout]
+        txids = list(set(txids))
+        txids = [txids]
+
+        bcinfo_url = 'https://blockchain.info/rawtx/'
+        data = []
+        for ids in txids:
+            for single_id in ids:
+                res = self.make_bci_request(bcinfo_url + single_id)
+                if res == False:
+                    continue
+                bci_data = json.loads(res)
+                data.append(bci_data)
+
+        result = []
+        for txo in txout:
+            txdata = None
+            vout = None
+            for d in data:
+                if d['hash'] == txo[:64]:
+                    txdata = d
+            for v in txdata['out']:
+                if v['n'] == int(txo[65:]):
+                    vout = v
+            if vout['spent'] == 1:
+                result.append(None)
+            else:
+                result_dict = {'value': int(vout['value']),
+                               'address': vout['addr'],
+                               'script': vout['script']}
+                if includeconf:
+                    if 'block_height' not in txdata:
+                        result_dict['confirms'] = 0
+                    else:
+                        #+1 because if current height = tx height, that's 1 conf
+                        result_dict['confirms'] = int(
+                            self.current_height) - int(txdata['block_height']) + 1
+                        log.debug("Got num confs: " + str(result_dict['confirms']))
+                result.append(result_dict)
+        return result
+
+    def estimate_fee_per_kb(self, N):
+        bcypher_fee_estimate_url = 'https://api.blockcypher.com/v1/btc/main'
+        bcypher_data = json.loads(btc.make_request(bcypher_fee_estimate_url))
+        log.debug("Got blockcypher result: "+pprint.pformat(bcypher_data))
+        if N<=2:
+            fee_per_kb = bcypher_data["high_fee_per_kb"]
+        elif N <=4:
+            fee_per_kb = bcypher_data["medium_fee_per_kb"]
+        else:
+            fee_per_kb = bcypher_data["low_fee_per_kb"]
+
+        return fee_per_kb
 
 class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
     """A pseudo-blockchain interface using the existing 

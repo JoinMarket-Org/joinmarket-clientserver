@@ -492,7 +492,7 @@ class SpendTab(QWidget):
         log.debug('starting coinjoin ..')
 
         w.statusBar().showMessage("Syncing wallet ...")
-        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "blockr":
+        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") not in ["blockr", "bc.i"]:
             jm_single().bc_interface.sync_wallet(w.wallet, fast=True)
         else:
             jm_single().bc_interface.sync_wallet(w.wallet)

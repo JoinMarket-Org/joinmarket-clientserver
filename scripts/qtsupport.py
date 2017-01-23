@@ -63,7 +63,7 @@ config_types = {'rpc_port': int,
                 'order_wait_time': int,
                 'privacy_warning': None}
 config_tips = {
-    'blockchain_source': 'options: blockr, bitcoin-rpc',
+    'blockchain_source': 'options: blockr, bc.i, bitcoin-rpc',
     'network': 'one of "testnet" or "mainnet"',
     'checktx': 'whether to check fees before completing transaction',
     'rpc_host':
