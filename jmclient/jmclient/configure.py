@@ -105,7 +105,7 @@ use_ssl = false
 
 [BLOCKCHAIN]
 blockchain_source = blockr
-#options: blockr, bitcoin-rpc, regtest
+#options: blockr, bitcoin-rpc, regtest, bc.i, electrum-server
 # for instructions on bitcoin-rpc read
 # https://github.com/chris-belcher/joinmarket/wiki/Running-JoinMarket-with-Bitcoin-Core-full-node
 network = mainnet
@@ -362,7 +362,7 @@ def get_blockchain_interface_instance(_config):
     from jmclient.blockchaininterface import BitcoinCoreInterface, \
         RegtestBitcoinCoreInterface, BlockrInterface, ElectrumWalletInterface, \
         BlockchaininfoInterface
-
+    from jmclient.electruminterface import ElectrumInterface
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
     testnet = network == 'testnet'
@@ -387,6 +387,8 @@ def get_blockchain_interface_instance(_config):
         bc_interface = BlockchaininfoInterface(testnet)
     elif source == 'electrum':
         bc_interface = ElectrumWalletInterface(testnet)
+    elif source == 'electrum-server':
+        bc_interface = ElectrumInterface(testnet) #can specify server, config, TODO
     else:
         raise ValueError("Invalid blockchain source")
     return bc_interface
