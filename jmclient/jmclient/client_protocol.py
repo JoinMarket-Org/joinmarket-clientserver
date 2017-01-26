@@ -83,7 +83,8 @@ class JMTakerClientProtocol(amp.AMP):
 
         #To avoid creating yet another config variable, we set the timeout
         #to 20 * maker_timeout_sec.
-        reactor.callLater(20*maker_timeout_sec, self.stallMonitor,
+        if not hasattr(self.taker, 'testflag'): #pragma: no cover
+            reactor.callLater(20*maker_timeout_sec, self.stallMonitor,
                           self.taker.schedule_index+1)
 
         d = self.callRemote(commands.JMInit,

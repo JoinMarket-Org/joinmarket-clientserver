@@ -226,6 +226,7 @@ class TrialTestJMClientProto(unittest.TestCase):
         for i, p in enumerate(params):
             takers[i].set_fail_init(p[0])
             takers[i].set_fail_utxos(p[1])
+            takers[i].testflag = True
             if i != 0:
                 clientfactories.append(JMTakerClientProtocolFactory(takers[i]))
                 clientconn = reactor.connectTCP("localhost", 27184, clientfactories[i])
