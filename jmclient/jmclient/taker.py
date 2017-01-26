@@ -44,6 +44,7 @@ class Taker(object):
         self.schedule = schedule
         self.order_chooser = order_chooser
         self.ignored_makers = None
+        self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
         #allow custom wallet-based clients to use their own signing code;
@@ -140,6 +141,11 @@ class Taker(object):
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
                 self.ignored_makers)
+            if self.orderbook is None:
+                #Failure to get an orderbook means order selection failed
+                #for some reason; no action is taken, we let the stallMonitor
+                # + the finished callback decide whether to retry.
+                return False
             if self.filter_orders_callback:
                 accepted = self.filter_orders_callback([self.orderbook,
                                                         self.total_cj_fee],
@@ -593,8 +599,10 @@ class Taker(object):
 
     def unconfirm_callback(self, txd, txid):
         jlog.debug("Transaction seen on network, waiting for confirmation")
+        self.waiting_for_conf = True
 
     def confirm_callback(self, txd, txid, confirmations):
+        self.waiting_for_conf = False
         jlog.debug("Confirmed callback in taker, confs: " + str(confirmations))
         fromtx=False if self.schedule_index + 1 == len(self.schedule) else True
         waittime = self.schedule[self.schedule_index][4]

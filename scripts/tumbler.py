@@ -72,8 +72,11 @@ def main():
                 log.info("Waiting for: " + str(waittime) + " seconds.")
                 reactor.callLater(waittime, clientfactory.getClient().clientStart)
             else:
-                #a transaction failed; just stop
-                reactor.stop()
+                #a transaction failed; tumbler is aggressive in trying to
+                #complete, so restart processing from the failed schedule entry:
+                clientfactory.getClient().taker.schedule_index -= 1
+                log.info("Transaction failed after timeout, trying again")
+                reactor.callLater(0, clientfactory.getClient().clientStart)
         else:
             if not res:
                 log.info("Did not complete successfully, shutting down")
@@ -84,6 +87,7 @@ def main():
     #to allow testing of confirm/unconfirm callback for multiple txs
     if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
         jm_single().bc_interface.tick_forward_chain_interval = 10
+        jm_single().maker_timeout_sec = 5
 
     #instantiate Taker with given schedule and run
     taker = Taker(wallet,
@@ -96,7 +100,6 @@ def main():
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
                   clientfactory, daemon=daemon)
-
 
 if __name__ == "__main__":
     main()

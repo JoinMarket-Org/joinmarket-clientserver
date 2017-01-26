@@ -50,7 +50,7 @@ from jmclient import (load_program_config, get_network, Wallet,
                       JMTakerClientProtocolFactory, WalletError,
                       start_reactor, get_schedule, get_tumble_schedule,
                       schedule_to_text, mn_decode, mn_encode, create_wallet_file,
-                      get_blockchain_interface_instance)
+                      get_blockchain_interface_instance, sync_wallet)
 
 from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
                        TaskThread, QtHandler, XStream, Buttons, CloseButton,
@@ -178,7 +178,7 @@ class SettingsTab(QDialog):
             #an awkward design element from the core code: maker_timeout_sec
             #is set outside the config, if it doesn't exist in the config.
             #Add it here and it will be in the newly updated config file.
-            if section == 'MESSAGING' and 'maker_timeout_sec' not in [
+            if section == 'TIMEOUT' and 'maker_timeout_sec' not in [
                     _[0] for _ in pairs
             ]:
                 jm_single().config.set(section, 'maker_timeout_sec', '60')
@@ -236,6 +236,9 @@ class SettingsTab(QDialog):
             if str(t[0].text()) == 'blockchain_source':
                 jm_single().bc_interface = get_blockchain_interface_instance(
                     jm_single().config)
+            if str(t[0].text()) == 'maker_timeout_sec':
+                jm_single().maker_timeout_sec = int(t[1].text())
+                log.debug("Set maker timeout sec to : " + str(jm_single().maker_timeout_sec))
 
     def getSettingsFields(self, section, names):
         results = []
@@ -486,18 +489,14 @@ class SpendTab(QWidget):
         JMQtMessageBox(
             self,
             "Connecting to IRC.\nView real-time log in the lower pane.",
-            title="Sendpayment")
+            title="Coinjoin starting")
 
         self.toggleButtons(False, sched=multiple)
 
         log.debug('starting coinjoin ..')
 
         w.statusBar().showMessage("Syncing wallet ...")
-        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") not in [
-            "blockr", "bc.i", "electrum-server"]:
-            jm_single().bc_interface.sync_wallet(w.wallet, fast=True)
-        else:
-            jm_single().bc_interface.sync_wallet(w.wallet)
+        sync_wallet(w.wallet, fast=True)
         if not multiple:
             destaddr = str(self.widgets[0][1].text())
             #convert from bitcoins (enforced by QDoubleValidator) to satoshis
@@ -659,7 +658,7 @@ class SpendTab(QWidget):
             self.giveUp()
 
     def startNextTransaction(self):
-        jm_single().bc_interface.sync_wallet(w.wallet)
+        sync_wallet(w.wallet, fast=True)
         self.clientfactory.getClient().clientStart()
 
     def takerFinished(self):
@@ -678,7 +677,14 @@ class SpendTab(QWidget):
                 QtCore.QTimer.singleShot(self.taker_finished_waittime,
                                          self.startNextTransaction)
             else:
-                #a transaction failed; just stop
+                #a transaction failed to reach broadcast;
+                #restart processing from the failed schedule entry;
+                #note that for some failure vectors this is essentially
+                #an infinite loop, but the user can abort any time (or
+                #modify the wallet e.g. to add commitment utxos).
+                self.taker.schedule_index -= 1
+                log.info("Transaction failed after timeout, trying again")
+                QtCore.QTimer.singleShot(0, self.startNextTransaction)
                 self.giveUp()
         else:
             #the final, or a permanent failure
@@ -1274,7 +1280,7 @@ class JMMainWindow(QMainWindow):
             jm_single().config.set('POLICY', 'listunspent_args', '[0]')
         assert self.wallet, "No wallet loaded"
         thread = TaskThread(self)
-        task = partial(jm_single().bc_interface.sync_wallet, self.wallet)
+        task = partial(sync_wallet, self.wallet, True)
         thread.add(task, on_done=self.updateWalletInfo)
         self.statusBar().showMessage("Reading wallet from blockchain ...")
         return True

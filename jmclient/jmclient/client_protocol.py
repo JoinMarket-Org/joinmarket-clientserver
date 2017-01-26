@@ -80,6 +80,12 @@ class JMTakerClientProtocol(amp.AMP):
         irc_configs = get_irc_mchannels()
         minmakers = jm_single().config.getint("POLICY", "minimum_makers")
         maker_timeout_sec = jm_single().maker_timeout_sec
+
+        #To avoid creating yet another config variable, we set the timeout
+        #to 20 * maker_timeout_sec.
+        reactor.callLater(20*maker_timeout_sec, self.stallMonitor,
+                          self.taker.schedule_index+1)
+
         d = self.callRemote(commands.JMInit,
                             bcsource=blockchain_source,
                             network=network,
@@ -87,6 +93,33 @@ class JMTakerClientProtocol(amp.AMP):
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec)
         self.defaultCallbacks(d)
+
+    def stallMonitor(self, schedule_index):
+        """Diagnoses whether long wait is due to any kind of failure;
+        if so, calls the taker on_finished_callback with a failure
+        flag so that the transaction can be re-tried or abandoned, as desired.
+        Note that this *MUST* not trigger any action once the coinjoin transaction
+        is seen on the network (hence waiting_for_conf).
+        The schedule index parameter tells us whether the processing has moved
+        on to the next item before we were woken up.
+        """
+        jlog.info("STALL MONITOR:")
+        if not self.taker.schedule_index == schedule_index:
+            #TODO pre-initialize() ?
+            jlog.info("No stall detected, continuing")
+            return
+        if self.taker.waiting_for_conf:
+            #Don't restart if the tx is already on the network!
+            jlog.info("No stall detected, continuing")
+            return
+        if not self.taker.txid:
+            #txid is set on pushing; if it's not there, we have failed.
+            jlog.info("Stall detected. Regenerating transactions and retrying.")
+            self.taker.on_finished_callback(False, True, 0.0)
+        else:
+            #This shouldn't really happen; if the tx confirmed,
+            #the finished callback should already be called.
+            jlog.info("Tx was already pushed; ignoring")
 
     def set_nick(self):
         self.nick_pubkey = btc.privtopub(self.nick_priv)
