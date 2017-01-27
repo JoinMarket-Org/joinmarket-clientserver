@@ -50,10 +50,6 @@ def main():
     sync_wallet(wallet, fast=options['fastsync'])
 
     #Parse options and generate schedule
-    
-    #for testing, TODO remove
-    jm_single().maker_timeout_sec = 5 
-    
     jm_single().mincjamount = options['mincjamount']
     destaddrs = args[1:]
     print(destaddrs)
