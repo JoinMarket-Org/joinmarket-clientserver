@@ -129,6 +129,13 @@ class Taker(object):
         commitment, revelation, errmsg = self.make_commitment()
         if not commitment:
             self.taker_info_callback("ABORT", errmsg)
+            utxo_pairs, to, ts = revelation
+            if len(to) == 0:
+                #If any utxos are too new, then we can continue retrying
+                #until they get old enough; otherwise, we have to abort
+                #(TODO, it's possible for user to dynamically add more coins,
+                #consider if this option means we should stay alive).
+                self.on_finished_callback(False)
             return (False,)
         else:
             self.taker_info_callback("INFO", errmsg)
@@ -209,7 +216,6 @@ class Taker(object):
             if not self.orderbook:
                 self.taker_info_callback("ABORT",
                                 "Could not find orders to complete transaction")
-                self.on_finished_callback(False)
                 return False
             if self.filter_orders_callback:
                 if not self.filter_orders_callback((self.orderbook,
@@ -544,7 +550,7 @@ class Taker(object):
                 errmsgfileheader += ("***\n")
                 f.write(errmsgfileheader + errmsg)
 
-            return (None, None, errmsgheader + errmsg)
+            return (None, (priv_utxo_pairs, to, ts), errmsgheader + errmsg)
 
     def coinjoin_address(self):
         if self.my_cj_addr:
