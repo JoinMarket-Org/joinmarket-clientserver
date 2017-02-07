@@ -107,7 +107,7 @@ def main():
         if not addr_valid:
             print('ERROR: Address invalid. ' + errormsg)
             return
-        schedule = [(options.mixdepth, amount, options.makercount, destaddr)]
+        schedule = [[options.mixdepth, amount, options.makercount, destaddr]]
     else:
         result, schedule = get_schedule(options.schedule)
         if not result:

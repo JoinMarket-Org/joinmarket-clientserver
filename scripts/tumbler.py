@@ -9,18 +9,31 @@ import time
 import os
 import pprint
 import copy
+import logging
 
 from jmclient import (Taker, load_program_config, get_schedule, weighted_order_choose,
                               JMTakerClientProtocolFactory, start_reactor,
                               validate_address, jm_single, WalletError,
                               Wallet, sync_wallet, get_tumble_schedule,
-                              RegtestBitcoinCoreInterface, estimate_tx_fee)
+                              RegtestBitcoinCoreInterface, estimate_tx_fee,
+                              tweak_tumble_schedule)
 
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
 log = get_log()
 
 def main():
+    tumble_log = logging.getLogger('tumbler')
+    tumble_log.setLevel(logging.DEBUG)
+    logFormatter = logging.Formatter(
+        ('%(asctime)s %(message)s'))
+    logsdir = os.path.join(os.path.dirname(
+    jm_single().config_location), "logs")
+    fileHandler = logging.FileHandler(
+        logsdir + '/TUMBLE.log')
+    fileHandler.setFormatter(logFormatter)
+    tumble_log.addHandler(fileHandler)
+
     (options, args) = get_tumbler_parser().parse_args()
     options = vars(options)
 
@@ -56,7 +69,9 @@ def main():
     schedule = get_tumble_schedule(options, destaddrs)
     print("got schedule:")
     print(pprint.pformat(schedule))
-
+    tumble_log.info("TUMBLE STARTING")
+    tumble_log.info("With this schedule: ")
+    tumble_log.info(pprint.pformat(schedule))
     #callback for order checking; dummy/passthrough
     def filter_orders_callback(orders_fees, cjamount):
         return True
@@ -64,14 +79,32 @@ def main():
     def taker_finished(res, fromtx=False, waittime=0.0):
         if fromtx:
             if res:
+                tumble_log.info("Completed successfully.")
+                tumble_log.info("We sent: " + str(taker.cjamount) + \
+                                " satoshis to address: " + taker.my_cj_addr + \
+                                " from mixdepth: " + \
+                                str(taker.schedule[taker.schedule_index][0]))
+                waiting_message = "Waiting for: " + str(waittime) + " seconds."
+                tumble_log.info(waiting_message)
                 sync_wallet(wallet, fast=options['fastsync'])
-                log.info("Waiting for: " + str(waittime) + " seconds.")
+                log.info(waiting_message)
                 reactor.callLater(waittime, clientfactory.getClient().clientStart)
             else:
                 #a transaction failed; tumbler is aggressive in trying to
-                #complete, so restart processing from the failed schedule entry:
-                clientfactory.getClient().taker.schedule_index -= 1
-                log.info("Transaction failed after timeout, trying again")
+                #complete; we tweak the schedule from this point in the mixdepth,
+                #then try again:
+                tumble_log.info("Transaction attempt failed, tweaking schedule"
+                                " and trying again.")
+                tumble_log.info("The paramaters of the failed attempt: ")
+                tumble_log.info(str(taker.schedule[taker.schedule_index]))
+                log.info("Schedule entry: " + str(
+                    taker.schedule[taker.schedule_index]) + \
+                         " failed after timeout, trying again")
+                taker.schedule_index -= 1
+                taker.schedule = tweak_tumble_schedule(options, taker.schedule,
+                                                       taker.schedule_index)
+                tumble_log.info("We tweaked the schedule, the new schedule is:")
+                tumble_log.info(pprint.pformat(taker.schedule))
                 reactor.callLater(0, clientfactory.getClient().clientStart)
         else:
             if not res:

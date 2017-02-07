@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import copy
+from pprint import pformat
 from jmclient import (validate_address, rand_exp_array,
-                      rand_norm_array, rand_pow_array)
+                      rand_norm_array, rand_pow_array, jm_single)
 """Utility functions for dealing with Taker schedules.
 
 - get_schedule(filename):
@@ -24,7 +26,12 @@ def get_schedule(filename):
                 return (False, "Failed to parse schedule line: " + sl)
             try:
                 mixdepth = int(mixdepth)
-                amount = int(amount)
+                #TODO this isn't the right way, but floats must be allowed
+                #for any persisted tumbler-style schedule
+                if "." in amount:
+                    amount = float(amount)
+                else:
+                    amount = int(amount)
                 makercount = int(makercount)
                 destaddr = destaddr.strip()
                 waittime = float(waittime)
@@ -34,8 +41,16 @@ def get_schedule(filename):
                 success, errmsg = validate_address(destaddr)
                 if not success:
                     return (False, "Invalid address: " + destaddr + "," + errmsg)
-            schedule.append((mixdepth, amount, makercount, destaddr, waittime))
+            schedule.append([mixdepth, amount, makercount, destaddr, waittime])
     return (True, schedule)
+
+def get_amount_fractions(power, count):
+    """Get 'count' fractions following power law distn according to
+    parameter 'power'
+    """
+    amount_fractions = rand_pow_array(power, count)
+    amount_fractions = [1.0 - x for x in amount_fractions]
+    return [x / sum(amount_fractions) for x in amount_fractions]
 
 def get_tumble_schedule(options, destaddrs):
     """for the general intent and design of the tumbler algo, see the docs in
@@ -62,10 +77,7 @@ def get_tumble_schedule(options, destaddrs):
             # amount_fraction cant be 1.0, some coins must be left over
             if txcount == 1:
                 txcount = 2
-        # assume that the sizes of outputs will follow a power law
-        amount_fractions = rand_pow_array(options['amountpower'], txcount)
-        amount_fractions = [1.0 - x for x in amount_fractions]
-        amount_fractions = [x / sum(amount_fractions) for x in amount_fractions]
+        amount_fractions = get_amount_fractions(options['amountpower'], txcount)
         # transaction times are uncorrelated
         # time between events in a poisson process followed exp
         waits = rand_exp_array(options['timelambda'], txcount)
@@ -106,9 +118,63 @@ def get_tumble_schedule(options, destaddrs):
             [tx_list.remove(t) for t in tx_list_remove]
     schedule = []
     for t in tx_list:
-        schedule.append((t['srcmixdepth'], t['amount_fraction'],
-                  t['makercount'], t['destination'], t['wait']))
+        schedule.append([t['srcmixdepth'], t['amount_fraction'],
+                  t['makercount'], t['destination'], t['wait']])
     return schedule
+
+def tweak_tumble_schedule(options, schedule, last_completed):
+    """If a tx in a schedule failed for some reason, and we want
+    to make a best effort to complete the schedule, we can tweak
+    the failed entry to improve the odds of success on re-try.
+    Both the size/amount and the number of counterparties may have
+    been a cause for failure, so we change both of those where
+    possible.
+    Returns a new, altered schedule file (should continue at same index)
+    """
+    new_schedule = copy.deepcopy(schedule)
+    altered = new_schedule[last_completed + 1]
+    #For sweeps, we'll try with a lower number of counterparties if we can.
+    #Note that this is usually counterproductive for non-sweeps, which fall
+    #back and so benefit in reliability from *higher* counterparty numbers.
+    if altered[1] == 0:
+        new_n_cp = altered[2] - 1
+        if new_n_cp < jm_single().config.getint("POLICY", "minimum_makers"):
+            new_n_cp = jm_single().config.getint("POLICY", "minimum_makers")
+        altered[2] = new_n_cp
+    if not altered[1] == 0:
+        #For non-sweeps, there's a fractional amount (tumbler).
+        #Increasing or decreasing the amount could improve the odds of success,
+        #since it depends on liquidity and minsizes, so we tweak in both
+        #directions randomly.
+        #Strategy:
+        #1. calculate the total percentage remaining in the mixdepth.
+        #2. calculate the number remaining incl. sweep.
+        #3. Re-use 'getamountfracs' algo for this reduced number, then scale it
+        #to the number remaining.
+        #4. As before, reset the final to '0' for sweep.
+        #find the number of entries remaining, not including the final sweep,
+        #for this mixdepth:
+
+        #First get all sched entries for this mixdepth
+        this_mixdepth_entries = [s for s in new_schedule if s[0] == altered[0]]
+        already_done = this_mixdepth_entries[:this_mixdepth_entries.index(altered)]
+        tobedone = this_mixdepth_entries[this_mixdepth_entries.index(altered):]
+
+        #find total frac left to be spent
+        alreadyspent = sum([x[1] for x in already_done])
+        tobespent = 1.0 - alreadyspent
+        #power law for what's left:
+        new_fracs = get_amount_fractions(options['amountpower'], len(tobedone))
+        #rescale; the sum must be 'tobespent':
+        new_fracs = [x*tobespent for x in new_fracs]
+        #starting from the known 'last_completed+1' index, apply these new
+        #fractions, with 0 at the end for sweep
+        for i, j in enumerate(range(
+            last_completed + 1, last_completed + 1 + len(tobedone))):
+            new_schedule[j][1] = new_fracs[i]
+        #reset the sweep
+        new_schedule[last_completed + 1 + len(tobedone) - 1][1] = 0
+    return new_schedule
 
 def schedule_to_text(schedule):
     return "\n".join([",".join([str(y) for y in x]) for x in schedule])

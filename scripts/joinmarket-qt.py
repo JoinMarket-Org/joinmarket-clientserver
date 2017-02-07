@@ -505,7 +505,7 @@ class SpendTab(QWidget):
             makercount = int(self.widgets[1][1].text())
             mixdepth = int(self.widgets[2][1].text())
             #note 'amount' is integer, so not interpreted as fraction
-            self.taker_schedule = [(mixdepth, amount, makercount, destaddr, 0)]
+            self.taker_schedule = [[mixdepth, amount, makercount, destaddr, 0]]
         else:
             assert self.loaded_schedule
             self.taker_schedule = self.loaded_schedule

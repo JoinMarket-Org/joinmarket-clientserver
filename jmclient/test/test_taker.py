@@ -70,7 +70,7 @@ def get_taker(schedule=None, schedule_len=0, sign_method=None, on_finished=None,
               filter_orders=None):
     if not schedule:
         #note, for taker.initalize() this will result in junk
-        schedule = [('a', 'b', 'c', 'd', 'e')]*schedule_len
+        schedule = [['a', 'b', 'c', 'd', 'e']]*schedule_len
     print("Using schedule: " + str(schedule))
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
@@ -83,11 +83,11 @@ def test_filter_rejection(createcmtdata):
         print("calling filter orders rejection")
         return False
     taker = get_taker(filter_orders=filter_orders_reject)
-    taker.schedule = [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]
+    taker.schedule = [[0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0]]
     res = taker.initialize(t_orderbook)
     assert not res[0]
     taker = get_taker(filter_orders=filter_orders_reject)
-    taker.schedule = [(0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]
+    taker.schedule = [[0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0]]
     res = taker.initialize(t_orderbook)
     assert not res[0]
 

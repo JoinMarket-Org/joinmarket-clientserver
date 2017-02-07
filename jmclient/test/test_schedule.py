@@ -3,7 +3,8 @@ from __future__ import absolute_import
 '''test schedule module.'''
 
 import pytest
-from jmclient import (get_schedule, get_tumble_schedule, load_program_config)
+from jmclient import (get_schedule, get_tumble_schedule,
+                      tweak_tumble_schedule, load_program_config)
 import os
 
 valids = """#sample for testing
@@ -89,8 +90,55 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
     schedule = get_tumble_schedule(options, destaddrs)
     dests = [x[3] for x in schedule]
     assert set(destaddrs).issubset(set(dests))
-            
-            
 
-        
-    
+@pytest.mark.parametrize(
+    "destaddrs, txcparams, mixdepthcount, lastcompleted, makercountrange",
+    [
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (6,0), 5, 17, (6,0)),
+        #edge case: very first transaction
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,0), 4, -1, (6,0)),
+        #edge case: hit minimum_makers limit
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,0), 4, -1, (2,0)),
+        #edge case: it's a sweep
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,0), 4, 1, (5,0)),
+        #mid-run case in 2nd mixdepth
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (6,0), 4, 7, (5,0)),
+        #sanity check, typical parameters
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (4,1), 4, 8, (6,1)),
+    ])
+def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
+                      makercountrange):
+    load_program_config()
+    options = get_options()
+    options['mixdepthcount'] = mixdepthcount
+    options['txcountparams'] = txcparams
+    options['makercountrange'] = makercountrange
+    schedule = get_tumble_schedule(options, destaddrs)
+    dests = [x[3] for x in schedule]
+    assert set(destaddrs).issubset(set(dests))
+    new_schedule = tweak_tumble_schedule(options, schedule, lastcompleted)
+    #sanity check: each amount fraction list should add up to near 1.0,
+    #so some is left over for sweep
+    for i in range(mixdepthcount):
+        entries = [x for x in new_schedule if x[0] == i]
+        total_frac_for_mixdepth = sum([x[1] for x in entries])
+        #TODO spurious failure is possible here, not an ideal check
+        print('got total frac for mixdepth: ', str(total_frac_for_mixdepth))
+        assert total_frac_for_mixdepth < 0.999
+    from pprint import pformat
+    print("here is the new schedule: ")
+    print(pformat(new_schedule))
+    print("and old:")
+    print(pformat(schedule))

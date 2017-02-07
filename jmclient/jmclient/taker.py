@@ -98,8 +98,14 @@ class Taker(object):
             #non-integer coinjoin amounts are treated as fractions
             #this is currently used by the tumbler algo
             if isinstance(self.cjamount, float):
-                mixdepthbal = self.wallet.get_balance_by_mixdepth()[self.mixdepth]
-                self.cjamount = int(self.cjamount * mixdepthbal)
+                #the mixdepth balance is fixed at the *start* of each new
+                #mixdepth in tumble schedules:
+                if self.schedule_index == 0 or si[0] != self.schedule[
+                    self.schedule_index - 1]:
+                    self.mixdepthbal = self.wallet.get_balance_by_mixdepth(
+                        )[self.mixdepth]
+                #reset to satoshis
+                self.cjamount = int(self.cjamount * self.mixdepthbal)
                 if self.cjamount < jm_single().mincjamount:
                     jlog.debug("Coinjoin amount too low, bringing up.")
                     self.cjamount = jm_single().mincjamount
