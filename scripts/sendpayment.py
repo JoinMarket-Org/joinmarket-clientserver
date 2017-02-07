@@ -98,6 +98,8 @@ def main():
     #of a single transaction
     sweeping = False
     if options.schedule == '':
+        #note that sendpayment doesn't support fractional amounts, fractions throw
+        #here.
         amount = int(args[1])
         if amount == 0:
             sweeping = True

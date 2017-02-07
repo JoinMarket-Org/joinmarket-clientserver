@@ -176,5 +176,15 @@ def tweak_tumble_schedule(options, schedule, last_completed):
         new_schedule[last_completed + 1 + len(tobedone) - 1][1] = 0
     return new_schedule
 
+def human_readable_schedule_entry(se, amt=None, destn=None):
+    hrs = []
+    hrs.append("From mixdepth " + str(se[0]))
+    amt_info = str(amt) if amt else str(se[1])
+    hrs.append("sends amount: " + amt_info + " satoshis")
+    dest_info = destn if destn else str(se[3])
+    hrs.append("to destination address: " + dest_info)
+    hrs.append("after coinjoin with " + str(se[2]) + " counterparties.")
+    return ", ".join(hrs)
+
 def schedule_to_text(schedule):
     return "\n".join([",".join([str(y) for y in x]) for x in schedule])

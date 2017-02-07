@@ -16,7 +16,7 @@ from jmclient import (Taker, load_program_config, get_schedule, weighted_order_c
                               validate_address, jm_single, WalletError,
                               Wallet, sync_wallet, get_tumble_schedule,
                               RegtestBitcoinCoreInterface, estimate_tx_fee,
-                              tweak_tumble_schedule)
+                              tweak_tumble_schedule, human_readable_schedule_entry)
 
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
@@ -79,11 +79,15 @@ def main():
     def taker_finished(res, fromtx=False, waittime=0.0):
         if fromtx:
             if res:
-                tumble_log.info("Completed successfully.")
-                tumble_log.info("We sent: " + str(taker.cjamount) + \
-                                " satoshis to address: " + taker.my_cj_addr + \
-                                " from mixdepth: " + \
-                                str(taker.schedule[taker.schedule_index][0]))
+                tumble_log.info("Completed successfully this entry:")
+                #the log output depends on if it's a sweep, and if it's to INTERNAL
+                hrdestn = None
+                if taker.schedule[taker.schedule_index][3] == "INTERNAL":
+                    hrdestn = taker.my_cj_addr
+                #Whether sweep or not, the amt is not in satoshis; use taker data
+                hramt = taker.cjamount
+                tumble_log.info(human_readable_schedule_entry(
+                    taker.schedule[taker.schedule_index], hramt, hrdestn))
                 waiting_message = "Waiting for: " + str(waittime) + " seconds."
                 tumble_log.info(waiting_message)
                 sync_wallet(wallet, fast=options['fastsync'])
@@ -111,6 +115,11 @@ def main():
                 log.info("Did not complete successfully, shutting down")
             else:
                 log.info("All transactions completed correctly")
+                tumble_log.info("Completed successfully the last entry:")
+                #Whether sweep or not, the amt is not in satoshis; use taker data
+                hramt = taker.cjamount
+                tumble_log.info(human_readable_schedule_entry(
+                    taker.schedule[taker.schedule_index], hramt))
             reactor.stop()
 
     #to allow testing of confirm/unconfirm callback for multiple txs
