@@ -23,6 +23,8 @@ from cli_options import get_tumbler_parser
 log = get_log()
 
 def main():
+    #Prepare log file giving simplified information
+    #on progress of tumble.
     tumble_log = logging.getLogger('tumbler')
     tumble_log.setLevel(logging.DEBUG)
     logFormatter = logging.Formatter(
@@ -78,6 +80,12 @@ def main():
     #callback between transactions
     def taker_finished(res, fromtx=False, waittime=0.0):
         if fromtx:
+            #on taker side, cache index update is only required after tx
+            #push, to avoid potential of address reuse in case of a crash,
+            #because addresses are not public until broadcast (whereas for makers,
+            #they are public *during* negotiation). So updating the cache here
+            #is sufficient
+            taker.wallet.update_cache_index()
             if res:
                 tumble_log.info("Completed successfully this entry:")
                 #the log output depends on if it's a sweep, and if it's to INTERNAL
@@ -112,7 +120,9 @@ def main():
                 reactor.callLater(0, clientfactory.getClient().clientStart)
         else:
             if not res:
-                log.info("Did not complete successfully, shutting down")
+                failure_msg = "Did not complete successfully, shutting down"
+                tumble_log.info(failure_msg)
+                log.info(failure_msg)
             else:
                 log.info("All transactions completed correctly")
                 tumble_log.info("Completed successfully the last entry:")
