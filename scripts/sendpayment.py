@@ -195,7 +195,8 @@ def main():
         if fromtx:
             if res:
                 sync_wallet(wallet, fast=options.fastsync)
-                reactor.callLater(waittime, clientfactory.getClient().clientStart)
+                reactor.callLater(waittime*60,
+                                  clientfactory.getClient().clientStart)
             else:
                 #a transaction failed; just stop
                 reactor.stop()

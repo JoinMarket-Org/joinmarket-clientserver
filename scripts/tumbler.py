@@ -96,11 +96,12 @@ def main():
                 hramt = taker.cjamount
                 tumble_log.info(human_readable_schedule_entry(
                     taker.schedule[taker.schedule_index], hramt, hrdestn))
-                waiting_message = "Waiting for: " + str(waittime) + " seconds."
+                waiting_message = "Waiting for: " + str(waittime) + " minutes."
                 tumble_log.info(waiting_message)
                 sync_wallet(wallet, fast=options['fastsync'])
                 log.info(waiting_message)
-                reactor.callLater(waittime, clientfactory.getClient().clientStart)
+                reactor.callLater(waittime*60,
+                                  clientfactory.getClient().clientStart)
             else:
                 #a transaction failed; tumbler is aggressive in trying to
                 #complete; we tweak the schedule from this point in the mixdepth,
