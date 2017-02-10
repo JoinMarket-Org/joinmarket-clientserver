@@ -99,28 +99,42 @@ def main():
     #callback for order checking; dummy/passthrough
     def filter_orders_callback(orders_fees, cjamount):
         return True
-    #callback between transactions
+
     def taker_finished(res, fromtx=False, waittime=0.0):
-        if fromtx:
+        """on_finished_callback for tumbler
+        """
+        def unconf_update():
             #on taker side, cache index update is only required after tx
             #push, to avoid potential of address reuse in case of a crash,
             #because addresses are not public until broadcast (whereas for makers,
             #they are public *during* negotiation). So updating the cache here
             #is sufficient
             taker.wallet.update_cache_index()
-            if res:
-                #We persist the fact that the transaction is complete to the
-                #schedule file. Note that if a tweak to the schedule occurred,
-                #it only affects future (non-complete) transactions, so the final
-                #full record should always be accurate; but TUMBLE.log should be
-                #used for checking what actually happened.
-                taker.schedule[taker.schedule_index][5] = 1
-                with open(os.path.join(logsdir, options['schedulefile']),
-                          "wb") as f:
-                    f.write(schedule_to_text(taker.schedule))
 
+            #We persist the fact that the transaction is complete to the
+            #schedule file. Note that if a tweak to the schedule occurred,
+            #it only affects future (non-complete) transactions, so the final
+            #full record should always be accurate; but TUMBLE.log should be
+            #used for checking what actually happened.
+            taker.schedule[taker.schedule_index][5] = 1
+            with open(os.path.join(logsdir, options['schedulefile']),
+                      "wb") as f:
+                f.write(schedule_to_text(taker.schedule))
+
+        if fromtx == "unconfirmed":
+            #unconfirmed event means transaction has been propagated,
+            #we update state to prevent accidentally re-creating it in
+            #any crash/restart condition
+            unconf_update()
+            return
+
+        if fromtx:
+            if res:
                 tumble_log.info("Completed successfully this entry:")
-                #the log output depends on if it's a sweep, and if it's to INTERNAL
+                #this has no effect except in the rare case that confirmation
+                #is immediate
+                unconf_update()
+                #the log output depends on if it's to INTERNAL
                 hrdestn = None
                 if taker.schedule[taker.schedule_index][3] == "INTERNAL":
                     hrdestn = taker.my_cj_addr
@@ -128,10 +142,12 @@ def main():
                 hramt = taker.cjamount
                 tumble_log.info(human_readable_schedule_entry(
                     taker.schedule[taker.schedule_index], hramt, hrdestn))
+                tumble_log.info("Txid was: " + taker.txid)
                 waiting_message = "Waiting for: " + str(waittime) + " minutes."
                 tumble_log.info(waiting_message)
-                sync_wallet(wallet, fast=options['fastsync'])
                 log.info(waiting_message)
+
+                sync_wallet(wallet, fast=options['fastsync'])
                 reactor.callLater(waittime*60,
                                   clientfactory.getClient().clientStart)
             else:

@@ -601,7 +601,10 @@ class Taker(object):
         self.txid = btc.txhash(tx)
         jlog.debug('txid = ' + self.txid)
         pushed = jm_single().bc_interface.pushtx(tx)
-        jm_single().bc_interface.add_tx_notify(
+        if not pushed:
+            self.on_finished_callback(False, fromtx=True)
+        else:
+            jm_single().bc_interface.add_tx_notify(
                 self.latest_tx, self.unconfirm_callback,
                 self.confirm_callback, self.my_cj_addr)
 
