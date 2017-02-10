@@ -11,12 +11,13 @@ import pprint
 import copy
 import logging
 
-from jmclient import (Taker, load_program_config, get_schedule, weighted_order_choose,
-                              JMTakerClientProtocolFactory, start_reactor,
-                              validate_address, jm_single, WalletError,
-                              Wallet, sync_wallet, get_tumble_schedule,
-                              RegtestBitcoinCoreInterface, estimate_tx_fee,
-                              tweak_tumble_schedule, human_readable_schedule_entry)
+from jmclient import (Taker, load_program_config, get_schedule,
+                      weighted_order_choose, JMTakerClientProtocolFactory,
+                      start_reactor, validate_address, jm_single, WalletError,
+                      Wallet, sync_wallet, get_tumble_schedule,
+                      RegtestBitcoinCoreInterface, estimate_tx_fee,
+                      tweak_tumble_schedule, human_readable_schedule_entry,
+                      schedule_to_text)
 
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
@@ -31,8 +32,7 @@ def main():
         ('%(asctime)s %(message)s'))
     logsdir = os.path.join(os.path.dirname(
     jm_single().config_location), "logs")
-    fileHandler = logging.FileHandler(
-        logsdir + '/TUMBLE.log')
+    fileHandler = logging.FileHandler(os.path.join(logsdir, 'TUMBLE.log'))
     fileHandler.setFormatter(logFormatter)
     tumble_log.addHandler(fileHandler)
 
@@ -65,15 +65,37 @@ def main():
     sync_wallet(wallet, fast=options['fastsync'])
 
     #Parse options and generate schedule
+    #Output information to log files
     jm_single().mincjamount = options['mincjamount']
     destaddrs = args[1:]
     print(destaddrs)
-    schedule = get_tumble_schedule(options, destaddrs)
-    print("got schedule:")
-    print(pprint.pformat(schedule))
-    tumble_log.info("TUMBLE STARTING")
+    #If the --restart flag is set we read the schedule
+    #from the file, and filter out entries that are
+    #already complete
+    if options['restart']:
+        res, schedule = get_schedule(os.path.join(logsdir,
+                                                  options['schedulefile']))
+        if not res:
+            print("Failed to load schedule, name: " + str(
+                options['schedulefile']))
+            sys.exit(0)
+        #This removes all entries that are marked as done;
+        #assumes user has not edited by hand, and edits have only happened
+        #on tx completion.
+        schedule = [s for s in schedule if s[5] == 0]
+        tumble_log.info("TUMBLE RESTARTING")
+    else:
+        #Create a new schedule from scratch
+        schedule = get_tumble_schedule(options, destaddrs)
+        tumble_log.info("TUMBLE STARTING")
+        with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
+            f.write(schedule_to_text(schedule))
+        print("Schedule written to logs/" + options['schedulefile'])
     tumble_log.info("With this schedule: ")
     tumble_log.info(pprint.pformat(schedule))
+
+    print("Progress logging to logs/TUMBLE.log")
+
     #callback for order checking; dummy/passthrough
     def filter_orders_callback(orders_fees, cjamount):
         return True
@@ -87,6 +109,16 @@ def main():
             #is sufficient
             taker.wallet.update_cache_index()
             if res:
+                #We persist the fact that the transaction is complete to the
+                #schedule file. Note that if a tweak to the schedule occurred,
+                #it only affects future (non-complete) transactions, so the final
+                #full record should always be accurate; but TUMBLE.log should be
+                #used for checking what actually happened.
+                taker.schedule[taker.schedule_index][5] = 1
+                with open(os.path.join(logsdir, options['schedulefile']),
+                          "wb") as f:
+                    f.write(schedule_to_text(taker.schedule))
+
                 tumble_log.info("Completed successfully this entry:")
                 #the log output depends on if it's a sweep, and if it's to INTERNAL
                 hrdestn = None
@@ -131,6 +163,11 @@ def main():
                 hramt = taker.cjamount
                 tumble_log.info(human_readable_schedule_entry(
                     taker.schedule[taker.schedule_index], hramt))
+                #copy of above, TODO refactor out
+                taker.schedule[taker.schedule_index][5] = 1
+                with open(os.path.join(logsdir, options['schedulefile']),
+                          "wb") as f:
+                    f.write(schedule_to_text(taker.schedule))
             reactor.stop()
 
     #to allow testing of confirm/unconfirm callback for multiple txs

@@ -31,7 +31,8 @@ from .podle import (set_commitment_file, get_commitment_file,
                     PoDLE, generate_podle, get_podle_commitments,
                     update_commitments)
 from .schedule import (get_schedule, get_tumble_schedule, schedule_to_text,
-                       tweak_tumble_schedule, human_readable_schedule_entry)
+                       tweak_tumble_schedule, human_readable_schedule_entry,
+                       schedule_to_text)
 from .commitment_utils import get_utxo_info, validate_utxo_data, quit
 # Set default logging handler to avoid "No handler found" warnings.
 

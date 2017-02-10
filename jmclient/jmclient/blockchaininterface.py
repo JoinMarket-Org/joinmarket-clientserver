@@ -772,7 +772,10 @@ class BlockrInterface(BlockchainInterface): #pragma: no cover
             data += blockr_data
         result = []
         for txo in txout:
-            txdata = [d for d in data if d['tx'] == txo[:64]][0]
+            txdata_candidate = [d for d in data if d['tx'] == txo[:64]]
+            if len(txdata_candidate) == 0:
+                continue
+            txdata = txdata_candidate[0]
             vout = [v for v in txdata['vouts'] if v['n'] == int(txo[65:])][0]
             if "is_spent" in vout and vout['is_spent'] == 1:
                 result.append(None)

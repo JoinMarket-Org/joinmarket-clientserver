@@ -11,6 +11,9 @@ from jmclient import (validate_address, rand_exp_array,
 - get_tumble_schedule(options, destaddrs):
     generate a schedule for tumbling from a given wallet, using options dict
     and specified destinations
+- tweak_tumble_schedule(options, schedule, last_completed):
+    make alterations to the remaining entries in a mixdepth to maximize
+    the chance of success on re-trying
 """
 
 def get_schedule(filename):
@@ -21,7 +24,8 @@ def get_schedule(filename):
             if sl.startswith("#"):
                 continue
             try:
-                mixdepth, amount, makercount, destaddr, waittime = sl.split(',')
+                mixdepth, amount, makercount, destaddr, waittime, completed = \
+                    sl.split(',')
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
             try:
@@ -35,13 +39,15 @@ def get_schedule(filename):
                 makercount = int(makercount)
                 destaddr = destaddr.strip()
                 waittime = float(waittime)
+                completed = int(completed)
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
             if destaddr != "INTERNAL":
                 success, errmsg = validate_address(destaddr)
                 if not success:
                     return (False, "Invalid address: " + destaddr + "," + errmsg)
-            schedule.append([mixdepth, amount, makercount, destaddr, waittime])
+            schedule.append([mixdepth, amount, makercount, destaddr,
+                             waittime, completed])
     return (True, schedule)
 
 def get_amount_fractions(power, count):
@@ -63,6 +69,10 @@ def get_tumble_schedule(options, destaddrs):
     and zero as sweep (as before).
     This is a modified version of tumbler.py/generate_tumbler_tx()
     """
+    if options['mixdepthsrc'] != 0:
+        raise NotImplementedError("Non-zero mixdepth source not supported; "
+                                  "restart the tumbler with --restart instead")
+
     def lower_bounded_int(thelist, lowerbound):
         return [int(l) if int(l) >= lowerbound else lowerbound for l in thelist]
 
@@ -119,7 +129,7 @@ def get_tumble_schedule(options, destaddrs):
     schedule = []
     for t in tx_list:
         schedule.append([t['srcmixdepth'], t['amount_fraction'],
-                  t['makercount'], t['destination'], t['wait']])
+                  t['makercount'], t['destination'], t['wait'], 0])
     return schedule
 
 def tweak_tumble_schedule(options, schedule, last_completed):

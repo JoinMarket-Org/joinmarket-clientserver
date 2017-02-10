@@ -25,10 +25,7 @@ def get_tumbler_parser():
             type='int',
             dest='mixdepthsrc',
             help=
-            'Mixing depth to spend from. Useful if a previous tumbler run prematurely ended with '
-            +
-            'coins being left in higher mixing levels, this option can be used to resume without needing'
-            + ' to send to another address. default=0',
+            'Mixing depth to spend from. DEPRECATED, do not use.',
             default=0)
     parser.add_option(
             '-f',
@@ -41,6 +38,19 @@ def get_tumbler_parser():
         'for the total transaction fee, default=dynamically estimated, note that this is adjusted '+
         'based on the estimated fee calculated after tx construction, based on '+
         'policy set in joinmarket.cfg.')
+    parser.add_option('--restart',
+        action='store_true',
+        dest='restart',
+        default=False,
+        help=('Restarts the schedule currently found in the schedule file in the '
+              'logs directory, with name TUMBLE.schedule or what is set in the '
+              'schedulefile option.'))
+    parser.add_option('--schedulefile',
+            type='str',
+            dest='schedulefile',
+            default='TUMBLE.schedule',
+            help=('Name of schedule file for tumbler, useful for restart, default '
+                  'TUMBLE.schedule'))
     parser.add_option(
             '-a',
             '--addrcount',
