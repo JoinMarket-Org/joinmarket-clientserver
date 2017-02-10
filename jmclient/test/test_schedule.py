@@ -8,30 +8,30 @@ from jmclient import (get_schedule, get_tumble_schedule,
 import os
 
 valids = """#sample for testing
-1, 110000000, 3, INTERNAL, 0
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 9.88
+1, 110000000, 3, INTERNAL, 0, 1
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 9.88, 0
 """
 
 invalids1 = """#sample for testing
 1, 110000000, 3, 5, INTERNAL, 0
 #pointless comment here; following line has trailing spaces
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw ,0  
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw ,0, 0,  
 """
 
 invalids2 = """#sample for testing
-1, 110000000, notinteger, INTERNAL, 0
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0
+1, 110000000, notinteger, INTERNAL, 0, 0
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0
 """
 
 invalids3 = """#sample for testing
-1, 110000000, 3, INTERNAL
-0, notinteger, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0
+1, 110000000, 3, INTERNAL, 0, 0
+0, notinteger, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0
 """
 
 #invalid address
 invalids4 = """#sample for testing
-1, 110000000, 3, INTERNAL, 0
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qq, 0
+1, 110000000, 3, INTERNAL, 0, 0
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qq, 0, 0
 """
 
 
@@ -116,7 +116,7 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
         #sanity check, typical parameters
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (4,1), 4, 8, (6,1)),
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (4,1), 4, 6, (6,1)),
     ])
 def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
                       makercountrange):
