@@ -331,7 +331,7 @@ def test_unconfirm_confirm(schedule_len):
     variable as "False" once the schedule is complete.
     """
     test_unconfirm_confirm.txflag = True
-    def finished_for_confirms(res, fromtx=False, waittime=0):
+    def finished_for_confirms(res, fromtx=False, waittime=0, txdetails=None):
         assert res #confirmed should always send true
         test_unconfirm_confirm.txflag = fromtx
 
