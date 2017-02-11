@@ -539,6 +539,8 @@ class BlockrInterface(BlockchainInterface): #pragma: no cover
         # sets Wallet internal indexes to be at the next unused address
         for mix_depth in range(wallet.max_mix_depth):
             for forchange in [0, 1]:
+                #must reset at the start so as to search forward from the beginning
+                wallet.index[mix_depth][forchange] = 0
                 unused_addr_count = 0
                 last_used_addr = ''
                 while (unused_addr_count < wallet.gaplimit or

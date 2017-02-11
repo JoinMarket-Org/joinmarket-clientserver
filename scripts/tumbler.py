@@ -100,7 +100,7 @@ def main():
     def filter_orders_callback(orders_fees, cjamount):
         return True
 
-    def taker_finished(res, fromtx=False, waittime=0.0):
+    def taker_finished(res, fromtx=False, waittime=0.0, txdetails=None):
         """on_finished_callback for tumbler
         """
         def unconf_update():
@@ -146,8 +146,9 @@ def main():
                 waiting_message = "Waiting for: " + str(waittime) + " minutes."
                 tumble_log.info(waiting_message)
                 log.info(waiting_message)
-
-                sync_wallet(wallet, fast=options['fastsync'])
+                txd, txid = txdetails
+                taker.wallet.remove_old_utxos(txd)
+                taker.wallet.add_new_utxos(txd, txid)
                 reactor.callLater(waittime*60,
                                   clientfactory.getClient().clientStart)
             else:

@@ -192,10 +192,12 @@ def main():
                 return False
         return True
 
-    def taker_finished(res, fromtx=False, waittime=0.0):
+    def taker_finished(res, fromtx=False, waittime=0.0, txdetails=None):
         if fromtx:
             if res:
-                sync_wallet(wallet, fast=options.fastsync)
+                txd, txid = txdetails
+                taker.wallet.remove_old_utxos(txd)
+                taker.wallet.add_new_utxos(txd, txid)
                 reactor.callLater(waittime*60,
                                   clientfactory.getClient().clientStart)
             else:
