@@ -59,7 +59,7 @@ class DummyWallet(AbstractWallet):
 def dummy_order_chooser():
     return t_chosen_orders
 
-def taker_finished(res, fromtx=False, waittime=0):
+def taker_finished(res, fromtx=False, waittime=0, txdetails=None):
     print("called taker finished callback")
 
 def dummy_filter_orderbook(orders_fees, cjamount):

@@ -9,5 +9,5 @@ setup(name='joinmarketbase',
       author_email='ekaggata@gmail.com',
       license='GPL',
       packages=['jmbase'],
-      install_requires=['twisted',],
+      install_requires=['twisted==16.6.0',],
       zip_safe=False)
