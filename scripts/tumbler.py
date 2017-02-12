@@ -136,13 +136,31 @@ def main():
                 unconf_update()
                 #the log output depends on if it's to INTERNAL
                 hrdestn = None
-                if taker.schedule[taker.schedule_index][3] == "INTERNAL":
+                if taker.schedule[taker.schedule_index][3] in ["INTERNAL", "addrask"]:
                     hrdestn = taker.my_cj_addr
                 #Whether sweep or not, the amt is not in satoshis; use taker data
                 hramt = taker.cjamount
                 tumble_log.info(human_readable_schedule_entry(
                     taker.schedule[taker.schedule_index], hramt, hrdestn))
                 tumble_log.info("Txid was: " + taker.txid)
+
+                if taker.schedule[taker.schedule_index+1][3] == 'addrask':
+                    jm_single().debug_silence[0] = True
+                    print('\n'.join(['=' * 60] * 3))
+                    print('Tumbler requires more addresses to stop amount correlation')
+                    print('Obtain a new destination address from your bitcoin recipient')
+                    print(' for example click the button that gives a new deposit address')
+                    print('\n'.join(['=' * 60] * 1))
+                    while True:
+                        destaddr = raw_input('insert new address: ')
+                        addr_valid, errormsg = validate_address(destaddr)
+                        if addr_valid:
+                            break
+                        print(
+                        'Address ' + destaddr + ' invalid. ' + errormsg + ' try again')
+                    jm_single().debug_silence[0] = False
+                    taker.schedule[taker.schedule_index+1][3] = destaddr
+
                 waiting_message = "Waiting for: " + str(waittime) + " minutes."
                 tumble_log.info(waiting_message)
                 log.info(waiting_message)
