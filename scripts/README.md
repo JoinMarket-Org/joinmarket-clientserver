@@ -47,18 +47,7 @@ This is an extension of the functionality of `sendpayment.py` in that it auto-ge
 a schedule of payments to internal and external addresses, following the same algo
 as in normal Joinmarket and described [here](https://github.com/JoinMarket-Org/joinmarket/wiki/Step-by-step-running-the-tumbler).
 
-The main difference is that the command line options allow you to specify multiple destination addresses and all the various
-parameters controlling the transaction sequence (see `python tumbler.py --help` for details).
-
-It is also of course possible to create your own tumble schedule manually, just using
-`sendpayment.py` as above, by creating a schedule file, but this is a little complicated to figure out at first.
-
-(The two scripts `sendpayment.py` and `tumbler.py` may be folded together later.)
-
-Shortly I'll try to make this somewhat idempotent by having the schedule auto-generate work by reading
-the current state of the wallet (simple example, if the 0th mixdepth is empty, start from the first).
-It's quite fiddly, but to the extent that this works it could create a simple workflow of "restart until complete", accounting
-for various failure modes that can occur.
+For detailed information on how to use this, please read [this](tumblerguide.md).
 
 ###wallet-tool.py
 
