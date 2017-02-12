@@ -26,6 +26,7 @@ class AttributeDict(object):
     """
 
     def __init__(self, **entries):
+        self.currentnick = None
         self.add_entries(**entries)
 
     def add_entries(self, **entries):
@@ -36,7 +37,8 @@ class AttributeDict(object):
                 self.__dict__[key] = value
 
     def __setattr__(self, name, value):
-        if name == 'nickname' and value:
+        if name == 'nickname' and value != self.currentnick:
+            self.currentnick = value
             logFormatter = logging.Formatter(
                 ('%(asctime)s [%(threadName)-12.12s] '
                  '[%(levelname)-5.5s]  %(message)s'))
