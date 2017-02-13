@@ -126,19 +126,19 @@ class IRCMessageChannel(MessageChannel):
         wlog('building irc')
         if self.tx_irc_client:
             raise Exception('irc already built')
-        if self.usessl.lower() == 'true':
+        if self.usessl.lower() == 'true' and not self.socks5.lower() == 'true':
             factory = TxIRCFactory(self)
             ctx = ClientContextFactory()
             reactor.connectSSL(self.serverport[0], self.serverport[1],
                                factory, ctx)
         elif self.socks5.lower() == 'true':
-            #TODO not yet tested! to say it needs to be is a slight understatement.
             factory = TxIRCFactory(self)
-            torEndpoint = TCP4ClientEndpoint(reactor, self.socks5_host,
+            #str() casts needed else unicode error
+            torEndpoint = TCP4ClientEndpoint(reactor, str(self.socks5_host),
                                              self.socks5_port)
-            ircEndpoint = SOCKS5ClientEndpoint(self.serverport[0],
+            ircEndpoint = SOCKS5ClientEndpoint(str(self.serverport[0]),
                                                self.serverport[1], torEndpoint)
-            if self.usessl:
+            if self.usessl.lower() == 'true':
                 ctx = ClientContextFactory()
                 tlsEndpoint = TLSWrapClientEndpoint(ctx, ircEndpoint)
                 tlsEndpoint.connect(factory)
