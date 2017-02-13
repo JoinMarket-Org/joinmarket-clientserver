@@ -193,6 +193,11 @@ def main():
         return True
 
     def taker_finished(res, fromtx=False, waittime=0.0, txdetails=None):
+        if fromtx == "unconfirmed":
+            #If final entry, stop *here*, don't wait for confirmation
+            if taker.schedule_index + 1 == len(taker.schedule):
+                reactor.stop()
+            return
         if fromtx:
             if res:
                 txd, txid = txdetails
@@ -206,6 +211,8 @@ def main():
         else:
             if not res:
                 log.info("Did not complete successfully, shutting down")
+            #Should usually be unreachable, unless conf received out of order;
+            #because we should stop on 'unconfirmed' for last (see above)
             else:
                 log.info("All transactions completed correctly")
             reactor.stop()

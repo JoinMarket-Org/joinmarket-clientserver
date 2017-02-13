@@ -194,7 +194,8 @@ class JMTakerClientProtocol(amp.AMP):
     @commands.JMOffers.responder
     def on_JM_OFFERS(self, orderbook):
         self.orderbook = json.loads(orderbook)
-        jlog.info("Got the orderbook: " + str(self.orderbook))
+        #Removed for now, as judged too large, even for DEBUG:
+        #jlog.debug("Got the orderbook: " + str(self.orderbook))
         retval = self.taker.initialize(self.orderbook)
         #format of retval is:
         #True, self.cjamount, commitment, revelation, self.filtered_orderbook)

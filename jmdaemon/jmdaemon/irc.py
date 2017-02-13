@@ -157,8 +157,7 @@ class IRCMessageChannel(MessageChannel):
 class txIRC_Client(irc.IRCClient, object):
     """
     lineRate is a class variable in the superclass used to limit
-    messages / second.  heartbeat is what you'd think
-    TODO check this handles throttling as necessary, should do.
+    messages / second.  heartbeat is what you'd think.
     """
     lineRate = 0.5
     heartbeatinterval = 60
@@ -295,7 +294,8 @@ class txIRC_Client(irc.IRCClient, object):
             wlog('unable to parse privmsg, msg: ', message)
 
     def action(self, user, channel, msg):
-        wlog('unhandled action: ', user, channel, msg)
+        pass
+        #wlog('unhandled action: ', user, channel, msg)
 
     def alterCollidedNick(self, nickname):
         """
@@ -308,21 +308,24 @@ class txIRC_Client(irc.IRCClient, object):
         return newnick
 
     def modeChanged(self, user, channel, _set, modes, args):
-        wlog('(unhandled) modeChanged: ', user, channel, _set, modes, args)
+        pass
+        #wlog('(unhandled) modeChanged: ', user, channel, _set, modes, args)
 
     def pong(self, user, secs):
-        wlog('pong: ', user, secs)
+        pass
+        #wlog('pong: ', user, secs)
 
     def userJoined(self, user, channel):
-        wlog('user joined: ', user, channel)
+        pass
+        #wlog('user joined: ', user, channel)
 
     def userKicked(self, kickee, channel, kicker, message):
-        wlog('kicked: ', kickee, channel, kicker, message)
+        #wlog('kicked: ', kickee, channel, kicker, message)
         if self.wrapper.on_nick_leave:
             reactor.callLater(0.0, self.wrapper.on_nick_leave, kickee, self.wrapper)
 
     def userLeft(self, user, channel):
-        wlog('left: ', user, channel)
+        #wlog('left: ', user, channel)
         if self.wrapper.on_nick_leave:
             reactor.callLater(0.0, self.wrapper.on_nick_leave, user, self.wrapper)
 
@@ -331,7 +334,7 @@ class txIRC_Client(irc.IRCClient, object):
         #TODO nick change handling
 
     def userQuit(self, user, quitMessage):
-        wlog('userQuit: ', user, quitMessage)
+        #wlog('userQuit: ', user, quitMessage)
         if self.wrapper.on_nick_leave:
             reactor.callLater(0.0, self.wrapper.on_nick_leave, user, self.wrapper)
 
@@ -341,13 +344,16 @@ class txIRC_Client(irc.IRCClient, object):
             reactor.callLater(0.0, self.wrapper.on_set_topic, newTopic)
 
     def receivedMOTD(self, motd):
-        wlog('motd: ', motd)
+        pass
+        #wlog('motd: ', motd)
 
     def created(self, when):
-        wlog('(unhandled) created: ', when)
+        pass
+        #wlog('(unhandled) created: ', when)
 
     def yourHost(self, info):
-        wlog('(unhandled) yourhost: ', info)
+        pass
+        #wlog('(unhandled) yourhost: ', info)
 
     def isupport(self, options):
         """Used to set the name of the IRC *network*
@@ -363,19 +369,24 @@ class txIRC_Client(irc.IRCClient, object):
                 if k == 'NETWORK':
                     self.wrapper.hostid = v
             except Exception as e:
-                wlog('failed to parse isupport option, ignoring')
+                pass
+                #wlog('failed to parse isupport option, ignoring')
 
     def myInfo(self, servername, version, umodes, cmodes):
-        wlog('(unhandled) myInfo: ', servername, version, umodes, cmodes)
+        pass
+        #wlog('(unhandled) myInfo: ', servername, version, umodes, cmodes)
 
     def luserChannels(self, channels):
-        wlog('(unhandled) luserChannels: ', channels)
+        pass
+        #wlog('(unhandled) luserChannels: ', channels)
 
     def bounce(self, info):
-        wlog('(unhandled) bounce: ', info)
+        pass
+        #wlog('(unhandled) bounce: ', info)
 
     def left(self, channel):
-        wlog('(unhandled) left: ', channel)
+        pass
+        #wlog('(unhandled) left: ', channel)
 
     def noticed(self, user, channel, message):
         wlog('(unhandled) noticed: ', user, channel, message)
