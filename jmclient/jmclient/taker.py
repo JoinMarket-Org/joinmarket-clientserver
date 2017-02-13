@@ -614,6 +614,8 @@ class Taker(object):
 
     def unconfirm_callback(self, txd, txid):
         jlog.debug("Transaction seen on network, waiting for confirmation")
+        #To allow client to mark transaction as "done" (e.g. by persisting state)
+        self.on_finished_callback(True, fromtx="unconfirmed")
         self.waiting_for_conf = True
 
     def confirm_callback(self, txd, txid, confirmations):
