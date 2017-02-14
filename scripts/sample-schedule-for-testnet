@@ -1,6 +1,27 @@
 #sample for testing
-#fields: source mixdepth, amount (satoshis or fraction if non-int),
-# makercount, destination, waittime (ignored if 0), completed flag:
+#format is CSV
+#there is one line for each coinjoin transaction.
+#You can edit/create these files by hand, as long
+#as you understand the below. Otherwise, use the
+#command line flags for sendpayment.py as before (use --help).
+#Explanation of each of the 6 entries per line:
+#=========================
+#index 0: source mixdepth, the mixdepth coins are to be spent from (-m on command line)
+#index 1: amount. integer value in satoshis to be spent. If 0, a sweep is performed.
+# For the tumbler, can be a decimal (0.0<x<1.0) representing what proportion of the
+# coins in the mixdepth are to be spent.
+#index 2: Number of counterparties requested. (-N flag on command line). Remember
+# that the actual number can fallback to as low as the value of `minimum_makers`
+# as specified in the joinmarket.cfg (by default, 2).
+#index 3: destination address. Either a normal Bitcoin address, or one of two
+# special values: "INTERNAL" means we spend to another mixdepth in the same
+# wallet, in the next mixdepth modulo the max mixdepth. "addrask" is used only
+# in the tumbler, to prompt the user for a new address.
+#index 4: waittime: a decimal value in minutes to wait, after confirmation of this
+# transaction, before continuing to the next.
+#index 5: completion flag: 0 until the transaction is seen on the network, when it
+# is changed to 1. This is particularly useful for the `--restart` feature of tumbler.
+#==========================
 # 0 = not yet completed, otherwise completed
 1, 110000000, 3, INTERNAL, 0, 0
 0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0

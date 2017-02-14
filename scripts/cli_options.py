@@ -224,7 +224,7 @@ def get_sendpayment_parser():
                       '--schedule-file',
                       type='str',
                       dest='schedule',
-                      help='schedule file name',
+                      help='schedule file name; see file "sample-schedule-for-testnet" for explanation and example',
                       default='')
     parser.add_option(
         '-C',
