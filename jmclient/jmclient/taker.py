@@ -163,6 +163,12 @@ class Taker(object):
                 accepted = self.filter_orders_callback([self.orderbook,
                                                         self.total_cj_fee],
                                                        self.cjamount)
+                if accepted == "retry":
+                    #Special condition if Taker is "determined to continue"
+                    #(such as tumbler); even though these offers are rejected,
+                    #we don't trigger the finished callback; see above note on
+                    #`if self.orderbook is None`
+                    return False
                 if not accepted:
                     self.on_finished_callback(False)
                     return False

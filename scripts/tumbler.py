@@ -126,6 +126,16 @@ def main():
 
     #callback for order checking; dummy/passthrough
     def filter_orders_callback(orders_fees, cjamount):
+        orders, total_cj_fee = orders_fees
+        abs_cj_fee = 1.0 * total_cj_fee / taker.n_counterparties
+        rel_cj_fee = abs_cj_fee / cjamount
+        log.info('rel/abs average fee = ' + str(rel_cj_fee) + ' / ' + str(
+                abs_cj_fee))
+
+        if rel_cj_fee > options['maxcjfee'][
+            0] and abs_cj_fee > options['maxcjfee'][1]:
+            log.info("Rejected fees as too high according to options, will retry.")
+            return "retry"
         return True
 
     def taker_finished(res, fromtx=False, waittime=0.0, txdetails=None):
