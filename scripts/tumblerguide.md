@@ -11,14 +11,14 @@ This document explains the delta to the operation of that script, which is almos
 In this implementation, each coinjoin has an associated "schedule" of format like this:
 
 ```
-[mixdepth, amount-in-satoshis, N-counterparties (requested), destination address, wait time in minutes, flag indicating completed/incomplete (1/0)]
+[mixdepth, amount-in-satoshis, N-counterparties (requested), destination address, wait time in minutes, flag indicating incomplete/broadcast/completed (0/txid/1)]
 ```
 
 `[]` here represents a Python list. It's recorded in files in a csv format (because in some cases users may edit). See [this](https://github.com/AdamISZ/joinmarket-clientserver/blob/master/scripts/sample-schedule-for-testnet) testnet sample given in the repo. A couple of extra notes on the format:
 
 * the 4th entry, the destination address, can have special values "INTERNAL" and "addrask"; the former indicates that the coins are to be sent to the "next" mixdepth, modulo the maximum mixdepth. The latter is the same function as in the original implementation, i.e. it takes a destination from those provided by the user, either in the initial command line or on a prompt during the run.
 
-* 0 amounts for the second entry indicate, as for command line flags, a sweep
+* 0 amounts for the second entry indicate, as for command line flags, a sweep; decimals indicate mixdepth fractions (for tumbler)
 
 For the `sendpayment.py` script, this schedule can indeed be simply written in a file and passed as a parameter (for this reason it's likely the tumbler and sendpayment scripts can merge in future).
 
@@ -87,7 +87,7 @@ This is hardcoded currently to `20 * maker_timeout_sec`, the figure 20 being har
 
 #### Restarts
 
-In case of shutdown or crash, the `TUMBLE.schedule` file mentioned above will have an up-to-date record of which transactions in the schedule completed successfully; and you can find the txids, for convenience, in `TUMBLE.log` to sanity check (of course you may want to run `wallet-tool.py` also, which is fine). By restarting the tumbler script with the same parameters, but appending an additional parameter `--restart`, the script will continue the tumble from the first not-successfully-completed transaction and continue. If you used a custom name for `TUMBLE.schedule`, or renamed it afterwards, don't forget to also pass the parameter `--schedulefile` so it can be found; note that these files are always assumed to be in the `logs/` subdirectory of where you're running (so `scripts/logs` here). (A small technical note: on restart, the `TUMBLE.schedule` is truncated in that the txs that already completed will be removed, something that should probably change, but all the info is logged in `TUMBLE.log`, which you should use as your primary record of what happened and when).
+In case of shutdown or crash, the `TUMBLE.schedule` file mentioned above will have an up-to-date record of which transactions in the schedule completed successfully; and you can find the txids, for convenience, in `TUMBLE.log` to sanity check (of course you may want to run `wallet-tool.py` also, which is fine). By restarting the tumbler script with the same parameters, but appending an additional parameter `--restart`, the script will continue the tumble from the first not-successfully-completed transaction and continue (it will wait for confirmations on the last transaction, if it's not yet in a block). If you used a custom name for `TUMBLE.schedule`, or renamed it afterwards, don't forget to also pass the parameter `--schedulefile` so it can be found; note that these files are always assumed to be in the `logs/` subdirectory of where you're running (so `scripts/logs` here). (A small technical note: on restart, the `TUMBLE.schedule` is truncated in that the txs that already completed will be removed, something that should probably change, but all the info is logged in `TUMBLE.log`, which you should use as your primary record of what happened and when).
 
 Minor note, you could conceivably edit `TUMBLE.schedule` before restarting, but this would have to be considered "advanced" usage!
 

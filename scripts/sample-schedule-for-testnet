@@ -20,8 +20,8 @@
 #index 4: waittime: a decimal value in minutes to wait, after confirmation of this
 # transaction, before continuing to the next.
 #index 5: completion flag: 0 until the transaction is seen on the network, when it
-# is changed to 1. This is particularly useful for the `--restart` feature of tumbler.
+# is changed to the txid. This is particularly useful for the `--restart` feature
+# of tumbler. Then changes to 1 when tx is confirmed.
 #==========================
-# 0 = not yet completed, otherwise completed
 1, 110000000, 3, INTERNAL, 0, 0
 0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0

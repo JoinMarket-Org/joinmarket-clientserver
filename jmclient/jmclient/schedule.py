@@ -39,7 +39,9 @@ def get_schedule(filename):
                 makercount = int(makercount)
                 destaddr = destaddr.strip()
                 waittime = float(waittime)
-                completed = int(completed)
+                completed = completed.strip()
+                if not len(completed) == 64:
+                    completed = int(completed)
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
             if destaddr != "INTERNAL":

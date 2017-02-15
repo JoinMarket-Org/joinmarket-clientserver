@@ -23,6 +23,21 @@ from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
 log = get_log()
 
+def restart_waiter(txid):
+    ctr = 0
+    log.info("Waiting for confirmation of last transaction: " + str(txid))
+    while True:
+        time.sleep(10)
+        ctr += 1
+        if not (ctr % 12):
+            log.debug("Still waiting for confirmation of last transaction ...")
+        res = jm_single().bc_interface.query_utxo_set(txid, includeconf=True)
+        if not res[0]:
+            continue
+        if res[0]['confirms'] > 0:
+            break
+    log.info("The last transaction is now in a block; continuing.")
+
 def main():
     #Prepare log file giving simplified information
     #on progress of tumble.
@@ -78,11 +93,24 @@ def main():
         if not res:
             print("Failed to load schedule, name: " + str(
                 options['schedulefile']))
+            print("Error was: " + str(schedule))
             sys.exit(0)
-        #This removes all entries that are marked as done;
-        #assumes user has not edited by hand, and edits have only happened
-        #on tx completion.
-        schedule = [s for s in schedule if s[5] == 0]
+        #This removes all entries that are marked as done
+        schedule = [s for s in schedule if s[5] != 1]
+        if isinstance(schedule[0][5], str) and len(schedule[0][5]) == 64:
+            #ensure last transaction is confirmed before restart
+            tumble_log.info("WAITING TO RESTART...")
+            txid = schedule[0][5]
+            restart_waiter(txid + ":0") #add 0 index because all have it
+            #remove the already-done entry (this connects to the other TODO,
+            #probably better *not* to truncate the done-already txs from file,
+            #but simplest for now.
+            schedule = schedule[1:]
+        elif schedule[0][5] != 0:
+            print("Error: first schedule entry is invalid.")
+            sys.exit(0)
+        with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
+                    f.write(schedule_to_text(schedule))
         tumble_log.info("TUMBLE RESTARTING")
     else:
         #Create a new schedule from scratch
@@ -116,7 +144,8 @@ def main():
             #it only affects future (non-complete) transactions, so the final
             #full record should always be accurate; but TUMBLE.log should be
             #used for checking what actually happened.
-            taker.schedule[taker.schedule_index][5] = 1
+            completion_flag = 1 if not addtolog else taker.txid
+            taker.schedule[taker.schedule_index][5] = completion_flag
             with open(os.path.join(logsdir, options['schedulefile']),
                       "wb") as f:
                 f.write(schedule_to_text(taker.schedule))
