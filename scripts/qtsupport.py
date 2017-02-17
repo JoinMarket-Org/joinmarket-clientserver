@@ -496,7 +496,7 @@ class SchDynamicPage1(QWizardPage):
         results = []
         sN = ['Starting mixdepth', 'Average number of counterparties',
               'How many mixdepths to tumble through',
-              'Average wait time between transactions, in seconds',
+              'Average wait time between transactions, in minutes',
               'Average number of transactions per mixdepth']
         #Tooltips
         sH = ["The starting mixdepth can be decided from the Wallet tab; it must "
@@ -619,19 +619,19 @@ class ScheduleWizard(QWizard):
         destaddrs = [str(x) for x in [self.field("destaddr0").toString(),
                      self.field("destaddr1").toString(),
                      self.field("destaddr2").toString()]]
-        opts = {}
-        opts['mixdepthsrc'] = int(self.field("mixdepthsrc").toString())
-        opts['mixdepthcount'] = int(self.field("mixdepthcount").toString())
-        opts['txfee'] = -1
-        opts['addrcount'] = 3
-        opts['makercountrange'] = (int(self.field("makercount").toString()), 1)
-        opts['minmakercount'] = 2
-        opts['txcountparams'] = (int(self.field("txcountparams").toString()), 1)
-        opts['mintxcount'] = 1
-        opts['amountpower'] = 100.0
-        opts['timelambda'] = float(self.field("timelambda").toString())
-        opts['waittime'] = 20
-        opts['mincjamount'] = 1000000
+        self.opts = {}
+        self.opts['mixdepthsrc'] = int(self.field("mixdepthsrc").toString())
+        self.opts['mixdepthcount'] = int(self.field("mixdepthcount").toString())
+        self.opts['txfee'] = -1
+        self.opts['addrcount'] = 3
+        self.opts['makercountrange'] = (int(self.field("makercount").toString()), 1)
+        self.opts['minmakercount'] = 2
+        self.opts['txcountparams'] = (int(self.field("txcountparams").toString()), 1)
+        self.opts['mintxcount'] = 1
+        self.opts['amountpower'] = 100.0
+        self.opts['timelambda'] = float(self.field("timelambda").toString())
+        self.opts['waittime'] = 20
+        self.opts['mincjamount'] = 1000000
         #needed for Taker to check:
-        jm_single().mincjamount = opts['mincjamount']
-        return get_tumble_schedule(opts, destaddrs)
+        jm_single().mincjamount = self.opts['mincjamount']
+        return get_tumble_schedule(self.opts, destaddrs)

@@ -30,14 +30,46 @@ class Taker(object):
                  order_chooser=weighted_order_choose,
                  sign_method=None,
                  callbacks=None):
-        """Schedule must be a list of tuples: [(mixdepth,cjamount,N, destaddr),..]
+        """Schedule must be a list of tuples: (see sample_schedule_for_testnet
+        for explanation of syntax, also schedule.py module in this directory),
         which will be a sequence of joins to do.
-        callbacks:
-        1.filter orders callback: called to allow the client to decide whether
-        to accept the proposed offers.
-        2.taker info callback: called to allow the client to read updates
-        3.on finished callback: called on completion, either of the whole schedule
-        or early if a transactoin fails.
+        Callbacks:
+        External callers set the 3 callbacks for filtering orders,
+        sending info messages to client, and action on completion.
+        "None" is allowable for taker_info_callback, defaults to log msg.
+        Callback function definitions:
+        =====================
+        filter_orders_callback
+        =====================
+        args:
+        1. orders_fees - a list of two items 1. orders dict 2 total cjfee
+        2. cjamount - coinjoin amount in satoshis
+        returns:
+        False - offers rejected OR
+        True - offers accepted OR
+        'retry' - offers not accepted but try again
+        =======================
+        on_finished_callback
+        =======================
+        args:
+        1. res - True means tx successful, False means tx unsucessful
+        2. fromtx - True means not the final transaction, False means final
+         (end of schedule), 'unconfirmed' means tx seen on the network only.
+        3. waittime - passed in minutes, time to wait after confirmation before
+         continuing to next tx (thus, only used if fromtx is True).
+        4. txdetails - a tuple (txd, txid) - only to be used when fromtx
+         is 'unconfirmed', used for monitoring.
+        returns:
+        None
+        ========================
+        taker_info_callback
+        ========================
+        args:
+        1. type - one of 'ABORT' or 'INFO', the former signals the client that
+         processing of this transaction is aborted, the latter is only an update.
+        2. message - an information message.
+        returns:
+        None
         """
         self.aborted = False
         self.wallet = wallet
@@ -50,27 +82,10 @@ class Taker(object):
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
         self.sign_method = sign_method
-        #External callers set the 3 callbacks for filtering orders,
-        #sending info messages to client, and action on completion.
-        #"None" is allowable for taker_info_callback, defaults to log msg.
-        #"None" is allowable for filter_orders_callback, in which case offers
-        #are automatically accepted (bar insane fees).
-        #"None" is *not* allowable for taker_finished_callback, as it controls
-        #process flow after tx finished.
-        """Signature of filter_orders_callback:
-        args: orders_fees, cjamount
-        returns: boolean representing accept/reject
-        """
         self.filter_orders_callback = callbacks[0]
         self.taker_info_callback = callbacks[1]
         if not self.taker_info_callback:
             self.taker_info_callback = self.default_taker_info_callback
-        """Signature of on_finished_callback:
-        args: res: True/False to flag success
-        from_tx: indicating whether all txs finished, or more to do
-        waittime: how long to wait before continuing to next.
-        returns: None
-        """
         self.on_finished_callback = callbacks[2]
 
     def default_taker_info_callback(self, infotype, msg):

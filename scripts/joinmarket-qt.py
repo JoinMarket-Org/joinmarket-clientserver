@@ -50,7 +50,10 @@ from jmclient import (load_program_config, get_network, Wallet,
                       JMTakerClientProtocolFactory, WalletError,
                       start_reactor, get_schedule, get_tumble_schedule,
                       schedule_to_text, mn_decode, mn_encode, create_wallet_file,
-                      get_blockchain_interface_instance, sync_wallet)
+                      get_blockchain_interface_instance, sync_wallet,
+                      RegtestBitcoinCoreInterface, tweak_tumble_schedule,
+                      human_readable_schedule_entry, tumbler_taker_finished_update,
+                      get_tumble_log, restart_waiter)
 
 from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
                        TaskThread, QtHandler, XStream, Buttons, CloseButton,
@@ -292,6 +295,7 @@ class SpendTab(QWidget):
         wizard = ScheduleWizard()
         wizard.exec_()
         self.loaded_schedule = wizard.get_schedule()
+        self.tumbler_options = wizard.opts
         self.sch_label2.setText(wizard.get_name())
         self.sched_view.setText(schedule_to_text(self.loaded_schedule))
         self.sch_startButton.setEnabled(True)
@@ -315,10 +319,13 @@ class SpendTab(QWidget):
                            title='Error')
         else:
             w.statusBar().showMessage("Schedule loaded OK.")
-            self.sch_label2.setText(os.path.basename(str(firstarg)))
-            self.sched_view.setText(rawsched)
+            self.updateSchedView(rawsched, os.path.basename(str(firstarg)))
             self.sch_startButton.setEnabled(True)
             self.loaded_schedule = schedule
+
+    def updateSchedView(self, text, name):
+        self.sch_label2.setText(name)
+        self.sched_view.setText(text)
 
     def getDonateLayout(self):
         donateLayout = QHBoxLayout()
@@ -575,11 +582,12 @@ class SpendTab(QWidget):
         self.taker_info_response = None
         return
 
-    def callback_takerFinished(self, res, fromtx=False, waittime=0.0):
+    def callback_takerFinished(self, res, fromtx=False, waittime=0.0,
+                               txdetails=None):
         self.taker_finished_res = res
         self.taker_finished_fromtx = fromtx
-        #TODO; equivalent of reactor.callLater to deliberately delay (for tumbler)
-        self.taker_finished_waittime = int(waittime*1000)
+        self.taker_finished_waittime = waittime
+        self.taker_finished_txdetails = txdetails
         self.jmclient_obj.emit(QtCore.SIGNAL('JMCLIENT:finished'))
         return
 
@@ -665,40 +673,44 @@ class SpendTab(QWidget):
         """Callback (after pass-through signal) for jmclient.Taker
         on completion of each join transaction.
         """
+        sfile = os.path.join(logsdir, 'TUMBLE.schedule')
+        #non-GUI-specific state updates first:
+        tumbler_taker_finished_update(self.taker, sfile, tumble_log,
+                                      self.tumbler_options, self.taker_finished_res,
+                                      self.taker_finished_fromtx,
+                                      self.taker_finished_waittime,
+                                      self.taker_finished_txdetails)
+
+        #Shows the schedule updates in the GUI; TODO make this more visual
+        self.updateSchedView(schedule_to_text(self.taker.schedule),
+                             'TUMBLE.schedule')
+
+        #GUI-specific updates; QTimer.singleShort serves the role
+        #of reactor.callLater
+        if self.taker_finished_fromtx == "unconfirmed":
+            w.statusBar().showMessage(
+                "Transaction seen on network: " + self.taker.txid)
+            return
         if self.taker_finished_fromtx:
-            #not the final finished transaction
             if self.taker_finished_res:
-                w.statusBar().showMessage("Transaction completed successfully.")
-                self.persistTxToHistory(self.taker.my_cj_addr,
-                                        self.taker.cjamount,
+                self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
                                         self.taker.txid)
-                log.debug("Waiting for: " + str(
-                    self.taker_finished_waittime/1000.0) + " secs.")
-                QtCore.QTimer.singleShot(self.taker_finished_waittime,
+                w.statusBar().showMessage("Transaction confirmed: " + self.taker.txid)
+                #singleShot argument is in milliseconds
+                QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
                                          self.startNextTransaction)
             else:
-                #a transaction failed to reach broadcast;
-                #restart processing from the failed schedule entry;
-                #note that for some failure vectors this is essentially
-                #an infinite loop, but the user can abort any time (or
-                #modify the wallet e.g. to add commitment utxos).
-                self.taker.schedule_index -= 1
-                log.info("Transaction failed after timeout, trying again")
+                w.statusBar().showMessage("Transaction failed, trying again...")
                 QtCore.QTimer.singleShot(0, self.startNextTransaction)
                 self.giveUp()
         else:
-            #the final, or a permanent failure
-            if not self.taker_finished_res:
-                log.info("Did not complete successfully, shutting down")
-            else:
-                log.info("All transactions completed correctly")
+            if self.taker_finished_res:
+                self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
+                                                        self.taker.txid)
                 w.statusBar().showMessage("All transaction(s) completed successfully.")
-                self.persistTxToHistory(self.taker.my_cj_addr,
-                                        self.taker.cjamount,
-                                        self.taker.txid)
                 if len(self.taker.schedule) == 1:
                     msg = "Transaction has been broadcast.\n" + "Txid: " + \
-                           str(self.taker.txid)
+                                           str(self.taker.txid)
                 else:
                     msg = "All transactions have been broadcast."
                 JMQtMessageBox(self, msg, title="Success")
@@ -1437,10 +1449,18 @@ except Exception as e:
     exit(1)
 update_config_for_gui()
 
-#we're not downloading from github, so logs dir
-#might not exist
+#to allow testing of confirm/unconfirm callback for multiple txs
+if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
+    jm_single().bc_interface.tick_forward_chain_interval = 10
+    jm_single().maker_timeout_sec = 5
+
+#prepare for logging
 if not os.path.exists('logs'):
     os.makedirs('logs')
+logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
+#tumble log will not always be used, but is made available anyway:
+tumble_log = get_tumble_log(logsdir)
+
 appWindowTitle = 'JoinMarketQt'
 w = JMMainWindow()
 tabWidget = QTabWidget(w)
