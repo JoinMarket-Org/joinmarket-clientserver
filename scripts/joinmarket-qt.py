@@ -265,6 +265,28 @@ class SettingsTab(QDialog):
             results.append((QLabel(label), qt))
         return results
 
+class SpendStateMgr(object):
+    """A primitive class keep track of the mode
+    in which the spend tab is being run
+    """
+    def __init__(self, updatecallback):
+        self.typestate = 'single'
+        self.runstate = 'ready'
+        self.updatecallback = updatecallback
+
+    def updateType(self, t):
+        self.typestate = t
+        self.updatecallback()
+
+    def updateRun(self, r):
+        self.runstate = r
+        self.updatecallback()
+
+    def reset(self):
+        self.typestate = 'single'
+        self.runstate = 'ready'
+        self.updatecallback()
+
 class SpendTab(QWidget):
 
     def __init__(self):
@@ -274,6 +296,7 @@ class SpendTab(QWidget):
         self.filter_offers_response = None
         self.taker_info_response = None
         self.clientfactory = None
+        self.tumbler_options = None
         #signals from client backend to GUI
         self.jmclient_obj = QtCore.QObject()
         #This signal/callback requires user acceptance decision.
@@ -288,6 +311,8 @@ class SpendTab(QWidget):
                                   self.takerFinished)
         #will be set in 'multiple join' tab if the user chooses to run a schedule
         self.loaded_schedule = None
+        #tracks which mode the spend tab is run in
+        self.spendstate = SpendStateMgr(self.toggleButtons)
 
     def generateTumbleSchedule(self):
         #needs a set of tumbler options and destination addresses, so needs
@@ -320,7 +345,7 @@ class SpendTab(QWidget):
         else:
             w.statusBar().showMessage("Schedule loaded OK.")
             self.updateSchedView(rawsched, os.path.basename(str(firstarg)))
-            self.sch_startButton.setEnabled(True)
+            self.spendstate.updateType('multiple')
             self.loaded_schedule = schedule
 
     def updateSchedView(self, text, name):
@@ -434,7 +459,7 @@ class SpendTab(QWidget):
             'You will be prompted to decide whether to accept\n' +
             'the transaction after connecting, and shown the\n' +
             'fees to pay; you can cancel at that point if you wish.')
-        self.startButton.clicked.connect(self.startSendPayment)
+        self.startButton.clicked.connect(self.startSingle)
         self.abortButton = QPushButton('Abort')
         self.abortButton.setEnabled(False)
         buttons = QHBoxLayout()
@@ -476,15 +501,36 @@ class SpendTab(QWidget):
         self.textedit.verticalScrollBar().setValue(maxi)
 
     def startMultiple(self):
-        self.qtw.setTabEnabled(0, False)
-        self.startSendPayment(multiple=True)
+        if not self.spendstate.runstate == 'ready':
+            log.info("Cannot start join, already running.")
+        self.taker_schedule = self.loaded_schedule
+        #self.qtw.setTabEnabled(0, False)
+        self.spendstate.updateType('multiple')
+        self.spendstate.updateRun('running')
+        self.startJoin()
 
-    def startSendPayment(self, ignored_makers=None, multiple=False):
+    def startSingle(self):
+        if not self.spendstate.runstate == 'ready':
+            log.info("Cannot start join, already running.")
+        if not self.validateSettings():
+            return
+        destaddr = str(self.widgets[0][1].text())
+        #convert from bitcoins (enforced by QDoubleValidator) to satoshis
+        btc_amount_str = str(self.widgets[3][1].text())
+        amount = int(Decimal(btc_amount_str) * Decimal('1e8'))
+        makercount = int(self.widgets[1][1].text())
+        mixdepth = int(self.widgets[2][1].text())
+        #note 'amount' is integer, so not interpreted as fraction
+        #see notes in sample testnet schedule for format
+        self.taker_schedule = [[mixdepth, amount, makercount, destaddr, 0, 0]]
+        self.spendstate.updateType('single')
+        self.spendstate.updateRun('running')
+        self.startJoin()
+
+    def startJoin(self, ignored_makers=None):
         if not w.wallet:
             JMQtMessageBox(self, "Cannot start without a loaded wallet.",
                            mbtype="crit", title="Error")
-            return
-        if not multiple and not self.validateSettings():
             return
         if jm_single().config.get("BLOCKCHAIN",
                                   "blockchain_source") == 'blockr':
@@ -493,29 +539,16 @@ class SpendTab(QWidget):
                 return
 
         #all settings are valid; start
-        JMQtMessageBox(
-            self,
-            "Connecting to IRC.\nView real-time log in the lower pane.",
-            title="Coinjoin starting")
-
-        self.toggleButtons(False, sched=multiple)
+        #dialog removed for now, annoying, may review later
+        #JMQtMessageBox(
+        #    self,
+        #    "Connecting to IRC.\nView real-time log in the lower pane.",
+        #    title="Coinjoin starting")
 
         log.debug('starting coinjoin ..')
 
         w.statusBar().showMessage("Syncing wallet ...")
         sync_wallet(w.wallet, fast=True)
-        if not multiple:
-            destaddr = str(self.widgets[0][1].text())
-            #convert from bitcoins (enforced by QDoubleValidator) to satoshis
-            btc_amount_str = str(self.widgets[3][1].text())
-            amount = int(Decimal(btc_amount_str) * Decimal('1e8'))
-            makercount = int(self.widgets[1][1].text())
-            mixdepth = int(self.widgets[2][1].text())
-            #note 'amount' is integer, so not interpreted as fraction
-            self.taker_schedule = [[mixdepth, amount, makercount, destaddr, 0]]
-        else:
-            assert self.loaded_schedule
-            self.taker_schedule = self.loaded_schedule
 
         #Decide whether to interrupt processing to sanity check the fees
         if jm_single().config.get("GUI", "checktx") == "true":
@@ -675,7 +708,8 @@ class SpendTab(QWidget):
         """
         sfile = os.path.join(logsdir, 'TUMBLE.schedule')
         #non-GUI-specific state updates first:
-        tumbler_taker_finished_update(self.taker, sfile, tumble_log,
+        if self.tumbler_options:
+            tumbler_taker_finished_update(self.taker, sfile, tumble_log,
                                       self.tumbler_options, self.taker_finished_res,
                                       self.taker_finished_fromtx,
                                       self.taker_finished_waittime,
@@ -727,22 +761,29 @@ class SpendTab(QWidget):
         txhist = w.centralWidget().widget(3)
         txhist.updateTxInfo()
 
-    def toggleButtons(self, on, sched=False):
-        """If first arg is True, set all buttons "on" except "Abort" buttons.
-        (This is the starting condition, and reset condition).
-        If first arg is False, do the opposite, and:
-        If sched, the Abort button is only activated for the Multiple tab.
-        Else, the Abort button is only activated for the Single tab.
+    def toggleButtons(self):
+        """Refreshes accessibility of buttons in the (single, multiple) join
+        tabs based on the current state as defined by the SpendStateMgr instance.
+        Thus, should always be called on any update to that instance.
         """
-        btnsettings = (True, False, True, True, True, False)
-        if not on:
-            btnsettings = [False, True, False, False, False, False]
-            if sched:
-                btnsettings[1] = False
-                btnsettings[5] = True
+        #The first two buttons are for the single join tab; the remaining 4
+        #are for the multijoin tab.
         btns = (self.startButton, self.abortButton,
                 self.schedule_set_button, self.schedule_generate_button,
                 self.sch_startButton, self.sch_abortButton)
+        if self.spendstate.runstate == 'ready':
+            btnsettings = (True, False, True, True, True, False)
+        elif self.spendstate.runstate == 'running':
+            if self.spendstate.typestate == 'single':
+                #can only abort current run, nothing else
+                btnsettings = (False, True, False, False, False, False)
+            elif self.spendstate.typestate == 'multiple':
+                btnsettings = (False, False, False, False, False, True)
+            else:
+                assert False
+        else:
+            assert False
+
         for b, s in zip(btns, btnsettings):
             b.setEnabled(s)
 
@@ -754,7 +795,8 @@ class SpendTab(QWidget):
         log.debug("Transaction aborted.")
         self.qtw.setTabEnabled(0, True)
         self.qtw.setTabEnabled(1, True)
-        self.toggleButtons(True)
+        self.spendstate.reset()
+        self.tumbler_options = None
         w.statusBar().showMessage("Transaction aborted.")
 
     def cleanUp(self):
@@ -780,14 +822,15 @@ class SpendTab(QWidget):
                         mbtype='question',
                         title="Transaction not completed.")
                     if reply == QMessageBox.Yes:
-                        self.startSendPayment(
+                        self.startJoin(
                             ignored_makers=self.taker.ignored_makers)
                     else:
                         self.giveUp()
                         return
         self.qtw.setTabEnabled(0, True)
         self.qtw.setTabEnabled(1, True)
-        self.toggleButtons(True)
+        self.spendstate.reset()
+        self.tumbler_options = None
 
     def validateSettings(self):
         valid, errmsg = validate_address(self.widgets[0][1].text())

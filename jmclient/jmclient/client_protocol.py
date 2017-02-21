@@ -105,6 +105,9 @@ class JMTakerClientProtocol(amp.AMP):
         on to the next item before we were woken up.
         """
         jlog.info("STALL MONITOR:")
+        if self.taker.aborted:
+            jlog.info("Transaction was aborted.")
+            return
         if not self.taker.schedule_index == schedule_index:
             #TODO pre-initialize() ?
             jlog.info("No stall detected, continuing")

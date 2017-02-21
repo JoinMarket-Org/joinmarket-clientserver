@@ -4,42 +4,8 @@ from __future__ import absolute_import, print_function
 """
 A sample implementation of a single coinjoin script,
 adapted from `sendpayment.py` in Joinmarket-Org/joinmarket.
-This is designed
-to illustrate the main functionality of the new architecture:
-this code can be run in a separate environment (but not safely
-over the internet, better on one machine) to the joinmarketdaemon.
-Moreover, it can run several transactions as specified in a "schedule", like:
-
-[(mixdepth, amount, N, destination),(m,a,N,d),..]
-
-call it like the normal Joinmarket sendpayment, but optionally add
-a port for the daemon:
-
-`python sendpayment.py -p 27183 -N 3 -m 1 walletseed amount address`;
-
-Schedule can be read from a file with the -S option, in which case no need to
-provide amount, mixdepth, number of counterparties or destination from command line.
-
-The idea is that the "backend" (daemon) will keep its orderbook and stay
-connected on the message channel between runs, only shutting down
-after all are complete. Joins are sequenced using the wallet-notify function as
-previously for Joinmarket.
-
-It should be very easy to extend this further, of course.
-
-More complex applications can extend from Taker and add
-more features. This will also allow
-easier coding of non-CLI interfaces. A plugin for Electrum is in process
-and already working.
-
-Other potential customisations of the Taker object instantiation
-include:
-
-external_addr=None implies joining to another mixdepth
-in the same wallet.
-
-order_chooser can be set to a different custom function that selects
-counterparty offers according to different rules.
+For notes, see scripts/README.md; in particular, note the use
+of "schedules" with the -S flag.
 """
 
 import random
@@ -286,9 +252,6 @@ def main():
                 log.info("All transactions completed correctly")
             reactor.stop()
 
-    if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
-        #to allow testing of confirm/unconfirm callback for multiple txs
-        jm_single().bc_interface.tick_forward_chain_interval = 10
     taker = Taker(wallet,
                   schedule,
                   order_chooser=chooseOrdersFunc,
