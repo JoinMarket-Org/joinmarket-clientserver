@@ -318,7 +318,9 @@ class SpendTab(QWidget):
         #needs a set of tumbler options and destination addresses, so needs
         #a wizard
         wizard = ScheduleWizard()
-        wizard.exec_()
+        wizard_return = wizard.exec_()
+        if wizard_return == QDialog.Rejected:
+            return
         self.loaded_schedule = wizard.get_schedule()
         self.tumbler_options = wizard.opts
         self.sch_label2.setText(wizard.get_name())
@@ -503,6 +505,10 @@ class SpendTab(QWidget):
     def startMultiple(self):
         if not self.spendstate.runstate == 'ready':
             log.info("Cannot start join, already running.")
+            return
+        if not self.loaded_schedule:
+            log.info("Cannot start, no schedule loaded.")
+            return
         self.taker_schedule = self.loaded_schedule
         #self.qtw.setTabEnabled(0, False)
         self.spendstate.updateType('multiple')
@@ -706,9 +712,9 @@ class SpendTab(QWidget):
         """Callback (after pass-through signal) for jmclient.Taker
         on completion of each join transaction.
         """
-        sfile = os.path.join(logsdir, 'TUMBLE.schedule')
         #non-GUI-specific state updates first:
         if self.tumbler_options:
+            sfile = os.path.join(logsdir, 'TUMBLE.schedule')
             tumbler_taker_finished_update(self.taker, sfile, tumble_log,
                                       self.tumbler_options, self.taker_finished_res,
                                       self.taker_finished_fromtx,
@@ -716,10 +722,11 @@ class SpendTab(QWidget):
                                       self.taker_finished_txdetails)
 
         #Shows the schedule updates in the GUI; TODO make this more visual
-        self.updateSchedView(schedule_to_text(self.taker.schedule),
+        if self.spendstate.runstate == 'multiple':
+            self.updateSchedView(schedule_to_text(self.taker.schedule),
                              'TUMBLE.schedule')
 
-        #GUI-specific updates; QTimer.singleShort serves the role
+        #GUI-specific updates; QTimer.singleShot serves the role
         #of reactor.callLater
         if self.taker_finished_fromtx == "unconfirmed":
             w.statusBar().showMessage(
