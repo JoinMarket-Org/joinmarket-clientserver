@@ -565,15 +565,57 @@ class SchDynamicPage2(QWizardPage):
 class SchFinishPage(QWizardPage):
     def __init__(self, parent):
         super(SchFinishPage, self).__init__(parent)
-        self.setTitle("Save your schedule")
-        self.setSubTitle("The schedule will be saved to this file when you click Finish")
+        self.setTitle("Advanced options")
+        self.setSubTitle("(the default values are usually sufficient)")
         layout = QGridLayout()
         layout.setSpacing(4)
-        layout.addWidget(QLabel("Enter schedule name: "), 0, 0)
-        self.schedName = QLineEdit()
-        layout.addWidget(self.schedName, 0, 1, 1, 2)
-        self.registerField("schedfilename*", self.schedName)
+
+        results = []
+        sN = ['Makercount sdev', 'Tx count sdev',
+              'Amount power',
+              'Minimum maker count',
+              'Minimum transaction count',
+              'Min coinjoin amount',
+              'wait time']
+        #Tooltips
+        sH = ["Standard deviation of the number of makers to use in each "
+              "transaction.",
+        "Standard deviation of the number of transactions to use in each "
+        "mixdepth",
+        "A parameter to control the random coinjoin sizes.",
+        "The lowest allowed number of maker counterparties.",
+        "The lowest allowed number of transactions in one mixdepth.",
+        "The lowest allowed size of any coinjoin, in satoshis.",
+        "The time in seconds to wait for response from counterparties."]
+        #types
+        sT = [float, float, float, int, int, int, float]
+        #constraints
+        sMM = [(0.0, 10.0, 2), (0.0, 10.0, 2), (1.0, 10000.0, 1), (2,20),
+               (1, 10), (100000, 100000000), (10.0, 500.0, 2)]
+        sD = ['1.0', '1.0', '100.0', '2', '1', '1000000', '20']
+        for x in zip(sN, sH, sT, sD, sMM):
+            ql = QLabel(x[0])
+            ql.setToolTip(x[1])
+            qle = QLineEdit(x[3])
+            if x[2] == int:
+                qle.setValidator(QIntValidator(*x[4]))
+            if x[2] == float:
+                qle.setValidator(QDoubleValidator(*x[4]))
+            results.append((ql, qle))
+        layout = QGridLayout()
+        layout.setSpacing(4)
+        for i, x in enumerate(results):
+            layout.addWidget(x[0], i + 1, 0)
+            layout.addWidget(x[1], i + 1, 1, 1, 2)
         self.setLayout(layout)
+        #fields not considered 'mandatory' as defaults are accepted
+        self.registerField("makercountsdev", results[0][1])
+        self.registerField("txcountsdev", results[1][1])
+        self.registerField("amountpower", results[2][1])
+        self.registerField("minmakercount", results[3][1])
+        self.registerField("mintxcount", results[4][1])
+        self.registerField("mincjamount", results[5][1])
+        self.registerField("waittime", results[6][1])
 
 class SchIntroPage(QWizardPage):
     def __init__(self, parent):
@@ -613,7 +655,9 @@ class ScheduleWizard(QWizard):
         self.setPage(3, SchFinishPage(self))
 
     def get_name(self):
-        return self.field("schedfilename").toString()
+        #TODO de-hardcode generated name
+        return "TUMBLE.schedule"
+        #return self.field("schedfilename").toString()
 
     def get_schedule(self):
         destaddrs = [str(x) for x in [self.field("destaddr0").toString(),
@@ -624,14 +668,16 @@ class ScheduleWizard(QWizard):
         self.opts['mixdepthcount'] = int(self.field("mixdepthcount").toString())
         self.opts['txfee'] = -1
         self.opts['addrcount'] = 3
-        self.opts['makercountrange'] = (int(self.field("makercount").toString()), 1)
-        self.opts['minmakercount'] = 2
-        self.opts['txcountparams'] = (int(self.field("txcountparams").toString()), 1)
-        self.opts['mintxcount'] = 1
-        self.opts['amountpower'] = 100.0
+        self.opts['makercountrange'] = (int(self.field("makercount").toString()),
+                                    float(self.field("makercountsdev").toString()))
+        self.opts['minmakercount'] = int(self.field("minmakercount").toString())
+        self.opts['txcountparams'] = (int(self.field("txcountparams").toString()),
+                                    float(self.field("txcountsdev").toString()))
+        self.opts['mintxcount'] = int(self.field("mintxcount").toString())
+        self.opts['amountpower'] = float(self.field("amountpower").toString())
         self.opts['timelambda'] = float(self.field("timelambda").toString())
-        self.opts['waittime'] = 20
-        self.opts['mincjamount'] = 1000000
+        self.opts['waittime'] = float(self.field("waittime").toString())
+        self.opts['mincjamount'] = int(self.field("mincjamount").toString())
         #needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
         return get_tumble_schedule(self.opts, destaddrs)

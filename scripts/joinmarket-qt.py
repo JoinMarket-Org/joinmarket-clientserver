@@ -722,7 +722,7 @@ class SpendTab(QWidget):
                                       self.taker_finished_txdetails)
 
         #Shows the schedule updates in the GUI; TODO make this more visual
-        if self.spendstate.runstate == 'multiple':
+        if self.spendstate.typestate == 'multiple':
             self.updateSchedView(schedule_to_text(self.taker.schedule),
                              'TUMBLE.schedule')
 
@@ -741,9 +741,12 @@ class SpendTab(QWidget):
                 QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
                                          self.startNextTransaction)
             else:
-                w.statusBar().showMessage("Transaction failed, trying again...")
-                QtCore.QTimer.singleShot(0, self.startNextTransaction)
-                self.giveUp()
+                if self.tumbler_options:
+                    w.statusBar().showMessage("Transaction failed, trying again...")
+                    QtCore.QTimer.singleShot(0, self.startNextTransaction)
+                else:
+                    #currently does not continue for non-tumble schedules
+                    self.giveUp()
         else:
             if self.taker_finished_res:
                 self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
