@@ -270,8 +270,7 @@ class SpendStateMgr(object):
     in which the spend tab is being run
     """
     def __init__(self, updatecallback):
-        self.typestate = 'single'
-        self.runstate = 'ready'
+        self.reset_vars()
         self.updatecallback = updatecallback
 
     def updateType(self, t):
@@ -282,9 +281,14 @@ class SpendStateMgr(object):
         self.runstate = r
         self.updatecallback()
 
-    def reset(self):
+    def reset_vars(self):
         self.typestate = 'single'
         self.runstate = 'ready'
+        self.schedule_name = None
+        self.loaded_schedule = None
+
+    def reset(self):
+        self.reset_vars()
         self.updatecallback()
 
 class SpendTab(QWidget):
@@ -309,10 +313,9 @@ class SpendTab(QWidget):
         #Signal indicating Taker has finished its work
         self.jmclient_obj.connect(self.jmclient_obj, QtCore.SIGNAL('JMCLIENT:finished'),
                                   self.takerFinished)
-        #will be set in 'multiple join' tab if the user chooses to run a schedule
-        self.loaded_schedule = None
         #tracks which mode the spend tab is run in
         self.spendstate = SpendStateMgr(self.toggleButtons)
+        self.spendstate.reset() #trigger callback to 'ready' state
 
     def generateTumbleSchedule(self):
         #needs a set of tumbler options and destination addresses, so needs
@@ -321,10 +324,10 @@ class SpendTab(QWidget):
         wizard_return = wizard.exec_()
         if wizard_return == QDialog.Rejected:
             return
-        self.loaded_schedule = wizard.get_schedule()
+        self.spendstate.loaded_schedule = wizard.get_schedule()
+        self.spendstate.schedule_name = wizard.get_name()
+        self.updateSchedView()
         self.tumbler_options = wizard.opts
-        self.sch_label2.setText(wizard.get_name())
-        self.sched_view.setText(schedule_to_text(self.loaded_schedule))
         self.sch_startButton.setEnabled(True)
 
     def selectSchedule(self):
@@ -346,13 +349,13 @@ class SpendTab(QWidget):
                            title='Error')
         else:
             w.statusBar().showMessage("Schedule loaded OK.")
-            self.updateSchedView(rawsched, os.path.basename(str(firstarg)))
-            self.spendstate.updateType('multiple')
-            self.loaded_schedule = schedule
+            self.spendstate.loaded_schedule = schedule
+            self.spendstate.schedule_name = os.path.basename(str(firstarg))
+            self.updateSchedView()
 
-    def updateSchedView(self, text, name):
-        self.sch_label2.setText(name)
-        self.sched_view.setText(text)
+    def updateSchedView(self):
+        self.sch_label2.setText(self.spendstate.schedule_name)
+        self.sched_view.setText(schedule_to_text(self.spendstate.loaded_schedule))
 
     def getDonateLayout(self):
         donateLayout = QHBoxLayout()
@@ -506,10 +509,9 @@ class SpendTab(QWidget):
         if not self.spendstate.runstate == 'ready':
             log.info("Cannot start join, already running.")
             return
-        if not self.loaded_schedule:
+        if not self.spendstate.loaded_schedule:
             log.info("Cannot start, no schedule loaded.")
             return
-        self.taker_schedule = self.loaded_schedule
         #self.qtw.setTabEnabled(0, False)
         self.spendstate.updateType('multiple')
         self.spendstate.updateRun('running')
@@ -528,7 +530,8 @@ class SpendTab(QWidget):
         mixdepth = int(self.widgets[2][1].text())
         #note 'amount' is integer, so not interpreted as fraction
         #see notes in sample testnet schedule for format
-        self.taker_schedule = [[mixdepth, amount, makercount, destaddr, 0, 0]]
+        self.spendstate.loaded_schedule = [[mixdepth, amount, makercount,
+                                            destaddr, 0, 0]]
         self.spendstate.updateType('single')
         self.spendstate.updateRun('running')
         self.startJoin()
@@ -563,7 +566,7 @@ class SpendTab(QWidget):
             check_offers_callback = None
 
         self.taker = Taker(w.wallet,
-                           self.taker_schedule,
+                           self.spendstate.loaded_schedule,
                            order_chooser=weighted_order_choose,
                            callbacks=[check_offers_callback,
                                       self.callback_takerInfo,
@@ -591,7 +594,7 @@ class SpendTab(QWidget):
         """Receives the signal from the JMClient thread
         """
         if self.taker.aborted:
-            log.debug("Not processing orders, user has aborted.")
+            log.debug("Not processing offers, user has aborted.")
             return False
         self.offers_fee = offers_fee
         self.jmclient_obj.emit(QtCore.SIGNAL('JMCLIENT:offers'))
@@ -721,10 +724,10 @@ class SpendTab(QWidget):
                                       self.taker_finished_waittime,
                                       self.taker_finished_txdetails)
 
+        self.spendstate.loaded_schedule = self.taker.schedule
         #Shows the schedule updates in the GUI; TODO make this more visual
         if self.spendstate.typestate == 'multiple':
-            self.updateSchedView(schedule_to_text(self.taker.schedule),
-                             'TUMBLE.schedule')
+            self.updateSchedView()
 
         #GUI-specific updates; QTimer.singleShot serves the role
         #of reactor.callLater
