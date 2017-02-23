@@ -29,7 +29,8 @@ class Taker(object):
                  schedule,
                  order_chooser=weighted_order_choose,
                  sign_method=None,
-                 callbacks=None):
+                 callbacks=None,
+                 tdestaddrs=[]):
         """Schedule must be a list of tuples: (see sample_schedule_for_testnet
         for explanation of syntax, also schedule.py module in this directory),
         which will be a sequence of joins to do.
@@ -79,6 +80,7 @@ class Taker(object):
         self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
+        self.tdestaddrs = tdestaddrs
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
         self.sign_method = sign_method

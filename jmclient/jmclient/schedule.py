@@ -134,7 +134,7 @@ def get_tumble_schedule(options, destaddrs):
                   t['makercount'], t['destination'], t['wait'], 0])
     return schedule
 
-def tweak_tumble_schedule(options, schedule, last_completed):
+def tweak_tumble_schedule(options, schedule, last_completed, destaddrs=[]):
     """If a tx in a schedule failed for some reason, and we want
     to make a best effort to complete the schedule, we can tweak
     the failed entry to improve the odds of success on re-try.
@@ -145,6 +145,8 @@ def tweak_tumble_schedule(options, schedule, last_completed):
     """
     new_schedule = copy.deepcopy(schedule)
     altered = new_schedule[last_completed + 1]
+    if not altered[3] in destaddrs:
+        altered[3] = "INTERNAL"
     #For sweeps, we'll try with a lower number of counterparties if we can.
     #Note that this is usually counterproductive for non-sweeps, which fall
     #back and so benefit in reliability from *higher* counterparty numbers.

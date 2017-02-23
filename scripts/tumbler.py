@@ -138,7 +138,8 @@ def main():
     taker = Taker(wallet,
                   schedule,
                   order_chooser=weighted_order_choose,
-                  callbacks=(filter_orders_callback, None, taker_finished))
+                  callbacks=(filter_orders_callback, None, taker_finished),
+                  tdestaddrs=destaddrs)
     clientfactory = JMTakerClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False

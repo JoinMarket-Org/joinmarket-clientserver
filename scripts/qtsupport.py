@@ -659,8 +659,11 @@ class ScheduleWizard(QWizard):
         return "TUMBLE.schedule"
         #return self.field("schedfilename").toString()
 
+    def get_destaddrs(self):
+        return self.destaddrs
+
     def get_schedule(self):
-        destaddrs = [str(x) for x in [self.field("destaddr0").toString(),
+        self.destaddrs = [str(x) for x in [self.field("destaddr0").toString(),
                      self.field("destaddr1").toString(),
                      self.field("destaddr2").toString()]]
         self.opts = {}
@@ -680,4 +683,4 @@ class ScheduleWizard(QWizard):
         self.opts['mincjamount'] = int(self.field("mincjamount").toString())
         #needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
-        return get_tumble_schedule(self.opts, destaddrs)
+        return get_tumble_schedule(self.opts, self.destaddrs)

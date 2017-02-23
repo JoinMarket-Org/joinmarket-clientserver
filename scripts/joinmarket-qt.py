@@ -328,6 +328,7 @@ class SpendTab(QWidget):
         self.spendstate.schedule_name = wizard.get_name()
         self.updateSchedView()
         self.tumbler_options = wizard.opts
+        self.tumbler_destaddrs = wizard.get_destaddrs()
         self.sch_startButton.setEnabled(True)
 
     def selectSchedule(self):
@@ -556,8 +557,9 @@ class SpendTab(QWidget):
 
         log.debug('starting coinjoin ..')
 
-        w.statusBar().showMessage("Syncing wallet ...")
-        sync_wallet(w.wallet, fast=True)
+        #DON'T sync wallet since unless cache is updated, will forget index
+        #w.statusBar().showMessage("Syncing wallet ...")
+        #sync_wallet(w.wallet, fast=True)
 
         #Decide whether to interrupt processing to sanity check the fees
         if jm_single().config.get("GUI", "checktx") == "true":
@@ -565,12 +567,14 @@ class SpendTab(QWidget):
         else:
             check_offers_callback = None
 
+        destaddrs = self.tumbler_destaddrs if self.tumbler_options else []
         self.taker = Taker(w.wallet,
                            self.spendstate.loaded_schedule,
                            order_chooser=weighted_order_choose,
                            callbacks=[check_offers_callback,
                                       self.callback_takerInfo,
-                                      self.callback_takerFinished])
+                                      self.callback_takerFinished],
+                           tdestaddrs=destaddrs)
         if ignored_makers:
             self.taker.ignored_makers.extend(ignored_makers)
         if not self.clientfactory:
@@ -708,7 +712,7 @@ class SpendTab(QWidget):
             self.giveUp()
 
     def startNextTransaction(self):
-        sync_wallet(w.wallet, fast=True)
+        #sync_wallet(w.wallet, fast=True)
         self.clientfactory.getClient().clientStart()
 
     def takerFinished(self):
@@ -810,6 +814,7 @@ class SpendTab(QWidget):
         self.qtw.setTabEnabled(1, True)
         self.spendstate.reset()
         self.tumbler_options = None
+        self.tumbler_destaddrs = None
         w.statusBar().showMessage("Transaction aborted.")
 
     def cleanUp(self):
@@ -844,6 +849,7 @@ class SpendTab(QWidget):
         self.qtw.setTabEnabled(1, True)
         self.spendstate.reset()
         self.tumbler_options = None
+        self.tumbler_destaddrs = None
 
     def validateSettings(self):
         valid, errmsg = validate_address(self.widgets[0][1].text())

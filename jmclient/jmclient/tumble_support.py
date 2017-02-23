@@ -118,6 +118,7 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
                     'Address ' + destaddr + ' invalid. ' + errormsg + ' try again')
                 jm_single().debug_silence[0] = False
                 taker.schedule[taker.schedule_index+1][3] = destaddr
+                taker.tdestaddrs.append(destaddr)
 
             waiting_message = "Waiting for: " + str(waittime) + " minutes."
             tumble_log.info(waiting_message)
@@ -138,7 +139,8 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
                      " failed after timeout, trying again")
             taker.schedule_index -= 1
             taker.schedule = tweak_tumble_schedule(options, taker.schedule,
-                                                   taker.schedule_index)
+                                                   taker.schedule_index,
+                                                   taker.tdestaddrs)
             tumble_log.info("We tweaked the schedule, the new schedule is:")
             tumble_log.info(pprint.pformat(taker.schedule))
     else:
