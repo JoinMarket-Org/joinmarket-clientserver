@@ -1517,8 +1517,9 @@ if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().maker_timeout_sec = 5
 
 #prepare for logging
-if not os.path.exists('logs'):
-    os.makedirs('logs')
+for dname in ['logs', 'wallets', 'cmtdata']:
+    if not os.path.exists(dname):
+        os.makedirs(dname)
 logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
 #tumble log will not always be used, but is made available anyway:
 tumble_log = get_tumble_log(logsdir)
