@@ -60,7 +60,7 @@ from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
                        CopyButton, CopyCloseButton, OkButton, CancelButton,
                        check_password_strength, update_password_strength,
                        make_password_dialog, PasswordDialog, MyTreeWidget,
-                       JMQtMessageBox, BLUE_FG)
+                       JMQtMessageBox, BLUE_FG, donation_more_message)
 
 def satoshis_to_amt_str(x):
     return str(Decimal(x)/Decimal('1e8')) + " BTC"
@@ -362,6 +362,8 @@ class SpendTab(QWidget):
         donateLayout = QHBoxLayout()
         self.donateCheckBox = QCheckBox()
         self.donateCheckBox.setChecked(False)
+        #Temporarily disabled
+        self.donateCheckBox.setEnabled(False)
         self.donateCheckBox.setMaximumWidth(30)
         self.donateLimitBox = QDoubleSpinBox()
         self.donateLimitBox.setMinimum(0.001)
@@ -382,14 +384,7 @@ class SpendTab(QWidget):
         donateLayout.addWidget(label2)
         label2.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         donateLayout.setAlignment(label2, QtCore.Qt.AlignLeft)
-        label3 = HelpLabel('More', '\n'.join(
-            ['If the calculated change for your transaction',
-             'is smaller than the value you choose (default 0.01 btc)',
-             'then that change is sent as a donation. If your change',
-             'is larger than that, there will be no donation.', '',
-             'As well as helping the developers, this feature can,',
-             'in certain circumstances, improve privacy, because there',
-             'is no change output that can be linked with your inputs later.']),
+        label3 = HelpLabel('More', donation_more_message,
                            'About the donation feature')
         label3.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         donateLayout.setAlignment(label3, QtCore.Qt.AlignLeft)

@@ -100,7 +100,18 @@ config_tips = {
     'the message channel, default is 30s'
 }
 
-
+#Temporarily disabled
+donation_more_message = "Currently disabled"
+"""
+donation_more_message = '\n'.join(
+            ['If the calculated change for your transaction',
+             'is smaller than the value you choose (default 0.01 btc)',
+             'then that change is sent as a donation. If your change',
+             'is larger than that, there will be no donation.', '',
+             'As well as helping the developers, this feature can,',
+             'in certain circumstances, improve privacy, because there',
+             'is no change output that can be linked with your inputs later.'])
+"""
 
 def JMQtMessageBox(obj, msg, mbtype='info', title=''):
     mbtypes = {'info': QMessageBox.information,
