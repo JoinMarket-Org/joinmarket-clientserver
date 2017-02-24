@@ -741,6 +741,11 @@ class SpendTab(QWidget):
             #seen before unconfirmed.
             self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
                                                         self.taker.txid)
+
+            #TODO prob best to completely fold multiple and tumble to reduce
+            #complexity/duplication
+            if self.spendstate.typestate == 'multiple' and not self.tumbler_options:
+                self.taker.wallet.update_cache_index()
             return
         if self.taker_finished_fromtx:
             if self.taker_finished_res:
@@ -748,6 +753,12 @@ class SpendTab(QWidget):
                 #singleShot argument is in milliseconds
                 QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
                                          self.startNextTransaction)
+                #see note above re multiple/tumble duplication
+                if self.spendstate.typestate == 'multiple' and \
+                   not self.tumbler_options:
+                    txd, txid = self.taker_finished_txdetails
+                    self.taker.wallet.remove_old_utxos(txd)
+                    self.taker.wallet.add_new_utxos(txd, txid)
             else:
                 if self.tumbler_options:
                     w.statusBar().showMessage("Transaction failed, trying again...")
