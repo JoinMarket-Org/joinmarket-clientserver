@@ -738,11 +738,17 @@ class SpendTab(QWidget):
         if self.taker_finished_fromtx == "unconfirmed":
             w.statusBar().showMessage(
                 "Transaction seen on network: " + self.taker.txid)
+            if self.spendstate.typestate == 'single':
+                JMQtMessageBox(self, "Transaction broadcast OK. You can safely \n"
+                               "shut down if you don't want to wait.",
+                               title="Success")
+            #TODO: theoretically possible to miss this if confirmed event
+            #seen before unconfirmed.
+            self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
+                                                        self.taker.txid)
             return
         if self.taker_finished_fromtx:
             if self.taker_finished_res:
-                self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
-                                        self.taker.txid)
                 w.statusBar().showMessage("Transaction confirmed: " + self.taker.txid)
                 #singleShot argument is in milliseconds
                 QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
@@ -756,14 +762,12 @@ class SpendTab(QWidget):
                     self.giveUp()
         else:
             if self.taker_finished_res:
-                self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
-                                                        self.taker.txid)
                 w.statusBar().showMessage("All transaction(s) completed successfully.")
                 if len(self.taker.schedule) == 1:
-                    msg = "Transaction has been broadcast.\n" + "Txid: " + \
+                    msg = "Transaction has been confirmed.\n" + "Txid: " + \
                                            str(self.taker.txid)
                 else:
-                    msg = "All transactions have been broadcast."
+                    msg = "All transactions have been confirmed."
                 JMQtMessageBox(self, msg, title="Success")
             self.cleanUp()
 
