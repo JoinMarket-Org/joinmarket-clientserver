@@ -466,9 +466,11 @@ class SpendTab(QWidget):
             lambda: checkAddress(self, self.widgets[0][1].text()))
         self.startButton = QPushButton('Start')
         self.startButton.setToolTip(
-            'You will be prompted to decide whether to accept\n' +
-            'the transaction after connecting, and shown the\n' +
-            'fees to pay; you can cancel at that point if you wish.')
+            'If "checktx" is selected in the Settings, you will be \n'
+            'prompted to decide whether to accept\n'
+            'the transaction after connecting, and shown the\n'
+            'fees to pay; you can cancel at that point, or by \n'
+             'pressing "Abort".')
         self.startButton.clicked.connect(self.startSingle)
         self.abortButton = QPushButton('Abort')
         self.abortButton.setEnabled(False)
@@ -587,7 +589,7 @@ class SpendTab(QWidget):
         self.spendstate.updateRun('running')
         self.startJoin()
 
-    def startJoin(self, ignored_makers=None):
+    def startJoin(self):
         if not w.wallet:
             JMQtMessageBox(self, "Cannot start without a loaded wallet.",
                            mbtype="crit", title="Error")
@@ -624,20 +626,21 @@ class SpendTab(QWidget):
                            callbacks=[check_offers_callback,
                                       self.callback_takerInfo,
                                       self.callback_takerFinished],
-                           tdestaddrs=destaddrs)
-        if ignored_makers:
-            self.taker.ignored_makers.extend(ignored_makers)
+                           tdestaddrs=destaddrs,
+                           ignored_makers=ignored_makers)
         if not self.clientfactory:
             #First run means we need to start: create clientfactory
             #and start reactor Thread
             self.clientfactory = JMTakerClientProtocolFactory(self.taker)
             thread = TaskThread(self)
+            daemon = jm_single().config.getint("DAEMON", "no_daemon")
+            daemon = True if daemon == 1 else False
             thread.add(partial(start_reactor,
                    "localhost",
                    jm_single().config.getint("GUI", "daemon_port"),
                    self.clientfactory,
                    ish=False,
-                   daemon=True))
+                   daemon=daemon))
         else:
             #This will re-use IRC connections in background (daemon), no restart
             self.clientfactory.getClient().taker = self.taker
@@ -830,7 +833,9 @@ class SpendTab(QWidget):
                 else:
                     msg = "All transactions have been confirmed."
                 JMQtMessageBox(self, msg, title="Success")
-            self.cleanUp()
+                self.cleanUp()
+            else:
+                self.giveUp()
 
     def persistTxToHistory(self, addr, amt, txid):
         #persist the transaction to history
@@ -874,44 +879,21 @@ class SpendTab(QWidget):
         self.giveUp()
 
     def giveUp(self):
+        """Inform the user that the transaction failed, then reset state.
+        """
         log.debug("Transaction aborted.")
-        self.qtw.setTabEnabled(0, True)
-        self.qtw.setTabEnabled(1, True)
-        self.spendstate.reset()
-        self.tumbler_options = None
-        self.tumbler_destaddrs = None
         w.statusBar().showMessage("Transaction aborted.")
+        if len(self.taker.ignored_makers) > 0:
+            JMQtMessageBox(self, "These Makers did not respond, and will be \n"
+                           "ignored in future: \n" + str(
+                            ','.join(self.taker.ignored_makers)),
+                           title="Transaction aborted")
+            ignored_makers.extend(self.taker.ignored_makers)
+        self.cleanUp()
 
     def cleanUp(self):
-        if not self.taker.txid:
-            if not self.taker.aborted:
-                if not self.taker.ignored_makers:
-                    w.statusBar().showMessage("Transaction failed.")
-                    JMQtMessageBox(self,
-                                   "Transaction was not completed.",
-                                   mbtype='warn',
-                                   title="Failed")
-                else:
-                    reply = JMQtMessageBox(
-                        self,
-                        '\n'.join([
-                            "The following counterparties did not respond: ",
-                            ','.join(self.taker.ignored_makers),
-                            "This sometimes happens due to bad network connections.",
-                            "",
-                            "If you would like to try again, ignoring those",
-                            "counterparties, click Yes."
-                        ]),
-                        mbtype='question',
-                        title="Transaction not completed.")
-                    if reply == QMessageBox.Yes:
-                        self.startJoin(
-                            ignored_makers=self.taker.ignored_makers)
-                    else:
-                        self.giveUp()
-                        return
-        self.qtw.setTabEnabled(0, True)
-        self.qtw.setTabEnabled(1, True)
+        """Reset state to 'ready'
+        """
         self.spendstate.reset()
         self.tumbler_options = None
         self.tumbler_destaddrs = None
@@ -1590,7 +1572,8 @@ for dname in ['logs', 'wallets', 'cmtdata']:
 logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
 #tumble log will not always be used, but is made available anyway:
 tumble_log = get_tumble_log(logsdir)
-
+#ignored makers list persisted across entire app run
+ignored_makers = []
 appWindowTitle = 'JoinMarketQt'
 w = JMMainWindow()
 tabWidget = QTabWidget(w)

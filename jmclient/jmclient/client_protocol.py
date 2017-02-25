@@ -180,7 +180,9 @@ class JMTakerClientProtocol(amp.AMP):
         """
         ioauth_data = json.loads(ioauth_data)
         if not success:
-            jlog.info("Makers didnt respond")
+            nonresponders = ioauth_data
+            jlog.info("Makers didnt respond: " + str(nonresponders))
+            self.taker.add_ignored_makers(nonresponders)
             return {'accepted': True}
         else:
             jlog.info("Makers responded with: " + json.dumps(ioauth_data))

@@ -30,7 +30,8 @@ class Taker(object):
                  order_chooser=weighted_order_choose,
                  sign_method=None,
                  callbacks=None,
-                 tdestaddrs=[]):
+                 tdestaddrs=None,
+                 ignored_makers=None):
         """Schedule must be a list of tuples: (see sample_schedule_for_testnet
         for explanation of syntax, also schedule.py module in this directory),
         which will be a sequence of joins to do.
@@ -76,11 +77,11 @@ class Taker(object):
         self.wallet = wallet
         self.schedule = schedule
         self.order_chooser = order_chooser
-        self.ignored_makers = None
+        self.ignored_makers = [] if not ignored_makers else ignored_makers
         self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
-        self.tdestaddrs = tdestaddrs
+        self.tdestaddrs = [] if not tdestaddrs else tdestaddrs
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
         self.sign_method = sign_method
@@ -92,6 +93,9 @@ class Taker(object):
 
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
+
+    def add_ignored_makers(self, makers):
+        self.ignored_makers.extend(makers)
 
     def initialize(self, orderbook):
         """Once the daemon is active and has returned the current orderbook,

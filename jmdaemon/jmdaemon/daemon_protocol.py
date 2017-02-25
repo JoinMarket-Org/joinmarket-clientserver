@@ -224,9 +224,14 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #do nothing
             return
         self.jm_state = 3
+        if not accepted:
+            #use ioauth data field to return the list of non-responsive makers
+            nonresponders = [x for x in self.active_orders.keys() if x not
+                             in self.ioauth_data.keys()]
+        ioauth_data = self.ioauth_data if accepted else nonresponders
         d = self.callRemote(JMFillResponse,
                                 success=accepted,
-                                ioauth_data = json.dumps(self.ioauth_data))
+                                ioauth_data = json.dumps(ioauth_data))
         if not accepted:
             #Client simply accepts failure TODO
             self.defaultCallbacks(d)
