@@ -53,7 +53,7 @@ from jmclient import (load_program_config, get_network, Wallet,
                       get_blockchain_interface_instance, sync_wallet,
                       RegtestBitcoinCoreInterface, tweak_tumble_schedule,
                       human_readable_schedule_entry, tumbler_taker_finished_update,
-                      get_tumble_log, restart_waiter)
+                      get_tumble_log, restart_wait)
 
 from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
                        TaskThread, QtHandler, XStream, Buttons, CloseButton,
@@ -303,6 +303,7 @@ class SpendTab(QWidget):
         self.tumbler_options = None
         #signals from client backend to GUI
         self.jmclient_obj = QtCore.QObject()
+        self.restartTimer = QtCore.QTimer()
         #This signal/callback requires user acceptance decision.
         self.jmclient_obj.connect(self.jmclient_obj, QtCore.SIGNAL('JMCLIENT:offers'),
                                                             self.checkOffers)
@@ -353,6 +354,14 @@ class SpendTab(QWidget):
             self.spendstate.loaded_schedule = schedule
             self.spendstate.schedule_name = os.path.basename(str(firstarg))
             self.updateSchedView()
+            if self.spendstate.schedule_name == "TUMBLE.schedule":
+                reply = JMQtMessageBox(self, "An incomplete tumble run detected. "
+                                       "\nDo you want to restart?",
+                                       title="Restart detected", mbtype='question')
+                if reply != QMessageBox.Yes:
+                    self.giveUp()
+                    return
+                self.tumbler_options = True
 
     def updateSchedView(self):
         self.sch_label2.setText(self.spendstate.schedule_name)
@@ -501,6 +510,13 @@ class SpendTab(QWidget):
     def resizeScroll(self, mini, maxi):
         self.textedit.verticalScrollBar().setValue(maxi)
 
+    def restartWaitWrap(self):
+        if restart_wait(self.waitingtxid):
+            self.restartTimer.stop()
+            self.waitingtxid = None
+            w.statusBar().showMessage("Transaction in a block, now continuing.")
+            self.startJoin()
+
     def startMultiple(self):
         if not self.spendstate.runstate == 'ready':
             log.info("Cannot start join, already running.")
@@ -508,9 +524,48 @@ class SpendTab(QWidget):
         if not self.spendstate.loaded_schedule:
             log.info("Cannot start, no schedule loaded.")
             return
-        #self.qtw.setTabEnabled(0, False)
         self.spendstate.updateType('multiple')
         self.spendstate.updateRun('running')
+
+        if self.tumbler_options:
+            #TODO: mincjamount is the only tumbler setting, except maxcjfee,
+            #that is not part of sched-generation, so request from user
+            if not hasattr(jm_single(), 'mincjamount'):
+                mincjamount, ok = QInputDialog.getInt(self,
+                                                      "Set min coinjoin amount",
+                            "Enter minimum allowable coinjoin amount in satoshis")
+                if not ok:
+                    self.giveUp()
+                    return
+                jm_single().mincjamount = mincjamount
+            #check for a partially-complete schedule; if so,
+            #follow restart logic
+            #1. filter out complete:
+            self.spendstate.loaded_schedule = [
+                s for s in self.spendstate.loaded_schedule if s[5] != 1]
+            #reload destination addresses
+            self.tumbler_destaddrs = [x[3] for x in self.spendstate.loaded_schedule
+                                     if x not in ["INTERNAL", "addrask"]]
+            #2 Check for unconfirmed
+            if isinstance(self.spendstate.loaded_schedule[0][5], str) and len(
+                self.spendstate.loaded_schedule[0][5]) == 64:
+                #ensure last transaction is confirmed before restart
+                tumble_log.info("WAITING TO RESTART...")
+                w.statusBar().showMessage("Waiting for confirmation to restart..")
+                txid = self.spendstate.loaded_schedule[0][5]
+                #remove the already-done entry (this connects to the other TODO,
+                #probably better *not* to truncate the done-already txs from file,
+                #but simplest for now.
+                self.spendstate.loaded_schedule = self.spendstate.loaded_schedule[1:]
+                #defers startJoin() call until tx seen on network. Note that
+                #since we already updated state to running, user cannot
+                #start another transactions while waiting. Also, use :0 because
+                #it always exists
+                self.waitingtxid=txid+":0"
+                self.restartTimer.timeout.connect(self.restartWaitWrap)
+                self.restartTimer.start(5000)
+                return
+            self.updateSchedView()
         self.startJoin()
 
     def startSingle(self):
@@ -1525,6 +1580,8 @@ update_config_for_gui()
 if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().maker_timeout_sec = 5
+    #trigger start with a fake tx
+    jm_single().bc_interface.pushtx("00"*20)
 
 #prepare for logging
 for dname in ['logs', 'wallets', 'cmtdata']:

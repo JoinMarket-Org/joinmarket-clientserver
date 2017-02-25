@@ -24,10 +24,22 @@ def get_tumble_log(logsdir):
     tumble_log.addHandler(fileHandler)
     return tumble_log
 
+def restart_wait(txid):
+    """Here txid is of form txid:N for direct utxo query.
+    Returns true only if the utxo is reported to have at least 1
+    confirm by the blockchain interface.
+    """
+    res = jm_single().bc_interface.query_utxo_set(txid, includeconf=True)
+    if not res[0]:
+        return False
+    if res[0]['confirms'] > 0:
+        return True
+    return False
+
 def restart_waiter(txid):
     """Given a txid, wait for confirmation by polling the blockchain
-    interface instance. Note that this is currently blocking, which is
-    fine for the CLI for now, but should be re-done using twisted/thread TODO.
+    interface instance. Note that this is currently blocking, so only used
+    by the CLI version; the Qt/GUI uses the underlying restart_wait() fn.
     """
     ctr = 0
     log.info("Waiting for confirmation of last transaction: " + str(txid))
@@ -36,10 +48,7 @@ def restart_waiter(txid):
         ctr += 1
         if not (ctr % 12):
             log.debug("Still waiting for confirmation of last transaction ...")
-        res = jm_single().bc_interface.query_utxo_set(txid, includeconf=True)
-        if not res[0]:
-            continue
-        if res[0]['confirms'] > 0:
+        if restart_wait(txid):
             break
     log.info("The previous transaction is now in a block; continuing.")
 
