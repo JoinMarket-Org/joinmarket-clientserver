@@ -528,7 +528,7 @@ class SchDynamicPage1(QWizardPage):
         sT = [int, int, int, float, int, float, int]
         #constraints
         sMM = [(0, jm_single().config.getint("GUI", "max_mix_depth") - 1), (3, 20),
-               (1, 5), (0.00000001, 100.0, 8), (2, 10), (0.000001, 0.25, 6),
+               (2, 7), (0.00000001, 100.0, 8), (2, 10), (0.000001, 0.25, 6),
                (0, 10000000)]
         sD = ['0', '4', '4', '0.25', '3', '0.005', '10000']
         for x in zip(sN, sH, sT, sD, sMM):
@@ -556,14 +556,9 @@ class SchDynamicPage1(QWizardPage):
 
 class SchDynamicPage2(QWizardPage):
 
-    def __init__(self, parent):
-        super(SchDynamicPage2, self).__init__(parent)
-        self.setTitle("Tumble schedule generation 2")
-        self.setSubTitle("Set destination addresses for tumble.")
-        layout = QGridLayout()
-        layout.setSpacing(4)
-        #by default create three address fields
+    def initializePage(self):
         addrLEs = []
+        requested_mixdepths = int(self.field("mixdepthcount").toString())
         #for testing
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
             testaddrs = ["mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS",
@@ -571,14 +566,30 @@ class SchDynamicPage2(QWizardPage):
                      "mkZfBXCRPs8fCmwWLrspjCvYozDhK6Eepz"]
         else:
             testaddrs = ["","",""]
-        for i in range(3):
-            layout.addWidget(QLabel("Destination address: " + str(i)), i, 0)
-            addrLEs.append(QLineEdit(testaddrs[i]))
-            layout.addWidget(addrLEs[-1], i, 1, 1, 2)
-            #addrLEs[-1].editingFinished.connect(
-            #    lambda: checkAddress(self, addrLEs[-1].text()))
-            self.registerField("destaddr"+str(i), addrLEs[-1])
-        self.setLayout(layout)
+        #less than 3 is unacceptable for privacy effect, more is optional
+        self.required_addresses = max(3, requested_mixdepths - 1)
+        for i in range(self.required_addresses):
+            if i >= self.addrfieldsused:
+                self.layout.addWidget(QLabel("Destination address: " + str(i)), i, 0)
+                if i < len(testaddrs):
+                    addrLEs.append(QLineEdit(testaddrs[i]))
+                else:
+                    addrLEs.append(QLineEdit(""))
+                self.layout.addWidget(addrLEs[-1], i, 1, 1, 2)
+                #addrLEs[-1].editingFinished.connect(
+                #    lambda: checkAddress(self, addrLEs[-1].text()))
+                self.registerField("destaddr"+str(i), addrLEs[-1])
+        self.addrfieldsused = self.required_addresses
+        self.setLayout(self.layout)
+
+    def __init__(self, parent):
+        super(SchDynamicPage2, self).__init__(parent)
+        self.setTitle("Destination addresses")
+        self.setSubTitle("Enter destination addresses for coins; "
+                        "minimum 3 for privacy. You may leave later ones blank.")
+        self.layout = QGridLayout()
+        self.layout.setSpacing(4)
+        self.addrfieldsused = 0
 
 class SchFinishPage(QWizardPage):
     def __init__(self, parent):
@@ -681,14 +692,20 @@ class ScheduleWizard(QWizard):
         return self.destaddrs
 
     def get_schedule(self):
-        self.destaddrs = [str(x) for x in [self.field("destaddr0").toString(),
-                     self.field("destaddr1").toString(),
-                     self.field("destaddr2").toString()]]
+        self.destaddrs = []
+        for i in range(self.page(2).required_addresses):
+            daddrstring = str(self.field("destaddr"+str(i)).toString())
+            if validate_address(daddrstring):
+                self.destaddrs.append(daddrstring)
+            elif daddrstring != "":
+                JMQtMessageBox(self, "Error, invalid address", mbtype='crit',
+                               title='Error')
+                return None
         self.opts = {}
         self.opts['mixdepthsrc'] = int(self.field("mixdepthsrc").toString())
         self.opts['mixdepthcount'] = int(self.field("mixdepthcount").toString())
         self.opts['txfee'] = -1
-        self.opts['addrcount'] = 3
+        self.opts['addrcount'] = len(self.destaddrs)
         self.opts['makercountrange'] = (int(self.field("makercount").toString()),
                                     float(self.field("makercountsdev").toString()))
         self.opts['minmakercount'] = int(self.field("minmakercount").toString())

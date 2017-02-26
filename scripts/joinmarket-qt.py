@@ -330,6 +330,17 @@ class SpendTab(QWidget):
         self.updateSchedView()
         self.tumbler_options = wizard.opts
         self.tumbler_destaddrs = wizard.get_destaddrs()
+        #tumbler may require more mixdepths; update the wallet
+        required_mixdepths = self.tumbler_options['mixdepthsrc'] + \
+            self.tumbler_options['mixdepthcount']
+        if required_mixdepths > jm_single().config.getint("GUI", "max_mix_depth"):
+            jm_single().config.set("GUI", "max_mix_depth", str(required_mixdepths))
+            #recreate wallet and sync again; needed due to cache.
+            JMQtMessageBox(self,
+            "Max mixdepth has been reset to: " + str(required_mixdepths) + ".\n" +
+            "Please choose 'Load' from the Wallet menu and resync before running.",
+            title='Wallet resync required')
+            return
         self.sch_startButton.setEnabled(True)
 
     def selectSchedule(self):
