@@ -53,7 +53,7 @@ from jmclient import (load_program_config, get_network, Wallet,
                       get_blockchain_interface_instance, sync_wallet,
                       RegtestBitcoinCoreInterface, tweak_tumble_schedule,
                       human_readable_schedule_entry, tumbler_taker_finished_update,
-                      get_tumble_log, restart_wait)
+                      get_tumble_log, restart_wait, tumbler_filter_orders_callback)
 
 from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
                        TaskThread, QtHandler, XStream, Buttons, CloseButton,
@@ -614,7 +614,9 @@ class SpendTab(QWidget):
         #sync_wallet(w.wallet, fast=True)
 
         #Decide whether to interrupt processing to sanity check the fees
-        if jm_single().config.get("GUI", "checktx") == "true":
+        if self.tumbler_options:
+            check_offers_callback = self.checkOffersTumbler
+        elif jm_single().config.get("GUI", "checktx") == "true":
             check_offers_callback = self.callback_checkOffers
         else:
             check_offers_callback = None
@@ -698,6 +700,10 @@ class SpendTab(QWidget):
             #Abort signal explicitly means this transaction will not continue.
             self.abortTransactions()
         self.taker_info_response = True
+
+    def checkOffersTumbler(self, offers_fees, cjamount):
+        return tumbler_filter_orders_callback(offers_fees, cjamount,
+                                              self.taker, self.tumbler_options)
 
     def checkOffers(self):
         """Parse offers and total fee from client protocol,

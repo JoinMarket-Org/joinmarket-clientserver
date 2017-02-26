@@ -19,7 +19,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
                       RegtestBitcoinCoreInterface, estimate_tx_fee,
                       tweak_tumble_schedule, human_readable_schedule_entry,
                       schedule_to_text, restart_waiter, get_tumble_log,
-                      tumbler_taker_finished_update)
+                      tumbler_taker_finished_update, tumbler_filter_orders_callback)
 
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
@@ -101,20 +101,9 @@ def main():
     print("Progress logging to logs/TUMBLE.log")
 
     def filter_orders_callback(orders_fees, cjamount):
-        """Since the tumbler does not use interactive fee checking,
-        we use the -x values from the command line instead.
+        """Decide whether to accept fees
         """
-        orders, total_cj_fee = orders_fees
-        abs_cj_fee = 1.0 * total_cj_fee / taker.n_counterparties
-        rel_cj_fee = abs_cj_fee / cjamount
-        log.info('rel/abs average fee = ' + str(rel_cj_fee) + ' / ' + str(
-                abs_cj_fee))
-
-        if rel_cj_fee > options['maxcjfee'][
-            0] and abs_cj_fee > options['maxcjfee'][1]:
-            log.info("Rejected fees as too high according to options, will retry.")
-            return "retry"
-        return True
+        return tumbler_filter_orders_callback(orders_fees, cjamount, taker, options)
 
     def taker_finished(res, fromtx=False, waittime=0.0, txdetails=None):
         """on_finished_callback for tumbler; processing is almost entirely
