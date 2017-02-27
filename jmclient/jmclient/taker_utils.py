@@ -6,13 +6,98 @@ import os
 import time
 from .configure import get_log, jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule
-
+from .wallet import Wallet, estimate_tx_fee
+from jmclient import mktx, deserialize, sign, txhash
 log = get_log()
 
 """
 Utility functions for tumbler-style takers;
 Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
+
+def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
+                accept_callback=None, info_callback=None):
+    """Send coins directly from one mixdepth to one destination address;
+    does not need IRC. Sweep as for normal sendpayment (set amount=0).
+    If answeryes is True, callback/command line query is not performed.
+    If accept_callback is None, command line input for acceptance is assumed,
+    else this callback is called:
+    accept_callback:
+    ====
+    args:
+    deserialized tx, destination address, amount in satoshis, fee in satoshis
+    returns:
+    True if accepted, False if not
+    ====
+    The info_callback takes one parameter, the information message (when tx is
+    pushed), and returns nothing.
+
+    This function returns:
+    The txid if transaction is pushed, False otherwise
+    """
+    #Sanity checks
+    assert validate_address(destaddr)[0]
+    assert isinstance(mixdepth, int)
+    assert mixdepth >= 0
+    assert isinstance(amount, int)
+    assert amount >=0
+    assert isinstance(wallet, Wallet)
+
+    from pprint import pformat
+    if amount == 0:
+        utxos = wallet.get_utxos_by_mixdepth()[mixdepth]
+        if utxos == {}:
+            log.error(
+                "There are no utxos in mixdepth: " + str(mixdepth) + ", quitting.")
+            return
+        total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
+        fee_est = estimate_tx_fee(len(utxos), 1)
+        outs = [{"address": destaddr, "value": total_inputs_val - fee_est}]
+    else:
+        initial_fee_est = estimate_tx_fee(8,2) #8 inputs to be conservative
+        utxos = wallet.select_utxos(mixdepth, amount + initial_fee_est)
+        if len(utxos) < 8:
+            fee_est = estimate_tx_fee(len(utxos), 2)
+        else:
+            fee_est = initial_fee_est
+        total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
+        changeval = total_inputs_val - fee_est - amount
+        outs = [{"value": amount, "address": destaddr}]
+        change_addr = wallet.get_internal_addr(mixdepth)
+        outs.append({"value": changeval, "address": change_addr})
+
+    #Now ready to construct transaction
+    log.info("Using a fee of : " + str(fee_est) + " satoshis.")
+    if amount != 0:
+        log.info("Using a change value of: " + str(changeval) + " satoshis.")
+    tx = mktx(utxos.keys(), outs)
+    stx = deserialize(tx)
+    for index, ins in enumerate(stx['ins']):
+        utxo = ins['outpoint']['hash'] + ':' + str(
+                ins['outpoint']['index'])
+        addr = utxos[utxo]['address']
+        tx = sign(tx, index, wallet.get_key_from_addr(addr))
+    txsigned = deserialize(tx)
+    log.info("Got signed transaction:\n")
+    log.info(tx + "\n")
+    log.info(pformat(txsigned))
+    if not answeryes:
+        if not accept_callback:
+            if raw_input('Would you like to push to the network? (y/n):')[0] != 'y':
+                log.info("You chose not to broadcast the transaction, quitting.")
+                return False
+        else:
+            actual_amount = amount if amount != 0 else total_inputs_val - fee_est
+            accepted = accept_callback(pformat(txsigned), destaddr, actual_amount,
+                                       fee_est)
+            if not accepted:
+                return False
+    jm_single().bc_interface.pushtx(tx)
+    txid = txhash(tx)
+    successmsg = "Transaction sent: " + txid
+    cb = log.info if not info_callback else info_callback
+    cb(successmsg)
+    return txid
 
 def get_tumble_log(logsdir):
     tumble_log = logging.getLogger('tumbler')

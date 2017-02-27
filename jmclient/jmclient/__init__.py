@@ -34,8 +34,8 @@ from .schedule import (get_schedule, get_tumble_schedule, schedule_to_text,
                        tweak_tumble_schedule, human_readable_schedule_entry,
                        schedule_to_text)
 from .commitment_utils import get_utxo_info, validate_utxo_data, quit
-from .tumble_support import (tumbler_taker_finished_update, restart_waiter,
-                             restart_wait, get_tumble_log,
+from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
+                             restart_wait, get_tumble_log, direct_send,
                              tumbler_filter_orders_callback)
 # Set default logging handler to avoid "No handler found" warnings.
 

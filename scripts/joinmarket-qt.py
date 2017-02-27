@@ -50,7 +50,7 @@ from jmclient import (load_program_config, get_network, Wallet,
                       JMTakerClientProtocolFactory, WalletError,
                       start_reactor, get_schedule, get_tumble_schedule,
                       schedule_to_text, mn_decode, mn_encode, create_wallet_file,
-                      get_blockchain_interface_instance, sync_wallet,
+                      get_blockchain_interface_instance, sync_wallet, direct_send,
                       RegtestBitcoinCoreInterface, tweak_tumble_schedule,
                       human_readable_schedule_entry, tumbler_taker_finished_update,
                       get_tumble_log, restart_wait, tumbler_filter_orders_callback)
@@ -111,7 +111,8 @@ def getSettingsWidgets():
           'Amount in bitcoins (BTC)']
     sH = ['The address you want to send the payment to',
           'How many other parties to send to; if you enter 4\n' +
-          ', there will be 5 participants, including you',
+          ', there will be 5 participants, including you.\n' +
+          'Enter 0 to send direct without coinjoin.',
           'The mixdepth of the wallet to send the payment from',
           'The amount IN BITCOINS to send.\n' +
           'If you enter 0, a SWEEP transaction\nwill be performed,' +
@@ -581,6 +582,25 @@ class SpendTab(QWidget):
             self.updateSchedView()
         self.startJoin()
 
+    def checkDirectSend(self, dtx, destaddr, amount, fee):
+        """Give user info to decide whether to accept a direct send;
+        note the callback includes the full prettified transaction,
+        but currently not printing it for space reasons.
+        """
+        mbinfo = ["Sending " + satoshis_to_amt_str(amount) + ",",
+                  "to: " + destaddr + ",",
+                  "Fee: " + satoshis_to_amt_str(fee) + ".",
+                  "Accept?"]
+        reply = JMQtMessageBox(self, '\n'.join([m + '<p>' for m in mbinfo]),
+                               mbtype='question', title="Direct send")
+        if reply == QMessageBox.Yes:
+            return True
+        else:
+            return False
+
+    def infoDirectSend(self, txid):
+        JMQtMessageBox(self, "Tx sent: " + str(txid), title="Success")
+
     def startSingle(self):
         if not self.spendstate.runstate == 'ready':
             log.info("Cannot start join, already running.")
@@ -592,6 +612,17 @@ class SpendTab(QWidget):
         amount = int(Decimal(btc_amount_str) * Decimal('1e8'))
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
+        if makercount == 0:
+            txid = direct_send(w.wallet, amount, mixdepth,
+                                  destaddr, accept_callback=self.checkDirectSend,
+                                  info_callback=self.infoDirectSend)
+            if not txid:
+                self.giveUp()
+            else:
+                self.persistTxToHistory(destaddr, amount, txid)
+                self.cleanUp()
+            return
+
         #note 'amount' is integer, so not interpreted as fraction
         #see notes in sample testnet schedule for format
         self.spendstate.loaded_schedule = [[mixdepth, amount, makercount,
@@ -900,7 +931,7 @@ class SpendTab(QWidget):
         """
         log.debug("Transaction aborted.")
         w.statusBar().showMessage("Transaction aborted.")
-        if len(self.taker.ignored_makers) > 0:
+        if self.taker and len(self.taker.ignored_makers) > 0:
             JMQtMessageBox(self, "These Makers did not respond, and will be \n"
                            "ignored in future: \n" + str(
                             ','.join(self.taker.ignored_makers)),
@@ -927,11 +958,6 @@ class SpendTab(QWidget):
             if self.widgets[i][1].text().size() == 0:
                 JMQtMessageBox(self, errs[i - 1], mbtype='warn', title="Error")
                 return False
-        #QIntValidator does not prevent entry of 0 for counterparties.
-        #Note, use of '1' is not recommended, but not prevented here.
-        if self.widgets[1][1].text() == '0':
-            JMQtMessageBox(self, errs[0], mbtype='warn', title="Error")
-            return False
         if not w.wallet:
             JMQtMessageBox(self,
                            "There is no wallet loaded.",

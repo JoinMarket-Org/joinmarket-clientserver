@@ -24,7 +24,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
                               cheapest_order_choose, weighted_order_choose,
                               Wallet, BitcoinCoreWallet, sync_wallet,
                               RegtestBitcoinCoreInterface, estimate_tx_fee,
-                              mktx, deserialize, sign, txhash)
+                              direct_send)
 
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_sendpayment_parser
@@ -52,63 +52,6 @@ def pick_order(orders, n): #pragma: no cover
         if 0 <= pickedOrderIndex < len(orders):
             return orders[pickedOrderIndex]
         pickedOrderIndex = -1
-
-def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False):
-    """Send coins directly from one mixdepth to one destination address;
-    does not need IRC. Sweep as for normal sendpayment (set amount=0).
-    """
-    #Sanity checks; note destaddr format is carefully checked in startup
-    assert isinstance(mixdepth, int)
-    assert mixdepth >= 0
-    assert isinstance(amount, int)
-    assert amount >=0 and amount < 10000000000
-    assert isinstance(wallet, Wallet)
-
-    from pprint import pformat
-    if amount == 0:
-        utxos = wallet.get_utxos_by_mixdepth()[mixdepth]
-        if utxos == {}:
-            log.error(
-                "There are no utxos in mixdepth: " + str(mixdepth) + ", quitting.")
-            return
-        total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
-        fee_est = estimate_tx_fee(len(utxos), 1)
-        outs = [{"address": destaddr, "value": total_inputs_val - fee_est}]
-    else:
-        initial_fee_est = estimate_tx_fee(8,2) #8 inputs to be conservative
-        utxos = wallet.select_utxos(mixdepth, amount + initial_fee_est)
-        if len(utxos) < 8:
-            fee_est = estimate_tx_fee(len(utxos), 2)
-        else:
-            fee_est = initial_fee_est
-        total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
-        changeval = total_inputs_val - fee_est - amount
-        outs = [{"value": amount, "address": destaddr}]
-        change_addr = wallet.get_internal_addr(mixdepth)
-        outs.append({"value": changeval, "address": change_addr})
-
-    #Now ready to construct transaction
-    log.info("Using a fee of : " + str(fee_est) + " satoshis.")
-    if amount != 0:
-        log.info("Using a change value of: " + str(changeval) + " satoshis.")
-    tx = mktx(utxos.keys(), outs)
-    stx = deserialize(tx)
-    for index, ins in enumerate(stx['ins']):
-        utxo = ins['outpoint']['hash'] + ':' + str(
-                ins['outpoint']['index'])
-        addr = utxos[utxo]['address']
-        tx = sign(tx, index, wallet.get_key_from_addr(addr))
-    txsigned = deserialize(tx)
-    log.info("Got signed transaction:\n")
-    log.info(tx + "\n")
-    log.info(pformat(txsigned))
-    if not answeryes:
-        if raw_input('Would you like to push to the network? (y/n):')[0] != 'y':
-            log.info("You chose not to broadcast the transaction, quitting.")
-            return
-    jm_single().bc_interface.pushtx(tx)
-    txid = txhash(tx)
-    log.info("Transaction sent: " + txid + ", shutting down")
 
 def main():
     parser = get_sendpayment_parser()
@@ -198,8 +141,6 @@ def main():
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     sync_wallet(wallet, fast=options.fastsync)
 
-    #Note that direct send is currently only supported for command line,
-    #not for schedule file (in that case options.makercount is 4-6, not 0)
     if options.makercount == 0:
         if isinstance(wallet, BitcoinCoreWallet):
             raise NotImplementedError("Direct send only supported for JM wallets")
