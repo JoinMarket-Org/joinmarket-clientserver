@@ -55,12 +55,13 @@ from jmclient import (load_program_config, get_network, Wallet,
                       human_readable_schedule_entry, tumbler_taker_finished_update,
                       get_tumble_log, restart_wait, tumbler_filter_orders_callback)
 
-from qtsupport import (ScheduleWizard, warnings, config_tips, config_types,
-                       TaskThread, QtHandler, XStream, Buttons, CloseButton,
-                       CopyButton, CopyCloseButton, OkButton, CancelButton,
-                       check_password_strength, update_password_strength,
-                       make_password_dialog, PasswordDialog, MyTreeWidget,
-                       JMQtMessageBox, BLUE_FG, donation_more_message)
+from qtsupport import (ScheduleWizard, TumbleRestartWizard, warnings, config_tips,
+                       config_types, TaskThread, QtHandler, XStream, Buttons,
+                       CloseButton, CopyButton, CopyCloseButton, OkButton,
+                       CancelButton, check_password_strength,
+                       update_password_strength, make_password_dialog,
+                       PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,
+                       donation_more_message)
 
 def satoshis_to_amt_str(x):
     return str(Decimal(x)/Decimal('1e8')) + " BTC"
@@ -542,16 +543,15 @@ class SpendTab(QWidget):
         self.spendstate.updateRun('running')
 
         if self.tumbler_options:
-            #TODO: mincjamount is the only tumbler setting, except maxcjfee,
-            #that is not part of sched-generation, so request from user
-            if not hasattr(jm_single(), 'mincjamount'):
-                mincjamount, ok = QInputDialog.getInt(self,
-                                                      "Set min coinjoin amount",
-                            "Enter minimum allowable coinjoin amount in satoshis")
-                if not ok:
-                    self.giveUp()
+            #Uses the flag 'True' value from selectSchedule to recognize a restart,
+            #which needs new dynamic option values. The rationale for using input
+            #is in case the user can increase success probability by changing them.
+            if self.tumbler_options == True:
+                wizard = TumbleRestartWizard()
+                wizard_return = wizard.exec_()
+                if wizard_return == QDialog.Rejected:
                     return
-                jm_single().mincjamount = mincjamount
+                self.tumbler_options = wizard.getOptions()
             #check for a partially-complete schedule; if so,
             #follow restart logic
             #1. filter out complete:

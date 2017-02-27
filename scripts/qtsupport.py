@@ -722,3 +722,66 @@ class ScheduleWizard(QWizard):
         #needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
         return get_tumble_schedule(self.opts, self.destaddrs)
+
+class TumbleRestartWizard(QWizard):
+    def __init__(self):
+        super(TumbleRestartWizard, self).__init__()
+        self.setWindowTitle("Restart tumbler schedule")
+        self.setPage(0, RestartSettingsPage(self))
+
+    def getOptions(self):
+        self.opts = {}
+        self.opts['amountpower'] = float(self.field("amountpower").toString())
+        self.opts['mincjamount'] = int(self.field("mincjamount").toString())
+        relfeeval = float(self.field("maxrelfee").toString())
+        absfeeval = int(self.field("maxabsfee").toString())
+        self.opts['maxcjfee'] = (relfeeval, absfeeval)
+        #needed for Taker to check:
+        jm_single().mincjamount = self.opts['mincjamount']
+        return self.opts
+
+class RestartSettingsPage(QWizardPage):
+
+    def __init__(self, parent):
+        super(RestartSettingsPage, self).__init__(parent)
+        self.setTitle("Tumbler options")
+        self.setSubTitle("Options settings that can be varied on restart")
+        layout = QGridLayout()
+        layout.setSpacing(4)
+
+        results = []
+        sN = ['Amount power',
+              'Min coinjoin amount',
+              'Max relative fee per counterparty (e.g. 0.005)',
+              'Max fee per counterparty, satoshis (e.g. 10000)']
+        #Tooltips
+        sH = ["A parameter to control the random coinjoin sizes.",
+        "The lowest allowed size of any coinjoin, in satoshis.",
+        "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
+        "Integer number of satoshis (this AND previous must be violated to reject)"]
+        #types
+        sT = [float, int, float, int]
+        #constraints
+        sMM = [(1.0, 10000.0, 1), (100000, 100000000), (0.000001, 0.25, 6),
+               (0, 10000000)]
+        sD = ['100.0', '1000000', '0.0005', '10000']
+        for x in zip(sN, sH, sT, sD, sMM):
+            ql = QLabel(x[0])
+            ql.setToolTip(x[1])
+            qle = QLineEdit(x[3])
+            if x[2] == int:
+                qle.setValidator(QIntValidator(*x[4]))
+            if x[2] == float:
+                qle.setValidator(QDoubleValidator(*x[4]))
+            results.append((ql, qle))
+        layout = QGridLayout()
+        layout.setSpacing(4)
+        for i, x in enumerate(results):
+            layout.addWidget(x[0], i + 1, 0)
+            layout.addWidget(x[1], i + 1, 1, 1, 2)
+        self.setLayout(layout)
+        #fields not considered 'mandatory' as defaults are accepted
+        self.registerField("amountpower", results[0][1])
+        self.registerField("mincjamount", results[1][1])
+        self.registerField("maxrelfee", results[2][1])
+        self.registerField("maxabsfee", results[3][1])
