@@ -512,14 +512,14 @@ class SchDynamicPage1(QWizardPage):
               'Max relative fee per counterparty (e.g. 0.005)',
               'Max fee per counterparty, satoshis (e.g. 10000)']
         #Tooltips
-        sH = ["The starting mixdepth can be decided from the Wallet tab; it must "
+        sH = ["The starting mixdepth can be decided from the Wallet tab; it must\n"
         "have coins in it, but it's OK if some coins are in other mixdepths.",
-        "How many other participants are in each coinjoin, on average; but "
-        "each individual coinjoin will have a number that's varied according to "
+        "How many other participants are in each coinjoin, on average; but\n"
+        "each individual coinjoin will have a number that's varied according to\n"
         "settings on the next page",
-        "For example, if you start at mixdepth 1 and enter 4 here, the tumble "
+        "For example, if you start at mixdepth 1 and enter 4 here, the tumble\n"
         "will move coins from mixdepth 1 to mixdepth 5",
-        "This is the time waited *after* 1 confirmation has occurred, and is "
+        "This is the time waited *after* 1 confirmation has occurred, and is\n"
         "varied randomly.",
         "Will be varied randomly, see advanced settings next page",
         "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
@@ -695,7 +695,7 @@ class ScheduleWizard(QWizard):
         self.destaddrs = []
         for i in range(self.page(2).required_addresses):
             daddrstring = str(self.field("destaddr"+str(i)).toString())
-            if validate_address(daddrstring):
+            if validate_address(daddrstring)[0]:
                 self.destaddrs.append(daddrstring)
             elif daddrstring != "":
                 JMQtMessageBox(self, "Error, invalid address", mbtype='crit',
