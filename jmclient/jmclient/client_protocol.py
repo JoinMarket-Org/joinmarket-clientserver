@@ -72,6 +72,8 @@ class JMTakerClientProtocol(amp.AMP):
         to daemon, request message channel initialization
         with relevant config data for our message channels
         """
+        if self.taker.aborted:
+            return
         #needed only for naming convention in IRC currently
         blockchain_source = jm_single().config.get("BLOCKCHAIN",
                                                    "blockchain_source")

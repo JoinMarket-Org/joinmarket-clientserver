@@ -305,7 +305,10 @@ class SpendTab(QWidget):
         self.tumbler_options = None
         #signals from client backend to GUI
         self.jmclient_obj = QtCore.QObject()
+        #timer for waiting for confirmation on restart
         self.restartTimer = QtCore.QTimer()
+        #timer for wait for next transaction
+        self.nextTxTimer = None
         #This signal/callback requires user acceptance decision.
         self.jmclient_obj.connect(self.jmclient_obj, QtCore.SIGNAL('JMCLIENT:offers'),
                                                             self.checkOffers)
@@ -857,8 +860,14 @@ class SpendTab(QWidget):
             if self.taker_finished_res:
                 w.statusBar().showMessage("Transaction confirmed: " + self.taker.txid)
                 #singleShot argument is in milliseconds
-                QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
-                                         self.startNextTransaction)
+                if self.nextTxTimer:
+                    self.nextTxTimer.stop()
+                self.nextTxTimer = QtCore.QTimer()
+                self.nextTxTimer.setSingleShot(True)
+                self.nextTxTimer.timeout.connect(self.startNextTransaction)
+                self.nextTxTimer.start(int(self.taker_finished_waittime*60*1000))
+                #QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
+                #                         self.startNextTransaction)
                 #see note above re multiple/tumble duplication
                 if self.spendstate.typestate == 'multiple' and \
                    not self.tumbler_options:
@@ -942,6 +951,11 @@ class SpendTab(QWidget):
     def cleanUp(self):
         """Reset state to 'ready'
         """
+        #Qt specific: because schedules can restart in same app instance,
+        #we must clean up any existing delayed actions via singleShot.
+        #Currently this should only happen via self.abortTransactions.
+        if self.nextTxTimer:
+            self.nextTxTimer.stop()
         self.spendstate.reset()
         self.tumbler_options = None
         self.tumbler_destaddrs = None
