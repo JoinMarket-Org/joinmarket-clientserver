@@ -561,7 +561,7 @@ class SchDynamicPage1(QWizardPage):
         sMM = [(0, jm_single().config.getint("GUI", "max_mix_depth") - 1), (3, 20),
                (2, 7), (0.00000001, 100.0, 8), (2, 10), (0.000001, 0.25, 6),
                (0, 10000000)]
-        sD = ['0', '4', '4', '0.25', '3', '0.005', '10000']
+        sD = ['0', '6', '4', '30.0', '4', '0.005', '10000']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
