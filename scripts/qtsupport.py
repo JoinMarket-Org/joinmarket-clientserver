@@ -48,7 +48,6 @@ query. This is bad for privacy - consider
 using a Bitcoin Core node instead."""}
 #configuration types
 config_types = {'rpc_port': int,
-                'port': int,
                 'usessl': bool,
                 'socks5': bool,
                 'network': bool,
@@ -71,9 +70,9 @@ config_tips = {
     'rpc_port': 'port for connecting to bitcoind over rpc',
     'rpc_user': 'user for connecting to bitcoind over rpc',
     'rpc_password': 'password for connecting to bitcoind over rpc',
-    'host': 'hostname for IRC server',
-    'channel': 'channel name on IRC server',
-    'port': 'port for connecting to IRC server',
+    'host': 'hostname for IRC server (or comma separated list)',
+    'channel': 'channel name on IRC server (or comma separated list)',
+    'port': 'port for connecting to IRC server (or comma separated list)',
     'usessl': 'check to use SSL for connection to IRC',
     'socks5': 'check to use SOCKS5 proxy for IRC connection',
     'socks5_host': 'host for SOCKS5 proxy',

@@ -1452,7 +1452,8 @@ class JMMainWindow(QMainWindow):
                     str(firstarg),
                     pwd,
                     max_mix_depth=jm_single().config.getint(
-                    "GUI", "max_mix_depth"))
+                    "GUI", "max_mix_depth"),
+                    gaplimit=jm_single().config.getint("GUI", "gaplimit"))
             except WalletError:
                 JMQtMessageBox(self,
                                "Wrong password",
