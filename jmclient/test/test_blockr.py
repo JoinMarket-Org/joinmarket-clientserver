@@ -47,8 +47,8 @@ def test_blockr_estimate_fee(setup_blockr):
     #Note this can fail, it isn't very accurate.
     #assert res[1] >= res[2]
     #sanity checks:
-    assert res[0] < 200000
-    assert res[2] < 150000
+    assert res[0] < 400000
+    assert res[2] < 350000
 
 @pytest.mark.parametrize(
     "net, seed, gaplimit, showprivkey, method",
