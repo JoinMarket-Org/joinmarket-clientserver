@@ -113,7 +113,7 @@ donation_more_message = '\n'.join(
              'is no change output that can be linked with your inputs later.'])
 """
 
-def JMQtMessageBox(obj, msg, mbtype='info', title=''):
+def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
     mbtypes = {'info': QMessageBox.information,
                'crit': QMessageBox.critical,
                'warn': QMessageBox.warning,
@@ -123,8 +123,40 @@ def JMQtMessageBox(obj, msg, mbtype='info', title=''):
         return QMessageBox.question(obj, title, msg, QMessageBox.Yes,
                                     QMessageBox.No)
     else:
-        mbtypes[mbtype](obj, title, msg)
+        if detailed_text:
+            assert mbtype == 'warn'
 
+            class JMQtDMessageBox(QMessageBox):
+                def __init__(self):
+                    QMessageBox.__init__(self)
+                    self.setSizeGripEnabled(True)
+                    self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                    self.layout().setSizeConstraint(QLayout.SetMaximumSize)
+                def resizeEvent(self, event):
+                    self.setMinimumHeight(0)
+                    self.setMaximumHeight(16777215)
+                    self.setMinimumWidth(0)
+                    self.setMaximumWidth(16777215)
+                    result = super(JMQtDMessageBox, self).resizeEvent(event)
+                    details_box = self.findChild(QTextEdit)
+                    if details_box is not None:
+                        details_box.setMinimumHeight(0)
+                        details_box.setMaximumHeight(16777215)
+                        details_box.setMinimumWidth(0)
+                        details_box.setMaximumWidth(16777215)
+                        details_box.setSizePolicy(QSizePolicy.Expanding,
+                                                  QSizePolicy.Expanding)
+                    return result
+
+            b = JMQtDMessageBox()
+            b.setIcon(QMessageBox.Warning)
+            b.setWindowTitle(title)
+            b.setText(msg)
+            b.setDetailedText(detailed_text)
+            b.setStandardButtons(QMessageBox.Ok)
+            retval = b.exec_()
+        else:
+            mbtypes[mbtype](obj, title, msg)
 
 class TaskThread(QtCore.QThread):
     '''Thread that runs background tasks.  Callbacks are guaranteed
