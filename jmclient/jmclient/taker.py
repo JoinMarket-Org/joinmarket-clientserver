@@ -155,14 +155,16 @@ class Taker(object):
         #Prepare a commitment
         commitment, revelation, errmsg = self.make_commitment()
         if not commitment:
-            self.taker_info_callback("ABORT", errmsg)
             utxo_pairs, to, ts = revelation
             if len(to) == 0:
                 #If any utxos are too new, then we can continue retrying
                 #until they get old enough; otherwise, we have to abort
                 #(TODO, it's possible for user to dynamically add more coins,
                 #consider if this option means we should stay alive).
+                self.taker_info_callback("ABORT", errmsg)
                 self.on_finished_callback(False)
+            else:
+                self.taker_info_callback("INFO", errmsg)
             return (False,)
         else:
             self.taker_info_callback("INFO", errmsg)

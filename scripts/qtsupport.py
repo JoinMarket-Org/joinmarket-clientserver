@@ -124,7 +124,7 @@ def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
                                     QMessageBox.No)
     else:
         if detailed_text:
-            assert mbtype == 'warn'
+            assert mbtype == 'info'
 
             class JMQtDMessageBox(QMessageBox):
                 def __init__(self):
@@ -149,7 +149,7 @@ def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
                     return result
 
             b = JMQtDMessageBox()
-            b.setIcon(QMessageBox.Warning)
+            b.setIcon(QMessageBox.Information)
             b.setWindowTitle(title)
             b.setText(msg)
             b.setDetailedText(detailed_text)

@@ -739,14 +739,14 @@ class SpendTab(QWidget):
 
     def takerInfo(self):
         if self.taker_info_type == "info":
-            w.statusBar().showMessage(self.taker_infomsg)
-        elif self.taker_info_type == "warn":
+            #cannot use dialogs that interrupt gui thread here
             if len(self.taker_infomsg) > 200:
-                JMQtMessageBox(self, "Details:", mbtype=self.taker_info_type,
-                               detailed_text=self.taker_infomsg)
+                log.info("INFO: " + self.taker_infomsg)
             else:
-                JMQtMessageBox(self, self.taker_infomsg,
-                               mbtype=self.taker_info_type)
+                w.statusBar().showMessage(self.taker_infomsg)
+        elif self.taker_info_type == "warn":
+            JMQtMessageBox(self, self.taker_infomsg,
+                           mbtype=self.taker_info_type)
             #Abort signal explicitly means this transaction will not continue.
             self.abortTransactions()
         self.taker_info_response = True
