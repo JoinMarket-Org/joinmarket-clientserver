@@ -29,8 +29,8 @@ The IRC layer is also implemented here using Twisted, reducing the complexity re
 
 The "server" is just a daemon service that can be run as a separate process (see `scripts/joinmarketd.py`), or for convenience in the same process (the default for command line scripts).
 
-To install, follow the instructions in INSTALL.md.
+To install, follow the instructions [here](docs/INSTALL.md).
 
-Instructions for running command line scripts are in scripts/README.md.
+Instructions for running command line scripts are [here](scripts/README.md).
 
-Instructions for developers for testing in TESTING.md.
+Instructions for developers for testing [here](docs/TESTING.md).

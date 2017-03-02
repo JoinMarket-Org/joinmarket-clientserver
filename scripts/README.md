@@ -47,7 +47,7 @@ This is an extension of the functionality of `sendpayment.py` in that it auto-ge
 a schedule of payments to internal and external addresses, following the same algo
 as in normal Joinmarket and described [here](https://github.com/JoinMarket-Org/joinmarket/wiki/Step-by-step-running-the-tumbler).
 
-For detailed information on how to use this, please read [this](tumblerguide.md).
+For detailed information on how to use this, please read [this](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/docs/tumblerguide.md).
 
 ###wallet-tool.py
 
