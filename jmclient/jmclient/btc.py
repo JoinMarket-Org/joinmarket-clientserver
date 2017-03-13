@@ -135,11 +135,18 @@ except ImportError:
     
     def get_version_byte(inp):
         leadingzbytes = len(re.match('^1*', inp).group(0))
-        data = b'\x00' * leadingzbytes + b58check_to_bin(inp)
+        data = b'\x00' * leadingzbytes + b58check_to_bin(inp, version=True)
         return ord(data[0])
     
-    def b58check_to_bin(addr):
-        return ebt.DecodeBase58Check(addr)[1:]
+    def b58check_to_bin(addr, version=False):
+        """optionally include the version byte for get_version_byte.
+        Note that jmbitcoin does not need this flag, because it
+        uses the changebase() function, which here has been restricted.
+        """
+        if not version:
+            return ebt.DecodeBase58Check(addr)[1:]
+        else:
+            return ebt.DecodeBase58Check(addr)
     
     def changebase(inp, frm=256, to=58):
         """Implementation of base58 (*not* b58check) conversion
@@ -178,7 +185,8 @@ except ImportError:
             log.debug("Invalid script")
             return False
         t.inputs()[i]["address"] = addr
-        txforsig = etr.Hash(t.tx_for_sig(i).decode('hex'))
+        t.inputs()[i]["type"] = 'p2pkh'
+        txforsig = etr.Hash(t.serialize_preimage(i).decode('hex'))
         ecdsa_pub = get_ecdsa_verifying_key(pub)
         if not ecdsa_pub:
             return False
@@ -303,8 +311,7 @@ except ImportError:
             compressed=False
         else:
             raise ValueError("Invalid private key")
-        sec = ebt.SecretToASecret(privkey, compressed=compressed,
-                                  addrtype=BTC_P2PK_VBYTE["mainnet"])
+        sec = ebt.SecretToASecret(privkey, compressed=compressed)
         
         retval = ebt.public_key_from_private_key(sec)
         if usehex:
@@ -327,11 +334,11 @@ except ImportError:
     
     def from_wif_privkey(privkey, vbyte=0):
         #converts a WIF compressed privkey to a hex private key
-        return binascii.hexlify(ebt.ASecretToSecret(privkey, addrtype=vbyte))
+        return binascii.hexlify(ebt.ASecretToSecret(privkey))
     
     def txhash(txhex):
         t = etr.Transaction(txhex)
-        return t.hash()
+        return t.txid()
     
     #A simple copy-paste for now; move into support.py perhaps? TODO
     def estimate_tx_size(ins, outs, txtype='p2pkh'):

@@ -437,9 +437,6 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
     def __init__(self, testnet=False):
         super(ElectrumWalletInterface, self).__init__()
-        if testnet:
-            raise NotImplementedError(
-                "Electrum doesnt yet have a testnet interface")
         self.last_sync_unspent = 0
 
     def set_wallet(self, wallet):
