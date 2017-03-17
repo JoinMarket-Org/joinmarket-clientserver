@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function
 from twisted.python.log import startLogging, err
-from twisted.internet import protocol, reactor, ssl
+from twisted.internet import protocol, reactor
 from twisted.internet.task import LoopingCall
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
@@ -9,7 +9,11 @@ from twisted.python import failure
 from twisted.protocols import amp
 from twisted.internet.protocol import ClientFactory
 from twisted.internet.endpoints import TCP4ClientEndpoint
-from twisted.internet.ssl import ClientContextFactory
+try:
+    from twisted.internet.ssl import ClientContextFactory
+    from twisted.internet import ssl
+except ImportError:
+    pass
 from jmbase import commands
 from sys import stdout
 
