@@ -21,7 +21,7 @@ from .wallet import (AbstractWallet, BitcoinCoreInterface, Wallet,
                      create_wallet_file)
 from .configure import (load_program_config, jm_single, get_p2pk_vbyte,
     get_network, jm_single, get_network, validate_address, get_irc_mchannels,
-    check_utxo_blacklist, get_blockchain_interface_instance)
+    check_utxo_blacklist, get_blockchain_interface_instance, get_p2sh_vbyte)
 from .blockchaininterface import (BlockrInterface, BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
