@@ -344,7 +344,8 @@ class MessageChannelCollection(object):
         #TODO supporting sending to arbitrary nicks
         #adds quite a bit of complexity, not supported
         #initially; will fail if nick is not part of TX
-        self.active_channels[nick].push_tx(nick, txhex)
+        txb64 = base64.b64encode(txhex.decode('hex'))
+        self.prepare_privmsg(nick, "push", txb64)
 
     def send_tx(self, nick_list, txhex):
         """Push out the transaction to nicks

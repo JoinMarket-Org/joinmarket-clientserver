@@ -171,11 +171,10 @@ absurd_fee_per_kb = 150000
 # spends from unconfirmed inputs, which may then get malleated or double-spent!
 # other counterparties are likely to reject unconfirmed inputs... don't do it.
 
-#options: self, random-peer, not-self, random-maker
+#options: self, random-peer, not-self (note: random-maker is not currently supported).
 # self = broadcast transaction with your own ip
 # random-peer = everyone who took part in the coinjoin has a chance of broadcasting
 # not-self = never broadcast with your own ip
-# random-maker = every peer on joinmarket has a chance of broadcasting, including yourself
 tx_broadcast = self
 minimum_makers = 2
 #THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.

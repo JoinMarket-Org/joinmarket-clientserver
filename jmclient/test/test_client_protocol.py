@@ -74,7 +74,7 @@ class DummyTaker(Taker):
         """
         jlog.debug("We got a sig: " + sigb64)
         end_test()
-        return True
+        return None
 
 
 class JMBaseProtocol(amp.AMP):

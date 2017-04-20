@@ -480,8 +480,7 @@ class Taker(object):
         jlog.debug('all makers have sent their signatures')
         self.taker_info_callback("INFO", "Transaction is valid, signing..")
         jlog.debug("schedule item was: " + str(self.schedule[self.schedule_index]))
-        self.self_sign_and_push()
-        return True
+        return self.self_sign_and_push()
 
     def make_commitment(self):
         """The Taker default commitment function, which uses PoDLE.
@@ -629,13 +628,34 @@ class Taker(object):
         jlog.debug('\n' + tx)
         self.txid = btc.txhash(tx)
         jlog.debug('txid = ' + self.txid)
-        pushed = jm_single().bc_interface.pushtx(tx)
+        tx_broadcast = jm_single().config.get('POLICY', 'tx_broadcast')
+        nick_to_use = None
+        if tx_broadcast == 'self':
+            pushed = jm_single().bc_interface.pushtx(tx)
+        elif tx_broadcast in ['random-peer', 'not-self']:
+            n = len(self.maker_utxo_data)
+            if tx_broadcast == 'random-peer':
+                i = random.randrange(n + 1)
+            else:
+                i = random.randrange(n)
+            if i == n:
+                pushed = jm_single().bc_interface.pushtx(tx)
+            else:
+                nick_to_use = self.maker_utxo_data.keys()[i]
+                pushed = True
+        else:
+            jlog.info("Only self, random-peer and not-self broadcast "
+                      "methods supported. Reverting to self-broadcast.")
+            pushed = jm_single().bc_interface.pushtx(tx)
         if not pushed:
             self.on_finished_callback(False, fromtx=True)
         else:
             jm_single().bc_interface.add_tx_notify(
                 self.latest_tx, self.unconfirm_callback,
                 self.confirm_callback, self.my_cj_addr)
+            if nick_to_use:
+                return (nick_to_use, tx)
+        #if push was not successful, return None
 
     def self_sign_and_push(self):
         self.self_sign()

@@ -225,6 +225,9 @@ class JMTakerClientProtocol(amp.AMP):
     @commands.JMSigReceived.responder
     def on_JM_SIG_RECEIVED(self, nick, sig):
         retval = self.taker.on_sig(nick, sig)
+        if retval:
+            nick_to_use, txhex = retval
+            self.push_tx(nick_to_use, txhex)
         return {'accepted': True}
 
     @commands.JMRequestMsgSig.responder
@@ -273,6 +276,10 @@ class JMTakerClientProtocol(amp.AMP):
                             txhex=txhex)
         self.defaultCallbacks(d)
 
+    def push_tx(self, nick_to_push, txhex_to_push):
+        d = self.callRemote(commands.JMPushTx, nick=str(nick_to_push),
+                            txhex=str(txhex_to_push))
+        self.defaultCallbacks(d)
 
 class JMTakerClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTakerClientProtocol

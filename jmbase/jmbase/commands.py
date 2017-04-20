@@ -52,6 +52,10 @@ class JMMakeTx(JMCommand):
     arguments = [('nick_list', String()),
                  ('txhex', String())]
 
+class JMPushTx(JMCommand):
+    arguments = [('nick', String()),
+                 ('txhex', String())]
+
 class JMMsgSignature(JMCommand):
     arguments = [('nick', String()),
                  ('cmd', String()),

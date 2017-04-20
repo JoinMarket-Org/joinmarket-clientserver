@@ -308,6 +308,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                                 hostid=hostid)
             self.defaultCallbacks(d)
 
+    @JMPushTx.responder
+    def on_JM_PushTx(self, nick, txhex):
+        self.mcc.push_tx(nick, txhex)
+        return {'accepted': True}
+
     @JMMsgSignature.responder
     def on_JM_MSGSIGNATURE(self, nick, cmd, msg_to_return, hostid):
         self.mcc.privmsg(nick, cmd, msg_to_return, mc=hostid)
