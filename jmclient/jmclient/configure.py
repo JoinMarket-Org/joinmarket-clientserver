@@ -205,6 +205,13 @@ accept_commitment_broadcasts = 1
 commit_file_location = cmtdata/commitments.json
 """
 
+#This allows use of the jmclient package with a
+#configuration set by an external caller; not to be used
+#in conjuction with calls to load_program_config.
+def set_config(cfg, bcint=None):
+    global_singleton.config = cfg
+    if bcint:
+        global_singleton.bc_interface = bcint
 
 def get_irc_mchannels():
     fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
