@@ -100,11 +100,13 @@ class AbstractWallet(object):
     def add_new_utxos(self, tx, txid):
         pass
 
-    def select_utxos(self, mixdepth, amount):
+    def select_utxos(self, mixdepth, amount, utxo_filter=None):
+        if utxo_filter is None:
+            utxo_filter = []
         utxo_list = self.get_utxos_by_mixdepth()[mixdepth]
         unspent = [{'utxo': utxo,
                     'value': addrval['value']}
-                   for utxo, addrval in utxo_list.iteritems()]
+                   for utxo, addrval in utxo_list.iteritems() if utxo not in utxo_filter]
         inputs = self.utxo_selector(unspent, amount)
         log.debug('for mixdepth={} amount={} selected:'.format(
             mixdepth, amount))
