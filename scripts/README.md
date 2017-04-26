@@ -13,7 +13,7 @@ The `joinmarket.cfg` will be created and maintained in this directory.
 
 Brief explanation of the function of each of the scripts:
 
-###sendpayment.py
+### sendpayment.py
 
 Either use the same syntax as for normal Joinmarket:
 
@@ -41,7 +41,7 @@ same Python process, for maximum convenience, so you needn't separately start `j
 
 You can run the daemon separately by setting `nodaemon=0` in `[DAEMON]`. You can choose to use ssl within this single-process configuration with `use_ssl=true` (again, see below for more on this).*
 
-###tumbler.py
+### tumbler.py
 
 This is an extension of the functionality of `sendpayment.py` in that it auto-generates
 a schedule of payments to internal and external addresses, following the same algo
@@ -49,11 +49,11 @@ as in normal Joinmarket and described [here](https://github.com/JoinMarket-Org/j
 
 For detailed information on how to use this, please read [this](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/docs/tumblerguide.md).
 
-###wallet-tool.py
+### wallet-tool.py
 
 This is the same as in normal Joinmarket.
 
-###joinmarketd.py
+### joinmarketd.py
 
 This file's role is explained in the main README in the top level directory. It only
 takes two arguments, the port it serves on (default 27183), and whether to use TLS for
@@ -64,11 +64,11 @@ client-server communication (default 0=no tls, 1=tls):
 To use tls you must create a `key.pem` and `cert.pem` in a subdirectory `/ssl`, representing
 a self-signed certificate. This needs some work to be cleaned up, but does work already.
 
-###add-utxo.py
+### add-utxo.py
 
 This works exactly as in normal Joinmarket, with the exception of the location
 of the `commitments.json` file, explained above.
 
-###sendtomany.py
+### sendtomany.py
 
 As above.
