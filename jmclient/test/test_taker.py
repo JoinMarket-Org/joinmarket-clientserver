@@ -21,7 +21,7 @@ class DummyWallet(AbstractWallet):
         self.max_mix_depth = 5
         self.inject_addr_get_failure = False
 
-    def get_utxos_by_mixdepth(self):
+    def get_utxos_by_mixdepth(self, verbose=True):
         return t_utxos_by_mixdepth
 
     def select_utxos(self, mixdepth, amount):
