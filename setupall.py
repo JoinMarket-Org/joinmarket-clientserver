@@ -38,5 +38,5 @@ if mode not in packages:
 
 for x in packages[mode]:
     dirtorun = os.path.join(curdir, x)
-    p = subprocess.Popen(['pip', 'install', '.'], cwd=dirtorun)
+    p = subprocess.Popen(['pip', 'install', '--upgrade', '--upgrade-strategy=only-if-needed', '.'], cwd=dirtorun)
     p.wait()
