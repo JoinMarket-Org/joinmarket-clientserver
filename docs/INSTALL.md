@@ -20,8 +20,9 @@ automake pkg-config libtool libffi-dev libssl-dev
 
 Then:
 
-    sudo pip install virtualenv
+    sudo pip install virtualenv service-identity
     mkdir jmvenv
+    virtualenv jmvenv
     cd jmvenv; source bin/activate; cd ..
 
 Install this repo in the virtualenv:
@@ -63,3 +64,6 @@ There, you need to install the client code (without Joinmarket's bitcoin):
 
     python setupall.py --client-only
 
+#### Upgrading
+
+After upgrading to a new version (or whenever the code has changed) you must re-run the applicable `python setupall.py` commands as described above.
