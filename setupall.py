@@ -20,7 +20,9 @@ def help():
           "Mode is one of:\n"
           "`--daemon` - for joinmarketd\n"
           "`--client-only` - for client not using joinmarket's own bitcoin code\n"
-          "`--client-bitcoin` - using joinmarket bitcoin code, installs secp256k1.")
+          "`--client-bitcoin` - using joinmarket bitcoin code, installs secp256k1\n"
+          "`--develop` - uses the local code for all packages (does not install to site-packages)."
+          )
     sys.exit(0)
 
 if len(sys.argv) != 2:
@@ -32,11 +34,18 @@ mode = sys.argv[1]
 
 packages = {"--daemon": ["jmbase", "jmdaemon"],
             "--client-only": ["jmbase", "jmclient"],
-            "--client-bitcoin": ["jmbase", "jmbitcoin", "jmclient"]}
+            "--client-bitcoin": ["jmbase", "jmbitcoin", "jmclient"],
+            "--develop": ["jmbase", "jmbitcoin", "jmclient", "jmdaemon"]}
 if mode not in packages:
     help()
 
 for x in packages[mode]:
     dirtorun = os.path.join(curdir, x)
-    p = subprocess.Popen(['pip', 'install', '--upgrade', '--upgrade-strategy=only-if-needed', '.'], cwd=dirtorun)
+
+    cmd = ['pip', 'install', '--upgrade', '--upgrade-strategy=only-if-needed']
+    if mode == "--develop":
+        cmd.append('-e')
+    cmd.append('.')
+
+    p = subprocess.Popen(cmd, cwd=dirtorun)
     p.wait()

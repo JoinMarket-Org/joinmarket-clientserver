@@ -66,4 +66,20 @@ There, you need to install the client code (without Joinmarket's bitcoin):
 
 #### Upgrading
 
-After upgrading to a new version (or whenever the code has changed) you must re-run the applicable `python setupall.py` commands as described above.
+After upgrading to a new version (or whenever the code has changed) you must re-run the
+applicable `python setupall.py` commands as described above.
+
+#### Development (or making other changes to the code)
+
+If you are a developer or you plan on modifying the code (for example to add customizations),
+do not run the `python setupall.py` commands above. Instead run:
+
+    python setupall.py --develop
+
+The normal installation (`--daemon` or `--client-bitcoin`) would install the JoinMarket
+packages to the virtualenv's `site-packages` directory. This would mean any changes you make to
+the local code would not have effect until the packages are reinstalled.
+
+Using `--develop` causes a `.egg-link` file to be added to `site-packages` for each package.
+The `.egg-link` file acts like a symlink pointing to the local code. This means any changes you
+make to the code will have effect immediately.
