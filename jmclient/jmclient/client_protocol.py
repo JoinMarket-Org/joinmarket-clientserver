@@ -23,6 +23,7 @@ import string
 import time
 import hashlib
 import os
+import sys
 from jmclient import (Taker, Wallet, jm_single, get_irc_mchannels,
                         load_program_config, get_log)
 
@@ -309,12 +310,23 @@ def start_reactor(host, port, factory, ish=True, daemon=False): #pragma: no cove
                        "section of the config. Quitting.")
             return
         dfactory = JMDaemonServerProtocolFactory()
-        if usessl:
-            reactor.listenSSL(port, dfactory,
-                          ssl.DefaultOpenSSLContextFactory(
-                              "./ssl/key.pem", "./ssl/cert.pem"))
-        else:
-            reactor.listenTCP(port, dfactory)
+        orgport = port
+        while True:
+            try:
+                if usessl:
+                    reactor.listenSSL(port, dfactory,
+                                  ssl.DefaultOpenSSLContextFactory(
+                                      "./ssl/key.pem", "./ssl/cert.pem"))
+                else:
+                    reactor.listenTCP(port, dfactory)
+                jlog.info("Listening on port " + str(port))
+                break
+            except Exception:
+                jlog.warn("Cannot listen on port " + str(port) + ", trying next port")
+                if port >= (orgport + 100):
+                    jlog.error("Tried 100 ports but cannot listen on any of them. Quitting.")
+                    sys.exit(1)
+                port += 1
 
     if usessl:
         ctx = ClientContextFactory()
