@@ -42,7 +42,7 @@ if mode not in packages:
 for x in packages[mode]:
     dirtorun = os.path.join(curdir, x)
 
-    cmd = ['pip', 'install', '--upgrade', '--upgrade-strategy=only-if-needed']
+    cmd = ['pip', 'install', '--upgrade']
     if mode == "--develop":
         cmd.append('-e')
     cmd.append('.')
