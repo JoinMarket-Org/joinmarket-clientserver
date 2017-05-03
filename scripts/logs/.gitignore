@@ -1,4 +1,5 @@
 # Ignore all logs
 *.log
+*.schedule
 # Except this file
 !.gitignore

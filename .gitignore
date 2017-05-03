@@ -1,5 +1,6 @@
 *.pyc
 *.swp
+*.egg-info
 .cache/
 .coverage
 blockchain.cache
