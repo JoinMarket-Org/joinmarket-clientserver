@@ -38,9 +38,6 @@ consoleHandler = JoinMarketStreamHandler(stream=sys.stdout)
 consoleHandler.setFormatter(logFormatter)
 log.addHandler(consoleHandler)
 
-log.debug('hello joinmarket')
-
-
 def get_log():
     """
     provides joinmarket logging instance
