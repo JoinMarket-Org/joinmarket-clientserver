@@ -131,7 +131,8 @@ class Wallet(AbstractWallet):
                  max_mix_depth=2,
                  gaplimit=6,
                  extend_mixdepth=False,
-                 storepassword=False):
+                 storepassword=False,
+                 wallet_dir=None):
         super(Wallet, self).__init__()
         self.max_mix_depth = max_mix_depth
         self.storepassword = storepassword
@@ -141,7 +142,7 @@ class Wallet(AbstractWallet):
         self.unspent = {}
         self.spent_utxos = []
         self.imported_privkeys = {}
-        self.seed = self.read_wallet_file_data(seedarg, pwd)
+        self.seed = self.read_wallet_file_data(seedarg, pwd, wallet_dir=wallet_dir)
         if not self.seed:
             raise WalletError("Failed to decrypt wallet")
         if extend_mixdepth and len(self.index_cache) > max_mix_depth:
@@ -160,10 +161,11 @@ class Wallet(AbstractWallet):
         for i in range(self.max_mix_depth):
             self.index.append([0, 0])
 
-    def read_wallet_file_data(self, filename, pwd=None):
+    def read_wallet_file_data(self, filename, pwd=None, wallet_dir=None):
         self.path = None
+        wallet_dir = wallet_dir if wallet_dir else 'wallets'
         self.index_cache = [[0, 0]] * self.max_mix_depth
-        path = os.path.join('wallets', filename)
+        path = os.path.join(wallet_dir, filename)
         if not os.path.isfile(path):
             if get_network() == 'testnet':
                 log.debug('filename interpreted as seed, only available in '
