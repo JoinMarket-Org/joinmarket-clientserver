@@ -44,7 +44,7 @@ def get_schedule(filename):
                     completed = int(completed)
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
-            if destaddr != "INTERNAL":
+            if destaddr not in ["INTERNAL", "addrask"]:
                 success, errmsg = validate_address(destaddr)
                 if not success:
                     return (False, "Invalid address: " + destaddr + "," + errmsg)
