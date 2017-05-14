@@ -71,9 +71,9 @@ def get_tumble_schedule(options, destaddrs):
     and zero as sweep (as before).
     This is a modified version of tumbler.py/generate_tumbler_tx()
     """
-    if options['mixdepthsrc'] != 0:
-        raise NotImplementedError("Non-zero mixdepth source not supported; "
-                                  "restart the tumbler with --restart instead")
+    #if options['mixdepthsrc'] != 0:
+    #    raise NotImplementedError("Non-zero mixdepth source not supported; "
+    #                              "restart the tumbler with --restart instead")
 
     def lower_bounded_int(thelist, lowerbound):
         return [int(l) if int(l) >= lowerbound else lowerbound for l in thelist]

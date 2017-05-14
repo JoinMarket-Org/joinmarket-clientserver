@@ -25,7 +25,7 @@ def get_tumbler_parser():
             type='int',
             dest='mixdepthsrc',
             help=
-            'Mixing depth to spend from. DEPRECATED, do not use.',
+            'Mixing depth to start tumble process from. default=0.',
             default=0)
     parser.add_option(
             '-f',
