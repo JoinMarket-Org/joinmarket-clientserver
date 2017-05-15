@@ -1,3 +1,22 @@
+### Notes on upgrading, binaries and compatibility
+
+If you just want the executable/GUI/binary version of the code, always use
+the latest version of those files (example: joinmarket-qt.exe for Windows) found
+on the [releases](https://github.com/AdamISZ/joinmarket-clientserver/releases) page.
+
+(Note, sometimes this won't be the latest release, so you may have to scroll down
+a little; not all releases, for now, will include binary builds).
+
+Otherwise: if you are upgrading from an older version, just update using git: `git pull origin master`,
+or `git fetch; git checkout tags/<tagname>` for a specific tagged release, then rerun the installation
+process as described below. This will only work if the latest commit, or the tag,
+is actually newer in version number, than what was there already.
+
+Lastly, on compatibility, it's considered the responsibility of the developer(s) to
+ensure that the code here is always compatible with that in the [main](https://github.com/Joinmarket-Org/joinmarket)
+repo, so you should always be able to run the latest version and successfully transact
+with other participants in the Joinmarket pit.
+
 ### Installation on Linux
 
 To install everything (client and server), install these packages:
@@ -63,11 +82,6 @@ The latter case applies to the Electrum plugin, see [here](https://github.com/Ad
 There, you need to install the client code (without Joinmarket's bitcoin):
 
     python setupall.py --client-only
-
-#### Upgrading
-
-After upgrading to a new version (or whenever the code has changed) you must re-run the
-applicable `python setupall.py` commands as described above.
 
 #### Development (or making other changes to the code)
 
