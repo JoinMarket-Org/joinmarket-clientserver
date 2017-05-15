@@ -20,7 +20,7 @@ automake pkg-config libtool libffi-dev libssl-dev
 
 Then:
 
-    sudo pip install virtualenv service-identity
+    sudo pip install virtualenv
     mkdir jmvenv
     virtualenv jmvenv
     cd jmvenv; source bin/activate; cd ..
