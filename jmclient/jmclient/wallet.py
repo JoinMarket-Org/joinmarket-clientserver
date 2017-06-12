@@ -253,7 +253,7 @@ class Wallet(AbstractWallet):
         return btc.privtoaddr(
                 self.get_key(mixing_depth, forchange, i), magicbyte=get_p2pk_vbyte())
 
-    def get_new_addr(self, mixing_depth, forchange):
+    def get_new_addr(self, mixing_depth, forchange, import_required=False):
         index = self.index[mixing_depth]
         addr = self.get_addr(mixing_depth, forchange, index[forchange])
         self.addr_cache[addr] = (mixing_depth, forchange, index[forchange])
@@ -261,7 +261,7 @@ class Wallet(AbstractWallet):
         # self.update_cache_index()
         bc_interface = jm_single().bc_interface
         if isinstance(bc_interface, BitcoinCoreInterface) or isinstance(
-            bc_interface, RegtestBitcoinCoreInterface):
+            bc_interface, RegtestBitcoinCoreInterface) or import_required:
             # do not import in the middle of sync_wallet()
             if bc_interface.wallet_synced:
                 if bc_interface.rpc('getaccount', [addr]) == '':
