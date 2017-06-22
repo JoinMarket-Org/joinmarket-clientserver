@@ -32,7 +32,10 @@ description = (
     'privkeys are spaces or commas separated. (dumpprivkey) Export '
     'a single private key, specify an hd wallet path (listwallets) '
     'Lists all wallets with creator and timestamp. (history) Show '
-    'all historical transaction details. Requires Bitcoin Core.')
+    'all historical transaction details. Requires Bitcoin Core.\n'
+    'signmessage\t\tSign a message with the private key from an address\n'
+    '\t\t\tin the wallet. Use with -H and specify an HD wallet\n'
+    '\t\t\tpath for the address.')
 
 parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
                       description=description)
@@ -92,7 +95,7 @@ noseed_methods = ['generate', 'recover', 'listwallets']
 methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
     'history', 'showutxos']
 methods.extend(noseed_methods)
-noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey']
+noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
 
 if len(args) < 1:
     parser.error('Needs a wallet file or method')
@@ -316,6 +319,18 @@ elif method == 'listwallets':
         print(' ')
         i += 1
     print(str(i - 1) + ' Wallets have been found.')
+elif method == 'signmessage':
+    message = args[2]
+    if options.hd_path.startswith('m/0/'):
+        m, forchange, k = [int(y) for y in options.hd_path[4:].split('/')]
+        key = wallet.get_key(m, forchange, k)
+        addr = btc.privkey_to_address(key, magicbyte=get_p2pk_vbyte())
+        print('Using address: ' + addr)
+    else:
+        print('%s is not a valid hd wallet path' % options.hd_path)
+    sig = btc.ecdsa_sign(message, key, formsg=True)
+    print("Signature: " + str(sig))
+    print("To verify this in Bitcoin Core use the RPC command 'verifymessage'")
 elif method == 'history':
     #sort txes in a db because python can be really bad with large lists
     con = sqlite3.connect(":memory:")

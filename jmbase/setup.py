@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 setup(name='joinmarketbase',
-      version='0.2.0',
+      version='0.2.1',
       description='Joinmarket client library for Bitcoin coinjoins',
       url='http://github.com/AdamISZ/joinmarket-clientserver/jmbase',
       author='Adam Gibson',

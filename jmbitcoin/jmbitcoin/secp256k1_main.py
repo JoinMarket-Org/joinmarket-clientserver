@@ -230,12 +230,12 @@ def from_wif_privkey(wif_priv, compressed=True, vbyte=0):
         raise Exception("Private key has incorrect compression byte")
     return safe_hexlify(bin_key)
 
-def ecdsa_sign(msg, priv, usehex=True):
+def ecdsa_sign(msg, priv, formsg=False, usehex=True):
     hashed_msg = message_sig_hash(msg)
     if usehex:
         #arguments to raw sign must be consistently hex or bin
         hashed_msg = binascii.hexlify(hashed_msg)
-    sig = ecdsa_raw_sign(hashed_msg, priv, usehex, rawmsg=True)
+    sig = ecdsa_raw_sign(hashed_msg, priv, usehex, rawmsg=True, formsg=formsg)
     #note those functions only handles binary, not hex
     if usehex:
         sig = binascii.unhexlify(sig)
@@ -365,7 +365,8 @@ def ecdsa_raw_sign(msg,
                    usehex,
                    rawpriv=True,
                    rawmsg=False,
-                   usenonce=None):
+                   usenonce=None,
+                   formsg=False):
     '''Take the binary message msg and sign it with the private key
     priv.
     By default priv is just a 32 byte string, if rawpriv is false
@@ -386,8 +387,12 @@ def ecdsa_raw_sign(msg,
         newpriv = secp256k1.PrivateKey(p, raw=True, ctx=ctx)
     else:
         newpriv = secp256k1.PrivateKey(priv, raw=False, ctx=ctx)
+    if formsg:
+        sig = newpriv.ecdsa_sign_recoverable(msg, raw=rawmsg)
+        s, rid = newpriv.ecdsa_recoverable_serialize(sig)
+        return chr(31+rid) + s
     #Donations, thus custom nonce, currently disabled, hence not covered.
-    if usenonce: #pragma: no cover
+    elif usenonce: #pragma: no cover
         raise NotImplementedError
         #if len(usenonce) != 32:
         #    raise ValueError("Invalid nonce passed to ecdsa_sign: " + str(
@@ -395,8 +400,6 @@ def ecdsa_raw_sign(msg,
         #nf = ffi.addressof(_noncefunc.lib, "nonce_function_rand")
         #ndata = ffi.new("char [32]", usenonce)
         #usenonce = (nf, ndata)
-    if usenonce: #pragma: no cover
-        raise NotImplementedError
         #sig = newpriv.ecdsa_sign(msg, raw=rawmsg, custom_nonce=usenonce)
     else:
         #partial fix for secp256k1-transient not including customnonce;
