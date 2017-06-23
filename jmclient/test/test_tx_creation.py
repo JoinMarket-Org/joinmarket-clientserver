@@ -55,7 +55,7 @@ def test_create_p2sh_output_tx(setup_tx_creation, nw, wallet_structures,
 def test_script_to_address(setup_tx_creation):
     sample_script = "a914307f099a3bfedec9a09682238db491bade1b467f87"
     assert bitcoin.script_to_address(
-        sample_script) == "367SYUMqo1Fi4tQsycnmCtB6Ces1Z7EZLH"
+        sample_script, vbyte=5) == "367SYUMqo1Fi4tQsycnmCtB6Ces1Z7EZLH"
     assert bitcoin.script_to_address(
         sample_script, vbyte=196) == "2MwfecDHsQTm4Gg3RekQdpqAMR15BJrjfRF"
 
