@@ -311,6 +311,16 @@ def script_to_address(script, vbyte=0):
         if vbyte == 0: raise Exception("Invalid version byte for P2SH")
         return bin_to_b58check(script[2:-1], vbyte)
 
+def pubkey_to_p2sh_p2wpkh_script(pub):
+    if re.match('^[0-9a-fA-F]*$', pub):
+        pub = binascii.unhexlify(pub)
+    return "0014" + hash160(pub)
+
+def pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=5):
+    if re.match('^[0-9a-fA-F]*$', pub):
+        pub = binascii.unhexlify(pub)
+    script = pubkey_to_p2sh_p2wpkh_script(pub)
+    return p2sh_scriptaddr(script, magicbyte=magicbyte)
 
 def p2sh_scriptaddr(script, magicbyte=5):
     if re.match('^[0-9a-fA-F]*$', script):

@@ -6,7 +6,7 @@ import os
 import time
 from .configure import get_log, jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule
-from .wallet import Wallet, estimate_tx_fee
+from .wallet import Wallet, SegwitWallet, estimate_tx_fee
 from jmclient import mktx, deserialize, sign, txhash
 log = get_log()
 
@@ -41,9 +41,10 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     assert mixdepth >= 0
     assert isinstance(amount, int)
     assert amount >=0
-    assert isinstance(wallet, Wallet)
+    assert isinstance(wallet, Wallet) or isinstance(wallet, SegwitWallet)
 
     from pprint import pformat
+    txtype = 'p2sh-p2wpkh' if isinstance(wallet, SegwitWallet) else 'p2pkh'
     if amount == 0:
         utxos = wallet.get_utxos_by_mixdepth()[mixdepth]
         if utxos == {}:
@@ -51,10 +52,11 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
                 "There are no utxos in mixdepth: " + str(mixdepth) + ", quitting.")
             return
         total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
-        fee_est = estimate_tx_fee(len(utxos), 1)
+        fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype)
         outs = [{"address": destaddr, "value": total_inputs_val - fee_est}]
     else:
-        initial_fee_est = estimate_tx_fee(8,2) #8 inputs to be conservative
+        #8 inputs to be conservative
+        initial_fee_est = estimate_tx_fee(8,2, txtype=txtype)
         utxos = wallet.select_utxos(mixdepth, amount + initial_fee_est)
         if len(utxos) < 8:
             fee_est = estimate_tx_fee(len(utxos), 2)
@@ -76,7 +78,8 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
         utxo = ins['outpoint']['hash'] + ':' + str(
                 ins['outpoint']['index'])
         addr = utxos[utxo]['address']
-        tx = sign(tx, index, wallet.get_key_from_addr(addr))
+        signing_amount = utxos[utxo]['value']
+        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=signing_amount)
     txsigned = deserialize(tx)
     log.info("Got signed transaction:\n")
     log.info(tx + "\n")

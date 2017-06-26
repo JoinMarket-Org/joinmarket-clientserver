@@ -24,7 +24,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
                               cheapest_order_choose, weighted_order_choose,
                               Wallet, BitcoinCoreWallet, sync_wallet,
                               RegtestBitcoinCoreInterface, estimate_tx_fee,
-                              direct_send)
+                              direct_send, SegwitWallet)
 
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_sendpayment_parser
@@ -124,12 +124,12 @@ def main():
     if not options.userpcwallet:
         max_mix_depth = max([mixdepth, options.amtmixdepths])
         if not os.path.exists(os.path.join('wallets', wallet_name)):
-            wallet = Wallet(wallet_name, None, max_mix_depth, options.gaplimit)
+            wallet = SegwitWallet(wallet_name, None, max_mix_depth, options.gaplimit)
         else:
             while True:
                 try:
                     pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = Wallet(wallet_name, pwd, max_mix_depth, options.gaplimit)
+                    wallet = SegwitWallet(wallet_name, pwd, max_mix_depth, options.gaplimit)
                 except WalletError:
                     print("Wrong password, try again.")
                     continue

@@ -12,7 +12,7 @@ from getpass import getpass
 import btc
 from jmclient.slowaes import encryptData, decryptData
 from jmclient.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
-from jmclient.configure import jm_single, get_network, get_p2pk_vbyte
+from jmclient.configure import jm_single, get_network, get_p2pk_vbyte, get_p2sh_vbyte
 from jmbase.support import get_log
 from jmclient.support import select_gradual, select_greedy,select_greediest, select
 
@@ -364,10 +364,11 @@ class Wallet(AbstractWallet):
 
 class SegwitWallet(Wallet):
 
-    def __init__(self, seedarg, max_mix_depth=2, gaplimit=6,
-                 extend_mixdepth=False, storepassword=False):
-        super(SegwitWallet, self).__init__(seedarg, max_mix_depth, gaplimit,
-                                           extend_mixdepth, storepassword)
+    def __init__(self, seedarg, pwd, max_mix_depth=2, gaplimit=6,
+                 extend_mixdepth=False, storepassword=False, wallet_dir=None):
+        super(SegwitWallet, self).__init__(seedarg, pwd, max_mix_depth, gaplimit,
+                                           extend_mixdepth, storepassword,
+                                           wallet_dir=wallet_dir)
         self.vflag = JM_WALLET_SW_P2SH_P2WPKH
 
     def get_vbyte(self):
