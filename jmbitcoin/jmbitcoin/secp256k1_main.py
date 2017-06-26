@@ -443,6 +443,16 @@ def estimate_tx_size(ins, outs, txtype='p2pkh'):
     '''
     if txtype == 'p2pkh':
         return 10 + ins * 147 + 34 * outs
+    elif txtype == 'p2sh-p2wpkh':
+        #return the estimate for the witness and non-witness
+        #portions of the transaction, assuming that all the inputs
+        #are of segwit type p2sh-p2wpkh
+        #witness are roughly 3+~73+33 for each input
+        #non-witness input fields are roughly 32+4+4+20+4=64, so total becomes
+        #n_in * 64 + 4(ver) + 4(locktime) + n_out*34 + n_in * 109
+        witness_estimate = ins*109
+        non_witness_estimate = 4 + 4 + outs*34 + ins*64
+        return (witness_estimate, non_witness_estimate)
     elif txtype == 'p2shMofN':
         ins, M, N = ins
         return 10 + (45 + 74*M + 34*N) * ins + 34 * outs

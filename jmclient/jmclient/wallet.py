@@ -18,6 +18,9 @@ from jmclient.support import select_gradual, select_greedy,select_greediest, sel
 
 log = get_log()
 
+JM_WALLET_P2PKH = "00"
+JM_WALLET_SW_P2SH_P2WPKH = "01"
+
 class WalletError(Exception):
     pass
 
@@ -26,17 +29,22 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     for a transaction with the given number of inputs and outputs,
     based on information from the blockchain interface.
     '''
-    tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype)
-    log.debug("Estimated transaction size: "+str(tx_estimated_bytes))
     fee_per_kb = jm_single().bc_interface.estimate_fee_per_kb(
-        jm_single().config.getint("POLICY", "tx_fees"))
+                jm_single().config.getint("POLICY","tx_fees"))
     absurd_fee = jm_single().config.getint("POLICY", "absurd_fee_per_kb")
     if fee_per_kb > absurd_fee:
         #This error is considered critical; for safety reasons, shut down.
         raise ValueError("Estimated fee per kB greater than absurd value: " + \
-                         str(absurd_fee) + ", quitting.")
-    log.debug("got estimated tx bytes: "+str(tx_estimated_bytes))
-    return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
+                                     str(absurd_fee) + ", quitting.")
+    if txtype=='p2pkh':
+        tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype)
+        log.debug("Estimated transaction size: "+str(tx_estimated_bytes))
+        return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
+    elif txtype=='p2sh-p2wpkh':
+        witness_estimate, non_witness_estimate = btc.estimate_tx_size(
+            ins, outs, 'p2sh-p2wpkh')
+        return int(int((
+        non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
 
 def create_wallet_file(pwd, seed):
     password_key = btc.bin_dbl_sha256(pwd)
@@ -134,6 +142,7 @@ class Wallet(AbstractWallet):
                  storepassword=False,
                  wallet_dir=None):
         super(Wallet, self).__init__()
+        self.vflag = JM_WALLET_P2PKH
         self.max_mix_depth = max_mix_depth
         self.storepassword = storepassword
         # key is address, value is (mixdepth, forchange, index) if mixdepth =
@@ -160,6 +169,26 @@ class Wallet(AbstractWallet):
         self.index = []
         for i in range(self.max_mix_depth):
             self.index.append([0, 0])
+
+    def get_txtype(self):
+        """Return string defining wallet type
+        for purposes of transaction size estimates
+        """
+        return 'p2pkh'
+
+    def sign(self, tx, i, priv, amount):
+        """Sign a transaction for pushing
+        onto the network. The amount field
+        is not used in this case (p2pkh)
+        """
+        return btc.sign(tx, i, priv)
+
+    def script_to_address(self, script):
+        """Return the address for a given output script,
+        which will be p2pkh for the default Wallet object,
+        and reading the correct network byte from the config.
+        """
+        return btc.script_to_address(script, get_p2pk_vbyte())
 
     def read_wallet_file_data(self, filename, pwd=None, wallet_dir=None):
         self.path = None
@@ -299,10 +328,14 @@ class Wallet(AbstractWallet):
         self.spent_utxos += removed_utxos.keys()
         return removed_utxos
 
+
+    def get_vbyte(self):
+        return get_p2pk_vbyte()
+
     def add_new_utxos(self, tx, txid):
         added_utxos = {}
         for index, outs in enumerate(tx['outs']):
-            addr = btc.script_to_address(outs['script'], get_p2pk_vbyte())
+            addr = btc.script_to_address(outs['script'], self.get_vbyte())
             if addr not in self.addr_cache:
                 continue
             addrdict = {'address': addr, 'value': outs['value']}
@@ -329,6 +362,45 @@ class Wallet(AbstractWallet):
             log.debug('get_utxos_by_mixdepth = \n' + pprint.pformat(mix_utxo_list))
         return mix_utxo_list
 
+class SegwitWallet(Wallet):
+
+    def __init__(self, seedarg, max_mix_depth=2, gaplimit=6,
+                 extend_mixdepth=False, storepassword=False):
+        super(SegwitWallet, self).__init__(seedarg, max_mix_depth, gaplimit,
+                                           extend_mixdepth, storepassword)
+        self.vflag = JM_WALLET_SW_P2SH_P2WPKH
+
+    def get_vbyte(self):
+        return get_p2sh_vbyte()
+
+    def get_txtype(self):
+        """Return string defining wallet type
+        for purposes of transaction size estimates
+        """
+        return 'p2sh-p2wpkh'
+
+    def get_addr(self, mixing_depth, forchange, i):
+        """Construct a p2sh-p2wpkh style address for the
+        keypair corresponding to mixing depth mixing_depth,
+        branch forchange and index i
+        """
+        pub = btc.privtopub(self.get_key(mixing_depth, forchange, i))
+        return btc.pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=self.get_vbyte())
+
+    def script_to_address(self, script):
+        """Return the address for a given output script,
+        which will be p2sh-p2wpkh for the segwit (currently).
+        The underlying witness is however invisible at this layer;
+        so it's just a p2sh address.
+        """
+        return btc.script_to_address(script, get_p2sh_vbyte())
+
+    def sign(self, tx, i, priv, amount):
+        """Sign a transaction; the amount field
+        triggers the segwit style signing.
+        """
+        log.debug("About to sign for this amount: " + str(amount))
+        return btc.sign(tx, i, priv, amount=amount)
 
 class BitcoinCoreWallet(AbstractWallet): #pragma: no cover
     def __init__(self, fromaccount):
