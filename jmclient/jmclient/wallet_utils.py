@@ -10,7 +10,7 @@ from optparse import OptionParser
 from jmclient import (get_network, Wallet,
                       encryptData, get_p2pk_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
-                      JsonRpcError, sync_wallet, WalletError)
+                      JsonRpcError, sync_wallet, WalletError, SegwitWallet)
 from jmbase.support import get_password
 import jmclient.btc as btc
 
@@ -448,7 +448,7 @@ def wallet_tool_main(wallet_root_path):
         seed = args[0]
         method = ('display' if len(args) == 1 else args[1].lower())
         if not os.path.exists(os.path.join(wallet_root_path, seed)):
-            wallet = Wallet(seed, None, options.maxmixdepth,
+            wallet = SegwitWallet(seed, None, options.maxmixdepth,
                             options.gaplimit, extend_mixdepth= not maxmixdepth_configured,
                             storepassword=(method == 'importprivkey'),
                             wallet_dir=wallet_root_path)
@@ -456,7 +456,7 @@ def wallet_tool_main(wallet_root_path):
             while True:
                 try:
                     pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = Wallet(seed, pwd,
+                    wallet = SegwitWallet(seed, pwd,
                             options.maxmixdepth,
                             options.gaplimit,
                             extend_mixdepth=not maxmixdepth_configured,
