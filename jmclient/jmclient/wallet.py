@@ -36,7 +36,7 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
         #This error is considered critical; for safety reasons, shut down.
         raise ValueError("Estimated fee per kB greater than absurd value: " + \
                                      str(absurd_fee) + ", quitting.")
-    if txtype=='p2pkh':
+    if txtype in ['p2pkh', 'p2shMofN']:
         tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype)
         log.debug("Estimated transaction size: "+str(tx_estimated_bytes))
         return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
@@ -45,6 +45,8 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
             ins, outs, 'p2sh-p2wpkh')
         return int(int((
         non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
+    else:
+        raise NotImplementedError("Txtype: " + txtype + " not implemented.")
 
 def create_wallet_file(pwd, seed):
     password_key = btc.bin_dbl_sha256(pwd)
