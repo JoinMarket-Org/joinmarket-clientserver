@@ -16,24 +16,19 @@ import jmclient.btc as btc
 
 def get_wallettool_parser():
     description = (
-        'Does useful little tasks involving your bip32 wallet. The '
-        'method is one of the following: (display) Shows addresses and '
-        'balances. (displayall) Shows ALL addresses and balances. '
-        '(summary) Shows a summary of mixing depth balances. (generate) '
-        'Generates a new wallet. (recover) Recovers a wallet from the 12 '
-        'word recovery seed. (showutxos) Shows all utxos in the wallet, '
-        'including the corresponding private keys if -p is chosen; the '
-        'data is also written to a file "walletname.json.utxos" if the '
-        'option -u is chosen (so be careful about private keys). '
-        '(showseed) Shows the wallet recovery seed '
-        'and hex seed. (importprivkey) Adds privkeys to this wallet, '
-        'privkeys are spaces or commas separated. (dumpprivkey) Export '
-        'a single private key, specify an hd wallet path (listwallets) '
-        'Lists all wallets with creator and timestamp. (history) Show '
-        'all historical transaction details. Requires Bitcoin Core.\n'
-        'signmessage\t\tSign a message with the private key from an address\n'
-        '\t\t\tin the wallet. Use with -H and specify an HD wallet\n'
-        '\t\t\tpath for the address.')    
+        'Use this script to monitor and manage your Joinmarket wallet. The '
+        'method is one of the following: \n(display) Shows addresses and '
+        'balances. \n(displayall) Shows ALL addresses and balances. '
+        '\n(summary) Shows a summary of mixing depth balances.\n(generate) '
+        'Generates a new wallet.\n(recover) Recovers a wallet from the 12 '
+        'word recovery seed.\n(showutxos) Shows all utxos in the wallet.'
+        '\n(showseed) Shows the wallet recovery seed '
+        'and hex seed.\n(importprivkey) Adds privkeys to this wallet, '
+        'privkeys are spaces or commas separated.\n(dumpprivkey) Export '
+        'a single private key, specify an hd wallet path\n'
+        '(signmessage) Sign a message with the private key from an address '
+        'in the wallet. Use with -H and specify an HD wallet '
+        'path for the address.')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
                           description=description)
     parser.add_option('-p',
