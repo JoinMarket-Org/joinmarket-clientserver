@@ -86,8 +86,10 @@ def deserialize(tx):
     segwit = False
     if read_flag_byte(0): segwit = True
     if segwit:
-        if not read_flag_byte(1): #BIP141 is currently "MUST" ==1
-            raise Exception("Invalid segwit transaction format")
+        if not read_flag_byte(1):
+            #BIP141 is currently "MUST" ==1
+            #A raise is a DOS vector in some contexts
+            return None
 
     ins = read_var_int()
     for i in range(ins):
@@ -245,9 +247,27 @@ def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
         pass
     return newtx
 
+def segwit_txid(tx, hashcode=None):
+    #An easy way to construct the old-style hash (which is the real txid,
+    #the one without witness or marker/flag, is to remove all txinwitness
+    #entries from the deserialized form of the full tx, then reserialize,
+    #because serialize uses that as a flag to decide which serialization
+    #style to apply.
+    dtx = deserialize(tx)
+    for vin in dtx["ins"]:
+        if "txinwitness" in vin:
+            del vin["txinwitness"]
+            reserialized_tx = serialize(dtx)
+    return txhash(reserialized_tx, hashcode)
+
 def txhash(tx, hashcode=None):
     if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
         tx = changebase(tx, 16, 256)
+    if from_byte_to_int(tx[4]) == 0:
+        if not from_byte_to_int(tx[5]) == 1:
+            #This invalid, but a raise is a DOS vector in some contexts.
+            return None
+        return segwit_txid(tx, hashcode)
     if hashcode:
         return dbl_sha256(from_string_to_bytes(tx) + encode(
             int(hashcode), 256, 4)[::-1])
