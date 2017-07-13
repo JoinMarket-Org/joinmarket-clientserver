@@ -91,6 +91,7 @@ def bip32pathparse(path):
         return False
     elements = path.split(bip32sep)[1:]
     for e in elements:
+        if e[-1] == "'": e = e[:-1]
         try:
             x = int(e)
         except:
@@ -103,7 +104,7 @@ def bip32pathparse(path):
 def test_bip32_pathparse():
     assert bip32pathparse("m/2/1/0017")
     assert not bip32pathparse("n/1/1/1/1")
-    assert bip32pathparse("m/0/1/100/3/2/2/21/004/005")
+    assert bip32pathparse("m/0/1'/100'/3'/2/2/21/004/005")
     assert not bip32pathparse("m/0/0/00k")
     return True
 """
@@ -205,8 +206,8 @@ class WalletViewBranch(WalletViewBase):
         return self.serclass(entryseparator.join(lines))
 
     def serialize_branch_header(self):
-        bippath = self.bip32path + bip32sep + str(self.account) + bip32sep + \
-            str(self.forchange)
+        bippath = self.bip32path + bip32sep + str(self.account) + "'" + \
+            bip32sep + str(self.forchange) + "'"
         assert bip32pathparse(bippath)
         start = "external addresses" if self.forchange == 0 else "internal addresses"
         if self.forchange == -1:
@@ -215,12 +216,13 @@ class WalletViewBranch(WalletViewBase):
         
 class WalletViewAccount(WalletViewBase):
     def __init__(self, bip32path, account, branches=None, account_name="mixdepth",
-                 serclass=str, custom_separator=None):
+                 serclass=str, custom_separator=None, xpub=None):
         super(WalletViewAccount, self).__init__(bip32path, children=branches,
                                                serclass=serclass,
                                                custom_separator=custom_separator)
         self.account = account
         self.account_name = account_name
+        self.xpub = xpub
         if branches:
             assert len(branches) in [2, 3] #3 if imported keys
             assert all([isinstance(x, WalletViewBranch) for x in branches])
@@ -228,6 +230,8 @@ class WalletViewAccount(WalletViewBase):
 
     def serialize(self, entryseparator="\n"):
         header = self.account_name + self.separator + str(self.account)
+        if self.xpub:
+            header = header + self.separator + self.xpub
         footer = "Balance for mixdepth " + str(
             self.account) + ":" + self.separator + self.get_fmt_balance()
         return self.serclass(entryseparator.join([header] + [
@@ -289,6 +293,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False):
     then return its serialization directly
     """
     acctlist = []
+    rootpath = wallet.get_root_path()
     for m in range(wallet.max_mix_depth):
         branchlist = []
         for forchange in [0, 1]:
@@ -312,16 +317,20 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False):
                     privkey = ''
                 if (displayall or balance > 0 or
                     (used == 'new' and forchange == 0)):
-                    entrylist.append(WalletViewEntry("m/0", m, forchange, k,
+                    entrylist.append(WalletViewEntry(rootpath, m, forchange, k,
                                                  addr, [balance, balance],
                                                  priv=privkey, used=used))
-            branchlist.append(WalletViewBranch("m/0", m, forchange, entrylist,
+            branchlist.append(WalletViewBranch(rootpath, m, forchange, entrylist,
                                                xpub=xpub_key))
         ipb = get_imported_privkey_branch(wallet, m, showprivkey)
         if ipb:
             branchlist.append(ipb)
-        acctlist.append(WalletViewAccount("m/0", m, branchlist))
-    walletview = WalletView("m/0", acctlist)
+        #get the xpub key of the whole account
+        xpub_account = btc.bip32_privtopub(
+            wallet.get_mixing_depth_keys(wallet.get_master_key())[m])
+        acctlist.append(WalletViewAccount(rootpath, m, branchlist,
+                                          xpub=xpub_account))
+    walletview = WalletView(rootpath, acctlist)
     return walletview.serialize()
 
 def get_password_check():
@@ -400,9 +409,6 @@ def wallet_showseed(wallet):
         return "Wallet recovery seed\n\n" + m.to_mnemonic(wallet.entropy) + "\n"
     hexseed = wallet.seed
     print("hexseed = " + hexseed)
-    if bip39:
-        m = Mnemonic("english")
-
     words = mn_encode(hexseed)
     return "Wallet recovery seed\n\n" + " ".join(words) + "\n"
 
@@ -442,7 +448,7 @@ def wallet_dumpprivkey(wallet, hdpath):
         return hdpath + " is not a valid hd wallet path"
 
 def wallet_signmessage(wallet, hdpath, message):
-    if hdpath.startswith('m/0/'):
+    if hdpath.startswith(wallet.get_root_path()):
         m, forchange, k = [int(y) for y in hdpath[4:].split('/')]
         key = wallet.get_key(m, forchange, k)
         addr = btc.privkey_to_address(key, magicbyte=get_p2pk_vbyte())

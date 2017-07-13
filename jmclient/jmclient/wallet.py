@@ -160,11 +160,7 @@ class Wallet(AbstractWallet):
         if extend_mixdepth and len(self.index_cache) > max_mix_depth:
             self.max_mix_depth = len(self.index_cache)
         self.gaplimit = gaplimit
-        master = btc.bip32_master_key(self.seed, (btc.MAINNET_PRIVATE if
-            get_network() == 'mainnet' else btc.TESTNET_PRIVATE))
-        m_0 = btc.bip32_ckd(master, 0)
-        mixing_depth_keys = [btc.bip32_ckd(m_0, c)
-                             for c in range(self.max_mix_depth)]
+        mixing_depth_keys = self.get_mixing_depth_keys(self.get_master_key())
         self.keys = [(btc.bip32_ckd(m, 0), btc.bip32_ckd(m, 1))
                      for m in mixing_depth_keys]
 
@@ -172,6 +168,22 @@ class Wallet(AbstractWallet):
         self.index = []
         for i in range(self.max_mix_depth):
             self.index.append([0, 0])
+
+    def get_master_key(self):
+        if not self.seed:
+            raise Exception("Cannot extract master key of wallet, no seed.")
+        return btc.bip32_master_key(
+            self.seed.decode('hex'),(btc.MAINNET_PRIVATE if get_network(
+                ) == 'mainnet' else btc.TESTNET_PRIVATE))
+
+    def get_mixing_depth_keys(self, master):
+        """legacy path is m/0/n for n 0..N mixing depths
+        """
+        m_0 = btc.bip32_ckd(master, 0)
+        return [btc.bip32_ckd(m_0, c) for c in range(self.max_mix_depth)]
+
+    def get_root_path(self):
+        return "m/0"
 
     def entropy_to_seed(self, entropy):
         """for base/legacy wallet type, this is a passthrough.
@@ -375,7 +387,7 @@ class Bip39Wallet(Wallet):
     def entropy_to_seed(self, entropy):
         self.entropy = entropy.decode('hex')
         m = Mnemonic("english")
-        return m.to_seed(m.to_mnemonic(entropy)).encode('hex')
+        return m.to_seed(m.to_mnemonic(self.entropy)).encode('hex')
 
 class SegwitWallet(Bip39Wallet):
 
@@ -386,6 +398,16 @@ class SegwitWallet(Bip39Wallet):
                                            extend_mixdepth, storepassword,
                                            wallet_dir=wallet_dir)
         self.vflag = JM_WALLET_SW_P2SH_P2WPKH
+
+    def get_root_path(self):
+        testflag = "1'" if get_network() == "testnet" else "0'"
+        return "m/44'/" + testflag
+
+    def get_mixing_depth_keys(self, master):
+        pre_root = btc.bip32_ckd(master, 44 + 2**31)
+        testnet_flag = 1 if get_network() == "testnet" else 0
+        root = btc.bip32_ckd(pre_root, testnet_flag + 2**31)
+        return [btc.bip32_ckd(root, c + 2**31) for c in range(self.max_mix_depth)]
 
     def get_vbyte(self):
         return get_p2sh_vbyte()
