@@ -4,10 +4,11 @@ import os
 import pprint
 import sys
 import datetime
-from decimal import Decimal
+import binascii
+from mnemonic import Mnemonic
 from optparse import OptionParser
-
-from jmclient import (get_network, Wallet,
+import getpass
+from jmclient import (get_network, Wallet, Bip39Wallet,
                       encryptData, get_p2pk_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
                       JsonRpcError, sync_wallet, WalletError, SegwitWallet)
@@ -323,27 +324,16 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False):
     walletview = WalletView("m/0", acctlist)
     return walletview.serialize()
 
-def wallet_generate_recover(method, walletspath, default_wallet_name='wallet.json'):
-    if method == 'generate':
-        seed = btc.sha256(os.urandom(64))[:32]
-        words = mn_encode(seed)
-        print('Write down this wallet recovery seed\n\n' + ' '.join(words) +
-              '\n')
-    elif method == 'recover':
-        words = raw_input('Input 12 word recovery seed: ')
-        words = words.split()  # default for split is 1 or more whitespace chars
-        if len(words) != 12:
-            print('ERROR: Recovery seed phrase must be exactly 12 words.')
-            return False
-        seed = mn_decode(words)
-        print(seed)
-    password = getpass.getpass('Enter wallet encryption passphrase: ')
-    password2 = getpass.getpass('Reenter wallet encryption passphrase: ')
+def get_password_check():
+    password = get_password('Enter wallet encryption passphrase: ')
+    password2 = get_password('Reenter wallet encryption passphrase: ')
     if password != password2:
         print('ERROR. Passwords did not match')
-        return False
+        return False, False
     password_key = btc.bin_dbl_sha256(password)
-    encrypted_seed = encryptData(password_key, seed.decode('hex'))
+    return password, password_key
+
+def persist_walletfile(walletspath, default_wallet_name, encrypted_seed):
     timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     walletfile = json.dumps({'creator': 'joinmarket project',
                              'creation_time': timestamp,
@@ -364,9 +354,55 @@ def wallet_generate_recover(method, walletspath, default_wallet_name='wallet.jso
         print('saved to ' + walletname)
     return True
 
+def wallet_generate_recover_bip39(method, walletspath, default_wallet_name):
+    #using 128 bit entropy, 12 words, mnemonic module
+    m = Mnemonic("english")
+    if method == "generate":
+        words = m.generate()
+        print('Write down this wallet recovery seed\n\n' + words +'\n')
+    elif method == 'recover':
+        words = raw_input('Input 12 word recovery seed: ')
+    entropy = str(m.to_entropy(words))
+    password, password_key = get_password_check()
+    if not password:
+        return False
+    encrypted_entropy = encryptData(password_key, entropy)
+    return persist_walletfile(walletspath, default_wallet_name, encrypted_entropy)
+
+def wallet_generate_recover(method, walletspath,
+                            default_wallet_name='wallet.json'):
+    if jm_single().config.get("POLICY", "segwit") == "true":
+        return wallet_generate_recover_bip39(method, walletspath, default_wallet_name)
+    if method == 'generate':
+        seed = btc.sha256(os.urandom(64))[:32]
+        words = mn_encode(seed)
+        print('Write down this wallet recovery seed\n\n' + ' '.join(words) +
+              '\n')
+    elif method == 'recover':
+        words = raw_input('Input 12 word recovery seed: ')
+        words = words.split()  # default for split is 1 or more whitespace chars
+        if len(words) != 12:
+            print('ERROR: Recovery seed phrase must be exactly 12 words.')
+            return False
+        seed = mn_decode(words)
+        print(seed)
+    password, password_key = get_password_check()
+    if not password:
+        return False
+    encrypted_seed = encryptData(password_key, seed.decode('hex'))
+    return persist_walletfile(walletspath, default_wallet_name, encrypted_seed)
+
 def wallet_showseed(wallet):
+    if isinstance(wallet, Bip39Wallet):
+        if not wallet.entropy:
+            return "Entropy is not initialized."
+        m = Mnemonic("english")
+        return "Wallet recovery seed\n\n" + m.to_mnemonic(wallet.entropy) + "\n"
     hexseed = wallet.seed
     print("hexseed = " + hexseed)
+    if bip39:
+        m = Mnemonic("english")
+
     words = mn_encode(hexseed)
     return "Wallet recovery seed\n\n" + " ".join(words) + "\n"
 
@@ -424,7 +460,8 @@ def wallet_tool_main(wallet_root_path):
     """
     parser = get_wallettool_parser()
     (options, args) = parser.parse_args()
-
+    walletclass = SegwitWallet if jm_single().config.get(
+        "POLICY", "segwit") == "true" else Wallet
     # if the index_cache stored in wallet.json is longer than the default
     # then set maxmixdepth to the length of index_cache
     maxmixdepth_configured = True
@@ -448,7 +485,7 @@ def wallet_tool_main(wallet_root_path):
         seed = args[0]
         method = ('display' if len(args) == 1 else args[1].lower())
         if not os.path.exists(os.path.join(wallet_root_path, seed)):
-            wallet = SegwitWallet(seed, None, options.maxmixdepth,
+            wallet = walletclass(seed, None, options.maxmixdepth,
                             options.gaplimit, extend_mixdepth= not maxmixdepth_configured,
                             storepassword=(method == 'importprivkey'),
                             wallet_dir=wallet_root_path)
@@ -456,7 +493,7 @@ def wallet_tool_main(wallet_root_path):
             while True:
                 try:
                     pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = SegwitWallet(seed, pwd,
+                    wallet = walletclass(seed, pwd,
                             options.maxmixdepth,
                             options.gaplimit,
                             extend_mixdepth=not maxmixdepth_configured,

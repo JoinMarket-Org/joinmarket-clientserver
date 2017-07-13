@@ -5,7 +5,7 @@ import pprint
 import sys
 import datetime
 from decimal import Decimal
-
+from mnemonic import Mnemonic
 from ConfigParser import NoSectionError
 from getpass import getpass
 
@@ -153,7 +153,8 @@ class Wallet(AbstractWallet):
         self.unspent = {}
         self.spent_utxos = []
         self.imported_privkeys = {}
-        self.seed = self.read_wallet_file_data(seedarg, pwd, wallet_dir=wallet_dir)
+        self.seed = self.entropy_to_seed(
+            self.read_wallet_file_data(seedarg, pwd, wallet_dir=wallet_dir))
         if not self.seed:
             raise WalletError("Failed to decrypt wallet")
         if extend_mixdepth and len(self.index_cache) > max_mix_depth:
@@ -171,6 +172,12 @@ class Wallet(AbstractWallet):
         self.index = []
         for i in range(self.max_mix_depth):
             self.index.append([0, 0])
+
+    def entropy_to_seed(self, entropy):
+        """for base/legacy wallet type, this is a passthrough.
+        for bip39 style wallets, this will convert from one to the other
+        """
+        return entropy
 
     def get_txtype(self):
         """Return string defining wallet type
@@ -364,10 +371,17 @@ class Wallet(AbstractWallet):
             log.debug('get_utxos_by_mixdepth = \n' + pprint.pformat(mix_utxo_list))
         return mix_utxo_list
 
-class SegwitWallet(Wallet):
+class Bip39Wallet(Wallet):
+    def entropy_to_seed(self, entropy):
+        self.entropy = entropy.decode('hex')
+        m = Mnemonic("english")
+        return m.to_seed(m.to_mnemonic(entropy)).encode('hex')
+
+class SegwitWallet(Bip39Wallet):
 
     def __init__(self, seedarg, pwd, max_mix_depth=2, gaplimit=6,
                  extend_mixdepth=False, storepassword=False, wallet_dir=None):
+        self.entropy = None
         super(SegwitWallet, self).__init__(seedarg, pwd, max_mix_depth, gaplimit,
                                            extend_mixdepth, storepassword,
                                            wallet_dir=wallet_dir)

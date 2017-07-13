@@ -9,5 +9,5 @@ setup(name='joinmarketclient',
       author_email='ekaggata@gmail.com',
       license='GPL',
       packages=['jmclient'],
-      install_requires=['joinmarketbase==0.2.2'],
+      install_requires=['joinmarketbase==0.2.2', 'mnemonic'],
       zip_safe=False)

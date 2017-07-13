@@ -137,6 +137,8 @@ unconfirm_timeout_sec = 90
 confirm_timeout_hours = 6
 
 [POLICY]
+#Use segwit style wallets and transactions
+segwit = true
 # for dust sweeping, try merge_algorithm = gradual
 # for more rapid dust sweeping, try merge_algorithm = greedy
 # for most rapid dust sweeping, try merge_algorithm = greediest
