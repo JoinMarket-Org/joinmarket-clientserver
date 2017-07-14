@@ -8,6 +8,10 @@ separator = " "
 offertypes = {"reloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
                            (int, "txfee"), (float, "cjfee")],
               "absoffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
+                           (int, "txfee"), (int, "cjfee")],
+              "swreloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
+                           (int, "txfee"), (float, "cjfee")],
+              "swabsoffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
                            (int, "txfee"), (int, "cjfee")]}
 
 offername_list = offertypes.keys()

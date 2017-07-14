@@ -790,10 +790,10 @@ class SpendTab(QWidget):
         mbinfo.append("Counterparties chosen:")
         mbinfo.append('Name,     Order id, Coinjoin fee (sat.)')
         for k, o in offers.iteritems():
-            if o['ordertype'] == 'reloffer':
+            if o['ordertype'] in ['swreloffer', 'reloffer']:
                 display_fee = int(self.taker.cjamount *
                                   float(o['cjfee'])) - int(o['txfee'])
-            elif o['ordertype'] == 'absoffer':
+            elif o['ordertype'] in ['swabsoffer', 'absoffer']:
                 display_fee = int(o['cjfee']) - int(o['txfee'])
             else:
                 log.debug("Unsupported order type: " + str(o['ordertype']) +

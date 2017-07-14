@@ -9,7 +9,7 @@ import time
 import copy
 
 import btc
-from jmclient.configure import jm_single, get_p2pk_vbyte, donation_address
+from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
@@ -237,7 +237,8 @@ class Taker(object):
             jlog.debug("Estimated ins: "+str(est_ins))
             est_outs = 2*self.n_counterparties + 1
             jlog.debug("Estimated outs: "+str(est_outs))
-            estimated_fee = estimate_tx_fee(est_ins, est_outs)
+            estimated_fee = estimate_tx_fee(est_ins, est_outs,
+                                            txtype=self.wallet.get_txtype())
             jlog.info("We have a fee estimate: "+str(estimated_fee))
             jlog.info("And a requested fee of: "+str(
                 self.txfee_default * self.n_counterparties))
@@ -451,11 +452,31 @@ class Taker(object):
         for i, u in utxo.iteritems():
             if utxo_data[i] is None:
                 continue
+            #Check if the sender serialize_scripted the witness
+            #item into the sig message; if so, also pick up the amount
+            #from the utxo data retrieved from the blockchain to verify
+            #the segwit-style signature. Note that this allows a mixed
+            #SW/non-SW transaction as each utxo is interpreted separately.
+            sig_deserialized = btc.deserialize_script(sig)
+            if len(sig_deserialized) == 2:
+                ver_sig, ver_pub = sig_deserialized
+                wit = None
+            elif len(sig_deserialized) == 3:
+                ver_sig, ver_pub, wit =  sig_deserialized
+            else:
+                jlog.debug("Invalid signature message - more than 3 items")
+                break
+            ver_amt = utxo_data[i]['value'] if wit else None
             sig_good = btc.verify_tx_input(txhex, u[0], utxo_data[i]['script'],
-                                           *btc.deserialize_script(sig))
+                                               ver_sig, ver_pub, witness=wit,
+                                               amount=ver_amt)
             if sig_good:
                 jlog.debug('found good sig at index=%d' % (u[0]))
-                self.latest_tx['ins'][u[0]]['script'] = sig
+                if wit:
+                    self.latest_tx["ins"][u[0]]["txinwitness"] = [ver_sig, ver_pub]
+                    self.latest_tx["ins"][u[0]]["script"] = "16" + wit
+                else:
+                    self.latest_tx["ins"][u[0]]["script"] = sig
                 inserted_sig = True
                 # check if maker has sent everything possible
                 self.utxos[nick].remove(u[1])
@@ -593,9 +614,9 @@ class Taker(object):
             #Note: donation code removed (possibly temporarily)
             raise NotImplementedError
 
-    def sign_tx(self, tx, i, priv):
+    def sign_tx(self, tx, i, priv, amount):
         if self.my_cj_addr:
-            return btc.sign(tx, i, priv)
+            return self.wallet.sign(tx, i, priv, amount)
         else:
             #Note: donation code removed (possibly temporarily)
             raise NotImplementedError
@@ -620,7 +641,9 @@ class Taker(object):
                 if utxo not in self.input_utxos.keys():
                     continue
                 addr = self.input_utxos[utxo]['address']
-                tx = self.sign_tx(tx, index, self.wallet.get_key_from_addr(addr))
+                amount = self.input_utxos[utxo]["value"]
+                tx = self.sign_tx(tx, index, self.wallet.get_key_from_addr(addr),
+                                  amount)
         self.latest_tx = btc.deserialize(tx)
 
     def push(self):
@@ -652,7 +675,7 @@ class Taker(object):
         else:
             jm_single().bc_interface.add_tx_notify(
                 self.latest_tx, self.unconfirm_callback,
-                self.confirm_callback, self.my_cj_addr)
+                self.confirm_callback, self.my_cj_addr, vb=get_p2sh_vbyte())
             if nick_to_use:
                 return (nick_to_use, tx)
         #if push was not successful, return None

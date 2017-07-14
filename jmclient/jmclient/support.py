@@ -157,9 +157,9 @@ def select_greediest(unspent, value):
 
 
 def calc_cj_fee(ordertype, cjfee, cj_amount):
-    if ordertype == 'absoffer':
+    if ordertype in ['swabsoffer', 'absoffer']:
         real_cjfee = int(cjfee)
-    elif ordertype == 'reloffer':
+    elif ordertype in ['swreloffer', 'reloffer']:
         real_cjfee = int((Decimal(cjfee) * Decimal(cj_amount)).quantize(Decimal(
             1)))
     else:
@@ -282,9 +282,9 @@ def choose_sweep_orders(offers,
         sumtxfee_contribution = 0
         for order in ordercombo:
             sumtxfee_contribution += order['txfee']
-            if order['ordertype'] == 'absoffer':
+            if order['ordertype'] in ['swabsoffer', 'absoffer']:
                 sumabsfee += int(order['cjfee'])
-            elif order['ordertype'] == 'reloffer':
+            elif order['ordertype'] in ['swreloffer', 'reloffer']:
                 sumrelfee += Decimal(order['cjfee'])
             #this is unreachable since calc_cj_fee must already have been called
             else: #pragma: no cover

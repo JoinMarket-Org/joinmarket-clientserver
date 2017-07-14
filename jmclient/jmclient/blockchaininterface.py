@@ -68,7 +68,8 @@ class BlockchainInterface(object):
                       unconfirmfun,
                       confirmfun,
                       notifyaddr,
-                      timeoutfun=None):
+                      timeoutfun=None,
+                      vb=None):
         """
         Invokes unconfirmfun and confirmfun when tx is seen on the network
         If timeoutfun not None, called with boolean argument that tells
@@ -242,7 +243,9 @@ class BlockchaininfoInterface(BlockchainInterface):
         log.info('blockchaininfo sync_unspent took ' +
                         str((self.last_sync_unspent - st)) + 'sec')
 
-    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr):
+    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr, vb=None):
+        if not vb:
+            vb = get_p2pk_vbyte()
         unconfirm_timeout = 10 * 60  # seconds
         unconfirm_poll_period = 15
         confirm_timeout = 2 * 60 * 60
@@ -258,7 +261,7 @@ class BlockchaininfoInterface(BlockchainInterface):
                 self.tx_output_set = set([(sv['script'], sv['value'])
                                           for sv in txd['outs']])
                 self.output_addresses = [
-                    btc.script_to_address(scrval[0], get_p2pk_vbyte())
+                    btc.script_to_address(scrval[0], vb)
                     for scrval in self.tx_output_set]
                 log.debug('txoutset=' + pprint.pformat(self.tx_output_set))
                 log.debug('outaddrs=' + ','.join(self.output_addresses))
@@ -615,7 +618,10 @@ class BlockrInterface(BlockchainInterface): #pragma: no cover
                       unconfirmfun,
                       confirmfun,
                       notifyaddr,
-                      timeoutfun=None):
+                      timeoutfun=None,
+                      vb=None):
+        if not vb:
+            vb = get_p2pk_vbyte()
         unconfirm_timeout = jm_single().config.getint('TIMEOUT',
                                                       'unconfirm_timeout_sec')
         unconfirm_poll_period = 5
@@ -636,7 +642,7 @@ class BlockrInterface(BlockchainInterface): #pragma: no cover
                 self.tx_output_set = set([(sv['script'], sv['value'])
                                           for sv in txd['outs']])
                 self.output_addresses = [
-                    btc.script_to_address(scrval[0], get_p2pk_vbyte())
+                    btc.script_to_address(scrval[0], vb)
                     for scrval in self.tx_output_set
                 ]
                 log.debug('txoutset=' + pprint.pformat(self.tx_output_set))
@@ -1222,13 +1228,16 @@ class BitcoinCoreInterface(BlockchainInterface):
                       unconfirmfun,
                       confirmfun,
                       notifyaddr,
-                      timeoutfun=None):
+                      timeoutfun=None,
+                      vb=None):
+        if not vb:
+            vb = get_p2pk_vbyte()
         if not self.notifythread:
             self.notifythread = BitcoinCoreNotifyThread(self)
             self.notifythread.start()
         one_addr_imported = False
         for outs in txd['outs']:
-            addr = btc.script_to_address(outs['script'], get_p2pk_vbyte())
+            addr = btc.script_to_address(outs['script'], vb)
             if self.rpc('getaccount', [addr]) != '':
                 one_addr_imported = True
                 break
