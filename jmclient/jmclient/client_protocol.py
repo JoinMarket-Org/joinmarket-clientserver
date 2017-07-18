@@ -34,22 +34,16 @@ jlog = get_log()
 class JMProtocolError(Exception):
     pass
 
-class JMTakerClientProtocol(amp.AMP):
+class JMClientProtocol(amp.AMP):
+    def __init__(self, factory, client, nick_priv=None):
+            self.client = client
+            self.factory = factory
+            if not nick_priv:
+                self.nick_priv = hashlib.sha256(os.urandom(16)).hexdigest() + '01'
+            else:
+                self.nick_priv = nick_priv
 
-    def __init__(self, factory, taker, nick_priv=None):
-        self.taker = taker
-        self.factory = factory
-        self.orderbook = None
-        self.supported_messages = ["JM_UP", "JM_SETUP_DONE", "JM_FILL_RESPONSE",
-                                   "JM_OFFERS", "JM_SIG_RECEIVED",
-                                   "JM_REQUEST_MSGSIG",
-                                   "JM_REQUEST_MSGSIG_VERIFY", "JM_INIT_PROTO"]
-        if not nick_priv:
-            self.nick_priv = hashlib.sha256(os.urandom(16)).hexdigest() + '01'
-        else:
-            self.nick_priv = nick_priv
-
-        self.shutdown_requested = False
+            self.shutdown_requested = False
 
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
@@ -71,66 +65,6 @@ class JMTakerClientProtocol(amp.AMP):
     def connectionMade(self):
         self.factory.setClient(self)
         self.clientStart()
-
-    def clientStart(self):
-        """Upon confirmation of network connection
-        to daemon, request message channel initialization
-        with relevant config data for our message channels
-        """
-        if self.taker.aborted:
-            return
-        #needed only for naming convention in IRC currently
-        blockchain_source = jm_single().config.get("BLOCKCHAIN",
-                                                   "blockchain_source")
-        #needed only for channel naming convention
-        network = jm_single().config.get("BLOCKCHAIN", "network")
-        irc_configs = get_irc_mchannels()
-        minmakers = jm_single().config.getint("POLICY", "minimum_makers")
-        maker_timeout_sec = jm_single().maker_timeout_sec
-
-        #To avoid creating yet another config variable, we set the timeout
-        #to 20 * maker_timeout_sec.
-        if not hasattr(self.taker, 'testflag'): #pragma: no cover
-            reactor.callLater(20*maker_timeout_sec, self.stallMonitor,
-                          self.taker.schedule_index+1)
-
-        d = self.callRemote(commands.JMInit,
-                            bcsource=blockchain_source,
-                            network=network,
-                            irc_configs=json.dumps(irc_configs),
-                            minmakers=minmakers,
-                            maker_timeout_sec=maker_timeout_sec)
-        self.defaultCallbacks(d)
-
-    def stallMonitor(self, schedule_index):
-        """Diagnoses whether long wait is due to any kind of failure;
-        if so, calls the taker on_finished_callback with a failure
-        flag so that the transaction can be re-tried or abandoned, as desired.
-        Note that this *MUST* not trigger any action once the coinjoin transaction
-        is seen on the network (hence waiting_for_conf).
-        The schedule index parameter tells us whether the processing has moved
-        on to the next item before we were woken up.
-        """
-        jlog.info("STALL MONITOR:")
-        if self.taker.aborted:
-            jlog.info("Transaction was aborted.")
-            return
-        if not self.taker.schedule_index == schedule_index:
-            #TODO pre-initialize() ?
-            jlog.info("No stall detected, continuing")
-            return
-        if self.taker.waiting_for_conf:
-            #Don't restart if the tx is already on the network!
-            jlog.info("No stall detected, continuing")
-            return
-        if not self.taker.txid:
-            #txid is set on pushing; if it's not there, we have failed.
-            jlog.info("Stall detected. Regenerating transactions and retrying.")
-            self.taker.on_finished_callback(False, True, 0.0)
-        else:
-            #This shouldn't really happen; if the tx confirmed,
-            #the finished callback should already be called.
-            jlog.info("Tx was already pushed; ignoring")
 
     def set_nick(self):
         self.nick_pubkey = btc.privtopub(self.nick_priv)
@@ -159,76 +93,6 @@ class JMTakerClientProtocol(amp.AMP):
         d = self.callRemote(commands.JMStartMC,
                             nick=self.nick)
         self.defaultCallbacks(d)
-        return {'accepted': True}
-
-    @commands.JMUp.responder
-    def on_JM_UP(self):
-        d = self.callRemote(commands.JMSetup,
-                            role="TAKER",
-                            n_counterparties=4) #TODO this number should be set
-        self.defaultCallbacks(d)
-        return {'accepted': True}
-
-    @commands.JMSetupDone.responder
-    def on_JM_SETUP_DONE(self):
-        jlog.info("JM daemon setup complete")
-        #The daemon is ready and has requested the orderbook
-        #from the pit; we can request the entire orderbook
-        #and filter it as we choose.
-        reactor.callLater(jm_single().maker_timeout_sec, self.get_offers)
-        return {'accepted': True}
-
-    @commands.JMFillResponse.responder
-    def on_JM_FILL_RESPONSE(self, success, ioauth_data):
-        """Receives the entire set of phase 1 data (principally utxos)
-        from the counterparties and passes through to the Taker for
-        tx construction, if successful. Then passes back the phase 2
-        initiating data to the daemon.
-        """
-        ioauth_data = json.loads(ioauth_data)
-        if not success:
-            nonresponders = ioauth_data
-            jlog.info("Makers didnt respond: " + str(nonresponders))
-            self.taker.add_ignored_makers(nonresponders)
-            return {'accepted': True}
-        else:
-            jlog.info("Makers responded with: " + json.dumps(ioauth_data))
-            retval = self.taker.receive_utxos(ioauth_data)
-            if not retval[0]:
-                jlog.info("Taker is not continuing, phase 2 abandoned.")
-                jlog.info("Reason: " + str(retval[1]))
-                return {'accepted': False}
-            else:
-                nick_list, txhex = retval[1:]
-                reactor.callLater(0, self.make_tx, nick_list, txhex)
-                return {'accepted': True}
-
-    @commands.JMOffers.responder
-    def on_JM_OFFERS(self, orderbook):
-        self.orderbook = json.loads(orderbook)
-        #Removed for now, as judged too large, even for DEBUG:
-        #jlog.debug("Got the orderbook: " + str(self.orderbook))
-        retval = self.taker.initialize(self.orderbook)
-        #format of retval is:
-        #True, self.cjamount, commitment, revelation, self.filtered_orderbook)
-        if not retval[0]:
-            jlog.info("Taker not continuing after receipt of orderbook")
-            return {'accepted': True}
-        amt, cmt, rev, foffers = retval[1:]
-        d = self.callRemote(commands.JMFill,
-                            amount=amt,
-                            commitment=str(cmt),
-                            revelation=str(rev),
-                            filled_offers=json.dumps(foffers))
-        self.defaultCallbacks(d)
-        return {'accepted': True}
-
-    @commands.JMSigReceived.responder
-    def on_JM_SIG_RECEIVED(self, nick, sig):
-        retval = self.taker.on_sig(nick, sig)
-        if retval:
-            nick_to_use, txhex = retval
-            self.push_tx(nick_to_use, txhex)
         return {'accepted': True}
 
     @commands.JMRequestMsgSig.responder
@@ -267,6 +131,232 @@ class JMTakerClientProtocol(amp.AMP):
         self.defaultCallbacks(d)
         return {'accepted': True}
 
+class JMMakerClientProtocol(JMClientProtocol):
+    def __init__(self, factory, maker, nick_priv=None):
+        self.factory = factory
+        JMClientProtocol.__init__(self, factory, maker, nick_priv)
+
+    @commands.JMUp.responder
+    def on_JM_UP(self):
+        d = self.callRemote(commands.JMSetup,
+                            role="MAKER",
+                            initdata=json.dumps(self.client.offerlist))
+        #for as long as the maker is up, it can asynchronously pass through
+        #its updated offer list
+        offer_loop = LoopingCall(self.get_offers)
+        offer_loop.start(3.0)
+        self.defaultCallbacks(d)
+        return {'accepted': True}
+
+    def get_offers(self):
+        """Feeds through current offers from Maker obect, to the daemon
+        """
+        offerlist = self.client.offerlist
+        d = self.callRemote(commands.JMAnnounceOffers,
+                            offerlist=json.dumps(offerlist))
+        self.defaultCallbacks(d)
+
+    @commands.JMSetupDone.responder
+    def on_JM_SETUP_DONE(self):
+        jlog.info("JM daemon setup complete")
+        return {'accepted': True}
+
+    def clientStart(self):
+        """Upon confirmation of network connection
+        to daemon, request message channel initialization
+        with relevant config data for our message channels
+        """
+        if self.client.aborted:
+            return
+        #needed only for naming convention in IRC currently
+        blockchain_source = jm_single().config.get("BLOCKCHAIN",
+                                                   "blockchain_source")
+        #needed only for channel naming convention
+        network = jm_single().config.get("BLOCKCHAIN", "network")
+        irc_configs = get_irc_mchannels()
+        #only here because Init message uses this field; not used by makers TODO
+        minmakers = jm_single().config.getint("POLICY", "minimum_makers")
+        maker_timeout_sec = jm_single().maker_timeout_sec
+
+        d = self.callRemote(commands.JMInit,
+                            bcsource=blockchain_source,
+                            network=network,
+                            irc_configs=json.dumps(irc_configs),
+                            minmakers=minmakers,
+                            maker_timeout_sec=maker_timeout_sec)
+        self.defaultCallbacks(d)
+
+    @commands.JMAuthReceived.responder
+    def on_JM_AUTH_RECEIVED(self, nick, offer, commitment, revelation, amount,
+                            kphex):
+        offer = json.loads(offer)
+        revelation = json.loads(revelation)
+        retval = self.client.on_auth_received(nick, offer,
+                                            commitment, revelation, amount, kphex)
+        if not retval[0]:
+            jlog.info("Maker refuses to continue on receiving auth.")
+        else:
+            utxos, auth_pub, cj_addr, change_addr, btc_sig = retval[1:]
+            d = self.callRemote(commands.JMIOAuth,
+                                nick=nick,
+                                utxolist=json.dumps(utxos),
+                                pubkey=auth_pub,
+                                cjaddr=cj_addr,
+                                changeaddr=change_addr,
+                                pubkeysig=btc_sig)
+            self.defaultCallbacks(d)
+        return {"accepted": True}
+
+    @commands.JMTXReceived.responder
+    def on_JM_TX_RECEIVED(self, nick, txhex, offer):
+        offer = json.loads(offer)
+        retval = self.client.on_tx_received(nick, txhex, offer)
+        if not retval[0]:
+            jlog.info("Maker refuses to continue on receipt of tx")
+        else:
+            sigs = retval[1]
+            d = self.callRemote(commands.JMTXSigs,
+                                nick=nick,
+                                sigs=json.dumps(sigs))
+            self.defaultCallbacks(d)
+        return {"accepted": True}
+
+class JMTakerClientProtocol(JMClientProtocol):
+
+    def __init__(self, factory, client, nick_priv=None):
+        self.orderbook = None
+        JMClientProtocol.__init__(self, factory, client, nick_priv)
+
+    def clientStart(self):
+        """Upon confirmation of network connection
+        to daemon, request message channel initialization
+        with relevant config data for our message channels
+        """
+        if self.client.aborted:
+            return
+        #needed only for naming convention in IRC currently
+        blockchain_source = jm_single().config.get("BLOCKCHAIN",
+                                                   "blockchain_source")
+        #needed only for channel naming convention
+        network = jm_single().config.get("BLOCKCHAIN", "network")
+        irc_configs = get_irc_mchannels()
+        minmakers = jm_single().config.getint("POLICY", "minimum_makers")
+        maker_timeout_sec = jm_single().maker_timeout_sec
+
+        #To avoid creating yet another config variable, we set the timeout
+        #to 20 * maker_timeout_sec.
+        if not hasattr(self.client, 'testflag'): #pragma: no cover
+            reactor.callLater(20*maker_timeout_sec, self.stallMonitor,
+                          self.client.schedule_index+1)
+
+        d = self.callRemote(commands.JMInit,
+                            bcsource=blockchain_source,
+                            network=network,
+                            irc_configs=json.dumps(irc_configs),
+                            minmakers=minmakers,
+                            maker_timeout_sec=maker_timeout_sec)
+        self.defaultCallbacks(d)
+
+    def stallMonitor(self, schedule_index):
+        """Diagnoses whether long wait is due to any kind of failure;
+        if so, calls the taker on_finished_callback with a failure
+        flag so that the transaction can be re-tried or abandoned, as desired.
+        Note that this *MUST* not trigger any action once the coinjoin transaction
+        is seen on the network (hence waiting_for_conf).
+        The schedule index parameter tells us whether the processing has moved
+        on to the next item before we were woken up.
+        """
+        jlog.info("STALL MONITOR:")
+        if self.client.aborted:
+            jlog.info("Transaction was aborted.")
+            return
+        if not self.client.schedule_index == schedule_index:
+            #TODO pre-initialize() ?
+            jlog.info("No stall detected, continuing")
+            return
+        if self.client.waiting_for_conf:
+            #Don't restart if the tx is already on the network!
+            jlog.info("No stall detected, continuing")
+            return
+        if not self.client.txid:
+            #txid is set on pushing; if it's not there, we have failed.
+            jlog.info("Stall detected. Regenerating transactions and retrying.")
+            self.client.on_finished_callback(False, True, 0.0)
+        else:
+            #This shouldn't really happen; if the tx confirmed,
+            #the finished callback should already be called.
+            jlog.info("Tx was already pushed; ignoring")
+
+    @commands.JMUp.responder
+    def on_JM_UP(self):
+        d = self.callRemote(commands.JMSetup,
+                            role="TAKER",
+                            initdata="none")
+        self.defaultCallbacks(d)
+        return {'accepted': True}
+
+    @commands.JMSetupDone.responder
+    def on_JM_SETUP_DONE(self):
+        jlog.info("JM daemon setup complete")
+        #The daemon is ready and has requested the orderbook
+        #from the pit; we can request the entire orderbook
+        #and filter it as we choose.
+        reactor.callLater(jm_single().maker_timeout_sec, self.get_offers)
+        return {'accepted': True}
+
+    @commands.JMFillResponse.responder
+    def on_JM_FILL_RESPONSE(self, success, ioauth_data):
+        """Receives the entire set of phase 1 data (principally utxos)
+        from the counterparties and passes through to the Taker for
+        tx construction, if successful. Then passes back the phase 2
+        initiating data to the daemon.
+        """
+        ioauth_data = json.loads(ioauth_data)
+        if not success:
+            nonresponders = ioauth_data
+            jlog.info("Makers didnt respond: " + str(nonresponders))
+            self.client.add_ignored_makers(nonresponders)
+            return {'accepted': True}
+        else:
+            jlog.info("Makers responded with: " + json.dumps(ioauth_data))
+            retval = self.client.receive_utxos(ioauth_data)
+            if not retval[0]:
+                jlog.info("Taker is not continuing, phase 2 abandoned.")
+                jlog.info("Reason: " + str(retval[1]))
+                return {'accepted': False}
+            else:
+                nick_list, txhex = retval[1:]
+                reactor.callLater(0, self.make_tx, nick_list, txhex)
+                return {'accepted': True}
+
+    @commands.JMOffers.responder
+    def on_JM_OFFERS(self, orderbook):
+        self.orderbook = json.loads(orderbook)
+        #Removed for now, as judged too large, even for DEBUG:
+        #jlog.debug("Got the orderbook: " + str(self.orderbook))
+        retval = self.client.initialize(self.orderbook)
+        #format of retval is:
+        #True, self.cjamount, commitment, revelation, self.filtered_orderbook)
+        if not retval[0]:
+            jlog.info("Taker not continuing after receipt of orderbook")
+            return {'accepted': True}
+        amt, cmt, rev, foffers = retval[1:]
+        d = self.callRemote(commands.JMFill,
+                            amount=amt,
+                            commitment=str(cmt),
+                            revelation=str(rev),
+                            filled_offers=json.dumps(foffers))
+        self.defaultCallbacks(d)
+        return {'accepted': True}
+
+    @commands.JMSigReceived.responder
+    def on_JM_SIG_RECEIVED(self, nick, sig):
+        retval = self.client.on_sig(nick, sig)
+        if retval:
+            nick_to_use, txhex = retval
+            self.push_tx(nick_to_use, txhex)
+        return {'accepted': True}
+
     def get_offers(self):
         d = self.callRemote(commands.JMRequestOffers)
         self.defaultCallbacks(d)
@@ -282,23 +372,28 @@ class JMTakerClientProtocol(amp.AMP):
                             txhex=str(txhex_to_push))
         self.defaultCallbacks(d)
 
-class JMTakerClientProtocolFactory(protocol.ClientFactory):
+class JMClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTakerClientProtocol
 
-    def __init__(self, taker):
-        self.taker = taker
+    def __init__(self, client, proto_type="TAKER"):
+        self.client = client
         self.proto_client = None
+        self.proto_type = proto_type
+        if self.proto_type == "MAKER":
+            self.protocol = JMMakerClientProtocol
+
     def setClient(self, client):
         self.proto_client = client
     def getClient(self):
         return self.proto_client
 
     def buildProtocol(self, addr):
-        return JMTakerClientProtocol(self, self.taker)
-
+        return self.protocol(self, self.client)
 
 def start_reactor(host, port, factory, ish=True, daemon=False): #pragma: no cover
     #(Cannot start the reactor in tests)
+    #Not used in prod (twisted logging):
+    #startLogging(stdout)
     usessl = True if jm_single().config.get("DAEMON", "use_ssl") != 'false' else False
     if daemon:
         try:

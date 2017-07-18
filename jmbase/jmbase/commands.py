@@ -37,7 +37,10 @@ class JMStartMC(JMCommand):
 
 class JMSetup(JMCommand):
     arguments = [('role', String()),
-                 ('n_counterparties', Integer())]
+                 ('initdata', String())]
+
+"""Taker specific commands
+"""
 
 class JMRequestOffers(JMCommand):
     arguments = []
@@ -67,6 +70,28 @@ class JMMsgSignatureVerify(JMCommand):
                  ('nick', String()),
                  ('fullmsg', String()),
                  ('hostid', String())]
+
+"""Maker specific commands
+"""
+
+class JMAnnounceOffers(JMCommand):
+    arguments = [('offerlist', String())]
+
+class JMMakerPubkey(JMCommand):
+    arguments = [('nick', String()),
+                 ('pubkey', String())]
+
+class JMIOAuth(JMCommand):
+    arguments = [('nick', String()),
+                 ('utxolist', String()),
+                 ('pubkey', String()),
+                 ('cjaddr', String()),
+                 ('changeaddr', String()),
+                 ('pubkeysig', String())]
+
+class JMTXSigs(JMCommand):
+    arguments = [('nick', String()),
+                 ('sigs', String())]
     
 #commands from daemon to client
 
@@ -92,6 +117,26 @@ class JMFillResponse(JMCommand):
 class JMSigReceived(JMCommand):
     arguments = [('nick', String()),
                  ('sig', String())]
+
+"""Maker specific daemon-client messages
+"""
+
+class JMCommitmentOpen(JMCommand):
+    arguments = [('nick', String()),
+                 ('revelation', String())]
+
+class JMAuthReceived(JMCommand):
+    arguments = [('nick', String()),
+                 ('offer', String()),
+                 ('commitment', String()),
+                 ('revelation', String()),
+                 ('amount', Integer()),
+                 ('kphex', String())]
+
+class JMTXReceived(JMCommand):
+    arguments = [('nick', String()),
+                 ('txhex', String()),
+                 ('offer', String())]
 
 class JMRequestMsgSig(JMCommand):
     arguments = [('nick', String()),

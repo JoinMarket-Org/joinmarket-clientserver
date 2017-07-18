@@ -21,12 +21,11 @@ from .wallet import (AbstractWallet, BitcoinCoreInterface, Wallet,
                      create_wallet_file, SegwitWallet, Bip39Wallet)
 from .configure import (load_program_config, jm_single, get_p2pk_vbyte,
     get_network, jm_single, get_network, validate_address, get_irc_mchannels,
-    check_utxo_blacklist, get_blockchain_interface_instance, get_p2sh_vbyte,
-    set_config)
+    get_blockchain_interface_instance, get_p2sh_vbyte, set_config)
 from .blockchaininterface import (BlockrInterface, BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
-from .client_protocol import JMTakerClientProtocolFactory, start_reactor
+from .client_protocol import (JMClientProtocolFactory, start_reactor)
 from .podle import (set_commitment_file, get_commitment_file,
                     generate_podle_error_string, add_external_commitments,
                     PoDLE, generate_podle, get_podle_commitments,
@@ -39,6 +38,8 @@ from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
                              restart_wait, get_tumble_log, direct_send,
                              tumbler_filter_orders_callback)
 from .wallet_utils import wallet_tool_main
+from .maker import Maker
+from .yieldgenerator import YieldGenerator, ygmain
 # Set default logging handler to avoid "No handler found" warnings.
 
 try:

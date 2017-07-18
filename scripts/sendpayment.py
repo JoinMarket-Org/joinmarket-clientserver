@@ -18,7 +18,7 @@ import os
 import pprint
 
 from jmclient import (Taker, load_program_config, get_schedule,
-                              JMTakerClientProtocolFactory, start_reactor,
+                              JMClientProtocolFactory, start_reactor,
                               validate_address, jm_single, WalletError,
                               choose_orders, choose_sweep_orders,
                               cheapest_order_choose, weighted_order_choose,
@@ -197,7 +197,7 @@ def main():
                   schedule,
                   order_chooser=chooseOrdersFunc,
                   callbacks=(filter_orders_callback, None, taker_finished))
-    clientfactory = JMTakerClientProtocolFactory(taker)
+    clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),

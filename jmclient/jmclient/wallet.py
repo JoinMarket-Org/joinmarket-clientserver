@@ -385,6 +385,8 @@ class Wallet(AbstractWallet):
 
 class Bip39Wallet(Wallet):
     def entropy_to_seed(self, entropy):
+        if get_network() == "testnet":
+            return entropy
         self.entropy = entropy.decode('hex')
         m = Mnemonic("english")
         return m.to_seed(m.to_mnemonic(self.entropy)).encode('hex')

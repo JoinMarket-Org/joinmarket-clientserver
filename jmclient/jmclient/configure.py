@@ -280,37 +280,6 @@ def donation_address(reusable_donation_pubkey=None): #pragma: no cover
     log.debug('sending coins to ' + sender_address)
     return sender_address, sign_k
 
-
-def check_utxo_blacklist(commitment, persist=False):
-    """Compare a given commitment (H(P2) for PoDLE)
-    with the persisted blacklist log file;
-    if it has been used before, return False (disallowed),
-    else return True.
-    If flagged, persist the usage of this commitment to the blacklist file.
-    """
-    #TODO format error checking?
-    fname = "blacklist"
-    if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == 'regtest':
-        fname += "_" + jm_single().nickname
-    with jm_single().blacklist_file_lock:
-        if os.path.isfile(fname):
-            with open(fname, "rb") as f:
-                blacklisted_commitments = [x.strip() for x in f.readlines()]
-        else:
-            blacklisted_commitments = []
-        if commitment in blacklisted_commitments:
-            return False
-        elif persist:
-            blacklisted_commitments += [commitment]
-            with open(fname, "wb") as f:
-                f.write('\n'.join(blacklisted_commitments))
-                f.flush()
-        #If the commitment is new and we are *not* persisting, nothing to do
-        #(we only add it to the list on sending io_auth, which represents actual
-        #usage).
-    return True
-
-
 def load_program_config(config_path=None, bs=None):
     global_singleton.config.readfp(io.BytesIO(defaultconfig))
     if not config_path:

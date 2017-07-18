@@ -1,5 +1,5 @@
 #Protocol version
-JM_VERSION = 5
+JM_VERSION = 6
 
 #Username on all messagechannels; will be set in MessageChannelCollection
 nickname = None
@@ -24,6 +24,8 @@ JOINMARKET_NICK_HEADER = 'J'
 NICK_HASH_LENGTH = 10
 NICK_MAX_ENCODED = 14  #comes from base58 expansion; recalculate if above changes
 
+#commitments; note multiple options may be used in future
+COMMITMENT_PREFIXES = ["P"]
 #Lists of valid commands
 encrypted_commands = ["auth", "ioauth", "tx", "sig"]
 plaintext_commands = ["fill", "error", "pubkey", "orderbook", "push"]

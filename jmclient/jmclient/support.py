@@ -206,13 +206,15 @@ def cheapest_order_choose(orders, n):
 
 
 def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
-                  pick=False):
+                  pick=False, allowed_types=["swreloffer", "swabsoffer"]):
     if ignored_makers is None:
         ignored_makers = []
     #Filter ignored makers and inappropriate amounts
     orders = [o for o in offers if o['counterparty'] not in ignored_makers]
     orders = [o for o in orders if o['minsize'] < cj_amount]
     orders = [o for o in orders if o['maxsize'] > cj_amount]
+    #Filter those not using wished-for offertypes
+    orders = [o for o in orders if o["ordertype"] in allowed_types]
     orders_fees = [(
         o, calc_cj_fee(o['ordertype'], o['cjfee'], cj_amount) - o['txfee'])
                    for o in orders]

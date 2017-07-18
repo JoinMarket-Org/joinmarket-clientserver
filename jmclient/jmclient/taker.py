@@ -301,7 +301,8 @@ class Taker(object):
             #Construct the Bitcoin address for the auth_pub field
             #Ensure that at least one address from utxos corresponds.
             input_addresses = [d['address'] for d in utxo_data]
-            auth_address = btc.pubkey_to_address(auth_pub, get_p2pk_vbyte())
+            auth_address = btc.pubkey_to_p2sh_p2wpkh_address(auth_pub,
+                                                             get_p2sh_vbyte())
             if not auth_address in input_addresses:
                 jlog.warn("ERROR maker's (" + nick + ")"
                          " authorising pubkey is not included "

@@ -213,6 +213,7 @@ class MessageChannelCollection(object):
         else:
             return self.daemon.get_crypto_box_from_nick(nick), True
 
+    @check_privmsg
     def prepare_privmsg(self, nick, cmd, message, mc=None):
         # should we encrypt?
         box, encrypt = self.get_encryption_box(cmd, nick)
@@ -294,24 +295,11 @@ class MessageChannelCollection(object):
             msg = ' '.join(orderlines[0].split(' ')[1:])
             msg += ''.join(orderlines[1:])
             if new_mc:
-                self.privmsg(nick, cmd, msg, new_mc)
+                self.prepare_privmsg(nick, cmd, msg, mc=new_mc)
             else:
                 for mc in self.available_channels():
                     if nick in self.nicks_seen[mc]:
-                        self.privmsg(nick, cmd, msg, mc)
-
-    @check_privmsg
-    def send_pubkey(self, nick, pubkey):
-        self.active_channels[nick].privmsg(nick, 'pubkey', pubkey)
-
-    @check_privmsg
-    def send_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr, sig):
-        self.active_channels[nick].send_ioauth(nick, utxo_list, auth_pub,
-                                               cj_addr, change_addr, sig)
-
-    @check_privmsg
-    def send_sigs(self, nick, sig_list):
-        self.active_channels[nick].send_sigs(nick, sig_list)
+                        self.prepare_privmsg(nick, cmd, msg, mc=mc)
 
     # Taker callbacks
     def fill_orders(self, nick_order_dict, cj_amount, taker_pubkey, commitment):
@@ -337,7 +325,8 @@ class MessageChannelCollection(object):
     @check_privmsg
     def send_error(self, nick, errormsg):
         #TODO this might need to support non-active nicks TODO
-        self.active_channels[nick].send_error(nick, errormsg)
+        if nick in self.active_channels:
+            self.active_channels[nick].send_error(nick, errormsg)
 
     @check_privmsg
     def push_tx(self, nick, txhex):
@@ -792,19 +781,6 @@ class MessageChannel(object):
         clines = [COMMAND_PREFIX + 'cancel ' + str(oid) for oid in oid_list]
         self.pubmsg(''.join(clines))
 
-    def send_pubkey(self, nick, pubkey):
-        self.privmsg(nick, 'pubkey', pubkey)
-
-    def send_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr, sig):
-        authmsg = str(','.join(utxo_list)) + ' ' + ' '.join([auth_pub, cj_addr,
-                                                             change_addr, sig])
-        self.privmsg(nick, 'ioauth', authmsg)
-
-    def send_sigs(self, nick, sig_list):
-        # TODO make it send the sigs on one line if there's space
-        for s in sig_list:
-            self.privmsg(nick, 'sig', s)
-
     # OrderbookWatch callback
     def request_orderbook(self):
         self.pubmsg(COMMAND_PREFIX + 'orderbook')
@@ -937,6 +913,10 @@ class MessageChannel(object):
                 if self.check_for_orders(nick, _chunks):
                     pass
                 # taker commands
+                elif _chunks[0] == 'error':
+                    error = " ".join(_chunks[1:])
+                    if self.on_error:
+                        self.on_error(error)
                 elif _chunks[0] == 'pubkey':
                     maker_pk = _chunks[1]
                     if self.on_pubkey:
