@@ -14,7 +14,12 @@ class JMCommand(Command):
     #a default response type
     response = [('accepted', Boolean())]
 
-#commands from client to daemon
+"""COMMANDS FROM CLIENT TO DAEMON
+=================================
+"""
+
+"""Messages used by both MAKER and TAKER
+"""
 
 class JMInit(JMCommand):
     """Communicates the client's required setup
@@ -36,52 +41,74 @@ class JMStartMC(JMCommand):
     arguments = [('nick', String())]
 
 class JMSetup(JMCommand):
+    """Communicates which of "MAKER" or "TAKER"
+    roles are to be taken by this client; for MAKER
+    role, passes initial offers for announcement (for TAKER, this data is "none")
+    """
     arguments = [('role', String()),
                  ('initdata', String())]
 
-"""Taker specific commands
-"""
-
-class JMRequestOffers(JMCommand):
-    arguments = []
-
-class JMFill(JMCommand):
-    arguments = [('amount', Integer()),
-                 ('commitment', String()),
-                 ('revelation', String()),
-                 ('filled_offers', String())]
-
-class JMMakeTx(JMCommand):
-    arguments = [('nick_list', String()),
-                 ('txhex', String())]
-
-class JMPushTx(JMCommand):
-    arguments = [('nick', String()),
-                 ('txhex', String())]
-
 class JMMsgSignature(JMCommand):
+    """A response to a request for a bitcoin signature
+    on a message-channel layer message from the daemon
+    """
     arguments = [('nick', String()),
                  ('cmd', String()),
                  ('msg_to_return', String()),
                  ('hostid', String())]
 
 class JMMsgSignatureVerify(JMCommand):
+    """A response to a request to verify the bitcoin signature
+    of a message-channel layer message from the daemon
+    """
     arguments = [('verif_result', Boolean()),
                  ('nick', String()),
                  ('fullmsg', String()),
                  ('hostid', String())]
 
-"""Maker specific commands
+"""TAKER specific commands
+"""
+
+class JMRequestOffers(JMCommand):
+    """Get orderbook from daemon
+    """
+    arguments = []
+
+class JMFill(JMCommand):
+    """Fill an offer/order
+    """
+    arguments = [('amount', Integer()),
+                 ('commitment', String()),
+                 ('revelation', String()),
+                 ('filled_offers', String())]
+
+class JMMakeTx(JMCommand):
+    """Send a hex encoded raw bitcoin transaction
+    to a set of counterparties
+    """
+    arguments = [('nick_list', String()),
+                 ('txhex', String())]
+
+class JMPushTx(JMCommand):
+    """Pass a raw hex transaction to a specific
+    counterparty (maker) for pushing (anonymity feature in JM)
+    """
+    arguments = [('nick', String()),
+                 ('txhex', String())]
+
+"""MAKER specific commands
 """
 
 class JMAnnounceOffers(JMCommand):
+    """Send list (actually dict) of offers
+    to the daemon
+    """
     arguments = [('offerlist', String())]
 
-class JMMakerPubkey(JMCommand):
-    arguments = [('nick', String()),
-                 ('pubkey', String())]
-
 class JMIOAuth(JMCommand):
+    """Send contents of !ioauth message after
+    verifying Taker's auth message
+    """
     arguments = [('nick', String()),
                  ('utxolist', String()),
                  ('pubkey', String()),
@@ -90,55 +117,43 @@ class JMIOAuth(JMCommand):
                  ('pubkeysig', String())]
 
 class JMTXSigs(JMCommand):
+    """Send signatures on the bitcoin transaction
+    sent by TAKER
+    """
     arguments = [('nick', String()),
                  ('sigs', String())]
-    
-#commands from daemon to client
+
+"""COMMANDS FROM CLIENT TO DAEMON
+=================================
+"""
 
 class JMInitProto(JMCommand):
+    """Pass to the client the messaging protocol parameters
+    (which are defined in daemon package), required to construct
+    the user nick, given the bitcoin private key used for authentication
+    (that key being controlled by the client; the daemon knows nothing
+    about bitcoin).
+    """
     arguments = [('nick_hash_length', Integer()),
                  ('nick_max_encoded', Integer()),
                  ('joinmarket_nick_header', String()),
                  ('joinmarket_version', Integer())]
 
 class JMUp(JMCommand):
+    """Used to signal readiness of message channels to client.
+    """
     arguments = []
 
 class JMSetupDone(JMCommand):
+    """Used to signal that initial setup action
+    has been taken (e.g. !orderbook call).
+    """
     arguments = []
 
-class JMOffers(JMCommand):
-    arguments = [('orderbook', BigString())]
-
-class JMFillResponse(JMCommand):
-    arguments = [('success', Boolean()),
-                 ('ioauth_data', String())]
-
-class JMSigReceived(JMCommand):
-    arguments = [('nick', String()),
-                 ('sig', String())]
-
-"""Maker specific daemon-client messages
-"""
-
-class JMCommitmentOpen(JMCommand):
-    arguments = [('nick', String()),
-                 ('revelation', String())]
-
-class JMAuthReceived(JMCommand):
-    arguments = [('nick', String()),
-                 ('offer', String()),
-                 ('commitment', String()),
-                 ('revelation', String()),
-                 ('amount', Integer()),
-                 ('kphex', String())]
-
-class JMTXReceived(JMCommand):
-    arguments = [('nick', String()),
-                 ('txhex', String()),
-                 ('offer', String())]
-
 class JMRequestMsgSig(JMCommand):
+    """Request the client to sign a message-channel
+    layer message with the bitcoin key for the nick
+    """
     arguments = [('nick', String()),
                  ('cmd', String()),
                  ('msg', String()),
@@ -146,6 +161,9 @@ class JMRequestMsgSig(JMCommand):
                  ('hostid', String())]
 
 class JMRequestMsgSigVerify(JMCommand):
+    """Request the client to verify a counterparty's
+    message-channel layer message against the provided nick
+    """
     arguments = [('msg', String()),
                  ('fullmsg', String()),
                  ('sig', String()),
@@ -154,3 +172,50 @@ class JMRequestMsgSigVerify(JMCommand):
                  ('hashlen', Integer()),
                  ('max_encoded', Integer()),
                  ('hostid', String())]
+
+""" TAKER-specific commands
+"""
+
+class JMOffers(JMCommand):
+    """Return the entire contents of the
+    orderbook to TAKER, as a json-ified dict;
+    note uses BigString because can be very large
+    """
+    arguments = [('orderbook', BigString())]
+
+class JMFillResponse(JMCommand):
+    """Returns ioauth data from MAKER if successful.
+    """
+    arguments = [('success', Boolean()),
+                 ('ioauth_data', String())]
+
+class JMSigReceived(JMCommand):
+    """Returns an individual bitcoin transaction signature
+    from a MAKER
+    """
+    arguments = [('nick', String()),
+                 ('sig', String())]
+
+"""MAKER-specific commands
+"""
+
+class JMAuthReceived(JMCommand):
+    """Return the commitment and revelation
+    provided in !fill, !auth by the TAKER,
+    allowing the MAKER to verify against btc library
+    before setting up encryption and continuing.
+    """
+    arguments = [('nick', String()),
+                 ('offer', String()),
+                 ('commitment', String()),
+                 ('revelation', String()),
+                 ('amount', Integer()),
+                 ('kphex', String())]
+
+class JMTXReceived(JMCommand):
+    """Send back transaction template provided
+    by TAKER, along with offerdata to verify fees.
+    """
+    arguments = [('nick', String()),
+                 ('txhex', String()),
+                 ('offer', String())]

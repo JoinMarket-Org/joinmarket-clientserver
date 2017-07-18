@@ -197,10 +197,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.jm_state = 1
         return {'accepted': True}
 
-    @JMMakerPubkey.responder
-    def on_JM_MAKER_PUBKEY(self, nick, pubkey):
-        self.mcc.prepare_privmsg(nick, "pubkey", pubkey)
-
     @JMTXSigs.responder
     def on_JM_TX_SIGS(self, nick, sigs):
         sigs = _byteify(json.loads(sigs))
