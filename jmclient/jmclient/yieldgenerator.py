@@ -34,9 +34,6 @@ class YieldGenerator(Maker):
         self.log_statement([timestamp, '', '', '', '', '', '', 'Connected'])
 
     def log_statement(self, data):
-        if get_network() == 'testnet':
-            return
-
         data = [str(d) for d in data]
         self.income_statement = open(self.statement_file, 'a')
         self.income_statement.write(','.join(data) + '\n')
