@@ -78,7 +78,7 @@ class YieldGeneratorBasic(YieldGenerator):
         super(YieldGeneratorBasic,self).__init__(wallet)
 
     def create_my_orders(self):
-        mix_balance = self.wallet.get_balance_by_mixdepth()
+        mix_balance = self.wallet.get_balance_by_mixdepth(verbose=False)
         if len([b for m, b in mix_balance.iteritems() if b > 0]) == 0:
             jlog.error('do not have any coins left')
             return []
@@ -254,6 +254,7 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
                              options.ordertype, options.minsize])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
+
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),

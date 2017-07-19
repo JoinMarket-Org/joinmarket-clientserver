@@ -859,48 +859,50 @@ class NotifyRequestHeader(BaseHTTPServer.BaseHTTPRequestHandler):
             txnotify_tuple = None
             unconfirmfun, confirmfun, timeoutfun, uc_called = (None, None, None,
                                                                None)
+            to_be_updated = []
+            to_be_removed = []
             for tnf in self.btcinterface.txnotify_fun:
                 tx_out = tnf[0]
                 if tx_out == tx_output_set:
                     txnotify_tuple = tnf
                     tx_out, unconfirmfun, confirmfun, timeoutfun, uc_called = tnf
-                    break
-            if unconfirmfun is None:
-                log.debug('txid=' + txid + ' not being listened for')
-            else:
-                # on rare occasions people spend their output without waiting
-                #  for a confirm
-                txdata = None
-                for n in range(len(txd['outs'])):
-                    txdata = self.btcinterface.rpc('gettxout', [txid, n, True])
-                    if txdata is not None:
-                        break
-                assert txdata is not None
-                if txdata['confirmations'] == 0:
-                    reactor.callFromThread(unconfirmfun, txd, txid)
-                    # TODO pass the total transfered amount value here somehow
-                    # wallet_name = self.get_wallet_name()
-                    # amount =
-                    # bitcoin-cli move wallet_name "" amount
-                    self.btcinterface.txnotify_fun.remove(txnotify_tuple)
-                    self.btcinterface.txnotify_fun.append(txnotify_tuple[:-1] +
-                                                          (True,))
-                    log.debug('ran unconfirmfun')
-                    if timeoutfun:
-                        threading.Timer(jm_single().config.getfloat(
-                            'TIMEOUT', 'confirm_timeout_hours') * 60 * 60,
-                                        bitcoincore_timeout_callback,
-                                        args=(True, tx_output_set,
-                                              self.btcinterface.txnotify_fun,
-                                              timeoutfun)).start()
-                else:
-                    if not uc_called:
-                        reactor.callFromThread(unconfirmfun, txd, txid)
-                        log.debug('saw confirmed tx before unconfirmed, ' +
-                                  'running unconfirmfun first')
-                    reactor.callFromThread(confirmfun, txd, txid, txdata['confirmations'])
-                    self.btcinterface.txnotify_fun.remove(txnotify_tuple)
-                    log.debug('ran confirmfun')
+                    if unconfirmfun is None:
+                        log.debug('txid=' + txid + ' not being listened for')
+                    else:
+                        # on rare occasions people spend their output without waiting
+                        #  for a confirm
+                        txdata = None
+                        for n in range(len(txd['outs'])):
+                            txdata = self.btcinterface.rpc('gettxout', [txid, n, True])
+                            if txdata is not None:
+                                break
+                        assert txdata is not None
+                        if txdata['confirmations'] == 0:
+                            reactor.callFromThread(unconfirmfun, txd, txid)
+                            to_be_updated.append(txnotify_tuple)
+                            log.debug('ran unconfirmfun')
+                            if timeoutfun:
+                                threading.Timer(jm_single().config.getfloat(
+                                    'TIMEOUT', 'confirm_timeout_hours') * 60 * 60,
+                                                bitcoincore_timeout_callback,
+                                                args=(True, tx_output_set,
+                                                      self.btcinterface.txnotify_fun,
+                                                      timeoutfun)).start()
+                        else:
+                            if not uc_called:
+                                reactor.callFromThread(unconfirmfun, txd, txid)
+                                log.debug('saw confirmed tx before unconfirmed, ' +
+                                          'running unconfirmfun first')
+                            reactor.callFromThread(confirmfun, txd, txid, txdata['confirmations'])
+                            to_be_removed.append(txnotify_tuple)
+                            log.debug('ran confirmfun')
+            #If any notifyfun tuples need to update from unconfirm to confirm state:
+            for tbu in to_be_updated:
+                self.btcinterface.txnotify_fun.remove(tbu)
+                self.btcinterface.txnotify_fun.append(tbu[:-1] + (True,))
+            #If any notifyfun tuples need to be removed as confirmed
+            for tbr in to_be_removed:
+                self.btcinterface.txnotify_fun.remove(tbr)
 
         elif self.path.startswith('/alertnotify?'):
             jm_single().core_alert[0] = urllib.unquote(self.path[len(pages[
@@ -916,7 +918,7 @@ class NotifyRequestHeader(BaseHTTPServer.BaseHTTPRequestHandler):
         request.get_method = lambda: 'HEAD'
         try:
             urllib2.urlopen(request)
-        except urllib2.URLError:
+        except:
             pass
         self.send_response(200)
         # self.send_header('Connection', 'close')

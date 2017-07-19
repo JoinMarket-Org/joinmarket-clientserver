@@ -435,7 +435,7 @@ class JMClientProtocolFactory(protocol.ClientFactory):
     def buildProtocol(self, addr):
         return self.protocol(self, self.client)
 
-def start_reactor(host, port, factory, ish=True, daemon=False): #pragma: no cover
+def start_reactor(host, port, factory, ish=True, daemon=False, rs=True): #pragma: no cover
     #(Cannot start the reactor in tests)
     #Not used in prod (twisted logging):
     #startLogging(stdout)
@@ -473,4 +473,5 @@ def start_reactor(host, port, factory, ish=True, daemon=False): #pragma: no cove
         reactor.connectSSL(host, port, factory, ctx)
     else:
         reactor.connectTCP(host, port, factory)
-    reactor.run(installSignalHandlers=ish)
+    if rs:
+        reactor.run(installSignalHandlers=ish)

@@ -345,7 +345,7 @@ class Wallet(AbstractWallet):
             removed_utxos[utxo] = self.unspent[utxo]
             del self.unspent[utxo]
         log.debug('removed utxos, wallet now is \n' + pprint.pformat(
-                self.get_utxos_by_mixdepth()))
+                self.get_utxos_by_mixdepth(verbose=False)))
         self.spent_utxos += removed_utxos.keys()
         return removed_utxos
 
