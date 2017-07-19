@@ -39,7 +39,7 @@ from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
                              tumbler_filter_orders_callback)
 from .wallet_utils import wallet_tool_main
 from .maker import Maker
-from .yieldgenerator import YieldGenerator, ygmain
+from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
 # Set default logging handler to avoid "No handler found" warnings.
 
 try:
