@@ -75,6 +75,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.restart_mc_required = False
         self.irc_configs = None
         self.mcc = None
+        #Default role is TAKER; must be overriden to MAKER in JMSetup message.
         self.role = "TAKER"
         self.crypto_boxes = {}
         self.sig_lock = threading.Lock()
@@ -88,7 +89,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             reactor.stop() #pragma: no cover
 
     def defaultErrback(self, failure):
-        failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone, ConnectionLost)
+        """TODO better network error handling.
+	"""
+        failure.trap(ConnectionAborted, ConnectionClosed,
+                     ConnectionDone, ConnectionLost)
 
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
@@ -152,29 +156,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.init_connections(nick)
         return {'accepted': True}
 
-    def init_connections(self, nick):
-        """Sets up message channel connections
-        if they are not already up; re-sets joinmarket state to 0
-        for a new transaction; effectively means any previous
-        incomplete transaction is wiped.
-        """
-        self.jm_state = 0  #uninited
-        if self.restart_mc_required:
-            self.mcc.run()
-            self.restart_mc_required = False
-        else:
-            #if we are not restarting the MC,
-            #we must simulate the on_welcome message:
-            self.on_welcome()
-        self.mcc.set_nick(nick)
-
-
-    def on_welcome(self):
-        """Fired when channel indicated state readiness
-        """
-        d = self.callRemote(JMUp)
-        self.defaultCallbacks(d)
-
     @JMSetup.responder
     def on_JM_SETUP(self, role, initdata):
         assert self.jm_state == 0
@@ -197,13 +178,21 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.jm_state = 1
         return {'accepted': True}
 
-    @JMTXSigs.responder
-    def on_JM_TX_SIGS(self, nick, sigs):
-        sigs = _byteify(json.loads(sigs))
-        print('sending sigs: ' + str(sigs))
-        for sig in sigs:
-            self.mcc.prepare_privmsg(nick, "sig", sig)
-        return {"accepted": True}
+    @JMMsgSignature.responder
+    def on_JM_MSGSIGNATURE(self, nick, cmd, msg_to_return, hostid):
+        self.mcc.privmsg(nick, cmd, msg_to_return, mc=hostid)
+        return {'accepted': True}
+
+    @JMMsgSignatureVerify.responder
+    def on_JM_MSGSIGNATURE_VERIFY(self, verif_result, nick, fullmsg, hostid):
+        if not verif_result:
+            log.msg("Verification failed for nick: " + str(nick))
+        else:
+            self.mcc.on_verified_privmsg(nick, fullmsg, hostid)
+        return {'accepted': True}
+
+    """Taker specific responders
+    """
 
     @JMRequestOffers.responder
     def on_JM_REQUEST_OFFERS(self):
@@ -236,12 +225,77 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.jm_state = 2
         return {'accepted': True}
 
+    @JMMakeTx.responder
+    def on_JM_MAKE_TX(self, nick_list, txhex):
+        if not self.jm_state == 4:
+            log.msg("Make tx was called in wrong state, rejecting")
+            return {'accepted': False}
+        nick_list = json.loads(nick_list)
+        self.mcc.send_tx(nick_list, txhex)
+        return {'accepted': True}
+
+    @JMPushTx.responder
+    def on_JM_PushTx(self, nick, txhex):
+        self.mcc.push_tx(nick, txhex)
+        return {'accepted': True}
+
+    """Maker specific responders
+    """
+
     @JMAnnounceOffers.responder
-    def on_JM_ANNOUNCE_OFFERS(self, offerlist):
+    def on_JM_ANNOUNCE_OFFERS(self, to_announce, to_cancel, offerlist):
         if self.role != "MAKER":
             return
+        to_announce = json.loads(to_announce)
+        to_cancel = json.loads(to_cancel)
         self.offerlist = json.loads(offerlist)
+        if len(to_cancel) > 0:
+            self.mcc.cancel_orders(to_cancel)
+        if len(to_announce) > 0:
+            self.mcc.announce_orders(to_announce, None, None)
         return {"accepted": True}
+
+    @JMIOAuth.responder
+    def on_JM_IOAUTH(self, nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig):
+        nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig = [_byteify(
+            x) for x in nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig]
+        if not self.role == "MAKER":
+            return
+        if not nick in self.active_orders:
+            return
+        utxos= json.loads(utxolist)
+        #completed population of order/offer object
+        self.active_orders[nick]["cjaddr"] = cjaddr
+        self.active_orders[nick]["changeaddr"] = changeaddr
+        self.active_orders[nick]["utxos"] = utxos
+        msg = str(",".join(utxos.keys())) + " " + " ".join(
+            [pubkey, cjaddr, changeaddr, pubkeysig])
+        self.mcc.prepare_privmsg(nick, "ioauth", msg)
+        #In case of *blacklisted (ie already used) commitments, we already
+        #broadcasted them on receipt; in case of valid, and now used commitments,
+        #we broadcast them here, and not early - to avoid accidentally
+        #blacklisting commitments that are broadcast between makers in real time
+        #for the same transaction.
+        self.transfer_commitment(self.active_orders[nick]["commit"])
+        #now persist the fact that the commitment is actually used.
+        check_utxo_blacklist(self.active_orders[nick]["commit"], persist=True)
+        return {"accepted": True}
+
+    @JMTXSigs.responder
+    def on_JM_TX_SIGS(self, nick, sigs):
+        sigs = _byteify(json.loads(sigs))
+        for sig in sigs:
+            self.mcc.prepare_privmsg(nick, "sig", sig)
+        return {"accepted": True}
+
+    """Message channel callbacks
+    """
+
+    def on_welcome(self):
+        """Fired when channel indicated state readiness
+        """
+        d = self.callRemote(JMUp)
+        self.defaultCallbacks(d)
 
     def on_orderbook_requested(self, nick, mc=None):
         """Dealt with by daemon, assuming offerlist is up to date
@@ -278,14 +332,14 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         kp = init_keypair()
         try:
             crypto_box = as_init_encryption(kp, init_pubkey(taker_pk))
-            self.active_orders[nick] = {"crypto_box": crypto_box,
+        except NaclError as e:
+            log.msg("Unable to set up cryptobox with counterparty: " + repr(e))
+            self.mcc.send_error(nick, "Invalid nacl pubkey: " + taker_pk)
+        self.active_orders[nick] = {"crypto_box": crypto_box,
                                         "kp": kp,
                                         "offer": offer,
                                         "amount": amount,
                                         "commit": scommit}
-        except NaclError as e:
-            log.msg("Unable to set up cryptobox with counterparty: " + repr(e))
-            self.mcc.send_error(nick, "Invalid nacl pubkey: " + taker_pk)
         self.mcc.prepare_privmsg(nick, "pubkey", kp.hex_pk())
 
     def on_seen_auth(self, nick, commitment_revelation):
@@ -303,47 +357,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                             amount=ao["amount"],
                             kphex=ao["kp"].hex_pk())
         self.defaultCallbacks(d)
-
-    @JMIOAuth.responder
-    def on_JM_IOAUTH(self, nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig):
-        nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig = [_byteify(
-            x) for x in nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig]
-        if not self.role == "MAKER":
-            return
-        if not nick in self.active_orders:
-            return
-        utxos= json.loads(utxolist)
-        #completed population of order/offer object
-        self.active_orders[nick]["cjaddr"] = cjaddr
-        self.active_orders[nick]["changeaddr"] = changeaddr
-        self.active_orders[nick]["utxos"] = utxos
-        msg = str(",".join(utxos.keys())) + " " + " ".join(
-            [pubkey, cjaddr, changeaddr, pubkeysig])
-        self.mcc.prepare_privmsg(nick, "ioauth", msg)
-        #In case of *blacklisted (ie already used) commitments, we already
-        #broadcasted them on receipt; in case of valid, and now used commitments,
-        #we broadcast them here, and not early - to avoid accidentally
-        #blacklisting commitments that are broadcast between makers in real time
-        #for the same transaction.
-        self.transfer_commitment(self.active_orders[nick]["commit"])
-        #now persist the fact that the commitment is actually used.
-        check_utxo_blacklist(self.active_orders[nick]["commit"], persist=True)
-        return {"accepted": True}
-
-    def transfer_commitment(self, commit):
-        """Send this commitment via privmsg to one (random)
-	other maker.
-	"""
-        crow = self.db.execute(
-                        'SELECT DISTINCT counterparty FROM orderbook ORDER BY ' +
-                        'RANDOM() LIMIT 1;'
-                    ).fetchone()
-        if crow is None:
-            return
-        counterparty = crow['counterparty']
-        #TODO de-hardcode hp2
-        log.msg("Sending commitment to: " + str(counterparty))
-        self.mcc.prepare_privmsg(counterparty, 'hp2', commit)
 
     def on_commitment_seen(self, nick, commitment):
         """Triggered when we see a commitment for blacklisting
@@ -422,6 +435,83 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #Finish early if we got all
             self.respondToIoauths(True)
 
+    def on_sig(self, nick, sig):
+        """Pass signature through to Taker.
+        """
+        d = self.callRemote(JMSigReceived,
+                        nick=nick,
+                        sig=sig)
+        self.defaultCallbacks(d)
+
+    def on_error(self, msg):
+        log.msg("Received error: " + str(msg))
+
+    """The following 2 functions handle requests and responses
+    from client for messaging signing and verifying.
+    """
+
+    def request_signed_message(self, nick, cmd, msg, msg_to_be_signed, hostid):
+        """The daemon passes the nick and cmd fields
+        to the client so it can be echoed back to the privmsg
+        after return (with signature); note that the cmd is already
+        inside "msg" after having been parsed in MessageChannel; this
+        duplication is so that the client does not need to know the
+        message syntax.
+        """
+        with self.sig_lock:
+            d = self.callRemote(JMRequestMsgSig,
+                            nick=str(nick),
+                            cmd=str(cmd),
+                            msg=str(msg),
+                            msg_to_be_signed=str(msg_to_be_signed),
+                            hostid=str(hostid))
+            self.defaultCallbacks(d)
+
+    def request_signature_verify(self, msg, fullmsg, sig, pubkey, nick, hashlen,
+                                 max_encoded, hostid):
+        with self.sig_lock:
+            d = self.callRemote(JMRequestMsgSigVerify,
+                                msg=msg,
+                                fullmsg=fullmsg,
+                                sig=sig,
+                                pubkey=pubkey,
+                                nick=nick,
+                                hashlen=hashlen,
+                                max_encoded=max_encoded,
+                                hostid=hostid)
+            self.defaultCallbacks(d)
+
+    def init_connections(self, nick):
+        """Sets up message channel connections
+        if they are not already up; re-sets joinmarket state to 0
+        for a new transaction; effectively means any previous
+        incomplete transaction is wiped.
+        """
+        self.jm_state = 0  #uninited
+        if self.restart_mc_required:
+            self.mcc.run()
+            self.restart_mc_required = False
+        else:
+            #if we are not restarting the MC,
+            #we must simulate the on_welcome message:
+            self.on_welcome()
+        self.mcc.set_nick(nick)
+
+    def transfer_commitment(self, commit):
+        """Send this commitment via privmsg to one (random)
+	other maker.
+	"""
+        crow = self.db.execute(
+                        'SELECT DISTINCT counterparty FROM orderbook ORDER BY ' +
+                        'RANDOM() LIMIT 1;'
+                    ).fetchone()
+        if crow is None:
+            return
+        counterparty = crow['counterparty']
+        #TODO de-hardcode hp2
+        log.msg("Sending commitment to: " + str(counterparty))
+        self.mcc.prepare_privmsg(counterparty, 'hp2', commit)
+
     def respondToIoauths(self, accepted):
         if self.jm_state != 2:
             #this can be called a second time on timeout, in which case we
@@ -461,75 +551,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #only update state if client accepted
             self.jm_state = 4
 
-    @JMMakeTx.responder
-    def on_JM_MAKE_TX(self, nick_list, txhex):
-        if not self.jm_state == 4:
-            log.msg("Make tx was called in wrong state, rejecting")
-            return {'accepted': False}
-        nick_list = json.loads(nick_list)
-        self.mcc.send_tx(nick_list, txhex)
-        return {'accepted': True}
-
-    def on_sig(self, nick, sig):
-        """Pass signature through to Taker.
-        """
-        d = self.callRemote(JMSigReceived,
-                        nick=nick,
-                        sig=sig)
-        self.defaultCallbacks(d)
-
-    """The following functions handle requests and responses
-    from client for messaging signing and verifying.
-    """
-    def request_signed_message(self, nick, cmd, msg, msg_to_be_signed, hostid):
-        """The daemon passes the nick and cmd fields
-        to the client so it can be echoed back to the privmsg
-        after return (with signature); note that the cmd is already
-        inside "msg" after having been parsed in MessageChannel; this
-        duplication is so that the client does not need to know the
-        message syntax.
-        """
-        with self.sig_lock:
-            d = self.callRemote(JMRequestMsgSig,
-                            nick=str(nick),
-                            cmd=str(cmd),
-                            msg=str(msg),
-                            msg_to_be_signed=str(msg_to_be_signed),
-                            hostid=str(hostid))
-            self.defaultCallbacks(d)
-
-    def request_signature_verify(self, msg, fullmsg, sig, pubkey, nick, hashlen,
-                                 max_encoded, hostid):
-        with self.sig_lock:
-            d = self.callRemote(JMRequestMsgSigVerify,
-                                msg=msg,
-                                fullmsg=fullmsg,
-                                sig=sig,
-                                pubkey=pubkey,
-                                nick=nick,
-                                hashlen=hashlen,
-                                max_encoded=max_encoded,
-                                hostid=hostid)
-            self.defaultCallbacks(d)
-
-    @JMPushTx.responder
-    def on_JM_PushTx(self, nick, txhex):
-        self.mcc.push_tx(nick, txhex)
-        return {'accepted': True}
-
-    @JMMsgSignature.responder
-    def on_JM_MSGSIGNATURE(self, nick, cmd, msg_to_return, hostid):
-        self.mcc.privmsg(nick, cmd, msg_to_return, mc=hostid)
-        return {'accepted': True}
-
-    @JMMsgSignatureVerify.responder
-    def on_JM_MSGSIGNATURE_VERIFY(self, verif_result, nick, fullmsg, hostid):
-        if not verif_result:
-            log.msg("Verification failed for nick: " + str(nick))
-        else:
-            self.mcc.on_verified_privmsg(nick, fullmsg, hostid)
-        return {'accepted': True}
-
     def get_crypto_box_from_nick(self, nick):
         """Retrieve the libsodium box object for the counterparty;
         stored differently for Taker and Maker
@@ -542,9 +563,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             log.msg('something wrong, no crypto object, nick=' + nick +
                       ', message will be dropped')
             return None
-
-    def on_error(self, msg):
-        log.msg("Received error: " + str(msg))
 
     def mc_shutdown(self):
         log.msg("Message channels being shutdown by daemon")

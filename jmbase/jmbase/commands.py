@@ -101,9 +101,12 @@ class JMPushTx(JMCommand):
 
 class JMAnnounceOffers(JMCommand):
     """Send list (actually dict) of offers
-    to the daemon
+    to the daemon, along with new announcement
+    and cancellation lists (deltas).
     """
-    arguments = [('offerlist', String())]
+    arguments = [('to_announce', String()),
+                 ('to_cancel', String()),
+                 ('offerlist', String())]
 
 class JMIOAuth(JMCommand):
     """Send contents of !ioauth message after
@@ -123,7 +126,7 @@ class JMTXSigs(JMCommand):
     arguments = [('nick', String()),
                  ('sigs', String())]
 
-"""COMMANDS FROM CLIENT TO DAEMON
+"""COMMANDS FROM DAEMON TO CLIENT
 =================================
 """
 
