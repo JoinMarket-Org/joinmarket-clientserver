@@ -25,7 +25,7 @@ from jmclient import (YieldGeneratorBasic, ygmain, load_program_config,
     "num_ygs, wallet_structures, mean_amt",
     [
         # 1sp 3yg, 2 mixdepths, sweep from depth1
-        (2, [[1, 3, 0, 0, 0]] * 3, 2),
+        (3, [[1, 3, 0, 0, 0]] * 4, 2),
     ])
 def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt):
     """Set up some wallets, for the ygs and 1 sp.
@@ -63,4 +63,5 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt):
 @pytest.fixture(scope="module")
 def setup_ygrunner():
     load_program_config()
-    
+    jm_single().bc_interface.tick_forward_chain_interval = 10
+    jm_single().bc_interface.simulate_blocks()

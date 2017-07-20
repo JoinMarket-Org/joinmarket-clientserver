@@ -89,7 +89,11 @@ def setup(request):
     #start up regtest blockchain
     btc_proc = subprocess.call([bitcoin_path + "bitcoind", "-regtest",
                                 "-daemon", "-conf=" + bitcoin_conf])
-    time.sleep(3)
-    #generate blocks
-    local_command([bitcoin_path + "bitcoin-cli", "-regtest", "-rpcuser=" + bitcoin_rpcusername,
-                   "-rpcpassword=" + bitcoin_rpcpassword, "generate", "101"])
+    time.sleep(1)
+    #generate blocks; segwit activates around block 500-600
+    for i in range(2):
+        local_command([bitcoin_path + "bitcoin-cli", "-regtest",
+                       "-rpcuser=" + bitcoin_rpcusername,
+                       "-rpcpassword=" + bitcoin_rpcpassword, "generate", "301"])
+        time.sleep(1)
+    

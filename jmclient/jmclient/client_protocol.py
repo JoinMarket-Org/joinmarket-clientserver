@@ -26,7 +26,8 @@ import os
 import sys
 import pprint
 from jmclient import (Taker, Wallet, jm_single, get_irc_mchannels,
-                        load_program_config, get_log, get_p2sh_vbyte)
+                        load_program_config, get_log, get_p2sh_vbyte,
+                        RegtestBitcoinCoreInterface)
 from jmbase import _byteify
 import btc
 
@@ -475,3 +476,5 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True): #pragma
         reactor.connectTCP(host, port, factory)
     if rs:
         reactor.run(installSignalHandlers=ish)
+        if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
+            jm_single().bc_interface.shutdown_signal = True

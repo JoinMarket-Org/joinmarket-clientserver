@@ -23,5 +23,5 @@
 # is changed to the txid. This is particularly useful for the `--restart` feature
 # of tumbler. Then changes to 1 when tx is confirmed.
 #==========================
-1, 110000000, 3, INTERNAL, 0, 0
+1, 110000000, 3, INTERNAL, 0.8, 0
 0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0

@@ -1296,6 +1296,25 @@ class BitcoinCoreInterface(BlockchainInterface):
             return estimate
 
 
+class TickChainThread(threading.Thread):
+
+    def __init__(self, bcinterface, forever=False):
+        threading.Thread.__init__(self, name='TickChainThread')
+        self.bcinterface = bcinterface
+        self.forever = forever
+    def run(self):
+        if self.bcinterface.tick_forward_chain_interval < 0:
+            log.debug('not ticking forward chain')
+            return
+        if self.forever:
+            while True:
+                if self.bcinterface.shutdown_signal:
+                    return
+                time.sleep(self.bcinterface.tick_forward_chain_interval)
+                self.bcinterface.tick_forward_chain(1)
+        time.sleep(self.bcinterface.tick_forward_chain_interval)
+        self.bcinterface.tick_forward_chain(1)
+
 # class for regtest chain access
 # running on local daemon. Only
 # to be instantiated after network is up
@@ -1305,8 +1324,10 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
     def __init__(self, jsonRpc):
         super(RegtestBitcoinCoreInterface, self).__init__(jsonRpc, 'regtest')
         self.pushtx_failure_prob = 0
-        self.tick_forward_chain_interval = 2
+        self.tick_forward_chain_interval = -1
         self.absurd_fees = False
+        self.simulating = False
+        self.shutdown_signal = False
 
     def estimate_fee_per_kb(self, N):
         if not self.absurd_fees:
@@ -1316,6 +1337,10 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
             return jm_single().config.getint("POLICY",
                                              "absurd_fee_per_kb") + 100
 
+    def simulate_blocks(self):
+        TickChainThread(self, forever=True).start()
+        self.simulating = True
+
     def pushtx(self, txhex):
         if self.pushtx_failure_prob != 0 and random.random() <\
                 self.pushtx_failure_prob:
@@ -1324,21 +1349,8 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
             return True
 
         ret = super(RegtestBitcoinCoreInterface, self).pushtx(txhex)
-
-        class TickChainThread(threading.Thread):
-
-            def __init__(self, bcinterface):
-                threading.Thread.__init__(self, name='TickChainThread')
-                self.bcinterface = bcinterface
-
-            def run(self):
-                if self.bcinterface.tick_forward_chain_interval < 0:
-                    log.debug('not ticking forward chain')
-                    return
-                time.sleep(self.bcinterface.tick_forward_chain_interval)
-                self.bcinterface.tick_forward_chain(1)
-
-        TickChainThread(self).start()
+        if not self.simulating:
+            TickChainThread(self).start()
         return ret
 
     def tick_forward_chain(self, n):
