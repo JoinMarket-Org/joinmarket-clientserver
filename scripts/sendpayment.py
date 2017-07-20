@@ -57,7 +57,8 @@ def main():
     parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
     load_program_config()
-
+    walletclass = SegwitWallet if jm_single().config.get(
+            "POLICY", "segwit") == "true" else Wallet
     if options.schedule == '' and len(args) < 3:
         parser.error('Needs a wallet, amount and destination address')
         sys.exit(0)
@@ -124,12 +125,12 @@ def main():
     if not options.userpcwallet:
         max_mix_depth = max([mixdepth, options.amtmixdepths])
         if not os.path.exists(os.path.join('wallets', wallet_name)):
-            wallet = SegwitWallet(wallet_name, None, max_mix_depth, options.gaplimit)
+            wallet = walletclass(wallet_name, None, max_mix_depth, options.gaplimit)
         else:
             while True:
                 try:
                     pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = SegwitWallet(wallet_name, pwd, max_mix_depth, options.gaplimit)
+                    wallet = walletclass(wallet_name, pwd, max_mix_depth, options.gaplimit)
                 except WalletError:
                     print("Wrong password, try again.")
                     continue
@@ -145,6 +146,11 @@ def main():
         if isinstance(wallet, BitcoinCoreWallet):
             raise NotImplementedError("Direct send only supported for JM wallets")
         direct_send(wallet, amount, mixdepth, destaddr, options.answeryes)
+        return
+
+    if walletclass == Wallet:
+        print("Only direct sends (use -N 0) are supported for "
+              "legacy (non-segwit) wallets.")
         return
 
     def filter_orders_callback(orders_fees, cjamount):

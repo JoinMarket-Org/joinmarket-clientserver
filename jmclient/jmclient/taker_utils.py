@@ -59,7 +59,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
         initial_fee_est = estimate_tx_fee(8,2, txtype=txtype)
         utxos = wallet.select_utxos(mixdepth, amount + initial_fee_est)
         if len(utxos) < 8:
-            fee_est = estimate_tx_fee(len(utxos), 2)
+            fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype)
         else:
             fee_est = initial_fee_est
         total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
@@ -79,7 +79,8 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
                 ins['outpoint']['index'])
         addr = utxos[utxo]['address']
         signing_amount = utxos[utxo]['value']
-        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=signing_amount)
+        amount = signing_amount if isinstance(wallet, SegwitWallet) else None
+        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=amount)
     txsigned = deserialize(tx)
     log.info("Got signed transaction:\n")
     log.info(tx + "\n")

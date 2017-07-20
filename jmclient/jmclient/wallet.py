@@ -189,6 +189,10 @@ class Wallet(AbstractWallet):
         """for base/legacy wallet type, this is a passthrough.
         for bip39 style wallets, this will convert from one to the other
         """
+        #Feature for testnet testing: if we are using direct command line
+        #brainwallets (as we do for regtest), strip the flag.
+        if entropy.startswith("FAKESEED"):
+            entropy = entropy[8:]
         return entropy
 
     def get_txtype(self):
