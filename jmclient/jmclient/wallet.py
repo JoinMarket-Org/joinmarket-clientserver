@@ -220,7 +220,7 @@ class Wallet(AbstractWallet):
             if get_network() == 'testnet':
                 log.debug('filename interpreted as seed, only available in '
                           'testnet because this probably has lower entropy')
-                return filename
+                return "FAKESEED" + filename
             else:
                 raise IOError('wallet file not found')
         if not pwd:
@@ -384,15 +384,27 @@ class Wallet(AbstractWallet):
         return mix_utxo_list
 
 class Bip39Wallet(Wallet):
+    """Using python module `mnemonic` to implement
+    BIP39, English only:
+    https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
+    """
     def entropy_to_seed(self, entropy):
         if get_network() == "testnet":
-            return entropy
+            if entropy.startswith("FAKESEED"):
+                return entropy[8:]
         self.entropy = entropy.decode('hex')
         m = Mnemonic("english")
         return m.to_seed(m.to_mnemonic(self.entropy)).encode('hex')
 
 class SegwitWallet(Bip39Wallet):
 
+    """This implements an HD wallet (BIP32),
+    with address type P2SH/P2WPKH of segwit (BIP141),
+    using BIP39 mnemonics (see BIP39Wallet),
+    and the structure is intended as an implementation of BIP49,
+    which is a derivative of BIP44:
+    https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki
+    """
     def __init__(self, seedarg, pwd, max_mix_depth=2, gaplimit=6,
                  extend_mixdepth=False, storepassword=False, wallet_dir=None):
         self.entropy = None
@@ -403,10 +415,10 @@ class SegwitWallet(Bip39Wallet):
 
     def get_root_path(self):
         testflag = "1'" if get_network() == "testnet" else "0'"
-        return "m/44'/" + testflag
+        return "m/49'/" + testflag
 
     def get_mixing_depth_keys(self, master):
-        pre_root = btc.bip32_ckd(master, 44 + 2**31)
+        pre_root = btc.bip32_ckd(master, 49 + 2**31)
         testnet_flag = 1 if get_network() == "testnet" else 0
         root = btc.bip32_ckd(pre_root, testnet_flag + 2**31)
         return [btc.bip32_ckd(root, c + 2**31) for c in range(self.max_mix_depth)]
