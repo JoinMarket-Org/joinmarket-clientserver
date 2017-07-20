@@ -13,9 +13,9 @@ import copy
 import logging
 
 from jmclient import (Taker, load_program_config, get_schedule,
-                      weighted_order_choose, JMTakerClientProtocolFactory,
+                      weighted_order_choose, JMClientProtocolFactory,
                       start_reactor, validate_address, jm_single, WalletError,
-                      Wallet, sync_wallet, get_tumble_schedule,
+                      Wallet, SegwitWallet, sync_wallet, get_tumble_schedule,
                       RegtestBitcoinCoreInterface, estimate_tx_fee,
                       tweak_tumble_schedule, human_readable_schedule_entry,
                       schedule_to_text, restart_waiter, get_tumble_log,
@@ -40,12 +40,12 @@ def main():
     wallet_name = args[0]
     max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
     if not os.path.exists(os.path.join('wallets', wallet_name)):
-        wallet = Wallet(wallet_name, None, max_mix_depth)
+        wallet = SegwitWallet(wallet_name, None, max_mix_depth)
     else:
         while True:
             try:
                 pwd = get_password("Enter wallet decryption passphrase: ")
-                wallet = Wallet(wallet_name, pwd, max_mix_depth)
+                wallet = SegwitWallet(wallet_name, pwd, max_mix_depth)
             except WalletError:
                 print("Wrong password, try again.")
                 continue
@@ -129,7 +129,7 @@ def main():
                   order_chooser=weighted_order_choose,
                   callbacks=(filter_orders_callback, None, taker_finished),
                   tdestaddrs=destaddrs)
-    clientfactory = JMTakerClientProtocolFactory(taker)
+    clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
