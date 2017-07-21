@@ -23,6 +23,40 @@ import time
 import threading
 import os
 import copy
+from functools import wraps
+
+"""Joinmarket application protocol control flow.
+For documentation on protocol (formats, message sequence) see
+https://github.com/JoinMarket-Org/JoinMarket-Docs/blob/master/
+Joinmarket-messaging-protocol.md
+"""
+"""
+***
+API
+***
+The client-daemon two-way communication is documented in jmbase.commands.py
+"""
+
+"""Decorators for limiting which
+inbound callbacks trigger in the DaemonProtocol
+object.
+"""
+
+def maker_only(func):
+    @wraps(func)
+    def func_wrapper(inst, *args, **kwargs):
+        if inst.role == "MAKER":
+            return func(inst, *args, **kwargs)
+        return None
+    return func_wrapper
+
+def taker_only(func):
+    @wraps(func)
+    def func_wrapper(inst, *args, **kwargs):
+        if inst.role == "TAKER":
+            return func(inst, *args, **kwargs)
+        return None
+    return func_wrapper
 
 def check_utxo_blacklist(commitment, persist=False):
     """Compare a given commitment with the persisted blacklist log file,
@@ -50,19 +84,6 @@ def check_utxo_blacklist(commitment, persist=False):
     #(we only add it to the list on sending io_auth, which represents actual
     #usage).
     return True
-
-"""Joinmarket application protocol control flow.
-For documentation on protocol (formats, message sequence) see
-https://github.com/JoinMarket-Org/JoinMarket-Docs/blob/master/
-Joinmarket-messaging-protocol.md
-"""
-"""
-***
-API
-***
-The client-daemon two-way communication is documented in jmbase.commands.py
-"""
-
 
 class JMProtocolError(Exception):
     pass
@@ -297,15 +318,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         d = self.callRemote(JMUp)
         self.defaultCallbacks(d)
 
+    @maker_only
     def on_orderbook_requested(self, nick, mc=None):
         """Dealt with by daemon, assuming offerlist is up to date
         """
         self.mcc.announce_orders(self.offerlist, nick, mc)
 
+    @maker_only
     def on_order_fill(self, nick, oid, amount, taker_pk, commit):
         """Handled locally in daemon.
         """
-        if self.role != "MAKER": return
         if nick in self.active_orders:
             log.msg("Restarting transaction for nick: " + nick)
         if not commit[0] in COMMITMENT_PREFIXES:
@@ -342,9 +364,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                                         "commit": scommit}
         self.mcc.prepare_privmsg(nick, "pubkey", kp.hex_pk())
 
+    @maker_only
     def on_seen_auth(self, nick, commitment_revelation):
-        if not self.role == "MAKER":
-            return
         if not nick in self.active_orders:
             return
         ao =self.active_orders[nick]
@@ -358,6 +379,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                             kphex=ao["kp"].hex_pk())
         self.defaultCallbacks(d)
 
+    @maker_only
     def on_commitment_seen(self, nick, commitment):
         """Triggered when we see a commitment for blacklisting
 	appear in the public pit channel. If the policy is set,
@@ -377,6 +399,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             log.msg("Received commitment broadcast by other maker: " + str(
                 commitment) + ", ignored.")
 
+    @maker_only
     def on_commitment_transferred(self, nick, commitment):
         """Triggered when a privmsg is received from another maker
 	with a commitment to announce in public (obfuscation of source).
@@ -385,12 +408,12 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 	"""
         self.mcc.pubmsg("!hp2 " + commitment)
 
+    @maker_only
     def on_push_tx(self, nick, txhex):
         log.msg('received pushtx message, ignoring, TODO')
 
+    @maker_only
     def on_seen_tx(self, nick, txhex):
-        if self.role != "MAKER":
-            return
         if nick not in self.active_orders:
             return
         #we send a copy of the entire "active_orders" entry except the cryptobox,
@@ -404,6 +427,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                             offer=json.dumps(ao))
         self.defaultCallbacks(d)
 
+    @taker_only
     def on_pubkey(self, nick, maker_pk):
         """This is handled locally in the daemon; set up e2e
         encrypted messaging with this counterparty
@@ -420,6 +444,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             return
         self.mcc.prepare_privmsg(nick, "auth", str(self.revelation))
 
+    @taker_only
     def on_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr,
                   btc_sig):
         """Passes through to Taker the information from counterparties once
@@ -435,6 +460,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #Finish early if we got all
             self.respondToIoauths(True)
 
+    @taker_only
     def on_sig(self, nick, sig):
         """Pass signature through to Taker.
         """
