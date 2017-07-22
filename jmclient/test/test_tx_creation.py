@@ -77,9 +77,9 @@ def test_mktx(setup_tx_creation):
         tx = bitcoin.mktx(ins, outs)
 
 def test_bintxhash(setup_tx_creation):
-    tx = "abcd"
+    tx = "abcdef1234"
     x = bitcoin.bin_txhash(tx)
-    assert binascii.hexlify(x) == "943cbb9637d9b16b92529b182ed0257ec729afc897ac0522b2ed2a86f6809917"   
+    assert binascii.hexlify(x) == "121480fc2cccd5103434a9c88b037e08ef6c4f9f95dfb85b56f7043a344613fe"
 
 def test_all_same_priv(setup_tx_creation):
     #recipient
@@ -205,7 +205,7 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     txid = make_sign_and_push(ins_full, wallet, amount, output_addr=msig_addr)
     assert txid
     #wait for mining
-    time.sleep(4)
+    time.sleep(1)
     #spend out; the input can be constructed from the txid of previous
     msig_in = txid + ":0"
     ins = [msig_in]

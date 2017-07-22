@@ -189,6 +189,8 @@ class Wallet(AbstractWallet):
         """for base/legacy wallet type, this is a passthrough.
         for bip39 style wallets, this will convert from one to the other
         """
+        if entropy is None:
+            return None
         #Feature for testnet testing: if we are using direct command line
         #brainwallets (as we do for regtest), strip the flag.
         if entropy.startswith("FAKESEED"):
@@ -393,6 +395,8 @@ class Bip39Wallet(Wallet):
     https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
     """
     def entropy_to_seed(self, entropy):
+        if entropy is None:
+            return None
         if get_network() == "testnet":
             if entropy.startswith("FAKESEED"):
                 return entropy[8:]

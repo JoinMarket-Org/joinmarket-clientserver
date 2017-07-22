@@ -62,7 +62,8 @@ def make_wallets(n,
                  start_index=0,
                  fixed_seeds=None,
                  test_wallet=False,
-                 passwords=None):
+                 passwords=None,
+                 walletclass=SegwitWallet):
     '''n: number of wallets to be created
        wallet_structure: array of n arrays , each subarray
        specifying the number of addresses to be populated with coins
@@ -84,7 +85,7 @@ def make_wallets(n,
         if test_wallet:
             w = TestWallet(seeds[i], max_mix_depth=5, pwd=passwords[i])
         else:
-            w = SegwitWallet(seeds[i], pwd=None, max_mix_depth=5)
+            w = walletclass(seeds[i], pwd=None, max_mix_depth=5)
         wallets[i + start_index] = {'seed': seeds[i],
                                     'wallet': w}
         for j in range(5):

@@ -4,8 +4,7 @@ from __future__ import absolute_import
 
 import pytest
 from jmclient import (load_program_config, jm_single, get_irc_mchannels,
-                      BTC_P2PK_VBYTE, BTC_P2SH_VBYTE, check_utxo_blacklist,
-                      validate_address)
+                      BTC_P2PK_VBYTE, BTC_P2SH_VBYTE, validate_address)
 from jmclient.configure import (get_config_irc_channel, get_p2sh_vbyte,
                                 get_p2pk_vbyte, get_blockchain_interface_instance)
 import jmbitcoin as bitcoin
@@ -46,21 +45,6 @@ def test_net_byte():
     assert get_p2pk_vbyte() == 0x6f
     assert get_p2sh_vbyte() == 196
 
-def test_check_blacklist():
-    load_program_config()
-    jm_single().nickname = "fortestnick"
-    fn = "blacklist" + "_" + jm_single().nickname
-    if os.path.exists(fn):
-        os.remove(fn)
-    assert check_utxo_blacklist("aa"*32, False)
-    with open(fn, "wb") as f:
-        f.write("aa"*32 + "\n")
-    assert not check_utxo_blacklist("aa"*32, False)
-    assert check_utxo_blacklist("bb"*32, False)
-    assert check_utxo_blacklist("bb"*32, True)
-    assert not check_utxo_blacklist("bb"*32, False)
-    assert not check_utxo_blacklist("bb"*32, True)
-    
 def test_blockchain_sources():
     load_program_config()
     for src in ["blockr", "electrum", "dummy", "bc.i"]:

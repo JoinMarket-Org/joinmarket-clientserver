@@ -1,39 +1,39 @@
 #orderbook
-t_orderbook = [{u'counterparty': u'J5FA1Gj7Ln4vSGne', u'ordertype': u'reloffer', u'oid': 0,
+t_orderbook = [{u'counterparty': u'J6FA1Gj7Ln4vSGne', u'ordertype': u'swreloffer', u'oid': 0,
   u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J5CFffuuewjG44UJ', u'ordertype': u'reloffer', u'oid': 0,
+ {u'counterparty': u'J6CFffuuewjG44UJ', u'ordertype': u'swreloffer', u'oid': 0,
   u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J55z23xdjxJjC7er', u'ordertype': u'reloffer', u'oid': 0,
+ {u'counterparty': u'J65z23xdjxJjC7er', u'ordertype': u'swreloffer', u'oid': 0,
   u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J54Ghp5PXCdY9H3t', u'ordertype': u'reloffer', u'oid': 0,
+ {u'counterparty': u'J64Ghp5PXCdY9H3t', u'ordertype': u'swreloffer', u'oid': 0,
   u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J559UPUSLLjHJpaB', u'ordertype': u'reloffer', u'oid': 0,
+ {u'counterparty': u'J659UPUSLLjHJpaB', u'ordertype': u'swreloffer', u'oid': 0,
   u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J5cBx1FwUVh9zzoO', u'ordertype': u'reloffer', u'oid': 0,
+ {u'counterparty': u'J6cBx1FwUVh9zzoO', u'ordertype': u'swreloffer', u'oid': 0,
   u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'}]
 
 t_dest_addr = "mvw1NazKDRbeNufFANqpYNAANafsMC2zVU"
 
-t_chosen_orders = {u'J559UPUSLLjHJpaB': {u'cjfee': u'0.0002',
-                       u'counterparty': u'J559UPUSLLjHJpaB',
+t_chosen_orders = {u'J659UPUSLLjHJpaB': {u'cjfee': u'0.0002',
+                       u'counterparty': u'J659UPUSLLjHJpaB',
                        u'maxsize': 599972700,
                        u'minsize': 7500000,
                        u'oid': 0,
-                       u'ordertype': u'reloffer',
+                       u'ordertype': u'swreloffer',
                        u'txfee': 1000},
- u'J55z23xdjxJjC7er': {u'cjfee': u'0.0002',
-                       u'counterparty': u'J55z23xdjxJjC7er',
+ u'J65z23xdjxJjC7er': {u'cjfee': u'0.0002',
+                       u'counterparty': u'J65z23xdjxJjC7er',
                        u'maxsize': 599972700,
                        u'minsize': 7500000,
                        u'oid': 0,
-                       u'ordertype': u'reloffer',
+                       u'ordertype': u'swreloffer',
                        u'txfee': 1000},
- u'J5CFffuuewjG44UJ': {u'cjfee': u'0.0002',
-                       u'counterparty': u'J5CFffuuewjG44UJ',
+ u'J6CFffuuewjG44UJ': {u'cjfee': u'0.0002',
+                       u'counterparty': u'J6CFffuuewjG44UJ',
                        u'maxsize': 599972700,
                        u'minsize': 7500000,
                        u'oid': 0,
-                       u'ordertype': u'reloffer',
+                       u'ordertype': u'swreloffer',
                        u'txfee': 1000}}
 
 """
@@ -66,21 +66,21 @@ t_generated_podle = {'P': '025a2e04dc6bd5f58fe4eb13045b27f0dd17c39524264639f4860
  'used': 'False',
  'utxo': u'0780d6e5e381bff01a3519997bb4fcba002493103a198fde334fd264f9835d75:1'}
 
-t_maker_response = {"J559UPUSLLjHJpaB": 
+t_maker_response = {"J659UPUSLLjHJpaB": 
                     [["03243f4a659e278a1333f8308f6aaf32db4692ee7df0340202750fd6c09150f6:1"], 
                      "03a2d1cbe977b1feaf8d0d5cc28c686859563d1520b28018be0c2661cf1ebe4857", 
                      "mrKTGvFfYUEqk52qPKUroumZJcpjHLQ6pn", 
                      "mxPnzFkCQpPzVQdajNLoT4us5pTPsQZZZp", 
                      "MEQCIBeGrtxxVrj5tSUX6vEetmzE8nRBG/guSXq3SrqypIt5AiAnIZzDUXu8DtODgF2p1Bo27L8VcG1GJSfatZbS23YZQQ==",
                      "5bcc7ae1a3530e454812668620aced47d774bf06a1f5870d531422a1a958b629"],
-                    "J55z23xdjxJjC7er": 
+                    "J65z23xdjxJjC7er": 
                     [["498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3:0"],
                      "02b4b749d54e96b04066b0803e372a43d6ffa16e75a001ae0ed4b235674ab286be",
                      "mhatyHdna3Qt5FtnfwWaMVV1dohCaDYF3T",
                      "mjJoVN2HCUGVDvNebiFnHdB3zF56bxQm5z",
                      "MEQCIBlMF7DRbhr14e74He9m+UYjR5y8jjvP7TvUh8valebmAiBoIGjl436fsYim9pKSTbCKiBmT82hQ98LvIOGSLprk0A==",
                      "8204d1cba30d4cdabab16a5e8d10d17464e24c78a6f887ae2d920b223c030d28"],
-                    "J5CFffuuewjG44UJ": 
+                    "J6CFffuuewjG44UJ": 
                     [["3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c:1"],
                      "023bcbafb4f68455e0d1d117c178b0e82a84e66414f0987453d78da034b299c3a9",
                      "mpAEocXy8ckcJBo3fhQg9Mv1kfEzAuUivX",
@@ -90,11 +90,11 @@ t_maker_response = {"J559UPUSLLjHJpaB":
 
 """
 2016-12-01 15:27:39,914 [MainThread  ] [DEBUG]  rpc: gettxout [u'03243f4a659e278a1333f8308f6aaf32db4692ee7df0340202750fd6c09150f6', 1, False]
-2016-12-01 15:27:39,915 [MainThread  ] [DEBUG]  fee breakdown for J559UPUSLLjHJpaB totalin=200000000 cjamount=110000000 txfee=1000 realcjfee=22000
+2016-12-01 15:27:39,915 [MainThread  ] [DEBUG]  fee breakdown for J659UPUSLLjHJpaB totalin=200000000 cjamount=110000000 txfee=1000 realcjfee=22000
 2016-12-01 15:27:39,915 [MainThread  ] [DEBUG]  rpc: gettxout [u'498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3', 0, False]
-2016-12-01 15:27:39,915 [MainThread  ] [DEBUG]  fee breakdown for J55z23xdjxJjC7er totalin=200000000 cjamount=110000000 txfee=1000 realcjfee=22000
+2016-12-01 15:27:39,915 [MainThread  ] [DEBUG]  fee breakdown for J65z23xdjxJjC7er totalin=200000000 cjamount=110000000 txfee=1000 realcjfee=22000
 2016-12-01 15:27:39,916 [MainThread  ] [DEBUG]  rpc: gettxout [u'3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c', 1, False]
-2016-12-01 15:27:39,916 [MainThread  ] [DEBUG]  fee breakdown for J5CFffuuewjG44UJ totalin=200000000 cjamount=110000000 txfee=1000 realcjfee=22000
+2016-12-01 15:27:39,916 [MainThread  ] [DEBUG]  fee breakdown for J6CFffuuewjG44UJ totalin=200000000 cjamount=110000000 txfee=1000 realcjfee=22000
 2016-12-01 15:27:39,916 [MainThread  ] [DEBUG]  INFO:Got all parts, enough to build a tx
 2016-12-01 15:27:39,917 [MainThread  ] [DEBUG]  Estimated transaction size: 870
 2016-12-01 15:27:39,917 [MainThread  ] [DEBUG]  rpc: estimatefee [3]
@@ -140,9 +140,9 @@ t_obtained_tx = {'ins': [{'outpoint': {'hash': '03243f4a659e278a1333f8308f6aaf32
 
 #signatures from makers
 """
-nick=J5CFffuuewjG44UJ message=!sig xH9IAMo2fvG+g+DAbLNOPsGsJCDm6r+ZY5QM7p+SRsixbqSwXcBQAn7Mnw1rS+uGlrJkM8ossX5VHKjdKDhTXQVLawR7XgiVFFFiO+/FjdFhqVuS4Q/NgOlb7nCBe/UaBebd9NpuURG+8u/V+46jtqKRtVsSO1+QZQBt2nSpYCqxWIjxMowRxS4O/zlrOVbyjv/AjchOajufKJwckkrkJDyQDYlUdW+eqs43tf0XsJ9k4NHRVVHAQQ== 036558f550b1d398d2325d892e50ef25b0f663ae13f70d0b304a15f07030061ace MEUCIQCE9MgU+HfcHkKE8zNzNeCEdDBJuQatA6C2sTJ9mVKK7wIgX4w9r0tz4s9qeuW0UjNliDatJ4X7pS3/atADSqPat0U=
-nick=J559UPUSLLjHJpaB message=!sig geHTf1n88eKeUnVOj7bIrJF1KFCN03IQhZD0cR17Q7jPSn2DZrrvMaRNkjZRyF+zGnWFwd69kwLRU0ftCaMf/3lw+05UovVCREiyXWUtPJa7XAY2NW4iMmTnGTp8f9RLgDcDhiZayKXTpzBDC9r6WAt6wiD0lej5uw7dmluKSUyfXW8sOYPmLm4iJAPcbGeJiQfiR9zBeX8w+6Kz4bkaiue41SzQP/h9avPV2XIX4kVQQ3jLfQyHww== 038f90ab260df440cef82a981146b509eb9df019884e145158230e8babc17d7be4 MEQCIEo5Pau9zqW2lw+B2AYTYuTO5TDbBkgsOk0bqT+SQctKAiBO1nbsmYTy7E0Qd7jAxko1Gq6Yk0Q6DerByuEuk5IBSQ==
-nick=J55z23xdjxJjC7er message=!sig A5CWvqmYCOiZBEEi9iHVpQL0oO9B7VIIzuU9QhkzXOw+iD916C9b+Yk3eTxrtf+qaLARQ7eui6zdPNek95EdmqCEqM/myeeuBVSy9KrcB9xU0sdnuCu4+g13jVe9Pkvd1iizZ8GCNP7SejEzeltNr0a1lR+M0kKtj4XI+nDTxhisSzL8PDXsqoOMcrDjegna3TZsJeKviu8r/1T/zWwTQtRCXqruLnflqXNLtZoyFmoaO1GurgkNHA== 029a8beadec242f04f2295787ac0175b960e2d68d115ec65c4310de7ce3fa2cec0 MEQCIHpTxVkwtvm7agbp47Z5V0We8jxXkfZDUFsW2tZwTZdHAiA9JnYvo74hF3RihzHw2l+ufTOmC/3ddBpxkB9+AdZvzA==
+nick=J6CFffuuewjG44UJ message=!sig xH9IAMo2fvG+g+DAbLNOPsGsJCDm6r+ZY5QM7p+SRsixbqSwXcBQAn7Mnw1rS+uGlrJkM8ossX5VHKjdKDhTXQVLawR7XgiVFFFiO+/FjdFhqVuS4Q/NgOlb7nCBe/UaBebd9NpuURG+8u/V+46jtqKRtVsSO1+QZQBt2nSpYCqxWIjxMowRxS4O/zlrOVbyjv/AjchOajufKJwckkrkJDyQDYlUdW+eqs43tf0XsJ9k4NHRVVHAQQ== 036558f550b1d398d2325d892e50ef25b0f663ae13f70d0b304a15f07030061ace MEUCIQCE9MgU+HfcHkKE8zNzNeCEdDBJuQatA6C2sTJ9mVKK7wIgX4w9r0tz4s9qeuW0UjNliDatJ4X7pS3/atADSqPat0U=
+nick=J659UPUSLLjHJpaB message=!sig geHTf1n88eKeUnVOj7bIrJF1KFCN03IQhZD0cR17Q7jPSn2DZrrvMaRNkjZRyF+zGnWFwd69kwLRU0ftCaMf/3lw+05UovVCREiyXWUtPJa7XAY2NW4iMmTnGTp8f9RLgDcDhiZayKXTpzBDC9r6WAt6wiD0lej5uw7dmluKSUyfXW8sOYPmLm4iJAPcbGeJiQfiR9zBeX8w+6Kz4bkaiue41SzQP/h9avPV2XIX4kVQQ3jLfQyHww== 038f90ab260df440cef82a981146b509eb9df019884e145158230e8babc17d7be4 MEQCIEo5Pau9zqW2lw+B2AYTYuTO5TDbBkgsOk0bqT+SQctKAiBO1nbsmYTy7E0Qd7jAxko1Gq6Yk0Q6DerByuEuk5IBSQ==
+nick=J65z23xdjxJjC7er message=!sig A5CWvqmYCOiZBEEi9iHVpQL0oO9B7VIIzuU9QhkzXOw+iD916C9b+Yk3eTxrtf+qaLARQ7eui6zdPNek95EdmqCEqM/myeeuBVSy9KrcB9xU0sdnuCu4+g13jVe9Pkvd1iizZ8GCNP7SejEzeltNr0a1lR+M0kKtj4XI+nDTxhisSzL8PDXsqoOMcrDjegna3TZsJeKviu8r/1T/zWwTQtRCXqruLnflqXNLtZoyFmoaO1GurgkNHA== 029a8beadec242f04f2295787ac0175b960e2d68d115ec65c4310de7ce3fa2cec0 MEQCIHpTxVkwtvm7agbp47Z5V0We8jxXkfZDUFsW2tZwTZdHAiA9JnYvo74hF3RihzHw2l+ufTOmC/3ddBpxkB9+AdZvzA==
 """
 
 """
@@ -151,14 +151,14 @@ nick=J55z23xdjxJjC7er message=!sig A5CWvqmYCOiZBEEi9iHVpQL0oO9B7VIIzuU9QhkzXOw+i
 2016-12-01 15:27:39,968 [MainThread  ] [DEBUG]  rpc: gettxout ['3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c', 1, False]
 2016-12-01 15:27:39,969 [MainThread  ] [DEBUG]  rpc: gettxout ['498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3', 0, False]
 2016-12-01 15:27:39,971 [MainThread  ] [DEBUG]  found good sig at index=1
-2016-12-01 15:27:39,971 [MainThread  ] [DEBUG]  nick = J5CFffuuewjG44UJ sent all sigs, removing from nonrespondant list
+2016-12-01 15:27:39,971 [MainThread  ] [DEBUG]  nick = J6CFffuuewjG44UJ sent all sigs, removing from nonrespondant list
 2016-12-01 15:27:39,971 [MainThread  ] [DEBUG]  rpc: gettxout ['03243f4a659e278a1333f8308f6aaf32db4692ee7df0340202750fd6c09150f6', 1, False]
 2016-12-01 15:27:39,972 [MainThread  ] [DEBUG]  rpc: gettxout ['498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3', 0, False]
 2016-12-01 15:27:39,973 [MainThread  ] [DEBUG]  found good sig at index=0
-2016-12-01 15:27:39,973 [MainThread  ] [DEBUG]  nick = J559UPUSLLjHJpaB sent all sigs, removing from nonrespondant list
+2016-12-01 15:27:39,973 [MainThread  ] [DEBUG]  nick = J659UPUSLLjHJpaB sent all sigs, removing from nonrespondant list
 2016-12-01 15:27:43,937 [MainThread  ] [DEBUG]  rpc: gettxout ['498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3', 0, False]
 2016-12-01 15:27:43,938 [MainThread  ] [DEBUG]  found good sig at index=2
-2016-12-01 15:27:43,938 [MainThread  ] [DEBUG]  nick = J55z23xdjxJjC7er sent all sigs, removing from nonrespondant list
+2016-12-01 15:27:43,938 [MainThread  ] [DEBUG]  nick = J65z23xdjxJjC7er sent all sigs, removing from nonrespondant list
 2016-12-01 15:27:43,938 [MainThread  ] [DEBUG]  all makers have sent their signatures
 2016-12-01 15:27:43,938 [MainThread  ] [DEBUG]  INFO:Transaction is valid, signing..
 2016-12-01 15:27:43,943 [MainThread  ] [DEBUG]

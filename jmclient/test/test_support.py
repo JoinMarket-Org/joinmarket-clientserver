@@ -54,8 +54,8 @@ def test_random_funcs():
     assert e_info.match("Need: 5 probabilities.")
 
 def test_calc_cjfee():
-    assert calc_cj_fee("absoffer", 3000, 200000000) == 3000
-    assert calc_cj_fee("reloffer", "0.01", 100000000) == 1000000
+    assert calc_cj_fee("swabsoffer", 3000, 200000000) == 3000
+    assert calc_cj_fee("swreloffer", "0.01", 100000000) == 1000000
     with pytest.raises(RuntimeError) as e_info:
         calc_cj_fee("dummyoffer", 2, 3)
 
@@ -101,7 +101,7 @@ def test_choose_orders():
     #(b) add an unrecognized ordertype
     #(c) put an order with wrong minsize
     orderbook.append({u'counterparty': u'fake',
-                      u'ordertype': u'absoffer', u'oid': 0,
+                      u'ordertype': u'swabsoffer', u'oid': 0,
                       u'minsize': 7500000, u'txfee': 1000,
                       u'maxsize': 599972700, u'cjfee': 9000})
     result, cjamount, total_fee = choose_sweep_orders(orderbook, 50000000,

@@ -4,7 +4,7 @@ from __future__ import absolute_import
 
 import pytest
 from jmclient import (get_schedule, load_program_config, start_reactor,
-                      Taker, get_log, JMTakerClientProtocolFactory, jm_single)
+                      Taker, get_log, JMClientProtocolFactory, jm_single)
 from jmclient.client_protocol import JMProtocolError, JMTakerClientProtocol
 import os
 from twisted.python.log import startLogging, err
@@ -129,8 +129,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, n_counterparties):
-        show_receipt("JMSETUP", role,n_counterparties)
+    def on_JM_SETUP(self, role, initdata):
+        show_receipt("JMSETUP", role, initdata)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -204,9 +204,9 @@ class JMTestServerProtocol(JMBaseProtocol):
 class JMTestServerProtocolFactory(protocol.ServerFactory):
     protocol = JMTestServerProtocol
 
-class DummyClientProtocolFactory(JMTakerClientProtocolFactory):
+class DummyClientProtocolFactory(JMClientProtocolFactory):
     def buildProtocol(self, addr):
-        return JMTakerClientProtocol(self, self.taker, nick_priv="aa"*32)
+        return JMTakerClientProtocol(self, self.client, nick_priv="aa"*32)
 
 class TrialTestJMClientProto(unittest.TestCase):
 
@@ -228,7 +228,7 @@ class TrialTestJMClientProto(unittest.TestCase):
             takers[i].set_fail_utxos(p[1])
             takers[i].testflag = True
             if i != 0:
-                clientfactories.append(JMTakerClientProtocolFactory(takers[i]))
+                clientfactories.append(JMClientProtocolFactory(takers[i]))
                 clientconn = reactor.connectTCP("localhost", 27184, clientfactories[i])
                 self.addCleanup(clientconn.disconnect)
             else:

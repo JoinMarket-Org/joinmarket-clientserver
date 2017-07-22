@@ -10,7 +10,8 @@ import pytest
 import json
 from base64 import b64encode
 from jmclient import (load_program_config, jm_single, set_commitment_file,
-                      get_commitment_file, AbstractWallet, Taker)
+                      get_commitment_file, AbstractWallet, Taker,
+                      get_p2sh_vbyte)
 from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
                              t_maker_response, t_chosen_orders, t_dummy_ext)
 
@@ -37,6 +38,22 @@ class DummyWallet(AbstractWallet):
     def sign_tx(self, tx, addrs):
         print("Pretending to sign on addresses: " + str(addrs))
         return tx
+
+    def sign(self, tx, i, priv, amount):
+        """Sign a transaction; the amount field
+        triggers the segwit style signing.
+        """
+        print("About to sign for this amount: " + str(amount))
+        return tx
+
+    def get_txtype(self):
+        """Return string defining wallet type
+        for purposes of transaction size estimates
+        """
+        return 'p2sh-p2wpkh'
+
+    def get_vbyte(self):
+        return get_p2sh_vbyte()
 
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
@@ -199,7 +216,7 @@ def test_auth_pub_not_found(createcmtdata):
         ([(0, 5000000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, True,
          2, False, None, None), #test too much coins
         ([(0, 0, 5, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
-         2, False, ["J559UPUSLLjHJpaB", "J55z23xdjxJjC7er", 0], None), #test inadequate for sweep
+         2, False, ["J659UPUSLLjHJpaB", "J65z23xdjxJjC7er", 0], None), #test inadequate for sweep
     ])
 def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
                     notauthed, ignored, nocommit):
@@ -242,7 +259,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
     maker_response = copy.deepcopy(t_maker_response)
     if notauthed:
         #Doctor one of the maker response data fields
-        maker_response["J559UPUSLLjHJpaB"][1] = "xx" #the auth pub
+        maker_response["J659UPUSLLjHJpaB"][1] = "xx" #the auth pub
     if schedule[0][1] == 199850000:
         #triggers negative change
         #makers offer 3000 txfee; we estimate ~ 147*10 + 2*34 + 10=1548 bytes
@@ -310,7 +327,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
     with pytest.raises(NotImplementedError) as e_info:
         taker.prepare_my_bitcoin_data()
     with pytest.raises(NotImplementedError) as e_info:
-        taker.sign_tx("a", "b", "c")
+        taker.sign_tx("a", "b", "c", "d")
     with pytest.raises(NotImplementedError) as e_info:
         a = taker.coinjoin_address()
     taker.wallet.inject_addr_get_failure = True
@@ -421,7 +438,7 @@ def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
     ])
 def test_auth_counterparty(schedule):
     taker = get_taker(schedule=schedule)
-    first_maker_response = t_maker_response["J559UPUSLLjHJpaB"]
+    first_maker_response = t_maker_response["J659UPUSLLjHJpaB"]
     utxo, auth_pub, cjaddr, changeaddr, sig, maker_pub = first_maker_response
     auth_pub_tweaked = auth_pub[:8] + auth_pub[6:8] + auth_pub[10:]
     sig_tweaked = sig[:8] + sig[6:8] + sig[10:]

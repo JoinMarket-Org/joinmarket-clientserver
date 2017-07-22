@@ -23,7 +23,7 @@ from jmclient import (load_program_config, jm_single, sync_wallet,
                       AbstractWallet, get_p2pk_vbyte, get_log, Wallet, select,
                       select_gradual, select_greedy, select_greediest,
                       estimate_tx_fee, encryptData, get_network, WalletError,
-                      BitcoinCoreWallet, BitcoinCoreInterface)
+                      BitcoinCoreWallet, BitcoinCoreInterface, SegwitWallet)
 from jmbase.support import chunks
 from taker_test_data import t_obtained_tx, t_raw_signed_tx
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -49,6 +49,7 @@ def do_tx(wallet, amount):
 
 def test_query_utxo_set(setup_wallets):
     load_program_config()
+    jm_single().bc_interface.tick_forward_chain_interval = 1
     wallet = create_wallet_for_sync("wallet4utxo.json", "4utxo",
                                     [2, 3, 0, 0, 0],
                                     ["wallet4utxo.json", "4utxo", [2, 3]])
@@ -105,20 +106,20 @@ def create_wallet_for_sync(wallet_file, password, wallet_structure, a):
          'import-pwd'),
         #Uncomment all these for thorough tests. Passing currently.
         #Lots of used addresses
-        (7, 1, [51, 3, 4, 5, 6], 150000000, 'test_import_wallet.json',
-         'import-pwd'),
-        (3, 1, [3, 1, 4, 5, 6], 50000000, 'test_import_wallet.json',
-         'import-pwd'),
+        #(7, 1, [51, 3, 4, 5, 6], 150000000, 'test_import_wallet.json',
+        # 'import-pwd'),
+        #(3, 1, [3, 1, 4, 5, 6], 50000000, 'test_import_wallet.json',
+        # 'import-pwd'),
         #No spams/fakes
-        (2, 0, [5, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
-         'import-pwd'),
+        #(2, 0, [5, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
+        # 'import-pwd'),
         #Lots of transactions and fakes
-        (25, 30, [30, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
-         'import-pwd'),
+        #(25, 30, [30, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
+        # 'import-pwd'),
     ])
 def test_wallet_sync_with_fast(setup_wallets, num_txs, fake_count,
                                wallet_structure, amount, wallet_file, password):
-
+    jm_single().bc_interface.tick_forward_chain_interval = 1
     wallet = create_wallet_for_sync(wallet_file, password, wallet_structure,
                                     [num_txs, fake_count, wallet_structure,
                                      amount, wallet_file, password])
@@ -338,9 +339,9 @@ def create_default_testnet_wallet():
     pathtowallet = os.path.join(walletdir, testwalletname)
     if os.path.exists(pathtowallet):
         os.remove(pathtowallet)
-    seed = "hello"
+    seed = "deadbeef"
     return (walletdir, pathtowallet, testwalletname,
-            Wallet(seed,
+            SegwitWallet(seed,
                    None,
                    5,
                    6,
@@ -350,8 +351,10 @@ def create_default_testnet_wallet():
 
 @pytest.mark.parametrize(
     "includecache, wrongnet, storepwd, extendmd, pwdnumtries", [
-        (False, False, False, False, 1000), (True, False, False, True, 1),
-        (False, True, False, False, 1), (False, False, True, False, 1)
+        (False, False, False, False, 100),
+        (True, False, False, True, 1),
+        (False, True, False, False, 1),
+        (False, False, True, False, 1)
     ])
 def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
                        extendmd, pwdnumtries):
@@ -359,15 +362,15 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
     )
     assert wallet.get_key(
         4, 1,
-        17) == "1289ca322f96673acef83f396a9735840e3ab69f0459cf9bfa8d9985a876534401"
-    assert wallet.get_addr(2, 0, 5) == "myWPu9QJWHGE79XAmuKkwKgNk8vsr5evpk"
+        17) == "96095d7542e4e832c476b9df7e49ca9e5be61ad3bb8c8a3bdd8e141e2f4caf9101"
+    assert wallet.get_addr(2, 0, 5) == "2NBUxbEQrGPKrYCV6d4o7Y4AtJ34Uy6gZZg"
     jm_single().bc_interface.wallet_synced = True
-    assert wallet.get_new_addr(1, 0) == "mi88ZgDGPmarzcsU6S437h9CY9BLmgH5M6"
-    assert wallet.get_external_addr(3) == "mvChQuChnXVhqvH67wfMxrodPQ7xccdVJU"
+    assert wallet.get_new_addr(1, 0) == "2Mz817RE6zqywgkG2h9cATUoiXwnFSxufk2"
+    assert wallet.get_external_addr(3) == "2N3gn65WXEzbLnjk5FLDZPc1pL6ebvZAmoA"
     addr3internal = wallet.get_internal_addr(3)
-    assert addr3internal == "mv26o79Bauf2miJMoxoSu1vXmfXnk85YPQ"
+    assert addr3internal == "2N5NMTYogAyrGhDtWBnVQUp1kgwwFzcf7UM"
     assert wallet.get_key_from_addr(
-        addr3internal) == "2a283c9a2168a25509e2fb944939637228c50c8b4fecd9024650316c4584246501"
+        addr3internal) == "089a7173314d29f99e02a37e36da517ce41537a317c83284db1f33dda0af0cc201"
     dummyaddr = "mvw1NazKDRbeNufFANqpYNAANafsMC2zVU"
     assert not wallet.get_key_from_addr(dummyaddr)
     #Make a new Wallet(), and prepare a testnet wallet file for this wallet
@@ -393,7 +396,7 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
         f.write(walletfile)
     if wrongnet:
         with pytest.raises(ValueError) as e_info:
-            Wallet(testwalletname,
+            SegwitWallet(testwalletname,
                    password,
                    5,
                    6,
@@ -406,7 +409,7 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
         with pytest.raises(WalletError) as e_info:
             wrongpwd = "".join([random.choice(ascii_letters) for _ in range(20)
                                ])
-            Wallet(testwalletname,
+            SegwitWallet(testwalletname,
                    wrongpwd,
                    5,
                    6,
@@ -414,19 +417,19 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
                    storepassword=storepwd)
 
     with pytest.raises(WalletError) as e_info:
-        Wallet(testwalletname,
+        SegwitWallet(testwalletname,
                None,
                5,
                6,
                extend_mixdepth=extendmd,
                storepassword=storepwd)
-    newwallet = Wallet(testwalletname,
+    newwallet = SegwitWallet(testwalletname,
                        password,
                        5,
                        6,
                        extend_mixdepth=extendmd,
                        storepassword=storepwd)
-    assert newwallet.seed == seed
+    assert newwallet.seed == wallet.entropy_to_seed(seed)
     #now we have a functional wallet + file, update the cache; first try
     #with failed paths
     oldpath = newwallet.path
@@ -500,26 +503,24 @@ def test_imported_privkey(setup_wallets):
                 jm_single().bc_interface.sync_wallet(newwallet)
     load_program_config()
 
-
 def test_add_remove_utxos(setup_wallets):
     #Make a fake wallet and inject and then remove fake utxos
-    walletdir, pathtowallet, testwalletname, wallet = create_default_testnet_wallet(
-    )
-    assert wallet.get_addr(2, 0, 5) == "myWPu9QJWHGE79XAmuKkwKgNk8vsr5evpk"
-    wallet.addr_cache["myWPu9QJWHGE79XAmuKkwKgNk8vsr5evpk"] = (2, 0, 5)
-    #'76a914c55738deaa9861b6022e53a129968cbf354898b488ac'
+    walletdir, pathtowallet, testwalletname, wallet = create_default_testnet_wallet()
+    assert wallet.get_addr(2, 0, 5) == "2NBUxbEQrGPKrYCV6d4o7Y4AtJ34Uy6gZZg"
+    wallet.addr_cache["2NBUxbEQrGPKrYCV6d4o7Y4AtJ34Uy6gZZg"] = (2, 0, 5)
+    #'a914c80b3c03b96c0da5ef983942d9e541cb788aed8787'
     #these calls automatically update the addr_cache:
-    assert wallet.get_new_addr(1, 0) == "mi88ZgDGPmarzcsU6S437h9CY9BLmgH5M6"
-    #76a9141c9761f5fef73bef6aca378c930c59e7e795088488ac
-    assert wallet.get_external_addr(3) == "mvChQuChnXVhqvH67wfMxrodPQ7xccdVJU"
-    #76a914a115fa0394ce881437a96d443e236b39e07db1f988ac 
+    assert wallet.get_new_addr(1, 0) == "2Mz817RE6zqywgkG2h9cATUoiXwnFSxufk2"
+    #a9144b6b3836a1708fd38d4728e41b86e69d5bb15d5187
+    assert wallet.get_external_addr(3) == "2N3gn65WXEzbLnjk5FLDZPc1pL6ebvZAmoA"
+    #a914728673d95ceafa892ed82f9cc23c8bf1700b6c6187
     #using the above pubkey scripts:
     faketxforwallet = {'outs': [
-        {'script': '76a914c55738deaa9861b6022e53a129968cbf354898b488ac',
+        {'script': 'a914c80b3c03b96c0da5ef983942d9e541cb788aed8787',
          'value': 110000000},
-        {'script': '76a9141c9761f5fef73bef6aca378c930c59e7e795088488ac',
+        {'script': 'a9144b6b3836a1708fd38d4728e41b86e69d5bb15d5187',
          'value': 89910900},
-        {'script': '76a914a115fa0394ce881437a96d443e236b39e07db1f988ac',
+        {'script': 'a914728673d95ceafa892ed82f9cc23c8bf1700b6c6187',
          'value': 90021000},
         {'script':
          '76a9145ece2dac945c8ff5b2b6635360ca0478ade305d488ac',  #not ours
@@ -554,3 +555,4 @@ def test_add_remove_utxos(setup_wallets):
 @pytest.fixture(scope="module")
 def setup_wallets():
     load_program_config()
+    jm_single().bc_interface.tick_forward_chain_interval = 2

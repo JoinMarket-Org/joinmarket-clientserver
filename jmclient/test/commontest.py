@@ -13,7 +13,7 @@ import platform
 from decimal import Decimal
 
 from jmclient import (jm_single, Wallet, get_log, estimate_tx_fee,
-                      BlockchainInterface)
+                      BlockchainInterface, get_p2sh_vbyte)
 from jmbase.support import chunks
 import jmbitcoin as btc
 
@@ -40,7 +40,8 @@ class DummyBlockchainInterface(BlockchainInterface):
                       unconfirmfun,
                       confirmfun,
                       notifyaddr,
-                      timeoutfun=None):
+                      timeoutfun=None,
+                      vb=None):
         pass
     
     def pushtx(self, txhex):
@@ -86,7 +87,8 @@ class DummyBlockchainInterface(BlockchainInterface):
             return results
         if txouts[0] in known_outs:
             return [{'value': 200000000,
-                    'address': btc.pubkey_to_address(known_outs[txouts[0]], magicbyte=0x6f),
+                    'address': btc.pubkey_to_p2sh_p2wpkh_address(
+                        known_outs[txouts[0]], get_p2sh_vbyte()),
                     'confirms': 20}]
         for t in txouts:
             result_dict = {'value': 10000000000,
