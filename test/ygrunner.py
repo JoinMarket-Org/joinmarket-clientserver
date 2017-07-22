@@ -12,7 +12,7 @@ from __future__ import absolute_import
    --btcpwd=123456abcdef --btcconf=/blah/bitcoin.conf \
    --nirc=2 -s test/ygrunner.py
    '''
-from commontest import make_wallets
+from common import make_wallets
 import os
 import pytest
 import sys

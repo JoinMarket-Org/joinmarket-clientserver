@@ -98,7 +98,7 @@ class BlockchainInterface(object):
         required for inclusion in the next N blocks.
 	'''
 
-class BlockchaininfoInterface(BlockchainInterface):
+class BlockchaininfoInterface(BlockchainInterface): #pragma: no cover
     BCINFO_MAX_ADDR_REQ_COUNT = 20
 
     def __init__(self, testnet=False):

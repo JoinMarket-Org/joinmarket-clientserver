@@ -7,7 +7,7 @@ import os
 import time
 import binascii
 import json
-from commontest import make_wallets
+from common import make_wallets
 from pprint import pformat
 import jmbitcoin as btc
 import pytest
