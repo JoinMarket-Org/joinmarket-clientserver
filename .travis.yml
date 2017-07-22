@@ -40,9 +40,11 @@ script:
  - chmod 600 /home/travis/.bitcoin/bitcoin.conf
  - mkdir logs
  - mkdir wallets
- -  python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --btcconf=/home/travis/.bitcoin/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 
+ -  python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --btcconf=/home/travis/.bitcoin/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 --ignore jmclient/test/test_blockr.py
 after_success:
  - coveralls
 branches:
  only:
   - master 
+  - segwitwallets
+
