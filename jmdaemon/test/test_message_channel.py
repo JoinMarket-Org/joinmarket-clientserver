@@ -9,8 +9,7 @@ from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon.daemon_protocol import JMDaemonServerProtocol
 from jmdaemon.protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
-from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels,
-                      JMTakerClientProtocolFactory, Taker, AbstractWallet)
+from jmclient import get_log
 import os
 from jmbase.commands import *
 from msgdata import *
@@ -161,10 +160,6 @@ def test_setup_mc():
     #trigger failure to find nick in privmsg
     mcc.privmsg(cp1+"XXX", "fill", "0")
     #trigger check_privmsg decorator
-    mcc.send_sigs(cp1, ["abc", "def"])
-    mcc.send_pubkey(cp1, "testpubkey")
-    mcc.send_ioauth(cp1, ["abc", "def"], "testpub", "testaddr1", "testaddr2",
-                    "testsig")
     mcc.send_error(cp1, "errormsg")
     mcc.push_tx(cp1, "deadbeef")
     #kill the chan on which the cp is marked active;
@@ -181,14 +176,14 @@ def test_setup_mc():
     del mcc.active_channels[cp1]
     #try sending a privmsg again; this time it should just print a warning,
     #as cp1 is not seen anywhere
-    mcc.send_sigs(cp1, ["abc", "def"])
+    mcc.send_error(cp1, "error")
     #simulate order cancels (even though we have none)
     mcc.cancel_orders([0,1,2])
     #let cp1 be seen on mc2 without having got into active channels;
     #note that this is an illegal pubmsg and is ignored for everything *except*
     #nick_seen (what we need here)
     dmcs[2].on_pubmsg(cp1, "random")
-    mcc.send_sigs(cp1, ["abc", "def"])
+    mcc.send_error(cp1, "error")
     #Try using the proper way of setting up privsmgs
     #first try without box
     mcc.prepare_privmsg(cp1, "auth", "a b c")

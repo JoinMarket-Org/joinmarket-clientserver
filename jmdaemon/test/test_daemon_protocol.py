@@ -8,8 +8,7 @@ from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon.daemon_protocol import JMDaemonServerProtocol
 from jmdaemon.protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
-from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels,
-                      JMTakerClientProtocolFactory, Taker, AbstractWallet)
+from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels)
 import os
 from twisted.python.log import startLogging, err
 from twisted.python.log import msg as tmsg
@@ -206,7 +205,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         #None should be returned requesting a cryptobox for an unknown cp
         assert self.get_crypto_box_from_nick("notrealcp") == None
         #does nothing yet
-        self.on_error()
+        self.on_error("dummy error")
 
     @JMRequestOffers.responder
     def on_JM_REQUEST_OFFERS(self):
