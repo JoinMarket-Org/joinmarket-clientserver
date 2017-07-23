@@ -1,5 +1,13 @@
 ### Notes on upgrading, binaries and compatibility
 
+(You can ignore this whole section if starting from scratch).
+
+#### Upgrading to new segwit version (0.3.0+ of this repo)
+
+See [here](SEGWIT-UPGRADE.md).
+
+#### Notes on upgrading versions generally:
+
 If you just want the executable/GUI/binary version of the code, always use
 the latest version of those files (example: joinmarket-qt.exe for Windows) found
 on the [releases](https://github.com/AdamISZ/joinmarket-clientserver/releases) page.

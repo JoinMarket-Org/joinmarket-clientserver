@@ -161,8 +161,8 @@ class WalletViewEntry(WalletViewBase):
         return self.serclass(self.separator.join([left, addr, amounts, extradata]))
 
     def serialize_wallet_position(self):
-        bippath = self.bip32path + bip32sep + str(self.account) + bip32sep + \
-            str(self.forchange) + bip32sep + "{0:03d}".format(self.aindex)
+        bippath = self.bip32path + bip32sep + str(self.account) + "'" + \
+        bip32sep + str(self.forchange) + bip32sep + "{0:03d}".format(self.aindex)
         assert bip32pathparse(bippath)
         return self.serclass(bippath)
 
@@ -207,7 +207,7 @@ class WalletViewBranch(WalletViewBase):
 
     def serialize_branch_header(self):
         bippath = self.bip32path + bip32sep + str(self.account) + "'" + \
-            bip32sep + str(self.forchange) + "'"
+            bip32sep + str(self.forchange)
         assert bip32pathparse(bippath)
         start = "external addresses" if self.forchange == 0 else "internal addresses"
         if self.forchange == -1:

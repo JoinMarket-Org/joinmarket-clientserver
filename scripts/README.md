@@ -1,5 +1,6 @@
 # Command line scripts for Joinmarket
 
+(If upgrading to version 0.3.0+, don't forget to read [this](../docs/SEGWIT-UPGRADE.md) on upgrading the wallet.)
 
 All user level scripts here.
 
