@@ -1,5 +1,5 @@
 #Protocol version
-JM_VERSION = 6
+JM_VERSION = 5
 
 #Username on all messagechannels; will be set in MessageChannelCollection
 nickname = None
