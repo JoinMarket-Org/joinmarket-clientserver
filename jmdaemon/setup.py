@@ -9,5 +9,5 @@ setup(name='joinmarketdaemon',
       author_email='ekaggata@gmail.com',
       license='GPL',
       packages=['jmdaemon'],
-      install_requires=['txsocksx', 'pyopenssl', 'libnacl', 'joinmarketbase==0.2.2'],
+      install_requires=['txsocksx', 'pyopenssl', 'libnacl', 'joinmarketbase==0.3.0'],
       zip_safe=False)

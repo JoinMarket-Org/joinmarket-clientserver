@@ -1287,7 +1287,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         return result
 
     def estimate_fee_per_kb(self, N):
-        estimate = Decimal(1e8) * Decimal(self.rpc('estimatefee', [N]))
+        estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatefee', [N])))
         if estimate < 0:
             #This occurs when Core has insufficient data to estimate.
             #TODO anything better than a hardcoded default?

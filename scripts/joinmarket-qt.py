@@ -1605,6 +1605,8 @@ def get_wallet_printout(wallet):
 
 ################################
 config_load_error = False
+print('Temporarily disabled in version 0.3.0 waiting for update, please use scripts.')
+sys.exit(0)
 app = QApplication(sys.argv)
 try:
     load_program_config()

@@ -6,10 +6,10 @@ import os
 import time
 import abc
 from optparse import OptionParser
-
+from jmbase import get_password
 from jmclient import (Maker, jm_single, get_network, load_program_config, get_log,
                       SegwitWallet, sync_wallet, JMClientProtocolFactory,
-                      start_reactor, calc_cj_fee)
+                      start_reactor, calc_cj_fee, WalletError)
 
 jlog = get_log()
 
