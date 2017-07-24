@@ -260,10 +260,15 @@ def segwit_txid(tx, hashcode=None):
             reserialized_tx = serialize(dtx)
     return txhash(reserialized_tx, hashcode)
 
-def txhash(tx, hashcode=None):
+def txhash(tx, hashcode=None, check_sw=True):
+    """Creates the appropriate sha256 hash as required
+    either for signing or calculating txids.
+    If check_sw is True it checks the serialized format for
+    segwit flag bytes, and produces the correct form for txid (not wtxid).
+    """
     if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
         tx = changebase(tx, 16, 256)
-    if from_byte_to_int(tx[4]) == 0:
+    if check_sw and from_byte_to_int(tx[4]) == 0:
         if not from_byte_to_int(tx[5]) == 1:
             #This invalid, but a raise is a DOS vector in some contexts.
             return None
@@ -281,7 +286,7 @@ def bin_txhash(tx, hashcode=None):
 
 def ecdsa_tx_sign(tx, priv, hashcode=SIGHASH_ALL, usenonce=None):
     sig = ecdsa_raw_sign(
-        txhash(tx, hashcode),
+        txhash(tx, hashcode, check_sw=False),
         priv,
         True,
         rawmsg=True,
@@ -291,7 +296,7 @@ def ecdsa_tx_sign(tx, priv, hashcode=SIGHASH_ALL, usenonce=None):
 
 def ecdsa_tx_verify(tx, sig, pub, hashcode=SIGHASH_ALL):
     return ecdsa_raw_verify(
-        txhash(tx, hashcode),
+        txhash(tx, hashcode, check_sw=False),
         pub,
         sig[:-2],
         True,
