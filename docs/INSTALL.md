@@ -50,9 +50,9 @@ Then:
     sudo pip install virtualenv
     mkdir jmvenv
     virtualenv jmvenv
-    cd jmvenv; source bin/activate; cd ..
+    source jmvenv/bin/activate
 
-Install this repo in the virtualenv:
+Install this repo:
 
     git clone https://github.com/AdamISZ/joinmarket-clientserver
     cd joinmarket-clientserver

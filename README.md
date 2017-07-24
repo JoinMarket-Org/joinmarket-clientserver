@@ -1,5 +1,23 @@
 # joinmarket-clientserver
+
 Joinmarket refactored to separate client and backend operations
+
+**NOTE: To use current Joinmarket, use the [latest release](https://github.com/AdamISZ/joinmarket-clientserver/releases).
+The master branch is upgraded for segwit and to be used only for testing until the next release.**
+
+### Quickstart
+
+You need to follow the [install guide](docs/INSTALL.md).
+
+The above document will point you to the [segwit upgrade guide](docs/SEGWIT-UPGRADE.md) if you need to update your wallet.
+
+If you are new, follow and read the links in the [usage guide](docs/USAGE.md).
+
+If you are not new to Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
+
+There is a joinmarket-qt GUI included but it's not yet ready for the new segwit version.
+
+### Notes on architectural changes (can be ignored)
 
 Motivation: By separating the code which manages conversation with other
 Joinmarket participants from the code which manages this participant's Bitcoin
@@ -29,8 +47,6 @@ The IRC layer is also implemented here using Twisted, reducing the complexity re
 
 The "server" is just a daemon service that can be run as a separate process (see `scripts/joinmarketd.py`), or for convenience in the same process (the default for command line scripts).
 
-To install, follow the instructions [here](docs/INSTALL.md).
-
-Instructions for running command line scripts are [here](scripts/README.md).
+### TESTING
 
 Instructions for developers for testing [here](docs/TESTING.md).
