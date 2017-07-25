@@ -222,21 +222,24 @@ class TrialTestJMClientProto(unittest.TestCase):
             self.client = client
             self.addCleanup(self.client.transport.loseConnection)
         clientfactories = []
-        takers = [DummyTaker(None, None, callbacks=(None, None, dummy_taker_finished)) for _ in range(len(params))]
+        takers = [DummyTaker(
+            None, ["a", "b"], callbacks=(
+                None, None, dummy_taker_finished)) for _ in range(len(params))]
         for i, p in enumerate(params):
             takers[i].set_fail_init(p[0])
             takers[i].set_fail_utxos(p[1])
             takers[i].testflag = True
             if i != 0:
                 clientfactories.append(JMClientProtocolFactory(takers[i]))
-                clientconn = reactor.connectTCP("localhost", 27184, clientfactories[i])
+                clientconn = reactor.connectTCP("localhost", 27184,
+                                                clientfactories[i])
                 self.addCleanup(clientconn.disconnect)
             else:
                 clientfactories.append(DummyClientProtocolFactory(takers[i]))
                 clientfactory = clientfactories[0]
-                clientconn = reactor.connectTCP("localhost", 27184, clientfactories[0])
+                clientconn = reactor.connectTCP("localhost", 27184,
+                                                clientfactories[0])
                 self.addCleanup(clientconn.disconnect)
-        print("Got here")
 
     def test_waiter(self):
         print("test_main()")
