@@ -223,6 +223,9 @@ def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
         return serialize(signature_form(deserialize(tx), i, script, hashcode))
     newtx = copy.deepcopy(tx)
     for inp in newtx["ins"]:
+        #If tx is passed in in segwit form, it must be switched to non-segwit.
+        if "txinwitness" in inp:
+            del inp["txinwitness"]
         inp["script"] = ""
     newtx["ins"][i]["script"] = script
     if hashcode & 0x1f == SIGHASH_NONE:

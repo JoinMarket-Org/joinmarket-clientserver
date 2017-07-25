@@ -23,9 +23,9 @@ def test_load_config():
     load_program_config(bs="regtest")
     os.makedirs("dummydirforconfig")
     ncp = os.path.join(os.getcwd(), "dummydirforconfig")
-    #need to erase remembered data in global config
     jm_single().config_location = "joinmarket.cfg"
-    load_program_config(config_path=ncp)
+    #TODO hack: the default config won't load on bitcoin-rpc; need to fix.
+    load_program_config(config_path=ncp, bs="blockr")
     os.remove("dummydirforconfig/joinmarket.cfg")
     os.removedirs("dummydirforconfig")
     jm_single().config_location = "joinmarket.cfg"
