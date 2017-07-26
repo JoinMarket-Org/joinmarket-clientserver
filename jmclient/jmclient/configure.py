@@ -11,7 +11,8 @@ from ConfigParser import SafeConfigParser, NoOptionError
 
 import btc
 from jmclient.jsonrpc import JsonRpc
-from jmbase.support import get_log, joinmarket_alert, core_alert, debug_silence
+from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
+                            set_logging_level)
 from jmclient.podle import set_commitment_file
 
 log = get_log()
@@ -130,6 +131,12 @@ socks5_port = 9050, 9050
 #port = 6698, 6667
 #usessl = true, false
 #socks5 = true, true
+
+[LOGGING]
+# Set the log level for the output to the terminal/console
+# Possible choices: DEBUG / INFO / WARNING / ERROR
+# Log level for the files in the logs-folder will always be DEBUG
+console_log_level = INFO
 
 [TIMEOUT]
 maker_timeout_sec = 30
@@ -313,6 +320,11 @@ def load_program_config(config_path=None, bs=None):
                 raise Exception(
                     "Config file does not contain the required option: " + o)
 
+    loglevel = global_singleton.config.get("LOGGING", "console_log_level")
+    try:
+        set_logging_level(loglevel)
+    except:
+        print("Failed to set logging level, must be DEBUG, INFO, WARNING, ERROR")
     try:
         global_singleton.maker_timeout_sec = global_singleton.config.getint(
             'TIMEOUT', 'maker_timeout_sec')

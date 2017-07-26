@@ -45,6 +45,9 @@ def get_log():
     """
     return log
 
+def set_logging_level(level):
+    consoleHandler.setLevel(level)
+
 def chunks(d, n):
     return [d[x:x + n] for x in xrange(0, len(d), n)]
 

@@ -12,6 +12,8 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.internet.ssl import ClientContextFactory
 from twisted.logger import Logger
 from twisted.words.protocols import irc
+from twisted.internet.error import (ConnectionLost, ConnectionAborted,
+                                    ConnectionClosed, ConnectionDone)
 from jmdaemon.message_channel import MessageChannel
 from jmbase.support import get_log, chunks
 from txsocksx.client import SOCKS5ClientEndpoint
@@ -54,7 +56,7 @@ class TxIRCFactory(protocol.ClientFactory):
         return p
 
     def clientConnectionLost(self, connector, reason):
-        log.info('IRC connection lost: ' + str(reason))
+        log.debug('IRC connection lost: ' + str(reason))
         if not self.wrapper.give_up:
             if reactor.running:
                 log.info('Attempting to reconnect...')
@@ -182,7 +184,6 @@ class txIRC_Client(irc.IRCClient, object):
         return irc.IRCClient.connectionMade(self)
 
     def connectionLost(self, reason=protocol.connectionDone):
-        wlog('connectionLost:')
         if self.wrapper.on_disconnect:
             reactor.callLater(0.0, self.wrapper.on_disconnect, self.wrapper)
         return irc.IRCClient.connectionLost(self, reason)

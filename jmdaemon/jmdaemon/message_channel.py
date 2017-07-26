@@ -17,7 +17,8 @@ class CJPeerError(StandardError):
 
 
 class MChannelThread(threading.Thread):
-
+    """Class used only in testing.
+    """
     def __init__(self, mc):
         threading.Thread.__init__(self, name='MCThread')
         self.daemon = True
