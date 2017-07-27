@@ -15,8 +15,8 @@ from pprint import pformat
 from optparse import OptionParser
 import jmclient.btc as btc
 from jmbase import get_password
-from jmclient import (load_program_config, jm_single, get_p2pk_vbyte,
-                      Wallet, WalletError, sync_wallet, add_external_commitments,
+from jmclient import (load_program_config, jm_single, get_p2pk_vbyte, SegwitWallet,
+                      WalletError, sync_wallet, add_external_commitments,
                       generate_podle, update_commitments, PoDLE,
                       set_commitment_file, get_podle_commitments,
                       get_utxo_info, validate_utxo_data, quit)
@@ -177,7 +177,7 @@ def main():
         while True:
             pwd = get_password("Enter wallet decryption passphrase: ")
             try:
-                wallet = Wallet(options.loadwallet,
+                wallet = SegwitWallet(options.loadwallet,
                                 pwd,
                                 options.maxmixdepth,
                                 options.gaplimit)
@@ -231,7 +231,7 @@ def main():
     else:
         quit(parser, 'Invalid syntax')
     if options.validate or options.vonly:
-        if not validate_utxo_data(utxo_data):
+        if not validate_utxo_data(utxo_data, segwit=True):
             quit(parser, "Utxos did not validate, quitting")
     if options.vonly:
         sys.exit(0)

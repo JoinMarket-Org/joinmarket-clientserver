@@ -2,7 +2,7 @@ from __future__ import print_function
 
 import sys, os
 import jmclient.btc as btc
-from jmclient import jm_single, get_p2pk_vbyte
+from jmclient import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
 
 def quit(parser, errmsg): #pragma: no cover
     parser.error(errmsg)
@@ -32,7 +32,7 @@ def get_utxo_info(upriv):
         raise
     return u, priv
     
-def validate_utxo_data(utxo_datas, retrieve=False):
+def validate_utxo_data(utxo_datas, retrieve=False, segwit=False):
     """For each txid: N, privkey, first
     convert the privkey and convert to address,
     then use the blockchain instance to look up
@@ -43,7 +43,11 @@ def validate_utxo_data(utxo_datas, retrieve=False):
     for u, priv in utxo_datas:
         print('validating this utxo: ' + str(u))
         hexpriv = btc.from_wif_privkey(priv, vbyte=get_p2pk_vbyte())
-        addr = btc.privkey_to_address(hexpriv, magicbyte=get_p2pk_vbyte())
+        if segwit:
+            addr = btc.pubkey_to_p2sh_p2wpkh_address(
+                btc.privkey_to_pubkey(hexpriv), get_p2sh_vbyte())
+        else:
+            addr = btc.privkey_to_address(hexpriv, magicbyte=get_p2pk_vbyte())
         print('claimed address: ' + addr)
         res = jm_single().bc_interface.query_utxo_set([u])
         print('blockchain shows this data: ' + str(res))
