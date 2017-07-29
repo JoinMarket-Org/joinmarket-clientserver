@@ -37,7 +37,8 @@ from .commitment_utils import get_utxo_info, validate_utxo_data, quit
 from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
                              restart_wait, get_tumble_log, direct_send,
                              tumbler_filter_orders_callback)
-from .wallet_utils import wallet_tool_main
+from .wallet_utils import (wallet_tool_main, wallet_generate_recover_bip39,
+                           wallet_display)
 from .maker import Maker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
 # Set default logging handler to avoid "No handler found" warnings.

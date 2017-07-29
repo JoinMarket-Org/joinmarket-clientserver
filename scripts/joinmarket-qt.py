@@ -44,16 +44,17 @@ donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 JM_CORE_VERSION = '0.2.2'
 JM_GUI_VERSION = '5'
 
-from jmclient import (load_program_config, get_network, Wallet,
-                      get_p2pk_vbyte, jm_single, validate_address,
+from jmclient import (load_program_config, get_network, SegwitWallet,
+                      get_p2sh_vbyte, jm_single, validate_address,
                       get_log, weighted_order_choose, Taker,
-                      JMTakerClientProtocolFactory, WalletError,
+                      JMClientProtocolFactory, WalletError,
                       start_reactor, get_schedule, get_tumble_schedule,
-                      schedule_to_text, mn_decode, mn_encode, create_wallet_file,
+                      schedule_to_text, create_wallet_file,
                       get_blockchain_interface_instance, sync_wallet, direct_send,
                       RegtestBitcoinCoreInterface, tweak_tumble_schedule,
                       human_readable_schedule_entry, tumbler_taker_finished_update,
-                      get_tumble_log, restart_wait, tumbler_filter_orders_callback)
+                      get_tumble_log, restart_wait, tumbler_filter_orders_callback,
+                      wallet_generate_recover_bip39, wallet_display)
 
 from qtsupport import (ScheduleWizard, TumbleRestartWizard, warnings, config_tips,
                        config_types, TaskThread, QtHandler, XStream, Buttons,
@@ -678,7 +679,7 @@ class SpendTab(QWidget):
         if not self.clientfactory:
             #First run means we need to start: create clientfactory
             #and start reactor Thread
-            self.clientfactory = JMTakerClientProtocolFactory(self.taker)
+            self.clientfactory = JMClientProtocolFactory(self.taker)
             thread = TaskThread(self)
             daemon = jm_single().config.getint("DAEMON", "no_daemon")
             daemon = True if daemon == 1 else False
@@ -1128,18 +1129,24 @@ class JMWalletTab(QWidget):
     def create_menu(self, position):
         item = self.history.currentItem()
         address_valid = False
+        xpub_exists = False
         if item:
-            address = str(item.text(0))
-            try:
-                btc.b58check_to_hex(address)
+            txt = str(item.text(0))
+            if validate_address(txt)[0]:
                 address_valid = True
-            except AssertionError:
-                log.debug('no btc address found, not creating menu item')
+            if "EXTERNAL" in txt:
+                parsed = txt.split()
+                if len(parsed) > 1:
+                    xpub = parsed[1]
+                    xpub_exists = True
 
         menu = QMenu()
         if address_valid:
             menu.addAction("Copy address to clipboard",
-                           lambda: app.clipboard().setText(address))
+                           lambda: app.clipboard().setText(txt))
+        if xpub_exists:
+            menu.addAction("Copy extended pubkey to clipboard",
+                           lambda: app.clipboard().setText(xpub))
         menu.addAction("Resync wallet from blockchain",
                        lambda: w.resyncWallet())
         #TODO add more items to context menu
@@ -1150,7 +1157,7 @@ class JMWalletTab(QWidget):
         l.clear()
         if walletinfo:
             self.mainwindow = self.parent().parent().parent()
-            rows, mbalances, total_bal = walletinfo
+            rows, mbalances, xpubs, total_bal = walletinfo
             if get_network() == 'testnet':
                 self.wallet_name = self.mainwindow.wallet.seed
             else:
@@ -1167,9 +1174,10 @@ class JMWalletTab(QWidget):
                                       mdbalance, '', '', '', ''])
             l.addChild(m_item)
             for forchange in [0, 1]:
-                heading = 'EXTERNAL' if forchange == 0 else 'INTERNAL'
-                heading_end = ' addresses m/0/%d/%d/' % (i, forchange)
-                heading += heading_end
+                heading = "EXTERNAL" if forchange == 0 else "INTERNAL"
+                if walletinfo and heading == "EXTERNAL":
+                    heading_end = ' ' + xpubs[i][forchange]
+                    heading += heading_end
                 seq_item = QTreeWidgetItem([heading, '', '', '', ''])
                 m_item.addChild(seq_item)
                 if not forchange:
@@ -1313,7 +1321,7 @@ class JMMainWindow(QMainWindow):
                 priv = self.wallet.get_key_from_addr(addr)
                 private_keys[addr] = btc.wif_compressed_privkey(
                     priv,
-                    vbyte=get_p2pk_vbyte())
+                    vbyte=111)
                 d.emit(QtCore.SIGNAL('computing_privkeys'))
             d.emit(QtCore.SIGNAL('show_privkeys'))
 
@@ -1411,7 +1419,7 @@ class JMMainWindow(QMainWindow):
                                title="Error")
 
     def selectWallet(self, testnet_seed=None):
-        if get_network() != 'testnet':
+        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
             current_path = os.path.dirname(os.path.realpath(__file__))
             if os.path.isdir(os.path.join(current_path, 'wallets')):
                 current_path = os.path.join(current_path, 'wallets')
@@ -1448,7 +1456,7 @@ class JMMainWindow(QMainWindow):
     def loadWalletFromBlockchain(self, firstarg=None, pwd=None):
         if (firstarg and pwd) or (firstarg and get_network() == 'testnet'):
             try:
-                self.wallet = Wallet(
+                self.wallet = SegwitWallet(
                     str(firstarg),
                     pwd,
                     max_mix_depth=jm_single().config.getint(
@@ -1489,7 +1497,7 @@ class JMMainWindow(QMainWindow):
 
     def generateWallet(self):
         log.debug('generating wallet')
-        if get_network() == 'testnet':
+        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
             seed = self.getTestnetSeed()
             self.selectWallet(testnet_seed=seed)
         else:
@@ -1506,24 +1514,7 @@ class JMMainWindow(QMainWindow):
             return
         return str(text).strip()
 
-    def initWallet(self, seed=None):
-        '''Creates a new mainnet
-        wallet
-        '''
-        if not seed:
-            seed = btc.sha256(os.urandom(64))[:32]
-            words = mn_encode(seed)
-            mb = QMessageBox()
-            seed_recovery_warning = [
-                "WRITE DOWN THIS WALLET RECOVERY SEED.",
-                "If you fail to do this, your funds are",
-                "at risk. Do NOT ignore this step!!!"
-            ]
-            mb.setText("\n".join(seed_recovery_warning))
-            mb.setInformativeText(' '.join(words))
-            mb.setStandardButtons(QMessageBox.Ok)
-            ret = mb.exec_()
-
+    def getPassword(self):
         pd = PasswordDialog()
         while True:
             pd.exec_()
@@ -1534,79 +1525,92 @@ class JMMainWindow(QMainWindow):
                                title="Error")
                 continue
             break
+        self.textpassword = str(pd.new_pw.text())
 
-        walletfile = create_wallet_file(str(pd.new_pw.text()), seed)
+    def getPasswordKey(self):
+        self.getPassword()
+        password_key = btc.bin_dbl_sha256(self.textpassword)
+        return (self.textpassword, password_key)
+
+    def getWalletName(self):
         walletname, ok = QInputDialog.getText(self, 'Choose wallet name',
                                               'Enter wallet file name:',
                                               QLineEdit.Normal, "wallet.json")
         if not ok:
             JMQtMessageBox(self, "Create wallet aborted", mbtype='warn')
-            return
-        #create wallets subdir if it doesn't exist
-        if not os.path.exists('wallets'):
-            os.makedirs('wallets')
-        walletpath = os.path.join('wallets', str(walletname))
-        # Does a wallet with the same name exist?
-        if os.path.isfile(walletpath):
-            JMQtMessageBox(self,
-                           walletpath + ' already exists. Aborting.',
-                           mbtype='warn',
-                           title="Error")
-            return
-        else:
-            fd = open(walletpath, 'w')
-            fd.write(walletfile)
-            fd.close()
-            JMQtMessageBox(self,
-                           'Wallet saved to ' + str(walletname),
+            return None
+        self.walletname = str(walletname)
+        return self.walletname
+
+    def displayWords(self, words):
+        mb = QMessageBox()
+        seed_recovery_warning = [
+            "WRITE DOWN THIS WALLET RECOVERY SEED.",
+            "If you fail to do this, your funds are",
+            "at risk. Do NOT ignore this step!!!"
+        ]
+        mb.setText("\n".join(seed_recovery_warning))
+        mb.setInformativeText(words)
+        mb.setStandardButtons(QMessageBox.Ok)
+        ret = mb.exec_()
+
+    def initWallet(self, seed=None):
+        '''Creates a new mainnet
+        wallet
+        '''
+        if not seed:
+            success = wallet_generate_recover_bip39("generate",
+                                                   "wallets",
+                                                   "wallet.json",
+                                                   callbacks=(self.displayWords,
+                                                              None,
+                                                              self.getPasswordKey,
+                                                              self.getWalletName))
+            if not success:
+                JMQtMessageBox(self, "Failed to create new wallet file.",
+                               title="Error", mbtype="warn")
+                return
+            JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                            title="Wallet created")
-            self.loadWalletFromBlockchain(
-                str(walletname), str(pd.new_pw.text()))
+            self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword)
+        else:
+            print('no seed to do')
 
 
 def get_wallet_printout(wallet):
     """Given a joinmarket wallet, retrieve the list of
-    addresses and corresponding balances to be displayed;
-    this could/should be a re-used function for both
-    command line and GUI.
-    The format of the retrieved data is:
+    addresses and corresponding balances to be displayed.
+    We retrieve a WalletView abstraction, and iterate over
+    sub-objects to arrange the per-mixdepth and per-address lists.
+    The format of the returned data is:
     rows: is of format [[[addr,index,bal,used],[addr,...]]*5,
     [[addr, index,..], [addr, index..]]*5]
     mbalances: is a simple array of 5 mixdepth balances
-    total_balance: whole wallet
+    xpubs: [[xpubext, xpubint], ...]
     Bitcoin amounts returned are in btc, not satoshis
+    TODO add metadata such as xpubs
     """
+    walletview = wallet_display(wallet, jm_single().config.getint("GUI",
+                                            "gaplimit"), False, serialized=False)
     rows = []
     mbalances = []
-    total_balance = 0
-    for m in range(wallet.max_mix_depth):
+    xpubs = []
+    for j, acct in enumerate(walletview.children):
+        mbalances.append(acct.get_fmt_balance())
         rows.append([])
-        balance_depth = 0
-        for forchange in [0, 1]:
-            rows[m].append([])
-            for k in range(wallet.index[m][forchange] + jm_single(
-            ).config.getint("GUI", "gaplimit")):
-                addr = wallet.get_addr(m, forchange, k)
-                balance = 0.0
-                for addrvalue in wallet.unspent.values():
-                    if addr == addrvalue['address']:
-                        balance += addrvalue['value']
-                balance_depth += balance
-                used = ('used' if k < wallet.index[m][forchange] else 'new')
-                if balance > 0.0 or (k >= wallet.index[m][forchange] and
-                                     forchange == 0):
-                    rows[m][forchange].append([addr, str(k), "{0:.8f}".format(
-                        balance / 1e8), used])
-        mbalances.append(balance_depth)
-        total_balance += balance_depth
-
-    return (rows, ["{0:.8f}".format(x / 1e8) for x in mbalances],
-            "{0:.8f}".format(total_balance / 1e8))
+        xpubs.append([])
+        for i, branch in enumerate(acct.children):
+            xpubs[j].append(branch.xpub)
+            rows[j].append([])
+            for entry in branch.children:
+                rows[-1][i].append([entry.serialize_address(),
+                                    entry.serialize_wallet_position(),
+                                    entry.serialize_amounts(),
+                                    entry.serialize_extra_data()])
+    return (rows, mbalances, xpubs, walletview.get_fmt_balance())
 
 ################################
 config_load_error = False
-print('Temporarily disabled in version 0.3.0 waiting for update, please use scripts.')
-sys.exit(0)
 app = QApplication(sys.argv)
 try:
     load_program_config()

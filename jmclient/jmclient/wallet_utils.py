@@ -299,9 +299,11 @@ def wallet_showutxos(wallet, showprivkey):
 
     return json.dumps(unsp, indent=4)
 
-def wallet_display(wallet, gaplimit, showprivkey, displayall=False):
+def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
+                   serialized=True):
     """build the walletview object,
-    then return its serialization directly
+    then return its serialization directly if serialized,
+    else return the WalletView object.
     """
     acctlist = []
     rootpath = wallet.get_root_path()
@@ -342,9 +344,12 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False):
         acctlist.append(WalletViewAccount(rootpath, m, branchlist,
                                           xpub=xpub_account))
     walletview = WalletView(rootpath, acctlist)
-    return walletview.serialize()
+    if serialized:
+        return walletview.serialize()
+    else:
+        return walletview
 
-def get_password_check():
+def cli_password_check():
     password = get_password('Enter wallet encryption passphrase: ')
     password2 = get_password('Reenter wallet encryption passphrase: ')
     if password != password2:
@@ -353,13 +358,23 @@ def get_password_check():
     password_key = btc.bin_dbl_sha256(password)
     return password, password_key
 
-def persist_walletfile(walletspath, default_wallet_name, encrypted_seed):
+def cli_get_walletname():
+    return raw_input('Input wallet file name (default: wallet.json): ')
+
+def cli_user_words(words):
+    print('Write down this wallet recovery seed\n\n' + words +'\n')
+
+def cli_user_words_entry():
+    return raw_input("Input 12 word recovery seed: ")
+
+def persist_walletfile(walletspath, default_wallet_name, encrypted_seed,
+                       callbacks=(cli_get_walletname,)):
     timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     walletfile = json.dumps({'creator': 'joinmarket project',
                              'creation_time': timestamp,
                              'encrypted_seed': encrypted_seed.encode('hex'),
                              'network': get_network()})
-    walletname = raw_input('Input wallet file name (default: wallet.json): ')
+    walletname = callbacks[0]()
     if len(walletname) == 0:
         walletname = default_wallet_name
     walletpath = os.path.join(walletspath, walletname)
@@ -374,25 +389,39 @@ def persist_walletfile(walletspath, default_wallet_name, encrypted_seed):
         print('saved to ' + walletname)
     return True
 
-def wallet_generate_recover_bip39(method, walletspath, default_wallet_name):
+def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
+                                  callbacks=(cli_user_words,
+                                             cli_user_words_entry,
+                                             cli_password_check,
+                                             cli_get_walletname)):
+    """Optionally provide callbacks:
+    0 - display seed
+    1 - enter seed (for recovery)
+    2 - enter password
+    3 - enter wallet name
+    The defaults are for terminal entry.
+    """
     #using 128 bit entropy, 12 words, mnemonic module
     m = Mnemonic("english")
     if method == "generate":
         words = m.generate()
-        print('Write down this wallet recovery seed\n\n' + words +'\n')
+        callbacks[0](words)
     elif method == 'recover':
-        words = raw_input('Input 12 word recovery seed: ')
+        words = callbacks[1]()
     entropy = str(m.to_entropy(words))
-    password, password_key = get_password_check()
+    password, password_key = callbacks[2]()
     if not password:
         return False
     encrypted_entropy = encryptData(password_key, entropy)
-    return persist_walletfile(walletspath, default_wallet_name, encrypted_entropy)
+    return persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
+                              callbacks=(callbacks[3],))
 
 def wallet_generate_recover(method, walletspath,
                             default_wallet_name='wallet.json'):
     if jm_single().config.get("POLICY", "segwit") == "true":
-        return wallet_generate_recover_bip39(method, walletspath, default_wallet_name)
+        #Here using default callbacks for scripts (not used in Qt)
+        return wallet_generate_recover_bip39(method, walletspath,
+                                             default_wallet_name)
     if method == 'generate':
         seed = btc.sha256(os.urandom(64))[:32]
         words = mn_encode(seed)
@@ -406,7 +435,7 @@ def wallet_generate_recover(method, walletspath,
             return False
         seed = mn_decode(words)
         print(seed)
-    password, password_key = get_password_check()
+    password, password_key = cli_password_check()
     if not password:
         return False
     encrypted_seed = encryptData(password_key, seed.decode('hex'))

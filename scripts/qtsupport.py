@@ -25,11 +25,7 @@ from decimal import Decimal
 from PyQt4 import QtCore
 from PyQt4.QtGui import *
 
-from jmclient import (load_program_config, get_network, Wallet,
-                      get_p2pk_vbyte, jm_single, validate_address,
-                      get_log, weighted_order_choose, Taker,
-                      JMTakerClientProtocolFactory, WalletError,
-                      start_reactor, get_schedule, get_tumble_schedule)
+from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
 
 GREEN_BG = "QWidget {background-color:#80ff80;}"
@@ -413,8 +409,8 @@ class MyTreeWidget(QTreeWidget):
         self.setHeaderLabels(headers)
         self.header().setStretchLastSection(False)
         for col in range(len(headers)):
-            sm = QHeaderView.Stretch if col == self.stretch_column else QHeaderView.ResizeToContents
-            self.header().setResizeMode(col, sm)
+            #note, a single stretch column is currently not used.
+            self.header().setResizeMode(col, QHeaderView.Interactive)
 
     def editItem(self, item, column):
         if column in self.editable_columns:
