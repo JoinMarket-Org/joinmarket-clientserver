@@ -128,7 +128,8 @@ class Taker(object):
                 #reset to satoshis
                 self.cjamount = int(self.cjamount * self.mixdepthbal)
                 if self.cjamount < jm_single().mincjamount:
-                    jlog.debug("Coinjoin amount too low, bringing up.")
+                    jlog.info("Coinjoin amount too low, bringing up to: " + str(
+                        jm_single().mincjamount))
                     self.cjamount = jm_single().mincjamount
             self.n_counterparties = si[2]
             self.my_cj_addr = si[3]
@@ -217,7 +218,7 @@ class Taker(object):
             #txfee indicates undesirable behaviour on maker side anyway.
             self.total_txfee = 2 * self.txfee_default * self.n_counterparties
             total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
-            jlog.debug('total estimated amount spent = ' + str(total_amount))
+            jlog.info('total estimated amount spent = ' + str(total_amount))
             try:
                 self.input_utxos = self.wallet.select_utxos(self.mixdepth,
                                                             total_amount)
@@ -239,8 +240,8 @@ class Taker(object):
             jlog.debug("Estimated outs: "+str(est_outs))
             estimated_fee = estimate_tx_fee(est_ins, est_outs,
                                             txtype=self.wallet.get_txtype())
-            jlog.info("We have a fee estimate: "+str(estimated_fee))
-            jlog.info("And a requested fee of: "+str(
+            jlog.debug("We have a fee estimate: "+str(estimated_fee))
+            jlog.debug("And a requested fee of: "+str(
                 self.txfee_default * self.n_counterparties))
             self.total_txfee = max([estimated_fee,
                                     self.n_counterparties * self.txfee_default])
@@ -275,7 +276,8 @@ class Taker(object):
         for nick, nickdata in ioauth_data.iteritems():
             utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
             if not self.auth_counterparty(btc_sig, auth_pub, maker_pk):
-                jlog.debug("Counterparty encryption verification failed, aborting")
+                jlog.debug(
+                "Counterparty encryption verification failed, aborting: " + nick)
                 #This counterparty must be rejected
                 rejected_counterparties.append(nick)
 
@@ -290,7 +292,7 @@ class Taker(object):
             utxo_data = jm_single().bc_interface.query_utxo_set(self.utxos[
                 nick])
             if None in utxo_data:
-                jlog.debug(('ERROR outputs unconfirmed or already spent. '
+                jlog.warn(('ERROR outputs unconfirmed or already spent. '
                            'utxo_data={}').format(pprint.pformat(utxo_data)))
                 # when internal reviewing of makers is created, add it here to
                 # immediately quit; currently, the timeout thread suffices.
@@ -323,7 +325,7 @@ class Taker(object):
             if change_amount < jm_single().DUST_THRESHOLD:
                 fmt = ('ERROR counterparty requires sub-dust change. nick={}'
                        'totalin={:d} cjamount={:d} change={:d}').format
-                jlog.debug(fmt(nick, total_input, self.cjamount, change_amount))
+                jlog.warn(fmt(nick, total_input, self.cjamount, change_amount))
                 jlog.warn("Invalid change, too small, nick= " + nick)
                 continue
 
@@ -331,7 +333,7 @@ class Taker(object):
                                  'value': change_amount})
             fmt = ('fee breakdown for {} totalin={:d} '
                    'cjamount={:d} txfee={:d} realcjfee={:d}').format
-            jlog.debug(fmt(nick, total_input, self.cjamount, self.orderbook[
+            jlog.info(fmt(nick, total_input, self.cjamount, self.orderbook[
                 nick]['txfee'], real_cjfee))
             self.outputs.append({'address': cj_addr, 'value': self.cjamount})
             self.cjfee_total += real_cjfee
@@ -385,7 +387,7 @@ class Taker(object):
                 # seems you wont always get exactly zero because of integer
                 # rounding so 1 satoshi extra or fewer being spent as miner
                 # fees is acceptable
-                jlog.debug(('WARNING CHANGE NOT BEING '
+                jlog.info(('WARNING CHANGE NOT BEING '
                            'USED\nCHANGEVALUE = {}').format(my_change_value))
         else:
             self.outputs.append({'address': self.my_change_addr,
@@ -397,7 +399,7 @@ class Taker(object):
         random.shuffle(self.utxo_tx)
         random.shuffle(self.outputs)
         tx = btc.mktx(self.utxo_tx, self.outputs)
-        jlog.debug('obtained tx\n' + pprint.pformat(btc.deserialize(tx)))
+        jlog.info('obtained tx\n' + pprint.pformat(btc.deserialize(tx)))
 
         self.latest_tx = btc.deserialize(tx)
         for index, ins in enumerate(self.latest_tx['ins']):
@@ -499,7 +501,7 @@ class Taker(object):
         if not tx_signed:
             return False
         assert not len(self.nonrespondants)
-        jlog.debug('all makers have sent their signatures')
+        jlog.info('all makers have sent their signatures')
         self.taker_info_callback("INFO", "Transaction is valid, signing..")
         jlog.debug("schedule item was: " + str(self.schedule[self.schedule_index]))
         return self.self_sign_and_push()
@@ -651,7 +653,7 @@ class Taker(object):
         tx = btc.serialize(self.latest_tx)
         jlog.debug('\n' + tx)
         self.txid = btc.txhash(tx)
-        jlog.debug('txid = ' + self.txid)
+        jlog.info('txid = ' + self.txid)
         tx_broadcast = jm_single().config.get('POLICY', 'tx_broadcast')
         nick_to_use = None
         if tx_broadcast == 'self':
@@ -686,7 +688,7 @@ class Taker(object):
         return self.push()
 
     def unconfirm_callback(self, txd, txid):
-        jlog.debug("Transaction seen on network, waiting for confirmation")
+        jlog.info("Transaction seen on network, waiting for confirmation")
         #To allow client to mark transaction as "done" (e.g. by persisting state)
         self.on_finished_callback(True, fromtx="unconfirmed")
         self.waiting_for_conf = True

@@ -132,7 +132,7 @@ class Maker(object):
         real_cjfee = calc_cj_fee(ordertype, cjfee, amount)
         expected_change_value = (my_total_in - amount - txfee + real_cjfee)
         jlog.info('potentially earned = {}'.format(real_cjfee - txfee))
-        jlog.debug('mycjaddr, mychange = {}, {}'.format(cjaddr, changeaddr))
+        jlog.info('mycjaddr, mychange = {}, {}'.format(cjaddr, changeaddr))
 
         times_seen_cj_addr = 0
         times_seen_change_addr = 0
@@ -160,7 +160,7 @@ class Maker(object):
             order = [o for o in self.offerlist if o['oid'] == oid]
             if len(order) == 0:
                 fmt = 'didnt cancel order which doesnt exist, oid={}'.format
-                jlog.debug(fmt(oid))
+                jlog.info(fmt(oid))
             self.offerlist.remove(order[0])
         if len(to_announce) > 0:
             for ann in to_announce:
