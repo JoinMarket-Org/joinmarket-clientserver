@@ -403,11 +403,11 @@ class MessageChannelCollection(object):
         message channel child threads.
         """
         with self.mc_lock:
+            #This trigger indicates successful login
+            #so we update status; this also triggers on reconnection.
+            self.mc_status[mc] = 1
             if self.welcomed:
                 return
-            #This trigger indicates successful login
-            #so we update status.
-            self.mc_status[mc] = 1
             #This way broadcasts orders or requests ONCE to ALL mchans
             #which are actually available.
             if not any([x == 0 for x in self.mc_status.values()]):

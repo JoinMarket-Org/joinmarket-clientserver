@@ -44,7 +44,7 @@ def get_config_irc_channel(chan_name, btcnet):
         channel += "-test"
     return channel
 
-class TxIRCFactory(protocol.ClientFactory):
+class TxIRCFactory(protocol.ReconnectingClientFactory):
     def __init__(self, wrapper):
         self.wrapper = wrapper
         self.channel = self.wrapper.channel
@@ -60,11 +60,16 @@ class TxIRCFactory(protocol.ClientFactory):
         if not self.wrapper.give_up:
             if reactor.running:
                 log.info('Attempting to reconnect...')
-                reactor.callLater(self.wrapper.reconnect_interval,
-                                  connector.connect())
+                protocol.ReconnectingClientFactory.clientConnectionLost(self,
+                                                                connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
         log.info('IRC connection failed')
+        if not self.wrapper.give_up:
+            if reactor.running:
+                log.info('Attempting to reconnect...')
+                protocol.ReconnectingClientFactory.clientConnectionFailed(self,
+                                                                connector, reason)
 
 class IRCMessageChannel(MessageChannel):
 

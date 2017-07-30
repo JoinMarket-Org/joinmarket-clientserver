@@ -224,13 +224,14 @@ def test_setup_mc():
     #try to send the transaction to a wrong cp:
     mcc.send_tx(["notrealcp"], "deadbeef")
     
-    #At this stage, dmcs0,2 should be "up" and 1 should be "down"
+    #At this stage, dmcs0,2 should be "up" and 1 should have been reset to 1
     assert mcc.mc_status[dmcs[0]] == 1
-    assert mcc.mc_status[dmcs[1]] == 2
-    assert mcc.mc_status[dmcs[2]] == 1
-    #simulate re-connection of dmcs[1] ; note that this code isn't used atm
-    mcc.on_connect_trigger(dmcs[1])
     assert mcc.mc_status[dmcs[1]] == 1
+    assert mcc.mc_status[dmcs[2]] == 1
+    #Not currently used:
+    #simulate re-connection of dmcs[1] ; note that this code isn't used atm
+    #mcc.on_connect_trigger(dmcs[1])
+    #assert mcc.mc_status[dmcs[1]] == 1
     #Now trigger disconnection code; each mc one by one; the last should trigger
     #on_disconnect callback
     for m in dmcs:
