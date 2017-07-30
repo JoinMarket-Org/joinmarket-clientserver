@@ -225,8 +225,8 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
             cjfee_a = int(options.cjfee)
         minsize = options.minsize
     else:
-        parser.error('You specified an incorrect order type which ' +\
-                     'can be either reloffer or absoffer')
+        parser.error('You specified an incorrect offer type which ' +\
+                     'can be either swreloffer or swabsoffer')
         sys.exit(0)
     nickserv_password = options.password
 

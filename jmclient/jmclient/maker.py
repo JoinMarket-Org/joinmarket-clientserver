@@ -23,6 +23,9 @@ class Maker(object):
         self.wallet = wallet
         self.nextoid = -1
         self.offerlist = self.create_my_orders()
+        if not self.offerlist:
+            #If we cannot create an offer at startup, quit
+            sys.exit(0)
         self.aborted = False
 
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
