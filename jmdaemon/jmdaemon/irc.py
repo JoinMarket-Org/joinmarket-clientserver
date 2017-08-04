@@ -9,6 +9,7 @@ import threading
 import time
 from twisted.internet import reactor, protocol
 from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.application.internet import ClientService
 from twisted.internet.ssl import ClientContextFactory
 from twisted.logger import Logger
 from twisted.words.protocols import irc
@@ -148,9 +149,11 @@ class IRCMessageChannel(MessageChannel):
             if self.usessl.lower() == 'true':
                 ctx = ClientContextFactory()
                 tlsEndpoint = TLSWrapClientEndpoint(ctx, ircEndpoint)
-                tlsEndpoint.connect(factory)
+                myRS = ClientService(tlsEndpoint, factory)
+                myRS.startService()
             else:
-                ircEndpoint.connect(factory)
+                myRS = ClientService(ircEndpoint, factory)
+                myRS.startService()
         else:
             try:
                 factory = TxIRCFactory(self)
