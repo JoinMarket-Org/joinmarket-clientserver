@@ -133,7 +133,7 @@ def test_external_commitments(setup_podle):
     for c in known_commits[:-1]:
         update_commitments(commitment=c)
     #this should find the remaining one utxo and return from it
-    assert generate_podle([], tries=tries, allow_external=known_utxos)
+    assert generate_podle([], max_tries=tries, allow_external=known_utxos)
     #test commitment removal
     to_remove = ecs[binascii.hexlify(chr(3)*32)]
     update_commitments(external_to_remove={binascii.hexlify(chr(3)*32):to_remove})

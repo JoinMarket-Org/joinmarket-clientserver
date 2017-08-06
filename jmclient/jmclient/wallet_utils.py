@@ -8,7 +8,7 @@ import binascii
 from mnemonic import Mnemonic
 from optparse import OptionParser
 import getpass
-from jmclient import (get_network, Wallet, Bip39Wallet,
+from jmclient import (get_network, Wallet, Bip39Wallet, podle,
                       encryptData, get_p2pk_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
                       JsonRpcError, sync_wallet, WalletError, SegwitWallet)
@@ -277,15 +277,26 @@ def get_imported_privkey_branch(wallet, m, showprivkey):
 
 def wallet_showutxos(wallet, showprivkey):
     unsp = {}
-    if showprivkey:
-        for u, av in wallet.unspent.iteritems():
-            addr = av['address']
-            key = wallet.get_key_from_addr(addr)
+    max_tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
+    for u, av in wallet.unspent.iteritems():
+        key = wallet.get_key_from_addr(av['address'])
+        tries = podle.get_podle_tries(u, key, max_tries)
+        tries_remaining = max(0, max_tries - tries)
+        unsp[u] = {'address': av['address'], 'value': av['value'],
+                   'tries': tries, 'tries_remaining': tries_remaining,
+                   'external': False}
+        if showprivkey:
             wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
-            unsp[u] = {'address': av['address'],
-                       'value': av['value'], 'privkey': wifkey}
-    else:
-        unsp = wallet.unspent
+            unsp[u]['privkey'] = wifkey
+
+    used_commitments, external_commitments = podle.get_podle_commitments()
+    for u, ec in external_commitments.iteritems():
+        tries = podle.get_podle_tries(utxo=u, max_tries=max_tries,
+                                          external=True)
+        tries_remaining = max(0, max_tries - tries)
+        unsp[u] = {'tries': tries, 'tries_remaining': tries_remaining,
+                   'external': True}
+
     return json.dumps(unsp, indent=4)
 
 def wallet_display(wallet, gaplimit, showprivkey, displayall=False):

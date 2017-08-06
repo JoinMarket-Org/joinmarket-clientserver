@@ -380,14 +380,35 @@ def update_commitments(commitment=None,
     with open(PODLE_COMMIT_FILE, "wb") as f:
         f.write(json.dumps(to_write, indent=4))
 
+def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
+    used_commitments, external_commitments = get_podle_commitments()
 
-def generate_podle(priv_utxo_pairs, tries=1, allow_external=None, k=None):
+    if external:
+        if utxo in external_commitments:
+            ec = external_commitments[utxo]
+            #use as many as were provided in the file, up to a max of max_tries
+            m = min([len(ec['reveal'].keys()), max_tries])
+            for i in reversed(range(m)):
+                key = str(i)
+                p = PoDLE(u=utxo,P=ec['P'],P2=ec['reveal'][key]['P2'],
+                          s=ec['reveal'][key]['s'], e=ec['reveal'][key]['e'])
+                if p.get_commitment() in used_commitments:
+                    return i+1
+    else:
+        for i in reversed(range(max_tries)):
+            p = PoDLE(u=utxo, priv=priv)
+            c = p.generate_podle(i)
+            if c['commit'] in used_commitments:
+                return i+1
+    return 0
+
+def generate_podle(priv_utxo_pairs, max_tries=1, allow_external=None, k=None):
     """Given a list of privkeys, try to generate a
-    PoDLE which is not yet used more than tries times.
+    PoDLE which is not yet used more than max_tries times.
     This effectively means satisfying two criteria:
     (1) the generated commitment is not in the list of used
     commitments
-    (2) the index required to generate is not greater than 'tries'.
+    (2) the index required to generate is not greater than 'max_tries'.
     Note that each retry means using a different generator
     (see notes in PoDLE.generate_podle)
     Once used, add the commitment to the list of used.
@@ -399,36 +420,32 @@ def generate_podle(priv_utxo_pairs, tries=1, allow_external=None, k=None):
     """
     used_commitments, external_commitments = get_podle_commitments()
     for priv, utxo in priv_utxo_pairs:
-        for i in range(tries):
-            #Note that we will return the *lowest* index
-            #which is still available.
-            p = PoDLE(u=utxo, priv=priv)
-            c = p.generate_podle(i, k=k)
-            if c['commit'] in used_commitments:
-                continue
-            #persist for future checks
-            update_commitments(commitment=c['commit'])
-            return c
+        tries = get_podle_tries(utxo, priv, max_tries)
+        if tries >= max_tries:
+            continue
+        #Note that we will return the *lowest* index
+        #which is still available.
+        index = tries
+        p = PoDLE(u=utxo, priv=priv)
+        c = p.generate_podle(index)
+        #persist for future checks
+        update_commitments(commitment=c['commit'])
+        return c
     if allow_external:
-        filtered_external = dict([(x, external_commitments[x])
-                                  for x in allow_external])
-        for u, ec in filtered_external.iteritems():
-            #use as many as were provided in the file, up to a max of tries
-            m = min([len(ec['reveal'].keys()), tries])
-            for i in [str(x) for x in range(m)]:
-                p = PoDLE(u=u,
-                          P=ec['P'],
-                          P2=ec['reveal'][i]['P2'],
-                          s=ec['reveal'][i]['s'],
-                          e=ec['reveal'][i]['e'])
-                if p.get_commitment() not in used_commitments:
-                    update_commitments(commitment=p.get_commitment())
-                    return p.reveal()
-            #If none of the entries in the 'reveal' list for this external
-            #commitment were available, they've all been used up, so
-            #remove this entry
-            if m == len(ec['reveal'].keys()):
+        for u in allow_external:
+            tries = get_podle_tries(utxo=u, max_tries=max_tries, external=True)
+            if (tries >= max_tries):
+                #If none of the entries in the 'reveal' list for this external
+                #commitment were available, they've all been used up, so
+                #remove this entry
                 update_commitments(external_to_remove=u)
+                continue
+            index = str(tries)
+            ec = external_commitments[u]
+            p = PoDLE(u=u,P=ec['P'],P2=ec['reveal'][index]['P2'],
+                      s=ec['reveal'][index]['s'], e=ec['reveal'][index]['e'])
+            update_commitments(commitment=p.get_commitment())
+            return p.reveal()
     #Failed to find any non-used valid commitment:
     return None
 
