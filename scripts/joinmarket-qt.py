@@ -1158,7 +1158,7 @@ class JMWalletTab(QWidget):
         if walletinfo:
             self.mainwindow = self.parent().parent().parent()
             rows, mbalances, xpubs, total_bal = walletinfo
-            if get_network() == 'testnet':
+            if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
                 self.wallet_name = self.mainwindow.wallet.seed
             else:
                 self.wallet_name = os.path.basename(self.mainwindow.wallet.path)
