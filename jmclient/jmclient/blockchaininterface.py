@@ -1002,7 +1002,7 @@ class BitcoinCoreInterface(BlockchainInterface):
     def sync_wallet(self, wallet, fast=False):
         #trigger fast sync if the index_cache is available
         #(and not specifically disabled).
-        if fast and wallet.index_cache != [[0,0]] * wallet.max_mix_depth:
+        if fast:
             self.sync_wallet_fast(wallet)
             self.fast_sync_called = True
             return
@@ -1045,20 +1045,57 @@ class BitcoinCoreInterface(BlockchainInterface):
             len(used_address_dict)))
         #Need to have wallet.index point to the last used address
         #and fill addr_cache.
-        #For each branch:
-        #If index value is present, collect all addresses up to index+gap limit
-        #For each address in that list, mark used if seen in used_address_dict
+        #Algo:
+        #    1. Scan batch 1 of each branch, accumulate wallet addresses into dict.
+        #    2. Find matches between that dict and used addresses, add those to
+        #        used_indices dict and add to address cache.
+        #    3. Check if all addresses in 'used addresses' have been matched, if
+        #       so, break.
+        #    4. Repeat the above for batch 2, 3.. up to max 20 batches.
+        #    5. If after all 20 batches not all used addresses were matched,
+        #       quit with error.
+        #    6. If all used addresses were matched, set wallet index to highest
+        #       found index in each branch and mark wallet sync complete.
+        #Rationale for this algo:
+        #    Retrieving addresses is a non-zero computational load, so batching
+        #    and then caching allows a small sync to complete *reasonably*
+        #    quickly while a larger one is not really negatively affected.
+        #    The downside is another free variable, batch size, but this need
+        #    not be exposed to the user; it is not the same as gap limit, in fact,
+        #    the concept of gap limit does not apply to this kind of sync, which
+        #    *assumes* that the most recent usage of addresses is indeed recorded.
         used_indices = {}
+        local_addr_cache = {}
+        found_addresses = []
+        BATCH_SIZE = 100
+        for j in range(20):
+            for md in range(wallet.max_mix_depth):
+                if md not in used_indices:
+                    used_indices[md] = {}
+                for fc in [0, 1]:
+                    if fc not in used_indices[md]:
+                        used_indices[md][fc] = []
+                    for i in range(j*BATCH_SIZE, (j+1)*BATCH_SIZE):
+                        local_addr_cache[(md, fc, i)] = wallet.get_addr(md, fc, i)
+            batch_found_addresses = [x for x in local_addr_cache.iteritems(
+                ) if x[1] in used_address_dict.keys()]
+            for x in batch_found_addresses:
+                md, fc, i = x[0]
+                addr = x[1]
+                used_indices[md][fc].append(i)
+                wallet.addr_cache[addr] = (md, fc, i)
+            found_addresses.extend(batch_found_addresses)
+            if len(found_addresses) == len(used_address_dict.keys()):
+                break
+        if j == 19:
+            raise Exception("Failed to sync in fast mode after 20 batches; "
+                            "please re-try wallet sync without --fast flag.")
+        #Find the highest index in each branch and set the wallet index
         for md in range(wallet.max_mix_depth):
-            used_indices[md] = {}
             for fc in [0, 1]:
-                used_indices[md][fc] = []
-                for i in range(wallet.index_cache[md][fc]+wallet.gaplimit):
-                    if wallet.get_addr(md, fc, i) in used_address_dict.keys():
-                        used_indices[md][fc].append(i)
-                        wallet.addr_cache[wallet.get_addr(md, fc, i)] = (md, fc, i)
                 if len(used_indices[md][fc]):
-                    wallet.index[md][fc] = used_indices[md][fc][-1]
+                    used_indices[md][fc].sort()
+                    wallet.index[md][fc] = used_indices[md][fc][-1] + 1
                 else:
                     wallet.index[md][fc] = 0
                 if not is_index_ahead_of_cache(wallet, md, fc):
