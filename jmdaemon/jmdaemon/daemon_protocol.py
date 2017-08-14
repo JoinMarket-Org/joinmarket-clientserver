@@ -341,8 +341,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #Note that broadcast is happening here to reflect an already
             #consumed commitment; it can also be broadcast separately (earlier) on
             #valid usage
-            #Keep the type byte for communication so not scommit:
-            self.transfer_commitment(commit)
+            self.transfer_commitment(scommit)
             return
         offer_s = [o for o in self.offerlist if o['oid'] == oid]
         if len(offer_s) == 0:
