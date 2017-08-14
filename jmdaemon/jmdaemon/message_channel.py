@@ -325,9 +325,9 @@ class MessageChannelCollection(object):
 
     @check_privmsg
     def send_error(self, nick, errormsg):
-        #TODO this might need to support non-active nicks TODO
-        if nick in self.active_channels:
-            self.active_channels[nick].send_error(nick, errormsg)
+        #TODO this might need to support non-active nicks
+        log.info('error<%s> : %s' % (nick, errormsg))
+        self.prepare_privmsg(nick, "error", errormsg)
 
     @check_privmsg
     def push_tx(self, nick, txhex):
@@ -794,10 +794,14 @@ class MessageChannel(object):
             self.privmsg(c, 'fill', msg)
 
     def push_tx(self, nick, txhex):
+        #Note: not currently used; will require prepare_privmsg call so
+        #not in this class (see send_error)
         txb64 = base64.b64encode(txhex.decode('hex'))
         self.privmsg(nick, 'push', txb64)
 
     def send_error(self, nick, errormsg):
+        #Note: currently only used for tests; MCC send_error requires
+        #prepare_privmsg call for signature.
         log.info('error<%s> : %s' % (nick, errormsg))
         self.privmsg(nick, 'error', errormsg)
 
