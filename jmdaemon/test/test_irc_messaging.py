@@ -36,6 +36,7 @@ def on_connect(x):
     print('simulated on-connect')
 def on_welcome(mc):
     print('simulated on-welcome')
+    mc.tx_irc_client.lineRate = 0.2
     if mc.nick == "irc_publisher":
         d = task.deferLater(reactor, 3.0, junk_pubmsgs, mc)
         d.addCallback(junk_longmsgs)
@@ -137,7 +138,7 @@ class TrialIRC(unittest.TestCase):
     def test_waiter(self):
         print("test_main()")
         #reactor.callLater(1.0, junk_messages, self.mcc)
-        return task.deferLater(reactor, 32, self._called_by_deffered)
+        return task.deferLater(reactor, 22, self._called_by_deffered)
 
     def _called_by_deffered(self):
         pass

@@ -169,7 +169,11 @@ class txIRC_Client(irc.IRCClient, object):
     lineRate is a class variable in the superclass used to limit
     messages / second.  heartbeat is what you'd think.
     """
-    lineRate = 0.5
+    #In previous implementation, 450 bytes per second over the last 4 seconds
+    #was used as the rate limiter/throttle parameter.
+    #Since we still have max_privmsg_len = 450, that corresponds to a lineRate
+    #value of 1.0 (seconds). Bumped to 1.3 here for breathing room.
+    lineRate = 1.3
     heartbeatinterval = 60
 
     def __init__(self, wrapper):
