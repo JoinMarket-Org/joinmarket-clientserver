@@ -79,8 +79,8 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
                 ins['outpoint']['index'])
         addr = utxos[utxo]['address']
         signing_amount = utxos[utxo]['value']
-        amount = signing_amount if isinstance(wallet, SegwitWallet) else None
-        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=amount)
+        amt = signing_amount if isinstance(wallet, SegwitWallet) else None
+        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=amt)
     txsigned = deserialize(tx)
     log.info("Got signed transaction:\n")
     log.info(tx + "\n")
