@@ -654,6 +654,13 @@ class Taker(object):
         jlog.debug('\n' + tx)
         self.txid = btc.txhash(tx)
         jlog.info('txid = ' + self.txid)
+        #add the txnotify callbacks *before* pushing in case the
+        #walletnotify is triggered before the notify callbacks are set up;
+        #this does leave a dangling notify callback if the push fails, but
+        #that doesn't cause problems.
+        jm_single().bc_interface.add_tx_notify(self.latest_tx,
+                    self.unconfirm_callback, self.confirm_callback,
+                    self.my_cj_addr, vb=get_p2sh_vbyte())
         tx_broadcast = jm_single().config.get('POLICY', 'tx_broadcast')
         nick_to_use = None
         if tx_broadcast == 'self':
@@ -676,9 +683,6 @@ class Taker(object):
         if not pushed:
             self.on_finished_callback(False, fromtx=True)
         else:
-            jm_single().bc_interface.add_tx_notify(
-                self.latest_tx, self.unconfirm_callback,
-                self.confirm_callback, self.my_cj_addr, vb=get_p2sh_vbyte())
             if nick_to_use:
                 return (nick_to_use, tx)
         #if push was not successful, return None
