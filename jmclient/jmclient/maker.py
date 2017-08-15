@@ -71,6 +71,7 @@ class Maker(object):
         if not utxos:
             #could not find funds
             return (False,)
+        self.wallet.update_cache_index()
         # Construct data for auth request back to taker.
         # Need to choose an input utxo pubkey to sign with
         # (no longer using the coinjoin pubkey from 0.2.0)
