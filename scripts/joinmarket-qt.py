@@ -1126,9 +1126,10 @@ class JMWalletTab(QWidget):
 
 class JMMainWindow(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, reactor):
         super(JMMainWindow, self).__init__()
         self.wallet = None
+        self.reactor = reactor
         self.initUI()
 
     def closeEvent(self, event):
@@ -1137,6 +1138,9 @@ class JMMainWindow(QMainWindow):
         if reply == QMessageBox.Yes:
             persist_config()
             event.accept()
+            if self.reactor.threadpool is not None:
+                self.reactor.threadpool.stop()
+            self.reactor.stop()
         else:
             event.ignore()
 
@@ -1576,7 +1580,8 @@ tumble_log = get_tumble_log(logsdir)
 #ignored makers list persisted across entire app run
 ignored_makers = []
 appWindowTitle = 'JoinMarketQt'
-w = JMMainWindow()
+from twisted.internet import reactor
+w = JMMainWindow(reactor)
 tabWidget = QTabWidget(w)
 tabWidget.addTab(JMWalletTab(), "JM Wallet")
 settingsTab = SettingsTab()
@@ -1589,6 +1594,5 @@ w.setWindowTitle(appWindowTitle + suffix)
 tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 w.setCentralWidget(tabWidget)
 w.show()
-from twisted.internet import reactor
 reactor.runReturn()
 sys.exit(app.exec_())
