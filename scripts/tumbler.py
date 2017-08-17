@@ -121,7 +121,8 @@ def main():
     #to allow testing of confirm/unconfirm callback for multiple txs
     if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
         jm_single().bc_interface.tick_forward_chain_interval = 10
-        jm_single().maker_timeout_sec = 5
+        jm_single().bc_interface.simulating = True
+        jm_single().maker_timeout_sec = 15
 
     #instantiate Taker with given schedule and run
     taker = Taker(wallet,

@@ -65,6 +65,7 @@ class JMClientProtocol(amp.AMP):
         d.addErrback(self.defaultErrback)
 
     def connectionMade(self):
+        print('connection was made, starting client')
         self.factory.setClient(self)
         self.clientStart()
 
@@ -213,6 +214,7 @@ class JMMakerClientProtocol(JMClientProtocol):
             jm_single().bc_interface.add_tx_notify(tx, self.unconfirm_callback,
                                                self.confirm_callback,
                                                offer["cjaddr"],
+                                               txid_flag=False,
                                                vb=get_p2sh_vbyte())
             d = self.callRemote(commands.JMTXSigs,
                                 nick=nick,
@@ -441,7 +443,7 @@ class JMClientProtocolFactory(protocol.ClientFactory):
     def buildProtocol(self, addr):
         return self.protocol(self, self.client)
 
-def start_reactor(host, port, factory, ish=True, daemon=False, rs=True): #pragma: no cover
+def start_reactor(host, port, factory, ish=True, daemon=False, rs=True, gui=False): #pragma: no cover
     #(Cannot start the reactor in tests)
     #Not used in prod (twisted logging):
     #startLogging(stdout)
@@ -473,13 +475,13 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True): #pragma
                     jlog.error("Tried 100 ports but cannot listen on any of them. Quitting.")
                     sys.exit(1)
                 port += 1
-
     if usessl:
         ctx = ClientContextFactory()
         reactor.connectSSL(host, port, factory, ctx)
     else:
         reactor.connectTCP(host, port, factory)
     if rs:
-        reactor.run(installSignalHandlers=ish)
+        if not gui:
+            reactor.run(installSignalHandlers=ish)
         if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
             jm_single().bc_interface.shutdown_signal = True

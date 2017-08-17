@@ -23,6 +23,7 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 import sys, base64, textwrap, datetime, os, logging
 import platform, csv, threading, time
 
+
 from decimal import Decimal
 from functools import partial
 
@@ -38,6 +39,9 @@ else:
 
 import jmbitcoin as btc
 
+app = QApplication(sys.argv)
+from qtreactor import pyqt4reactor
+pyqt4reactor.install()
 #General Joinmarket donation address; TODO
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 
@@ -64,6 +68,7 @@ from qtsupport import (ScheduleWizard, TumbleRestartWizard, warnings, config_tip
                        PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,
                        donation_more_message)
 
+from twisted.internet import task
 def satoshis_to_amt_str(x):
     return str(Decimal(x)/Decimal('1e8')) + " BTC"
 
@@ -301,25 +306,12 @@ class SpendTab(QWidget):
         self.initUI()
         self.taker = None
         self.filter_offers_response = None
-        self.taker_info_response = None
         self.clientfactory = None
         self.tumbler_options = None
-        #signals from client backend to GUI
-        self.jmclient_obj = QtCore.QObject()
         #timer for waiting for confirmation on restart
         self.restartTimer = QtCore.QTimer()
         #timer for wait for next transaction
         self.nextTxTimer = None
-        #This signal/callback requires user acceptance decision.
-        self.jmclient_obj.connect(self.jmclient_obj, QtCore.SIGNAL('JMCLIENT:offers'),
-                                                            self.checkOffers)
-        #This signal/callback is for information only (including abort/error
-        #conditions which require no feedback from user.
-        self.jmclient_obj.connect(self.jmclient_obj, QtCore.SIGNAL('JMCLIENT:info'),
-                                  self.takerInfo)
-        #Signal indicating Taker has finished its work
-        self.jmclient_obj.connect(self.jmclient_obj, QtCore.SIGNAL('JMCLIENT:finished'),
-                                  self.takerFinished)
         #tracks which mode the spend tab is run in
         self.spendstate = SpendStateMgr(self.toggleButtons)
         self.spendstate.reset() #trigger callback to 'ready' state
@@ -645,25 +637,12 @@ class SpendTab(QWidget):
             res = self.showBlockrWarning()
             if res == True:
                 return
-
-        #all settings are valid; start
-        #dialog removed for now, annoying, may review later
-        #JMQtMessageBox(
-        #    self,
-        #    "Connecting to IRC.\nView real-time log in the lower pane.",
-        #    title="Coinjoin starting")
-
         log.debug('starting coinjoin ..')
-
-        #DON'T sync wallet since unless cache is updated, will forget index
-        #w.statusBar().showMessage("Syncing wallet ...")
-        #sync_wallet(w.wallet, fast=True)
-
         #Decide whether to interrupt processing to sanity check the fees
         if self.tumbler_options:
             check_offers_callback = self.checkOffersTumbler
         elif jm_single().config.get("GUI", "checktx") == "true":
-            check_offers_callback = self.callback_checkOffers
+            check_offers_callback = self.checkOffers
         else:
             check_offers_callback = None
 
@@ -672,119 +651,68 @@ class SpendTab(QWidget):
                            self.spendstate.loaded_schedule,
                            order_chooser=weighted_order_choose,
                            callbacks=[check_offers_callback,
-                                      self.callback_takerInfo,
-                                      self.callback_takerFinished],
+                                      self.takerInfo,
+                                      self.takerFinished],
                            tdestaddrs=destaddrs,
                            ignored_makers=ignored_makers)
         if not self.clientfactory:
             #First run means we need to start: create clientfactory
-            #and start reactor Thread
+            #and start reactor connections
             self.clientfactory = JMClientProtocolFactory(self.taker)
-            thread = TaskThread(self)
             daemon = jm_single().config.getint("DAEMON", "no_daemon")
             daemon = True if daemon == 1 else False
-            thread.add(partial(start_reactor,
-                   "localhost",
+            start_reactor("localhost",
                    jm_single().config.getint("GUI", "daemon_port"),
                    self.clientfactory,
                    ish=False,
-                   daemon=daemon))
+                   daemon=daemon,
+                   gui=True)
         else:
             #This will re-use IRC connections in background (daemon), no restart
-            self.clientfactory.getClient().taker = self.taker
+            self.clientfactory.getClient().client = self.taker
             self.clientfactory.getClient().clientStart()
         w.statusBar().showMessage("Connecting to IRC ...")
 
-    def callback_checkOffers(self, offers_fee, cjamount):
-        """Receives the signal from the JMClient thread
-        """
-        if self.taker.aborted:
-            log.debug("Not processing offers, user has aborted.")
-            return False
-        self.offers_fee = offers_fee
-        self.jmclient_obj.emit(QtCore.SIGNAL('JMCLIENT:offers'))
-        #The JMClient thread must wait for user input
-        while not self.filter_offers_response:
-            time.sleep(0.1)
-        if self.filter_offers_response == "ACCEPT":
-            self.filter_offers_response = None
-            #The user is now committed to the transaction
-            self.abortButton.setEnabled(False)
-            return True
-        self.filter_offers_response = None
-        return False
-
-    def callback_takerInfo(self, infotype, infomsg):
-        if infotype == "ABORT":
-            self.taker_info_type = 'warn'
-        elif infotype == "INFO":
-            self.taker_info_type = 'info'
-        else:
-            raise NotImplementedError
-        self.taker_infomsg = infomsg
-        self.jmclient_obj.emit(QtCore.SIGNAL('JMCLIENT:info'))
-        while not self.taker_info_response:
-            time.sleep(0.1)
-        #No need to check response type, only OK for msgbox
-        self.taker_info_response = None
-        return
-
-    def callback_takerFinished(self, res, fromtx=False, waittime=0.0,
-                               txdetails=None):
-        self.taker_finished_res = res
-        self.taker_finished_fromtx = fromtx
-        self.taker_finished_waittime = waittime
-        self.taker_finished_txdetails = txdetails
-        self.jmclient_obj.emit(QtCore.SIGNAL('JMCLIENT:finished'))
-        return
-
-    def takerInfo(self):
-        if self.taker_info_type == "info":
-            #cannot use dialogs that interrupt gui thread here
-            if len(self.taker_infomsg) > 200:
-                log.info("INFO: " + self.taker_infomsg)
+    def takerInfo(self, infotype, infomsg):
+        if infotype == "INFO":
+            #use of a dialog interrupts processing?, investigate.
+            if len(infomsg) > 200:
+                log.info("INFO: " + infomsg)
             else:
-                w.statusBar().showMessage(self.taker_infomsg)
-        elif self.taker_info_type == "warn":
-            JMQtMessageBox(self, self.taker_infomsg,
-                           mbtype=self.taker_info_type)
+                w.statusBar().showMessage(infomsg)
+        elif infotype == "ABORT":
+            JMQtMessageBox(self, infomsg,
+                           mbtype='warn')
             #Abort signal explicitly means this transaction will not continue.
             self.abortTransactions()
-        self.taker_info_response = True
+        else:
+            raise NotImplementedError
 
     def checkOffersTumbler(self, offers_fees, cjamount):
         return tumbler_filter_orders_callback(offers_fees, cjamount,
                                               self.taker, self.tumbler_options)
 
-    def checkOffers(self):
+    def checkOffers(self, offers_fee, cjamount):
         """Parse offers and total fee from client protocol,
         allow the user to agree or decide.
         """
-        if not self.offers_fee:
+        if self.taker.aborted:
+            log.debug("Not processing offers, user has aborted.")
+            return False
+
+        if not offers_fee:
             JMQtMessageBox(self,
                            "Not enough matching offers found.",
                            mbtype='warn',
                            title="Error")
             self.giveUp()
             return
-        offers, total_cj_fee = self.offers_fee
+        offers, total_cj_fee = offers_fee
         total_fee_pc = 1.0 * total_cj_fee / self.taker.cjamount
         #Note this will be a new value if sweep, else same as previously entered
         btc_amount_str = satoshis_to_amt_str(self.taker.cjamount)
 
-        #TODO separate this out into a function
         mbinfo = []
-        #See note above re: alerts
-        """
-        if joinmarket_alert[0]:
-            mbinfo.append("<b><font color=red>JOINMARKET ALERT: " +
-                          joinmarket_alert[0] + "</font></b>")
-            mbinfo.append(" ")
-        if core_alert[0]:
-            mbinfo.append("<b><font color=red>BITCOIN CORE ALERT: " +
-                          core_alert[0] + "</font></b>")
-            mbinfo.append(" ")
-        """
         mbinfo.append("Sending amount: " + btc_amount_str)
         mbinfo.append("to address: " + self.taker.my_cj_addr)
         mbinfo.append(" ")
@@ -815,17 +743,19 @@ class SpendTab(QWidget):
                                mbtype='question',
                                title=title)
         if reply == QMessageBox.Yes:
-            #amount is now accepted; pass control back to reactor
-            self.filter_offers_response = "ACCEPT"
+            #amount is now accepted;
+            #The user is now committed to the transaction
+            self.abortButton.setEnabled(False)
+            return True
         else:
             self.filter_offers_response = "REJECT"
             self.giveUp()
+            return False
 
     def startNextTransaction(self):
-        #sync_wallet(w.wallet, fast=True)
         self.clientfactory.getClient().clientStart()
 
-    def takerFinished(self):
+    def takerFinished(self, res, fromtx=False, waittime=0.0, txdetails=None):
         """Callback (after pass-through signal) for jmclient.Taker
         on completion of each join transaction.
         """
@@ -833,10 +763,10 @@ class SpendTab(QWidget):
         if self.tumbler_options:
             sfile = os.path.join(logsdir, 'TUMBLE.schedule')
             tumbler_taker_finished_update(self.taker, sfile, tumble_log,
-                                      self.tumbler_options, self.taker_finished_res,
-                                      self.taker_finished_fromtx,
-                                      self.taker_finished_waittime,
-                                      self.taker_finished_txdetails)
+                                      self.tumbler_options, res,
+                                      fromtx,
+                                      waittime,
+                                      txdetails)
 
         self.spendstate.loaded_schedule = self.taker.schedule
         #Shows the schedule updates in the GUI; TODO make this more visual
@@ -845,7 +775,7 @@ class SpendTab(QWidget):
 
         #GUI-specific updates; QTimer.singleShot serves the role
         #of reactor.callLater
-        if self.taker_finished_fromtx == "unconfirmed":
+        if fromtx == "unconfirmed":
             w.statusBar().showMessage(
                 "Transaction seen on network: " + self.taker.txid)
             if self.spendstate.typestate == 'single':
@@ -862,8 +792,8 @@ class SpendTab(QWidget):
             if self.spendstate.typestate == 'multiple' and not self.tumbler_options:
                 self.taker.wallet.update_cache_index()
             return
-        if self.taker_finished_fromtx:
-            if self.taker_finished_res:
+        if fromtx:
+            if res:
                 w.statusBar().showMessage("Transaction confirmed: " + self.taker.txid)
                 #singleShot argument is in milliseconds
                 if self.nextTxTimer:
@@ -871,13 +801,13 @@ class SpendTab(QWidget):
                 self.nextTxTimer = QtCore.QTimer()
                 self.nextTxTimer.setSingleShot(True)
                 self.nextTxTimer.timeout.connect(self.startNextTransaction)
-                self.nextTxTimer.start(int(self.taker_finished_waittime*60*1000))
+                self.nextTxTimer.start(int(waittime*60*1000))
                 #QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
                 #                         self.startNextTransaction)
                 #see note above re multiple/tumble duplication
                 if self.spendstate.typestate == 'multiple' and \
                    not self.tumbler_options:
-                    txd, txid = self.taker_finished_txdetails
+                    txd, txid = txdetails
                     self.taker.wallet.remove_old_utxos(txd)
                     self.taker.wallet.add_new_utxos(txd, txid)
             else:
@@ -888,7 +818,7 @@ class SpendTab(QWidget):
                     #currently does not continue for non-tumble schedules
                     self.giveUp()
         else:
-            if self.taker_finished_res:
+            if res:
                 w.statusBar().showMessage("All transaction(s) completed successfully.")
                 if len(self.taker.schedule) == 1:
                     msg = "Transaction has been confirmed.\n" + "Txid: " + \
@@ -1471,11 +1401,13 @@ class JMMainWindow(QMainWindow):
         if 'listunspent_args' not in jm_single().config.options('POLICY'):
             jm_single().config.set('POLICY', 'listunspent_args', '[0]')
         assert self.wallet, "No wallet loaded"
-        thread = TaskThread(self)
-        task = partial(sync_wallet, self.wallet, True)
-        thread.add(task, on_done=self.updateWalletInfo)
+        reactor.callLater(0, self.syncWalletUpdate, True)
         self.statusBar().showMessage("Reading wallet from blockchain ...")
         return True
+
+    def syncWalletUpdate(self, fast):
+        sync_wallet(self.wallet, fast=fast)
+        self.updateWalletInfo()
 
     def updateWalletInfo(self):
         t = self.centralWidget().widget(0)
@@ -1611,7 +1543,6 @@ def get_wallet_printout(wallet):
 
 ################################
 config_load_error = False
-app = QApplication(sys.argv)
 try:
     load_program_config()
 except Exception as e:
@@ -1630,7 +1561,8 @@ update_config_for_gui()
 #to allow testing of confirm/unconfirm callback for multiple txs
 if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().bc_interface.tick_forward_chain_interval = 10
-    jm_single().maker_timeout_sec = 5
+    jm_single().bc_interface.simulating = True
+    jm_single().maker_timeout_sec = 15
     #trigger start with a fake tx
     jm_single().bc_interface.pushtx("00"*20)
 
@@ -1657,5 +1589,6 @@ w.setWindowTitle(appWindowTitle + suffix)
 tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 w.setCentralWidget(tabWidget)
 w.show()
-
+from twisted.internet import reactor
+reactor.runReturn()
 sys.exit(app.exec_())

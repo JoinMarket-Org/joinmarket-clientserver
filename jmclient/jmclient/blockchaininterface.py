@@ -15,7 +15,7 @@ import urllib
 import urllib2
 import traceback
 from decimal import Decimal
-from twisted.internet import reactor
+from twisted.internet import reactor, task
 
 import btc
 
@@ -807,156 +807,6 @@ class BlockrInterface(BlockchainInterface): #pragma: no cover
 
         return fee_per_kb
 
-
-def bitcoincore_timeout_callback(uc_called, txout_set, txnotify_fun_list,
-                                 timeoutfun):
-    log.debug('bitcoin core timeout callback uc_called = %s' % ('true'
-                                                                if uc_called
-                                                                else 'false'))
-    txnotify_tuple = None
-    for tnf in txnotify_fun_list:
-        if tnf[0] == txout_set and uc_called == tnf[-1]:
-            txnotify_tuple = tnf
-            break
-    if txnotify_tuple == None:
-        log.debug('stale timeout, returning')
-        return
-    txnotify_fun_list.remove(txnotify_tuple)
-    log.debug('timeoutfun txout_set=\n' + pprint.pformat(txout_set))
-    reactor.callFromThread(timeoutfun, uc_called)
-
-
-class NotifyRequestHeader(BaseHTTPServer.BaseHTTPRequestHandler):
-
-    def __init__(self, request, client_address, base_server):
-        self.btcinterface = base_server.btcinterface
-        self.base_server = base_server
-        BaseHTTPServer.BaseHTTPRequestHandler.__init__(
-            self, request, client_address, base_server)
-
-    def do_HEAD(self):
-        pages = ('/walletnotify?', '/alertnotify?')
-
-        if self.path.startswith('/walletnotify?'):
-            txid = self.path[len(pages[0]):]
-            if not re.match('^[0-9a-fA-F]*$', txid):
-                log.debug('not a txid')
-                return
-            try:
-                tx = self.btcinterface.rpc('getrawtransaction', [txid])
-            except (JsonRpcError, JsonRpcConnectionError) as e:
-                log.debug('transaction not found, probably a conflict')
-                return
-            #the following condition shouldn't be possible I believe;
-            #the rpc server wil return an error as above if the tx is not found.
-            if not re.match('^[0-9a-fA-F]*$', tx): #pragma: no cover
-                log.debug('not a txhex')
-                return
-            txd = btc.deserialize(tx)
-            tx_output_set = set([(sv['script'], sv['value']) for sv in txd[
-                'outs']])
-
-            txnotify_tuple = None
-            unconfirmfun, confirmfun, timeoutfun, uc_called = (None, None, None,
-                                                               None)
-            to_be_updated = []
-            to_be_removed = []
-            for tnf in self.btcinterface.txnotify_fun:
-                tx_out = tnf[0]
-                if tx_out == tx_output_set:
-                    txnotify_tuple = tnf
-                    tx_out, unconfirmfun, confirmfun, timeoutfun, uc_called = tnf
-                    if unconfirmfun is None:
-                        log.debug('txid=' + txid + ' not being listened for')
-                    else:
-                        # on rare occasions people spend their output without waiting
-                        #  for a confirm
-                        txdata = None
-                        for n in range(len(txd['outs'])):
-                            txdata = self.btcinterface.rpc('gettxout', [txid, n, True])
-                            if txdata is not None:
-                                break
-                        assert txdata is not None
-                        if txdata['confirmations'] == 0:
-                            reactor.callFromThread(unconfirmfun, txd, txid)
-                            to_be_updated.append(txnotify_tuple)
-                            log.debug('ran unconfirmfun')
-                            if timeoutfun:
-                                threading.Timer(jm_single().config.getfloat(
-                                    'TIMEOUT', 'confirm_timeout_hours') * 60 * 60,
-                                                bitcoincore_timeout_callback,
-                                                args=(True, tx_output_set,
-                                                      self.btcinterface.txnotify_fun,
-                                                      timeoutfun)).start()
-                        else:
-                            if not uc_called:
-                                reactor.callFromThread(unconfirmfun, txd, txid)
-                                log.debug('saw confirmed tx before unconfirmed, ' +
-                                          'running unconfirmfun first')
-                            reactor.callFromThread(confirmfun, txd, txid, txdata['confirmations'])
-                            to_be_removed.append(txnotify_tuple)
-                            log.debug('ran confirmfun')
-            #If any notifyfun tuples need to update from unconfirm to confirm state:
-            for tbu in to_be_updated:
-                self.btcinterface.txnotify_fun.remove(tbu)
-                self.btcinterface.txnotify_fun.append(tbu[:-1] + (True,))
-            #If any notifyfun tuples need to be removed as confirmed
-            for tbr in to_be_removed:
-                self.btcinterface.txnotify_fun.remove(tbr)
-
-        elif self.path.startswith('/alertnotify?'):
-            jm_single().core_alert[0] = urllib.unquote(self.path[len(pages[
-                1]):])
-            log.debug('Got an alert!\nMessage=' + jm_single().core_alert[0])
-
-        else:
-            log.debug(
-                'ERROR: This is not a handled URL path.  You may want to check your notify URL for typos.')
-
-        request = urllib2.Request('http://localhost:' + str(
-            self.base_server.server_address[1] + 1) + self.path)
-        request.get_method = lambda: 'HEAD'
-        try:
-            urllib2.urlopen(request)
-        except:
-            pass
-        self.send_response(200)
-        # self.send_header('Connection', 'close')
-        self.end_headers()
-
-
-class BitcoinCoreNotifyThread(threading.Thread):
-
-    def __init__(self, btcinterface):
-        threading.Thread.__init__(self, name='CoreNotifyThread')
-        self.daemon = True
-        self.btcinterface = btcinterface
-
-    def run(self):
-        notify_host = 'localhost'
-        notify_port = 62602  # defaults
-        config = jm_single().config
-        if 'notify_host' in config.options("BLOCKCHAIN"):
-            notify_host = config.get("BLOCKCHAIN", "notify_host").strip()
-        if 'notify_port' in config.options("BLOCKCHAIN"):
-            notify_port = int(config.get("BLOCKCHAIN", "notify_port"))
-        for inc in range(10):
-            hostport = (notify_host, notify_port + inc)
-            try:
-                httpd = BaseHTTPServer.HTTPServer(hostport, NotifyRequestHeader)
-            except Exception:
-                continue
-            httpd.btcinterface = self.btcinterface
-            log.debug('started bitcoin core notify listening thread, host=' +
-                      str(notify_host) + ' port=' + str(hostport[1]))
-            httpd.serve_forever()
-        log.debug('failed to bind for bitcoin core notify listening')
-
-# must run bitcoind with -server
-# -walletnotify="curl -sI --connect-timeout 1 http://localhost:62602/walletnotify?%s"
-# and make sure curl is installed (git uses it, odds are you've already got it)
-
-
 class BitcoinCoreInterface(BlockchainInterface):
 
     def __init__(self, jsonRpc, network):
@@ -973,24 +823,46 @@ class BitcoinCoreInterface(BlockchainInterface):
         self.notifythread = None
         self.txnotify_fun = []
         self.wallet_synced = False
+        #task.LoopingCall objects that track transactions, keyed by txids.
+        #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
+        #spent true/false), ..}
+        self.tx_watcher_loops = {}
 
     @staticmethod
     def get_wallet_name(wallet):
         return 'joinmarket-wallet-' + btc.dbl_sha256(wallet.keys[0][0])[:6]
 
+    def get_block(self, blockheight):
+        """Returns full serialized block at a given height.
+        """
+        block_hash = self.rpc('getblockhash', [blockheight])
+        block = self.rpc('getblock', [block_hash, False])
+        if not block:
+            return False
+        return block
+
     def rpc(self, method, args):
-        if method not in ['importaddress', 'walletpassphrase', 'getaccount']:
+        if method not in ['importaddress', 'walletpassphrase', 'getaccount',
+                          'gettransaction', 'getrawtransaction', 'gettxout']:
             log.debug('rpc: ' + method + " " + str(args))
         res = self.jsonRpc.call(method, args)
         if isinstance(res, unicode):
             res = str(res)
         return res
 
-    def add_watchonly_addresses(self, addr_list, wallet_name):
+    def import_addresses(self, addr_list, wallet_name):
         log.debug('importing ' + str(len(addr_list)) +
                   ' addresses into account ' + wallet_name)
         for addr in addr_list:
             self.rpc('importaddress', [addr, wallet_name, False])
+
+    def add_watchonly_addresses(self, addr_list, wallet_name):
+        """For backwards compatibility, this fn name is preserved
+        as the case where we quit the program if a rescan is required;
+        but in some cases a rescan is not required (if the address is known
+        to be new/unused). For that case use import_addresses instead.
+        """
+        self.import_addresses(addr_list, wallet_name)
         if jm_single().config.get("BLOCKCHAIN",
                                   "blockchain_source") != 'regtest': #pragma: no cover
             #Exit conditions cannot be included in tests
@@ -1233,6 +1105,13 @@ class BitcoinCoreInterface(BlockchainInterface):
 
         self.wallet_synced = True
 
+    def start_unspent_monitoring(self, wallet):
+        self.unspent_monitoring_loop = task.LoopingCall(self.sync_unspent, wallet)
+        self.unspent_monitoring_loop.start(1.0)
+
+    def stop_unspent_monitoring(self):
+        self.unspent_monitoring_loop.stop()
+
     def sync_unspent(self, wallet):
         from jmclient.wallet import BitcoinCoreWallet
 
@@ -1262,18 +1141,21 @@ class BitcoinCoreInterface(BlockchainInterface):
         et = time.time()
         log.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
 
-    def add_tx_notify(self,
-                      txd,
-                      unconfirmfun,
-                      confirmfun,
-                      notifyaddr,
-                      timeoutfun=None,
-                      vb=None):
+    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr,
+            timeoutfun=None, spentfun=None, txid_flag=True, n=0, c=1, vb=None):
+        """Given a deserialized transaction txd,
+        callback functions for broadcast and confirmation of the transaction,
+        an address to import, and a callback function for timeout, set up
+        a polling loop to check for events on the transaction. Also optionally set
+        to trigger "confirmed" callback on number of confirmations c. Also checks
+        for spending (if spentfun is not None) of the outpoint n.
+        If txid_flag is True, we create a watcher loop on the txid (hence only
+        really usable in a segwit context, and only on fully formed transactions),
+        else we create a watcher loop on the output set of the transaction (taken
+        from the outs field of the txd).
+        """
         if not vb:
             vb = get_p2pk_vbyte()
-        if not self.notifythread:
-            self.notifythread = BitcoinCoreNotifyThread(self)
-            self.notifythread.start()
         one_addr_imported = False
         for outs in txd['outs']:
             addr = btc.script_to_address(outs['script'], vb)
@@ -1282,17 +1164,197 @@ class BitcoinCoreInterface(BlockchainInterface):
                 break
         if not one_addr_imported:
             self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
-        tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
-        self.txnotify_fun.append((tx_output_set, unconfirmfun, confirmfun,
-                                  timeoutfun, False))
 
-        #create unconfirm timeout here, create confirm timeout in the other thread
-        if timeoutfun:
-            threading.Timer(jm_single().config.getint('TIMEOUT',
-                                                      'unconfirm_timeout_sec'),
-                            bitcoincore_timeout_callback,
-                            args=(False, tx_output_set, self.txnotify_fun,
-                                  timeoutfun)).start()
+        #Warning! In case of txid_flag false, this is *not* a valid txid,
+        #but only a hash of an incomplete transaction serialization; but,
+        #it still suffices as a unique key for tracking, in this case.
+        txid = btc.txhash(btc.serialize(txd))
+        if not txid_flag:
+            tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
+            loop = task.LoopingCall(self.outputs_watcher, notifyaddr, tx_output_set,
+                                    unconfirmfun, confirmfun, timeoutfun)
+            log.debug("Created watcher loop for address: " + notifyaddr)
+            loopkey = notifyaddr
+        else:
+            loop = task.LoopingCall(self.tx_watcher, txd, unconfirmfun, confirmfun,
+                                    spentfun, c, n)
+            log.debug("Created watcher loop for txid: " + txid)
+            loopkey = txid
+        self.tx_watcher_loops[loopkey] = [loop, False, False, False]
+        #Hardcoded polling interval, but in any case it can be very short.
+        loop.start(2.0)
+        #TODO Hardcoded very long timeout interval
+        reactor.callLater(7200, self.tx_timeout, txd, loopkey, timeoutfun)
+
+    def tx_timeout(self, txd, loopkey, timeoutfun):
+        #TODO: 'loopkey' is an address not a txid for Makers, handle that.
+        if not timeoutfun:
+            return
+        if not txid in self.tx_watcher_loops:
+            return
+        if not self.tx_watcher_loops[loopkey][1]:
+            #Not confirmed after 2 hours; give up
+            log.info("Timed out waiting for confirmation of: " + str(loopkey))
+            self.tx_watcher_loops[loopkey][0].stop()
+            timeoutfun(txd, loopkey)
+
+    def get_deser_from_gettransaction(self, rpcretval):
+        """Get full transaction deserialization from a call
+        to `gettransaction`
+        """
+        if not "hex" in rpcretval:
+            log.info("Malformed gettransaction output")
+            return None
+        #str cast for unicode
+        hexval = str(rpcretval["hex"])
+        return btc.deserialize(hexval)
+
+    def outputs_watcher(self, notifyaddr, tx_output_set, unconfirmfun, confirmfun,
+                        timeoutfun):
+        """Given a key for the watcher loop (txid), a set of outputs, and
+        unconfirm, confirm and timeout callbacks, check to see if a transaction
+        matching that output set has appeared in the wallet. Call the callbacks
+        and update the watcher loop state. End the loop when the confirmation
+        has been seen (no spent monitoring here).
+        """
+        wl = self.tx_watcher_loops[notifyaddr]
+        txlist = self.rpc("listtransactions", ["*", 1000, 0, True])
+        for tx in txlist[::-1]:
+            #changed syntax in 0.14.0; allow both syntaxes
+            try:
+                res = self.rpc("gettransaction", [tx["txid"], True])
+            except:
+                try:
+                    res = self.rpc("gettransaction", [tx["txid"], 1])
+                except:
+                    #This should never happen (gettransaction is a wallet rpc).
+                    log.info("Failed any gettransaction call")
+                    res = None
+            if not res:
+                continue
+            if "confirmations" not in res:
+                log.debug("Malformed gettx result: " + str(res))
+                return
+            txd = self.get_deser_from_gettransaction(res)
+            if txd is None:
+                continue
+            txos = set([(sv['script'], sv['value']) for sv in txd['outs']])
+            if not txos == tx_output_set:
+                continue
+            #Here we have found a matching transaction in the wallet.
+            real_txid = btc.txhash(btc.serialize(txd))
+            if not wl[1] and res["confirmations"] == 0:
+                log.debug("Tx: " + str(real_txid) + " seen on network.")
+                unconfirmfun(txd, real_txid)
+                wl[1] = True
+                return
+            if not wl[2] and res["confirmations"] > 0:
+                log.debug("Tx: " + str(real_txid) + " has " + str(
+                res["confirmations"]) + " confirmations.")
+                confirmfun(txd, real_txid, res["confirmations"])
+                wl[2] = True
+                wl[0].stop()
+                return
+            if res["confirmations"] < 0:
+                log.debug("Tx: " + str(real_txid) + " has a conflict. Abandoning.")
+                wl[0].stop()
+                return
+
+    def tx_watcher(self, txd, unconfirmfun, confirmfun, spentfun, c, n):
+        """Called at a polling interval, checks if the given deserialized
+        transaction (which must be fully signed) is (a) broadcast, (b) confirmed
+        and (c) spent from at index n, and notifies confirmation if number
+        of confs = c.
+        TODO: Deal with conflicts correctly. Here just abandons monitoring.
+        """
+        txid = btc.txhash(btc.serialize(txd))
+        wl = self.tx_watcher_loops[txid]
+        try:
+            res = self.rpc('gettransaction', [txid, True])
+        except JsonRpcError as e:
+            return
+        if not res:
+            return
+        if "confirmations" not in res:
+            log.debug("Malformed gettx result: " + str(res))
+            return
+        if not wl[1] and res["confirmations"] == 0:
+            log.debug("Tx: " + str(txid) + " seen on network.")
+            unconfirmfun(txd, txid)
+            wl[1] = True
+            return
+        if not wl[2] and res["confirmations"] > 0:
+            log.debug("Tx: " + str(txid) + " has " + str(
+                res["confirmations"]) + " confirmations.")
+            confirmfun(txd, txid, res["confirmations"])
+            if c <= res["confirmations"]:
+                wl[2] = True
+                #Note we do not stop the monitoring loop when
+                #confirmations occur, since we are also monitoring for spending.
+            return
+        if res["confirmations"] < 0:
+            log.debug("Tx: " + str(txid) + " has a conflict. Abandoning.")
+            wl[0].stop()
+            return
+        if not spentfun or wl[3]:
+            return
+        #To trigger the spent callback, we check if this utxo outpoint appears in
+        #listunspent output with 0 or more confirmations. Note that this requires
+        #we have added the destination address to the watch-only wallet, otherwise
+        #that outpoint will not be returned by listunspent.
+        res2 = self.rpc('listunspent', [0, 999999])
+        if not res2:
+            return
+        txunspent = False
+        for r in res2:
+            if "txid" not in r:
+                continue
+            if txid == r["txid"] and n == r["vout"]:
+                txunspent = True
+                break
+        if not txunspent:
+            #We need to find the transaction which spent this one;
+            #assuming the address was added to the wallet, then this
+            #transaction must be in the recent list retrieved via listunspent.
+            #For each one, use gettransaction to check its inputs.
+            #This is a bit expensive, but should only occur once.
+            txlist = self.rpc("listtransactions", ["*", 1000, 0, True])
+            for tx in txlist[::-1]:
+                #changed syntax in 0.14.0; allow both syntaxes
+                try:
+                    res = self.rpc("gettransaction", [tx["txid"], True])
+                except:
+                    try:
+                        res = self.rpc("gettransaction", [tx["txid"], 1])
+                    except:
+                        #This should never happen (gettransaction is a wallet rpc).
+                        log.info("Failed any gettransaction call")
+                        res = None
+                if not res:
+                    continue
+                deser = self.get_deser_from_gettransaction(res)
+                if deser is None:
+                    continue
+                for vin in deser["ins"]:
+                    if not "outpoint" in vin:
+                        #coinbases
+                        continue
+                    if vin["outpoint"]["hash"] == txid and vin["outpoint"]["index"] == n:
+                        #recover the deserialized form of the spending transaction.
+                        log.info("We found a spending transaction: " + \
+                                   btc.txhash(binascii.unhexlify(res["hex"])))
+                        res2 = self.rpc("gettransaction", [tx["txid"], True])
+                        spending_deser = self.get_deser_from_gettransaction(res2)
+                        if not spending_deser:
+                            log.info("ERROR: could not deserialize spending tx.")
+                            #Should never happen, it's a parsing bug.
+                            #No point continuing to monitor, we just hope we
+                            #can extract the secret by scanning blocks.
+                            wl[3] = True
+                            return
+                        spentfun(spending_deser, vin["outpoint"]["hash"])
+                        wl[3] = True
+                        return
 
     def pushtx(self, txhex):
         try:
