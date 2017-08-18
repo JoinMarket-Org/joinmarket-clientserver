@@ -9,5 +9,5 @@ setup(name='joinmarketclient',
       author_email='ekaggata@gmail.com',
       license='GPL',
       packages=['jmclient'],
-      install_requires=['joinmarketbase==0.3.0', 'mnemonic'],
+      install_requires=['joinmarketbase==0.3.0', 'mnemonic', 'qt4reactor'],
       zip_safe=False)
