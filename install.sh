@@ -103,8 +103,8 @@ clear
 if ! mkdir venv; then
  echo "virtualenv directory already exists; assuming valid."
 fi
-virtualenv venv
-source venv/bin/activate
+virtualenv jmvenv
+source jmvenv/bin/activate
 #required for older pips, e.g. on Ubuntu 14.04
 pip install --upgrade setuptools
 #Doing manually instead of as in setupall.py
@@ -125,7 +125,7 @@ cd ..
 echo "
           JOINMARKET SUCCESSFULLY INSTALLED.
           BEFORE RUNNING SCRIPTS, TYPE:
-          source venv/bin/activate
+          source jmvenv/bin/activate
           FROM THIS DIRECTORY, TO ACTIVATE THE VIRTUALENV.
 "
 read -p "PRESS ENTER TO EXIT SCRIPT. "

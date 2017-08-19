@@ -5,6 +5,8 @@ a wallet with segwit addresses. These addresses are P2SH (start with '3' on main
 note they are *not* multisig, however, they are yours only (technically we are using
 address type P2SH/P2WPKH).
 
+(Some parts of this are a repeat of what's in the [usage guide](USAGE.md)).
+
 #### If you don't have an existing Joinmarket wallet:
 
 You can go into the `scripts/` directory, which contains the `wallet-tool.py` script,
@@ -20,7 +22,7 @@ Also, the BIP32 paths are different, see the bottom of this page for some detail
 
 Migrating coins to this new-style wallet can be done in these steps:
 
-* Install this new version (0.3.0+), see [here](INSTALL.md)
+* Install this new version (0.3.0+), use "Quickstart" from the [readme](../README.md) or see [here](INSTALL.md)
 
 * Generate a new wallet; go into the `scripts/` directory and do the same as before:
 
@@ -47,12 +49,12 @@ will find the old wallet. Whether using method (1) or (2), the next step is the 
 
 Use `python sendpayment.py -N 0 -m [mixdepth] oldwalletname 0 destaddr` to send coins from
 your old wallet, mixdepth 0, into the new one you've created, with a sweep from that
-mixdepth. The -N 0 means using direct-send, i.e. not using joinmarket/IRC, so it's 
-the cheapest/most convenient. Don't forget to reset `tx_fees` in your joinmarket.cfg
+mixdepth. The -N 0 means using direct-send, i.e. not using joinmarket/IRC.
+Don't forget to reset `tx_fees` in your joinmarket.cfg
 if you want to adjust the projected fee.
 
 If you've used (2), then delete the line `segwit = false` from joinmarket.cfg, and
-reload the new wallet with python wallet-tool.py newwalletname.json
+reload the new wallet with `python wallet-tool.py newwalletname.json`
 
 Once you're sure it's working you can repeat this process for any number of mixdepths
 for which you want to transfer coins.

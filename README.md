@@ -3,19 +3,39 @@
 Joinmarket refactored to separate client and backend operations
 
 **NOTE: To use current Joinmarket, use the [latest release](https://github.com/AdamISZ/joinmarket-clientserver/releases).
-The master branch is upgraded for segwit and to be used only for testing until the next release.**
+The master branch is upgraded for segwit and to be used only for that; a new release will be made shortly.**
 
 ### Quickstart
 
-You need to follow the [install guide](docs/INSTALL.md).
+**You need Bitcoin Core to use; get it running first.**
 
-The above document will point you to the [segwit upgrade guide](docs/SEGWIT-UPGRADE.md) if you need to update your wallet.
+Once you've downloaded this repo, either as a zip file, and extracted it, or via `git clone`:
+
+    ./install.sh
+    (follow instructions on screen; provide sudo password when prompted)
+    source jmvenv/bin/activate
+    cd scripts
+
+You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
+
+Alternative to this "quickstart": follow the [install guide](docs/INSTALL.md).
+
+### Upgrade for segwit
+
+See the [segwit upgrade guide](docs/SEGWIT-UPGRADE.md) if you need to update your wallet.
+
+### Usage
 
 If you are new, follow and read the links in the [usage guide](docs/USAGE.md).
 
 If you are not new to Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
 
-There is a joinmarket-qt GUI included but it's not yet ready for the new segwit version.
+### Joinmarket-Qt
+
+Provides single join and multi-join/tumbler functionality (i.e. "Taker") only, in a GUI.
+
+Binaries that are built and signed will be in the Releases page. To run the script
+`joinmarket-qt.py` from the command line, pay attention to the note [here](https://github.com/AdamISZ/electrum-joinmarket-plugin#a-note-on-pyqt4-and-virtualenv).
 
 ### Notes on architectural changes (can be ignored)
 

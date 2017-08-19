@@ -20,11 +20,6 @@ or `git fetch; git checkout tags/<tagname>` for a specific tagged release, then 
 process as described below. This will only work if the latest commit, or the tag,
 is actually newer in version number, than what was there already.
 
-Lastly, on compatibility, it's considered the responsibility of the developer(s) to
-ensure that the code here is always compatible with that in the [main](https://github.com/Joinmarket-Org/joinmarket)
-repo, so you should always be able to run the latest version and successfully transact
-with other participants in the Joinmarket pit.
-
 ### Installation on Linux
 
 To install everything (client and server), install these packages:
@@ -64,6 +59,8 @@ Install this repo:
 
 If you have installed this "full" version of the client, you can use it with the
 command line scripts as explained in the [scripts README](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/scripts).
+
+Alternative/custom installation:
 
 #### Installing the daemon separately
 
