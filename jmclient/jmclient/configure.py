@@ -29,6 +29,8 @@ class AttributeDict(object):
     def __init__(self, **entries):
         self.currentnick = None
         self.add_entries(**entries)
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
 
     def add_entries(self, **entries):
         for key, value in entries.items():

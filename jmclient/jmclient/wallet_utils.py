@@ -90,16 +90,18 @@ def bip32pathparse(path):
     if not path.startswith('m'):
         return False
     elements = path.split(bip32sep)[1:]
+    ret_elements = []
     for e in elements:
         if e[-1] == "'": e = e[:-1]
         try:
             x = int(e)
         except:
             return False
-        if not e >= -1:
+        if not x >= -1:
             #-1 is allowed for dummy branches for imported keys
             return False
-    return True
+        ret_elements.append(x)
+    return ret_elements
 
 def test_bip32_pathparse():
     assert bip32pathparse("m/2/1/0017")
@@ -479,8 +481,10 @@ def wallet_importprivkey(wallet, mixdepth):
         print('Private key(s) successfully imported')
 
 def wallet_dumpprivkey(wallet, hdpath):
-    if bip32pathparse(hdpath):
-        m, forchange, k = [int(y) for y in hdpath[4:].split('/')]
+    pathlist = bip32pathparse(hdpath)
+    print('got pathlist: ' + str(pathlist))
+    if pathlist and len(pathlist) == 5:
+        cointype, purpose, m, forchange, k = pathlist
         key = wallet.get_key(m, forchange, k)
         wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
         return wifkey
