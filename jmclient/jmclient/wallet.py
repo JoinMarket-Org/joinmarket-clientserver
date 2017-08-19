@@ -172,8 +172,12 @@ class Wallet(AbstractWallet):
     def get_master_key(self):
         if not self.seed:
             raise Exception("Cannot extract master key of wallet, no seed.")
-        return btc.bip32_master_key(
-            self.seed.decode('hex'),(btc.MAINNET_PRIVATE if get_network(
+        #Legacy used the seed in hex
+        if not isinstance(self, SegwitWallet):
+            bip32seed = self.seed
+        else:
+            bip32seed = self.seed.decode('hex')
+        return btc.bip32_master_key(bip32seed, (btc.MAINNET_PRIVATE if get_network(
                 ) == 'mainnet' else btc.TESTNET_PRIVATE))
 
     def get_mixing_depth_keys(self, master):
