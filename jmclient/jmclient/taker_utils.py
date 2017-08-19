@@ -85,13 +85,14 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     log.info("Got signed transaction:\n")
     log.info(tx + "\n")
     log.info(pformat(txsigned))
+    actual_amount = amount if amount != 0 else total_inputs_val - fee_est
+    log.info("Sends: " + str(actual_amount) + " satoshis to address: " + destaddr)
     if not answeryes:
         if not accept_callback:
             if raw_input('Would you like to push to the network? (y/n):')[0] != 'y':
                 log.info("You chose not to broadcast the transaction, quitting.")
                 return False
         else:
-            actual_amount = amount if amount != 0 else total_inputs_val - fee_est
             accepted = accept_callback(pformat(txsigned), destaddr, actual_amount,
                                        fee_est)
             if not accepted:
