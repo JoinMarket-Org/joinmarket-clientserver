@@ -34,18 +34,18 @@ RED_FG = "QWidget {color:red;}"
 BLUE_FG = "QWidget {color:blue;}"
 BLACK_FG = "QWidget {color:black;}"
 
-donation_address = '1LT6rwv26bV7mgvRosoSCyGM7ttVRsYidP'
-donation_address_testnet = 'mz6FQosuiNe8135XaQqWYmXsa3aD8YsqGL'
+donation_address = 'Currently disabled'
+donation_address_testnet = 'Currently disabled'
 
+#TODO legacy, remove or change
 warnings = {"blockr_privacy": """You are using blockr as your method of
 connecting to the blockchain; this means
 that blockr.com can see the addresses you
 query. This is bad for privacy - consider
 using a Bitcoin Core node instead."""}
+
 #configuration types
 config_types = {'rpc_port': int,
-                'usessl': bool,
-                'socks5': bool,
                 'network': bool,
                 'checktx': bool,
                 'socks5_port': int,
@@ -56,9 +56,10 @@ config_types = {'rpc_port': int,
                 'max_mix_depth': int,
                 'txfee_default': int,
                 'order_wait_time': int,
-                'privacy_warning': None}
+                "no_daemon": int,
+                "daemon_port": int,}
 config_tips = {
-    'blockchain_source': 'options: blockr, bc.i, bitcoin-rpc',
+    'blockchain_source': 'options: bitcoin-rpc, regtest (for testing)',
     'network': 'one of "testnet" or "mainnet"',
     'checktx': 'whether to check fees before completing transaction',
     'rpc_host':
@@ -69,10 +70,12 @@ config_tips = {
     'host': 'hostname for IRC server (or comma separated list)',
     'channel': 'channel name on IRC server (or comma separated list)',
     'port': 'port for connecting to IRC server (or comma separated list)',
-    'usessl': 'check to use SSL for connection to IRC',
-    'socks5': 'check to use SOCKS5 proxy for IRC connection',
-    'socks5_host': 'host for SOCKS5 proxy',
-    'socks5_port': 'port for SOCKS5 proxy',
+    'usessl': "'true'/'false' to use SSL for each connection to IRC\n" +
+    "(or comma separated list)",
+    'socks5': "'true'/'false' to use a SOCKS5 proxy for each connection" +
+    "to IRC (or comma separated list)",
+    'socks5_host': 'host for SOCKS5 proxy (or comma separated list)',
+    'socks5_port': 'port for SOCKS5 proxy (or comma separated list)',
     'maker_timeout_sec': 'timeout for waiting for replies from makers',
     'merge_algorithm': 'for dust sweeping, try merge_algorithm = gradual, \n' +
     'for more rapid dust sweeping, try merge_algorithm = greedy \n' +
@@ -92,7 +95,43 @@ config_tips = {
     'tx fee estimate; this value is not usually used and is best left at\n' +
     'the default of 5000',
     'order_wait_time': 'How long to wait for orders to arrive on entering\n' +
-    'the message channel, default is 30s'
+    'the message channel, default is 30s',
+    'no_daemon': "1 means don't use a separate daemon; set to 0 only if you\n" +
+    "are running an instance of joinmarketd separately",
+    "daemon_port": "The port on which the joinmarket daemon is running",
+    "daemon_host": "The host on which the joinmarket daemon is running; remote\n" +
+    "hosts should be considered *highly* experimental for now, not recommended.",
+    "use_ssl": "Set to 'true' to use TLS for client-daemon connection; see\n" +
+    "documentation for details on how to set up certs if you use this.",
+    "history_file": "Location of the file storing transaction history",
+    "segwit": "Only used for migrating legacy wallets; see documentation.",
+    "console_log_level": "one of INFO, DEBUG, WARN, ERROR; INFO is least noisy;\n" +
+    "consider switching to DEBUG in case of problems.",
+    "absurd_fee_per_kb": "maximum satoshis/kilobyte you are willing to pay,\n" +
+    "whatever the fee estimate currently says.",
+    "tx_broadcast": "Options: self, random-peer, not-self (note: random-maker\n" +
+    "is not currently supported).\n" +
+    "self = broadcast transaction with your own ip\n" +
+    "random-peer = everyone who took part in the coinjoin has\n" +
+    "a chance of broadcasting.\n" +
+    "not-self = never broadcast with your own ip.",
+    "privacy_warning": "Not currently used, ignore.",
+    "taker_utxo_retries": "Global consensus parameter, do NOT change.\n" +
+    "See documentation of use of 'commitments'.",
+    "taker_utxo_age": "Global consensus parameter, do NOT change.\n" +
+    "See documentation of use of 'commitments'.",
+    "taker_utxo_amtpercent": "Global consensus parameter, do not change.\n" +
+    "See documentation of use of 'commitments'.",
+    "accept_commitment_broadcasts": "Not used, ignore.",
+    "commit_file_location": "Location of the file that stores the commitments\n" +
+    "you've used, and any external commitments you've loaded.\n" +
+    "See documentation of use of 'commitments'.",
+    "listunspent_args": "Set to [1, 9999999] to show and use only coins that\n" +
+    "are confirmed; set to [0] to spend all coins including unconfirmed; this\n" +
+    "is not advisable.",
+    "minimum_makers": "The minimum number of counterparties for the transaction\n" +
+    "to complete (default 2). If set to a high value it can cause transactions\n" +
+    "to fail much more frequently.",
 }
 
 #Temporarily disabled

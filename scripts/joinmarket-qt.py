@@ -45,8 +45,10 @@ pyqt4reactor.install()
 #General Joinmarket donation address; TODO
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 
-JM_CORE_VERSION = '0.2.2'
-JM_GUI_VERSION = '5'
+#Underlying joinmarket code version (as per setup.py etc.)
+JM_CORE_VERSION = '0.3.0'
+#Version of this Qt script specifically
+JM_GUI_VERSION = '6'
 
 from jmclient import (load_program_config, get_network, SegwitWallet,
                       get_p2sh_vbyte, jm_single, validate_address,
@@ -83,19 +85,15 @@ def update_config_for_gui():
     '''
     gui_config_names = ['gaplimit', 'history_file', 'check_high_fee',
                         'max_mix_depth', 'txfee_default', 'order_wait_time',
-                        'daemon_port', 'checktx']
+                       'checktx']
     gui_config_default_vals = ['6', 'jm-tx-history.txt', '2', '5', '5000', '30',
-                               '27183', 'true']
+                               'true']
     if "GUI" not in jm_single().config.sections():
         jm_single().config.add_section("GUI")
     gui_items = jm_single().config.items("GUI")
     for gcn, gcv in zip(gui_config_names, gui_config_default_vals):
         if gcn not in [_[0] for _ in gui_items]:
             jm_single().config.set("GUI", gcn, gcv)
-    #Extra setting not exposed to the GUI, but only for the GUI app
-    if 'privacy_warning' not in [_[0] for _ in gui_items]:
-        print('overwriting privacy_warning')
-        jm_single().config.set("GUI", 'privacy_warning', '1')
 
 
 def persist_config():
@@ -632,11 +630,6 @@ class SpendTab(QWidget):
             JMQtMessageBox(self, "Cannot start without a loaded wallet.",
                            mbtype="crit", title="Error")
             return
-        if jm_single().config.get("BLOCKCHAIN",
-                                  "blockchain_source") == 'blockr':
-            res = self.showBlockrWarning()
-            if res == True:
-                return
         log.debug('starting coinjoin ..')
         #Decide whether to interrupt processing to sanity check the fees
         if self.tumbler_options:
@@ -915,34 +908,6 @@ class SpendTab(QWidget):
                            title="Error")
             return False
         return True
-
-    def showBlockrWarning(self):
-        if jm_single().config.getint("GUI", "privacy_warning") == 0:
-            return False
-        qmb = QMessageBox()
-        qmb.setIcon(QMessageBox.Warning)
-        qmb.setWindowTitle("Privacy Warning")
-        qcb = QCheckBox("Don't show this warning again.")
-        lyt = qmb.layout()
-        lyt.addWidget(QLabel(warnings['blockr_privacy']), 0, 1)
-        lyt.addWidget(qcb, 1, 1)
-        qmb.addButton(QPushButton("Continue"), QMessageBox.YesRole)
-        qmb.addButton(QPushButton("Cancel"), QMessageBox.NoRole)
-
-        qmb.exec_()
-
-        switch_off_warning = '0' if qcb.isChecked() else '1'
-        jm_single().config.set("GUI", "privacy_warning", switch_off_warning)
-
-        res = qmb.buttonRole(qmb.clickedButton())
-        if res == QMessageBox.YesRole:
-            return False
-        elif res == QMessageBox.NoRole:
-            return True
-        else:
-            log.debug("GUI error: unrecognized button, canceling.")
-            return True
-
 
 class TxHistoryTab(QWidget):
 

@@ -22,7 +22,7 @@ from .wallet import (AbstractWallet, BitcoinCoreInterface, Wallet,
 from .configure import (load_program_config, jm_single, get_p2pk_vbyte,
     get_network, jm_single, get_network, validate_address, get_irc_mchannels,
     get_blockchain_interface_instance, get_p2sh_vbyte, set_config)
-from .blockchaininterface import (BlockrInterface, BlockchainInterface, sync_wallet,
+from .blockchaininterface import (BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
 from .client_protocol import (JMClientProtocolFactory, start_reactor)

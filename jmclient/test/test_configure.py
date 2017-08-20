@@ -4,7 +4,8 @@ from __future__ import absolute_import
 
 import pytest
 from jmclient import (load_program_config, jm_single, get_irc_mchannels,
-                      BTC_P2PK_VBYTE, BTC_P2SH_VBYTE, validate_address)
+                      BTC_P2PK_VBYTE, BTC_P2SH_VBYTE, validate_address,
+                      JsonRpcConnectionError)
 from jmclient.configure import (get_config_irc_channel, get_p2sh_vbyte,
                                 get_p2pk_vbyte, get_blockchain_interface_instance)
 import jmbitcoin as bitcoin
@@ -24,8 +25,11 @@ def test_load_config():
     os.makedirs("dummydirforconfig")
     ncp = os.path.join(os.getcwd(), "dummydirforconfig")
     jm_single().config_location = "joinmarket.cfg"
-    #TODO hack: the default config won't load on bitcoin-rpc; need to fix.
-    load_program_config(config_path=ncp, bs="blockr")
+    #TODO hack: load from default implies a connection error unless
+    #actually mainnet, but tests cannot; for now catch the connection error
+    with pytest.raises(JsonRpcConnectionError) as e_info:
+        load_program_config(config_path=ncp, bs="regtest")
+    assert str(e_info.value) == "JSON-RPC connection failed. Err:error(111, 'Connection refused')"
     os.remove("dummydirforconfig/joinmarket.cfg")
     os.removedirs("dummydirforconfig")
     jm_single().config_location = "joinmarket.cfg"
@@ -47,7 +51,7 @@ def test_net_byte():
 
 def test_blockchain_sources():
     load_program_config()
-    for src in ["blockr", "electrum", "dummy", "bc.i"]:
+    for src in ["electrum", "dummy"]:
         jm_single().config.set("BLOCKCHAIN", "blockchain_source", src)
         if src=="electrum":
             jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
