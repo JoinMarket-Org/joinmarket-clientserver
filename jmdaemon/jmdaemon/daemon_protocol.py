@@ -180,11 +180,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @JMSetup.responder
     def on_JM_SETUP(self, role, initdata):
         assert self.jm_state == 0
-        #TODO consider MAKER role implementation here
         self.role = role
         self.crypto_boxes = {}
         self.kp = init_keypair()
-        print("Received setup command")
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         #Request orderbook here, on explicit setup request from client,

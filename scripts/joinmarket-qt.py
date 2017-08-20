@@ -1251,10 +1251,10 @@ class JMMainWindow(QMainWindow):
                 transaction.writerow(["address", "private_key"])
                 for addr, pk in private_keys.items():
                     #sanity check
-                    if not btc.privtoaddr(
-                            btc.from_wif_privkey(pk,
-                                                 vbyte=get_p2pk_vbyte()),
-                            magicbyte=get_p2pk_vbyte()) == addr:
+                    if not addr == btc.pubkey_to_p2sh_p2wpkh_address(
+                                    btc.privkey_to_pubkey(
+                                        btc.from_wif_privkey(pk, vbyte=111)
+                                    ), get_p2sh_vbyte()):
                         JMQtMessageBox(None, "Failed to create privkey export -" +\
                                        " critical error in key parsing.",
                                        mbtype='crit')

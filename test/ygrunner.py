@@ -86,7 +86,6 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
         start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
                       clientfactory, daemon=daemon, rs=rs)
-        time.sleep(2)  #give it a chance
 
 @pytest.fixture(scope="module")
 def setup_ygrunner():
