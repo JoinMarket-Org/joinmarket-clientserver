@@ -1275,13 +1275,7 @@ class JMMainWindow(QMainWindow):
                        "Private keys exported to: " + privkeys_fn + '.csv',
                        title="Success")
 
-    def recoverWallet(self):
-        if get_network() == 'testnet':
-            JMQtMessageBox(self,
-                           'recover from seedphrase not supported for testnet',
-                           mbtype='crit',
-                           title="Error")
-            return
+    def seedEntry(self):
         d = QDialog(self)
         d.setModal(1)
         d.setWindowTitle('Recover from seed')
@@ -1299,23 +1293,24 @@ class JMMainWindow(QMainWindow):
         layout.addLayout(hbox, 3, 0)
         result = d.exec_()
         if result != QDialog.Accepted:
-            return
-        msg = str(message_e.toPlainText())
-        words = msg.split()  #splits on any number of ws chars
-        if not len(words) == 12:
+            return None
+        return str(message_e.toPlainText())
+
+    def recoverWallet(self):
+        success = wallet_generate_recover_bip39("recover", "wallets",
+                                                "wallet.json",
+                                                callbacks=(None, self.seedEntry,
+                                                           self.getPasswordKey,
+                                                           self.getWalletName))
+        if not success:
             JMQtMessageBox(self,
-                           "You did not provide 12 words, aborting.",
+                           "Failed to recover wallet.",
                            mbtype='warn',
                            title="Error")
-        else:
-            try:
-                seed = mn_decode(words)
-                self.initWallet(seed=seed)
-            except ValueError as e:
-                JMQtMessageBox(self,
-                               "Could not decode seedphrase: " + repr(e),
-                               mbtype='warn',
-                               title="Error")
+            return
+        JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
+                                   title="Wallet created")
+        self.initWallet(seed=self.walletname)
 
     def selectWallet(self, testnet_seed=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
@@ -1456,8 +1451,8 @@ class JMMainWindow(QMainWindow):
         ret = mb.exec_()
 
     def initWallet(self, seed=None):
-        '''Creates a new mainnet
-        wallet
+        '''Creates a new wallet if seed not provided.
+        Initializes by syncing.
         '''
         if not seed:
             success = wallet_generate_recover_bip39("generate",
@@ -1473,10 +1468,7 @@ class JMMainWindow(QMainWindow):
                 return
             JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                            title="Wallet created")
-            self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword)
-        else:
-            print('no seed to do')
-
+        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword)
 
 def get_wallet_printout(wallet):
     """Given a joinmarket wallet, retrieve the list of
