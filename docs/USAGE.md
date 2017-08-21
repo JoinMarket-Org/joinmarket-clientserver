@@ -1,6 +1,8 @@
 (You have either followed the Quick Install on the readme (`./install.sh`), or have
 followed a manual installation as per [here](INSTALL.md)).
 
+(If you want to run Joinmarket-Qt, start with the [walkthrough](JOINMARKET-QT-GUIDE.md) instead of this.)
+
 ### Zeroth step: configuring for Bitcoin Core
 
 Until such time as we have a better solution for a light client, Joinmarket only
@@ -23,7 +25,7 @@ and edit:
     rpc_user = yourusername-as-in-bitcoin.conf
     rpc_password = yourpassword-as-in-bitcoin.conf
     rpc_host = localhost #default usually correct 
-    rpc_port = 18332 # default for mainnet
+    rpc_port = 8332 # default for mainnet
 
 Then retry the same `generate` command; it should now not error (see below).
 If you still get rpc connection errors, make sure you can connect to your Core node using the command line first.

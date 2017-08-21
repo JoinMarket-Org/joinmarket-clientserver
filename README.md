@@ -28,6 +28,8 @@ See the [segwit upgrade guide](docs/SEGWIT-UPGRADE.md) if you need to update you
 
 If you are new, follow and read the links in the [usage guide](docs/USAGE.md).
 
+If you are running Joinmarket-Qt, you can instead use the [walkthrough](docs/JOINMARKET-QT-GUIDE.md) to start.
+
 If you are not new to Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
 
 ### Joinmarket-Qt
