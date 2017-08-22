@@ -48,7 +48,7 @@ has been created in the directory you're running in. Open it and edit:
 
 Once the rpc connection is correct, you will be presented with this start screen:
 
-![](images/JMQinitregtest.png)
+![](images/JMQInitregtest.png)
 
 Note "CURRENT WALLET: NONE" means no joinmarket wallet is loaded yet. Assuming you haven't
 yet created one, do Wallet->Generate (otherwise, do Wallet-->Load):

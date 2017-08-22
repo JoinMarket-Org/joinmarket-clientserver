@@ -40,6 +40,8 @@ else:
 import jmbitcoin as btc
 
 app = QApplication(sys.argv)
+if 'twisted.internet.reactor' in sys.modules:
+    del sys.modules['twisted.internet.reactor']
 from qtreactor import pyqt4reactor
 pyqt4reactor.install()
 #General Joinmarket donation address; TODO
@@ -655,7 +657,7 @@ class SpendTab(QWidget):
             daemon = jm_single().config.getint("DAEMON", "no_daemon")
             daemon = True if daemon == 1 else False
             start_reactor("localhost",
-                   jm_single().config.getint("GUI", "daemon_port"),
+                   jm_single().config.getint("DAEMON", "daemon_port"),
                    self.clientfactory,
                    ish=False,
                    daemon=daemon,
