@@ -25,7 +25,8 @@ from .configure import (load_program_config, jm_single, get_p2pk_vbyte,
 from .blockchaininterface import (BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
-from .client_protocol import (JMClientProtocolFactory, start_reactor)
+from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
+                              start_reactor)
 from .podle import (set_commitment_file, get_commitment_file,
                     generate_podle_error_string, add_external_commitments,
                     PoDLE, generate_podle, get_podle_commitments,

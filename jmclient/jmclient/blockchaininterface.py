@@ -9,7 +9,6 @@ import pprint
 import random
 import re
 import sys
-import threading
 import time
 import traceback
 from decimal import Decimal
@@ -200,7 +199,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         if netmap[actualNet] != network:
             raise Exception('wrong network configured')
 
-        self.notifythread = None
         self.txnotify_fun = []
         self.wallet_synced = False
         #task.LoopingCall objects that track transactions, keyed by txids.
@@ -522,7 +520,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         log.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
 
     def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr,
-            timeoutfun=None, spentfun=None, txid_flag=True, n=0, c=1, vb=None):
+            wallet_name=None, timeoutfun=None, spentfun=None, txid_flag=True,
+            n=0, c=1, vb=None):
         """Given a deserialized transaction txd,
         callback functions for broadcast and confirmation of the transaction,
         an address to import, and a callback function for timeout, set up
@@ -551,8 +550,9 @@ class BitcoinCoreInterface(BlockchainInterface):
         txid = btc.txhash(btc.serialize(txd))
         if not txid_flag:
             tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
-            loop = task.LoopingCall(self.outputs_watcher, notifyaddr, tx_output_set,
-                                    unconfirmfun, confirmfun, timeoutfun)
+            loop = task.LoopingCall(self.outputs_watcher, wallet_name, notifyaddr,
+                                    tx_output_set, unconfirmfun, confirmfun,
+                                    timeoutfun)
             log.debug("Created watcher loop for address: " + notifyaddr)
             loopkey = notifyaddr
         else:
@@ -562,7 +562,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             loopkey = txid
         self.tx_watcher_loops[loopkey] = [loop, False, False, False]
         #Hardcoded polling interval, but in any case it can be very short.
-        loop.start(2.0)
+        loop.start(5.0)
         #TODO Hardcoded very long timeout interval
         reactor.callLater(7200, self.tx_timeout, txd, loopkey, timeoutfun)
 
@@ -589,16 +589,17 @@ class BitcoinCoreInterface(BlockchainInterface):
         hexval = str(rpcretval["hex"])
         return btc.deserialize(hexval)
 
-    def outputs_watcher(self, notifyaddr, tx_output_set, unconfirmfun, confirmfun,
-                        timeoutfun):
-        """Given a key for the watcher loop (txid), a set of outputs, and
-        unconfirm, confirm and timeout callbacks, check to see if a transaction
-        matching that output set has appeared in the wallet. Call the callbacks
-        and update the watcher loop state. End the loop when the confirmation
-        has been seen (no spent monitoring here).
+    def outputs_watcher(self, wallet_name, notifyaddr, tx_output_set,
+                        unconfirmfun, confirmfun, timeoutfun):
+        """Given a key for the watcher loop (notifyaddr), a wallet name (account),
+        a set of outputs, and unconfirm, confirm and timeout callbacks,
+        check to see if a transaction matching that output set has appeared in
+        the wallet. Call the callbacks and update the watcher loop state.
+        End the loop when the confirmation has been seen (no spent monitoring here).
         """
         wl = self.tx_watcher_loops[notifyaddr]
-        txlist = self.rpc("listtransactions", ["*", 1000, 0, True])
+        account_name = wallet_name if wallet_name else "*"
+        txlist = self.rpc("listtransactions", [wallet_name, 100, 0, True])
         for tx in txlist[::-1]:
             #changed syntax in 0.14.0; allow both syntaxes
             try:
@@ -606,10 +607,12 @@ class BitcoinCoreInterface(BlockchainInterface):
             except:
                 try:
                     res = self.rpc("gettransaction", [tx["txid"], 1])
-                except:
+                except JsonRpcError as e:
                     #This should never happen (gettransaction is a wallet rpc).
                     log.info("Failed any gettransaction call")
                     res = None
+                except Exception as e:
+                    log.info(str(e))
             if not res:
                 continue
             if "confirmations" not in res:
@@ -774,26 +777,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         else:
             return estimate
 
-
-class TickChainThread(threading.Thread):
-
-    def __init__(self, bcinterface, forever=False):
-        threading.Thread.__init__(self, name='TickChainThread')
-        self.bcinterface = bcinterface
-        self.forever = forever
-    def run(self):
-        if self.bcinterface.tick_forward_chain_interval < 0:
-            log.debug('not ticking forward chain')
-            return
-        if self.forever:
-            while True:
-                if self.bcinterface.shutdown_signal:
-                    return
-                time.sleep(self.bcinterface.tick_forward_chain_interval)
-                self.bcinterface.tick_forward_chain(1)
-        time.sleep(self.bcinterface.tick_forward_chain_interval)
-        self.bcinterface.tick_forward_chain(1)
-
 # class for regtest chain access
 # running on local daemon. Only
 # to be instantiated after network is up
@@ -816,8 +799,19 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
             return jm_single().config.getint("POLICY",
                                              "absurd_fee_per_kb") + 100
 
+    def tickchain(self):
+        if self.tick_forward_chain_interval < 0:
+            log.debug('not ticking forward chain')
+            self.tickchainloop.stop()
+            return
+        if self.shutdown_signal:
+            self.tickchainloop.stop()
+            return
+        self.tick_forward_chain(1)
+
     def simulate_blocks(self):
-        TickChainThread(self, forever=True).start()
+        self.tickchainloop = task.LoopingCall(self.tickchain)
+        self.tickchainloop.start(self.tick_forward_chain_interval)
         self.simulating = True
 
     def pushtx(self, txhex):
@@ -828,8 +822,10 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
             return True
 
         ret = super(RegtestBitcoinCoreInterface, self).pushtx(txhex)
-        if not self.simulating:
-            TickChainThread(self).start()
+        if not self.simulating and self.tick_forward_chain_interval > 0:
+            print('will call tfc after ' + str(self.tick_forward_chain_interval) + ' seconds.')
+            reactor.callLater(self.tick_forward_chain_interval,
+                              self.tick_forward_chain, 1)
         return ret
 
     def tick_forward_chain(self, n):

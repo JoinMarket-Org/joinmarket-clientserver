@@ -263,7 +263,8 @@ def choose_sweep_orders(offers,
                         total_txfee,
                         n,
                         chooseOrdersBy,
-                        ignored_makers=None):
+                        ignored_makers=None,
+                        allowed_types=['swreloffer', 'swabsoffer']):
     """
     choose an order given that we want to be left with no change
     i.e. sweep an entire group of utxos
@@ -300,6 +301,7 @@ def choose_sweep_orders(offers,
 
     log.debug('choosing sweep orders for total_input_value = ' + str(
         total_input_value) + ' n=' + str(n))
+    offers = [o for o in offers if o["ordertype"] in allowed_types]
     #Filter ignored makers and inappropriate amounts
     offers = [o for o in offers if o['counterparty'] not in ignored_makers]
     offers = [o for o in offers if o['minsize'] < total_input_value]

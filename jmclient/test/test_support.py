@@ -98,7 +98,7 @@ def test_choose_orders():
     assert total_fee == 0
     
     #here we doctor the orderbook; (a) include an absfee
-    #(b) add an unrecognized ordertype
+    #(b) add an unrecognized ordertype (does not raise, ignores)
     #(c) put an order with wrong minsize
     orderbook.append({u'counterparty': u'fake',
                       u'ordertype': u'swabsoffer', u'oid': 0,
@@ -114,8 +114,7 @@ def test_choose_orders():
                          u'ordertype': u'dummyoffer', u'oid': 0,
                          u'minsize': 7500000, u'txfee': 1000,
                          u'maxsize': 599972700, u'cjfee': 9000})
-    with pytest.raises(RuntimeError) as e_info:
-        result, cjamount, total_fee = choose_sweep_orders(orderbook,
+    result, cjamount, total_fee = choose_sweep_orders(orderbook,
                                                       50000000,
                                                       30000,
                                                       8,

@@ -212,10 +212,11 @@ class JMMakerClientProtocol(JMClientProtocol):
             tx = btc.deserialize(txhex)
             self.finalized_offers[nick]["txd"] = tx
             jm_single().bc_interface.add_tx_notify(tx, self.unconfirm_callback,
-                                               self.confirm_callback,
-                                               offer["cjaddr"],
-                                               txid_flag=False,
-                                               vb=get_p2sh_vbyte())
+                    self.confirm_callback, offer["cjaddr"],
+                    wallet_name=jm_single().bc_interface.get_wallet_name(
+                        self.client.wallet),
+                    txid_flag=False,
+                    vb=get_p2sh_vbyte())
             d = self.callRemote(commands.JMTXSigs,
                                 nick=nick,
                                 sigs=json.dumps(sigs))
