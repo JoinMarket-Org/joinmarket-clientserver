@@ -276,7 +276,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         #use the same edge case as for negative change, don't add dummy inputs
         #(because we need tx creation to complete), but trigger case by
         #bumping dust threshold
-        jm_single().BITCOIN_DUST_THRESHOLD = 10000
+        jm_single().BITCOIN_DUST_THRESHOLD = 14000
         res = taker.receive_utxos(maker_response)
         #should have succeeded to build tx
         assert res[0]
