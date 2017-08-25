@@ -355,7 +355,8 @@ class Taker(object):
         if self.my_change_addr:
             #Estimate fee per choice of next/3/6 blocks targetting.
             estimated_fee = estimate_tx_fee(
-                len(sum(self.utxos.values(), [])), len(self.outputs) + 2)
+                len(sum(self.utxos.values(), [])), len(self.outputs) + 2,
+                txtype=self.wallet.get_txtype())
             jlog.info("Based on initial guess: " + str(self.total_txfee) +
                      ", we estimated a miner fee of: " + str(estimated_fee))
             #reset total
