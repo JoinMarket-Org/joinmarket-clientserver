@@ -114,9 +114,10 @@ def main():
 
     # Dynamically estimate a realistic fee if it currently is the default value.
     # At this point we do not know even the number of our own inputs, so
-    # we guess conservatively with 2 inputs and 2 outputs each
+    # we guess conservatively with 2 inputs and 2 outputs each.
     if options.txfee == -1:
-        options.txfee = max(options.txfee, estimate_tx_fee(2, 2))
+        options.txfee = max(options.txfee, estimate_tx_fee(2, 2,
+                                                           txtype="p2sh-p2wpkh"))
         log.debug("Estimated miner/tx fee for each cj participant: " + str(
             options.txfee))
     assert (options.txfee >= 0)
