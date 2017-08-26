@@ -1326,7 +1326,8 @@ class JMMainWindow(QMainWindow):
                 current_path = os.path.join(current_path, 'wallets')
             firstarg = QFileDialog.getOpenFileName(self,
                                                    'Choose Wallet File',
-                                                   directory=current_path)
+                                                   directory=current_path,
+                                                   options=QFileDialog.DontUseNativeDialog)
             #TODO validate the file looks vaguely like a wallet file
             log.debug('Looking for wallet in: ' + firstarg)
             if not firstarg:
