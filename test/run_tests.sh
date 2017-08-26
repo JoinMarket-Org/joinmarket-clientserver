@@ -9,9 +9,15 @@ run_jm_tests ()
         return 1
     fi
     jm_source="${VIRTUAL_ENV}/.."
+    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${VIRTUAL_ENV}/lib/pkgconfig"
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${VIRTUAL_ENV}/lib"
+    export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${VIRTUAL_ENV}/include"
 
     pushd "${jm_source}"
-    git clone git://github.com/Joinmarket-Org/miniircd.git
+    curl -L https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz -o miniircd.tar.gz
+    rm -rf ./miniircd
+    mkdir -p miniircd
+    tar xaf miniircd.tar.gz -C ./miniircd --strip-components=1
     if ! pip install -r ./requirements-dev.txt; then
         echo "Packages in 'requirements-dev.txt' could not be installed. Exiting."
         return 1
@@ -39,7 +45,7 @@ run_jm_tests ()
     cp -f ./test/bitcoin.conf "${jm_test_datadir}/bitcoin.conf"
     ${orig_umask}
     echo "datadir=${jm_test_datadir}" >> "${jm_test_datadir}/bitcoin.conf"
-    python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 --ignore jmclient/test/test_wallets.py --ignore test/test_segwit.py
+    python -m py.test ${HAS_JOSH_K_SEAL_OF_APPROVAL+'--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html'} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 --ignore jmclient/test/test_wallets.py --ignore test/test_segwit.py
     unlink ./joinmarket.cfg
     if read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
         pkill -15 ${bitcoind_pid} || pkill -9 ${bitcoind_pid}
