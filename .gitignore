@@ -9,4 +9,13 @@ htmlcov/
 scripts/joinmarket.cfg
 scripts/cmttools/commitments.json
 scripts/blacklist
-
+alicekey
+alicepubkey
+bobkey
+commitments_debug.txt
+deps/
+jmvenv/
+logs/
+miniircd/
+nums_basepoints.txt
+schedulefortesting

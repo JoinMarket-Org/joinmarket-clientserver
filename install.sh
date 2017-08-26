@@ -298,7 +298,7 @@ main ()
     Before executing scripts or tests, run:
 
     \`source jmvenv/bin/activate\`
-    
+
     from this directiry, to acticate virtualenv."
 }
 main

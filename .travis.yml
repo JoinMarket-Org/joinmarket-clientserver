@@ -2,25 +2,19 @@ sudo: required
 dist: trusty
 language: python
 python:
-    - "2.7_with_system_site_packages"
-
+  - "2.7_with_system_site_packages"
 before_install:
-    - sudo apt-add-repository ppa:bitcoin/bitcoin -y
-    - sudo apt-get update -q
-    - sudo apt-get install --no-install-recommends --no-upgrade -qq bitcoind
-
+  - sudo apt-add-repository ppa:bitcoin/bitcoin -y
+  - sudo apt-get update -q
+  - sudo apt-get install --no-install-recommends --no-upgrade -qq bitcoind
 install:
-    - ./install.sh
-
+  - ./install.sh
 before_script:
-    - source jmvenv/bin/activate
-
+  - source jmvenv/bin/activate
 script:
-    - ./test/run_tests.sh
-
+  - ./test/run_tests.sh
 after_success:
-    - coveralls
-
+  - coveralls
 branches:
  only:
-    - test_travis
+  - test_travis
