@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# jm_source="$PWD/.."
-# jm_root="${jm_source}/jmvenv"
-# jm_deps="${jm_source}/deps"
-
 gpg_verify_key ()
 {
     gpg --keyid-format long <"$1" | grep "$2"
@@ -46,6 +42,7 @@ check_skip_build ()
         read -p "Directory ${1} exists.  Remove and recreate?  (y/n)  " q
         if [[ "${q}" =~ Y|y ]]; then
             rm -rf "./${1}"
+            mkdir -p "./${1}"
             return 1
         else
             echo "skipping ${1}..."
@@ -60,7 +57,8 @@ venv_setup ()
     if check_skip_build 'jmvenv'; then
         return 0
     fi
-    virtualenv -p python2 jmvenv
+    rm -rf "${jm_source}/deps"
+    virtualenv -p python2 "${jm_source}/jmvenv"
 }
 
 openssl_get ()
@@ -75,6 +73,14 @@ openssl_build ()
 {
     ./config shared --prefix="${jm_root}"
     make -j
+    rm -rf "${jm_root}/ssl" \
+        "${jm_root}/lib/engines" \
+        "${jm_root}/lib/pkgconfig/openssl.pc" \
+        "${jm_root}/lib/pkgconfig/libssl.pc" \
+        "${jm_root}/lib/pkgconfig/libcrypto.pc" \
+        "${jm_root}/include/openssl" \
+        "${jm_root}/bin/c_rehash" \
+        "${jm_root}/bin/openssl"
     if ! make test; then
         return 1
     fi
@@ -111,7 +117,7 @@ openssl_install ()
     fi
     pushd "${openssl_version}"
     if openssl_build; then
-        make install
+        make install_sw
     else
         return 1
     fi
@@ -151,6 +157,7 @@ libffi_build ()
 {
     ./autogen.sh
     ./configure --disable-docs --enable-shared --prefix="${jm_root}"
+    make uninstall
     make -j
     if ! make check; then
         return 1
@@ -198,7 +205,8 @@ libsodium_get ()
 libsodium_build ()
 {
     ./autogen.sh
-    ./configure --enable-shared --prefix="${jm_root}" 
+    ./configure --enable-shared --prefix="${jm_root}"
+    make uninstall
     make -j
     if ! make check; then
         return 1
@@ -244,7 +252,7 @@ joinmarket_install ()
     jm_pkgs=( 'jmbase' 'jmdaemon' 'jmbitcoin' 'jmclient' )
     for pkg in ${jm_pkgs[@]}; do
         pushd "${pkg}"
-        pip install .
+        pip install . || return 1
         popd
     done
 }
@@ -277,10 +285,13 @@ main ()
     fi
     if ! libsodium_install; then
         echo "Libsodium was not built. Exiting."
+        return 1
     fi
     popd
     if ! joinmarket_install; then
         echo "Joinmarket was not installed. Exiting."
+        deactivate
+        return 1
     fi
     deactivate
     echo "Joinmarket successfully installed
