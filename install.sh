@@ -59,6 +59,10 @@ venv_setup ()
     fi
     rm -rf "${jm_source}/deps"
     virtualenv -p python2 "${jm_source}/jmvenv"
+    source "${jm_source}/jmvenv/bin/activate"
+    pip install --upgrade pip
+    pip install --upgrade setuptools
+    deactivate
 }
 
 openssl_get ()
@@ -263,6 +267,8 @@ main ()
     jm_root="${jm_source}/jmvenv"
     jm_deps="${jm_source}/deps"
     export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${jm_root}/lib/pkgconfig"
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${jm_root}/lib"
+    export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${jm_root}/include"
 
     if ! deb_deps_install; then
         echo "Dependecies could not be installed. Exiting."
