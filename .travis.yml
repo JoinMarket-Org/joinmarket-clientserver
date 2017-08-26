@@ -17,4 +17,4 @@ after_success:
   - coveralls
 branches:
  only:
-  - test_travis
+  - master
