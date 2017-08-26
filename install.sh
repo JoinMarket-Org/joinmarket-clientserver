@@ -94,7 +94,7 @@ openssl_install ()
     openssl_lib_sig="${openssl_lib_tar}.asc"
     openssl_url='https://www.openssl.org/source'
     openssl_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0xD9C4D26D0E604491'
-    openssl_signer_key_id='2048R/D9C4D26D0E604491'
+    openssl_signer_key_id='D9C4D26D0E604491'
     openssl_root="${jm_deps}/openssl"
 
     if check_skip_build 'openssl'; then
@@ -220,7 +220,7 @@ libsodium_install ()
     sodium_lib_sig="${sodium_lib_tar}.sig"
     sodium_url='https://download.libsodium.org/libsodium/releases'
     sodium_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0x210627AABA709FE1'
-    sodium_signer_key_id='4096R/62F25B592B6F76DA'
+    sodium_signer_key_id='62F25B592B6F76DA'
 
     if check_skip_build 'libsodium'; then
         return 0
