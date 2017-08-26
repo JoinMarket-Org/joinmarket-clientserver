@@ -17,13 +17,13 @@ gpg_verify_sig ()
 
 deb_deps_check ()
 {
-    apt-cache policy ${deb_deps[@]}
+    apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
 }
 
 deb_deps_install ()
 {
     deb_deps=( 'python-virtualenv' 'curl' 'python-dev' 'python-pip' 'build-essential' 'automake' 'pkg-config' 'libtool' )
-    if ! deb_deps_check; then
+    if deb_deps_check; then
         clear
         echo "
             sudo password required to run :
