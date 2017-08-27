@@ -157,15 +157,18 @@ merge_algorithm = default
 # per kB are needed to get in one of the next N blocks, N set here
 # as the value of 'tx_fees'. This estimate is high if you set N=1, 
 # so we choose N=3 for a more reasonable figure,
-# as our default. Note that for clients not using a local blockchain
-# instance, we retrieve an estimate from the API at blockcypher.com, currently.
+# as our default.
+# You can also set your own fee/kb: any number higher than 144 will
+# be interpreted as the fee in satoshi per kB that you wish to use
+# example: N=30000 will use 30000 sat/kB as a fee, while N=5
+# will use the estimate from your selected blockchain source
 tx_fees = 3
-# For users getting transaction fee estimates over an API
-# (currently blockcypher, could be others), place a sanity
-# check limit on the satoshis-per-kB to be paid. This limit
-# is also applied to users using Core, even though Core has its
-# own sanity check limit, which is currently 1,000,000 satoshis.
-absurd_fee_per_kb = 150000
+# For users getting transaction fee estimates over an API,
+# place a sanity check limit on the satoshis-per-kB to be paid.
+# This limit is also applied to users using Core, even though
+# Core has its own sanity check limit, which is currently
+# 1,000,000 satoshis.
+absurd_fee_per_kb = 350000
 # the range of confirmations passed to the `listunspent` bitcoind RPC call
 # 1st value is the inclusive minimum, defaults to one confirmation
 # 2nd value is the exclusive maximum, defaults to most-positive-bignum (Google Me!)
