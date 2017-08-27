@@ -58,8 +58,8 @@ venv_setup ()
         return 0
     fi
     rm -rf "${jm_source}/deps"
-    virtualenv -p python2 "${jm_source}/jmvenv"
-    source "${jm_source}/jmvenv/bin/activate"
+    virtualenv -p python2 "${jm_source}/jmvenv" || return 1
+    source "${jm_source}/jmvenv/bin/activate" || return 1
     pip install --upgrade pip
     pip install --upgrade setuptools
     deactivate
@@ -276,6 +276,7 @@ main ()
     fi
     if ! venv_setup; then
         echo "Joinmarket virtualenv could not be setup. Exiting."
+        return 1
     fi
     source "${jm_root}/bin/activate"
     mkdir -p deps

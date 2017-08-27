@@ -45,7 +45,7 @@ run_jm_tests ()
     cp -f ./test/bitcoin.conf "${jm_test_datadir}/bitcoin.conf"
     ${orig_umask}
     echo "datadir=${jm_test_datadir}" >> "${jm_test_datadir}/bitcoin.conf"
-    python -m py.test ${HAS_JOSH_K_SEAL_OF_APPROVAL+'--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html'} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 --ignore jmclient/test/test_wallets.py --ignore test/test_segwit.py
+    python -m py.test ${HAS_JOSH_K_SEAL_OF_APPROVAL+--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 --ignore jmclient/test/test_wallets.py --ignore test/test_segwit.py
     unlink ./joinmarket.cfg
     if read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
         pkill -15 ${bitcoind_pid} || pkill -9 ${bitcoind_pid}
