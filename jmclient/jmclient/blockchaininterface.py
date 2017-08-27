@@ -95,6 +95,16 @@ class BlockchainInterface(object):
         required for inclusion in the next N blocks.
 	'''
 
+    def fee_per_kb_has_been_manually_set(self, N):
+        '''if the 'block' target is higher than 144, interpret it
+        as manually set fee/Kb.
+    '''
+        if N > 144:
+            return True
+        else:
+            return False
+
+
 class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
     """A pseudo-blockchain interface using the existing 
     Electrum server connection in an Electrum wallet.
@@ -180,6 +190,8 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         return result
 
     def estimate_fee_per_kb(self, N):
+        if super(ElectrumWalletInterface, self).fee_per_kb_has_been_manually_set(N):
+            return N
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
                                                   ))
         log.debug("Got fee: " + str(fee))
@@ -785,11 +797,17 @@ class BitcoinCoreInterface(BlockchainInterface):
         return result
 
     def estimate_fee_per_kb(self, N):
+        if super(BitcoinCoreInterface, self).fee_per_kb_has_been_manually_set(N):
+            return N
         estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatefee', [N])))
+        if (N == 1) and (estimate < 0):
+            # Special bitcoin core case: sometimes the highest priority
+            # cannot be estimated in that case the 2nd highest priority
+            # should be used instead of falling back to hardcoded values
+            estimate = Decimal(1e8) * Decimal(self.rpc('estimatefee', [N+1]))
         if estimate < 0:
-            #This occurs when Core has insufficient data to estimate.
-            #TODO anything better than a hardcoded default?
-            return 30000
+            # This occurs when Core has insufficient data to estimate.
+            return 100000
         else:
             return estimate
 
