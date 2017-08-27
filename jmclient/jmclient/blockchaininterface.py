@@ -804,7 +804,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             # Special bitcoin core case: sometimes the highest priority
             # cannot be estimated in that case the 2nd highest priority
             # should be used instead of falling back to hardcoded values
-            estimate = Decimal(1e8) * Decimal(self.rpc('estimatefee', [N+1]))
+            estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatefee', [N+1])))
         if estimate < 0:
             # This occurs when Core has insufficient data to estimate.
             return 100000
