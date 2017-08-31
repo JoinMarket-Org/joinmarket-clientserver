@@ -3,12 +3,15 @@ services: docker
 language: python
 python:
   - "2.7_with_system_site_packages"
-install:
-  - docker pull ubuntu:xenial
+env:
+    - DOCKER_IMG_JM=xenial
+    - DOCKER_IMG_JM=trusty
+    - DOCKER_IMG_JM=stretch
+    - DOCKER_IMG_JM=jessie
 before_script:
   - wget https://bitcoin.org/bin/bitcoin-core-0.14.2/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz
 script:
-  - docker build --shm-size=1G .
+  - docker build --shm-size=1G -f ./test/.Dockerfiles/Dockerfile.$DOCKER_IMG_JM .
 after_success:
   - echo "Success !"
 branches:

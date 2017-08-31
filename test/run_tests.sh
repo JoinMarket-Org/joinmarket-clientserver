@@ -52,6 +52,7 @@ run_jm_tests ()
         pkill -15 ${bitcoind_pid} || pkill -9 ${bitcoind_pid}
     fi
     rm -rf "${jm_test_datadir}"
+    ${HAS_JOSH_K_SEAL_OF_APPROVAL+coveralls}
     return ${success:-1}
 }
 run_jm_tests
