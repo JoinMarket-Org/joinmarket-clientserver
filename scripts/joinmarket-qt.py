@@ -1298,6 +1298,11 @@ class JMMainWindow(QMainWindow):
             return None
         return str(message_e.toPlainText())
 
+    def restartForScan(self, msg):
+        JMQtMessageBox(self, msg, mbtype='info',
+                       title="Restart")
+        self.close()
+
     def recoverWallet(self):
         success = wallet_generate_recover_bip39("recover", "wallets",
                                                 "wallet.json",
@@ -1312,16 +1317,17 @@ class JMMainWindow(QMainWindow):
             return
         JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                                    title="Wallet created")
-        self.initWallet(seed=self.walletname)
+        self.initWallet(seed=self.walletname, restart_cb=self.restartForScan)
 
-    def selectWallet(self, testnet_seed=None):
+    def selectWallet(self, testnet_seed=None, restart_cb=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
             current_path = os.path.dirname(os.path.realpath(__file__))
             if os.path.isdir(os.path.join(current_path, 'wallets')):
                 current_path = os.path.join(current_path, 'wallets')
             firstarg = QFileDialog.getOpenFileName(self,
                                                    'Choose Wallet File',
-                                                   directory=current_path)
+                                                   directory=current_path,
+                                                   options=QFileDialog.DontUseNativeDialog)
             #TODO validate the file looks vaguely like a wallet file
             log.debug('Looking for wallet in: ' + firstarg)
             if not firstarg:
@@ -1335,7 +1341,7 @@ class JMMainWindow(QMainWindow):
                 if not ok:
                     return
                 pwd = str(text).strip()
-                decrypted = self.loadWalletFromBlockchain(firstarg, pwd)
+                decrypted = self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
@@ -1347,9 +1353,9 @@ class JMMainWindow(QMainWindow):
             firstarg = str(testnet_seed)
             pwd = None
             #ignore return value as there is no decryption failure possible
-            self.loadWalletFromBlockchain(firstarg, pwd)
+            self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
 
-    def loadWalletFromBlockchain(self, firstarg=None, pwd=None):
+    def loadWalletFromBlockchain(self, firstarg=None, pwd=None, restart_cb=None):
         if (firstarg and pwd) or (firstarg and get_network() == 'testnet'):
             try:
                 self.wallet = SegwitWallet(
@@ -1367,12 +1373,15 @@ class JMMainWindow(QMainWindow):
         if 'listunspent_args' not in jm_single().config.options('POLICY'):
             jm_single().config.set('POLICY', 'listunspent_args', '[0]')
         assert self.wallet, "No wallet loaded"
-        reactor.callLater(0, self.syncWalletUpdate, True)
+        reactor.callLater(0, self.syncWalletUpdate, True, restart_cb)
         self.statusBar().showMessage("Reading wallet from blockchain ...")
         return True
 
-    def syncWalletUpdate(self, fast):
-        sync_wallet(self.wallet, fast=fast)
+    def syncWalletUpdate(self, fast, restart_cb=None):
+        if restart_cb:
+            fast=False
+        jm_single().bc_interface.sync_wallet(self.wallet, fast=fast,
+                                             restart_cb=restart_cb)
         self.updateWalletInfo()
 
     def updateWalletInfo(self):
@@ -1452,7 +1461,7 @@ class JMMainWindow(QMainWindow):
         mb.setStandardButtons(QMessageBox.Ok)
         ret = mb.exec_()
 
-    def initWallet(self, seed=None):
+    def initWallet(self, seed=None, restart_cb=None):
         '''Creates a new wallet if seed not provided.
         Initializes by syncing.
         '''
@@ -1470,7 +1479,8 @@ class JMMainWindow(QMainWindow):
                 return
             JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                            title="Wallet created")
-        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword)
+        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword,
+                                      restart_cb=restart_cb)
 
 def get_wallet_printout(wallet):
     """Given a joinmarket wallet, retrieve the list of
