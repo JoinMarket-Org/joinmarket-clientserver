@@ -1,0 +1,24 @@
+FROM centos:7
+SHELL ["/bin/bash", "-c"]
+RUN yum -y groups install 'Development tools' && \
+    yum -y update && \
+    yum -y install epel-release && \
+    yum -y update && \
+    yum -y install \
+    python-virtualenv \
+    curl \
+    python-devel \
+    python2-pip \
+    pkg-config
+RUN useradd --home-dir /home/chaum --create-home --shell /bin/bash --skel /etc/skel/ chaum
+USER chaum
+COPY bitcoin-0.14.2-x86_64-linux-gnu.tar.gz /home/chaum
+WORKDIR /home/chaum
+RUN tar xaf bitcoin-0.14.2-x86_64-linux-gnu.tar.gz
+ENV PATH "/home/chaum/bitcoin-0.14.2/bin:${PATH}"
+RUN bitcoind --help 1>/dev/null || false
+RUN curl -L -O https://github.com/fivepiece/joinmarket-clientserver/archive/test_travis.tar.gz
+RUN tar xaf test_travis.tar.gz
+WORKDIR "joinmarket-clientserver-test_travis"
+RUN ./install.sh
+RUN source jmvenv/bin/activate && ./test/run_tests.sh
