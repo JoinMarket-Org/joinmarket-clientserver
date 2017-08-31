@@ -45,8 +45,8 @@ class BlockchainInterface(object):
     def __init__(self):
         pass
 
-    def sync_wallet(self, wallet):
-        self.sync_addresses(wallet)
+    def sync_wallet(self, wallet, restart_cb=None):
+        self.sync_addresses(wallet, restart_cb)
         self.sync_unspent(wallet)
 
     @abc.abstractmethod
@@ -246,7 +246,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         for addr in addr_list:
             self.rpc('importaddress', [addr, wallet_name, False])
 
-    def add_watchonly_addresses(self, addr_list, wallet_name):
+    def add_watchonly_addresses(self, addr_list, wallet_name, restart_cb=None):
         """For backwards compatibility, this fn name is preserved
         as the case where we quit the program if a rescan is required;
         but in some cases a rescan is not required (if the address is known
@@ -256,19 +256,23 @@ class BitcoinCoreInterface(BlockchainInterface):
         if jm_single().config.get("BLOCKCHAIN",
                                   "blockchain_source") != 'regtest': #pragma: no cover
             #Exit conditions cannot be included in tests
-            print('restart Bitcoin Core with -rescan if you\'re '
-                  'recovering an existing wallet from backup seed')
-            print(' otherwise just restart this joinmarket script')
-            sys.exit(0)
+            restart_msg = ("restart Bitcoin Core with -rescan if you're "
+                           "recovering an existing wallet from backup seed\n"
+                           "Otherwise just restart this joinmarket application.")
+            if restart_cb:
+                restart_cb(restart_msg)
+            else:
+                print(restart_msg)
+                sys.exit(0)
 
-    def sync_wallet(self, wallet, fast=False):
+    def sync_wallet(self, wallet, fast=False, restart_cb=None):
         #trigger fast sync if the index_cache is available
         #(and not specifically disabled).
         if fast:
             self.sync_wallet_fast(wallet)
             self.fast_sync_called = True
             return
-        super(BitcoinCoreInterface, self).sync_wallet(wallet)
+        super(BitcoinCoreInterface, self).sync_wallet(wallet, restart_cb=restart_cb)
         self.fast_sync_called = False
 
     def sync_wallet_fast(self, wallet):
@@ -302,7 +306,19 @@ class BitcoinCoreInterface(BlockchainInterface):
             if len(addr_info) < 3 or addr_info[2] != wallet_name:
                 continue
             used_address_dict[addr_info[0]] = (addr_info[1], addr_info[2])
-
+        #for a first run, import first chunk
+        if len(used_address_dict.keys()) == 0:
+            log.info("Detected new wallet, performing initial import")
+            for i in range(wallet.max_mix_depth):
+                for j in [0, 1]:
+                    addrs_to_import = []
+                    for k in range(wallet.gaplimit + 10): # a few more for safety
+                        addrs_to_import.append(wallet.get_addr(i, j, k))
+                    self.import_addresses(addrs_to_import, wallet_name)
+                    wallet.index[i][j] = 0
+            self.wallet_synced = True
+            return
+        #Wallet has been used; scan forwards.
         log.debug("Fast sync in progress. Got this many used addresses: " + str(
             len(used_address_dict)))
         #Need to have wallet.index point to the last used address
@@ -365,7 +381,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         self.wallet_synced = True
 
 
-    def sync_addresses(self, wallet):
+    def sync_addresses(self, wallet, restart_cb=None):
         from jmclient.wallet import BitcoinCoreWallet
 
         if isinstance(wallet, BitcoinCoreWallet):
@@ -413,7 +429,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 wallet_addr_list.append(imported_addr)
         imported_addr_list = self.rpc('getaddressesbyaccount', [wallet_name])
         if not set(wallet_addr_list).issubset(set(imported_addr_list)):
-            self.add_watchonly_addresses(wallet_addr_list, wallet_name)
+            self.add_watchonly_addresses(wallet_addr_list, wallet_name, restart_cb)
             return
 
         buf = self.rpc('listtransactions', [wallet_name, 1000, 0, True])
@@ -490,7 +506,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                     for _ in range(addr_req_count * 3)
                 ]
 
-            self.add_watchonly_addresses(wallet_addr_list, wallet_name)
+            self.add_watchonly_addresses(wallet_addr_list, wallet_name, restart_cb)
             return
 
         self.wallet_synced = True

@@ -1,132 +1,311 @@
 #!/bin/bash
-set -e
-clear
 
-#Adapted from https://github.com/tailsjoin/tailsjoin/blob/master/tailsjoin-fullnode.sh
+gpg_verify_key ()
+{
+    gpg --keyid-format long <"$1" | grep "$2"
+}
 
-# Check for root.
-if [[ $(id -u) = "0" ]]; then
-  echo "
-YOU SHOULD NOT RUN THIS SCRIPT AS ROOT!
-YOU WILL BE PROMPTED FOR THE ADMIN PASS WHEN NEEDED.
-"
-  read -p "PRESS ENTER TO EXIT SCRIPT, AND RUN AGAIN AS NON-ROOT USER. "
-  exit 0
-fi
+gpg_add_to_keyring ()
+{
+    gpg --dearmor <"$1" >>"${jm_deps}/keyring.gpg"
+}
 
+gpg_verify_sig ()
+{
+    gpg --no-default-keyring --keyring "${jm_deps}/keyring.gpg" --verify "$1"
+}
 
-# Make sure user has chosen the correct script.
-echo "
-          THIS SCRIPT WILL INSTALL JOINMARKET-CS AND DEPENDENCIES.
-             ADMIN PASS WILL BE REQUIRED MULTIPLE TIMES.
-"
-read -p "PRESS ENTER TO CONTINUE. "
-clear
+deb_deps_check ()
+{
+    apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
+}
 
-# Update apt-get sources.
-echo "
-ENTER PASSWORD TO UPDATE SOURCES.
-"
-sudo apt-get update
-clear
+deb_deps_install ()
+{
+    deb_deps=( 'python-virtualenv' 'curl' 'python-dev' 'python-pip' 'build-essential' 'automake' 'pkg-config' 'libtool' )
+    if deb_deps_check; then
+        clear
+        echo "
+            sudo password required to run :
 
+            \`apt-get install ${deb_deps[@]}\`
+            "
+        if ! sudo apt-get install ${deb_deps[@]}; then
+            return 1
+        fi
+    fi
+}
 
-# Install dependencies for building libsodium.
-echo "
-ENTER PASSWORD TO INSTALL: python-virtualenv curl python-dev python-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev
-"
-sudo apt-get install -y python-virtualenv curl python-dev python-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev
-clear
+check_skip_build ()
+{
+    if ! mkdir "$1"; then
+        read -p "Directory ${1} exists.  Remove and recreate?  (y/n)  " q
+        if [[ "${q}" =~ Y|y ]]; then
+            rm -rf "./${1}"
+            mkdir -p "./${1}"
+            return 1
+        else
+            echo "skipping ${1}..."
+            return 0
+        fi
+    fi
+    return 1
+}
 
-# Get libsodium, sig, and import key.
-echo "
-DOWNLOADING LIBSODIUM SOURCE AND SIGNING KEY...
-"
-gpg --keyserver pgp.mit.edu --recv-keys 54A2B8892CC3D6A597B92B6C210627AABA709FE1
-echo "54A2B8892CC3D6A597B92B6C210627AABA709FE1:6" | gpg --import-ownertrust -
-curl -L -O http://download.libsodium.org/libsodium/releases/libsodium-1.0.12.tar.gz -O http://download.libsodium.org/libsodium/releases/libsodium-1.0.12.tar.gz.sig
-clear
+venv_setup ()
+{
+    if check_skip_build 'jmvenv'; then
+        return 0
+    fi
+    rm -rf "${jm_source}/deps"
+    virtualenv -p python2 "${jm_source}/jmvenv" || return 1
+    source "${jm_source}/jmvenv/bin/activate" || return 1
+    pip install --upgrade pip
+    pip install --upgrade setuptools
+    deactivate
+}
 
+openssl_get ()
+{
+    for file in "${openssl_lib_tar}" "${openssl_lib_sha}" "${openssl_lib_sig}"; do
+        curl -L -O "${openssl_url}/${file}"
+    done
+    curl -L "${openssl_signer_key_url}" -o openssl_signer.key
+}
 
-# Verify download.
-echo "
-VERIFYING THE DOWNLOAD...
-"
-gpg --verify libsodium-1.0.12.tar.gz.sig libsodium-1.0.12.tar.gz
-echo "
-PLEASE REVIEW THE TEXT ABOVE.
-IT WILL EITHER SAY GOOD SIG OR BAD SIG.
-"
-read -p "IS IT A GOOD SIG? (y/n) " x
-if [[ "$x" = "n" || "$x" = "N" ]]; then
-  echo "
-YOU REJECTED THE LIBSODIUM SIGNATURE, GIVING UP...
-"
-  srm -drv libsodium*
-  exit 0
-fi
-clear
+openssl_build ()
+{
+    ./config shared --prefix="${jm_root}"
+    make -j
+    rm -rf "${jm_root}/ssl" \
+        "${jm_root}/lib/engines" \
+        "${jm_root}/lib/pkgconfig/openssl.pc" \
+        "${jm_root}/lib/pkgconfig/libssl.pc" \
+        "${jm_root}/lib/pkgconfig/libcrypto.pc" \
+        "${jm_root}/include/openssl" \
+        "${jm_root}/bin/c_rehash" \
+        "${jm_root}/bin/openssl"
+    if ! make test; then
+        return 1
+    fi
+}
 
+openssl_install ()
+{
+    openssl_version='openssl-1.0.2l'
+    openssl_lib_tar="${openssl_version}.tar.gz"
+    openssl_lib_sha="${openssl_lib_tar}.sha256"
+    openssl_lib_sig="${openssl_lib_tar}.asc"
+    openssl_url='https://www.openssl.org/source'
+    openssl_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0xD9C4D26D0E604491'
+    openssl_signer_key_id='D9C4D26D0E604491'
+    openssl_root="${jm_deps}/openssl"
 
-# Build and install libsodium.
-tar xf libsodium*.tar.gz
-rm -rf libsodium*.tar.gz*
+    if check_skip_build 'openssl'; then
+        return 0
+    fi
+    pushd openssl
+    openssl_get
+    if ! grep $(sha256sum "${openssl_lib_tar}") "${openssl_lib_sha}"; then
+        return 1
+    fi
+    if gpg_verify_key openssl_signer.key "${openssl_signer_key_id}"; then
+        gpg_add_to_keyring openssl_signer.key
+    else
+        return 1
+    fi
+    if gpg_verify_sig "${openssl_lib_sig}"; then
+        tar xaf "${openssl_lib_tar}"
+    else
+        return 1
+    fi
+    pushd "${openssl_version}"
+    if openssl_build; then
+        make install_sw
+    else
+        return 1
+    fi
+    popd
+    popd
+}
 
-echo "
-BUILDING LIBSODIUM...
-"
-cd libsodium-1.0.12/ && ./configure && make
-echo "
-LIBSODIUM SUCCESSFULLY BUILT. ENTER PASSWORD TO INSTALL.
-"
-sudo make install
-cd ..
-rm -rf libsodium*
-clear
+# add '--disable-docs' to libffi ./configure so makeinfo isn't needed
+# https://github.com/libffi/libffi/pull/190/commits/fa7a257113e2cfc963a0be9dca5d7b4c73999dcc
+libffi_patch_disable_docs ()
+{
+    cat <<'EOF' > Makefile.am.patch
+56c56,59
+< info_TEXINFOS = doc/libffi.texi
+---
+> info_TEXINFOS =
+> if BUILD_DOCS
+> #info_TEXINFOS += doc/libffi.texi
+> endif
+EOF
 
-# Verify the signature on joinmarket-clientserver
-# Currently commented out - doesn't apply if you've already downloaded the repo
-# either as zip or clone; can check valid signature on github (OK?)
-#gpg --keyserver pgp.mit.edu --recv-keys 46689728A9F64B391FA871B7B3AE09F1E9A3197A
-#echo "46689728A9F64B391FA871B7B3AE09F1E9A3197A:6" | gpg --import-ownertrust -
-#Todo: handle signing by another key and check the release tag, not commit.
-#git verify-commit HEAD || {
-# echo 'Latest code commit does not have a valid signature; quitting'
-# exit 0
-#}
+    cat <<'EOF' > configure.ac.patch
+545a546,552
+> AC_ARG_ENABLE(docs,
+>               AC_HELP_STRING([--disable-docs],
+>                              [Disable building of docs (default: no)]),
+>               [enable_docs=no],
+>               [enable_docs=yes])
+> AM_CONDITIONAL(BUILD_DOCS, [test x$enable_docs = xyes])
+> 
+EOF
+    patch Makefile.am Makefile.am.patch
+    patch configure.ac configure.ac.patch
+}
 
-#Run the python installation of joinmarket-clientserver;
-#note that this is a 'full' installation, which is the default
-#for an ordinary user; this should be enhanced to allow custom
-#installation styles.
-#Installs into a virtualenv, so instructions to run must be included.
-if ! mkdir venv; then
- echo "virtualenv directory already exists; assuming valid."
-fi
-virtualenv jmvenv
-source jmvenv/bin/activate
-#required for older pips, e.g. on Ubuntu 14.04
-pip install --upgrade setuptools
-#Doing manually instead of as in setupall.py
-cd jmbase
-pip install .
-cd ..
-cd jmdaemon
-pip install .
-cd ..
-cd jmbitcoin
-pip install .
-cd ..
-cd jmclient
-pip install .
-cd ..
+libffi_build ()
+{
+    ./autogen.sh
+    ./configure --disable-docs --enable-shared --prefix="${jm_root}"
+    make uninstall
+    make -j
+    if ! make check; then
+        return 1
+    fi
+}
 
-# Final notes.
-echo "
-          JOINMARKET SUCCESSFULLY INSTALLED.
-          BEFORE RUNNING SCRIPTS, TYPE:
-          source jmvenv/bin/activate
-          FROM THIS DIRECTORY, TO ACTIVATE THE VIRTUALENV.
-"
-read -p "PRESS ENTER TO EXIT SCRIPT. "
-exit 0;
+libffi_install ()
+{
+    libffi_version='libffi-3.2.1'
+    libffi_lib_tar="v3.2.1.tar.gz"
+    libffi_lib_sha='96d08dee6f262beea1a18ac9a3801f64018dc4521895e9198d029d6850febe23'
+    libffi_url="https://github.com/libffi/libffi/archive"
+
+    if check_skip_build 'libffi'; then
+        return 0
+    fi
+    pushd libffi
+    curl -L -O "${libffi_url}/${libffi_lib_tar}"
+    if sha256sum -c <<<"${libffi_lib_sha}  ${libffi_lib_tar}"; then
+        tar xaf "${libffi_lib_tar}"
+    else
+        return 1
+    fi
+    pushd "${libffi_version}"
+    if ! libffi_patch_disable_docs; then
+        return 1
+    fi
+    if libffi_build; then
+        make install
+    else
+        return 1
+    fi
+    popd
+    popd
+}
+
+libsodium_get ()
+{
+    for file in "${sodium_lib_tar}" "${sodium_lib_sig}"; do
+        curl -L -O "${sodium_url}/${file}"
+    done
+    curl -L "${sodium_signer_key_url}" -o libsodium_signer.key
+}
+
+libsodium_build ()
+{
+    ./autogen.sh
+    ./configure --enable-shared --prefix="${jm_root}"
+    make uninstall
+    make -j
+    if ! make check; then
+        return 1
+    fi
+}
+
+libsodium_install ()
+{
+    sodium_version='libsodium-1.0.13'
+    sodium_lib_tar="${sodium_version}.tar.gz"
+    sodium_lib_sig="${sodium_lib_tar}.sig"
+    sodium_url='https://download.libsodium.org/libsodium/releases'
+    sodium_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0x210627AABA709FE1'
+    sodium_signer_key_id='62F25B592B6F76DA'
+
+    if check_skip_build 'libsodium'; then
+        return 0
+    fi
+    pushd libsodium
+    libsodium_get
+    if gpg_verify_key libsodium_signer.key "${sodium_signer_key_id}"; then
+        gpg_add_to_keyring libsodium_signer.key
+    else
+        return 1
+    fi
+    if gpg_verify_sig "${sodium_lib_sig}"; then
+        tar xaf "${sodium_lib_tar}"
+    else
+        return 1
+    fi
+    pushd "${sodium_version}"
+    if libsodium_build; then
+        make install
+    else
+        return 1
+    fi
+    popd
+    popd
+}
+
+joinmarket_install ()
+{
+    jm_pkgs=( 'jmbase' 'jmdaemon' 'jmbitcoin' 'jmclient' )
+    for pkg in ${jm_pkgs[@]}; do
+        pushd "${pkg}"
+        pip install . || return 1
+        popd
+    done
+}
+
+main ()
+{
+    jm_source="$PWD"
+    jm_root="${jm_source}/jmvenv"
+    jm_deps="${jm_source}/deps"
+    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${jm_root}/lib/pkgconfig"
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${jm_root}/lib"
+    export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${jm_root}/include"
+
+    if ! deb_deps_install; then
+        echo "Dependecies could not be installed. Exiting."
+        return 1
+    fi
+    if ! venv_setup; then
+        echo "Joinmarket virtualenv could not be setup. Exiting."
+        return 1
+    fi
+    source "${jm_root}/bin/activate"
+    mkdir -p deps
+    pushd deps
+    rm -f ./keyring.gpg
+    if ! openssl_install; then
+        echo "Openssl was not built. Exiting."
+        return 1
+    fi
+    if ! libffi_install; then
+        echo "Libffi was not built. Exiting."
+        return 1
+    fi
+    if ! libsodium_install; then
+        echo "Libsodium was not built. Exiting."
+        return 1
+    fi
+    popd
+    if ! joinmarket_install; then
+        echo "Joinmarket was not installed. Exiting."
+        deactivate
+        return 1
+    fi
+    deactivate
+    echo "Joinmarket successfully installed
+    Before executing scripts or tests, run:
+
+    \`source jmvenv/bin/activate\`
+
+    from this directiry, to acticate virtualenv."
+}
+main
