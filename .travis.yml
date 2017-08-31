@@ -1,20 +1,14 @@
 sudo: required
-dist: trusty
+services: docker
 language: python
 python:
   - "2.7_with_system_site_packages"
-before_install:
-  - sudo apt-add-repository ppa:bitcoin/bitcoin -y
-  - sudo apt-get update -q
-  - sudo apt-get install --no-install-recommends --no-upgrade -qq bitcoind
 install:
-  - ./install.sh
-before_script:
-  - source jmvenv/bin/activate
+  - docker pull ubuntu:trusty
 script:
-  - ./test/run_tests.sh
+  - docker build --shm-size=1G .
 after_success:
-  - coveralls
+  - echo "Success !"
 branches:
  only:
   - master
