@@ -4,7 +4,9 @@ language: python
 python:
   - "2.7_with_system_site_packages"
 install:
-  - docker pull ubuntu:trusty
+  - docker pull ubuntu:xenial
+before_script:
+  - wget https://bitcoin.org/bin/bitcoin-core-0.14.2/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz
 script:
   - docker build --shm-size=1G .
 after_success:
