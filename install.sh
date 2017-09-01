@@ -15,11 +15,6 @@ gpg_verify_sig ()
     ${gpg_bin} --no-default-keyring --keyring "${jm_deps}/keyring.gpg" --verify "$1"
 }
 
-deb_deps_check ()
-{
-    apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
-}
-
 gpg_find_bin ()
 {
     if gpg2 --help 1>/dev/null; then
@@ -31,6 +26,11 @@ gpg_find_bin ()
         return 0
     fi
     return 1
+}
+
+deb_deps_check ()
+{
+    apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
 }
 
 deb_deps_install ()
@@ -288,7 +288,7 @@ main ()
         echo "gnupg could not be found. Exiting."
         return 1
     fi
-    if ! deb_deps_install; then
+    if apt-get --help 1>/dev/null && ! deb_deps_install; then
         echo "Dependecies could not be installed. Exiting."
         return 1
     fi
@@ -300,6 +300,7 @@ main ()
     mkdir -p deps
     pushd deps
     rm -f ./keyring.gpg
+# openssl build disabled. using OS package manager's version.
 #    if ! openssl_install; then
 #        echo "Openssl was not built. Exiting."
 #        return 1

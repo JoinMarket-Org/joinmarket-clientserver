@@ -10,6 +10,7 @@ env:
   - DOCKER_IMG_JM=jessie
   - DOCKER_IMG_JM=centos7
   - DOCKER_IMG_JM=fedora25
+  - DOCKER_IMG_JM=fedora26
 before_install:
     mkdir -p ./downloads
 cache:

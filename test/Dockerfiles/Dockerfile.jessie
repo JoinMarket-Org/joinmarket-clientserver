@@ -1,21 +1,28 @@
 FROM debian:jessie
 SHELL ["/bin/bash", "-c"]
-RUN apt-get update && \
-    apt-get install -y \
-    python-virtualenv \
-    curl python-dev \
-    python-pip \
-    build-essential \
-    automake \
-    pkg-config \
-    libtool
+
+# dependencies
+RUN apt-get update
+RUN apt-get install -y build-essential
+RUN apt-get install -y \
+    automake pkg-config libtool
+RUN apt-get install -y \
+    python-dev python-pip python-virtualenv
+
+# curl is a better tool
+RUN apt-get install -y curl
+
 RUN useradd --home-dir /home/chaum --create-home --shell /bin/bash --skel /etc/skel/ chaum
 USER chaum
+
+# copy node software from the host and install
 COPY ./downloads/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz /home/chaum
 WORKDIR /home/chaum
 RUN tar xaf bitcoin-0.14.2-x86_64-linux-gnu.tar.gz
 ENV PATH "/home/chaum/bitcoin-0.14.2/bin:${PATH}"
-RUN which bitcoind || false
+RUN bitcoind --help 1>/dev/null || false
+
+# install script
 RUN curl -L -O https://github.com/fivepiece/joinmarket-clientserver/archive/test_travis.tar.gz
 RUN tar xaf test_travis.tar.gz
 WORKDIR "joinmarket-clientserver-test_travis"
