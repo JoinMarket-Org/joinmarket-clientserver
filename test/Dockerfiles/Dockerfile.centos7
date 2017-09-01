@@ -12,7 +12,7 @@ RUN yum -y groups install 'Development tools' && \
     pkg-config
 RUN useradd --home-dir /home/chaum --create-home --shell /bin/bash --skel /etc/skel/ chaum
 USER chaum
-COPY bitcoin-0.14.2-x86_64-linux-gnu.tar.gz /home/chaum
+COPY ./downloads/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz /home/chaum
 WORKDIR /home/chaum
 RUN tar xaf bitcoin-0.14.2-x86_64-linux-gnu.tar.gz
 ENV PATH "/home/chaum/bitcoin-0.14.2/bin:${PATH}"
