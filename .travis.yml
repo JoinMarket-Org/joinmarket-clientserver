@@ -10,8 +10,11 @@ env:
   - DOCKER_IMG_JM=jessie
   - DOCKER_IMG_JM=centos7
   - DOCKER_IMG_JM=fedora25
-before_script:
+install:
   - wget https://bitcoin.org/bin/bitcoin-core-0.14.2/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz
+cache:
+    directories:
+        .
 script:
   - docker build --shm-size=1G -f ./test/Dockerfiles/Dockerfile.$DOCKER_IMG_JM .
 after_success:

@@ -3,16 +3,13 @@ SHELL ["/bin/bash", "-c"]
 
 # dependencies
 RUN dnf -y groups install 'Development tools'
-RUN dnf -y install
+RUN dnf -y install \
     autoconf libtool pkgconfig \
-    python-devel python-pip python2-virtualenv \
+    python-devel python-pip python2-virtualenv
 
 # needed for build time
 # https://stackoverflow.com/questions/34624428/g-error-usr-lib-rpm-redhat-redhat-hardened-cc1-no-such-file-or-directory
 RUN dnf -y install redhat-rpm-config
-
-# needed for install script, might not be installed
-RUN dnf -y install curl
 
 RUN useradd --home-dir /home/chaum --create-home --shell /bin/bash --skel /etc/skel/ chaum
 USER chaum
