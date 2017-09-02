@@ -1,7 +1,4 @@
 sudo: required
-os:
-  - linux
-  - osx
 dist: trusty
 addons:
   apt:
@@ -11,17 +8,43 @@ addons:
     packages:
       - bitcoind
       - python-qt4 python-sip
+matrix:
+  include:
+    - os: osx
+    - os: linux
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=xenial
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=bionic
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=stretch
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=centos7
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=fedora27
 before_install:
   - do_on(){ if [ "$TRAVIS_OS_NAME" = "$1" ]; then shift; $@ ; fi; }
+  - on_host(){ if [ -z "$DOCKER_IMG_JM" ]; then $@ ; fi; }
+  - on_docker(){ if [ -n "$DOCKER_IMG_JM" ]; then $@ ; fi; }
+cache:
+  directories:
+    $HOME/downloads
 install:
-  - ./install.sh --develop --no-gpg-validation
+  - on_host ./install.sh --develop --no-gpg-validation
 before_script:
-  - source jmvenv/bin/activate
+  - on_host source jmvenv/bin/activate
 script:
-  - do_on linux bitcoind --help | head -1
-  - do_on linux ./test/run_tests.sh
+  - on_host do_on linux bitcoind --help | head -1
+  - on_host do_on linux ./test/run_tests.sh
+  - on_docker ./test/Dockerfiles/build_docker.sh
 after_success:
-  - do_on linux coveralls
+  - on_docker echo "Success !"
+  - on_host do_on linux coveralls
 branches:
  except:
   - py3
