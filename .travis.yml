@@ -1,20 +1,28 @@
 sudo: required
-dist: trusty
+services: docker
 language: python
 python:
   - "2.7_with_system_site_packages"
+env:
+  - DOCKER_IMG_JM=xenial
+  - DOCKER_IMG_JM=trusty
+  - DOCKER_IMG_JM=stretch
+  - DOCKER_IMG_JM=jessie
+  - DOCKER_IMG_JM=centos7
+  - DOCKER_IMG_JM=fedora25
+  - DOCKER_IMG_JM=fedora26
 before_install:
-  - sudo apt-add-repository ppa:bitcoin/bitcoin -y
-  - sudo apt-get update -q
-  - sudo apt-get install --no-install-recommends --no-upgrade -qq bitcoind
+    mkdir -p ./downloads
+cache:
+    directories:
+        ./downloads
 install:
-  - ./install.sh
-before_script:
-  - source jmvenv/bin/activate
+  - test -f ./downloads/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz || wget https://bitcoin.org/bin/bitcoin-core-0.14.2/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz -O ./downloads/bitcoin-0.14.2-x86_64-linux-gnu.tar.gz
 script:
-  - ./test/run_tests.sh
+  - docker build --shm-size=1G -f ./test/Dockerfiles/Dockerfile.$DOCKER_IMG_JM .
 after_success:
-  - coveralls
+  - echo "Success !"
 branches:
  only:
   - master
+  - test_travis

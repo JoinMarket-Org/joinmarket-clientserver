@@ -2,17 +2,30 @@
 
 gpg_verify_key ()
 {
-    gpg --keyid-format long <"$1" | grep "$2"
+    ${gpg_bin} --keyid-format long <"$1" | grep "$2"
 }
 
 gpg_add_to_keyring ()
 {
-    gpg --dearmor <"$1" >>"${jm_deps}/keyring.gpg"
+    ${gpg_bin} --dearmor <"$1" >>"${jm_deps}/keyring.gpg"
 }
 
 gpg_verify_sig ()
 {
-    gpg --no-default-keyring --keyring "${jm_deps}/keyring.gpg" --verify "$1"
+    ${gpg_bin} --no-default-keyring --keyring "${jm_deps}/keyring.gpg" --verify "$1"
+}
+
+gpg_find_bin ()
+{
+    if gpg2 --help 1>/dev/null; then
+        gpg_bin="gpg2"
+        return 0
+    fi
+    if gpg --help 1>/dev/null; then
+        gpg_bin="gpg"
+        return 0
+    fi
+    return 1
 }
 
 deb_deps_check ()
@@ -266,11 +279,16 @@ main ()
     jm_source="$PWD"
     jm_root="${jm_source}/jmvenv"
     jm_deps="${jm_source}/deps"
+    gpg_bin=""
     export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${jm_root}/lib/pkgconfig"
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${jm_root}/lib"
     export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${jm_root}/include"
 
-    if ! deb_deps_install; then
+    if ! gpg_find_bin; then
+        echo "gnupg could not be found. Exiting."
+        return 1
+    fi
+    if apt-get --help 1>/dev/null && ! deb_deps_install; then
         echo "Dependecies could not be installed. Exiting."
         return 1
     fi
@@ -282,10 +300,11 @@ main ()
     mkdir -p deps
     pushd deps
     rm -f ./keyring.gpg
-    if ! openssl_install; then
-        echo "Openssl was not built. Exiting."
-        return 1
-    fi
+# openssl build disabled. using OS package manager's version.
+#    if ! openssl_install; then
+#        echo "Openssl was not built. Exiting."
+#        return 1
+#    fi
     if ! libffi_install; then
         echo "Libffi was not built. Exiting."
         return 1
