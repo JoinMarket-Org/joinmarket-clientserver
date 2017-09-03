@@ -590,6 +590,7 @@ class SpendTab(QWidget):
         reply = JMQtMessageBox(self, '\n'.join([m + '<p>' for m in mbinfo]),
                                mbtype='question', title="Direct send")
         if reply == QMessageBox.Yes:
+            self.direct_send_amount = amount
             return True
         else:
             return False
@@ -615,7 +616,7 @@ class SpendTab(QWidget):
             if not txid:
                 self.giveUp()
             else:
-                self.persistTxToHistory(destaddr, amount, txid)
+                self.persistTxToHistory(destaddr, self.direct_send_amount, txid)
                 self.cleanUp()
             return
 
