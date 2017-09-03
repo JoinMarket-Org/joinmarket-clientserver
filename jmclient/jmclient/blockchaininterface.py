@@ -191,7 +191,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
     def estimate_fee_per_kb(self, N):
         if super(ElectrumWalletInterface, self).fee_per_kb_has_been_manually_set(N):
-            return N
+            return int(random.uniform(N * float(0.8), N * float(1.2)))
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
                                                   ))
         log.debug("Got fee: " + str(fee))
@@ -798,7 +798,7 @@ class BitcoinCoreInterface(BlockchainInterface):
 
     def estimate_fee_per_kb(self, N):
         if super(BitcoinCoreInterface, self).fee_per_kb_has_been_manually_set(N):
-            return N
+            return int(random.uniform(N * float(0.8), N * float(1.2)))
         estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatefee', [N])))
         if (N == 1) and (estimate < 0):
             # Special bitcoin core case: sometimes the highest priority
