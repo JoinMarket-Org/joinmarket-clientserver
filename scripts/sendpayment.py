@@ -125,7 +125,9 @@ def main():
     log.debug('starting sendpayment')
 
     if not options.userpcwallet:
-        max_mix_depth = max([mixdepth, options.amtmixdepths])
+        #maxmixdepth in the wallet is actually the *number* of mixdepths (so misnamed);
+        #to ensure we have enough, must be at least (requested index+1)
+        max_mix_depth = max([mixdepth+1, options.amtmixdepths])
         if not os.path.exists(os.path.join('wallets', wallet_name)):
             wallet = walletclass(wallet_name, None, max_mix_depth, options.gaplimit)
         else:
