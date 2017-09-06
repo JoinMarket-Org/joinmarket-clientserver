@@ -3,13 +3,14 @@ import json
 import os
 import pprint
 import sys
+import sqlite3
 import datetime
 import binascii
 from mnemonic import Mnemonic
 from optparse import OptionParser
 import getpass
 from jmclient import (get_network, Wallet, Bip39Wallet, podle,
-                      encryptData, get_p2pk_vbyte, jm_single,
+                      encryptData, get_p2sh_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
                       JsonRpcError, sync_wallet, WalletError, SegwitWallet)
 from jmbase.support import get_password
@@ -17,19 +18,20 @@ import jmclient.btc as btc
 
 def get_wallettool_parser():
     description = (
-        'Use this script to monitor and manage your Joinmarket wallet. The '
-        'method is one of the following: \n(display) Shows addresses and '
-        'balances. \n(displayall) Shows ALL addresses and balances. '
-        '\n(summary) Shows a summary of mixing depth balances.\n(generate) '
-        'Generates a new wallet.\n(recover) Recovers a wallet from the 12 '
-        'word recovery seed.\n(showutxos) Shows all utxos in the wallet.'
-        '\n(showseed) Shows the wallet recovery seed '
-        'and hex seed.\n(importprivkey) Adds privkeys to this wallet, '
-        'privkeys are spaces or commas separated.\n(dumpprivkey) Export '
-        'a single private key, specify an hd wallet path\n'
-        '(signmessage) Sign a message with the private key from an address '
-        'in the wallet. Use with -H and specify an HD wallet '
-        'path for the address.')
+        'Use this script to monitor and manage your Joinmarket wallet.\n'
+        'The method is one of the following: \n'
+        '(display) Shows addresses and balances.\n'
+        '(displayall) Shows ALL addresses and balances.\n'
+        '(summary) Shows a summary of mixing depth balances.\n'
+        '(generate) Generates a new wallet.\n'
+        '(history) Show all historical transaction details. Requires Bitcoin Core.'
+        '(recover) Recovers a wallet from the 12 word recovery seed.\n'
+        '(showutxos) Shows all utxos in the wallet.\n'
+        '(showseed) Shows the wallet recovery seed and hex seed.\n'
+        '(importprivkey) Adds privkeys to this wallet, privkeys are spaces or commas separated.\n'
+        '(dumpprivkey) Export a single private key, specify an hd wallet path\n'
+        '(signmessage) Sign a message with the private key from an address in \n'
+        'the wallet. Use with -H and specify an HD wallet path for the address.')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
                           description=description)
     parser.add_option('-p',
@@ -75,7 +77,7 @@ def get_wallettool_parser():
                       dest='hd_path',
                       help='hd wallet path (e.g. m/0/0/0/000)')
     return parser
-    
+
 
 """The classes in this module manage representations
 of wallet states; but they know nothing about Bitcoin,
@@ -260,7 +262,7 @@ def get_imported_privkey_branch(wallet, m, showprivkey):
     if m in wallet.imported_privkeys:
         entries = []
         for i, privkey in enumerate(wallet.imported_privkeys[m]):
-            addr = btc.privtoaddr(privkey, magicbyte=get_p2pk_vbyte())
+            addr = btc.privtoaddr(privkey, magicbyte=get_p2sh_vbyte())
             balance = 0.0
             for addrvalue in wallet.unspent.values():
                 if addr == addrvalue['address']:
@@ -268,7 +270,7 @@ def get_imported_privkey_branch(wallet, m, showprivkey):
             used = ('used' if balance > 0.0 else 'empty')
             if showprivkey:
                 wip_privkey = btc.wif_compressed_privkey(
-                privkey, get_p2pk_vbyte())
+                privkey, get_p2sh_vbyte())
             else:
                 wip_privkey = ''
             entries.append(WalletViewEntry("m/0", m, -1,
@@ -288,7 +290,7 @@ def wallet_showutxos(wallet, showprivkey):
                    'tries': tries, 'tries_remaining': tries_remaining,
                    'external': False}
         if showprivkey:
-            wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
+            wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2sh_vbyte())
             unsp[u]['privkey'] = wifkey
 
     used_commitments, external_commitments = podle.get_podle_commitments()
@@ -327,7 +329,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
                 used = 'used' if k < wallet.index[m][forchange] else 'new'
                 if showprivkey:
                     privkey = btc.wif_compressed_privkey(
-                        wallet.get_key(m, forchange, k), get_p2pk_vbyte())
+                        wallet.get_key(m, forchange, k), get_p2sh_vbyte())
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
@@ -443,6 +445,210 @@ def wallet_generate_recover(method, walletspath,
     encrypted_seed = encryptData(password_key, seed.decode('hex'))
     return persist_walletfile(walletspath, default_wallet_name, encrypted_seed)
 
+def wallet_fetch_history(wallet, options):
+    # sort txes in a db because python can be really bad with large lists
+    con = sqlite3.connect(":memory:")
+    con.row_factory = sqlite3.Row
+    tx_db = con.cursor()
+    tx_db.execute("CREATE TABLE transactions(txid TEXT, "
+            "blockhash TEXT, blocktime INTEGER);")
+    jm_single().debug_silence[0] = True
+    wallet_name = jm_single().bc_interface.get_wallet_name(wallet)
+    for wn in [wallet_name, ""]:
+        buf = range(1000)
+        t = 0
+        while len(buf) == 1000:
+            buf = jm_single().bc_interface.rpc('listtransactions', [wn,
+                1000, t, True])
+            t += len(buf)
+            tx_data = ((tx['txid'], tx['blockhash'], tx['blocktime']) for tx
+                    in buf if 'txid' in tx and 'blockhash' in tx and 'blocktime'
+                    in tx)
+            tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?);',
+                    tx_data)
+            txes = tx_db.execute('SELECT DISTINCT txid, blockhash, blocktime '
+                    'FROM transactions ORDER BY blocktime').fetchall()
+            wallet_addr_cache = wallet.addr_cache
+    wallet_addr_set = set(wallet_addr_cache.keys())
+
+    def s():
+        return ',' if options.csv else ' '
+    def sat_to_str(sat):
+        return '%.8f'%(sat/1e8)
+    def sat_to_str_p(sat):
+        return '%+.8f'%(sat/1e8)
+    def skip_n1(v):
+        return '% 2s'%(str(v)) if v != -1 else ' #'
+    def skip_n1_btc(v):
+        return sat_to_str(v) if v != -1 else '#' + ' '*10
+
+    field_names = ['tx#', 'timestamp', 'type', 'amount/btc',
+            'balance-change/btc', 'balance/btc', 'coinjoin-n', 'total-fees',
+            'utxo-count', 'mixdepth-from', 'mixdepth-to']
+    if options.csv:
+        field_names += ['txid']
+    l = s().join(field_names)
+    print(l)
+    balance = 0
+    utxo_count = 0
+    deposits = []
+    deposit_times = []
+    for i, tx in enumerate(txes):
+        rpctx = jm_single().bc_interface.rpc('gettransaction', [tx['txid']])
+        txhex = str(rpctx['hex'])
+        txd = btc.deserialize(txhex)
+        output_addr_values = dict(((btc.script_to_address(sv['script'],
+            get_p2sh_vbyte()), sv['value']) for sv in txd['outs']))
+        our_output_addrs = wallet_addr_set.intersection(
+                output_addr_values.keys())
+
+        from collections import Counter
+        value_freq_list = sorted(Counter(output_addr_values.values())
+                .most_common(), key=lambda x: -x[1])
+        non_cj_freq = 0 if len(value_freq_list)==1 else sum(zip(
+            *value_freq_list[1:])[1])
+        is_coinjoin = (value_freq_list[0][1] > 1 and value_freq_list[0][1] in
+                [non_cj_freq, non_cj_freq+1])
+        cj_amount = value_freq_list[0][0]
+        cj_n = value_freq_list[0][1]
+
+        rpc_inputs = []
+        for ins in txd['ins']:
+            try:
+                wallet_tx = jm_single().bc_interface.rpc('gettransaction',
+                        [ins['outpoint']['hash']])
+            except JsonRpcError:
+                continue
+            input_dict = btc.deserialize(str(wallet_tx['hex']))['outs'][ins[
+                'outpoint']['index']]
+            rpc_inputs.append(input_dict)
+
+        rpc_input_addrs = set((btc.script_to_address(ind['script'],
+            get_p2sh_vbyte()) for ind in rpc_inputs))
+        our_input_addrs = wallet_addr_set.intersection(rpc_input_addrs)
+        our_input_values = [ind['value'] for ind in rpc_inputs if btc.
+                script_to_address(ind['script'], get_p2sh_vbyte()) in
+                our_input_addrs]
+        our_input_value = sum(our_input_values)
+        utxos_consumed = len(our_input_values)
+
+        tx_type = None
+        amount = 0
+        delta_balance = 0
+        fees = -1
+        mixdepth_src = -1
+        mixdepth_dst = -1
+        #TODO this seems to assume all the input addresses are from the same
+        # mixdepth, which might not be true
+        if len(our_input_addrs) == 0 and len(our_output_addrs) > 0:
+            #payment to us
+            amount = sum([output_addr_values[a] for a in our_output_addrs])
+            tx_type = 'deposit    '
+            cj_n = -1
+            delta_balance = amount
+            mixdepth_dst = tuple(wallet_addr_cache[a][0] for a in
+                    our_output_addrs)
+            if len(mixdepth_dst) == 1:
+                mixdepth_dst = mixdepth_dst[0]
+        elif len(our_input_addrs) > 0 and len(our_output_addrs) == 0:
+            #we swept coins elsewhere
+            if is_coinjoin:
+                tx_type = 'cj sweepout'
+                amount = cj_amount
+                fees = our_input_value - cj_amount
+            else:
+                tx_type = 'sweep out  '
+                amount = sum([v for v in output_addr_values.values()])
+                fees = our_input_value - amount
+            delta_balance = -our_input_value
+            mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
+        elif len(our_input_addrs) > 0 and len(our_output_addrs) == 1:
+            #payment out somewhere with our change address getting the remaining
+            change_value = output_addr_values[list(our_output_addrs)[0]]
+            if is_coinjoin:
+                tx_type = 'cj withdraw'
+                amount = cj_amount
+            else:
+                tx_type = 'withdraw'
+                #TODO does tx_fee go here? not my_tx_fee only?
+                amount = our_input_value - change_value
+                cj_n = -1
+            delta_balance = change_value - our_input_value
+            fees = our_input_value - change_value - cj_amount
+            mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
+        elif len(our_input_addrs) > 0 and len(our_output_addrs) == 2:
+            #payment to self
+            out_value = sum([output_addr_values[a] for a in our_output_addrs])
+            if not is_coinjoin:
+                print('this is wrong TODO handle non-coinjoin internal')
+            tx_type = 'cj internal'
+            amount = cj_amount
+            delta_balance = out_value - our_input_value
+            mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
+            cj_addr = list(set([a for a,v in output_addr_values.iteritems()
+                if v == cj_amount]).intersection(our_output_addrs))[0]
+            mixdepth_dst = wallet_addr_cache[cj_addr][0]
+        else:
+            tx_type = 'unknown type'
+        balance += delta_balance
+        utxo_count += (len(our_output_addrs) - utxos_consumed)
+        index = '% 4d'%(i)
+        timestamp = datetime.datetime.fromtimestamp(rpctx['blocktime']
+                ).strftime("%Y-%m-%d %H:%M")
+        utxo_count_str = '% 3d' % (utxo_count)
+        printable_data = [index, timestamp, tx_type, sat_to_str(amount),
+                sat_to_str_p(delta_balance), sat_to_str(balance), skip_n1(cj_n),
+                skip_n1_btc(fees), utxo_count_str, skip_n1(mixdepth_src),
+                skip_n1(mixdepth_dst)]
+        if options.csv:
+            printable_data += [tx['txid']]
+        l = s().join(map('"{}"'.format, printable_data))
+        print(l)
+
+        if tx_type != 'cj internal':
+            deposits.append(delta_balance)
+            deposit_times.append(rpctx['blocktime'])
+
+    bestblockhash = jm_single().bc_interface.rpc('getbestblockhash', [])
+    try:
+        #works with pruning enabled, but only after v0.12
+        now = jm_single().bc_interface.rpc('getblockheader', [bestblockhash]
+                )['time']
+    except JsonRpcError:
+        now = jm_single().bc_interface.rpc('getblock', [bestblockhash])['time']
+    print('     %s best block is %s' % (datetime.datetime.fromtimestamp(now)
+        .strftime("%Y-%m-%d %H:%M"), bestblockhash))
+    print('total profit = ' + str(float(balance - sum(deposits)) / float(100000000)) + ' BTC')
+    try:
+        # https://gist.github.com/chris-belcher/647da261ce718fc8ca10
+        import numpy as np
+        from scipy.optimize import brentq
+        deposit_times = np.array(deposit_times)
+        now -= deposit_times[0]
+        deposit_times -= deposit_times[0]
+        deposits = np.array(deposits)
+        def f(r, deposits, deposit_times, now, final_balance):
+            return np.sum(np.exp((now - deposit_times) / 60.0 / 60 / 24 /
+                365)**r * deposits) - final_balance
+            r = brentq(f, a=1, b=-1, args=(deposits, deposit_times, now,
+                balance))
+            print('continuously compounded equivalent annual interest rate = ' +
+                    str(r * 100) + ' %')
+            print('(as if yield generator was a bank account)')
+    except ImportError:
+        print('numpy/scipy not installed, unable to calculate effective ' +
+                'interest rate')
+
+        total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
+    if balance != total_wallet_balance:
+        print(('BUG ERROR: wallet balance (%s) does not match balance from ' +
+            'history (%s)') % (sat_to_str(total_wallet_balance),
+                sat_to_str(balance)))
+    if utxo_count != len(wallet.unspent):
+        print(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
+            'history (%s)') % (len(wallet.unspent), utxo_count))
+
+
 def wallet_showseed(wallet):
     if isinstance(wallet, Bip39Wallet):
         if not wallet.entropy:
@@ -467,7 +673,7 @@ def wallet_importprivkey(wallet, mixdepth):
         # TODO is there any point in only accepting wif format? check what
         # other wallets do
         privkey_bin = btc.from_wif_privkey(privkey,
-                                        vbyte=get_p2pk_vbyte()).decode('hex')[:-1]
+                                        vbyte=get_p2sh_vbyte()).decode('hex')[:-1]
         encrypted_privkey = encryptData(wallet.password_key, privkey_bin)
         if 'imported_keys' not in wallet.walletdata:
             wallet.walletdata['imported_keys'] = []
@@ -486,7 +692,7 @@ def wallet_dumpprivkey(wallet, hdpath):
     if pathlist and len(pathlist) == 5:
         cointype, purpose, m, forchange, k = pathlist
         key = wallet.get_key(m, forchange, k)
-        wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
+        wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2sh_vbyte())
         return wifkey
     else:
         return hdpath + " is not a valid hd wallet path"
@@ -495,7 +701,7 @@ def wallet_signmessage(wallet, hdpath, message):
     if hdpath.startswith(wallet.get_root_path()):
         m, forchange, k = [int(y) for y in hdpath[4:].split('/')]
         key = wallet.get_key(m, forchange, k)
-        addr = btc.privkey_to_address(key, magicbyte=get_p2pk_vbyte())
+        addr = btc.privkey_to_address(key, magicbyte=get_p2sh_vbyte())
         print('Using address: ' + addr)
     else:
         print('%s is not a valid hd wallet path' % hdpath)
@@ -521,7 +727,7 @@ def wallet_tool_main(wallet_root_path):
 
     noseed_methods = ['generate', 'recover']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
-               'showutxos']
+               'history', 'showutxos']
     methods.extend(noseed_methods)
     noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
 
@@ -568,6 +774,13 @@ def wallet_tool_main(wallet_root_path):
     elif method == "displayall":
         return wallet_display(wallet, options.gaplimit, options.showprivkey,
                               displayall=True)
+    elif method == "history":
+        if not isinstance(jm_single().bc_interface, BitcoinCoreInterface):
+            print('showing history only available when using the Bitcoin Core ' +
+                    'blockchain interface')
+            sys.exit(0)
+        else:
+            return wallet_fetch_history(wallet, options)
     elif method == "generate":
         retval = wallet_generate_recover("generate", wallet_root_path)
         return retval if retval else "Failed"
