@@ -216,7 +216,7 @@ class TrialTestJMClientProto(unittest.TestCase):
         params = [[False, False], [True, False], [False, True], [-1, False]]
         load_program_config()
         jm_single().maker_timeout_sec = 1
-        self.port = reactor.listenTCP(27184, JMTestServerProtocolFactory())
+        self.port = reactor.listenTCP(28184, JMTestServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
         def cb(client):
             self.client = client
@@ -231,13 +231,13 @@ class TrialTestJMClientProto(unittest.TestCase):
             takers[i].testflag = True
             if i != 0:
                 clientfactories.append(JMClientProtocolFactory(takers[i]))
-                clientconn = reactor.connectTCP("localhost", 27184,
+                clientconn = reactor.connectTCP("localhost", 28184,
                                                 clientfactories[i])
                 self.addCleanup(clientconn.disconnect)
             else:
                 clientfactories.append(DummyClientProtocolFactory(takers[i]))
                 clientfactory = clientfactories[0]
-                clientconn = reactor.connectTCP("localhost", 27184,
+                clientconn = reactor.connectTCP("localhost", 28184,
                                                 clientfactories[0])
                 self.addCleanup(clientconn.disconnect)
 

@@ -232,13 +232,13 @@ class TrialTestJMProto(unittest.TestCase):
 
     def setUp(self):
         print("setUp()")
-        self.port = reactor.listenTCP(27184, JMTestServerProtocolFactory())
+        self.port = reactor.listenTCP(28184, JMTestServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
         def cb(client):
             self.client = client
             self.addCleanup(self.client.transport.loseConnection)
         creator = protocol.ClientCreator(reactor, JMTestClientProtocol)
-        creator.connectTCP("localhost", 27184).addCallback(cb)
+        creator.connectTCP("localhost", 28184).addCallback(cb)
 
     def test_waiter(self):
         print("test_main()")

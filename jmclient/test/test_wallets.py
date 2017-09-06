@@ -6,7 +6,6 @@ import sys
 import os
 import time
 import binascii
-import pexpect
 import random
 import subprocess
 import datetime
@@ -55,14 +54,12 @@ def test_query_utxo_set(setup_wallets):
                                     ["wallet4utxo.json", "4utxo", [2, 3]])
     sync_wallet(wallet)
     txid = do_tx(wallet, 90000000)
-    time.sleep(3)
     txid2 = do_tx(wallet, 20000000)
-    time.sleep(3)
     print("Got txs: ", txid, txid2)
-    res1 = jm_single().bc_interface.query_utxo_set(txid + ":0")
+    res1 = jm_single().bc_interface.query_utxo_set(txid + ":0", includeunconf=True)
     res2 = jm_single().bc_interface.query_utxo_set(
         [txid + ":0", txid2 + ":1"],
-        includeconf=True)
+        includeconf=True, includeunconf=True)
     assert len(res1) == 1
     assert len(res2) == 2
     assert all([x in res1[0] for x in ['script', 'address', 'value']])

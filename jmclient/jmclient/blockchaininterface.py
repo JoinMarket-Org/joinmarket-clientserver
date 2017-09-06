@@ -778,12 +778,12 @@ class BitcoinCoreInterface(BlockchainInterface):
             return False
         return True
 
-    def query_utxo_set(self, txout, includeconf=False):
+    def query_utxo_set(self, txout, includeconf=False, includeunconf=False):
         if not isinstance(txout, list):
             txout = [txout]
         result = []
         for txo in txout:
-            ret = self.rpc('gettxout', [txo[:64], int(txo[65:]), False])
+            ret = self.rpc('gettxout', [txo[:64], int(txo[65:]), includeunconf])
             if ret is None:
                 result.append(None)
             else:
@@ -910,8 +910,8 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
         # in the wallet
         res = []
         for address in addresses:
-            self.rpc('importaddress', [address, 'watchonly'])
+            #self.rpc('importaddress', [address, 'watchonly'])
             res.append({'address': address,
                         'balance': int(round(Decimal(1e8) * Decimal(self.rpc(
-                            'getreceivedbyaddress', [address]))))})
+                            'getreceivedbyaddress', [address, 0]))))})
         return {'data': res}

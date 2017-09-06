@@ -295,9 +295,9 @@ class TrialTestJMDaemonProto(unittest.TestCase):
     def setUp(self):
         load_program_config()
         jm_single().maker_timeout_sec = 1
-        self.port = reactor.listenTCP(27184, JMDaemonTestServerProtocolFactory())
+        self.port = reactor.listenTCP(28184, JMDaemonTestServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
-        clientconn = reactor.connectTCP("localhost", 27184,
+        clientconn = reactor.connectTCP("localhost", 28184,
                                         JMTestClientProtocolFactory())
         self.addCleanup(clientconn.disconnect)
 
@@ -315,9 +315,9 @@ class TestJMDaemonProtoInit(unittest.TestCase):
         end_early = True
         load_program_config()
         jm_single().maker_timeout_sec = 1
-        self.port = reactor.listenTCP(27184, JMDaemonTest2ServerProtocolFactory())
+        self.port = reactor.listenTCP(28184, JMDaemonTest2ServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
-        clientconn = reactor.connectTCP("localhost", 27184,
+        clientconn = reactor.connectTCP("localhost", 28184,
                                         JMTestClientProtocolFactory())
         self.addCleanup(clientconn.disconnect)
 
