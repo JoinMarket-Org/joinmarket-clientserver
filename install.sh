@@ -282,10 +282,11 @@ main ()
     mkdir -p deps
     pushd deps
     rm -f ./keyring.gpg
-    if ! openssl_install; then
-        echo "Openssl was not built. Exiting."
-        return 1
-    fi
+# openssl build disabled. using OS package manager's version.
+#    if ! openssl_install; then
+#        echo "Openssl was not built. Exiting."
+#        return 1
+#    fi
     if ! libffi_install; then
         echo "Libffi was not built. Exiting."
         return 1
