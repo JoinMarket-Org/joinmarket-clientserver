@@ -11,7 +11,7 @@ import os
 import pprint
 import copy
 import logging
-
+from twisted.python.log import startLogging
 from jmclient import (Taker, load_program_config, get_schedule,
                       weighted_order_choose, JMClientProtocolFactory,
                       start_reactor, validate_address, jm_single, WalletError,
@@ -53,6 +53,9 @@ def main():
                 print("Failed to load wallet, error message: " + repr(e))
                 sys.exit(0)
             break
+    if jm_single().config.get("BLOCKCHAIN",
+                              "blockchain_source") == "electrum-server":
+        jm_single().bc_interface.synctype = "with-script"
     sync_wallet(wallet, fast=options['fastsync'])
 
     #Parse options and generate schedule
@@ -133,6 +136,8 @@ def main():
     clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
+    if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
+        startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
                   clientfactory, daemon=daemon)
