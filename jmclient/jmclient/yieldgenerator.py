@@ -5,6 +5,7 @@ import datetime
 import os
 import time
 import abc
+from twisted.python.log import startLogging
 from optparse import OptionParser
 from jmbase import get_password
 from jmclient import (Maker, jm_single, get_network, load_program_config, get_log,
@@ -248,6 +249,8 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
                 print("Failed to load wallet, error message: " + repr(e))
                 sys.exit(0)
             break
+    if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "electrum-server":
+        jm_single().bc_interface.synctype = "with-script"
     sync_wallet(wallet, fast=options.fastsync)
 
     maker = ygclass(wallet, [options.txfee, cjfee_a, cjfee_r,
@@ -257,6 +260,8 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
 
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
+    if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
+        startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
                       clientfactory, daemon=daemon)

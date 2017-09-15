@@ -13,7 +13,7 @@ from twisted.internet.protocol import ClientFactory, Protocol
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor, task, defer
 from .blockchaininterface import BlockchainInterface, is_index_ahead_of_cache
-from .configure import get_p2pk_vbyte
+from .configure import get_p2sh_vbyte
 from .support import get_log
 
 log = get_log()
@@ -264,6 +264,8 @@ def set_electrum_testnet():
         'testnet.hsmiths.com': {'t':'53011', 's':'53012'},
         'electrum.akinbo.org': {'t':'51001', 's':'51002'},
         'ELEX05.blackpole.online': {'t':'52011', 's':'52002'},}
+        #Replace with for regtest:
+        #'localhost': {'t': '50001', 's': '51002'},}
 
 class TxElectrumClientProtocol(LineReceiver):
     #map deferreds to msgids to correctly link response with request
@@ -285,7 +287,6 @@ class TxElectrumClientProtocol(LineReceiver):
         pingloop.start(60.0)
 
     def ping(self):
-        print('sending server ping')
         #We dont bother tracking response to this;
         #just for keeping connection active
         self.call_server_method('server.version')
@@ -330,21 +331,92 @@ class TxElectrumClientProtocolFactory(ClientFactory):
     def clientConnectionFailed(self,connector,reason):
         print('connection failed')
 
+class ElectrumConn(threading.Thread):
+
+    def __init__(self, server, port):
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.msg_id = 0
+        self.RetQueue = Queue.Queue()
+        try:
+            self.s = socket.create_connection((server,int(port)))
+        except Exception as e:
+            log.error("Error connecting to electrum server. "
+                      "Try again to connect to a random server or set a "
+                      "server in the config.")
+            os._exit(1)
+        self.ping()
+
+    def run(self):
+        while True:
+            all_data = None
+            while True:
+                data = self.s.recv(1024)
+                if data is None:
+                    continue
+                if all_data is None:
+                    all_data = data
+                else:
+                    all_data = all_data + data
+                if '\n' in all_data:
+                    break
+            data_json = json.loads(all_data[:-1].decode())
+            self.RetQueue.put(data_json)
+
+    def ping(self):
+        log.debug('Sending Electrum server ping')
+        self.send_json({'id':0,'method':'server.version','params':[]})
+        t = threading.Timer(60, self.ping)
+        t.daemon = True
+        t.start()
+
+    def send_json(self, json_data):
+        data = json.dumps(json_data).encode()
+        self.s.send(data + b'\n')
+
+    def call_server_method(self, method, params=[]):
+        self.msg_id = self.msg_id + 1
+        current_id = self.msg_id
+        method_dict = {
+            'id': current_id,
+            'method': method,
+            'params': params
+        }
+        self.send_json(method_dict)
+        while True:
+            ret_data = self.RetQueue.get()
+            if ret_data.get('id', None) == current_id:
+                return ret_data
+            else:
+                log.debug(json.dumps(ret_data))
+
 class ElectrumInterface(BlockchainInterface):
     BATCH_SIZE = 8
     def __init__(self, testnet=False, electrum_server=None):
+        self.synctype = "sync-only"
         if testnet:
             set_electrum_testnet()
         self.server, self.port = self.get_server(electrum_server)
         self.factory = TxElectrumClientProtocolFactory(self)
         reactor.connectTCP(self.server, self.port, self.factory)
+        #start the thread for blocking calls during execution
+        self.electrum_conn = ElectrumConn(self.server, self.port)
+        self.electrum_conn.start()
+        #used to hold open server conn
+        self.electrum_conn.call_server_method('blockchain.numblocks.subscribe')
+        #task.LoopingCall objects that track transactions, keyed by txids.
+        #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
+        #spent true/false), ..}
+        self.tx_watcher_loops = {}
+        self.wallet_synced = False
 
     def sync_wallet(self, wallet, restart_cb=False):
         self.wallet = wallet
         #wipe the temporary cache of address histories
         self.temp_addr_history = {}
-        startLogging(sys.stdout)
-        reactor.run()
+        if self.synctype == "sync-only":
+            startLogging(sys.stdout)
+            reactor.run()
 
     def get_server(self, electrum_server):
         if not electrum_server:
@@ -354,9 +426,12 @@ class ElectrumInterface(BlockchainInterface):
         print('Trying to connect to Electrum server: ' + str(electrum_server))
         return (s, p)
 
-    def get_from_electrum(self, method, params=[]):
+    def get_from_electrum(self, method, params=[], blocking=False):
         params = [params] if type(params) is not list else params
-        return self.factory.client.call_server_method(method, params)
+        if blocking:
+            return self.electrum_conn.call_server_method(method, params)
+        else:
+            return self.factory.client.call_server_method(method, params)
 
     def sync_addresses(self, wallet, restart_cb=None):
         log.debug("downloading wallet history from Electrum server ...")
@@ -365,8 +440,9 @@ class ElectrumInterface(BlockchainInterface):
                 self.synchronize_batch(wallet, mixdepth, forchange, 0)
 
     def synchronize_batch(self, wallet, mixdepth, forchange, start_index):
-        log.debug("Syncing address batch, m, fc, i: " + ",".join(
-            [str(x) for x in [mixdepth, forchange, start_index]]))
+        #for debugging only:
+        #log.debug("Syncing address batch, m, fc, i: " + ",".join(
+        #    [str(x) for x in [mixdepth, forchange, start_index]]))
         if mixdepth not in self.temp_addr_history:
             self.temp_addr_history[mixdepth] = {}
         if forchange not in self.temp_addr_history[mixdepth]:
@@ -383,7 +459,6 @@ class ElectrumInterface(BlockchainInterface):
                 self.temp_addr_history[mixdepth][forchange][i] = {'synced': False,
                                                                   'addr': a,
                                                                   'used': False}
-                log.info("added tah entry: " + str(self.temp_addr_history[mixdepth][forchange][i]))
 
     def process_address_history(self, history, wallet, mixdepth, forchange, i,
                                 addr, start_index):
@@ -445,7 +520,12 @@ class ElectrumInterface(BlockchainInterface):
                 addrs.extend(branch_list)
         if len(addrs) == 0:
             log.debug('no tx used')
+            if self.synctype == 'sync-only':
+                reactor.stop()
             return
+        #make sure to add any addresses during the run (a subset of those
+        #added to the address cache)
+        addrs = list(set(self.wallet.addr_cache.keys()).union(set(addrs)))
         self.listunspent_calls = 0
         for a in addrs:
             d = self.get_from_electrum('blockchain.address.listunspent', a)
@@ -460,10 +540,13 @@ class ElectrumInterface(BlockchainInterface):
         if self.listunspent_calls == n:
             for u in wallet.spent_utxos:
                 wallet.unspent.pop(u, None)
-            reactor.stop()
+            self.wallet_synced = True
+            if self.synctype == "sync-only":
+                reactor.stop()
 
     def pushtx(self, txhex):
-        brcst_res = self.get_from_electrum('blockchain.transaction.broadcast', txhex)
+        brcst_res = self.get_from_electrum('blockchain.transaction.broadcast',
+                                           txhex, blocking=True)
         brcst_status = brcst_res['result']
         if isinstance(brcst_status, str) and len(brcst_status) == 64:
             return (True, brcst_status)
@@ -472,14 +555,16 @@ class ElectrumInterface(BlockchainInterface):
 
     def query_utxo_set(self, txout, includeconf=False):
         self.current_height = self.get_from_electrum(
-            "blockchain.numblocks.subscribe")['result']
+            "blockchain.numblocks.subscribe", blocking=True)['result']
         if not isinstance(txout, list):
             txout = [txout]
         utxos = [[t[:64],int(t[65:])] for t in txout]
         result = []
         for ut in utxos:
-            address = self.get_from_electrum("blockchain.utxo.get_address", ut)['result']
-            utxo_info = self.get_from_electrum("blockchain.address.listunspent", address)['result']
+            address = self.get_from_electrum("blockchain.utxo.get_address",
+                                             ut, blocking=True)['result']
+            utxo_info = self.get_from_electrum("blockchain.address.listunspent",
+                                               address, blocking=True)['result']
             utxo = None
             for u in utxo_info:
                 if u['tx_hash'] == ut[0] and u['tx_pos'] == ut[1]:
@@ -503,7 +588,11 @@ class ElectrumInterface(BlockchainInterface):
         return result
 
     def estimate_fee_per_kb(self, N):
-        fee_info = self.get_from_electrum('blockchain.estimatefee', N)
+        print("N is: " + str(N))
+        if super(ElectrumInterface, self).fee_per_kb_has_been_manually_set(N):
+            return int(random.uniform(N * float(0.8), N * float(1.2)))
+        fee_info = self.get_from_electrum('blockchain.estimatefee', N, blocking=True)
+        print('got fee info result: ' + str(fee_info))
         fee = fee_info.get('result')
         fee_per_kb_sat = int(float(fee) * 100000000)
         return fee_per_kb_sat
@@ -519,13 +608,15 @@ class ElectrumInterface(BlockchainInterface):
         wl = self.tx_watcher_loops[notifyaddr]
         print('txoutset=' + pprint.pformat(tx_output_set))
         unconftx = self.get_from_electrum('blockchain.address.get_mempool',
-                                          notifyaddr).get('result')
+                                          notifyaddr, blocking=True).get('result')
         unconftxs = set([str(t['tx_hash']) for t in unconftx])
         if len(unconftxs):
             txdatas = []
             for txid in unconftxs:
-                txdatas.append(str(self.get_from_electrum('blockchain.transaction.get',
-                                                          txid).get('result')))
+                txdatas.append({'id': txid,
+                                'hex':str(self.get_from_electrum(
+                                    'blockchain.transaction.get',txid,
+                                    blocking=True).get('result'))})
             unconfirmed_txid = None
             for txdata in txdatas:
                 txhex = txdata['hex']
@@ -538,19 +629,19 @@ class ElectrumInterface(BlockchainInterface):
                     break
             #call unconf callback if it was found in the mempool
             if unconfirmed_txid and not wl[1]:
-                print("Tx: " + str(real_txid) + " seen on network.")
-                unconfirmfun(txd, real_txid)
+                print("Tx: " + str(unconfirmed_txid) + " seen on network.")
+                unconfirmfun(btc.deserialize(unconfirmed_txhex), unconfirmed_txid)
                 wl[1] = True
                 return
 
         conftx = self.get_from_electrum('blockchain.address.listunspent',
-                                        notifyaddr).get('result')
+                                        notifyaddr, blocking=True).get('result')
         conftxs = set([str(t['tx_hash']) for t in conftx])
         if len(conftxs):
             txdatas = []
             for txid in conftxs:
                 txdata = str(self.get_from_electrum('blockchain.transaction.get',
-                                                    txid).get('result'))
+                                                    txid, blocking=True).get('result'))
                 txdatas.append({'hex':txdata,'id':txid})
             confirmed_txid = None
             for txdata in txdatas:
@@ -571,35 +662,44 @@ class ElectrumInterface(BlockchainInterface):
     def tx_watcher(self, txd, unconfirmfun, confirmfun, spentfun, c, n):
         """Called at a polling interval, checks if the given deserialized
         transaction (which must be fully signed) is (a) broadcast, (b) confirmed
-        and (c) spent from at index n, and notifies confirmation if number
-        of confs = c.
-        TODO: Deal with conflicts correctly. Here just abandons monitoring.
+        and (c) spent from. (c, n ignored in electrum version, just supports
+        registering first confirmation).
+        TODO: There is no handling of conflicts here.
         """
         txid = btc.txhash(btc.serialize(txd))
         wl = self.tx_watcher_loops[txid]
-        txdata = str(self.get_from_electrum('blockchain.transaction.get',
-                                            txid).get('result'))
-        txdatas.append({'hex':txdata,'id':txid})
-        if "confirmations" not in res:
-            print("Malformed gettx result: " + str(res))
+        #first check if in mempool (unconfirmed)
+        #choose an output address for the query. Filter out
+        #p2pkh addresses, assume p2sh (thus would fail to find tx on
+        #some nonstandard script type)
+        addr = None
+        for i in range(len(txd['outs'])):
+            if not btc.is_p2pkh_script(txd['outs'][i]['script']):
+                addr = btc.script_to_address(txd['outs'][i]['script'], get_p2sh_vbyte())
+                break
+        if not addr:
+            log.error("Failed to find any p2sh output, cannot be a standard "
+                      "joinmarket transaction, fatal error!")
+            reactor.stop()
             return
-        if not wl[1] and res["confirmations"] == 0:
+        unconftxs_res = self.get_from_electrum('blockchain.address.get_mempool',
+                                              addr, blocking=True).get('result')
+        unconftxs = [str(t['tx_hash']) for t in unconftxs_res]
+
+        if not wl[1] and txid in unconftxs:
             print("Tx: " + str(txid) + " seen on network.")
             unconfirmfun(txd, txid)
             wl[1] = True
             return
-        if not wl[2] and res["confirmations"] > 0:
-            print("Tx: " + str(txid) + " has " + str(
-                res["confirmations"]) + " confirmations.")
-            confirmfun(txd, txid, res["confirmations"])
-            if c <= res["confirmations"]:
-                wl[2] = True
-                #Note we do not stop the monitoring loop when
-                #confirmations occur, since we are also monitoring for spending.
-            return
-        if res["confirmations"] < 0:
-            print("Tx: " + str(txid) + " has a conflict. Abandoning.")
-            wl[0].stop()
+        conftx = self.get_from_electrum('blockchain.address.listunspent',
+                                        addr, blocking=True).get('result')
+        conftxs = [str(t['tx_hash']) for t in conftx]
+        if not wl[2] and len(conftxs) and txid in conftxs:
+            print("Tx: " + str(txid) + " is confirmed.")
+            confirmfun(txd, txid, 1)
+            wl[2] = True
+            #Note we do not stop the monitoring loop when
+            #confirmations occur, since we are also monitoring for spending.
             return
         if not spentfun or wl[3]:
             return
