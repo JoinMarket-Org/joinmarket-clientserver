@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 from __future__ import print_function
 from twisted.python.log import startLogging, err
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol, reactor, task
 from twisted.internet.task import LoopingCall
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
@@ -143,11 +143,26 @@ class JMMakerClientProtocol(JMClientProtocol):
 
     @commands.JMUp.responder
     def on_JM_UP(self):
+        #wait until ready locally to submit offers (can be delayed
+        #if wallet sync is slow).
+        self.offers_ready_loop_counter = 0
+        self.offers_ready_loop = task.LoopingCall(self.submitOffers)
+        self.offers_ready_loop.start(2.0)
+        return {'accepted': True}
+
+    def submitOffers(self):
+        self.offers_ready_loop_counter += 1
+        if self.offers_ready_loop_counter == 300:
+            jlog.info("Failed to start after 10 minutes, giving up.")
+            self.offers_ready_loop.stop()
+            reactor.stop()
+        if not self.client.offerlist:
+            return
+        self.offers_ready_loop.stop()
         d = self.callRemote(commands.JMSetup,
                             role="MAKER",
                             initdata=json.dumps(self.client.offerlist))
         self.defaultCallbacks(d)
-        return {'accepted': True}
 
     @commands.JMSetupDone.responder
     def on_JM_SETUP_DONE(self):
@@ -257,10 +272,17 @@ class JMMakerClientProtocol(JMClientProtocol):
         if not offerinfo:
             jlog.info("Failed to find notified unconfirmed transaction: " + txid)
             return
+        jm_single().bc_interface.wallet_synced = False
         jm_single().bc_interface.sync_unspent(self.client.wallet)
         jlog.info('tx in a block: ' + txid)
-        #TODO track the earning
-        #jlog.info('earned = ' + str(self.real_cjfee - self.txfee))
+        self.wait_for_sync_loop = task.LoopingCall(self.modify_orders, offerinfo,
+                                                   confirmations, txid)
+        self.wait_for_sync_loop.start(2.0)
+
+    def modify_orders(self, offerinfo, confirmations, txid):
+        if not jm_single().bc_interface.wallet_synced:
+            return
+        self.wait_for_sync_loop.stop()
         to_cancel, to_announce = self.client.on_tx_confirmed(offerinfo,
                                                              confirmations, txid)
         self.client.modify_orders(to_cancel, to_announce)

@@ -49,6 +49,10 @@ class BlockchainInterface(object):
         self.sync_addresses(wallet, restart_cb)
         self.sync_unspent(wallet)
 
+    @staticmethod
+    def get_wallet_name(wallet):
+        return 'joinmarket-wallet-' + btc.dbl_sha256(wallet.keys[0][0])[:6]
+
     @abc.abstractmethod
     def sync_addresses(self, wallet):
         """Finds which addresses have been used and sets
@@ -75,18 +79,23 @@ class BlockchainInterface(object):
         """
         if not vb:
             vb = get_p2pk_vbyte()
-        one_addr_imported = False
-        for outs in txd['outs']:
-            addr = btc.script_to_address(outs['script'], vb)
-            if self.rpc('getaccount', [addr]) != '':
-                one_addr_imported = True
-                break
-        if not one_addr_imported:
-            self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
+        if isinstance(self, BitcoinCoreInterface) or isinstance(self,
+                                        RegtestBitcoinCoreInterface):
+            #This code ensures that a walletnotify is triggered, by
+            #ensuring that at least one of the output addresses is
+            #imported into the wallet (note the sweep special case, where
+            #none of the output addresses belong to me).
+            one_addr_imported = False
+            for outs in txd['outs']:
+                addr = btc.script_to_address(outs['script'], vb)
+                if self.rpc('getaccount', [addr]) != '':
+                    one_addr_imported = True
+                    break
+            if not one_addr_imported:
+                self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
 
         #Warning! In case of txid_flag false, this is *not* a valid txid,
-        #but only a hash of an incomplete transaction serialization; but,
-        #it still suffices as a unique key for tracking, in this case.
+        #but only a hash of an incomplete transaction serialization.
         txid = btc.txhash(btc.serialize(txd))
         if not txid_flag:
             tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
@@ -282,10 +291,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
         #spent true/false), ..}
         self.tx_watcher_loops = {}
-
-    @staticmethod
-    def get_wallet_name(wallet):
-        return 'joinmarket-wallet-' + btc.dbl_sha256(wallet.keys[0][0])[:6]
 
     def get_block(self, blockheight):
         """Returns full serialized block at a given height.

@@ -25,7 +25,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
                               Wallet, BitcoinCoreWallet, sync_wallet,
                               RegtestBitcoinCoreInterface, estimate_tx_fee,
                               direct_send, SegwitWallet)
-
+from twisted.python.log import startLogging
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_sendpayment_parser
 
@@ -144,8 +144,11 @@ def main():
                 break
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
+    if jm_single().config.get("BLOCKCHAIN",
+        "blockchain_source") == "electrum-server" and options.makercount != 0:
+        jm_single().bc_interface.synctype = "with-script"
+    #wallet sync will now only occur on reactor start if we're joining.
     sync_wallet(wallet, fast=options.fastsync)
-
     if options.makercount == 0:
         if isinstance(wallet, BitcoinCoreWallet):
             raise NotImplementedError("Direct send only supported for JM wallets")
@@ -210,6 +213,8 @@ def main():
     clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
+    if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
+        startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
                   clientfactory, daemon=daemon)
