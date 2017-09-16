@@ -8,264 +8,22 @@ import socket
 import threading
 import time
 import sys
+import ssl
 from twisted.python.log import startLogging
 from twisted.internet.protocol import ClientFactory, Protocol
+from twisted.internet.ssl import ClientContextFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor, task, defer
 from .blockchaininterface import BlockchainInterface, is_index_ahead_of_cache
 from .configure import get_p2sh_vbyte
 from .support import get_log
+from .electrum_data import (get_default_ports, get_default_servers,
+                            set_electrum_testnet, DEFAULT_PROTO)
 
 log = get_log()
 
-# Default server list from electrum client
-# https://github.com/spesmilo/electrum, file https://github.com/spesmilo/electrum/blob/7dbd612d5dad13cd6f1c0df32534a578bad331ad/lib/servers.json
-DEFAULT_PORTS = {'t':'50001', 's':'50002'}
-
-DEFAULT_SERVERS = {
-    "E-X.not.fyi": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "ELECTRUMX.not.fyi": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "ELEX01.blackpole.online": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "VPS.hsmiths.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "bitcoin.freedomnode.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "btc.smsys.me": {
-        "pruning": "-",
-        "s": "995",
-        "version": "1.1"
-    },
-    "currentlane.lovebitco.in": {
-        "pruning": "-",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "daedalus.bauerj.eu": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "de01.hamster.science": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "ecdsa.net": {
-        "pruning": "-",
-        "s": "110",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "elec.luggs.co": {
-        "pruning": "-",
-        "s": "443",
-        "version": "1.1"
-    },
-    "electrum.akinbo.org": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.antumbra.se": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.be": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.coinucopia.io": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.cutie.ga": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.festivaldelhumor.org": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.hsmiths.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.qtornado.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum.vom-stausee.de": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrum3.hachre.de": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrumx.bot.nu": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "electrumx.westeurope.cloudapp.azure.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "elx01.knas.systems": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "ex-btc.server-on.net": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "helicarrier.bauerj.eu": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "mooo.not.fyi": {
-        "pruning": "-",
-        "s": "50012",
-        "t": "50011",
-        "version": "1.1"
-    },
-    "ndnd.selfhost.eu": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "node.arihanc.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "node.xbt.eu": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "node1.volatilevictory.com": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "noserver4u.de": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "qmebr.spdns.org": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "raspi.hsmiths.com": {
-        "pruning": "-",
-        "s": "51002",
-        "t": "51001",
-        "version": "1.1"
-    },
-    "s2.noip.pl": {
-        "pruning": "-",
-        "s": "50102",
-        "version": "1.1"
-    },
-    "s5.noip.pl": {
-        "pruning": "-",
-        "s": "50105",
-        "version": "1.1"
-    },
-    "songbird.bauerj.eu": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "us.electrum.be": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    },
-    "us01.hamster.science": {
-        "pruning": "-",
-        "s": "50002",
-        "t": "50001",
-        "version": "1.1"
-    }
-}
-
-def set_electrum_testnet():
-    global DEFAULT_PORTS, DEFAULT_SERVERS
-    DEFAULT_PORTS = {'t':'51001', 's':'51002'}
-    DEFAULT_SERVERS = {
-        'testnetnode.arihanc.com': {'t':'51001', 's':'51002'},
-        'testnet1.bauerj.eu': {'t':'51001', 's':'51002'},
-        '14.3.140.101': {'t':'51001', 's':'51002'},
-        'testnet.hsmiths.com': {'t':'53011', 's':'53012'},
-        'electrum.akinbo.org': {'t':'51001', 's':'51002'},
-        'ELEX05.blackpole.online': {'t':'52011', 's':'52002'},}
-        #Replace with for regtest:
-        #'localhost': {'t': '50001', 's': '51002'},}
+class ElectrumConnectionError(Exception):
+    pass
 
 class TxElectrumClientProtocol(LineReceiver):
     #map deferreds to msgids to correctly link response with request
@@ -276,7 +34,7 @@ class TxElectrumClientProtocol(LineReceiver):
         self.factory = factory
 
     def connectionMade(self):
-        print('connection to Electrum made')
+        log.debug('connection to Electrum succesful')
         self.msg_id = 0
         self.factory.bci.sync_addresses(self.factory.bci.wallet)
         self.start_ping()
@@ -325,26 +83,39 @@ class TxElectrumClientProtocolFactory(ClientFactory):
         self.client = TxElectrumClientProtocol(self)
         return self.client
 
-    def clientConnectionLost(self,connector,reason):
-        print('connection lost')
+    def clientConnectionLost(self, connector, reason):
+        log.debug('Electrum connection lost, reason: ' + str(reason))
+        self.bci.start_electrum_proto(None)
 
-    def clientConnectionFailed(self,connector,reason):
+    def clientConnectionFailed(self, connector, reason):
         print('connection failed')
+        self.bci.start_electrum_proto(None)
 
 class ElectrumConn(threading.Thread):
 
-    def __init__(self, server, port):
+    def __init__(self, server, port, proto):
         threading.Thread.__init__(self)
         self.daemon = True
         self.msg_id = 0
         self.RetQueue = Queue.Queue()
         try:
-            self.s = socket.create_connection((server,int(port)))
+            if proto == 't':
+                self.s = socket.create_connection((server,int(port)))
+            elif proto == 's':
+                self.raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                #reads are sometimes quite slow, so conservative, but we must
+                #time out a completely hanging connection.
+                self.raw_socket.settimeout(60)
+                self.raw_socket.connect((server, int(port)))
+                self.s = ssl.wrap_socket(self.raw_socket)
+            else:
+                #Wrong proto is not accepted for restarts
+                log.error("Failure to connect to Electrum, "
+                                "protocol must be TCP or SSL.")
+                os._exit(1)
         except Exception as e:
-            log.error("Error connecting to electrum server. "
-                      "Try again to connect to a random server or set a "
-                      "server in the config.")
-            os._exit(1)
+            log.error("Error connecting to electrum server; trying again.")
+            raise ElectrumConnectionError
         self.ping()
 
     def run(self):
@@ -396,34 +167,60 @@ class ElectrumInterface(BlockchainInterface):
         self.synctype = "sync-only"
         if testnet:
             set_electrum_testnet()
-        self.server, self.port = self.get_server(electrum_server)
-        self.factory = TxElectrumClientProtocolFactory(self)
-        reactor.connectTCP(self.server, self.port, self.factory)
-        #start the thread for blocking calls during execution
-        self.electrum_conn = ElectrumConn(self.server, self.port)
-        self.electrum_conn.start()
-        #used to hold open server conn
-        self.electrum_conn.call_server_method('blockchain.numblocks.subscribe')
+        self.start_electrum_proto()
+        self.electrum_conn = None
+        self.start_connection_thread()
         #task.LoopingCall objects that track transactions, keyed by txids.
         #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
         #spent true/false), ..}
         self.tx_watcher_loops = {}
         self.wallet_synced = False
 
+    def start_electrum_proto(self, electrum_server=None):
+        self.server, self.port = self.get_server(electrum_server)
+        self.factory = TxElectrumClientProtocolFactory(self)
+        if DEFAULT_PROTO == 's':
+            ctx = ClientContextFactory()
+            reactor.connectSSL(self.server, self.port, self.factory, ctx)
+        elif DEFAULT_PROTO == 't':
+            reactor.connectTCP(self.server, self.port, self.factory)
+        else:
+            raise Exception("Unrecognized connection protocol to Electrum, "
+                            "should be one of 't' or 's' (TCP or SSL), "
+                            "critical error, quitting.")
+
+    def start_connection_thread(self):
+        """Initiate a thread that serves blocking, single
+        calls to an Electrum server. This won't usually be the
+        same server that's used to do sync (which, confusingly,
+        is asynchronous).
+        """
+        try:
+            s, p = self.get_server(None)
+            self.electrum_conn = ElectrumConn(s, p, DEFAULT_PROTO)
+        except ElectrumConnectionError:
+            reactor.callLater(1.0, self.start_connection_thread)
+            return
+        self.electrum_conn.start()
+        #used to hold open server conn
+        self.electrum_conn.call_server_method('blockchain.numblocks.subscribe')
+
     def sync_wallet(self, wallet, restart_cb=False):
         self.wallet = wallet
         #wipe the temporary cache of address histories
         self.temp_addr_history = {}
         if self.synctype == "sync-only":
-            startLogging(sys.stdout)
             reactor.run()
 
     def get_server(self, electrum_server):
         if not electrum_server:
-            electrum_server = random.choice(DEFAULT_SERVERS.keys())
+            while True:
+                electrum_server = random.choice(get_default_servers().keys())
+                if DEFAULT_PROTO in get_default_servers()[electrum_server]:
+                    break
         s = electrum_server
-        p = int(DEFAULT_SERVERS[electrum_server]['t'])
-        print('Trying to connect to Electrum server: ' + str(electrum_server))
+        p = int(get_default_servers()[electrum_server][DEFAULT_PROTO])
+        log.debug('Trying to connect to Electrum server: ' + str(electrum_server))
         return (s, p)
 
     def get_from_electrum(self, method, params=[], blocking=False):
@@ -434,6 +231,10 @@ class ElectrumInterface(BlockchainInterface):
             return self.factory.client.call_server_method(method, params)
 
     def sync_addresses(self, wallet, restart_cb=None):
+        if not self.electrum_conn:
+            #wait until we have some connection up before starting
+            reactor.callLater(0.2, self.sync_addresses, wallet, restart_cb)
+            return
         log.debug("downloading wallet history from Electrum server ...")
         for mixdepth in range(wallet.max_mix_depth):
             for forchange in [0, 1]:
@@ -575,21 +376,22 @@ class ElectrumInterface(BlockchainInterface):
                 if u['tx_hash'] == ut[0] and u['tx_pos'] == ut[1]:
                     utxo = u
             if utxo is None:
-                raise Exception("UTXO Not Found")
-            r = {
-                'value': utxo['value'],
-                'address': address,
-                'script': btc.address_to_script(address)
-            }
-            if includeconf:
-                if int(utxo['height']) in [0, -1]:
-                    #-1 means unconfirmed inputs
-                    r['confirms'] = 0
-                else:
-                    #+1 because if current height = tx height, that's 1 conf
-                    r['confirms'] = int(self.current_height) - int(
-                        utxo['height']) + 1            
-            result.append(r)
+                result.append(None)
+            else:
+                r = {
+                    'value': utxo['value'],
+                    'address': address,
+                    'script': btc.address_to_script(address)
+                }
+                if includeconf:
+                    if int(utxo['height']) in [0, -1]:
+                        #-1 means unconfirmed inputs
+                        r['confirms'] = 0
+                    else:
+                        #+1 because if current height = tx height, that's 1 conf
+                        r['confirms'] = int(self.current_height) - int(
+                            utxo['height']) + 1
+                result.append(r)
         return result
 
     def estimate_fee_per_kb(self, N):

@@ -35,6 +35,11 @@ class DummyBlockchainInterface(BlockchainInterface):
         pass
     def sync_unspent(self, wallet):
         pass
+    def outputs_watcher(self, wallet_name, notifyaddr,
+                        tx_output_set, uf, cf, tf):
+        pass
+    def tx_watcher(self, txd, ucf, cf, sf, c, n):
+        pass
     def add_tx_notify(self,
                       txd,
                       unconfirmfun,
