@@ -476,11 +476,13 @@ class ElectrumInterface(BlockchainInterface):
         #Having updated this specific record, check if the entire batch from start_index
         #has been synchronized
         if all([tah[i]['synced'] for i in range(start_index, start_index + self.BATCH_SIZE)]):
-            #check if unused goes back as much as gaplimit; if so, end, else, continue
+            #check if unused goes back as much as gaplimit *and* we are ahead of any
+            #existing index_cache from the wallet file; if both true, end, else, continue
             #to next batch
             if all([tah[i]['used'] is False for i in range(
                 start_index+self.BATCH_SIZE-wallet.gaplimit,
-                start_index+self.BATCH_SIZE)]):
+                start_index+self.BATCH_SIZE)]) and is_index_ahead_of_cache(
+                    wallet, mixdepth, forchange):
                 last_used_addr = None
                 #to find last used, note that it may be in the *previous* batch;
                 #may as well just search from the start, since it takes no time.
@@ -491,6 +493,9 @@ class ElectrumInterface(BlockchainInterface):
                     wallet.index[mixdepth][forchange] = wallet.addr_cache[last_used_addr][2] + 1
                 else:
                     wallet.index[mixdepth][forchange] = 0
+                #account for index_cache
+                if not is_index_ahead_of_cache(wallet, mixdepth, forchange):
+                    wallet.index[mixdepth][forchange] = wallet.index_cache[mixdepth][forchange]
                 tah["finished"] = True
                 #check if all branches are finished to trigger next stage of sync.
                 addr_sync_complete = True
