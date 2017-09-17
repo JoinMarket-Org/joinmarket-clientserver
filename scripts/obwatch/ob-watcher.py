@@ -21,7 +21,7 @@ from twisted.internet import reactor
 try:
     import matplotlib
     matplotlib.use('Agg')
-    import matplotlib.pyplot as plt    
+    import matplotlib.pyplot as plt
 except:
     print("matplotlib not found; do `pip install matplotlib`"
           "in the joinmarket virtualenv.")
@@ -34,8 +34,10 @@ import jmbitcoin as btc
 from jmdaemon.protocol import *
 log = get_log()
 
-#Initial state: allow all SW+legacy offer types
-filtered_offername_list = offername_list
+#Initial state: allow only SW offer types
+swoffers = filter(lambda x: x[0:2] == 'sw', offername_list)
+pkoffers = filter(lambda x: x[0:2] != 'sw', offername_list)
+filtered_offername_list = swoffers
 
 shutdownform = '<form action="shutdown" method="post"><input type="submit" value="Shutdown" /></form>'
 shutdownpage = '<html><body><center><h1>Successfully Shut down</h1></center></body></html>'
@@ -54,7 +56,8 @@ def calc_depth_data(db, value):
 def create_depth_chart(db, cj_amount, args=None):
     if args is None:
         args = {}
-    sqlorders = db.execute('SELECT * FROM orderbook;').fetchall()
+    rows = db.execute('SELECT * FROM orderbook;').fetchall()
+    sqlorders = [o for o in rows if o["ordertype"] in filtered_offername_list]
     orderfees = sorted([calc_cj_fee(o['ordertype'], o['cjfee'], cj_amount) / 1e8
                         for o in sqlorders
                         if o['minsize'] <= cj_amount <= o[
@@ -91,7 +94,8 @@ def create_depth_chart(db, cj_amount, args=None):
 
 
 def create_size_histogram(db, args):
-    rows = db.execute('SELECT maxsize FROM orderbook;').fetchall()
+    rows = db.execute('SELECT maxsize, ordertype FROM orderbook;').fetchall()
+    rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
     ordersizes = sorted([r['maxsize'] / 1e8 for r in rows])
 
     fig = plt.figure()
@@ -226,15 +230,15 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
         for row in rows:
             o = dict(row)
             if 'cjfee' in o:
-                o['cjfee'] = int(o['cjfee']) if o[
-                                                    'ordertype'] == 'swabsoffer' else float(
-                        o['cjfee'])
+                o['cjfee'] = int(o['cjfee']) if o['ordertype']\
+                             == 'swabsoffer' else float(o['cjfee'])
             result.append(o)
         return result
 
     def get_counterparty_count(self):
         counterparties = self.taker.db.execute(
-                'SELECT DISTINCT counterparty FROM orderbook;').fetchall()
+            'SELECT DISTINCT counterparty FROM orderbook WHERE ordertype=? OR ordertype=?;',
+            filtered_offername_list).fetchall()
         return str(len(counterparties))
 
     def do_GET(self):
@@ -331,10 +335,10 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.path = '/'
             self.do_GET()
         elif self.path == '/toggleSW':
-            if filtered_offername_list == offername_list:
-                filtered_offername_list = ["swreloffer", "swabsoffer"]
+            if filtered_offername_list == swoffers:
+                filtered_offername_list = pkoffers
             else:
-                filtered_offername_list = offername_list
+                filtered_offername_list = swoffers
             self.path = '/'
             self.do_GET()
 
