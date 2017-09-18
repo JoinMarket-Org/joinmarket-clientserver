@@ -24,12 +24,12 @@ is actually newer in version number, than what was there already.
 
 To install everything (client and server), install these packages:
 
-sudo apt-get install python-dev python-pip git build-essential
-automake pkg-config libtool libffi-dev libssl-dev
+    sudo apt-get install python-dev python-pip git build-essential
+    automake pkg-config libtool libffi-dev libssl-dev
 
-(+ libsodium-dev if you can find it, else build after)
+(+ `libsodium-dev` if you can find it, else build after)
 
-(to build libsodium after):
+(to build `libsodium` after):
 
     git clone git://github.com/jedisct1/libsodium.git
     cd libsodium
@@ -43,9 +43,10 @@ automake pkg-config libtool libffi-dev libssl-dev
 Then:
 
     sudo pip install virtualenv
-    mkdir jmvenv
     virtualenv jmvenv
     source jmvenv/bin/activate
+
+**At this point you should see `(jmvenv)` at the beginning of your command prompt.**
 
 Install this repo:
 
@@ -53,6 +54,8 @@ Install this repo:
     cd joinmarket-clientserver
 
 #### Installing packages to run everything in-one:
+
+> *NOTE*: It is very important to have activated virtualenv before running this step. Otherwise, `setupall.py` will fail, you may be tempted to re-run it with `sudo setupall.py` which will cause problems in the future.
 
     python setupall.py --daemon
     python setupall.py --client-bitcoin
