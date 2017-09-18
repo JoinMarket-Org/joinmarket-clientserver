@@ -153,7 +153,7 @@ class Wallet(AbstractWallet):
         self.unspent = {}
         self.spent_utxos = []
         self.imported_privkeys = {}
-        self.seed = self.entropy_to_seed(
+        self.seed = self.wallet_data_to_seed(
             self.read_wallet_file_data(seedarg, pwd, wallet_dir=wallet_dir))
         if not self.seed:
             raise WalletError("Failed to decrypt wallet")
@@ -189,7 +189,7 @@ class Wallet(AbstractWallet):
     def get_root_path(self):
         return "m/0"
 
-    def entropy_to_seed(self, entropy):
+    def wallet_data_to_seed(self, entropy):
         """for base/legacy wallet type, this is a passthrough.
         for bip39 style wallets, this will convert from one to the other
         """
@@ -255,19 +255,40 @@ class Wallet(AbstractWallet):
                 self.index_cache += [[0,0]] * (
                     self.max_mix_depth - len(self.index_cache))
         password_key = btc.bin_dbl_sha256(pwd)
-        encrypted_seed = walletdata['encrypted_seed']
+        if 'encrypted_seed' in walletdata: #accept old field name
+            encrypted_entropy = walletdata['encrypted_seed']
+        elif 'encrypted_entropy' in walletdata:
+            encrypted_entropy = walletdata['encrypted_entropy']
         try:
-            decrypted_seed = decryptData(
+            decrypted_entropy = decryptData(
                     password_key,
-                    encrypted_seed.decode('hex')).encode('hex')
+                    encrypted_entropy.decode('hex')).encode('hex')
             # there is a small probability of getting a valid PKCS7
             # padding by chance from a wrong password; sanity check the
             # seed length
-            if len(decrypted_seed) != 32:
+            if len(decrypted_entropy) != 32:
                 raise ValueError
         except ValueError:
             log.info('Incorrect password')
             return None
+
+        if 'encrypted_mnemonic_extension' in walletdata:
+            try:
+                cleartext = decryptData(password_key,
+                    walletdata['encrypted_mnemonic_extension'].decode('hex'))
+                #theres a small chance of not getting a ValueError from the wrong
+                # password so also check the sum
+                if cleartext[8] != '|':
+                    raise ValueError
+                if cleartext[:8] != btc.dbl_sha256(cleartext[9:])[:8]:
+                    raise ValueError
+                mnemonic_extension = cleartext[9:]
+            except ValueError:
+                log.info('incorrect password')
+                return None
+        else:
+            mnemonic_extension = None
+
         if self.storepassword:
             self.password_key = password_key
             self.walletdata = walletdata
@@ -288,7 +309,11 @@ class Wallet(AbstractWallet):
                         privkey, magicbyte=get_p2pk_vbyte())] = (epk_m['mixdepth'], -1,
                     len(self.imported_privkeys[epk_m['mixdepth']]))
                 self.imported_privkeys[epk_m['mixdepth']].append(privkey)
-        return decrypted_seed
+
+        if mnemonic_extension:
+            return (decrypted_entropy, mnemonic_extension)
+        else:
+            return decrypted_entropy
 
     def update_cache_index(self):
         if not self.path:
@@ -398,15 +423,21 @@ class Bip39Wallet(Wallet):
     BIP39, English only:
     https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
     """
-    def entropy_to_seed(self, entropy):
-        if entropy is None:
+    def wallet_data_to_seed(self, data):
+        if data is None:
             return None
+        self.mnemonic_extension = None
+        if isinstance(data, tuple):
+            entropy, self.mnemonic_extension = data
+        else:
+            entropy = data
         if get_network() == "testnet":
             if entropy.startswith("FAKESEED"):
                 return entropy[8:]
         self.entropy = entropy.decode('hex')
         m = Mnemonic("english")
-        return m.to_seed(m.to_mnemonic(self.entropy)).encode('hex')
+        return m.to_seed(m.to_mnemonic(self.entropy),
+            '' if not self.mnemonic_extension else self.mnemonic_extension).encode('hex')
 
 class SegwitWallet(Bip39Wallet):
 
