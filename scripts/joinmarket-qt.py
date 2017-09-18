@@ -1381,11 +1381,30 @@ class JMMainWindow(QMainWindow):
     def syncWalletUpdate(self, fast, restart_cb=None):
         if restart_cb:
             fast=False
+        #Special syncing condition for Electrum
+        iselectrum = jm_single().config.get("BLOCKCHAIN",
+                            "blockchain_source") == "electrum-server"
+        if iselectrum:
+            jm_single().bc_interface.synctype = "with-script"
+
         jm_single().bc_interface.sync_wallet(self.wallet, fast=fast,
                                              restart_cb=restart_cb)
-        self.updateWalletInfo()
+
+        if iselectrum:
+            #sync_wallet only initialises, we must manually call its entry
+            #point here (because we can't use connectionMade as a trigger)
+            jm_single().bc_interface.sync_addresses(self.wallet)
+            self.wait_for_sync_loop = task.LoopingCall(self.updateWalletInfo)
+            self.wait_for_sync_loop.start(0.2)
+        else:
+            self.updateWalletInfo()
 
     def updateWalletInfo(self):
+        if jm_single().config.get("BLOCKCHAIN",
+                            "blockchain_source") == "electrum-server":
+            if not jm_single().bc_interface.wallet_synced:
+                return
+            self.wait_for_sync_loop.stop()
         t = self.centralWidget().widget(0)
         if not self.wallet:  #failure to sync in constructor means object is not created
             newstmsg = "Unable to sync wallet - see error in console."
