@@ -15,18 +15,27 @@ from jmclient.support import (calc_cj_fee)
 from jmclient.wallet import estimate_tx_fee
 from jmclient.podle import (generate_podle, get_podle_commitments, verify_podle,
                                     PoDLE, PoDLEError, generate_podle_error_string)
+from twisted.internet import task
 jlog = get_log()
-        
+
 class Maker(object):
     def __init__(self, wallet):
         self.active_orders = {}
         self.wallet = wallet
         self.nextoid = -1
-        self.offerlist = self.create_my_orders()
-        if not self.offerlist:
-            #If we cannot create an offer at startup, quit
-            sys.exit(0)
+        self.sync_wait_loop = task.LoopingCall(self.try_to_create_my_orders)
+        self.sync_wait_loop.start(2.0)
+        self.offerlist = None
         self.aborted = False
+
+    def try_to_create_my_orders(self):
+        if not jm_single().bc_interface.wallet_synced:
+            return
+        self.offerlist = self.create_my_orders()
+        self.sync_wait_loop.stop()
+        if not self.offerlist:
+            jlog.info("Failed to create offers, giving up.")
+            sys.exit(0)
 
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
         """Receives data on proposed transaction offer from daemon, verifies

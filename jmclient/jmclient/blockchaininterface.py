@@ -49,6 +49,10 @@ class BlockchainInterface(object):
         self.sync_addresses(wallet, restart_cb)
         self.sync_unspent(wallet)
 
+    @staticmethod
+    def get_wallet_name(wallet):
+        return 'joinmarket-wallet-' + btc.dbl_sha256(wallet.keys[0][0])[:6]
+
     @abc.abstractmethod
     def sync_addresses(self, wallet):
         """Finds which addresses have been used and sets
@@ -59,20 +63,90 @@ class BlockchainInterface(object):
         """Finds the unspent transaction outputs belonging to this wallet,
         sets wallet.unspent """
 
+    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr,
+                      wallet_name=None, timeoutfun=None, spentfun=None, txid_flag=True,
+                      n=0, c=1, vb=None):
+        """Given a deserialized transaction txd,
+        callback functions for broadcast and confirmation of the transaction,
+        an address to import, and a callback function for timeout, set up
+        a polling loop to check for events on the transaction. Also optionally set
+        to trigger "confirmed" callback on number of confirmations c. Also checks
+        for spending (if spentfun is not None) of the outpoint n.
+        If txid_flag is True, we create a watcher loop on the txid (hence only
+        really usable in a segwit context, and only on fully formed transactions),
+        else we create a watcher loop on the output set of the transaction (taken
+        from the outs field of the txd).
+        """
+        if not vb:
+            vb = get_p2pk_vbyte()
+        if isinstance(self, BitcoinCoreInterface) or isinstance(self,
+                                        RegtestBitcoinCoreInterface):
+            #This code ensures that a walletnotify is triggered, by
+            #ensuring that at least one of the output addresses is
+            #imported into the wallet (note the sweep special case, where
+            #none of the output addresses belong to me).
+            one_addr_imported = False
+            for outs in txd['outs']:
+                addr = btc.script_to_address(outs['script'], vb)
+                if self.rpc('getaccount', [addr]) != '':
+                    one_addr_imported = True
+                    break
+            if not one_addr_imported:
+                self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
+
+        #Warning! In case of txid_flag false, this is *not* a valid txid,
+        #but only a hash of an incomplete transaction serialization.
+        txid = btc.txhash(btc.serialize(txd))
+        if not txid_flag:
+            tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
+            loop = task.LoopingCall(self.outputs_watcher, wallet_name, notifyaddr,
+                                    tx_output_set, unconfirmfun, confirmfun,
+                                    timeoutfun)
+            log.debug("Created watcher loop for address: " + notifyaddr)
+            loopkey = notifyaddr
+        else:
+            loop = task.LoopingCall(self.tx_watcher, txd, unconfirmfun, confirmfun,
+                                    spentfun, c, n)
+            log.debug("Created watcher loop for txid: " + txid)
+            loopkey = txid
+        self.tx_watcher_loops[loopkey] = [loop, False, False, False]
+        #Hardcoded polling interval, but in any case it can be very short.
+        loop.start(5.0)
+        #TODO Hardcoded very long timeout interval
+        reactor.callLater(7200, self.tx_timeout, txd, loopkey, timeoutfun)
+
+    def tx_timeout(self, txd, loopkey, timeoutfun):
+        #TODO: 'loopkey' is an address not a txid for Makers, handle that.
+        if not timeoutfun:
+            return
+        if not txid in self.tx_watcher_loops:
+            return
+        if not self.tx_watcher_loops[loopkey][1]:
+            #Not confirmed after 2 hours; give up
+            log.info("Timed out waiting for confirmation of: " + str(loopkey))
+            self.tx_watcher_loops[loopkey][0].stop()
+            timeoutfun(txd, loopkey)
+
     @abc.abstractmethod
-    def add_tx_notify(self,
-                      txd,
-                      unconfirmfun,
-                      confirmfun,
-                      notifyaddr,
-                      timeoutfun=None,
-                      vb=None):
+    def outputs_watcher(self, wallet_name, notifyaddr, tx_output_set,
+                        unconfirmfun, confirmfun, timeoutfun):
+        """Given a key for the watcher loop (notifyaddr), a wallet name (account),
+        a set of outputs, and unconfirm, confirm and timeout callbacks,
+        check to see if a transaction matching that output set has appeared in
+        the wallet. Call the callbacks and update the watcher loop state.
+        End the loop when the confirmation has been seen (no spent monitoring here).
         """
-        Invokes unconfirmfun and confirmfun when tx is seen on the network
-        If timeoutfun not None, called with boolean argument that tells
-            whether this is the timeout for unconfirmed or confirmed
-            timeout for uncontirmed = False
+        pass
+
+    @abc.abstractmethod
+    def tx_watcher(self, txd, unconfirmfun, confirmfun, spentfun, c, n):
+        """Called at a polling interval, checks if the given deserialized
+        transaction (which must be fully signed) is (a) broadcast, (b) confirmed
+        and (c) spent from at index n, and notifies confirmation if number
+        of confs = c.
+        TODO: Deal with conflicts correctly. Here just abandons monitoring.
         """
+        pass
 
     @abc.abstractmethod
     def pushtx(self, txhex):
@@ -127,6 +201,13 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
     def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr):
         log.debug("Dummy electrum interface, no add tx notify")
+
+    def outputs_watcher(self, wallet_name, notifyaddr,
+                        tx_output_set, uf, cf, tf):
+        log.debug("Dummy electrum interface, no outputs watcher")
+
+    def tx_watcher(self, txd, ucf, cf, sf, c, n):
+        log.debug("Dummy electrum interface, no tx watcher")
 
     def pushtx(self, txhex, timeout=10):
         #synchronous send
@@ -217,10 +298,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
         #spent true/false), ..}
         self.tx_watcher_loops = {}
-
-    @staticmethod
-    def get_wallet_name(wallet):
-        return 'joinmarket-wallet-' + btc.dbl_sha256(wallet.keys[0][0])[:6]
 
     def get_block(self, blockheight):
         """Returns full serialized block at a given height.
@@ -546,65 +623,6 @@ class BitcoinCoreInterface(BlockchainInterface):
             }
         et = time.time()
         log.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
-
-    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr,
-            wallet_name=None, timeoutfun=None, spentfun=None, txid_flag=True,
-            n=0, c=1, vb=None):
-        """Given a deserialized transaction txd,
-        callback functions for broadcast and confirmation of the transaction,
-        an address to import, and a callback function for timeout, set up
-        a polling loop to check for events on the transaction. Also optionally set
-        to trigger "confirmed" callback on number of confirmations c. Also checks
-        for spending (if spentfun is not None) of the outpoint n.
-        If txid_flag is True, we create a watcher loop on the txid (hence only
-        really usable in a segwit context, and only on fully formed transactions),
-        else we create a watcher loop on the output set of the transaction (taken
-        from the outs field of the txd).
-        """
-        if not vb:
-            vb = get_p2pk_vbyte()
-        one_addr_imported = False
-        for outs in txd['outs']:
-            addr = btc.script_to_address(outs['script'], vb)
-            if self.rpc('getaccount', [addr]) != '':
-                one_addr_imported = True
-                break
-        if not one_addr_imported:
-            self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
-
-        #Warning! In case of txid_flag false, this is *not* a valid txid,
-        #but only a hash of an incomplete transaction serialization; but,
-        #it still suffices as a unique key for tracking, in this case.
-        txid = btc.txhash(btc.serialize(txd))
-        if not txid_flag:
-            tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
-            loop = task.LoopingCall(self.outputs_watcher, wallet_name, notifyaddr,
-                                    tx_output_set, unconfirmfun, confirmfun,
-                                    timeoutfun)
-            log.debug("Created watcher loop for address: " + notifyaddr)
-            loopkey = notifyaddr
-        else:
-            loop = task.LoopingCall(self.tx_watcher, txd, unconfirmfun, confirmfun,
-                                    spentfun, c, n)
-            log.debug("Created watcher loop for txid: " + txid)
-            loopkey = txid
-        self.tx_watcher_loops[loopkey] = [loop, False, False, False]
-        #Hardcoded polling interval, but in any case it can be very short.
-        loop.start(5.0)
-        #TODO Hardcoded very long timeout interval
-        reactor.callLater(7200, self.tx_timeout, txd, loopkey, timeoutfun)
-
-    def tx_timeout(self, txd, loopkey, timeoutfun):
-        #TODO: 'loopkey' is an address not a txid for Makers, handle that.
-        if not timeoutfun:
-            return
-        if not txid in self.tx_watcher_loops:
-            return
-        if not self.tx_watcher_loops[loopkey][1]:
-            #Not confirmed after 2 hours; give up
-            log.info("Timed out waiting for confirmation of: " + str(loopkey))
-            self.tx_watcher_loops[loopkey][0].stop()
-            timeoutfun(txd, loopkey)
 
     def get_deser_from_gettransaction(self, rpcretval):
         """Get full transaction deserialization from a call
