@@ -23,9 +23,9 @@ class Maker(object):
         self.active_orders = {}
         self.wallet = wallet
         self.nextoid = -1
+        self.offerlist = None
         self.sync_wait_loop = task.LoopingCall(self.try_to_create_my_orders)
         self.sync_wait_loop.start(2.0)
-        self.offerlist = None
         self.aborted = False
 
     def try_to_create_my_orders(self):
