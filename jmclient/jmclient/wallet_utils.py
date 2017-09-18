@@ -217,7 +217,7 @@ class WalletViewBranch(WalletViewBase):
         if self.forchange == -1:
             start = "Imported keys"
         return self.serclass(self.separator.join([start, bippath, self.xpub]))
-        
+
 class WalletViewAccount(WalletViewBase):
     def __init__(self, bip32path, account, branches=None, account_name="mixdepth",
                  serclass=str, custom_separator=None, xpub=None):
@@ -495,9 +495,10 @@ def wallet_fetch_history(wallet, options):
     tx_db = con.cursor()
     tx_db.execute("CREATE TABLE transactions(txid TEXT, "
             "blockhash TEXT, blocktime INTEGER);")
-    jm_single().debug_silence[0] = True
+    jm_single().debug_silence[0] = False
     wallet_name = jm_single().bc_interface.get_wallet_name(wallet)
     for wn in [wallet_name, ""]:
+        print(wn)
         buf = range(1000)
         t = 0
         while len(buf) == 1000:
@@ -826,6 +827,8 @@ def wallet_tool_main(wallet_root_path):
                     'blockchain interface')
             sys.exit(0)
         else:
+            print(wallet)
+            print(options)
             return wallet_fetch_history(wallet, options)
     elif method == "generate":
         retval = wallet_generate_recover("generate", wallet_root_path)
