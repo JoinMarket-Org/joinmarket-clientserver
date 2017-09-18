@@ -1281,11 +1281,22 @@ class JMMainWindow(QMainWindow):
     def seedEntry(self):
         d = QDialog(self)
         d.setModal(1)
-        d.setWindowTitle('Recover from seed')
+        d.setWindowTitle('Recover from mnemonic phrase')
         layout = QGridLayout(d)
         message_e = QTextEdit()
         layout.addWidget(QLabel('Enter 12 words'), 0, 0)
         layout.addWidget(message_e, 1, 0)
+
+        pp_hbox = QHBoxLayout()
+        pp_field = QLineEdit()
+        pp_field.setEnabled(False)
+        use_pp = QCheckBox('Input Mnemonic Extension', self)
+        use_pp.setCheckState(False)
+        use_pp.stateChanged.connect(lambda state: pp_field.setEnabled(state
+            == QtCore.Qt.Checked))
+        pp_hbox.addWidget(use_pp)
+        pp_hbox.addWidget(pp_field)
+
         hbox = QHBoxLayout()
         buttonBox = QDialogButtonBox(self)
         buttonBox.setStandardButtons(QDialogButtonBox.Ok |
@@ -1293,11 +1304,15 @@ class JMMainWindow(QMainWindow):
         buttonBox.button(QDialogButtonBox.Ok).clicked.connect(d.accept)
         buttonBox.button(QDialogButtonBox.Cancel).clicked.connect(d.reject)
         hbox.addWidget(buttonBox)
-        layout.addLayout(hbox, 3, 0)
+        layout.addLayout(hbox, 4, 0)
+        layout.addLayout(pp_hbox, 3, 0)
         result = d.exec_()
         if result != QDialog.Accepted:
-            return None
-        return str(message_e.toPlainText())
+            return None, None
+        mn_extension = None
+        if use_pp.checkState() == QtCore.Qt.Checked:
+            mn_extension = str(pp_field.text())
+        return str(message_e.toPlainText()), mn_extension
 
     def restartForScan(self, msg):
         JMQtMessageBox(self, msg, mbtype='info',
@@ -1308,8 +1323,8 @@ class JMMainWindow(QMainWindow):
         success = wallet_generate_recover_bip39("recover", "wallets",
                                                 "wallet.json",
                                                 callbacks=(None, self.seedEntry,
-                                                           self.getPasswordKey,
-                                                           self.getWalletName))
+                                                           self.getPassword,
+                                                           self.getWalletFileName))
         if not success:
             JMQtMessageBox(self,
                            "Failed to recover wallet.",
@@ -1453,13 +1468,9 @@ class JMMainWindow(QMainWindow):
                 continue
             break
         self.textpassword = str(pd.new_pw.text())
+        return self.textpassword
 
-    def getPasswordKey(self):
-        self.getPassword()
-        password_key = btc.bin_dbl_sha256(self.textpassword)
-        return (self.textpassword, password_key)
-
-    def getWalletName(self):
+    def getWalletFileName(self):
         walletname, ok = QInputDialog.getText(self, 'Choose wallet name',
                                               'Enter wallet file name:',
                                               QLineEdit.Normal, "wallet.json")
@@ -1469,7 +1480,7 @@ class JMMainWindow(QMainWindow):
         self.walletname = str(walletname)
         return self.walletname
 
-    def displayWords(self, words):
+    def displayWords(self, words, mnemonic_extension):
         mb = QMessageBox()
         seed_recovery_warning = [
             "WRITE DOWN THIS WALLET RECOVERY SEED.",
@@ -1477,9 +1488,26 @@ class JMMainWindow(QMainWindow):
             "at risk. Do NOT ignore this step!!!"
         ]
         mb.setText("\n".join(seed_recovery_warning))
-        mb.setInformativeText(words)
+        text = words
+        if mnemonic_extension:
+            text += '\n\nMnemonic extension: ' + mnemonic_extension
+        mb.setInformativeText(text)
         mb.setStandardButtons(QMessageBox.Ok)
         ret = mb.exec_()
+
+    def promptMnemonicExtension(self):
+        msg = "Would you like to use a two-factor mnemonic recovery phrase?\nIf you don\'t know what this is press No."
+        reply = QMessageBox.question(self, 'Use mnemonic extension?',
+                    msg, QMessageBox.Yes, QMessageBox.No)
+        if reply == QMessageBox.No:
+            return None
+        mnemonic_extension, ok = QInputDialog.getText(self,
+                                     'Input Mnemonic Extension',
+                                     'Enter mnemonic Extension:',
+                                     QLineEdit.Normal, "")
+        if not ok:
+            return None
+        return str(mnemonic_extension)
 
     def initWallet(self, seed=None, restart_cb=None):
         '''Creates a new wallet if seed not provided.
@@ -1491,8 +1519,9 @@ class JMMainWindow(QMainWindow):
                                                    "wallet.json",
                                                    callbacks=(self.displayWords,
                                                               None,
-                                                              self.getPasswordKey,
-                                                              self.getWalletName))
+                                                              self.getPassword,
+                                                              self.getWalletFileName,
+                                                              self.promptMnemonicExtension))
             if not success:
                 JMQtMessageBox(self, "Failed to create new wallet file.",
                                title="Error", mbtype="warn")

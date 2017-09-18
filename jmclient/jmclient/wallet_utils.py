@@ -353,31 +353,49 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
     else:
         return walletview
 
-def cli_password_check():
-    password = get_password('Enter wallet encryption passphrase: ')
-    password2 = get_password('Reenter wallet encryption passphrase: ')
+def cli_get_wallet_passphrase_check():
+    password = get_password('Enter wallet file encryption passphrase: ')
+    password2 = get_password('Reenter wallet file encryption passphrase: ')
     if password != password2:
         print('ERROR. Passwords did not match')
-        return False, False
-    password_key = btc.bin_dbl_sha256(password)
-    return password, password_key
+        return False
+    return password
 
-def cli_get_walletname():
+def cli_get_wallet_file_name():
     return raw_input('Input wallet file name (default: wallet.json): ')
 
-def cli_user_words(words):
-    print('Write down this wallet recovery seed\n\n' + words +'\n')
+def cli_display_user_words(words, mnemonic_extension):
+    text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
+    if mnemonic_extension:
+        text += '\nAnd this mnemonic extension: ' + mnemonic_extension + '\n'
+    print(text)
 
-def cli_user_words_entry():
-    return raw_input("Input 12 word recovery seed: ")
+def cli_user_mnemonic_entry():
+    mnemonic_phrase = raw_input("Input 12 word mnemonic recovery phrase: ")
+    mnemonic_extension = raw_input("Input mnemonic extension, leave blank if there isnt one: ")
+    if len(mnemonic_extension.strip()) == 0:
+        mnemonic_extension = None
+    return (mnemonic_phrase, mnemonic_extension)
 
-def persist_walletfile(walletspath, default_wallet_name, encrypted_seed,
-                       callbacks=(cli_get_walletname,)):
+def cli_get_mnemonic_extension():
+    uin = raw_input('Would you like to use a two-factor mnemonic recovery'
+        + ' phrase? write \'n\' if you don\'t know what this is (y/n): ')
+    if len(uin) == 0 or uin[0] != 'y':
+        print('Not using mnemonic extension')
+        return None #no mnemonic extension
+    return raw_input('Enter mnemonic extension: ')
+
+def persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
+                       encrypted_mnemonic_extension=None,
+                       callbacks=(cli_get_wallet_file_name,)):
     timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    walletfile = json.dumps({'creator': 'joinmarket project',
-                             'creation_time': timestamp,
-                             'encrypted_seed': encrypted_seed.encode('hex'),
-                             'network': get_network()})
+    walletjson = {'creator': 'joinmarket project',
+                  'creation_time': timestamp,
+                  'encrypted_entropy': encrypted_entropy.encode('hex'),
+                  'network': get_network()}
+    if encrypted_mnemonic_extension:
+        walletjson['encrypted_mnemonic_extension'] = encrypted_mnemonic_extension.encode('hex')
+    walletfile = json.dumps(walletjson)
     walletname = callbacks[0]()
     if len(walletname) == 0:
         walletname = default_wallet_name
@@ -394,31 +412,55 @@ def persist_walletfile(walletspath, default_wallet_name, encrypted_seed,
     return True
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
-                                  callbacks=(cli_user_words,
-                                             cli_user_words_entry,
-                                             cli_password_check,
-                                             cli_get_walletname)):
+                                  callbacks=(cli_display_user_words,
+                                             cli_user_mnemonic_entry,
+                                             cli_get_wallet_passphrase_check,
+                                             cli_get_wallet_file_name,
+                                             cli_get_mnemonic_extension)):
     """Optionally provide callbacks:
     0 - display seed
     1 - enter seed (for recovery)
-    2 - enter password
-    3 - enter wallet name
+    2 - enter wallet password
+    3 - enter wallet file name
+    4 - enter mnemonic extension
     The defaults are for terminal entry.
     """
     #using 128 bit entropy, 12 words, mnemonic module
     m = Mnemonic("english")
     if method == "generate":
+        mnemonic_extension = callbacks[4]()
         words = m.generate()
-        callbacks[0](words)
+        callbacks[0](words, mnemonic_extension)
     elif method == 'recover':
-        words = callbacks[1]()
+        words, mnemonic_extension = callbacks[1]()
+        if not words:
+            return False
     entropy = str(m.to_entropy(words))
-    password, password_key = callbacks[2]()
+    password = callbacks[2]()
     if not password:
         return False
+    password_key = btc.bin_dbl_sha256(password)
     encrypted_entropy = encryptData(password_key, entropy)
+    encrypted_mnemonic_extension = None
+    if mnemonic_extension:
+        mnemonic_extension = mnemonic_extension.strip()
+        #check all ascii printable
+        if not all([a > '\x19' and a < '\x7f' for a in mnemonic_extension]):
+            return False
+        #padding to stop an adversary easily telling how long the mn extension is
+        #padding at the start because of how aes blocks are combined
+        #checksum in order to tell whether the decryption was successful
+        cleartext_length = 79
+        padding_length = cleartext_length - 10 - len(mnemonic_extension)
+        if padding_length > 0:
+            padding = os.urandom(padding_length).replace('\xff', '\xfe')
+        else:
+            padding = ''
+        cleartext = (padding + '\xff' + mnemonic_extension + '\xff'
+            + btc.dbl_sha256(mnemonic_extension)[:8])
+        encrypted_mnemonic_extension = encryptData(password_key, cleartext)
     return persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
-                              callbacks=(callbacks[3],))
+                              encrypted_mnemonic_extension, callbacks=(callbacks[3],))
 
 def wallet_generate_recover(method, walletspath,
                             default_wallet_name='wallet.json'):
@@ -439,9 +481,10 @@ def wallet_generate_recover(method, walletspath,
             return False
         seed = mn_decode(words)
         print(seed)
-    password, password_key = cli_password_check()
+    password = cli_get_wallet_passphrase_check()
     if not password:
         return False
+    password_key = btc.bin_dbl_sha256(password)
     encrypted_seed = encryptData(password_key, seed.decode('hex'))
     return persist_walletfile(walletspath, default_wallet_name, encrypted_seed)
 
@@ -653,15 +696,18 @@ def wallet_showseed(wallet):
         if not wallet.entropy:
             return "Entropy is not initialized."
         m = Mnemonic("english")
-        return "Wallet recovery seed\n\n" + m.to_mnemonic(wallet.entropy) + "\n"
+        text = "Wallet mnemonic recovery phrase:\n\n" + m.to_mnemonic(wallet.entropy) + "\n"
+        if wallet.mnemonic_extension:
+            text += '\nWallet mnemonic extension: ' + wallet.mnemonic_extension + '\n'
+        return text
     hexseed = wallet.seed
     print("hexseed = " + hexseed)
     words = mn_encode(hexseed)
-    return "Wallet recovery seed\n\n" + " ".join(words) + "\n"
+    return "Wallet mnemonic seed phrase:\n\n" + " ".join(words) + "\n"
 
 def wallet_importprivkey(wallet, mixdepth):
     print('WARNING: This imported key will not be recoverable with your 12 ' +
-          'word mnemonic seed. Make sure you have backups.')
+          'word mnemonic phrase. Make sure you have backups.')
     print('WARNING: Handling of raw ECDSA bitcoin private keys can lead to '
           'non-intuitive behaviour and loss of funds.\n  Recommended instead '
           'is to use the \'sweep\' feature of sendpayment.py ')
