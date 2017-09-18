@@ -36,7 +36,13 @@ class TxElectrumClientProtocol(LineReceiver):
     def connectionMade(self):
         log.debug('connection to Electrum succesful')
         self.msg_id = 0
-        self.factory.bci.sync_addresses(self.factory.bci.wallet)
+        if self.factory.bci.wallet:
+            #Use connectionMade as a trigger to start wallet sync,
+            #if the reactor start happened after the call to wallet sync
+            #(in Qt, the reactor starts before wallet sync, so we make
+            #this call manually instead).
+            self.factory.bci.sync_addresses(self.factory.bci.wallet)
+        #these server calls must always be done to keep the connection open
         self.start_ping()
         self.call_server_method('blockchain.numblocks.subscribe')
 
@@ -174,6 +180,7 @@ class ElectrumInterface(BlockchainInterface):
         #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
         #spent true/false), ..}
         self.tx_watcher_loops = {}
+        self.wallet = None
         self.wallet_synced = False
 
     def start_electrum_proto(self, electrum_server=None):
@@ -205,7 +212,12 @@ class ElectrumInterface(BlockchainInterface):
         #used to hold open server conn
         self.electrum_conn.call_server_method('blockchain.numblocks.subscribe')
 
-    def sync_wallet(self, wallet, restart_cb=False):
+    def sync_wallet(self, wallet, fast=False, restart_cb=False):
+        """This triggers the start of syncing, wiping temporary state
+        and starting the reactor for wallet-tool runs. The 'fast'
+        and 'restart_cb' parameters are ignored and included only
+        for compatibility; they are both only used by Core.
+        """
         self.wallet = wallet
         #wipe the temporary cache of address histories
         self.temp_addr_history = {}
