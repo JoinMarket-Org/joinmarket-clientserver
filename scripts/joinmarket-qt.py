@@ -53,7 +53,7 @@ JM_CORE_VERSION = '0.3.0'
 JM_GUI_VERSION = '6'
 
 from jmclient import (load_program_config, get_network, SegwitWallet,
-                      get_p2sh_vbyte, jm_single, validate_address,
+                      get_p2sh_vbyte, get_p2pk_vbyte, jm_single, validate_address,
                       get_log, weighted_order_choose, Taker,
                       JMClientProtocolFactory, WalletError,
                       start_reactor, get_schedule, get_tumble_schedule,
@@ -1223,7 +1223,7 @@ class JMMainWindow(QMainWindow):
                 priv = self.wallet.get_key_from_addr(addr)
                 private_keys[addr] = btc.wif_compressed_privkey(
                     priv,
-                    vbyte=111)
+                    vbyte=get_p2pk_vbyte())
                 d.emit(QtCore.SIGNAL('computing_privkeys'))
             d.emit(QtCore.SIGNAL('show_privkeys'))
 
@@ -1256,7 +1256,7 @@ class JMMainWindow(QMainWindow):
                     #sanity check
                     if not addr == btc.pubkey_to_p2sh_p2wpkh_address(
                                     btc.privkey_to_pubkey(
-                                        btc.from_wif_privkey(pk, vbyte=111)
+                                        btc.from_wif_privkey(pk, vbyte=get_p2pk_vbyte())
                                     ), get_p2sh_vbyte()):
                         JMQtMessageBox(None, "Failed to create privkey export -" +\
                                        " critical error in key parsing.",

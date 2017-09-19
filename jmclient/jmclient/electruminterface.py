@@ -407,7 +407,6 @@ class ElectrumInterface(BlockchainInterface):
         return result
 
     def estimate_fee_per_kb(self, N):
-        print("N is: " + str(N))
         if super(ElectrumInterface, self).fee_per_kb_has_been_manually_set(N):
             return int(random.uniform(N * float(0.8), N * float(1.2)))
         fee_info = self.get_from_electrum('blockchain.estimatefee', N, blocking=True)

@@ -10,7 +10,7 @@ from mnemonic import Mnemonic
 from optparse import OptionParser
 import getpass
 from jmclient import (get_network, Wallet, Bip39Wallet, podle,
-                      encryptData, get_p2sh_vbyte, jm_single,
+                      encryptData, get_p2sh_vbyte, get_p2pk_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
                       JsonRpcError, sync_wallet, WalletError, SegwitWallet)
 from jmbase.support import get_password
@@ -270,7 +270,7 @@ def get_imported_privkey_branch(wallet, m, showprivkey):
             used = ('used' if balance > 0.0 else 'empty')
             if showprivkey:
                 wip_privkey = btc.wif_compressed_privkey(
-                privkey, get_p2sh_vbyte())
+                privkey, get_p2pk_vbyte())
             else:
                 wip_privkey = ''
             entries.append(WalletViewEntry("m/0", m, -1,
@@ -290,7 +290,7 @@ def wallet_showutxos(wallet, showprivkey):
                    'tries': tries, 'tries_remaining': tries_remaining,
                    'external': False}
         if showprivkey:
-            wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2sh_vbyte())
+            wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
             unsp[u]['privkey'] = wifkey
 
     used_commitments, external_commitments = podle.get_podle_commitments()
@@ -329,7 +329,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
                 used = 'used' if k < wallet.index[m][forchange] else 'new'
                 if showprivkey:
                     privkey = btc.wif_compressed_privkey(
-                        wallet.get_key(m, forchange, k), get_p2sh_vbyte())
+                        wallet.get_key(m, forchange, k), get_p2pk_vbyte())
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
@@ -673,7 +673,7 @@ def wallet_importprivkey(wallet, mixdepth):
         # TODO is there any point in only accepting wif format? check what
         # other wallets do
         privkey_bin = btc.from_wif_privkey(privkey,
-                                        vbyte=get_p2sh_vbyte()).decode('hex')[:-1]
+                                        vbyte=get_p2pk_vbyte()).decode('hex')[:-1]
         encrypted_privkey = encryptData(wallet.password_key, privkey_bin)
         if 'imported_keys' not in wallet.walletdata:
             wallet.walletdata['imported_keys'] = []
@@ -692,7 +692,7 @@ def wallet_dumpprivkey(wallet, hdpath):
     if pathlist and len(pathlist) == 5:
         cointype, purpose, m, forchange, k = pathlist
         key = wallet.get_key(m, forchange, k)
-        wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2sh_vbyte())
+        wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
         return wifkey
     else:
         return hdpath + " is not a valid hd wallet path"

@@ -12,23 +12,25 @@ from pprint import pformat
 from optparse import OptionParser
 import jmclient.btc as btc
 from jmclient import (load_program_config, estimate_tx_fee, jm_single,
-                      get_p2pk_vbyte, validate_address, get_log,
+                      get_p2sh_vbyte, get_p2pk_vbyte, validate_address, get_log,
                       get_utxo_info, validate_utxo_data, quit)
 log = get_log()
 
-def sign(utxo, priv, destaddrs):
+def sign(utxo, priv, destaddrs, segwit=True):
     """Sign a tx sending the amount amt, from utxo utxo,
     equally to each of addresses in list destaddrs,
     after fees; the purpose is to create a large
-    number of utxos.
+    number of utxos. If segwit=True the (single) utxo is assumed to
+    be of type segwit p2sh/p2wpkh.
     """
-    results = validate_utxo_data([(utxo, priv)], retrieve=True)
+    results = validate_utxo_data([(utxo, priv)], retrieve=True, segwit=segwit)
     if not results:
         return False
     assert results[0][0] == utxo
     amt = results[0][1]
     ins = [utxo]
-    estfee = estimate_tx_fee(1, len(destaddrs))
+    txtype = 'p2sh-p2wpkh' if segwit else 'p2pkh'
+    estfee = estimate_tx_fee(1, len(destaddrs), txtype=txtype)
     outs = []
     share = int((amt - estfee) / len(destaddrs))
     fee = amt - share*len(destaddrs)
@@ -37,8 +39,9 @@ def sign(utxo, priv, destaddrs):
     for i, addr in enumerate(destaddrs):
         outs.append({'address': addr, 'value': share})
     unsigned_tx = btc.mktx(ins, outs)
+    amtforsign = amt if segwit else None
     return btc.sign(unsigned_tx, 0, btc.from_wif_privkey(
-        priv, vbyte=get_p2pk_vbyte()))
+        priv, vbyte=get_p2pk_vbyte()), amount=amtforsign)
     
 def main():
     parser = OptionParser(
@@ -77,6 +80,14 @@ def main():
         help='only validate the provided utxos (file or command line), not add',
         default=False
     )
+    parser.add_option(
+        '-n',
+        '--non-segwit-input',
+        action='store_true',
+        dest='nonsegwit',
+        help='input is p2pkh ("1" address), not segwit; if not used, input is assumed to be segwit type.',
+        default=False
+    )
     (options, args) = parser.parse_args()
     load_program_config()
     if len(args) < 2:
@@ -91,7 +102,7 @@ def main():
     for d in destaddrs:
         if not validate_address(d):
             quit(parser, "Address was not valid; wrong network?: " + d)
-    txsigned = sign(u, priv, destaddrs)
+    txsigned = sign(u, priv, destaddrs, segwit = not options.nonsegwit)
     log.debug("Got signed transaction:\n" + txsigned)
     log.debug("Deserialized:")
     log.debug(pformat(btc.deserialize(txsigned)))
