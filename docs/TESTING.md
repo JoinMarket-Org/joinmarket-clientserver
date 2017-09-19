@@ -2,25 +2,20 @@
 
 This is a rough sketch, some more background is found in [JM wiki](https://github.com/Joinmarket-Org/joinmarket/wiki/Testing)
 
-Make sure to have bitcoind installed. Also need miniircd installed to the root dir:
+Make sure to have [bitcoind](https://bitcoin.org/en/full-node) installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
 
+    cd ~/joinmarket-clientserver
     git clone https://github.com/Joinmarket-Org/miniircd
 
 Install the test requirements (still in your virtualenv as mentioned above):
 
     pip install -r requirements-dev.txt
 
-Curl is also needed:
-
-    sudo apt-get install curl
-
 Running the test suite should be done like:
 
-    python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --btcconf=/path/to/bitcoin.conf --nirc=2
+    python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --nirc=2
     
-(you'll first want to copy bitcoin.conf in the test/ directory to a place you choose, and
-copy the regtest_joinmarket.cfg file from the test/ directory to the root directory,
-both files will need minor edits for your btc configuration).
+(you'll first want to copy the regtest_joinmarket.cfg file from the test/ directory to the root directory, this file will need minor edits for your btc configuration).
 
 ### Running tests of sendpayment and tumbler (including with malicious makers)
 
@@ -28,7 +23,7 @@ The file `test/ygrunner.py` provides the ability to spin up a set of yieldgenera
 bots against the local IRC instance with the local regtest blockchain. It can be
 started with
 
-    py.test --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --btcconf=/path/to/bitcoin.conf --nirc=2 test/ygrunner.py -s
+    py.test --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 test/ygrunner.py -s
 
 Here the `-s` flag is useful because it prints log output to the console. If you
 keep the logging level at the default `INFO` only a minimum amount will come out, if
