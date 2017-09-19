@@ -32,11 +32,16 @@ def local_command(command, bg=False, redirect=''):
         #it doesn't matter
         return subprocess.check_output(command)
 
+def root_path():
+    # returns the directory in which this file is contained
+    return os.path.dirname(os.path.realpath(__file__))
+
 def pytest_addoption(parser):
     parser.addoption("--btcroot", action="store", default='',
                      help="the fully qualified path to the directory containing "+\
                      "the bitcoin binaries, e.g. /home/user/bitcoin/bin/")
     parser.addoption("--btcconf", action="store",
+                         default=os.path.join(root_path(), 'test/bitcoin.conf'),
                          help="the fully qualified path to the location of the "+\
                          "bitcoin configuration file you use for testing, e.g. "+\
                          "/home/user/.bitcoin/bitcoin.conf")
@@ -72,6 +77,8 @@ def setup(request):
     global bitcoin_conf, bitcoin_path, bitcoin_rpcpassword, bitcoin_rpcusername
     bitcoin_path = request.config.getoption("--btcroot")
     bitcoin_conf = request.config.getoption("--btcconf")
+    print("Here is the bitcoin_conf path:")
+    print(bitcoin_conf)
     bitcoin_rpcpassword = request.config.getoption("--btcpwd")
     bitcoin_rpcusername = request.config.getoption("--btcuser")
 

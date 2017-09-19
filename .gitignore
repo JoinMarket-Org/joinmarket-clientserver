@@ -20,3 +20,4 @@ miniircd/
 nums_basepoints.txt
 schedulefortesting
 scripts/commitmentlist
+tmp/
