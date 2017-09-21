@@ -443,8 +443,15 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     encrypted_entropy = encryptData(password_key, entropy)
     encrypted_mnemonic_extension = None
     if mnemonic_extension:
-        encrypted_mnemonic_extension = encryptData(password_key, #has checksum
-            btc.dbl_sha256(mnemonic_extension)[:8] + '|' + mnemonic_extension)
+        #padding to stop an adversary easily telling how long the mn extension is
+        #padding at the start because of how aes blocks are combined
+        #checksum in order to tell whether the decryption was successful
+        cleartext_length = 79
+        padding = os.urandom(cleartext_length - 10 - len(mnemonic_extension))
+        padding = padding.replace('\xff', '\xfe')
+        cleartext = (padding + '\xff' + mnemonic_extension + '\xff'
+            + btc.dbl_sha256(mnemonic_extension)[:8])
+        encrypted_mnemonic_extension = encryptData(password_key, cleartext)
     return persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
                               encrypted_mnemonic_extension, callbacks=(callbacks[3],))
 

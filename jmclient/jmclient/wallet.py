@@ -278,11 +278,12 @@ class Wallet(AbstractWallet):
                     walletdata['encrypted_mnemonic_extension'].decode('hex'))
                 #theres a small chance of not getting a ValueError from the wrong
                 # password so also check the sum
-                if cleartext[8] != '|':
+                if cleartext[-9] != '\xff':
                     raise ValueError
-                if cleartext[:8] != btc.dbl_sha256(cleartext[9:])[:8]:
+                chunks = cleartext.split('\xff')
+                if len(chunks) < 2 or cleartext[-8:] != btc.dbl_sha256(chunks[1])[:8]:
                     raise ValueError
-                mnemonic_extension = cleartext[9:]
+                mnemonic_extension = chunks[1]
             except ValueError:
                 log.info('incorrect password')
                 return None
