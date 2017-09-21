@@ -1513,7 +1513,6 @@ def get_wallet_printout(wallet):
     mbalances: is a simple array of 5 mixdepth balances
     xpubs: [[xpubext, xpubint], ...]
     Bitcoin amounts returned are in btc, not satoshis
-    TODO add metadata such as xpubs
     """
     walletview = wallet_display(wallet, jm_single().config.getint("GUI",
                                             "gaplimit"), False, serialized=False)

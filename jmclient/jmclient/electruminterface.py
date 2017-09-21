@@ -221,6 +221,8 @@ class ElectrumInterface(BlockchainInterface):
         self.wallet = wallet
         #wipe the temporary cache of address histories
         self.temp_addr_history = {}
+        #mark as not currently synced
+        self.wallet_synced = False
         if self.synctype == "sync-only":
             reactor.run()
 
@@ -250,6 +252,8 @@ class ElectrumInterface(BlockchainInterface):
         log.debug("downloading wallet history from Electrum server ...")
         for mixdepth in range(wallet.max_mix_depth):
             for forchange in [0, 1]:
+                #start from a clean index
+                wallet.index[mixdepth][forchange] = 0
                 self.synchronize_batch(wallet, mixdepth, forchange, 0)
 
     def synchronize_batch(self, wallet, mixdepth, forchange, start_index):
@@ -264,14 +268,14 @@ class ElectrumInterface(BlockchainInterface):
             #get_new_addr is OK here, as guaranteed to be sequential *on this branch*
             a = wallet.get_new_addr(mixdepth, forchange)
             d = self.get_from_electrum('blockchain.address.get_history', a)
-            d.addCallback(self.process_address_history, wallet,
-                          mixdepth, forchange, i, a, start_index)
             #makes sure entries in temporary address history are ready
             #to be accessed.
             if i not in self.temp_addr_history[mixdepth][forchange]:
                 self.temp_addr_history[mixdepth][forchange][i] = {'synced': False,
-                                                                  'addr': a,
-                                                                  'used': False}
+                                                          'addr': a,
+                                                          'used': False}
+            d.addCallback(self.process_address_history, wallet,
+                          mixdepth, forchange, i, a, start_index)
 
     def process_address_history(self, history, wallet, mixdepth, forchange, i,
                                 addr, start_index):
@@ -338,6 +342,7 @@ class ElectrumInterface(BlockchainInterface):
                 addrs.extend(branch_list)
         if len(addrs) == 0:
             log.debug('no tx used')
+            self.wallet_synced = True
             if self.synctype == 'sync-only':
                 reactor.stop()
             return
