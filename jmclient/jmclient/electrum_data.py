@@ -247,7 +247,7 @@ def set_electrum_testnet():
     DEFAULT_SERVERS = {
         'testnetnode.arihanc.com': {'t':'51001', 's':'51002'},
         'testnet1.bauerj.eu': {'t':'51001', 's':'51002'},
-        #'14.3.140.101': {'t':'51001', 's':'51002'},
+        #'14.3.140.101': {'t':'51001', 's':'51002'}, #non-responsive?
         'testnet.hsmiths.com': {'t':'53011', 's':'53012'},
         'electrum.akinbo.org': {'t':'51001', 's':'51002'},
         'ELEX05.blackpole.online': {'t':'52011', 's':'52002'},}
