@@ -443,6 +443,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     encrypted_entropy = encryptData(password_key, entropy)
     encrypted_mnemonic_extension = None
     if mnemonic_extension:
+        mnemonic_extension = mnemonic_extension.strip()
         #padding to stop an adversary easily telling how long the mn extension is
         #padding at the start because of how aes blocks are combined
         #checksum in order to tell whether the decryption was successful
