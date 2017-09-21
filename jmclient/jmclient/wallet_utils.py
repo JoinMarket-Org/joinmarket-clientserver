@@ -630,16 +630,15 @@ def wallet_fetch_history(wallet, options):
         def f(r, deposits, deposit_times, now, final_balance):
             return np.sum(np.exp((now - deposit_times) / 60.0 / 60 / 24 /
                 365)**r * deposits) - final_balance
-            r = brentq(f, a=1, b=-1, args=(deposits, deposit_times, now,
-                balance))
-            print('continuously compounded equivalent annual interest rate = ' +
-                    str(r * 100) + ' %')
-            print('(as if yield generator was a bank account)')
+        r = brentq(f, a=1, b=-1, args=(deposits, deposit_times, now, balance))
+        print('continuously compounded equivalent annual interest rate = ' +
+              str(r * 100) + ' %')
+        print('(as if yield generator was a bank account)')
     except ImportError:
         print('numpy/scipy not installed, unable to calculate effective ' +
                 'interest rate')
 
-        total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
+    total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
     if balance != total_wallet_balance:
         print(('BUG ERROR: wallet balance (%s) does not match balance from ' +
             'history (%s)') % (sat_to_str(total_wallet_balance),
