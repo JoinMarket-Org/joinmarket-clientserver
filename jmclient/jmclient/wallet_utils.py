@@ -447,8 +447,11 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         #padding at the start because of how aes blocks are combined
         #checksum in order to tell whether the decryption was successful
         cleartext_length = 79
-        padding = os.urandom(cleartext_length - 10 - len(mnemonic_extension))
-        padding = padding.replace('\xff', '\xfe')
+        padding_length = cleartext_length - 10 - len(mnemonic_extension)
+        if padding_length > 0:
+            padding = os.urandom().replace('\xff', '\xfe')
+        else:
+            padding = ''
         cleartext = (padding + '\xff' + mnemonic_extension + '\xff'
             + btc.dbl_sha256(mnemonic_extension)[:8])
         encrypted_mnemonic_extension = encryptData(password_key, cleartext)
