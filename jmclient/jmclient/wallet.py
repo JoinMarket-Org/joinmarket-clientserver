@@ -281,7 +281,7 @@ class Wallet(AbstractWallet):
                 if cleartext[-9] != '\xff':
                     raise ValueError
                 chunks = cleartext.split('\xff')
-                if len(chunks) < 2 or cleartext[-8:] != btc.dbl_sha256(chunks[1])[:8]:
+                if len(chunks) < 3 or cleartext[-8:] != btc.dbl_sha256(chunks[1])[:8]:
                     raise ValueError
                 mnemonic_extension = chunks[1]
             except ValueError:
