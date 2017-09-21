@@ -449,7 +449,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         cleartext_length = 79
         padding_length = cleartext_length - 10 - len(mnemonic_extension)
         if padding_length > 0:
-            padding = os.urandom().replace('\xff', '\xfe')
+            padding = os.urandom(padding_length).replace('\xff', '\xfe')
         else:
             padding = ''
         cleartext = (padding + '\xff' + mnemonic_extension + '\xff'
