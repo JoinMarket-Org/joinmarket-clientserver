@@ -3,16 +3,18 @@ followed a manual installation as per [here](INSTALL.md)).
 
 (If you want to run Joinmarket-Qt, start with the [walkthrough](JOINMARKET-QT-GUIDE.md) instead of this.)
 
-### Zeroth step: configuring for Bitcoin Core
+### Zeroth step: configuring for Bitcoin Core (or using Electrum servers).
 
-Until such time as we have a better solution for a light client, Joinmarket only
-realistically supports use with Bitcoin Core to connect to the Bitcoin network.
-The node *can* be pruned.
+It's highly recommended to run Joinmarket using a Bitcoin Core instance to connect to the Bitcoin network,
+and in the case of running a yield generator it's basically required. It gives better privacy, performance
+and reliability.
 
-**Use with another interface to the blockchain should be considered highly experimental
-(and in most cases it doesn't really work, as well as being terrible for privacy). It is not supported at this time.**
+The Bitcoin Core node *can* be pruned.
 
-Configuring Joinmarket for Core is now drastically reduced, since there is no longer any `walletnotify` used.
+To run one or more simple coinjoins without requiring Bitcoin Core, you can set the value of `blockchain_source` in the `[BLOCKCHAIN]` section of `joinmarket.cfg` (see below) to `electrum-server`.
+This will choose servers randomly and should sync the wallet quite quickly (a few seconds), but is not *perfectly* reliable (connections will fail occasionally; just try again).
+
+Configuring Joinmarket for Core is now reduced, since there is no longer any `walletnotify` used.
 
 First thing to do: in `scripts/`, run:
 
@@ -27,6 +29,8 @@ and edit:
     rpc_host = localhost #default usually correct 
     rpc_port = 8332 # default for mainnet
 
+(or, if not using Core, just make the edit mentioned above for `electrum-server`).
+
 Then retry the same `generate` command; it should now not error (see below).
 If you still get rpc connection errors, make sure you can connect to your Core node using the command line first.
 
@@ -40,7 +44,7 @@ BUT: a couple of differences:
 * The layout is also slightly different, but it's the same information.
 * The BIP32 paths look like m/49'/0'/0'/0/000 instead of m/0/0/0/000; that's just a new segwit standard.
 
-(The new standard *should* be compatible with TREZOR, including the 12 word seed; other wallets, mostly not, although standards haven't settled down yet).
+(The new standard *should* be compatible with TREZOR and possibly Ledger, including the 12 word seed; other wallets, mostly not, although standards haven't settled down yet).
 
 ### Second step: Funding the wallet.
 

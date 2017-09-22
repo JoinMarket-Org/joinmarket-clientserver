@@ -38,7 +38,7 @@ You will get the following error screen initially:
 ![](images/JMQrpcfailed.png)
 
 ... because your rpc connection to Bitcoin Core is not set up. A `joinmarket.cfg` file
-has been created in the directory you're running in. Open it and edit:
+has been created in the directory you're running in. If you're running Bitcoin Core, open it and edit:
 
     [BLOCKCHAIN]
     rpc_user = yourusername-as-in-bitcoin.conf
@@ -46,7 +46,9 @@ has been created in the directory you're running in. Open it and edit:
     rpc_host = localhost #default usually correct 
     rpc_port = 8332 # default for mainnet
 
-Once the rpc connection is correct, you will be presented with this start screen:
+If you're not using Core, you can set the value of `blockchain_source` in that section to `electrum-server`.
+
+Once the rpc connection is correct (or using Electrum), you will be presented with this start screen:
 
 ![](images/JMQInitregtest.png)
 

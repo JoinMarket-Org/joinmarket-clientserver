@@ -7,7 +7,9 @@ is upgraded for segwit and to be used only for that; to use non-segwit use [0.2.
 
 ### Quickstart
 
-**You need Bitcoin Core to use; get it running first.**
+**For good quality privacy, performance and reliability, Bitcoin Core is required for Makers (yield generators), and recommended for takers (doing coinjoins). Use version 0.15+ ideally; 0.13.1+ required.**
+
+For doing coinjoins (Taker side), you can also run without Bitcoin Core, connecting to Electrum servers.
 
 Once you've downloaded this repo, either as a zip file, and extracted it, or via `git clone`:
 

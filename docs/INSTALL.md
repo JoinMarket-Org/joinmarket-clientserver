@@ -24,8 +24,7 @@ is actually newer in version number, than what was there already.
 
 To install everything (client and server), install these packages:
 
-    sudo apt-get install python-dev python-pip git build-essential
-    automake pkg-config libtool libffi-dev libssl-dev
+    sudo apt-get install python-dev python-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev
 
 (+ `libsodium-dev` if you can find it, else build after)
 
@@ -85,7 +84,7 @@ In the former case you will need still to install the local packages:
 
 and then edit your `joinmarket.cfg` section `DAEMON`, setting `no_daemon = 0`.
 
-The latter case applies to the Electrum plugin, see [here](https://github.com/AdamISZ/electrum-joinmarket-plugin).
+The latter case applies to the Electrum plugin (not currently operational), see [here](https://github.com/AdamISZ/electrum-joinmarket-plugin).
 
 There, you need to install the client code (without Joinmarket's bitcoin):
 
