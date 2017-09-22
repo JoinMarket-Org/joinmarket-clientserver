@@ -10,6 +10,7 @@ import random
 import subprocess
 import datetime
 import unittest
+from mnemonic import Mnemonic
 from ConfigParser import SafeConfigParser, NoSectionError
 from decimal import Decimal
 from commontest import (interact, make_wallets,
@@ -22,7 +23,8 @@ from jmclient import (load_program_config, jm_single, sync_wallet,
                       AbstractWallet, get_p2pk_vbyte, get_log, Wallet, select,
                       select_gradual, select_greedy, select_greediest,
                       estimate_tx_fee, encryptData, get_network, WalletError,
-                      BitcoinCoreWallet, BitcoinCoreInterface, SegwitWallet)
+                      BitcoinCoreWallet, BitcoinCoreInterface, SegwitWallet,
+                      wallet_generate_recover_bip39, decryptData, encryptData)
 from jmbase.support import chunks
 from taker_test_data import t_obtained_tx, t_raw_signed_tx
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -329,6 +331,98 @@ def test_abstract_wallet(setup_wallets):
         dnw.add_new_utxos("b", "c")
         load_program_config()
 
+def check_bip39_case(vectors, language="english"):
+    mnemo = Mnemonic(language)
+    for v in vectors:
+        code = mnemo.to_mnemonic(binascii.unhexlify(v[0]))
+        seed = binascii.hexlify(Mnemonic.to_seed(code, passphrase=v[4]))
+        if sys.version >= '3':
+            seed = seed.decode('utf8')
+        print('checking this phrase: ' + v[1])
+        assert mnemo.check(v[1])
+        assert v[1] == code
+        assert v[2] == seed
+
+"""
+Sanity check of basic bip39 functionality for 12 words seed, copied from
+https://github.com/trezor/python-mnemonic/blob/master/test_mnemonic.py
+"""
+def test_bip39_vectors(setup_wallets):
+    with open(os.path.join(testdir, 'bip39vectors.json'), 'r') as f:
+        vectors_full = json.load(f)
+    vectors = vectors_full['english']
+    #default from-file cases use passphrase 'TREZOR'; TODO add other
+    #extensions, but note there is coverage of that in the below test
+    for v in vectors:
+        v.append("TREZOR")
+    #12 word seeds only
+    vectors = filter(lambda x: len(x[1].split())==12, vectors)
+    check_bip39_case(vectors)
+
+@pytest.mark.parametrize(
+    "pwd, me, valid", [
+        ("asingleword", "1234aaaaaaaaaaaaaaaaa", True),
+        ("a whole set of words", "a whole set of words", True),
+        ("wordwithtrailingspaces   ", "A few words with trailing  ", True),
+        ("monkey", "verylongpasswordindeedxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", True),
+        ("blablah", "invalidcontainsnonascii\xee", False)
+    ])
+def test_create_bip39_with_me(setup_wallets, pwd, me, valid):
+    def dummyDisplayWords(a, b):
+        pass
+    def getMnemonic():
+        return ("legal winner thank year wave sausage worth useful legal winner thank yellow",
+                me)
+    def getPassword():
+        return pwd
+    def getWalletFileName():
+        return "bip39-test-wallet-name-from-callback.json"
+    def promptMnemonicExtension():
+        return me
+    if os.path.exists(os.path.join("wallets", getWalletFileName())):
+        os.remove(os.path.join("wallets", getWalletFileName()))
+    success = wallet_generate_recover_bip39("generate",
+                                            "wallets",
+                                            "wallet.json",
+                                            callbacks=(dummyDisplayWords,
+                                                       getMnemonic,
+                                                       getPassword,
+                                                       getWalletFileName,
+                                                       promptMnemonicExtension))
+    if not valid:
+        #wgrb39 returns false for failed wallet creation case
+        assert not success
+        return
+    assert success
+    #open the wallet file, and decrypt the encrypted mnemonic extension and check
+    #it's the one we intended.
+    with open(os.path.join("wallets", getWalletFileName()), 'r') as f:
+        walletdata = json.load(f)
+    password_key = bitcoin.bin_dbl_sha256(getPassword())
+    cleartext = decryptData(password_key,
+                            walletdata['encrypted_mnemonic_extension'].decode('hex'))
+    assert len(cleartext) >= 79
+    #throws if not len == 3
+    padding, me2, checksum = cleartext.split('\xff')
+    strippedme = me.strip()
+    assert strippedme == me2
+    assert checksum == bitcoin.dbl_sha256(strippedme)[:8]
+    #also test recovery from this combination of mnemonic + extension
+    if os.path.exists(os.path.join("wallets", getWalletFileName())):
+        os.remove(os.path.join("wallets", getWalletFileName()))
+    success = wallet_generate_recover_bip39("recover", "wallets", "wallet.json",
+                                            callbacks=(dummyDisplayWords,
+                                                       getMnemonic,
+                                                       getPassword,
+                                                       getWalletFileName,
+                                                       None))
+    assert success
+    with open(os.path.join("wallets", getWalletFileName()), 'r') as f:
+        walletdata = json.load(f)
+        password_key = bitcoin.bin_dbl_sha256(getPassword())
+        cleartext = decryptData(password_key,
+                    walletdata['encrypted_entropy'].decode('hex')).encode('hex')
+        assert cleartext == "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f"
 
 def create_default_testnet_wallet():
     walletdir = "wallets"
@@ -344,7 +438,6 @@ def create_default_testnet_wallet():
                    6,
                    extend_mixdepth=False,
                    storepassword=False))
-
 
 @pytest.mark.parametrize(
     "includecache, wrongnet, storepwd, extendmd, pwdnumtries", [
@@ -426,7 +519,7 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
                        6,
                        extend_mixdepth=extendmd,
                        storepassword=storepwd)
-    assert newwallet.seed == wallet.entropy_to_seed(seed)
+    assert newwallet.seed == wallet.wallet_data_to_seed(seed)
     #now we have a functional wallet + file, update the cache; first try
     #with failed paths
     oldpath = newwallet.path
