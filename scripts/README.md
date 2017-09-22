@@ -56,7 +56,7 @@ This is the same as in normal Joinmarket.
 
 ### joinmarketd.py
 
-This file's role is explained in the main README in the top level directory. It only
+This file is to be considered experimental for now. It only
 takes two arguments, the port it serves on (default 27183), and whether to use TLS for
 client-server communication (default 0=no tls, 1=tls):
 
