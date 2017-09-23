@@ -12,7 +12,7 @@ Please report bugs using the issue tracker at github:
 Upgrading 
 =========
 
-To upgrade: run the `install.sh` script as mentioned in the README.
+To upgrade: run the `install.sh` script as mentioned in the README. When prompted to overwrite the directory `jmvenv`, accept.
 
 
 Notable changes
@@ -37,8 +37,6 @@ Trying to use this feature for long running yield generators is not supported. P
 `74c019b`
 
 This release adds support for two-factor mnemonic phrases. The user can optionally provide a passphrase or "mnemonic extension", both this extension and the 12-word mnemonic are required to recover the wallet. The feature is backward-compatible with existing BIP39 joinmarket wallet files and mnemonic phrases, and is disabled by default. See the [bitcoin wiki page](https://en.bitcoin.it/wiki/Mnemonic_phrase#Two-Factor_Mnemonic_Phrases) for more explanation on two-factor mnemonic phrases.
-
-It's now possible to have a wallet password be an empty string, and JoinMarket won't prompt for a password if so.
 
 ### Significantly improved installation script
 
