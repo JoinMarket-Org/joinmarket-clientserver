@@ -254,9 +254,8 @@ libsodium_install ()
 joinmarket_install ()
 {
     jm_pkgs=( 'jmbase' 'jmdaemon' 'jmbitcoin' 'jmclient' )
-    rm -rf "${jm_root}/lib/python2.7/site-packages/easy-install.pth"
     for pkg in ${jm_pkgs[@]}; do
-        rm -rf "${jm_root}/lib/python2.7/site-packages/${pkg/jm/joinmarket}"*
+        pip uninstall -y "${pkg/jm/joinmarket}"
         pushd "${pkg}"
         pip install ${develop_build:+-e} . || return 1
         popd
