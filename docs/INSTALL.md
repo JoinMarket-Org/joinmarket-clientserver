@@ -39,6 +39,11 @@ To install everything (client and server), install these packages:
     sudo make install
     cd ..
 
+Then install this repo:
+
+    git clone https://github.com/AdamISZ/joinmarket-clientserver
+    cd joinmarket-clientserver
+
 Then:
 
     sudo pip install virtualenv
@@ -47,10 +52,6 @@ Then:
 
 **At this point you should see `(jmvenv)` at the beginning of your command prompt.**
 
-Install this repo:
-
-    git clone https://github.com/AdamISZ/joinmarket-clientserver
-    cd joinmarket-clientserver
 
 #### Installing packages to run everything in-one:
 
