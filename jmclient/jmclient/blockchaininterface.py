@@ -11,6 +11,7 @@ import re
 import sys
 import time
 import traceback
+import binascii
 from decimal import Decimal
 from twisted.internet import reactor, task
 
