@@ -570,7 +570,6 @@ def wallet_fetch_history(wallet, options):
         rpc_input_addrs = set((btc.script_to_address(ind['script'],
             get_p2sh_vbyte()) for ind in rpc_inputs))
         our_input_addrs = wallet_addr_set.intersection(rpc_input_addrs)
-        print('our-inputs = ' + str(len(our_input_addrs)) + ' our-outputs = ' + str(len(our_output_addrs)))
         our_input_values = [ind['value'] for ind in rpc_inputs if btc.
                 script_to_address(ind['script'], get_p2sh_vbyte()) in
                 our_input_addrs]
@@ -635,6 +634,7 @@ def wallet_fetch_history(wallet, options):
             mixdepth_dst = wallet_addr_cache[cj_addr][0]
         else:
             tx_type = 'unknown type'
+            print('our-inputs = ' + str(len(our_input_addrs)) + ' our-outputs = ' + str(len(our_output_addrs)))
         balance += delta_balance
         utxo_count += (len(our_output_addrs) - utxos_consumed)
         index = '% 4d'%(i)
