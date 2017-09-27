@@ -635,8 +635,7 @@ def wallet_fetch_history(wallet, options):
             mixdepth_dst = wallet_addr_cache[cj_addr][0]
         else:
             tx_type = 'unknown type'
-            # Uncomment the following line to print the inputs/outputs count when debugging
-            # print('our-inputs = ' + str(len(our_input_addrs)) + ' our-outputs = ' + str(len(our_output_addrs)))
+            print('our-inputs = ' + str(len(our_input_addrs)) + ' our-outputs = ' + str(len(our_output_addrs)))
         balance += delta_balance
         utxo_count += (len(our_output_addrs) - utxos_consumed)
         index = '% 4d'%(i)
