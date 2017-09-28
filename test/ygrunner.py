@@ -64,7 +64,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     wallet = wallets[num_ygs]['wallet']
     print("Seed : " + wallets[num_ygs]['seed'])
     #useful to see the utxos on screen sometimes
-    sync_wallet(wallet)
+    sync_wallet(wallet, fast=True)
     print(wallet.unspent)
     txfee = 1000
     cjfee_a = 4200
@@ -75,7 +75,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     for i in range(num_ygs):
         
         cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize]
-        sync_wallet(wallets[i]["wallet"])
+        sync_wallet(wallets[i]["wallet"], fast=True)
         yg = ygclass(wallets[i]["wallet"], cfg)
         if malicious:
             yg.set_maliciousness(malicious)

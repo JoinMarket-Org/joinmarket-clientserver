@@ -128,7 +128,7 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     other_ins is a list of input indices (where to place the funding non-sw utxos)
     """
     wallet = make_wallets(1, wallet_structure, in_amt, walletclass=Wallet)[0]['wallet']
-    jm_single().bc_interface.sync_wallet(wallet)
+    jm_single().bc_interface.sync_wallet(wallet, fast=True)
     other_ins = {}
     ctr = 0
     for k, v in wallet.unspent.iteritems():

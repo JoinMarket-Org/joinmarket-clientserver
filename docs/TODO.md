@@ -23,6 +23,7 @@ like `commitmentlist`.
 ### Architecture
 
 * Probably move all user data to ~ ; see [comment](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/62#issuecomment-318890399).
+* Make use of the schedule design to fold together sendpayment and tumbler (they share a lot of cli options anyway).
 * Investigate what refactoring of the daemon protocol is necessary so it is possible to run protocol instances concurrently.
 * Moving elements shared into joinmarketbase - in particular, an object representing offers like `JMOffer`, which
 could have serialization routines for passing between client and daemon.
@@ -32,7 +33,7 @@ concern (there is already no bitcoin security concern even without it).
 ### Blockchain
 
 * Investigate adding SPV mode inherited from work on Bitcoin Core
-* Re-work the existing electrum code so it works reliably and with some decent performance (easier short term goal).
+* ~~Re-work the existing electrum code so it works reliably and with some decent performance (easier short term goal).~~ (Done)
 
 ### Joinmarket protocol
 

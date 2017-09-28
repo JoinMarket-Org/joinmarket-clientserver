@@ -47,8 +47,13 @@ class BlockchainInterface(object):
         pass
 
     def sync_wallet(self, wallet, restart_cb=None):
+        """Default behaviour is for Core and similar interfaces.
+	If address sync fails, flagged with wallet_synced value;
+	do not attempt to sync_unspent in that case.
+	"""
         self.sync_addresses(wallet, restart_cb)
-        self.sync_unspent(wallet)
+        if self.wallet_synced:
+            self.sync_unspent(wallet)
 
     @staticmethod
     def get_wallet_name(wallet):
@@ -113,20 +118,38 @@ class BlockchainInterface(object):
         self.tx_watcher_loops[loopkey] = [loop, False, False, False]
         #Hardcoded polling interval, but in any case it can be very short.
         loop.start(5.0)
-        #TODO Hardcoded very long timeout interval
-        reactor.callLater(7200, self.tx_timeout, txd, loopkey, timeoutfun)
+        #Give up on un-broadcast transactions and broadcast but not confirmed
+        #transactions as per settings in the config.
+        reactor.callLater(float(jm_single().config.get("TIMEOUT",
+                    "unconfirm_timeout_sec")), self.tx_network_timeout, loopkey)
+        confirm_timeout_sec = int(jm_single().config.get(
+            "TIMEOUT", "confirm_timeout_hours")) * 3600
+        reactor.callLater(confirm_timeout_sec, self.tx_timeout, txd, loopkey, timeoutfun)
+
+    def tx_network_timeout(self, loopkey):
+        """If unconfirm has not been called by the time this
+	is triggered, we abandon monitoring, assuming the tx has
+	not been broadcast.
+	"""
+        if not self.tx_watcher_loops[loopkey][1]:
+            log.info("Abandoning monitoring of un-broadcast tx for: " + str(loopkey))
+            if self.tx_watcher_loops[loopkey][0].running:
+                self.tx_watcher_loops[loopkey][0].stop()
 
     def tx_timeout(self, txd, loopkey, timeoutfun):
-        #TODO: 'loopkey' is an address not a txid for Makers, handle that.
-        if not timeoutfun:
+        """Assuming we are watching for an already-broadcast
+	transaction, give up once this triggers if confirmation has not occurred.
+	"""
+        if not loopkey in self.tx_watcher_loops:
+            #Occurs if the tx has already confirmed before this
             return
-        if not txid in self.tx_watcher_loops:
-            return
-        if not self.tx_watcher_loops[loopkey][1]:
-            #Not confirmed after 2 hours; give up
+        if not self.tx_watcher_loops[loopkey][2]:
+            #Not confirmed after prescribed timeout in hours; give up
             log.info("Timed out waiting for confirmation of: " + str(loopkey))
-            self.tx_watcher_loops[loopkey][0].stop()
-            timeoutfun(txd, loopkey)
+            if self.tx_watcher_loops[loopkey][0].running:
+                self.tx_watcher_loops[loopkey][0].stop()
+            if timeoutfun:
+                timeoutfun(txd, loopkey)
 
     @abc.abstractmethod
     def outputs_watcher(self, wallet_name, notifyaddr, tx_output_set,
@@ -624,6 +647,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             }
         et = time.time()
         log.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
+        self.wallet_synced = True
 
     def get_deser_from_gettransaction(self, rpcretval):
         """Get full transaction deserialization from a call
