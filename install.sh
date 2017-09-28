@@ -255,9 +255,24 @@ joinmarket_install ()
 {
     jm_pkgs=( 'jmbase' 'jmdaemon' 'jmbitcoin' 'jmclient' )
     for pkg in ${jm_pkgs[@]}; do
+        pip uninstall -y "${pkg/jm/joinmarket}"
         pushd "${pkg}"
-        pip install . || return 1
+        pip install ${develop_build:+-e} . || return 1
         popd
+    done
+}
+
+parse_flags ()
+{
+    for flag in ${@}; do
+        case ${flag} in
+            --develop)
+                develop_build='1'
+                ;;
+            *)
+                echo "warning.  unknown flag : ${flag}" 1>&2
+                ;;
+        esac
     done
 }
 
@@ -269,6 +284,10 @@ main ()
     export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${jm_root}/lib/pkgconfig"
     export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${jm_root}/lib"
     export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${jm_root}/include"
+
+    # flags
+    develop_build=''
+    parse_flags ${@}
 
     if ! deb_deps_install; then
         echo "Dependecies could not be installed. Exiting."
@@ -309,4 +328,4 @@ main ()
 
     from this directiry, to acticate virtualenv."
 }
-main
+main ${@}
