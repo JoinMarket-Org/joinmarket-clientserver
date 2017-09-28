@@ -4,8 +4,8 @@ import os
 import pprint
 import sys
 import sqlite3
-import datetime
 import binascii
+from datetime import datetime
 from mnemonic import Mnemonic
 from optparse import OptionParser
 import getpass
@@ -64,6 +64,13 @@ def get_wallettool_parser():
                       dest='csv',
                       default=False,
                       help=('When using the history method, output as csv'))
+    parser.add_option('-v', '--verbosity',
+                      action='store',
+                      type='int',
+                      dest='verbosity',
+                      default=1,
+                      help=('History method verbosity, 0 (least) to 6 (most), '
+                            '<=2 batches earnings, even values also list TXIDs'))
     parser.add_option('--fast',
                       action='store_true',
                       dest='fastsync',
@@ -217,7 +224,7 @@ class WalletViewBranch(WalletViewBase):
         if self.forchange == -1:
             start = "Imported keys"
         return self.serclass(self.separator.join([start, bippath, self.xpub]))
-        
+
 class WalletViewAccount(WalletViewBase):
     def __init__(self, bip32path, account, branches=None, account_name="mixdepth",
                  serclass=str, custom_separator=None, xpub=None):
@@ -388,7 +395,7 @@ def cli_get_mnemonic_extension():
 def persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
                        encrypted_mnemonic_extension=None,
                        callbacks=(cli_get_wallet_file_name,)):
-    timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    timestamp = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     walletjson = {'creator': 'joinmarket project',
                   'creation_time': timestamp,
                   'encrypted_entropy': encrypted_entropy.encode('hex'),
@@ -524,14 +531,25 @@ def wallet_fetch_history(wallet, options):
         return '% 2s'%(str(v)) if v != -1 else ' #'
     def skip_n1_btc(v):
         return sat_to_str(v) if v != -1 else '#' + ' '*10
+    def print_row(index, time, tx_type, amount, delta, balance, cj_n,
+                  miner_fees, utxo_count, mixdepth_src, mixdepth_dst, txid):
+        data = [index, datetime.fromtimestamp(time).strftime("%Y-%m-%d %H:%M"),
+                tx_type, sat_to_str(amount), sat_to_str_p(delta),
+                sat_to_str(balance), skip_n1(cj_n), sat_to_str(miner_fees),
+                '% 3d' % utxo_count, skip_n1(mixdepth_src), skip_n1(mixdepth_dst)]
+        if options.verbosity % 2 == 0: data += [txid]
+        print(s().join(map('"{}"'.format, data)))
+
 
     field_names = ['tx#', 'timestamp', 'type', 'amount/btc',
             'balance-change/btc', 'balance/btc', 'coinjoin-n', 'total-fees',
             'utxo-count', 'mixdepth-from', 'mixdepth-to']
+    if options.verbosity % 2 == 0: field_names += ['txid']
     if options.csv:
-        field_names += ['txid']
-    l = s().join(field_names)
-    print(l)
+        print('Bumping verbosity level to 4 due to --csv flag')
+        options.verbosity = 1
+    if options.verbosity > 0: print(s().join(field_names))
+    if options.verbosity <= 2: cj_batch = [0]*8 + [[]]*2
     balance = 0
     utxo_count = 0
     deposits = []
@@ -578,7 +596,7 @@ def wallet_fetch_history(wallet, options):
         tx_type = None
         amount = 0
         delta_balance = 0
-        fees = -1
+        fees = 0
         mixdepth_src = -1
         mixdepth_dst = -1
         #TODO this seems to assume all the input addresses are from the same
@@ -636,21 +654,53 @@ def wallet_fetch_history(wallet, options):
         balance += delta_balance
         utxo_count += (len(our_output_addrs) - utxos_consumed)
         index = '% 4d'%(i)
-        timestamp = datetime.datetime.fromtimestamp(rpctx['blocktime']
+        timestamp = datetime.fromtimestamp(rpctx['blocktime']
                 ).strftime("%Y-%m-%d %H:%M")
         utxo_count_str = '% 3d' % (utxo_count)
-        printable_data = [index, timestamp, tx_type, sat_to_str(amount),
-                sat_to_str_p(delta_balance), sat_to_str(balance), skip_n1(cj_n),
-                skip_n1_btc(fees), utxo_count_str, skip_n1(mixdepth_src),
-                skip_n1(mixdepth_dst)]
-        if options.csv:
-            printable_data += [tx['txid']]
-        l = s().join(map('"{}"'.format, printable_data))
-        print(l)
+        if options.verbosity > 0:
+            if options.verbosity <= 2:
+                n = cj_batch[0]
+                if tx_type == 'cj internal':
+                    cj_batch[0] += 1
+                    cj_batch[1] += rpctx['blocktime']
+                    cj_batch[2] += amount
+                    cj_batch[3] += delta_balance
+                    cj_batch[4] = balance
+                    cj_batch[5] += cj_n
+                    cj_batch[6] += fees
+                    cj_batch[7] += utxo_count
+                    cj_batch[8] += [mixdepth_src]
+                    cj_batch[9] += [mixdepth_dst]
+                elif tx_type != 'unknown type':
+                    if n > 0:
+                        # print the previously-accumulated batch
+                        print_row('N='+str(n), cj_batch[1]/n, 'cj batch',
+                                  cj_batch[2], cj_batch[3], cj_batch[4],
+                                  cj_batch[5]/n, cj_batch[6], cj_batch[7]/n,
+                                  min(cj_batch[8]), max(cj_batch[9]), '...')
+                    cj_batch = [0]*8 + [[]]*2 # reset the batch collector
+                    # print batch terminating row
+                    print_row(index, rpctx['blocktime'], tx_type, amount,
+                              delta_balance, balance, cj_n, fees, utxo_count,
+                              mixdepth_src, mixdepth_dst, tx['txid'])
+            elif options.verbosity >= 5 or \
+                 (options.verbosity >= 3 and tx_type != 'unknown type'):
+                print_row(index, rpctx['blocktime'], tx_type, amount,
+                          delta_balance, balance, cj_n, fees, utxo_count,
+                          mixdepth_src, mixdepth_dst, tx['txid'])
 
         if tx_type != 'cj internal':
             deposits.append(delta_balance)
             deposit_times.append(rpctx['blocktime'])
+
+    # we could have a leftover batch!
+    if options.verbosity <= 2:
+        n = cj_batch[0]
+        if n > 0:
+            print_row('N='+str(n), cj_batch[1]/n, 'cj batch', cj_batch[2],
+                      cj_batch[3], cj_batch[4], cj_batch[5]/n, cj_batch[6],
+                      cj_batch[7]/n, min(cj_batch[8]), max(cj_batch[9]), '...')
+
 
     bestblockhash = jm_single().bc_interface.rpc('getbestblockhash', [])
     try:
@@ -659,7 +709,7 @@ def wallet_fetch_history(wallet, options):
                 )['time']
     except JsonRpcError:
         now = jm_single().bc_interface.rpc('getblock', [bestblockhash])['time']
-    print('     %s best block is %s' % (datetime.datetime.fromtimestamp(now)
+    print('     %s best block is %s' % (datetime.fromtimestamp(now)
         .strftime("%Y-%m-%d %H:%M"), bestblockhash))
     print('total profit = ' + str(float(balance - sum(deposits)) / float(100000000)) + ' BTC')
     try:
@@ -868,4 +918,4 @@ if __name__ == "__main__":
     wallet = WalletView(rootpath + "/" + str(walletbranch),
                              accounts=acctlist)
     print(wallet.serialize())
-            
+
