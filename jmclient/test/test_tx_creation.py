@@ -36,7 +36,7 @@ def test_create_p2sh_output_tx(setup_tx_creation, nw, wallet_structures,
                                mean_amt, sdev_amt, amount, pubs, k):
     wallets = make_wallets(nw, wallet_structures, mean_amt, sdev_amt)
     for w in wallets.values():
-        sync_wallet(w['wallet'])
+        sync_wallet(w['wallet'], fast=True)
     for k, w in enumerate(wallets.values()):
         wallet = w['wallet']
         ins_full = wallet.select_utxos(0, amount)
@@ -89,7 +89,7 @@ def test_all_same_priv(setup_tx_creation):
     #make another utxo on the same address
     addrinwallet = wallet.get_addr(0,0,0)
     jm_single().bc_interface.grab_coins(addrinwallet, 1)
-    sync_wallet(wallet)
+    sync_wallet(wallet, fast=True)
     insfull = wallet.select_utxos(0, 110000000)
     outs = [{"address": addr, "value": 1000000}]
     ins = insfull.keys()
@@ -106,7 +106,7 @@ def test_verify_tx_input(setup_tx_creation, signall, mktxlist):
     priv = "aa"*32 + "01"
     addr = bitcoin.privkey_to_address(priv, magicbyte=get_p2pk_vbyte())
     wallet = make_wallets(1, [[2,0,0,0,0]], 1)[0]['wallet']
-    sync_wallet(wallet)
+    sync_wallet(wallet, fast=True)
     insfull = wallet.select_utxos(0, 110000000)
     print(insfull)    
     if not mktxlist:
@@ -159,7 +159,7 @@ def test_absurd_fees(setup_tx_creation):
     jm_single().bc_interface.absurd_fees = True
     #pay into it
     wallet = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
-    sync_wallet(wallet)
+    sync_wallet(wallet, fast=True)
     amount = 350000000
     ins_full = wallet.select_utxos(0, amount)
     with pytest.raises(ValueError) as e_info:
@@ -170,7 +170,7 @@ def test_create_sighash_txs(setup_tx_creation):
     for sighash in [bitcoin.SIGHASH_ANYONECANPAY + bitcoin.SIGHASH_SINGLE,
                     bitcoin.SIGHASH_NONE, bitcoin.SIGHASH_SINGLE]:
         wallet = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
-        sync_wallet(wallet)
+        sync_wallet(wallet, fast=True)
         amount = 350000000
         ins_full = wallet.select_utxos(0, amount)
         print "using hashcode: " + str(sighash)
@@ -199,7 +199,7 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     msig_addr = bitcoin.scriptaddr(script, magicbyte=196)
     #pay into it
     wallet = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
-    sync_wallet(wallet)
+    sync_wallet(wallet, fast=True)
     amount = 350000000
     ins_full = wallet.select_utxos(0, amount)
     txid = make_sign_and_push(ins_full, wallet, amount, output_addr=msig_addr)

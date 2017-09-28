@@ -73,4 +73,4 @@ The "server" is just a daemon service that can be run as a separate process (see
 
 ### TESTING
 
-Instructions for developers for testing [here](docs/TESTING.md).
+Instructions for developers for testing [here](docs/TESTING.md). If you want to help improve the project, please have a read of [this todo list](docs/TODO.md).

@@ -54,7 +54,7 @@ def test_query_utxo_set(setup_wallets):
     wallet = create_wallet_for_sync("wallet4utxo.json", "4utxo",
                                     [2, 3, 0, 0, 0],
                                     ["wallet4utxo.json", "4utxo", [2, 3]])
-    sync_wallet(wallet)
+    sync_wallet(wallet, fast=True)
     txid = do_tx(wallet, 90000000)
     txid2 = do_tx(wallet, 20000000)
     print("Got txs: ", txid, txid2)
