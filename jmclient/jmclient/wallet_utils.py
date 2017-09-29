@@ -611,8 +611,10 @@ def wallet_fetch_history(wallet, options):
                     our_output_addrs)
             if len(mixdepth_dst) == 1:
                 mixdepth_dst = mixdepth_dst[0]
+        elif len(our_input_addrs) == 0 and len(our_output_addrs) == 0:
+            continue            # skip those that don't belong to our wallet
         elif len(our_input_addrs) > 0 and len(our_output_addrs) == 0:
-            #we swept coins elsewhere
+            # we swept coins elsewhere
             if is_coinjoin:
                 tx_type = 'cj sweepout'
                 amount = cj_amount
@@ -624,7 +626,7 @@ def wallet_fetch_history(wallet, options):
             delta_balance = -our_input_value
             mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
         elif len(our_input_addrs) > 0 and len(our_output_addrs) == 1:
-            #payment out somewhere with our change address getting the remaining
+            # payment to somewhere with our change address getting the remaining
             change_value = output_addr_values[list(our_output_addrs)[0]]
             if is_coinjoin:
                 tx_type = 'cj withdraw'
@@ -651,6 +653,8 @@ def wallet_fetch_history(wallet, options):
             mixdepth_dst = wallet_addr_cache[cj_addr][0]
         else:
             tx_type = 'unknown type'
+            print('our utxos: ' + str(len(our_input_addrs)) \
+                  + ' in, ' + str(len(our_output_addrs)) + ' out')
         balance += delta_balance
         utxo_count += (len(our_output_addrs) - utxos_consumed)
         index = '% 4d'%(i)
