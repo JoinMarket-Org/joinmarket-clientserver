@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 import jmbitcoin as btc
 import pytest
@@ -229,7 +230,7 @@ def test_serialization_roundtrip2():
         #ignore comment entries
         if len(j) < 2:
             continue
-        print j
+        print(j)
         deserialized = btc.deserialize(str(j[0]))
-        print deserialized
+        print(deserialized)
         assert j[0] == btc.serialize(deserialized)

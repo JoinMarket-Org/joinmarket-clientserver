@@ -33,10 +33,10 @@ def raw_bip32_ckd(rawtuple, i):
                      hashlib.sha512).digest()
 
     if vbytes in PRIVATE:
-        newkey = add_privkeys(I[:32] + B'\x01', priv, False)
+        newkey = add_privkeys(I[:32] + b'\x01', priv, False)
         fingerprint = bin_hash160(privtopub(key, False))[:4]
     if vbytes in PUBLIC:
-        newkey = add_pubkeys([privtopub(I[:32] + '\x01', False), key], False)
+        newkey = add_pubkeys([privtopub(I[:32] + b'\x01', False), key], False)
         fingerprint = bin_hash160(key)[:4]
 
     return (vbytes, depth + 1, fingerprint, i, I[32:], newkey)
@@ -86,7 +86,7 @@ def bip32_descend(*args):
     if len(args) == 2:
         key, path = args
     else:
-        key, path = args[0], map(int, args[1:])
+        key, path = args[0], list(map(int, args[1:]))
     for p in path:
         key = bip32_ckd(key, p)
     return bip32_extract_key(key)

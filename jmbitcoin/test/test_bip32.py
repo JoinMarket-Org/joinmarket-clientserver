@@ -60,13 +60,13 @@ def test_bip32_vector(vector):
     currentkey = master
     for i in range(1, len(vector['depths'])):
         currentkey = btc.bip32_ckd(currentkey, vector['depths'][i])
-        print currentkey
-        print vector['keys'][i][0]
+        print(currentkey)
+        print(vector['keys'][i][0])
         assert currentkey == vector['keys'][i][
             0], 'failed: child priv key, should be: ' + vector['keys'][i][0]
         pub = btc.bip32_privtopub(currentkey)
-        print pub
-        print vector['keys'][i][1]
+        print(pub)
+        print(vector['keys'][i][1])
         assert pub == vector['keys'][i][
             1], 'failed: child pub key, should be: ' + vector['keys'][i][1]
 
@@ -84,13 +84,13 @@ def test_ckd_pubkeys():
     pub = 'xpub68Gmy5EdvgibQVfPdqkBBCHxA5htiqg55crXYuXoQRKfDBFA1WEjWgP6LHhwBZeNK1VTsfTFUHCdrfp1bgwQ9xv5ski8PX9rL2dZXvgGDnw'
     new_pub = btc.bip32_ckd(pub, 4)
     #how to check it's right?
-    print new_pub
+    print(new_pub)
     #try to do on hardened, should fail, that's the idea:
     with pytest.raises(Exception) as e_info:
         new_pub = btc.bip32_ckd(pub, 2**31+1)
 
 def test_bip32_descend():
-    master = btc.bip32_master_key('\x07'*32)
+    master = btc.bip32_master_key(btc.from_string_to_bytes('\x07'*32))
     end_key = btc.bip32_descend(master, [2, 3, 10000])
     assert end_key=="6856ef965940a1a7b1311dc041050ac0013e326c7ff4e2c677a7694b4f0405c901"
     end_key = btc.bip32_descend(master, 2, 5, 4, 5)

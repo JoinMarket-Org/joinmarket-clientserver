@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pytest
 import os
 import time
@@ -16,7 +17,7 @@ def local_command(command, bg=False, redirect=''):
         elif OS == 'Linux':
             command.extend(['>', '/dev/null', '2>&1'])
         else:
-            print "OS not recognised, quitting."
+            print("OS not recognised, quitting.")
     elif redirect:
         command.extend(['>', redirect])
 

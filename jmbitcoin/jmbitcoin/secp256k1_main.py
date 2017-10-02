@@ -25,7 +25,84 @@ if sys.version_info.major == 2:
     string_types = (str, unicode)
     string_or_bytes_types = string_types
     int_types = (int, float, long)
-
+    # Base switching
+    code_strings = {
+        2: '01',
+        10: '0123456789',
+        16: '0123456789abcdef',
+        32: 'abcdefghijklmnopqrstuvwxyz234567',
+        58: '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
+        256: ''.join([chr(x) for x in range(256)])
+    }
+    
+    def bin_dbl_sha256(s):
+        bytes_to_hash = from_string_to_bytes(s)
+        return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
+    
+    def lpad(msg, symbol, length):
+        if len(msg) >= length:
+            return msg
+        return symbol * (length - len(msg)) + msg
+    
+    def get_code_string(base):
+        if base in code_strings:
+            return code_strings[base]
+        else:
+            raise ValueError("Invalid base!")
+    
+    def changebase(string, frm, to, minlen=0):
+        if frm == to:
+            return lpad(string, get_code_string(frm)[0], minlen)
+        return encode(decode(string, frm), to, minlen)
+    
+    def bin_to_b58check(inp, magicbyte=0):
+        inp_fmtd = chr(int(magicbyte)) + inp
+        leadingzbytes = len(re.match('^\x00*', inp_fmtd).group(0))
+        checksum = bin_dbl_sha256(inp_fmtd)[:4]
+        return '1' * leadingzbytes + changebase(inp_fmtd + checksum, 256, 58)
+    
+    def bytes_to_hex_string(b):
+        return b.encode('hex')
+    
+    def safe_from_hex(s):
+        return s.decode('hex')
+    
+    def from_int_to_byte(a):
+        return chr(a)
+    
+    def from_byte_to_int(a):
+        return ord(a)
+    
+    def from_string_to_bytes(a):
+        return a
+    
+    def safe_hexlify(a):
+        return binascii.hexlify(a)
+    
+    def encode(val, base, minlen=0):
+        base, minlen = int(base), int(minlen)
+        code_string = get_code_string(base)
+        result = ""
+        while val > 0:
+            result = code_string[val % base] + result
+            val //= base
+        return code_string[0] * max(minlen - len(result), 0) + result
+    
+    def decode(string, base):
+        base = int(base)
+        code_string = get_code_string(base)
+        result = 0
+        if base == 16:
+            string = string.lower()
+        while len(string) > 0:
+            result *= base
+            result += code_string.find(string[0])
+            string = string[1:]
+        return result    
+else:
+    string_types = (str)
+    string_or_bytes_types = (str, bytes)
+    int_types = (int, float)
     # Base switching
     code_strings = {
         2: '01',
@@ -57,52 +134,88 @@ if sys.version_info.major == 2:
         return encode(decode(string, frm), to, minlen)
 
     def bin_to_b58check(inp, magicbyte=0):
-        inp_fmtd = chr(int(magicbyte)) + inp
-        leadingzbytes = len(re.match('^\x00*', inp_fmtd).group(0))
-        checksum = bin_dbl_sha256(inp_fmtd)[:4]
-        return '1' * leadingzbytes + changebase(inp_fmtd + checksum, 256, 58)
+        if magicbyte == 0:
+            inp = from_int_to_byte(0) + inp
+        while magicbyte > 0:
+            inp = from_int_to_byte(magicbyte % 256) + inp
+            magicbyte //= 256
+
+        leadingzbytes = 0
+        for x in inp:
+            if x != 0:
+                break
+            leadingzbytes += 1
+
+        checksum = bin_dbl_sha256(inp)[:4]
+        return '1' * leadingzbytes + changebase(inp+checksum, 256, 58)
 
     def bytes_to_hex_string(b):
-        return b.encode('hex')
+        if isinstance(b, str):
+            return b
+
+        return ''.join('{:02x}'.format(y) for y in b)
 
     def safe_from_hex(s):
-        return s.decode('hex')
+        if isinstance(s, bytes):
+            s = s.decode()
+        return bytes.fromhex(s)
+
+    def from_int_representation_to_bytes(a):
+        return bytes(str(a), 'utf-8')
 
     def from_int_to_byte(a):
-        return chr(a)
+        return bytes([a])
 
     def from_byte_to_int(a):
-        return ord(a)
-
-    def from_string_to_bytes(a):
         return a
 
+    def from_string_to_bytes(a):
+        return a if isinstance(a, bytes) else bytes(a, 'utf-8')
+
     def safe_hexlify(a):
-        return binascii.hexlify(a)
+        return str(binascii.hexlify(a), 'utf-8')
 
     def encode(val, base, minlen=0):
         base, minlen = int(base), int(minlen)
         code_string = get_code_string(base)
-        result = ""
+        result_bytes = bytes()
         while val > 0:
-            result = code_string[val % base] + result
+            curcode = code_string[val % base]
+            result_bytes = bytes([ord(curcode)]) + result_bytes
             val //= base
-        return code_string[0] * max(minlen - len(result), 0) + result
+
+        pad_size = minlen - len(result_bytes)
+
+        padding_element = b'\x00' if base == 256 else b'1' \
+            if base == 58 else b'0'
+        if (pad_size > 0):
+            result_bytes = padding_element*pad_size + result_bytes
+
+        result_string = ''.join([chr(y) for y in result_bytes])
+        result = result_bytes if base == 256 else result_string
+
+        return result
 
     def decode(string, base):
+        if base == 256 and isinstance(string, str):
+            string = bytes(bytearray.fromhex(string))
         base = int(base)
         code_string = get_code_string(base)
         result = 0
+        if base == 256:
+            def extract(d, cs):
+                return d
+        else:
+            def extract(d, cs):
+                return cs.find(d if isinstance(d, str) else chr(d))
+
         if base == 16:
             string = string.lower()
         while len(string) > 0:
             result *= base
-            result += code_string.find(string[0])
+            result += extract(string[0], code_string)
             string = string[1:]
         return result
-
-else:
-    raise NotImplementedError("Only Python2 currently supported by btc interface") #pragma: no cover
 
 """PoDLE related primitives
 """
@@ -187,7 +300,10 @@ def get_version_byte(inp):
     leadingzbytes = len(re.match('^1*', inp).group(0))
     data = b'\x00' * leadingzbytes + changebase(inp, 58, 256)
     assert bin_dbl_sha256(data[:-4])[:4] == data[-4:]
-    return ord(data[0])
+    if sys.version_info.major == 2:
+        return ord(data[0])
+    else:
+        return data[0]
 
 def hex_to_b58check(inp, magicbyte=0):
     return bin_to_b58check(binascii.unhexlify(inp), magicbyte)
@@ -220,13 +336,15 @@ def from_wif_privkey(wif_priv, compressed=True, vbyte=0):
     a mismatch an error is thrown. WIF encoding uses 128+ this number.
     """
     bin_key = b58check_to_bin(wif_priv)
+    print('bin_key: ', bin_key)
     claimed_version_byte = get_version_byte(wif_priv)
     if not 128+vbyte == claimed_version_byte:
         raise Exception(
             "WIF key version byte is wrong network (mainnet/testnet?)")
     if compressed and not len(bin_key) == 33:
         raise Exception("Compressed private key is not 33 bytes")
-    if compressed and not bin_key[-1] == '\x01':
+    print('last byte is: ', bin_key[-1])
+    if compressed and not bin_key[-1:] == b'\x01':
         raise Exception("Private key has incorrect compression byte")
     return safe_hexlify(bin_key)
 
@@ -264,9 +382,9 @@ def hexbin(func):
             newargs = []
             for arg in args[:-1]:
                 if isinstance(arg, (list, tuple)):
-                    newargs += [[x.decode('hex') for x in arg]]
+                    newargs += [[safe_from_hex(x) for x in arg]]
                 else:
-                    newargs += [arg.decode('hex')]
+                    newargs += [safe_from_hex(arg)]
             newargs += [False]
             returnval = func(*newargs, **kwargs)
             if isinstance(returnval, bool):
@@ -280,7 +398,7 @@ def hexbin(func):
 
 def read_privkey(priv):
     if len(priv) == 33:
-        if priv[-1] == '\x01':
+        if priv[-1:] == b'\x01':
             compressed = True
         else:
             raise Exception("Invalid private key")
@@ -356,7 +474,7 @@ def add_privkeys(priv1, priv2, usehex):
     p1 = secp256k1.PrivateKey(newpriv1, raw=True, ctx=ctx)
     res = p1.tweak_add(newpriv2)
     if compressed:
-        res += '\x01'
+        res += b'\x01'
     return res
 
 @hexbin

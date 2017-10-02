@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 '''Public and private key validity and formatting tests.'''
 
 import jmbitcoin as btc
@@ -10,30 +10,30 @@ import os
 testdir = os.path.dirname(os.path.realpath(__file__))
 
 def test_read_raw_privkeys():
-    badkeys = ['', '\x07'*31,'\x07'*34, '\x07'*33]
+    badkeys = ['', b'\x07'*31, b'\x07'*34, b'\x07'*33]
     for b in badkeys:
         with pytest.raises(Exception) as e_info:
             c, k = btc.read_privkey(b)
-    goodkeys = [('\x07'*32, False), ('\x07'*32 + '\x01', True)]
+    goodkeys = [(b'\x07'*32, False), (b'\x07'*32 + b'\x01', True)]
     for g in goodkeys:
         c, k = btc.read_privkey(g[0])
         assert c == g[1]
 
 def test_wif_privkeys_invalid():
     #first try to create wif privkey from key of wrong length
-    bad_privs = ['\x01\x02'*17] #some silly private key but > 33 bytes
+    bad_privs = [b'\x01\x02'*17] #some silly private key but > 33 bytes
 
     #next try to create wif with correct length but wrong compression byte
-    bad_privs.append('\x07'*32 + '\x02')
+    bad_privs.append(b'\x07'*32 + b'\x02')
     
     for priv in bad_privs:
         with pytest.raises(Exception) as e_info:
             fake_wif = btc.wif_compressed_privkey(binascii.hexlify(priv))
 
     #Create a wif with wrong length
-    bad_wif1 = btc.bin_to_b58check('\x01\x02'*34, 128)
+    bad_wif1 = btc.bin_to_b58check(b'\x01\x02'*34, 128)
     #Create a wif with wrong compression byte
-    bad_wif2 = btc.bin_to_b58check('\x07'*33, 128)
+    bad_wif2 = btc.bin_to_b58check(b'\x07'*33, 128)
     for bw in [bad_wif1, bad_wif2]:
         with pytest.raises(Exception) as e_info:
             fake_priv = btc.from_wif_privkey(bw)
@@ -47,7 +47,7 @@ def test_wif_privkeys_invalid():
         bad_key = k[0]
         for netval in ["mainnet", "testnet"]:
             #if using py.test -s ; sanity check to see what's actually being tested
-            print 'testing this key: ' + bad_key
+            print('testing this key: ' + bad_key)
             #should throw exception
             with pytest.raises(Exception) as e_info:
                 from_wif_key = btc.from_wif_privkey(bad_key,
@@ -66,7 +66,7 @@ def test_wif_privkeys_valid():
         key, hex_key, prop_dict = a
         if prop_dict["isPrivkey"]:
             netval = "testnet" if prop_dict["isTestnet"] else "mainnet"
-            print 'testing this key: ' + key
+            print('testing this key: ' + key)
             assert chr(btc.get_version_byte(
                 key)) in '\x80\xef', "not valid network byte"
             comp = prop_dict["isCompressed"]

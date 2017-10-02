@@ -23,7 +23,7 @@ def test_lpad():
     assert btc.lpad("aaaa", "b", 3) == "aaaa"
     
 def test_safe_from_hex():
-    assert btc.safe_from_hex('ff0100') == '\xff\x01\x00'
+    assert btc.safe_from_hex('ff0100') == b'\xff\x01\x00'
 
 def test_hash2int():
     assert btc.hash_to_int("aa"*32) == \
@@ -31,18 +31,18 @@ def test_hash2int():
 
 @btc.hexbin
 def dummyforwrap(a, b, c, d="foo", e="bar"):
-    newa = a+"\x01"
+    newa = a+b"\x01"
     x, y = b
-    newb = [x+"\x02", y+"\x03"]
+    newb = [x+b"\x02", y+b"\x03"]
     if d == "foo":
         return newb[1]
     else:
         return newb[0]
 
 def test_hexbin():
-    assert dummyforwrap("aa", ["bb", "cc"], True) == "cc03"
-    assert dummyforwrap("aa", ["bb", "cc"], True, d="baz") == "bb02"
-    assert dummyforwrap("\xaa", ["\xbb", "\xcc"], False) == "\xcc\x03"
+    assert dummyforwrap("aa", ["bb", "cc"], True) == b"cc03"
+    assert dummyforwrap("aa", ["bb", "cc"], True, d="baz") == b"bb02"
+    assert dummyforwrap(b"\xaa", [b"\xbb", b"\xcc"], False) == b"\xcc\x03"
 
 def test_add_privkeys():
     with pytest.raises(Exception) as e_info:
@@ -55,9 +55,9 @@ def test_ecdsa_raw_sign():
     assert e_info.match("Invalid hash input")
     #build non-raw priv object as input
     privraw = "aa"*32
-    msghash = "\xbb"*32
+    msghash = b"\xbb"*32
     sig = binascii.hexlify(btc.ecdsa_raw_sign(msghash, privraw, False, rawpriv=False, rawmsg=True))
-    assert sig == "3045022100b81960b4969b423199dea555f562a66b7f49dea5836a0168361f1a5f8a3c8298022003eea7d7ee4462e3e9d6d59220f950564caeb77f7b1cdb42af3c83b013ff3b2f"
+    assert sig == b"3045022100b81960b4969b423199dea555f562a66b7f49dea5836a0168361f1a5f8a3c8298022003eea7d7ee4462e3e9d6d59220f950564caeb77f7b1cdb42af3c83b013ff3b2f"
 
 
     

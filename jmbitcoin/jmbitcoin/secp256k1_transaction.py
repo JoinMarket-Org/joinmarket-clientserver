@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import binascii, re, json, copy, sys
 from jmbitcoin.secp256k1_main import *
-from _functools import reduce
+from functools import reduce
 import os
 
 is_python2 = sys.version_info.major == 2
@@ -139,7 +139,7 @@ def serialize(txobj):
         return hexlified
     o.append(encode(txobj["version"], 256, 4)[::-1])
     segwit = False
-    if any("txinwitness" in x.keys() for x in txobj["ins"]):
+    if any("txinwitness" in list(x.keys()) for x in txobj["ins"]):
         segwit = True
     if segwit:
         #append marker and flag
@@ -160,7 +160,7 @@ def serialize(txobj):
         #number of witnesses is not explicitly encoded;
         #it's implied by txin length
         for inp in txobj["ins"]:
-            if "txinwitness" not in inp.keys():
+            if "txinwitness" not in list(inp.keys()):
                 o.append('\x00')
                 continue
             items = inp["txinwitness"]
@@ -448,9 +448,12 @@ if is_python2:
 else: #pragma: no cover
 
     def serialize_script(script):
-        #TODO Python 3 bugfix as above needed
+        #see bugfix note above
+        if all([(isinstance(x, int) or x is None) for x in script]):
+            #no indication given whether output should be hex or binary, so..?
+            return binascii.hexlify(b''.join(map(serialize_script_unit, script)))
         if json_is_base(script, 16):
-            return safe_hexlify(serialize_script(json_changebase(
+            return binascii.hexlify(serialize_script(json_changebase(
                 script, lambda x: binascii.unhexlify(x))))
 
         result = bytes()
@@ -463,7 +466,7 @@ def mk_multisig_script(*args):  # [pubs],k or pub1,pub2...pub[n],k
     if isinstance(args[0], list):
         pubs, k = args[0], int(args[1])
     else:
-        pubs = list(filter(lambda x: len(str(x)) >= 32, args))
+        pubs = list([x for x in args if len(str(x)) >= 32])
         k = int(args[len(pubs)])
     return serialize_script([k] + pubs + [len(pubs)]) + 'ae'
 

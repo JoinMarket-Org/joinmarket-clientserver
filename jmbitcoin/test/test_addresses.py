@@ -14,7 +14,7 @@ def validate_address(addr, nettype):
     except AssertionError:
         return False, 'Checksum wrong. Typo in address?'
     except Exception as e:
-        print repr(e)
+        print(repr(e))
         return False, "Invalid bitcoin address"
     if ver not in [BTC_P2PK_VBYTE[nettype], BTC_P2SH_VBYTE[nettype]]:
         return False, 'Wrong address version. Testnet/mainnet confused?'
@@ -52,7 +52,6 @@ def test_b58_valid_addresses():
             else:
                 net = "mainnet"
             #if using py.test -s ; sanity check to see what's actually being tested
-            print 'testing this address: ' + addr
             res, message = validate_address(addr, net)
             assert res == True, "Incorrectly failed to validate address: " + addr + " with message: " + message
 
