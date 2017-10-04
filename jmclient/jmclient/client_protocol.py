@@ -487,9 +487,10 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True, gui=Fals
                 if usessl:
                     reactor.listenSSL(port, dfactory,
                                   ssl.DefaultOpenSSLContextFactory(
-                                      "./ssl/key.pem", "./ssl/cert.pem"))
+                                      "./ssl/key.pem", "./ssl/cert.pem"),
+                                     interface=host)
                 else:
-                    reactor.listenTCP(port, dfactory)
+                    reactor.listenTCP(port, dfactory, interface=host)
                 jlog.info("Listening on port " + str(port))
                 break
             except Exception:
