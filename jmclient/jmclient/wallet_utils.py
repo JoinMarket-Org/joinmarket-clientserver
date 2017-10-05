@@ -208,13 +208,16 @@ class WalletViewBranch(WalletViewBase):
         self.xpub = xpub if xpub else ""
         self.branchentries = branchentries
 
-    def serialize(self, entryseparator="\n"):
-        lines = [self.serialize_branch_header()]
-        for we in self.branchentries:
-            lines.append(we.serialize())
-        footer = "Balance:" + self.separator + self.get_fmt_balance()
-        lines.append(footer)
-        return self.serclass(entryseparator.join(lines))
+    def serialize(self, entryseparator="\n", summarize=False):
+        if summarize:
+            return ""
+        else:
+            lines = [self.serialize_branch_header()]
+            for we in self.branchentries:
+                lines.append(we.serialize())
+            footer = "Balance:" + self.separator + self.get_fmt_balance()
+            lines.append(footer)
+            return self.serclass(entryseparator.join(lines))
 
     def serialize_branch_header(self):
         bippath = self.bip32path + bip32sep + str(self.account) + "'" + \
@@ -239,14 +242,18 @@ class WalletViewAccount(WalletViewBase):
             assert all([isinstance(x, WalletViewBranch) for x in branches])
         self.branches = branches
 
-    def serialize(self, entryseparator="\n"):
+    def serialize(self, entryseparator="\n", summarize=False):
         header = self.account_name + self.separator + str(self.account)
         if self.xpub:
             header = header + self.separator + self.xpub
         footer = "Balance for mixdepth " + str(
             self.account) + ":" + self.separator + self.get_fmt_balance()
-        return self.serclass(entryseparator.join([header] + [
-            x.serialize(entryseparator) for x in self.branches] + [footer]))
+        if summarize:
+            return self.serclass(entryseparator.join(
+                [x.serialize("", summarize=True) for x in self.branches] + [footer]))
+        else:
+            return self.serclass(entryseparator.join([header] + [
+                x.serialize(entryseparator) for x in self.branches] + [footer]))
 
 class WalletView(WalletViewBase):
     def __init__(self, bip32path, accounts, wallet_name="JM wallet",
@@ -259,11 +266,15 @@ class WalletView(WalletViewBase):
         assert all([isinstance(x, WalletViewAccount) for x in accounts])
         self.accounts = accounts
 
-    def serialize(self, entryseparator="\n"):
+    def serialize(self, entryseparator="\n", summarize=False):
         header = self.wallet_name
         footer = "Total balance:" + self.separator + self.get_fmt_balance()
-        return self.serclass(entryseparator.join([header] + [
-            x.serialize(entryseparator) for x in self.accounts] + [footer]))
+        if summarize:
+            return self.serclass(entryseparator.join([header] + [
+                x.serialize("", summarize=True) for x in self.accounts] + [footer]))
+        else:
+            return self.serclass(entryseparator.join([header] + [
+                x.serialize(entryseparator, summarize=False) for x in self.accounts] + [footer]))
 
 def get_imported_privkey_branch(wallet, m, showprivkey):
     if m in wallet.imported_privkeys:
@@ -311,7 +322,7 @@ def wallet_showutxos(wallet, showprivkey):
     return json.dumps(unsp, indent=4)
 
 def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
-                   serialized=True):
+        serialized=True, summarized=False):
     """build the walletview object,
     then return its serialization directly if serialized,
     else return the WalletView object.
@@ -344,8 +355,8 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
                     entrylist.append(WalletViewEntry(rootpath, m, forchange, k,
                                                  addr, [balance, balance],
                                                  priv=privkey, used=used))
-            branchlist.append(WalletViewBranch(rootpath, m, forchange, entrylist,
-                                               xpub=xpub_key))
+            branchlist.append(WalletViewBranch(rootpath, m, forchange,
+                entrylist, xpub=xpub_key))
         ipb = get_imported_privkey_branch(wallet, m, showprivkey)
         if ipb:
             branchlist.append(ipb)
@@ -356,7 +367,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
                                           xpub=xpub_account))
     walletview = WalletView(rootpath, acctlist)
     if serialized:
-        return walletview.serialize()
+        return walletview.serialize(summarize=summarized)
     else:
         return walletview
 
@@ -871,8 +882,9 @@ def wallet_tool_main(wallet_root_path):
     if method == "display":
         return wallet_display(wallet, options.gaplimit, options.showprivkey)
     elif method == "displayall":
-        return wallet_display(wallet, options.gaplimit, options.showprivkey,
-                              displayall=True)
+        return wallet_display(wallet, options.gaplimit, options.showprivkey, displayall=True)
+    elif method == "summary":
+        return wallet_display(wallet, options.gaplimit, options.showprivkey, summarized=True)
     elif method == "history":
         if not isinstance(jm_single().bc_interface, BitcoinCoreInterface):
             print('showing history only available when using the Bitcoin Core ' +
