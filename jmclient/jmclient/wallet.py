@@ -101,6 +101,10 @@ class AbstractWallet(object):
         """
         return None
 
+    @classmethod
+    def pubkey_to_address(cls, pubkey):
+        return None
+
     def update_cache_index(self):
         pass
 
@@ -214,12 +218,17 @@ class Wallet(AbstractWallet):
         """
         return btc.sign(tx, i, priv)
 
-    def script_to_address(self, script):
+    @classmethod
+    def script_to_address(cls, script):
         """Return the address for a given output script,
         which will be p2pkh for the default Wallet object,
         and reading the correct network byte from the config.
         """
-        return btc.script_to_address(script, get_p2pk_vbyte())
+        return btc.script_to_address(script, cls.get_vbyte())
+
+    @classmethod
+    def pubkey_to_address(cls, pubkey):
+        return btc.pubkey_to_address(pubkey, cls.get_vbyte())
 
     def read_wallet_file_data(self, filename, pwd=None, wallet_dir=None):
         self.path = None
@@ -385,8 +394,8 @@ class Wallet(AbstractWallet):
         self.spent_utxos += removed_utxos.keys()
         return removed_utxos
 
-
-    def get_vbyte(self):
+    @staticmethod
+    def get_vbyte():
         return get_p2pk_vbyte()
 
     def add_new_utxos(self, tx, txid):
@@ -467,7 +476,8 @@ class SegwitWallet(Bip39Wallet):
         root = btc.bip32_ckd(pre_root, testnet_flag + 2**31)
         return [btc.bip32_ckd(root, c + 2**31) for c in range(self.max_mix_depth)]
 
-    def get_vbyte(self):
+    @staticmethod
+    def get_vbyte():
         return get_p2sh_vbyte()
 
     def get_txtype(self):
@@ -484,13 +494,18 @@ class SegwitWallet(Bip39Wallet):
         pub = btc.privtopub(self.get_key(mixing_depth, forchange, i))
         return btc.pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=self.get_vbyte())
 
-    def script_to_address(self, script):
+    @classmethod
+    def script_to_address(cls, script):
         """Return the address for a given output script,
         which will be p2sh-p2wpkh for the segwit (currently).
         The underlying witness is however invisible at this layer;
         so it's just a p2sh address.
         """
-        return btc.script_to_address(script, get_p2sh_vbyte())
+        return btc.script_to_address(script, cls.get_vbyte())
+
+    @classmethod
+    def pubkey_to_address(cls, pubkey):
+        return btc.pubkey_to_p2sh_p2wpkh_address(pubkey, cls.get_vbyte())
 
     def sign(self, tx, i, priv, amount):
         """Sign a transaction; the amount field
@@ -551,3 +566,8 @@ class BitcoinCoreWallet(AbstractWallet): #pragma: no cover
                     if exc.code != -14:
                         raise exc
                         # Wrong passphrase, try again.
+
+def get_wallet_cls():
+    if jm_single().config.get("POLICY", "segwit") == "true":
+        return SegwitWallet
+    return Wallet
