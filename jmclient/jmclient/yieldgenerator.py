@@ -9,7 +9,7 @@ from twisted.python.log import startLogging
 from optparse import OptionParser
 from jmbase import get_password
 from jmclient import (Maker, jm_single, get_network, load_program_config, get_log,
-                      SegwitWallet, sync_wallet, JMClientProtocolFactory,
+                      get_wallet_cls, sync_wallet, JMClientProtocolFactory,
                       start_reactor, calc_cj_fee, WalletError)
 
 jlog = get_log()
@@ -87,13 +87,13 @@ class YieldGeneratorBasic(YieldGenerator):
         # print mix_balance
         max_mix = max(mix_balance, key=mix_balance.get)
         f = '0'
-        if self.ordertype == 'swreloffer':
+        if self.ordertype in ('reloffer', 'swreloffer'):
             f = self.cjfee_r
             #minimum size bumped if necessary such that you always profit
             #least 50% of the miner fee
             self.minsize = max(int(1.5 * self.txfee / float(self.cjfee_r)),
                 self.minsize)
-        elif self.ordertype == 'swabsoffer':
+        elif self.ordertype in ('absoffer', 'swabsoffer'):
             f = str(self.txfee + self.cjfee_a)
         order = {'oid': 0,
                  'ordertype': self.ordertype,
@@ -215,13 +215,13 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     wallet_name = args[0]
     ordertype = options.ordertype
     txfee = options.txfee
-    if ordertype == 'swreloffer':
+    if ordertype in ('reloffer', 'swreloffer'):
         if options.cjfee != '':
             cjfee_r = options.cjfee
         # minimum size is such that you always net profit at least 20%
         #of the miner fee
         minsize = max(int(1.2 * txfee / float(cjfee_r)), options.minsize)
-    elif ordertype == 'swabsoffer':
+    elif ordertype in ('absoffer', 'swabsoffer'):
         if options.cjfee != '':
             cjfee_a = int(options.cjfee)
         minsize = options.minsize
@@ -233,15 +233,15 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
 
     load_program_config()
     if not os.path.exists(os.path.join('wallets', wallet_name)):
-        wallet = SegwitWallet(wallet_name, None, max_mix_depth=MAX_MIX_DEPTH,
-                              gaplimit=options.gaplimit)
+        wallet = get_wallet_cls()(wallet_name, None, max_mix_depth=MAX_MIX_DEPTH,
+                                  gaplimit=options.gaplimit)
     else:
         while True:
             try:
                 pwd = get_password("Enter wallet decryption passphrase: ")
-                wallet = SegwitWallet(wallet_name, pwd,
-                                      max_mix_depth=MAX_MIX_DEPTH,
-                                      gaplimit=options.gaplimit)
+                wallet = get_wallet_cls()(wallet_name, pwd,
+                                          max_mix_depth=MAX_MIX_DEPTH,
+                                          gaplimit=options.gaplimit)
             except WalletError:
                 print("Wrong password, try again.")
                 continue

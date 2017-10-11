@@ -9,10 +9,10 @@ from datetime import datetime
 from mnemonic import Mnemonic
 from optparse import OptionParser
 import getpass
-from jmclient import (get_network, Wallet, Bip39Wallet, podle,
+from jmclient import (get_network, get_wallet_cls, Bip39Wallet, podle,
                       encryptData, get_p2sh_vbyte, get_p2pk_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
-                      JsonRpcError, sync_wallet, WalletError, SegwitWallet)
+                      JsonRpcError, sync_wallet, WalletError)
 from jmbase.support import get_password
 import jmclient.btc as btc
 
@@ -827,8 +827,6 @@ def wallet_tool_main(wallet_root_path):
     """
     parser = get_wallettool_parser()
     (options, args) = parser.parse_args()
-    walletclass = SegwitWallet if jm_single().config.get(
-        "POLICY", "segwit") == "true" else Wallet
     # if the index_cache stored in wallet.json is longer than the default
     # then set maxmixdepth to the length of index_cache
     maxmixdepth_configured = True
@@ -852,15 +850,15 @@ def wallet_tool_main(wallet_root_path):
         seed = args[0]
         method = ('display' if len(args) == 1 else args[1].lower())
         if not os.path.exists(os.path.join(wallet_root_path, seed)):
-            wallet = walletclass(seed, None, options.maxmixdepth,
-                            options.gaplimit, extend_mixdepth= not maxmixdepth_configured,
-                            storepassword=(method == 'importprivkey'),
-                            wallet_dir=wallet_root_path)
+            wallet = get_wallet_cls()(seed, None, options.maxmixdepth,
+                    options.gaplimit, extend_mixdepth= not maxmixdepth_configured,
+                    storepassword=(method == 'importprivkey'),
+                    wallet_dir=wallet_root_path)
         else:
             while True:
                 try:
                     pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = walletclass(seed, pwd,
+                    wallet = get_wallet_cls()(seed, pwd,
                             options.maxmixdepth,
                             options.gaplimit,
                             extend_mixdepth=not maxmixdepth_configured,

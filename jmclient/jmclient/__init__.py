@@ -18,7 +18,7 @@ from .slowaes import decryptData, encryptData
 from .taker import Taker
 from .wallet import (AbstractWallet, BitcoinCoreInterface, Wallet,
                      BitcoinCoreWallet, estimate_tx_fee, WalletError,
-                     create_wallet_file, SegwitWallet, Bip39Wallet)
+                     create_wallet_file, SegwitWallet, Bip39Wallet, get_wallet_cls)
 from .configure import (load_program_config, get_p2pk_vbyte,
     jm_single, get_network, validate_address, get_irc_mchannels,
     get_blockchain_interface_instance, get_p2sh_vbyte, set_config)
