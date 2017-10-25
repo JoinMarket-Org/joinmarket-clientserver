@@ -128,7 +128,9 @@ class Maker(object):
 
         utxos = offerinfo["utxos"]
         cjaddr = offerinfo["cjaddr"]
+        cjaddr_script = btc.address_to_script(cjaddr)
         changeaddr = offerinfo["changeaddr"]
+        changeaddr_script = btc.address_to_script(changeaddr)
         amount = offerinfo["amount"]
         cjfee = offerinfo["offer"]["cjfee"]
         txfee = offerinfo["offer"]["txfee"]
@@ -146,13 +148,11 @@ class Maker(object):
         times_seen_cj_addr = 0
         times_seen_change_addr = 0
         for outs in txd['outs']:
-            #FIXME: the type of address should be detected from the script (p2pkh/p2sh)
-            addr = self.wallet.script_to_address(outs['script'])
-            if addr == cjaddr:
+            if outs['script'] == cjaddr_script:
                 times_seen_cj_addr += 1
                 if outs['value'] != amount:
                     return (False, 'Wrong cj_amount. I expect ' + str(amount))
-            if addr == changeaddr:
+            if outs['script'] == changeaddr_script:
                 times_seen_change_addr += 1
                 if outs['value'] != expected_change_value:
                     return (False, 'wrong change, i expect ' + str(
