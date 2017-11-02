@@ -1,9 +1,9 @@
 # matplotlib
 # numpy
 pexpect
-coverage==4.2
-pytest==3.0.5
-pytest-cov==2.4.0
+coverage
+pytest
+pytest-cov
 python-coveralls
 mock
 
