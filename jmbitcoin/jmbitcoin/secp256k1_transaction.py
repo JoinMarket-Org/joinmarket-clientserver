@@ -189,30 +189,47 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
     #                                           amount, hashcode))
     script = binascii.unhexlify(script)
     nVersion = encode(txobj["version"], 256, 4)[::-1]
-    #create hashPrevouts preimage
-    pi = ""
-    for inp in txobj["ins"]:
-        pi += binascii.unhexlify(inp["outpoint"]["hash"])[::-1]
-        pi += encode(inp["outpoint"]["index"], 256, 4)[::-1]
-    hashPrevouts = bin_dbl_sha256(pi)
-    #create hashSequence preimage
-    pi = ""
-    for inp in txobj["ins"]:
-        pi += encode(inp["sequence"], 256, 4)[::-1]
-    hashSequence = bin_dbl_sha256(pi)
+    #create hashPrevouts
+    if hashcode & SIGHASH_ANYONECANPAY:
+        hashPrevouts = "\x00"*32
+    else:
+        pi = ""
+        for inp in txobj["ins"]:
+            pi += binascii.unhexlify(inp["outpoint"]["hash"])[::-1]
+            pi += encode(inp["outpoint"]["index"], 256, 4)[::-1]
+        hashPrevouts = bin_dbl_sha256(pi)
+    #create hashSequence
+    if not hashcode & SIGHASH_ANYONECANPAY and not (
+        hashcode & 0x1f == SIGHASH_NONE) and not (hashcode & 0x1f == SIGHASH_NONE):
+        pi = ""
+        for inp in txobj["ins"]:
+            pi += encode(inp["sequence"], 256, 4)[::-1]
+        hashSequence = bin_dbl_sha256(pi)
+    else:
+        hashSequence = "\x00"*32
     #add this input's outpoint
     thisOut = binascii.unhexlify(txobj["ins"][i]["outpoint"]["hash"])[::-1]
     thisOut += encode(txobj["ins"][i]["outpoint"]["index"], 256, 4)[::-1]
     scriptCode = num_to_var_int(len(script)) + script
     amt = encode(amount, 256, 8)[::-1]
     thisSeq = encode(txobj["ins"][i]["sequence"], 256, 4)[::-1]
-    #create hashOutputs preimage
-    pi = ""
-    for out in txobj["outs"]:
-        pi += encode(out["value"], 256, 8)[::-1]
-        pi += (num_to_var_int(len(binascii.unhexlify(out["script"]))) + \
-               binascii.unhexlify(out["script"]))
-    hashOutputs = bin_dbl_sha256(pi)
+    #create hashOutputs
+    if not (hashcode & 0x1f == SIGHASH_SINGLE) and not (hashcode & 0x1f == SIGHASH_NONE):
+        pi = ""
+        for out in txobj["outs"]:
+            pi += encode(out["value"], 256, 8)[::-1]
+            pi += (num_to_var_int(len(binascii.unhexlify(out["script"]))) + \
+                   binascii.unhexlify(out["script"]))
+        hashOutputs = bin_dbl_sha256(pi)
+    elif hashcode & 0x1f == SIGHASH_SINGLE:
+        pi = ""
+        if i < len(txobj['outs']):
+            pi += encode(txobj["outs"][i]["value"], 256, 8)[::-1]
+            pi += (num_to_var_int(len(binascii.unhexlify(txobj["outs"][i][
+                "script"]))) + binascii.unhexlify(txobj["outs"][i]["script"]))
+        hashOutputs = bin_dbl_sha256(pi)
+    else:
+        hashOutputs = "\x00"*32
     nLockTime = encode(txobj["locktime"], 256, 4)[::-1]
     return nVersion + hashPrevouts + hashSequence + thisOut + scriptCode + amt + \
            thisSeq + hashOutputs + nLockTime
