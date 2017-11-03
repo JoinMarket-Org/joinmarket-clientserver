@@ -67,10 +67,15 @@ venv_setup ()
 
 openssl_get ()
 {
-    for file in "${openssl_lib_tar}" "${openssl_lib_sha}" "${openssl_lib_sig}"; do
+    if [[ -z "${no_gpg_validation}" ]]; then
+        openssl_file=( "${openssl_lib_tar}" "${openssl_lib_sha}" "${openssl_lib_sig}" )
+        curl -L "${openssl_signer_key_url}" -o openssl_signer.key
+    else
+        openssl_file=( "${openssl_lib_tar}" )
+    fi
+    for file in ${openssl_files[@]}; do
         curl -L -O "${openssl_url}/${file}"
     done
-    curl -L "${openssl_signer_key_url}" -o openssl_signer.key
 }
 
 openssl_build ()
@@ -109,15 +114,19 @@ openssl_install ()
     if ! grep $(sha256sum "${openssl_lib_tar}") "${openssl_lib_sha}"; then
         return 1
     fi
-    if gpg_verify_key openssl_signer.key "${openssl_signer_key_id}"; then
-        gpg_add_to_keyring openssl_signer.key
+    if [[ -z "${no_gpg_validation}" ]]; then
+        if gpg_verify_key openssl_signer.key "${openssl_signer_key_id}"; then
+            gpg_add_to_keyring openssl_signer.key
+        else
+            return 1
+        fi
+        if gpg_verify_sig "${openssl_lib_sig}"; then
+            tar xaf "${openssl_lib_tar}"
+        else
+            return 1
+        fi
     else
-        return 1
-    fi
-    if gpg_verify_sig "${openssl_lib_sig}"; then
         tar xaf "${openssl_lib_tar}"
-    else
-        return 1
     fi
     pushd "${openssl_version}"
     if openssl_build; then
@@ -200,10 +209,15 @@ libffi_install ()
 
 libsodium_get ()
 {
-    for file in "${sodium_lib_tar}" "${sodium_lib_sig}"; do
+    if [[ -z "${no_gpg_validation}" ]]; then
+        libsodium_files=( "${sodium_lib_tar}" "${sodium_lib_sig}" )
+        curl -L "${sodium_signer_key_url}" -o libsodium_signer.key
+    else
+        libsodium_files=( "${sodium_lib_tar}" )
+    fi
+    for file in ${libsodium_files[@]}; do
         curl -L -O "${sodium_url}/${file}"
     done
-    curl -L "${sodium_signer_key_url}" -o libsodium_signer.key
 }
 
 libsodium_build ()
@@ -231,15 +245,19 @@ libsodium_install ()
     fi
     pushd libsodium
     libsodium_get
-    if gpg_verify_key libsodium_signer.key "${sodium_signer_key_id}"; then
-        gpg_add_to_keyring libsodium_signer.key
+    if [[ -z "${no_gpg_validation}" ]]; then
+        if gpg_verify_key libsodium_signer.key "${sodium_signer_key_id}"; then
+            gpg_add_to_keyring libsodium_signer.key
+        else
+            return 1
+        fi
+        if gpg_verify_sig "${sodium_lib_sig}"; then
+            tar xaf "${sodium_lib_tar}"
+        else
+            return 1
+        fi
     else
-        return 1
-    fi
-    if gpg_verify_sig "${sodium_lib_sig}"; then
         tar xaf "${sodium_lib_tar}"
-    else
-        return 1
     fi
     pushd "${sodium_version}"
     if libsodium_build; then
@@ -269,6 +287,9 @@ parse_flags ()
             --develop)
                 develop_build='1'
                 ;;
+            --no-gpg-validation)
+                no_gpg_validation='1'
+                ;;
             *)
                 echo "warning.  unknown flag : ${flag}" 1>&2
                 ;;
@@ -287,6 +308,7 @@ main ()
 
     # flags
     develop_build=''
+    no_gpg_validation=''
     parse_flags ${@}
 
     if ! deb_deps_install; then
