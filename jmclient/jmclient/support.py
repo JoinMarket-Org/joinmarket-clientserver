@@ -1,9 +1,5 @@
 from __future__ import absolute_import, print_function
 
-import sys
-
-import logging
-import pprint
 import random
 from jmbase.support import get_log
 from decimal import Decimal
@@ -21,6 +17,15 @@ NOTE THESE ARE NEITHER CRYPTOGRAPHICALLY SECURE
 NOR PERFORMANT NOR HIGH PRECISION!
 Only for sampling purposes
 """
+
+
+def get_random_bytes(num_bytes, cryptographically_secure=False):
+    if cryptographically_secure:
+        # uses os.urandom if available
+        generator = random.SystemRandom()
+    else:
+        generator = random
+    return bytes(bytearray((generator.randrange(256) for b in xrange(num_bytes))))
 
 
 def rand_norm_array(mu, sigma, n):

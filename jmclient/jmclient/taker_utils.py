@@ -7,7 +7,7 @@ import time
 import numbers
 from .configure import get_log, jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule
-from .wallet import Wallet, SegwitWallet, estimate_tx_fee
+from .wallet import BaseWallet, estimate_tx_fee
 from jmclient import mktx, deserialize, sign, txhash
 log = get_log()
 
@@ -42,10 +42,10 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     assert mixdepth >= 0
     assert isinstance(amount, numbers.Integral)
     assert amount >=0
-    assert isinstance(wallet, Wallet) or isinstance(wallet, SegwitWallet)
+    assert isinstance(wallet, BaseWallet)
 
     from pprint import pformat
-    txtype = 'p2sh-p2wpkh' if isinstance(wallet, SegwitWallet) else 'p2pkh'
+    txtype = wallet.get_txtype()
     if amount == 0:
         utxos = wallet.get_utxos_by_mixdepth()[mixdepth]
         if utxos == {}:
@@ -79,9 +79,8 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
         utxo = ins['outpoint']['hash'] + ':' + str(
                 ins['outpoint']['index'])
         addr = utxos[utxo]['address']
-        signing_amount = utxos[utxo]['value']
-        amt = signing_amount if isinstance(wallet, SegwitWallet) else None
-        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=amt)
+        amount = utxos[utxo]['value']
+        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=amount)
     txsigned = deserialize(tx)
     log.info("Got signed transaction:\n")
     log.info(tx + "\n")

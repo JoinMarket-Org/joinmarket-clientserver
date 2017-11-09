@@ -178,7 +178,8 @@ SIGHASH_NONE = 2
 SIGHASH_SINGLE = 3
 SIGHASH_ANYONECANPAY = 0x80
 
-def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
+def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL,
+                          decoder_func=binascii.unhexlify):
     """Given a deserialized transaction txobj, an input index i,
     which spends from a witness,
     a script for redemption and an amount in satoshis, prepare
@@ -187,7 +188,7 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
     #if isinstance(txobj, string_or_bytes_types):
     #    return serialize(segwit_signature_form(deserialize(txobj), i, script,
     #                                           amount, hashcode))
-    script = binascii.unhexlify(script)
+    script = decoder_func(script)
     nVersion = encode(txobj["version"], 256, 4)[::-1]
     #create hashPrevouts
     if hashcode & SIGHASH_ANYONECANPAY:
@@ -195,7 +196,7 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
     else:
         pi = ""
         for inp in txobj["ins"]:
-            pi += binascii.unhexlify(inp["outpoint"]["hash"])[::-1]
+            pi += decoder_func(inp["outpoint"]["hash"])[::-1]
             pi += encode(inp["outpoint"]["index"], 256, 4)[::-1]
         hashPrevouts = bin_dbl_sha256(pi)
     #create hashSequence
@@ -208,7 +209,7 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
     else:
         hashSequence = "\x00"*32
     #add this input's outpoint
-    thisOut = binascii.unhexlify(txobj["ins"][i]["outpoint"]["hash"])[::-1]
+    thisOut = decoder_func(txobj["ins"][i]["outpoint"]["hash"])[::-1]
     thisOut += encode(txobj["ins"][i]["outpoint"]["index"], 256, 4)[::-1]
     scriptCode = num_to_var_int(len(script)) + script
     amt = encode(amount, 256, 8)[::-1]
@@ -218,13 +219,13 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
         pi = ""
         for out in txobj["outs"]:
             pi += encode(out["value"], 256, 8)[::-1]
-            pi += (num_to_var_int(len(binascii.unhexlify(out["script"]))) + \
-                   binascii.unhexlify(out["script"]))
+            pi += (num_to_var_int(len(decoder_func(out["script"]))) + \
+                   decoder_func(out["script"]))
         hashOutputs = bin_dbl_sha256(pi)
     elif hashcode & 0x1f == SIGHASH_SINGLE and i < len(txobj['outs']):
         pi = encode(txobj["outs"][i]["value"], 256, 8)[::-1]
-        pi += (num_to_var_int(len(binascii.unhexlify(txobj["outs"][i]["script"]))) +
-               binascii.unhexlify(txobj["outs"][i]["script"]))
+        pi += (num_to_var_int(len(decoder_func(txobj["outs"][i]["script"]))) +
+               decoder_func(txobj["outs"][i]["script"]))
         hashOutputs = bin_dbl_sha256(pi)
     else:
         hashOutputs = "\x00"*32

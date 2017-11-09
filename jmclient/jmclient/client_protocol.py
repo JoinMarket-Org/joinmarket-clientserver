@@ -16,9 +16,8 @@ import hashlib
 import os
 import sys
 import pprint
-from jmclient import (Taker, Wallet, jm_single, get_irc_mchannels,
-                        load_program_config, get_log, get_p2sh_vbyte,
-                        RegtestBitcoinCoreInterface)
+from jmclient import (jm_single, get_irc_mchannels, get_log, get_p2sh_vbyte,
+                      RegtestBitcoinCoreInterface)
 from jmbase import _byteify
 import btc
 
