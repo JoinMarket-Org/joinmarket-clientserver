@@ -9,7 +9,8 @@ from jmbase.support import get_log
 from .message_channel import MessageChannel, MessageChannelCollection
 from .orderbookwatch import OrderbookWatch
 from jmbase import commands
-from .daemon_protocol import JMDaemonServerProtocolFactory, JMDaemonServerProtocol
+from .daemon_protocol import (JMDaemonServerProtocolFactory, JMDaemonServerProtocol,
+                              start_daemon)
 from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
 from .message_channel import MessageChannelCollection

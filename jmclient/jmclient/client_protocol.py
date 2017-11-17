@@ -1,26 +1,17 @@
 #! /usr/bin/env python
 from __future__ import print_function
-from twisted.python.log import startLogging, err
 from twisted.internet import protocol, reactor, task
-from twisted.internet.task import LoopingCall
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
-from twisted.python import failure
 from twisted.protocols import amp
-from twisted.internet.protocol import ClientFactory
-from twisted.internet.endpoints import TCP4ClientEndpoint
 try:
     from twisted.internet.ssl import ClientContextFactory
     from twisted.internet import ssl
 except ImportError:
     pass
 from jmbase import commands
-from sys import stdout
 
 import json
-import random
-import string
-import time
 import hashlib
 import os
 import sys
@@ -473,7 +464,7 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True, gui=Fals
     usessl = True if jm_single().config.get("DAEMON", "use_ssl") != 'false' else False
     if daemon:
         try:
-            from jmdaemon import JMDaemonServerProtocolFactory
+            from jmdaemon import JMDaemonServerProtocolFactory, start_daemon
         except ImportError:
             jlog.error("Cannot start daemon without jmdaemon package; "
                        "either install it, and restart, or, if you want "
@@ -484,13 +475,8 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True, gui=Fals
         orgport = port
         while True:
             try:
-                if usessl:
-                    reactor.listenSSL(port, dfactory,
-                                  ssl.DefaultOpenSSLContextFactory(
-                                      "./ssl/key.pem", "./ssl/cert.pem"),
-                                     interface=host)
-                else:
-                    reactor.listenTCP(port, dfactory, interface=host)
+                start_daemon(host, port, dfactory, usessl,
+                             './ssl/key.pem', './ssl/cert.pem')
                 jlog.info("Listening on port " + str(port))
                 break
             except Exception:
