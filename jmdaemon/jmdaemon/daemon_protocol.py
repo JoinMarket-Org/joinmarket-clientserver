@@ -13,13 +13,12 @@ from .irc import IRCMessageChannel
 from jmbase.commands import *
 from jmbase import _byteify
 from twisted.protocols import amp
-from twisted.internet import reactor
+from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
 from twisted.python import failure, log
 import json
-import time
 import threading
 import os
 import copy
@@ -598,3 +597,14 @@ class JMDaemonServerProtocolFactory(ServerFactory):
 
     def buildProtocol(self, addr):
         return JMDaemonServerProtocol(self)
+
+
+def start_daemon(host, port, factory, usessl=False, sslkey=None, sslcert=None):
+    if usessl:
+        assert sslkey
+        assert sslcert
+        reactor.listenSSL(
+            port, factory, ssl.DefaultOpenSSLContextFactory(sslkey, sslcert),
+            interface=host)
+    else:
+        reactor.listenTCP(port, factory, interface=host)
