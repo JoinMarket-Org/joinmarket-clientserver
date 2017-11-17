@@ -4,6 +4,7 @@ import logging
 import pprint
 import os
 import time
+import numbers
 from .configure import get_log, jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule
 from .wallet import Wallet, SegwitWallet, estimate_tx_fee
@@ -39,7 +40,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     assert validate_address(destaddr)[0]
     assert isinstance(mixdepth, int)
     assert mixdepth >= 0
-    assert isinstance(amount, int)
+    assert isinstance(amount, numbers.Integral)
     assert amount >=0
     assert isinstance(wallet, Wallet) or isinstance(wallet, SegwitWallet)
 
