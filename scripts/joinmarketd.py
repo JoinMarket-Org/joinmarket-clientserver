@@ -3,7 +3,7 @@ from twisted.internet import reactor, ssl
 from twisted.python.log import startLogging, err
 import jmdaemon
 
-def startup_joinmarketd(port, usessl, finalizer=None, finalizer_args=None):
+def startup_joinmarketd(host, port, usessl, finalizer=None, finalizer_args=None):
     """Start event loop for joinmarket daemon here.
     Args:
     port : port over which to serve the daemon
@@ -12,11 +12,8 @@ def startup_joinmarketd(port, usessl, finalizer=None, finalizer_args=None):
     """
     startLogging(sys.stdout)
     factory = jmdaemon.JMDaemonServerProtocolFactory()
-    if usessl:
-        reactor.listenSSL(port, factory, ssl.DefaultOpenSSLContextFactory(
-                                  "./ssl/key.pem", "./ssl/cert.pem"))
-    else:
-        reactor.listenTCP(port, factory)
+    jmdaemon.start_daemon(host, port, factory, usessl,
+                          './ssl/key.pem', './ssl/cert.pem')
     if finalizer:
         reactor.addSystemEventTrigger("after", "shutdown", finalizer,
                                       finalizer_args)
@@ -32,4 +29,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 2:
         if int(sys.argv[2]) != 0:
             usessl = True
-    startup_joinmarketd(port, usessl)
+    if len(sys.argv) > 3:
+        host = sys.argv[3]
+    else:
+        host = 'localhost'
+    startup_joinmarketd(host, port, usessl)
