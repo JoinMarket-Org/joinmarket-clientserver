@@ -280,7 +280,8 @@ def get_imported_privkey_branch(wallet, m, showprivkey):
     if m in wallet.imported_privkeys:
         entries = []
         for i, privkey in enumerate(wallet.imported_privkeys[m]):
-            addr = btc.privtoaddr(privkey, magicbyte=get_p2sh_vbyte())
+            pub = btc.privkey_to_pubkey(privkey)
+            addr = btc.pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=get_p2sh_vbyte())
             balance = 0.0
             for addrvalue in wallet.unspent.values():
                 if addr == addrvalue['address']:
