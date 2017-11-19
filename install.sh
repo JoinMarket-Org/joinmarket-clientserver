@@ -15,6 +15,15 @@ gpg_verify_sig ()
     gpg --no-default-keyring --keyring "${jm_deps}/keyring.gpg" --verify "$1"
 }
 
+sha256_verify ()
+{
+    if [ "$(uname)" == "Darwin" ]; then
+        shasum -a 256 -c <<<"$1  $2"
+    else
+        sha256sum -c <<<"$1  $2"
+    fi
+}
+
 deb_deps_check ()
 {
     apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
@@ -111,7 +120,7 @@ openssl_install ()
     fi
     pushd openssl
     openssl_get
-    if ! grep $(sha256sum "${openssl_lib_tar}") "${openssl_lib_sha}"; then
+    if ! sha256_verify "${openssl_lib_tar}" "${openssl_lib_sha}"; then
         return 1
     fi
     if [[ -z "${no_gpg_validation}" ]]; then
@@ -121,12 +130,12 @@ openssl_install ()
             return 1
         fi
         if gpg_verify_sig "${openssl_lib_sig}"; then
-            tar xaf "${openssl_lib_tar}"
+            tar -xzf "${openssl_lib_tar}"
         else
             return 1
         fi
     else
-        tar xaf "${openssl_lib_tar}"
+        tar -xzf "${openssl_lib_tar}"
     fi
     pushd "${openssl_version}"
     if openssl_build; then
@@ -189,8 +198,8 @@ libffi_install ()
     fi
     pushd libffi
     curl -L -O "${libffi_url}/${libffi_lib_tar}"
-    if sha256sum -c <<<"${libffi_lib_sha}  ${libffi_lib_tar}"; then
-        tar xaf "${libffi_lib_tar}"
+    if sha256_verify "${libffi_lib_sha}" "${libffi_lib_tar}"; then
+        tar -xzf "${libffi_lib_tar}"
     else
         return 1
     fi
@@ -252,12 +261,12 @@ libsodium_install ()
             return 1
         fi
         if gpg_verify_sig "${sodium_lib_sig}"; then
-            tar xaf "${sodium_lib_tar}"
+            tar -xzf "${sodium_lib_tar}"
         else
             return 1
         fi
     else
-        tar xaf "${sodium_lib_tar}"
+        tar -xzf "${sodium_lib_tar}"
     fi
     pushd "${sodium_version}"
     if libsodium_build; then
