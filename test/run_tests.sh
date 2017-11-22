@@ -49,7 +49,7 @@ run_jm_tests ()
     local success="$?"
     unlink ./joinmarket.cfg
     if read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
-        pkill -15 ${bitcoind_pid} || pkill -9 ${bitcoind_pid}
+        kill -15 ${bitcoind_pid} || kill -9 ${bitcoind_pid}
     fi
     rm -rf "${jm_test_datadir}"
     return ${success:-1}
