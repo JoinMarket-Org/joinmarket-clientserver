@@ -1,20 +1,26 @@
 sudo: required
+os:
+  - linux
+  - osx
 dist: trusty
-language: python
-python:
-  - "2.7_with_system_site_packages"
+addons:
+  apt:
+    sources:
+    - sourceline: 'ppa:bitcoin/bitcoin'
+      key_url: 'http://keyserver.ubuntu.com:11371/pks/lookup?op=get&search=0xD46F45428842CE5E'
+    packages:
+      - bitcoind
 before_install:
-  - sudo apt-add-repository ppa:bitcoin/bitcoin -y
-  - sudo apt-get update -q
-  - sudo apt-get install --no-install-recommends --no-upgrade -qq bitcoind
+  - do_on(){ if [ "$TRAVIS_OS_NAME" = "$1" ]; then shift; $@ ; fi; }
 install:
   - ./install.sh --develop --no-gpg-validation
 before_script:
   - source jmvenv/bin/activate
 script:
-  - ./test/run_tests.sh
+  - do_on linux bitcoind --help | head -1
+  - do_on linux ./test/run_tests.sh
 after_success:
-  - coveralls
+  - do_on linux coveralls
 branches:
  only:
   - master
