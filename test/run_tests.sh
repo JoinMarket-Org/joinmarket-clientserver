@@ -17,7 +17,7 @@ run_jm_tests ()
     curl -L https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz -o miniircd.tar.gz
     rm -rf ./miniircd
     mkdir -p miniircd
-    tar xaf miniircd.tar.gz -C ./miniircd --strip-components=1
+    tar -xzf miniircd.tar.gz -C ./miniircd --strip-components=1
     if ! pip install -r ./requirements-dev.txt; then
         echo "Packages in 'requirements-dev.txt' could not be installed. Exiting."
         return 1
@@ -26,8 +26,8 @@ run_jm_tests ()
         mv ./joinmarket.cfg ./joinmarket.cfg.bak
 		echo "file 'joinmarket.cfg' moved to 'joinmarket.cfg.bak'"
     fi
-    for dir in '/dev/shm' '/tmp' "${jm_source}/test"; do
-        if [[ -d "${dir}" && -r "${dir}" ]]; then
+    for dir in '/dev/shm' '/Volumes/ramdisk' '/tmp' "${jm_source}/test"; do
+        if [[ -d "${dir}" && -r "${dir}" && -w "${dir}" && -x "${dir}" ]]; then
             jm_test_datadir="${dir}/jm_test_home/.bitcoin"
             break
         fi
@@ -49,9 +49,14 @@ run_jm_tests ()
     local success="$?"
     unlink ./joinmarket.cfg
     if read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
-        pkill -15 ${bitcoind_pid} || pkill -9 ${bitcoind_pid}
+        kill -15 ${bitcoind_pid} || kill -9 ${bitcoind_pid}
     fi
-    rm -rf "${jm_test_datadir}"
+    if [[ "${HAS_JOSH_K_SEAL_OF_APPROVAL}" = true ]] && (( ${success} != 0 )); then
+        tail -100 "${jm_test_datadir}/regtest/debug.log"
+        find "${jm_test_datadir}"
+    else
+        rm -rf "${jm_test_datadir}"
+    fi
     return ${success:-1}
 }
 run_jm_tests
