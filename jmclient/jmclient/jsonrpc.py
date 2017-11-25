@@ -74,31 +74,37 @@ class JsonRpc(object):
 
         body = json.dumps(obj)
 
-        try:
-            self.conn.request("POST", "", body, headers)
-            response = self.conn.getresponse()
+        while True:
+            try:
+                self.conn.request("POST", "", body, headers)
+                response = self.conn.getresponse()
 
-            if response.status == 401:
-                self.conn.close()
-                raise JsonRpcConnectionError(
-                        "authentication for JSON-RPC failed")
+                if response.status == 401:
+                    self.conn.close()
+                    raise JsonRpcConnectionError(
+                            "authentication for JSON-RPC failed")
 
-            # All of the codes below are 'fine' from a JSON-RPC point of view.
-            if response.status not in [200, 404, 500]:
-                self.conn.close()
-                raise JsonRpcConnectionError("unknown error in JSON-RPC")
+                # All of the codes below are 'fine' from a JSON-RPC point of view.
+                if response.status not in [200, 404, 500]:
+                    self.conn.close()
+                    raise JsonRpcConnectionError("unknown error in JSON-RPC")
 
-            data = response.read()
+                data = response.read()
 
-            return json.loads(data)
+                return json.loads(data)
 
-        except JsonRpcConnectionError as exc:
-            raise exc
-        except httplib.BadStatusLine:
-            return "CONNFAILURE"
-        except Exception as exc:
-            raise JsonRpcConnectionError("JSON-RPC connection failed. Err:" +
-                                         repr(exc))
+            except JsonRpcConnectionError as exc:
+                raise exc
+            except httplib.BadStatusLine:
+                return "CONNFAILURE"
+            except Exception as exc:
+                if str(exc) == "Connection reset by peer":
+                    self.conn.connect()
+                    continue
+                else:
+                    raise JsonRpcConnectionError("JSON-RPC connection failed. Err:" +
+                                                 repr(exc))
+            break
 
     def call(self, method, params):
         """
