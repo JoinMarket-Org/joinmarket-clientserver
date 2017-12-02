@@ -7,9 +7,12 @@ import os
 import binascii
 import sys
 
-from ConfigParser import SafeConfigParser, NoOptionError
+try:
+    from ConfigParser import SafeConfigParser, NoOptionError
+except:
+    from configparser import SafeConfigParser, NoOptionError
 
-import btc
+from jmclient import btc
 from jmclient.jsonrpc import JsonRpc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
                             set_logging_level)

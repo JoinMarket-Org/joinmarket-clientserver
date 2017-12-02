@@ -1,6 +1,10 @@
-import btc
+from __future__ import print_function
+from jmclient import btc
 import json
-import Queue
+try:
+    import Queue
+except:
+    import queue as Queue
 import os
 import pprint
 import random

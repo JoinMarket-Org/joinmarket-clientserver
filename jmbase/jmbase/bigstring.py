@@ -1,7 +1,7 @@
 try:
-    from cStringIO import StringIO
-except ImportError: #pragma: no cover
-    from StringIO import StringIO #pragma: no cover
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 from itertools import count
 from twisted.protocols import amp
 

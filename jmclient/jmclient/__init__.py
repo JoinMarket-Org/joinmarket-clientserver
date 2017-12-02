@@ -6,7 +6,7 @@ import logging
 #other implementations (like wallet plugins)
 #can optionally include their own, which must
 #be implemented as an interface in btc.py
-from btc import *
+from .btc import *
 
 from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       cheapest_order_choose, weighted_order_choose,

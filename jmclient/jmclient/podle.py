@@ -7,7 +7,7 @@ import hashlib
 import json
 import binascii
 PODLE_COMMIT_FILE = None
-from btc import (multiply, add_pubkeys, getG, podle_PublicKey, podle_PrivateKey,
+from .btc import (multiply, add_pubkeys, getG, podle_PublicKey, podle_PrivateKey,
                  encode, decode, N,
                  podle_PublicKey_class, podle_PrivateKey_class)
 

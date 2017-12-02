@@ -5,7 +5,7 @@ messaging protocol (*not* Joinmarket p2p protocol).
 Used for AMP asynchronous messages.
 """
 from twisted.protocols.amp import Integer, String, Unicode, Boolean, Command
-from bigstring import BigString
+from .bigstring import BigString
 
 class DaemonNotReady(Exception):
     pass

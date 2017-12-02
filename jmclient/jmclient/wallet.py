@@ -6,10 +6,13 @@ import sys
 import datetime
 from decimal import Decimal
 from mnemonic import Mnemonic
-from ConfigParser import NoSectionError
+try:
+    from ConfigParser import NoOptionError
+except:
+    from configparser import NoOptionError
 from getpass import getpass
 
-import btc
+from jmclient import btc
 from jmclient.slowaes import encryptData, decryptData
 from jmclient.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
 from jmclient.configure import jm_single, get_network, get_p2pk_vbyte, get_p2sh_vbyte

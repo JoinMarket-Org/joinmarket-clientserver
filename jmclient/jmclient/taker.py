@@ -8,7 +8,7 @@ import sys
 import time
 import copy
 
-import btc
+from jmclient import btc
 from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,

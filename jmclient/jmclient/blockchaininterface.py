@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import BaseHTTPServer
 import abc
 import ast
 import json
@@ -15,7 +14,7 @@ import binascii
 from decimal import Decimal
 from twisted.internet import reactor, task
 
-import btc
+from jmclient import btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import get_p2pk_vbyte, jm_single

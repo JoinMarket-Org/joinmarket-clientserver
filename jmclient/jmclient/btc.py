@@ -193,7 +193,7 @@ except ImportError:
         try:
             verified = ecdsa_pub.verify_digest(sig, txforsig,
                                        sigdecode = sigdecode_der)
-        except BadSignatureError, BadDigestError:
+        except (BadSignatureError, BadDigestError):
             return False
         return True
     

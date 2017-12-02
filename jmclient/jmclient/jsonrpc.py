@@ -21,7 +21,10 @@ from __future__ import absolute_import, print_function
 # SOFTWARE.
 
 import base64
-import httplib
+try:
+    import http.client as httplib
+except ImportError:
+    import httplib
 import json
 
 
