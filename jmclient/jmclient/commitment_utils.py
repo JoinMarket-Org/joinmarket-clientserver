@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import sys, os
-import jmclient.btc as btc
+from jmclient import btc
 from jmclient import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
 
 def quit(parser, errmsg): #pragma: no cover

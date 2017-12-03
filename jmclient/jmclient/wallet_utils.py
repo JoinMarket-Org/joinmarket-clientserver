@@ -9,12 +9,12 @@ from datetime import datetime
 from mnemonic import Mnemonic
 from optparse import OptionParser
 import getpass
+from jmclient import btc
 from jmclient import (get_network, Wallet, Bip39Wallet, podle,
                       encryptData, get_p2sh_vbyte, get_p2pk_vbyte, jm_single,
                       mn_decode, mn_encode, BitcoinCoreInterface,
                       JsonRpcError, sync_wallet, WalletError, SegwitWallet)
 from jmbase.support import get_password
-import jmclient.btc as btc
 
 def get_wallettool_parser():
     description = (
