@@ -63,6 +63,53 @@ Then:
 If you have installed this "full" version of the client, you can use it with the
 command line scripts as explained in the [scripts README](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/scripts).
 
+### Installation on macOS
+
+1) Install Apple Command Line Tools
+
+	xcode-select --install
+	
+2) Install Homebrew
+
+	/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+	
+3) Install PyQt4
+
+	brew install cartr/qt4/pyqt@4 libsodium
+	
+4) Create virtualenv "jmvenv"
+
+	export PATH=/usr/local/opt/python/libexec/bin:$PATH
+	pip install virtualenv
+	virtualenv --python=/usr/local/opt/python/libexec/bin/python --system-site-packages jmvenv
+	source jmvenv/bin/activate
+	
+At this point you should see `(jmvenv)` at the beginning of your command prompt.
+
+5) Clone the joinmarket-clientserver repo. Follow 5a for segwit and 5b for non-segwit
+
+5a) Segwit
+
+	git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
+	cd joinmarket-clientserver
+	git checkout v0.3.2
+
+5b) Non-segwit
+
+	git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
+	cd joinmarket-clientserver
+	git checkout 6ad114d
+	
+6) Setup joinmarket-qt
+
+	python setupall.py --daemon
+	python setupall.py --client-bitcoin
+	
+7) Start joinmarket-qt
+
+	cd scripts
+	python joinmarket-qt.py
+
 Alternative/custom installation:
 
 #### Installing the daemon separately
