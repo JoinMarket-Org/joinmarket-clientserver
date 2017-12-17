@@ -22,5 +22,5 @@ script:
 after_success:
   - do_on linux coveralls
 branches:
- only:
-  - master
+ except:
+  - py3
