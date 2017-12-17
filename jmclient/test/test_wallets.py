@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import print_function, absolute_import
 '''Wallet functionality tests.'''
 
 import sys
@@ -11,7 +11,10 @@ import subprocess
 import datetime
 import unittest
 from mnemonic import Mnemonic
-from ConfigParser import SafeConfigParser, NoSectionError
+try:
+    from ConfigParser import SafeConfigParser, NoOptionError
+except:
+    from configparser import SafeConfigParser, NoOptionError
 from decimal import Decimal
 from commontest import (interact, make_wallets,
                         make_sign_and_push, DummyBlockchainInterface)

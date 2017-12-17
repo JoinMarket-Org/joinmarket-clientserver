@@ -621,7 +621,7 @@ def encryptData(key, data, mode=AESModeOfOperation.modeOfOperation["CBC"]):
     vector.
 
     """
-    key = map(ord, key)
+    key = list(map(ord, key))
     if mode == AESModeOfOperation.modeOfOperation["CBC"]:
         data = append_PKCS7_padding(data)
     keysize = len(key)
@@ -633,7 +633,7 @@ def encryptData(key, data, mode=AESModeOfOperation.modeOfOperation["CBC"]):
     # With padding, the original length does not need to be known. It's a bad
     # idea to store the original message length.
     # prepend the iv.
-    return ''.join(map(chr, iv)) + ''.join(map(chr, ciph))
+    return ''.join(list(map(chr, iv))) + ''.join(list(map(chr, ciph)))
 
 
 def decryptData(key, data, mode=AESModeOfOperation.modeOfOperation["CBC"]):
@@ -646,12 +646,12 @@ def decryptData(key, data, mode=AESModeOfOperation.modeOfOperation["CBC"]):
 
     """
 
-    key = map(ord, key)
+    key = list(map(ord, key))
     keysize = len(key)
     assert keysize in AES.keySize.values(), 'invalid key size: %s' % keysize
     # iv is first 16 bytes
-    iv = map(ord, data[:16])
-    data = map(ord, data[16:])
+    iv = list(map(ord, data[:16]))
+    data = list(map(ord, data[16:]))
     moo = AESModeOfOperation()
     decr = moo.decrypt(data, None, mode, key, keysize, iv)
     if mode == AESModeOfOperation.modeOfOperation["CBC"]:

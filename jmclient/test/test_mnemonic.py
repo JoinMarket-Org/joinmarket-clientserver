@@ -1,3 +1,4 @@
+from __future__ import print_function
 from jmclient import old_mnemonic
 
 import pytest
@@ -43,12 +44,12 @@ def test_old_mnemonic(seedphrase, key, valid):
             #Already known error condition: an incorrectly short
             #word list will NOT throw an error; this is handled by calling code
             if len(seedphrase) < 12:
-                print "For known failure case of seedphrase less than 12: "
-                print old_mnemonic.mn_decode(seedphrase)
+                print("For known failure case of seedphrase less than 12: ")
+                print(old_mnemonic.mn_decode(seedphrase))
             else:
                 with pytest.raises(Exception) as e_info:
                     dummy = old_mnemonic.mn_decode(seedphrase)
-                    print "Got this return value from mn_decode: " + str(dummy)
+                    print("Got this return value from mn_decode: " + str(dummy))
 
 
 

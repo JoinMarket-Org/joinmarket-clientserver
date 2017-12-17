@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import print_function, absolute_import
 '''Some helper functions for testing'''
 
 import sys
@@ -160,7 +160,7 @@ def make_sign_and_push(ins_full,
             priv = binascii.unhexlify(priv)
         tx = btc.sign(tx, index, priv, hashcode=hashcode)
     #pushtx returns False on any error
-    print btc.deserialize(tx)
+    print(btc.deserialize(tx))
     push_succeed = jm_single().bc_interface.pushtx(tx)
     if push_succeed:
         return btc.txhash(tx)

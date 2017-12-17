@@ -1,3 +1,4 @@
+from __future__ import print_function
 from jmclient.configure import validate_address, load_program_config
 from jmclient import jm_single
 import json
@@ -33,7 +34,7 @@ def test_b58_valid_addresses():
             else:
                 jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
             #if using py.test -s ; sanity check to see what's actually being tested
-            print 'testing this address: ' + addr
+            print('testing this address: ' + addr)
             res, message = validate_address(addr)
             assert res == True, "Incorrectly failed to validate address: " + addr + " with message: " + message
 

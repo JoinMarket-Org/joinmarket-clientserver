@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import print_function, absolute_import
 '''Test of unusual transaction types creation and push to
 network to check validity.'''
 
@@ -173,7 +173,7 @@ def test_create_sighash_txs(setup_tx_creation):
         sync_wallet(wallet, fast=True)
         amount = 350000000
         ins_full = wallet.select_utxos(0, amount)
-        print "using hashcode: " + str(sighash)
+        print("using hashcode: " + str(sighash))
         txid = make_sign_and_push(ins_full, wallet, amount, hashcode=sighash)
         assert txid
 
