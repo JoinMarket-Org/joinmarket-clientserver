@@ -20,7 +20,7 @@ Once you've downloaded this repo, either as a zip file, and extracted it, or via
 
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 
-Alternative to this "quickstart": follow the [install guide](docs/INSTALL.md).
+Alternative to this "quickstart" (including for MacOS): follow the [install guide](docs/INSTALL.md).
 
 ### Upgrade for segwit
 
