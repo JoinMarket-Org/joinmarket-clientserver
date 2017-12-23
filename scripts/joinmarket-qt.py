@@ -893,7 +893,7 @@ class SpendTab(QWidget):
         self.tumbler_destaddrs = None
 
     def validateSettings(self):
-        valid, errmsg = validate_address(self.widgets[0][1].text())
+        valid, errmsg = validate_address(str(self.widgets[0][1].text()))
         if not valid:
             JMQtMessageBox(self, errmsg, mbtype='warn', title="Error")
             return False

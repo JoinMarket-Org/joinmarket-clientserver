@@ -267,6 +267,17 @@ def get_p2pk_vbyte():
 
 def validate_address(addr):
     try:
+        assert len(addr) > 2
+        if addr[:2].lower() in ['bc', 'tb']:
+            #Enforce testnet/mainnet per config
+            if get_network() == "testnet":
+                hrpreq = 'tb'
+            else:
+                hrpreq = 'bc'
+            if btc.bech32addr_decode(hrpreq, addr)[1]:
+                return True, 'address validated'
+            return False, 'Invalid bech32 address'
+        #Not bech32; assume b58 from here
         ver = btc.get_version_byte(addr)
     except AssertionError:
         return False, 'Checksum wrong. Typo in address?'
