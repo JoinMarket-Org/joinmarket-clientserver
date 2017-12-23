@@ -58,8 +58,8 @@ class JsonRpc(object):
         self.host = host
         self.port = port
         self.conn = httplib.HTTPConnection(self.host, self.port)
-        self.authstr = "%s:%s" % (user, password)
-
+        self.authstr = bytes("%s:%s" % (user, password), 'utf-8')
+        print("Authstr: ", self.authstr)
         self.queryId = 1
 
     def queryHTTP(self, obj):

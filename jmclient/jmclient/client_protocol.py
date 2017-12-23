@@ -232,7 +232,7 @@ class JMMakerClientProtocol(JMClientProtocol):
     def unconfirm_callback(self, txd, txid):
         #find the offer for this tx
         offerinfo = None
-        for k,v in self.finalized_offers.iteritems():
+        for k,v in self.finalized_offers.items():
             #Tx considered defined by its output set
             if v["txd"]["outs"] == txd["outs"]:
                 offerinfo = v
@@ -255,7 +255,7 @@ class JMMakerClientProtocol(JMClientProtocol):
     def confirm_callback(self, txd, txid, confirmations):
         #find the offer for this tx
         offerinfo = None
-        for k,v in self.finalized_offers.iteritems():
+        for k,v in self.finalized_offers.items():
             #Tx considered defined by its output set
             if v["txd"]["outs"] == txd["outs"]:
                 offerinfo = v

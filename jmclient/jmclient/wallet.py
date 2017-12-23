@@ -119,7 +119,7 @@ class AbstractWallet(object):
         utxo_list = self.get_utxos_by_mixdepth()[mixdepth]
         unspent = [{'utxo': utxo,
                     'value': addrval['value']}
-                   for utxo, addrval in utxo_list.iteritems() if utxo not in utxo_filter]
+                   for utxo, addrval in utxo_list.items() if utxo not in utxo_filter]
         inputs = self.utxo_selector(unspent, amount)
         log.debug('for mixdepth={} amount={} selected:'.format(
             mixdepth, amount))
@@ -132,7 +132,7 @@ class AbstractWallet(object):
         mix_balance = {}
         for m in range(self.max_mix_depth):
             mix_balance[m] = 0
-        for mixdepth, utxos in self.get_utxos_by_mixdepth(verbose).iteritems():
+        for mixdepth, utxos in self.get_utxos_by_mixdepth(verbose).items():
             mix_balance[mixdepth] = sum(
                     [addrval['value'] for addrval in utxos.values()])
         return mix_balance
@@ -413,7 +413,7 @@ class Wallet(AbstractWallet):
         mix_utxo_list = {}
         for m in range(self.max_mix_depth):
             mix_utxo_list[m] = {}
-        for utxo, addrvalue in self.unspent.iteritems():
+        for utxo, addrvalue in self.unspent.items():
             mixdepth = self.addr_cache[addrvalue['address']][0]
             if mixdepth not in mix_utxo_list:
                 mix_utxo_list[mixdepth] = {}

@@ -19,7 +19,7 @@ def test_aes():
           92]
     for ks in [16,24,32]:
         for mode in ["CFB", "CBC", "OFB"]:
-            cypherkey = list(map(ord, os.urandom(ks)))
+            cypherkey = list(os.urandom(ks))
             moo = sa.AESModeOfOperation()
             mode, orig_len, ciph = moo.encrypt(cleartext, moo.modeOfOperation[mode],
                                                cypherkey, ks,

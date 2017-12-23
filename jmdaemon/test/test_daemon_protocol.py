@@ -257,7 +257,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
                           "!push abcd abc def", "3", "4",
                           str(tmpfo.keys()[0]), 6, 7, self.mcc.mchannels[0].hostid)         
         #send "valid" onpubkey, onioauth messages
-        for k, v in tmpfo.iteritems():
+        for k, v in tmpfo.items():
             reactor.callLater(1, self.on_pubkey, k, dummypub)
             reactor.callLater(2, self.on_ioauth, k, ['a', 'b'], "auth_pub",
                               "cj_addr", "change_addr", "btc_sig")

@@ -455,7 +455,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                         used_indices[md][fc] = []
                     for i in range(j*BATCH_SIZE, (j+1)*BATCH_SIZE):
                         local_addr_cache[(md, fc, i)] = wallet.get_addr(md, fc, i)
-            batch_found_addresses = [x for x in local_addr_cache.iteritems(
+            batch_found_addresses = [x for x in local_addr_cache.items(
                 ) if x[1] in used_address_dict.keys()]
             for x in batch_found_addresses:
                 md, fc, i = x[0]

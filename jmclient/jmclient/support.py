@@ -7,7 +7,7 @@ import pprint
 import random
 from jmbase.support import get_log
 from decimal import Decimal
-
+from functools import reduce
 from math import exp
 
 ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
@@ -38,7 +38,7 @@ def rand_pow_array(power, n):
     # for basis of formula, see: http://mathworld.wolfram.com/RandomNumber.html
     return [y**(1.0 / power)
             for y in [x * 0.0001 for x in random.sample(
-                xrange(10000), n)]]
+                range(10000), n)]]
 
 
 def rand_weighted_choice(n, p_arr):
@@ -53,7 +53,7 @@ def rand_weighted_choice(n, p_arr):
         raise ValueError("Sum of probabilities must be 1")
     if len(p_arr) != n:
         raise ValueError("Need: " + str(n) + " probabilities.")
-    cum_pr = [sum(p_arr[:i + 1]) for i in xrange(len(p_arr))]
+    cum_pr = [sum(p_arr[:i + 1]) for i in range(len(p_arr))]
     r = random.random()
     return sorted(cum_pr + [r]).index(r)
 

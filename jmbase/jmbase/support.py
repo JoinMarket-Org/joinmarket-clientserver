@@ -49,7 +49,7 @@ def set_logging_level(level):
     consoleHandler.setLevel(level)
 
 def chunks(d, n):
-    return [d[x:x + n] for x in xrange(0, len(d), n)]
+    return [d[x:x + n] for x in range(0, len(d), n)]
 
 def get_password(msg): #pragma: no cover
     return getpass(msg)
@@ -58,7 +58,7 @@ def debug_dump_object(obj, skip_fields=None):
     if skip_fields is None:
         skip_fields = []
     log.debug('Class debug dump, name:' + obj.__class__.__name__)
-    for k, v in obj.__dict__.iteritems():
+    for k, v in obj.__dict__.items():
         if k in skip_fields:
             continue
         if k == 'password' or k == 'given_password':
@@ -84,7 +84,7 @@ def _byteify(data, ignore_dicts = False):
     if isinstance(data, dict) and not ignore_dicts:
         return {
             _byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True)
-            for key, value in data.iteritems()
+            for key, value in data.items()
         }
     # if it's anything else, return it in its original form
     return data

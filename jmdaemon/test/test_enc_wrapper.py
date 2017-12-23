@@ -14,9 +14,9 @@ from jmdaemon import (init_keypair, get_pubkey, init_pubkey, as_init_encryption,
                              ("Attack at dawn", "Not tonight Josephine!", 5),
                              # long base64 encoded
                              (base64.b64encode(''.join(random.choice(
-                                 string.ascii_letters) for _ in xrange(5000))),
+                                 string.ascii_letters) for _ in range(5000))),
                               base64.b64encode(''.join(random.choice(
-                                  string.ascii_letters) for _ in xrange(5000))),
+                                  string.ascii_letters) for _ in range(5000))),
                               5,),
                              # large number of messages on the same connection
                              ('rand', 'rand', 40000),

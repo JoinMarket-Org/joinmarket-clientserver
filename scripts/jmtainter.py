@@ -123,7 +123,7 @@ def get_privkey_amount_from_utxo(wallet, utxo):
     the corresponding private key and amount controlled
     in satoshis.
     """
-    for k, v in wallet.unspent.iteritems():
+    for k, v in wallet.unspent.items():
         if k == utxo:
             print("Found utxo, its value is: ", v['value'])
             return wallet.get_key_from_addr(v['address']), v['value']

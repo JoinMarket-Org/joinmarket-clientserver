@@ -190,13 +190,13 @@ def main():
             break
         sync_wallet(wallet, fast=options.fastsync)
         unsp = {}
-        for u, av in wallet.unspent.iteritems():
+        for u, av in wallet.unspent.items():
                     addr = av['address']
                     key = wallet.get_key_from_addr(addr)
                     wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
                     unsp[u] = {'address': av['address'],
                                'value': av['value'], 'privkey': wifkey}
-        for u, pva  in unsp.iteritems():
+        for u, pva  in unsp.items():
             utxo_data.append((u, pva['privkey']))
     elif options.in_file:
         with open(options.in_file, "rb") as f:
@@ -218,7 +218,7 @@ def main():
             except:
                 print "Failed to read json from " + options.in_json
                 sys.exit(0)
-        for u, pva in utxo_json.iteritems():
+        for u, pva in utxo_json.items():
             utxo_data.append((u, pva['privkey']))
     elif len(args) == 1:
         u = args[0]

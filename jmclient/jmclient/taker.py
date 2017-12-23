@@ -273,7 +273,7 @@ class Taker(object):
             return (False, "User aborted")
         rejected_counterparties = []
         #Enough data, but need to authorize against the btc pubkey first.
-        for nick, nickdata in ioauth_data.iteritems():
+        for nick, nickdata in ioauth_data.items():
             utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
             if not self.auth_counterparty(btc_sig, auth_pub, maker_pk):
                 jlog.debug(
@@ -286,7 +286,7 @@ class Taker(object):
 
         self.maker_utxo_data = {}
 
-        for nick, nickdata in ioauth_data.iteritems():
+        for nick, nickdata in ioauth_data.items():
             utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
             self.utxos[nick] = utxo_list
             utxo_data = jm_single().bc_interface.query_utxo_set(self.utxos[
@@ -350,7 +350,7 @@ class Taker(object):
         self.taker_info_callback("INFO", "Got all parts, enough to build a tx")
         self.nonrespondants = list(self.maker_utxo_data.keys())
 
-        my_total_in = sum([va['value'] for u, va in self.input_utxos.iteritems()
+        my_total_in = sum([va['value'] for u, va in self.input_utxos.items()
                           ])
         if self.my_change_addr:
             #Estimate fee per choice of next/3/6 blocks targetting.
@@ -453,7 +453,7 @@ class Taker(object):
             1] for x in utxo.values()])
 
         # insert signatures
-        for i, u in utxo.iteritems():
+        for i, u in utxo.items():
             if utxo_data[i] is None:
                 continue
             #Check if the sender serialize_scripted the witness
@@ -547,7 +547,7 @@ class Taker(object):
             new_utxos, too_old, too_small = filter_by_coin_age_amt(utxos.keys(),
                                                                    age, amt)
             new_utxos_dict = {k: v for k, v in utxos.items() if k in new_utxos}
-            for k, v in new_utxos_dict.iteritems():
+            for k, v in new_utxos_dict.items():
                 addr = v['address']
                 priv = self.wallet.get_key_from_addr(addr)
                 if priv:  #can be null from create-unsigned

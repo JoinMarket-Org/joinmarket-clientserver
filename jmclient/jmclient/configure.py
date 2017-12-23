@@ -296,7 +296,7 @@ def donation_address(reusable_donation_pubkey=None): #pragma: no cover
     return sender_address, sign_k
 
 def load_program_config(config_path=None, bs=None):
-    global_singleton.config.readfp(io.BytesIO(defaultconfig))
+    global_singleton.config.read_string(defaultconfig)
     if not config_path:
         config_path = os.getcwd()
     global_singleton.config_location = os.path.join(
@@ -321,7 +321,7 @@ def load_program_config(config_path=None, bs=None):
             raise Exception(
                 "Config file does not contain the required section: " + s)
     # then check for specific options
-    for k, v in required_options.iteritems(): #pragma: no cover
+    for k, v in required_options.items(): #pragma: no cover
         for o in v:
             if o not in global_singleton.config.options(k):
                 raise Exception(

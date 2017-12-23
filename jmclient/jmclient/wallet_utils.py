@@ -301,7 +301,7 @@ def get_imported_privkey_branch(wallet, m, showprivkey):
 def wallet_showutxos(wallet, showprivkey):
     unsp = {}
     max_tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
-    for u, av in wallet.unspent.iteritems():
+    for u, av in wallet.unspent.items():
         key = wallet.get_key_from_addr(av['address'])
         tries = podle.get_podle_tries(u, key, max_tries)
         tries_remaining = max(0, max_tries - tries)
@@ -313,7 +313,7 @@ def wallet_showutxos(wallet, showprivkey):
             unsp[u]['privkey'] = wifkey
 
     used_commitments, external_commitments = podle.get_podle_commitments()
-    for u, ec in external_commitments.iteritems():
+    for u, ec in external_commitments.items():
         tries = podle.get_podle_tries(utxo=u, max_tries=max_tries,
                                           external=True)
         tries_remaining = max(0, max_tries - tries)
@@ -660,7 +660,7 @@ def wallet_fetch_history(wallet, options):
             amount = cj_amount
             delta_balance = out_value - our_input_value
             mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
-            cj_addr = list(set([a for a,v in output_addr_values.iteritems()
+            cj_addr = list(set([a for a,v in output_addr_values.items()
                 if v == cj_amount]).intersection(our_output_addrs))[0]
             mixdepth_dst = wallet_addr_cache[cj_addr][0]
         else:

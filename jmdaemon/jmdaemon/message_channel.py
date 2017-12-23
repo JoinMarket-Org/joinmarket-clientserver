@@ -318,7 +318,7 @@ class MessageChannelCollection(object):
         """
         for mc in self.available_channels():
             filtered_nick_order_dict = {k: v
-                                        for k, v in nick_order_dict.iteritems()
+                                        for k, v in nick_order_dict.items()
                                         if mc == self.active_channels[k]}
             mc.fill_orders(filtered_nick_order_dict, cj_amount, taker_pubkey,
                            commitment)
@@ -354,7 +354,7 @@ class MessageChannelCollection(object):
                 tx_nick_sets[self.active_channels[nick]] = [nick]
             else:
                 tx_nick_sets[self.active_channels[nick]].append(nick)
-        for mc, nl in tx_nick_sets.iteritems():
+        for mc, nl in tx_nick_sets.items():
             self.prepare_send_tx(mc, nl, txhex)
 
     def prepare_send_tx(self, mc, nick_list, txhex):
@@ -788,7 +788,7 @@ class MessageChannel(object):
 
     # Taker callbacks
     def fill_orders(self, nick_order_dict, cj_amount, taker_pubkey, commitment):
-        for c, order in nick_order_dict.iteritems():
+        for c, order in nick_order_dict.items():
             msg = str(order['oid']) + ' ' + str(cj_amount) + ' ' + taker_pubkey
             msg += ' ' + commitment
             self.privmsg(c, 'fill', msg)

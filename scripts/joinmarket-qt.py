@@ -714,7 +714,7 @@ class SpendTab(QWidget):
         mbinfo.append(" ")
         mbinfo.append("Counterparties chosen:")
         mbinfo.append('Name,     Order id, Coinjoin fee (sat.)')
-        for k, o in offers.iteritems():
+        for k, o in offers.items():
             if o['ordertype'] in ['swreloffer', 'reloffer']:
                 display_fee = int(self.taker.cjamount *
                                   float(o['cjfee'])) - int(o['txfee'])

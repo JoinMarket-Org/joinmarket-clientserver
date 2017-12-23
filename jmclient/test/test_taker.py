@@ -68,7 +68,7 @@ class DummyWallet(AbstractWallet):
         """
         for p in privs:
             addrs[p] = bitcoin.privkey_to_address(p, False, magicbyte=0x6f)
-        for p, a in addrs.iteritems():
+        for p, a in addrs.items():
             if a == addr:
                 return binascii.hexlify(p)
         raise ValueError("No such keypair")
@@ -285,7 +285,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         return clean_up()        
     if schedule[0][1] == 199599800:
         #need to force negative fees to make this feasible
-        for k, v in taker.orderbook.iteritems():
+        for k, v in taker.orderbook.items():
             v['cjfee'] = '-0.002'
         #            change_amount = (total_input - self.cjamount -
         #                     self.orderbook[nick]['txfee'] + real_cjfee)
@@ -304,7 +304,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         #TODO note this test is not adequate, because the code is not;
         #the code does not *DO* anything if a condition is unexpected.
         taker.input_utxos = copy.deepcopy(t_utxos_by_mixdepth)[0]
-        for k,v in taker.input_utxos.iteritems():
+        for k,v in taker.input_utxos.items():
             v["value"] = int(0.999805228 * v["value"])
         res = taker.receive_utxos(maker_response)
         assert res[0]

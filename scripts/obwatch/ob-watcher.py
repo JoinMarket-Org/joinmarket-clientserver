@@ -305,7 +305,7 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
             replacements = {}
             orderbook_fmt = json.dumps(self.create_orderbook_obj())
         orderbook_page = orderbook_fmt
-        for key, rep in replacements.iteritems():
+        for key, rep in replacements.items():
             orderbook_page = orderbook_page.replace(key, rep)
         self.send_response(200)
         if self.path.endswith('.json'):

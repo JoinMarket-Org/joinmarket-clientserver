@@ -131,7 +131,7 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     jm_single().bc_interface.sync_wallet(wallet, fast=True)
     other_ins = {}
     ctr = 0
-    for k, v in wallet.unspent.iteritems():
+    for k, v in wallet.unspent.items():
         #only extract as many non-segwit utxos as we need;
         #doesn't matter which they are
         if ctr == len(o_ins):
