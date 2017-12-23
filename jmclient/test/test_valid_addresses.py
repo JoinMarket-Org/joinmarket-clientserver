@@ -1,3 +1,4 @@
+from __future__ import print_function
 from jmclient.configure import validate_address, load_program_config
 from jmclient import jm_single
 import json
@@ -33,10 +34,44 @@ def test_b58_valid_addresses():
             else:
                 jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
             #if using py.test -s ; sanity check to see what's actually being tested
-            print 'testing this address: ' + addr
+            print('testing this address: ', addr)
             res, message = validate_address(addr)
             assert res == True, "Incorrectly failed to validate address: " + addr + " with message: " + message
+    jm_single().config.set("BLOCKCHAIN", "network", "testnet")
 
+def test_valid_bech32_addresses():
+    valids = ["BC1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KV8F3T4",
+    "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7",
+    "bc1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k7grplx",
+    "BC1SW50QA3JX3S",
+    "bc1zw508d6qejxtdg4y5r3zarvaryvg6kdaj",
+    "tb1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesrxh6hy"]
+    for va in valids:
+        print("Testing this address: ", va)
+        if va.lower()[:2] == "bc":
+            jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
+        else:
+            jm_single().config.set("BLOCKCHAIN", "network", "testnet")
+        res, message = validate_address(va)
+        assert res == True, "Incorrect failed to validate address: " + va + " with message: " + message
+    jm_single().config.set("BLOCKCHAIN", "network", "testnet")
+
+def test_invalid_bech32_addresses():
+    invalids = [
+    "tc1qw508d6qejxtdg4y5r3zarvary0c5xw7kg3g4ty",
+    "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t5",
+    "BC13W508D6QEJXTDG4Y5R3ZARVARY0C5XW7KN40WF2",
+    "bc1rw5uspcuh",
+    "bc10w508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7kw5rljs90",
+    "BC1QR508D6QEJXTDG4Y5R3ZARVARYV98GJ9P",
+    "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sL5k7",
+    "bc1zw508d6qejxtdg4y5r3zarvaryvqyzf3du",
+    "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv",
+    "bc1gmk9yu"]
+    for iva in invalids:
+        print("Testing this address: ", iva)
+        res, message = validate_address(iva)
+        assert res == False, "Incorrectly validated address: " + iva
 
 @pytest.fixture(scope="module")
 def setup_addresses():

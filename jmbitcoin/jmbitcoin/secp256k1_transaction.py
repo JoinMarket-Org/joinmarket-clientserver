@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import binascii, re, json, copy, sys
 from jmbitcoin.secp256k1_main import *
+from jmbitcoin.bech32 import *
 from _functools import reduce
 import os
 
@@ -333,10 +334,26 @@ def mk_pubkey_script(addr):
 def mk_scripthash_script(addr):
     return 'a914' + b58check_to_hex(addr) + '87'
 
+def segwit_scriptpubkey(witver, witprog):
+    """Construct a Segwit scriptPubKey for a given witness program."""
+    if sys.version_info >= (3, 0):
+        x = bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
+    else:
+        x = chr(witver + 0x50) if witver else '\x00'
+        x += chr(len(witprog))
+        x += bytearray(witprog)
+    return x
+
+def mk_native_segwit_script(addr):
+    hrp = addr[:2]
+    ver, prog =  bech32addr_decode(hrp, addr)
+    scriptpubkey = segwit_scriptpubkey(ver, prog)
+    return binascii.hexlify(scriptpubkey)
 # Address representation to output script
 
-
 def address_to_script(addr):
+    if addr[:2] in ['bc', 'tb']:
+        return mk_native_segwit_script(addr)
     if addr[0] == '3' or addr[0] == '2':
         return mk_scripthash_script(addr)
     else:
@@ -350,9 +367,23 @@ def is_p2pkh_script(script):
         return True
     return False
 
-def script_to_address(script, vbyte=0):
+def is_segwit_native_script(script):
+    """Is scriptPubkey of form P2WPKH or P2WSH"""
+    if script[:2] in [b'\x00\x14', b'\x00\x20']:
+        return True
+    return False
+
+def script_to_address(script, vbyte=0, witver=0):
     if re.match('^[0-9a-fA-F]*$', script):
         script = binascii.unhexlify(script)
+    if is_segwit_native_script(script):
+        #hrp interpreted from the vbyte entry, TODO this should be cleaner.
+        if vbyte in [0, 5]:
+            hrp = 'bc'
+        else:
+            hrp = 'tb'
+        return bech32addr_encode(hrp=hrp, witver=witver,
+                                 witprog=[ord(x) for x in script[2:]])
     if is_p2pkh_script(script):
         return bin_to_b58check(script[3:-2], vbyte)  # pubkey hash addresses
     else:

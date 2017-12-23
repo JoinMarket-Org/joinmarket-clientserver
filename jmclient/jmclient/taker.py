@@ -655,13 +655,20 @@ class Taker(object):
         jlog.debug('\n' + tx)
         self.txid = btc.txhash(tx)
         jlog.info('txid = ' + self.txid)
+        #If we are sending to a bech32 address, in case of sweep, will
+        #need to use that bech32 for address import, which requires
+        #converting to script (Core does not allow import of bech32)
+        if self.my_cj_addr.lower()[:2] in ['bc', 'tb']:
+            notify_addr = btc.address_to_script(self.my_cj_addr)
+        else:
+            notify_addr = self.my_cj_addr
         #add the txnotify callbacks *before* pushing in case the
         #walletnotify is triggered before the notify callbacks are set up;
         #this does leave a dangling notify callback if the push fails, but
         #that doesn't cause problems.
         jm_single().bc_interface.add_tx_notify(self.latest_tx,
                     self.unconfirm_callback, self.confirm_callback,
-                    self.my_cj_addr, vb=get_p2sh_vbyte())
+                    notify_addr, vb=get_p2sh_vbyte())
         tx_broadcast = jm_single().config.get('POLICY', 'tx_broadcast')
         nick_to_use = None
         if tx_broadcast == 'self':

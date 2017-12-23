@@ -94,9 +94,14 @@ class BlockchainInterface(object):
             one_addr_imported = False
             for outs in txd['outs']:
                 addr = btc.script_to_address(outs['script'], vb)
-                if self.rpc('getaccount', [addr]) != '':
-                    one_addr_imported = True
-                    break
+                try:
+                    if self.rpc('getaccount', [addr]) != '':
+                        one_addr_imported = True
+                        break
+                except JsonRpcError as e:
+                    log.debug("Failed to getaccount for address: " + addr)
+                    log.debug("This is normal for bech32 addresses.")
+                    continue
             if not one_addr_imported:
                 self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
 
