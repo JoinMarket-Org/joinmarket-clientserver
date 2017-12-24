@@ -9,17 +9,14 @@ can spread to other outputs included.
 This is a tool for Joinmarket wallets specifically.
 """
 import binascii
-import os
-import sys
-import random
 from optparse import OptionParser
 from pprint import pformat
 import jmbitcoin as btc
-from jmclient import (load_program_config, validate_address, jm_single,
-                      WalletError, sync_wallet, RegtestBitcoinCoreInterface,
-                      estimate_tx_fee, SegwitWallet, get_p2pk_vbyte,
-                      get_p2sh_vbyte, get_wallet_cls)
-from jmbase.support import get_password
+from jmclient import (
+    load_program_config, validate_address, jm_single, WalletError, sync_wallet,
+    RegtestBitcoinCoreInterface, estimate_tx_fee, get_p2pk_vbyte,
+    get_p2sh_vbyte, open_test_wallet_maybe, get_wallet_path)
+
 
 def get_parser():
     parser = OptionParser(
@@ -79,20 +76,10 @@ def is_utxo(utxo):
     return True
 
 def cli_get_wallet(wallet_name, sync=True):
-    if not os.path.exists(os.path.join('wallets', wallet_name)):
-        wallet = get_wallet_cls()(wallet_name, None, max_mix_depth=options.amtmixdepths)
-    else:
-        while True:
-            try:
-                pwd = get_password("Enter wallet decryption passphrase: ")
-                wallet = get_wallet_cls()(wallet_name, pwd, max_mix_depth=options.amtmixdepths)
-            except WalletError:
-                print("Wrong password, try again.")
-                continue
-            except Exception as e:
-                print("Failed to load wallet, error message: " + repr(e))
-                sys.exit(0)
-            break
+    wallet_path = get_wallet_path(wallet_name, None)
+    wallet = open_test_wallet_maybe(
+        wallet_path, wallet_name, options.amtmixdepths, gap_limit=options.gaplimit)
+
     if jm_single().config.get("BLOCKCHAIN",
                               "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"

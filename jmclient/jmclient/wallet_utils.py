@@ -870,7 +870,8 @@ def open_test_wallet_maybe(path, seed, max_mixdepth, **kwargs):
     return open_wallet(path, **kwargs)
 
 
-def open_wallet(path, ask_for_password=True, read_only=False, **kwargs):
+def open_wallet(path, ask_for_password=True, password=None, read_only=False,
+                **kwargs):
     """
     Open the wallet file at path and return the corresponding wallet object.
 
@@ -878,6 +879,7 @@ def open_wallet(path, ask_for_password=True, read_only=False, **kwargs):
         path: str, full path to wallet file
         ask_for_password: bool, if False password is assumed unset and user
             will not be asked to type it
+        password: password for storage, ignored if ask_for_password is True
         read_only: bool, if True, open wallet in read-only mode
         kwargs: additional options to pass to wallet's init method
 
@@ -898,7 +900,7 @@ def open_wallet(path, ask_for_password=True, read_only=False, **kwargs):
                 raise e
             break
     else:
-        storage = Storage(path, read_only=read_only)
+        storage = Storage(path, password, read_only=read_only)
 
     wallet_cls = get_wallet_cls(storage)
     wallet = wallet_cls(storage, **kwargs)

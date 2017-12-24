@@ -23,9 +23,10 @@ from .wallet import (estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin
 from .storage import (Argon2Hash, Storage, StorageError,
                       StoragePasswordError, VolatileStorage)
 from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
-from .configure import (load_program_config, get_p2pk_vbyte,
-    jm_single, get_network, validate_address, get_irc_mchannels,
-    get_blockchain_interface_instance, get_p2sh_vbyte, set_config)
+from .configure import (
+    load_program_config, get_p2pk_vbyte, jm_single, get_network,
+    validate_address, get_irc_mchannels, get_blockchain_interface_instance,
+    get_p2sh_vbyte, set_config)
 from .blockchaininterface import (BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
@@ -42,8 +43,10 @@ from .commitment_utils import get_utxo_info, validate_utxo_data, quit
 from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
                              restart_wait, get_tumble_log, direct_send,
                              tumbler_filter_orders_callback)
-from .wallet_utils import (wallet_tool_main, wallet_generate_recover_bip39,
-                           wallet_display)
+from .wallet_utils import (
+    wallet_tool_main, wallet_generate_recover_bip39, open_wallet,
+    open_test_wallet_maybe, create_wallet, get_wallet_cls, get_wallet_path,
+    wallet_display)
 from .maker import Maker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
 # Set default logging handler to avoid "No handler found" warnings.
