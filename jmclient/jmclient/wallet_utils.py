@@ -9,10 +9,10 @@ from datetime import datetime
 from mnemonic import Mnemonic
 from optparse import OptionParser
 import getpass
-from jmclient import (get_network, get_wallet_cls, Bip39Wallet, podle,
-                      encryptData, get_p2sh_vbyte, get_p2pk_vbyte, jm_single,
-                      mn_decode, mn_encode, BitcoinCoreInterface,
-                      JsonRpcError, sync_wallet, WalletError)
+from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
+    encryptData, get_p2sh_vbyte, get_p2pk_vbyte, jm_single, mn_decode,
+    mn_encode, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
+    BIP49Wallet, ImportWalletMixin, VolatileStorage, StoragePasswordError)
 from jmbase.support import get_password
 import jmclient.btc as btc
 
@@ -330,25 +330,26 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
     """
     acctlist = []
     rootpath = wallet.get_root_path()
-    for m in range(wallet.max_mix_depth):
+    for m in xrange(wallet.max_mixdepth):
         branchlist = []
         for forchange in [0, 1]:
             entrylist = []
+            # FIXME: why does this if/else exist?
             if forchange == 0:
-                xpub_key = btc.bip32_privtopub(wallet.keys[m][forchange])
+                xpub_key = wallet.get_bip32_pub_export(m, forchange)
             else:
                 xpub_key = ""
 
-            for k in range(wallet.index[m][forchange] + gaplimit):
-                addr = wallet.get_addr(m, forchange, k)
+            for k in xrange(wallet.get_next_unused_index(m, forchange) + gaplimit):
+                path = wallet.get_path(m, forchange, k)
+                addr = wallet.get_addr_path(path)
                 balance = 0
-                for addrvalue in wallet.unspent.values():
-                    if addr == addrvalue['address']:
-                        balance += addrvalue['value']
-                used = 'used' if k < wallet.index[m][forchange] else 'new'
+                for utxodata in wallet.get_utxos_by_mixdepth_()[m].values():
+                    if path == utxodata['path']:
+                        balance += utxodata['value']
+                used = 'used' if k < wallet.get_next_unused_index(m, forchange) else 'new'
                 if showprivkey:
-                    privkey = btc.wif_compressed_privkey(
-                        wallet.get_key(m, forchange, k), get_p2pk_vbyte())
+                    privkey = wallet.get_wif_path(path)
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
@@ -362,8 +363,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
         if ipb:
             branchlist.append(ipb)
         #get the xpub key of the whole account
-        xpub_account = btc.bip32_privtopub(
-            wallet.get_mixing_depth_keys(wallet.get_master_key())[m])
+        xpub_account = wallet.get_bip32_pub_export(mixdepth=m)
         acctlist.append(WalletViewAccount(rootpath, m, branchlist,
                                           xpub=xpub_account))
     walletview = WalletView(rootpath, acctlist)
@@ -397,12 +397,14 @@ def cli_user_mnemonic_entry():
     return (mnemonic_phrase, mnemonic_extension)
 
 def cli_get_mnemonic_extension():
-    uin = raw_input('Would you like to use a two-factor mnemonic recovery'
-        + ' phrase? write \'n\' if you don\'t know what this is (y/n): ')
+    uin = raw_input("Would you like to use a two-factor mnemonic recovery "
+                    "phrase? write 'n' if you don't know what this is (y/n): ")
     if len(uin) == 0 or uin[0] != 'y':
-        print('Not using mnemonic extension')
+        print("Not using mnemonic extension")
         return None #no mnemonic extension
-    return raw_input('Enter mnemonic extension: ')
+    print("Note: This will be stored in a reversible way. Do not reuse!")
+    return raw_input("Enter mnemonic extension: ")
+
 
 def persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
                        encrypted_mnemonic_extension=None,
@@ -761,71 +763,170 @@ def wallet_fetch_history(wallet, options):
 
 
 def wallet_showseed(wallet):
-    if isinstance(wallet, Bip39Wallet):
-        if not wallet.entropy:
-            return "Entropy is not initialized."
-        m = Mnemonic("english")
-        text = "Wallet mnemonic recovery phrase:\n\n" + m.to_mnemonic(wallet.entropy) + "\n"
-        if wallet.mnemonic_extension:
-            text += '\nWallet mnemonic extension: ' + wallet.mnemonic_extension + '\n'
-        return text
-    hexseed = wallet.seed
-    print("hexseed = " + hexseed)
-    words = mn_encode(hexseed)
-    return "Wallet mnemonic seed phrase:\n\n" + " ".join(words) + "\n"
+    seed, extension = wallet.get_mnemonic_words()
+    text = "Wallet mnemonic recovery phrase:\n\n{}\n".format(seed)
+    if extension:
+        text += "\nWallet mnemonic extension: {}\n".format(extension)
+    return text
+
 
 def wallet_importprivkey(wallet, mixdepth):
-    print('WARNING: This imported key will not be recoverable with your 12 ' +
-          'word mnemonic phrase. Make sure you have backups.')
-    print('WARNING: Handling of raw ECDSA bitcoin private keys can lead to '
-          'non-intuitive behaviour and loss of funds.\n  Recommended instead '
-          'is to use the \'sweep\' feature of sendpayment.py ')
-    privkeys = raw_input('Enter private key(s) to import: ')
+    print("WARNING: This imported key will not be recoverable with your 12 "
+          "word mnemonic phrase. Make sure you have backups.")
+    print("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
+          "non-intuitive behaviour and loss of funds.\n  Recommended instead "
+          "is to use the \'sweep\' feature of sendpayment.py.")
+    privkeys = raw_input("Enter private key(s) to import: ")
     privkeys = privkeys.split(',') if ',' in privkeys else privkeys.split()
+    imported_addr = []
     # TODO read also one key for each line
-    for privkey in privkeys:
+    for wif in privkeys:
         # TODO is there any point in only accepting wif format? check what
         # other wallets do
-        privkey_bin = btc.from_wif_privkey(privkey,
-                                        vbyte=get_p2pk_vbyte()).decode('hex')[:-1]
-        encrypted_privkey = encryptData(wallet.password_key, privkey_bin)
-        if 'imported_keys' not in wallet.walletdata:
-            wallet.walletdata['imported_keys'] = []
-        wallet.walletdata['imported_keys'].append(
-            {'encrypted_privkey': encrypted_privkey.encode('hex'),
-             'mixdepth': mixdepth})
-    if wallet.walletdata['imported_keys']:
-        fd = open(wallet.path, 'w')
-        fd.write(json.dumps(wallet.walletdata))
-        fd.close()
-        print('Private key(s) successfully imported')
+        imported_addr.append(wallet.import_private_key(mixdepth, wif))
+    wallet.save()
+
+    if not imported_addr:
+        print("Warning: No keys imported!")
+        return
+
+    # show addresses to user so they can verify everything went as expected
+    print("Imported keys for addresses:")
+    for addr in imported_addr:
+        print(addr)
+
 
 def wallet_dumpprivkey(wallet, hdpath):
-    pathlist = bip32pathparse(hdpath)
-    print('got pathlist: ' + str(pathlist))
-    if pathlist and len(pathlist) in [5, 4]:
-        #note here we assume the path conforms to Wallet or SegwitWallet(BIP49) standard
-        m, forchange, k = pathlist[-3:]
-        key = wallet.get_key(m, forchange, k)
-        wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
-        return wifkey
-    else:
-        return hdpath + " is not a valid hd wallet path"
+    path = wallet.path_repr_to_path(hdpath)
+    return wallet.get_wif_path(path)  # will raise exception on invalid path
+
 
 def wallet_signmessage(wallet, hdpath, message):
-    if hdpath.startswith(wallet.get_root_path()):
-        hp = bip32pathparse(hdpath)
-        m, forchange, k = hp[-3:]
-        key = wallet.get_key(m, forchange, k)
-        addr = wallet.pubkey_to_address(btc.privkey_to_pubkey(key))
-        print('Using address: ' + addr)
+    msg = message.encode('utf-8')
+
+    path = wallet.path_repr_to_path(hdpath)
+    sig = wallet.sign_message(msg, path)
+    return ("Signature: {}\n"
+            "To verify this in Bitcoin Core use the RPC command 'verifymessage'"
+            "".format(sig))
+
+
+def get_wallet_type():
+    if jm_single().config.get('POLICY', 'segwit') == 'true':
+        return 'p2sh-p2wpkh'
+    return 'p2pkh'
+
+
+def get_wallet_cls(wtype=None):
+    if wtype is None:
+        wtype = get_wallet_type()
+
+    cls = WALLET_IMPLEMENTATIONS.get(wtype)
+
+    if not cls:
+        raise WalletError("No wallet implementation found for type {}."
+                          "".format(wtype))
+    return cls
+
+
+def create_wallet(path, password, max_mixdepth, **kwargs):
+    storage = Storage(path, password, create=True)
+    wallet_cls = get_wallet_cls()
+    wallet_cls.initialize(storage, get_network(), max_mixdepth=max_mixdepth,
+                          **kwargs)
+
+
+def open_test_wallet_maybe(path, seed, max_mixdepth, **kwargs):
+    """
+    Create a volatile test wallet if path is a hex-encoded string of length 64,
+    otherwise run open_wallet().
+
+    params:
+        path: path to wallet file, ignored for test wallets
+        seed: hex-encoded test seed
+        max_mixdepth: see create_wallet(), ignored when calling open_wallet()
+        kwargs: see open_wallet()
+
+    returns:
+        wallet object
+    """
+    class SewgitTestWallet(ImportWalletMixin, BIP49Wallet):
+        TYPE = 'p2sh-p2wpkh'
+
+    if len(seed) == SewgitTestWallet.ENTROPY_BYTES * 2:
+        try:
+            seed = binascii.unhexlify(seed)
+        except binascii.Error:
+            pass
+        else:
+            storage = VolatileStorage()
+            SewgitTestWallet.initialize(
+                storage, get_network(), max_mixdepth=max_mixdepth,
+                entropy=seed)
+            assert 'ask_for_password' not in kwargs
+            assert 'read_only' not in kwargs
+            return SewgitTestWallet(storage, **kwargs)
+
+    return open_wallet(path, **kwargs)
+
+
+def open_wallet(path, ask_for_password=True, read_only=False, **kwargs):
+    """
+    Open the wallet file at path and return the corresponding wallet object.
+
+    params:
+        path: str, full path to wallet file
+        ask_for_password: bool, if False password is assumed unset and user
+            will not be asked to type it
+        read_only: bool, if True, open wallet in read-only mode
+        kwargs: additional options to pass to wallet's init method
+
+    returns:
+        wallet object
+    """
+    if ask_for_password:
+        while True:
+            try:
+                # do not try empty password, assume unencrypted on empty password
+                pwd = get_password("Enter wallet decryption passphrase: ") or None
+                storage = Storage(path, password=pwd, read_only=read_only)
+            except StoragePasswordError:
+                print("Wrong password, try again.")
+                continue
+            except Exception as e:
+                print("Failed to load wallet, error message: " + repr(e))
+                raise e
+            break
     else:
-        print('%s is not a valid hd wallet path' % hdpath)
-        return None
-    sig = btc.ecdsa_sign(message, key, formsg=True)
-    retval = "Signature: " + str(sig) + "\n"
-    retval += "To verify this in Bitcoin Core use the RPC command 'verifymessage'"
-    return retval
+        storage = Storage(path, read_only=read_only)
+
+    wallet_cls = get_wallet_cls(storage)
+    wallet = wallet_cls(storage, **kwargs)
+    wallet_sanity_check(wallet)
+    return wallet
+
+
+def get_wallet_cls_from_storage(storage):
+    wtype = storage.data.get([b'wallet_type'])
+
+    if not wtype:
+        raise WalletError("File {} is not a valid wallet.".format(storage.path))
+
+    wtype = wtype.decode('ascii')
+    return get_wallet_cls(wtype)
+
+
+def wallet_sanity_check(wallet):
+    if wallet.network != get_network():
+        raise Exception("Wallet network mismatch: we are on {} but wallet is "
+                        "on {}".format(get_network(), wallet.network))
+
+
+def get_wallet_path(file_name, wallet_dir):
+    # TODO: move default wallet path to ~/.joinmarket
+    wallet_dir = wallet_dir or 'wallets'
+    return os.path.join(wallet_dir, file_name)
+
 
 def wallet_tool_main(wallet_root_path):
     """Main wallet tool script function; returned is a string (output or error)
@@ -853,29 +954,12 @@ def wallet_tool_main(wallet_root_path):
         method = args[0]
     else:
         seed = args[0]
+        wallet_path = get_wallet_path(seed, wallet_root_path)
         method = ('display' if len(args) == 1 else args[1].lower())
-        if not os.path.exists(os.path.join(wallet_root_path, seed)):
-            wallet = get_wallet_cls()(seed, None, options.maxmixdepth,
-                    options.gaplimit, extend_mixdepth= not maxmixdepth_configured,
-                    storepassword=(method == 'importprivkey'),
-                    wallet_dir=wallet_root_path)
-        else:
-            while True:
-                try:
-                    pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = get_wallet_cls()(seed, pwd,
-                            options.maxmixdepth,
-                            options.gaplimit,
-                            extend_mixdepth=not maxmixdepth_configured,
-                            storepassword=(method == 'importprivkey'),
-                            wallet_dir=wallet_root_path)
-                except WalletError:
-                    print("Wrong password, try again.")
-                    continue
-                except Exception as e:
-                    print("Failed to load wallet, error message: " + repr(e))
-                    sys.exit(0)
-                break
+
+        wallet = open_test_wallet_maybe(
+            wallet_path, seed, options.maxmixdepth, gap_limit=options.gaplimit)
+
         if method not in noscan_methods:
             # if nothing was configured, we override bitcoind's options so that
             # unconfirmed balance is included in the wallet display by default
