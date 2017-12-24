@@ -23,7 +23,7 @@ from jmclient import (load_program_config, jm_single, sync_wallet,
                       AbstractWallet, get_p2pk_vbyte, get_log, Wallet, select,
                       select_gradual, select_greedy, select_greediest,
                       estimate_tx_fee, encryptData, get_network, WalletError,
-                      BitcoinCoreWallet, BitcoinCoreInterface, SegwitWallet,
+                      BitcoinCoreInterface, SegwitWallet,
                       wallet_generate_recover_bip39, decryptData, encryptData)
 from jmbase.support import chunks
 from taker_test_data import t_obtained_tx, t_raw_signed_tx
@@ -263,19 +263,6 @@ def test_index_ahead_cache(setup_wallets):
     wallet.index_cache = [[0, 0], [0, 2]]
     from jmclient.blockchaininterface import is_index_ahead_of_cache
     assert is_index_ahead_of_cache(wallet, 3, 1)
-
-
-def test_core_wallet_no_sync(setup_wallets):
-    """Ensure BitcoinCoreWallet sync attempt does nothing
-    """
-    wallet = BitcoinCoreWallet("")
-    #this will not trigger sync due to absence of non-zero index_cache, usually.
-    wallet.index_cache = [[1, 1]]
-    jm_single().bc_interface.wallet_synced = False
-    jm_single().bc_interface.sync_wallet(wallet, fast=True)
-    assert not jm_single().bc_interface.wallet_synced
-    jm_single().bc_interface.sync_wallet(wallet)
-    assert not jm_single().bc_interface.wallet_synced
 
 
 def test_wrong_network_bci(setup_wallets):

@@ -1,16 +1,10 @@
 from __future__ import print_function
 
-import BaseHTTPServer
 import abc
 import ast
-import json
-import os
-import pprint
 import random
-import re
 import sys
 import time
-import traceback
 import binascii
 from decimal import Decimal
 from twisted.internet import reactor, task
@@ -19,7 +13,7 @@ import btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import get_p2pk_vbyte, jm_single
-from jmbase.support import get_log, chunks
+from jmbase.support import get_log
 
 log = get_log()
 
@@ -425,9 +419,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         Bitcoin Core instance, in which case "fast" should have been
         specifically disabled by the user.
         """
-        from jmclient.wallet import BitcoinCoreWallet
-        if isinstance(wallet, BitcoinCoreWallet):
-            return
         wallet_name = self.get_wallet_name(wallet)
         agd = self.rpc('listaddressgroupings', [])
         #flatten all groups into a single list; then, remove duplicates
@@ -516,10 +507,6 @@ class BitcoinCoreInterface(BlockchainInterface):
 
 
     def sync_addresses(self, wallet, restart_cb=None):
-        from jmclient.wallet import BitcoinCoreWallet
-
-        if isinstance(wallet, BitcoinCoreWallet):
-            return
         log.debug('requesting detailed wallet history')
         wallet_name = self.get_wallet_name(wallet)
         #TODO It is worth considering making this user configurable:
@@ -653,10 +640,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         self.unspent_monitoring_loop.stop()
 
     def sync_unspent(self, wallet):
-        from jmclient.wallet import BitcoinCoreWallet
-
-        if isinstance(wallet, BitcoinCoreWallet):
-            return
         st = time.time()
         wallet_name = self.get_wallet_name(wallet)
         wallet.unspent = {}
