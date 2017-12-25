@@ -2,17 +2,13 @@
 from __future__ import absolute_import
 '''Test creation of segwit transactions.'''
 
-import sys
-import os
-import time
 import binascii
 import json
 from common import make_wallets
 from pprint import pformat
 import jmbitcoin as btc
 import pytest
-from jmclient import (load_program_config, jm_single, get_p2pk_vbyte,
-                      get_log, get_p2sh_vbyte, Wallet)
+from jmclient import load_program_config, jm_single, get_log, LegacyWallet
 log = get_log()
 
 
@@ -30,80 +26,11 @@ def test_segwit_valid_txs(setup_segwit):
         #and compare the json values
 
 
-def get_utxo_from_txid(txid, addr):
-    """Given a txid and an address for one of the outputs,
-    return "txid:n" where n is the index of the output
-    """
-    rawtx = jm_single().bc_interface.rpc("getrawtransaction", [txid, 1])
-    ins = []
-    for u in rawtx["vout"]:
-        if u["scriptPubKey"]["addresses"][0] == addr:
-            ins.append(txid + ":" + str(u["n"]))
-    assert len(ins) == 1
-    return ins[0]
-
-
-def make_sign_and_push(ins_sw,
-                       wallet,
-                       amount,
-                       other_ins=None,
-                       output_addr=None,
-                       change_addr=None,
-                       hashcode=btc.SIGHASH_ALL):
-    """A more complicated version of the function in test_tx_creation;
-    will merge to this one once finished.
-    ins_sw have this structure:
-    {"txid:n":(amount, priv, index), "txid2:n2":(amount2, priv2, index2), ..}
-    if other_ins is not None, it has the same format, 
-    these inputs are assumed to be plain p2pkh.
-    All of these inputs in these two sets will be consumed.
-    They are ordered according to the "index" fields (to allow testing
-    of specific ordering)
-    It's assumed that they contain sufficient coins to satisy the
-    required output specified in "amount", plus some extra for fees and a
-    change output.
-    The output_addr and change_addr, if None, are taken from the wallet
-    and are ordinary p2pkh outputs.
-    All amounts are in satoshis and only converted to btc for grab_coins
-    """
-    #total value of all inputs
-    print ins_sw
-    print other_ins
-    total = sum([x[0] for x in ins_sw.values()])
-    total += sum([x[0] for x in other_ins.values()])
-    #construct the other inputs
-    ins1 = other_ins
-    ins1.update(ins_sw)
-    ins1 = sorted(ins1.keys(), key=lambda k: ins1[k][2])
-    #random output address and change addr
-    output_addr = wallet.get_new_addr(1, 1) if not output_addr else output_addr
-    change_addr = wallet.get_new_addr(1, 0) if not change_addr else change_addr
-    outs = [{'value': amount,
-             'address': output_addr}, {'value': total - amount - 10000,
-                                       'address': change_addr}]
-    tx = btc.mktx(ins1, outs)
-    de_tx = btc.deserialize(tx)
-    for index, ins in enumerate(de_tx['ins']):
-        utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-        temp_ins = ins_sw if utxo in ins_sw.keys() else other_ins
-        amt, priv, n = temp_ins[utxo]
-        temp_amt = amt if utxo in ins_sw.keys() else None
-        #for better test code coverage
-        print "signing tx index: " + str(index) + ", priv: " + priv
-        if index % 2:
-            priv = binascii.unhexlify(priv)
-        ms = "other" if not temp_amt else "amount: " + str(temp_amt)
-        print ms
-        tx = btc.sign(tx, index, priv, hashcode=hashcode, amount=temp_amt)
-    print pformat(btc.deserialize(tx))
-    txid = jm_single().bc_interface.pushtx(tx)
-    time.sleep(3)
-    received = jm_single().bc_interface.get_received_by_addr(
-        [output_addr], None)['data'][0]['balance']
-    #check coins were transferred as expected
-    assert received == amount
-    #pushtx returns False on any error
-    return txid
+def binarize_tx(tx):
+    for o in tx['outs']:
+        o['script'] = binascii.unhexlify(o['script'])
+    for i in tx['ins']:
+        i['outpoint']['hash'] = binascii.unhexlify(i['outpoint']['hash'])
 
 
 @pytest.mark.parametrize(
@@ -111,7 +38,7 @@ def make_sign_and_push(ins_sw,
         ([[1, 0, 0, 0, 0]], 1, 1000000, 1, [0, 1, 2], []),
         ([[4, 0, 0, 0, 1]], 3, 100000000, 1, [0, 2], [1, 3]),
         ([[4, 0, 0, 0, 1]], 3, 100000000, 1, [0, 5], [1, 2, 3, 4]),
-        ([[2, 0, 0, 0, 2]], 2, 200000007, 0.3, [0, 1, 4, 5], [2, 3, 6]),
+        ([[4, 0, 0, 0, 0]], 2, 200000007, 0.3, [0, 1, 4, 5], [2, 3, 6]),
     ])
 def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
                                  segwit_amt, segwit_ins, o_ins):
@@ -127,37 +54,93 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     segwit_ins is a list of input indices (where to place the funding segwit utxos)
     other_ins is a list of input indices (where to place the funding non-sw utxos)
     """
-    wallet = make_wallets(1, wallet_structure, in_amt, walletclass=Wallet)[0]['wallet']
-    jm_single().bc_interface.sync_wallet(wallet, fast=True)
-    other_ins = {}
-    ctr = 0
-    for k, v in wallet.unspent.iteritems():
-        #only extract as many non-segwit utxos as we need;
-        #doesn't matter which they are
-        if ctr == len(o_ins):
-            break
-        other_ins[k] = (v["value"], wallet.get_key_from_addr(v["address"]),
-                        o_ins[ctr])
-        ctr += 1
-    ins_sw = {}
-    for i in range(len(segwit_ins)):
-        #build segwit ins from "deterministic-random" keys;
-        #intended to be the same for each run with the same parameters
-        seed = json.dumps([i, wallet_structure, in_amt, amount, segwit_ins,
-                           other_ins])
-        priv = btc.sha256(seed) + "01"
-        pub = btc.privtopub(priv)
-        #magicbyte is testnet p2sh
-        addr1 = btc.pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=196)
-        print "got address for p2shp2wpkh: " + addr1
-        txid = jm_single().bc_interface.grab_coins(addr1, segwit_amt)
-        #TODO - int cast, fix?
-        ins_sw[get_utxo_from_txid(txid, addr1)] = (int(segwit_amt * 100000000),
-                                                   priv, segwit_ins[i])
-    #make_sign_and_push will sanity check the received amount is correct
-    txid = make_sign_and_push(ins_sw, wallet, amount, other_ins)
-    #will always be False if it didn't push.
+    MIXDEPTH = 0
+
+    # set up wallets and inputs
+    nsw_wallet = make_wallets(1, wallet_structure, in_amt,
+                              walletclass=LegacyWallet)[0]['wallet']
+    jm_single().bc_interface.sync_wallet(nsw_wallet, fast=True)
+    sw_wallet = make_wallets(1, [[len(segwit_ins), 0, 0, 0, 0]], segwit_amt)[0]['wallet']
+    jm_single().bc_interface.sync_wallet(sw_wallet, fast=True)
+
+    nsw_utxos = nsw_wallet.get_utxos_by_mixdepth_()[MIXDEPTH]
+    sw_utxos = sw_wallet.get_utxos_by_mixdepth_()[MIXDEPTH]
+    assert len(o_ins) <= len(nsw_utxos), "sync failed"
+    assert len(segwit_ins) <= len(sw_utxos), "sync failed"
+
+    total_amt_in_sat = 0
+
+    nsw_ins = {}
+    for nsw_in_index in o_ins:
+        total_amt_in_sat += in_amt * 10**8
+        nsw_ins[nsw_in_index] = nsw_utxos.popitem()
+
+    sw_ins = {}
+    for sw_in_index in segwit_ins:
+        total_amt_in_sat += int(segwit_amt * 10**8)
+        sw_ins[sw_in_index] = sw_utxos.popitem()
+
+    all_ins = {}
+    all_ins.update(nsw_ins)
+    all_ins.update(sw_ins)
+
+    # sanity checks
+    assert len(all_ins) == len(nsw_ins) + len(sw_ins), \
+        "test broken, duplicate index"
+    for k in all_ins:
+        assert 0 <= k < len(all_ins), "test broken, missing input index"
+
+    # FIXME: encoding mess, mktx should accept binary input formats
+    tx_ins = []
+    for i, (txid, data) in sorted(all_ins.items(), key=lambda x: x[0]):
+        tx_ins.append('{}:{}'.format(binascii.hexlify(txid[0]), txid[1]))
+
+    # create outputs
+    FEE = 50000
+    assert FEE < total_amt_in_sat - amount, "test broken, not enough funds"
+
+    cj_script = nsw_wallet.get_new_script(MIXDEPTH + 1, True)
+    change_script = nsw_wallet.get_new_script(MIXDEPTH, True)
+    change_amt = total_amt_in_sat - amount - FEE
+
+    tx_outs = [
+        {'script': binascii.hexlify(cj_script),
+         'value': amount},
+        {'script': binascii.hexlify(change_script),
+         'value': change_amt}]
+    tx = btc.deserialize(btc.mktx(tx_ins, tx_outs))
+    binarize_tx(tx)
+
+    # import new addresses to bitcoind
+    jm_single().bc_interface.import_addresses(
+        [nsw_wallet.script_to_address(x)
+         for x in [cj_script, change_script]],
+        jm_single().bc_interface.get_wallet_name(nsw_wallet))
+
+    # sign tx
+    scripts = {}
+    for nsw_in_index in o_ins:
+        inp = nsw_ins[nsw_in_index][1]
+        scripts[nsw_in_index] = (inp['script'], inp['value'])
+    nsw_wallet.sign_tx(tx, scripts)
+
+    scripts = {}
+    for sw_in_index in segwit_ins:
+        inp = sw_ins[sw_in_index][1]
+        scripts[sw_in_index] = (inp['script'], inp['value'])
+    sw_wallet.sign_tx(tx, scripts)
+
+    print(tx)
+
+    # push and verify
+    txid = jm_single().bc_interface.pushtx(binascii.hexlify(btc.serialize(tx)))
     assert txid
+
+    balances = jm_single().bc_interface.get_received_by_addr(
+        [nsw_wallet.script_to_address(cj_script),
+         nsw_wallet.script_to_address(change_script)], None)['data']
+    assert balances[0]['balance'] == amount
+    assert balances[1]['balance'] == change_amt
 
 
 @pytest.fixture(scope="module")

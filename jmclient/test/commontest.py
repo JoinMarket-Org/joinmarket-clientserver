@@ -1,19 +1,15 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 '''Some helper functions for testing'''
 
-import sys
 import os
-import time
 import binascii
-import pexpect
 import random
-import subprocess
-import platform
 from decimal import Decimal
 
-from jmclient import (jm_single, Wallet, get_log, estimate_tx_fee,
-                      BlockchainInterface, get_p2sh_vbyte)
+from jmclient import (
+    jm_single, open_test_wallet_maybe, get_log, estimate_tx_fee,
+    BlockchainInterface, get_p2sh_vbyte, BIP32Wallet, SegwitLegacyWallet)
 from jmbase.support import chunks
 import jmbitcoin as btc
 
@@ -34,6 +30,8 @@ class DummyBlockchainInterface(BlockchainInterface):
     def sync_addresses(self, wallet):
         pass
     def sync_unspent(self, wallet):
+        pass
+    def import_addresses(self, addr_list, wallet_name):
         pass
     def outputs_watcher(self, wallet_name, notifyaddr,
                         tx_output_set, uf, cf, tf):
@@ -106,29 +104,21 @@ class DummyBlockchainInterface(BlockchainInterface):
     def estimate_fee_per_kb(self, N):
         return 30000
 
-class TestWallet(Wallet):
-    """Implementation of wallet
-    that allows passing in a password
-    for removal of command line interrupt.
-    """
 
-    def __init__(self,
-                 seedarg,
-                 max_mix_depth=2,
-                 gaplimit=6,
-                 extend_mixdepth=False,
-                 storepassword=False,
-                 pwd=None):
-        self.given_pwd = pwd
-        super(TestWallet, self).__init__(seedarg,
-                                     max_mix_depth,
-                                     gaplimit,
-                                     extend_mixdepth,
-                                     storepassword)
+def create_wallet_for_sync(wallet_structure, a, **kwargs):
+    #We need a distinct seed for each run so as not to step over each other;
+    #make it through a deterministic hash
+    seedh = btc.sha256("".join([str(x) for x in a]))[:32]
+    return make_wallets(
+        1, [wallet_structure], fixed_seeds=[seedh], **kwargs)[0]['wallet']
 
-    def read_wallet_file_data(self, filename):
-        return super(TestWallet, self).read_wallet_file_data(
-            filename, self.given_pwd)
+
+def binarize_tx(tx):
+    for o in tx['outs']:
+        o['script'] = binascii.unhexlify(o['script'])
+    for i in tx['ins']:
+        i['outpoint']['hash'] = binascii.unhexlify(i['outpoint']['hash'])
+
 
 def make_sign_and_push(ins_full,
                        wallet,
@@ -150,17 +140,17 @@ def make_sign_and_push(ins_full,
              'address': output_addr}, {'value': total - amount - fee_est,
                                        'address': change_addr}]
 
-    tx = btc.mktx(ins, outs)
-    de_tx = btc.deserialize(tx)
+    de_tx = btc.deserialize(btc.mktx(ins, outs))
+    scripts = {}
     for index, ins in enumerate(de_tx['ins']):
         utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-        addr = ins_full[utxo]['address']
-        priv = wallet.get_key_from_addr(addr)
-        if index % 2:
-            priv = binascii.unhexlify(priv)
-        tx = btc.sign(tx, index, priv, hashcode=hashcode)
+        script = wallet.addr_to_script(ins_full[utxo]['address'])
+        scripts[index] = (script, ins_full[utxo]['value'])
+    binarize_tx(de_tx)
+    de_tx = wallet.sign_tx(de_tx, scripts, hashcode=hashcode)
     #pushtx returns False on any error
-    print btc.deserialize(tx)
+    print(de_tx)
+    tx = binascii.hexlify(btc.serialize(de_tx))
     push_succeed = jm_single().bc_interface.pushtx(tx)
     if push_succeed:
         return btc.txhash(tx)
@@ -173,8 +163,9 @@ def make_wallets(n,
                  sdev_amt=0,
                  start_index=0,
                  fixed_seeds=None,
-                 test_wallet=False,
-                 passwords=None):
+                 wallet_cls=SegwitLegacyWallet,
+                 mixdepths=5,
+                 populate_internal=False):
     '''n: number of wallets to be created
        wallet_structure: array of n arrays , each subarray
        specifying the number of addresses to be populated with coins
@@ -182,34 +173,33 @@ def make_wallets(n,
        mean_amt: the number of coins (in btc units) in each address as above
        sdev_amt: if randomness in amouts is desired, specify here.
        Returns: a dict of dicts of form {0:{'seed':seed,'wallet':Wallet object},1:..,}
-       Default Wallet constructor is joinmarket.Wallet, else use TestWallet,
-       which takes a password parameter as in the list passwords.
        '''
+    # FIXME: this is basically the same code as test/common.py
+    assert mixdepths > 0
     if len(wallet_structures) != n:
         raise Exception("Number of wallets doesn't match wallet structures")
     if not fixed_seeds:
-        seeds = chunks(binascii.hexlify(os.urandom(15 * n)), 15 * 2)
+        seeds = chunks(binascii.hexlify(os.urandom(BIP32Wallet.ENTROPY_BYTES * n)),
+                       BIP32Wallet.ENTROPY_BYTES * 2)
     else:
         seeds = fixed_seeds
     wallets = {}
     for i in range(n):
-        if test_wallet:
-            w = Wallet(seeds[i], passwords[i], max_mix_depth=5)
-        else:
-            w = Wallet(seeds[i], None, max_mix_depth=5)
+        assert len(seeds[i]) == BIP32Wallet.ENTROPY_BYTES * 2
+
+        w = open_test_wallet_maybe(seeds[i], seeds[i], mixdepths - 1,
+                                   test_wallet_cls=wallet_cls)
+
         wallets[i + start_index] = {'seed': seeds[i],
                                     'wallet': w}
-        for j in range(5):
+        for j in range(mixdepths):
             for k in range(wallet_structures[i][j]):
                 deviation = sdev_amt * random.random()
                 amt = mean_amt - sdev_amt / 2.0 + deviation
                 if amt < 0: amt = 0.001
                 amt = float(Decimal(amt).quantize(Decimal(10)**-8))
                 jm_single().bc_interface.grab_coins(
-                    wallets[i + start_index]['wallet'].get_external_addr(j),
-                    amt)
-            #reset the index so the coins can be seen if running in same script
-            wallets[i + start_index]['wallet'].index[j][0] -= wallet_structures[i][j]
+                    w.get_new_addr(j, populate_internal), amt)
     return wallets
 
 

@@ -1,20 +1,23 @@
 from __future__ import print_function
 import json
 import os
-import pprint
 import sys
 import sqlite3
 import binascii
 from datetime import datetime
 from mnemonic import Mnemonic
 from optparse import OptionParser
-import getpass
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     encryptData, get_p2sh_vbyte, get_p2pk_vbyte, jm_single, mn_decode,
     mn_encode, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
     BIP49Wallet, ImportWalletMixin, VolatileStorage, StoragePasswordError)
 from jmbase.support import get_password
 import jmclient.btc as btc
+
+
+class SewgitTestWallet(ImportWalletMixin, BIP49Wallet):
+    TYPE = 'p2sh-p2wpkh'
+
 
 def get_wallettool_parser():
     description = (
@@ -836,7 +839,8 @@ def create_wallet(path, password, max_mixdepth, **kwargs):
                           **kwargs)
 
 
-def open_test_wallet_maybe(path, seed, max_mixdepth, **kwargs):
+def open_test_wallet_maybe(path, seed, max_mixdepth,
+                           test_wallet_cls=SewgitTestWallet, **kwargs):
     """
     Create a volatile test wallet if path is a hex-encoded string of length 64,
     otherwise run open_wallet().
@@ -850,22 +854,19 @@ def open_test_wallet_maybe(path, seed, max_mixdepth, **kwargs):
     returns:
         wallet object
     """
-    class SewgitTestWallet(ImportWalletMixin, BIP49Wallet):
-        TYPE = 'p2sh-p2wpkh'
-
-    if len(seed) == SewgitTestWallet.ENTROPY_BYTES * 2:
+    if len(seed) == test_wallet_cls.ENTROPY_BYTES * 2:
         try:
             seed = binascii.unhexlify(seed)
         except binascii.Error:
             pass
         else:
             storage = VolatileStorage()
-            SewgitTestWallet.initialize(
+            test_wallet_cls.initialize(
                 storage, get_network(), max_mixdepth=max_mixdepth,
                 entropy=seed)
             assert 'ask_for_password' not in kwargs
             assert 'read_only' not in kwargs
-            return SewgitTestWallet(storage, **kwargs)
+            return test_wallet_cls(storage, **kwargs)
 
     return open_wallet(path, **kwargs)
 
@@ -920,8 +921,8 @@ def get_wallet_cls_from_storage(storage):
 
 def wallet_sanity_check(wallet):
     if wallet.network != get_network():
-        raise Exception("Wallet network mismatch: we are on {} but wallet is "
-                        "on {}".format(get_network(), wallet.network))
+        raise Exception("Wallet network mismatch: we are on '{}' but wallet "
+                        "is on '{}'.".format(get_network(), wallet.network))
 
 
 def get_wallet_path(file_name, wallet_dir):

@@ -4,9 +4,7 @@ from __future__ import print_function
 import base64
 import pprint
 import random
-import sys
-import time
-import copy
+from itertools import chain
 
 import btc
 from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
@@ -99,6 +97,7 @@ class Taker(object):
         self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
+        self.utxos = {}
         self.tdestaddrs = [] if not tdestaddrs else tdestaddrs
         #allow custom wallet-based clients to use their own signing code;
         #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
@@ -665,9 +664,12 @@ class Taker(object):
             #in the transaction, about to be consumed, rather than use
             #random utxos that will persist after. At this step we also
             #allow use of external utxos in the json file.
-            if self.wallet.unspent:
+            if any(self.wallet.get_utxos_by_mixdepth_().values()):
+                utxos = {}
+                for mdutxo in self.wallet.get_utxos_by_mixdepth().values():
+                    utxos.update(mdutxo)
                 priv_utxo_pairs, to, ts = priv_utxo_pairs_from_utxos(
-                    self.wallet.unspent, age, amt)
+                    utxos, age, amt)
             #Pre-filter the set of external commitments that work for this
             #transaction according to its size and age.
             dummy, extdict = get_podle_commitments()
@@ -688,7 +690,7 @@ class Taker(object):
                     "Commitment sourced OK")
         else:
             errmsgheader, errmsg = generate_podle_error_string(priv_utxo_pairs,
-                        to, ts, self.wallet.unspent, self.cjamount,
+                        to, ts, self.wallet.get_utxos_by_mixdepth(), self.cjamount,
                         jm_single().config.get("POLICY", "taker_utxo_age"),
                         jm_single().config.get("POLICY", "taker_utxo_amtpercent"))
 

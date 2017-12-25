@@ -9,26 +9,53 @@ import shutil
 import pytest
 import json
 from base64 import b64encode
-from jmclient import (load_program_config, jm_single, set_commitment_file,
-                      get_commitment_file, AbstractWallet, Taker, SegwitWallet,
-                      get_p2sh_vbyte, get_p2pk_vbyte)
+from jmclient import (
+    load_program_config, jm_single, set_commitment_file, get_commitment_file,
+    LegacyWallet, Taker, VolatileStorage, get_p2sh_vbyte, get_network)
 from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
                              t_maker_response, t_chosen_orders, t_dummy_ext)
 
-class DummyWallet(AbstractWallet):
 
+class DummyWallet(LegacyWallet):
     def __init__(self):
-        super(DummyWallet, self).__init__()
-        self.max_mix_depth = 5
+        storage = VolatileStorage()
+        super(DummyWallet, self).initialize(storage, get_network(),
+                                            max_mixdepth=5)
+        super(DummyWallet, self).__init__(storage)
+        self._add_utxos()
         self.inject_addr_get_failure = False
+
+    def _add_utxos(self):
+        for md, utxo in t_utxos_by_mixdepth.items():
+            for i, (txid, data) in enumerate(utxo.items()):
+                txid, index = txid.split(':')
+                self._utxos.add_utxo(binascii.unhexlify(txid), int(index),
+                                     (b'dummy', md, i), data['value'], md)
 
     def get_utxos_by_mixdepth(self, verbose=True):
         return t_utxos_by_mixdepth
 
+    def get_utxos_by_mixdepth_(self, verbose=True):
+        utxos = self.get_utxos_by_mixdepth(verbose)
+
+        utxos_conv = {}
+        for md, utxo_data in utxos.items():
+            md_utxo = utxos_conv.setdefault(md, {})
+            for i, (utxo_hex, data) in enumerate(utxo_data.items()):
+                utxo, index = utxo_hex.split(':')
+                data_conv = {
+                    'script': self._ENGINE.address_to_script(data['address']),
+                    'path': (b'dummy', md, i),
+                    'value': data['value']
+                }
+                md_utxo[(binascii.unhexlify(utxo), int(index))] = data_conv
+
+        return utxos_conv
+
     def select_utxos(self, mixdepth, amount):
         if amount > self.get_balance_by_mixdepth()[mixdepth]:
             raise Exception("Not enough funds")
-        return self.get_utxos_by_mixdepth()[mixdepth]
+        return t_utxos_by_mixdepth[mixdepth]
 
     def get_internal_addr(self, mixing_depth):
         if self.inject_addr_get_failure:
@@ -135,22 +162,8 @@ def test_make_commitment(createcmtdata, failquery, external):
     mixdepth = 0
     amount = 110000000
     taker = get_taker([(mixdepth, amount, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")])
-    taker.wallet.unspent = {'f34b635ed8891f16c4ec5b8236ae86164783903e8e8bb47fa9ef2ca31f3c2d7a:0':
-                            {'address': u'n31WD8pkfAjg2APV78GnbDTdZb1QonBi5D',
-                             'value': 10000000},
-                            'f780d6e5e381bff01a3519997bb4fcba002493103a198fde334fd264f9835d75:1':
-                            {'address': u'mmVEKH61BZbLbnVEmk9VmojreB4G4PmBPd',
-                             'value': 20000000},
-                            'fe574db96a4d43a99786b3ea653cda9e4388f377848f489332577e018380cff1:0':
-                            {'address': u'msxyyydNXTiBmt3SushXbH5Qh2ukBAThk3',
-                             'value': 500000000},
-                            'fd9711a2ef340750db21efb761f5f7d665d94b312332dc354e252c77e9c48349:0':
-                            {'address': u'musGZczug3BAbqobmYherywCwL9REgNaNm',
-                             'value': 500000000}}
     taker.cjamount = amount
-    taker.input_utxos = {'f34b635ed8891f16c4ec5b8236ae86164783903e8e8bb47fa9ef2ca31f3c2d7a:0':
-                            {'address': u'n31WD8pkfAjg2APV78GnbDTdZb1QonBi5D',
-                             'value': 10000000}}
+    taker.input_utxos = t_utxos_by_mixdepth[0]
     if failquery:
         jm_single().bc_interface.setQUSFail(True)
     taker.make_commitment()
@@ -461,7 +474,3 @@ def createcmtdata(request):
     load_program_config()
     jm_single().bc_interface = DummyBlockchainInterface()
     jm_single().config.set("BLOCKCHAIN", "network", "testnet")
-
-            
-        
-    

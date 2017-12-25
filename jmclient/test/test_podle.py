@@ -7,11 +7,6 @@ import binascii
 import json
 import pytest
 import copy
-import subprocess
-import signal
-from commontest import make_wallets
-import time
-from pprint import pformat
 from jmclient import (load_program_config, get_log, jm_single, generate_podle,
                       generate_podle_error_string, set_commitment_file,
                       get_commitment_file, PoDLE, get_podle_commitments,
