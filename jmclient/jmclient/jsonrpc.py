@@ -58,8 +58,7 @@ class JsonRpc(object):
         self.host = host
         self.port = port
         self.conn = httplib.HTTPConnection(self.host, self.port)
-        self.authstr = bytes("%s:%s" % (user, password), 'utf-8')
-        print("Authstr: ", self.authstr)
+        self.authstr = bytes("%s:%s" % (user, password), "utf-8")
         self.queryId = 1
 
     def queryHTTP(self, obj):
@@ -73,7 +72,7 @@ class JsonRpc(object):
         headers = {"User-Agent": "joinmarket",
                    "Content-Type": "application/json",
                    "Accept": "application/json"}
-        headers["Authorization"] = "Basic %s" % base64.b64encode(self.authstr)
+        headers["Authorization"] = "Basic %s" % base64.b64encode(self.authstr).decode("utf-8")
 
         body = json.dumps(obj)
 
@@ -94,7 +93,7 @@ class JsonRpc(object):
 
                 data = response.read()
 
-                return json.loads(data)
+                return json.loads(data.decode("utf-8"))
 
             except JsonRpcConnectionError as exc:
                 raise exc
