@@ -85,7 +85,7 @@ class Maker(object):
         # Need to choose an input utxo pubkey to sign with
         # (no longer using the coinjoin pubkey from 0.2.0)
         # Just choose the first utxo in self.utxos and retrieve key from wallet.
-        auth_address = utxos[utxos.keys()[0]]['address']
+        auth_address = utxos[list(utxos)[0]]['address']
         auth_key = self.wallet.get_key_from_addr(auth_address)
         auth_pub = btc.privtopub(auth_key)
         btc_sig = btc.ecdsa_sign(kphex, auth_key)
@@ -106,7 +106,7 @@ class Maker(object):
         utxos = offerinfo["utxos"]
         for index, ins in enumerate(tx['ins']):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-            if utxo not in utxos.keys():
+            if utxo not in list(utxos):
                 continue
             addr = utxos[utxo]['address']
             amount = utxos[utxo]["value"]
@@ -114,7 +114,7 @@ class Maker(object):
                                    self.wallet.get_key_from_addr(addr),
                                    amount=amount)
             sigmsg = btc.deserialize(txs)["ins"][index]["script"].decode("hex")
-            if "txinwitness" in btc.deserialize(txs)["ins"][index].keys():
+            if "txinwitness" in list(btc.deserialize(txs)["ins"][index]):
                 #We prepend the witness data since we want (sig, pub, scriptCode);
                 #also, the items in witness are not serialize_script-ed.
                 sigmsg = "".join([btc.serialize_script_unit(

@@ -177,9 +177,9 @@ class Wallet(AbstractWallet):
             raise Exception("Cannot extract master key of wallet, no seed.")
         #Legacy used the seed in hex
         if not isinstance(self, SegwitWallet):
-            bip32seed = self.seed
+            bip32seed = self.seed.encode("utf-8")
         else:
-            bip32seed = self.seed.decode('hex')
+            bip32seed = bytes.fromhex(self.seed)
         return btc.bip32_master_key(bip32seed, (btc.MAINNET_PRIVATE if get_network(
                 ) == 'mainnet' else btc.TESTNET_PRIVATE))
 
@@ -385,7 +385,7 @@ class Wallet(AbstractWallet):
             del self.unspent[utxo]
         log.debug('removed utxos, wallet now is \n' + pprint.pformat(
                 self.get_utxos_by_mixdepth(verbose=False)))
-        self.spent_utxos += removed_utxos.keys()
+        self.spent_utxos += list(removed_utxos)
         return removed_utxos
 
 

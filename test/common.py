@@ -29,7 +29,7 @@ def make_sign_and_push(ins_full,
     from wallets
     """
     total = sum(x['value'] for x in ins_full.values())
-    ins = ins_full.keys()
+    ins = list(ins_full)
     #random output address and change addr
     output_addr = wallet.get_new_addr(1, 1) if not output_addr else output_addr
     change_addr = wallet.get_new_addr(1, 0) if not change_addr else change_addr

@@ -336,8 +336,6 @@ class BitcoinCoreInterface(BlockchainInterface):
                           'gettransaction', 'getrawtransaction', 'gettxout']:
             log.debug('rpc: ' + method + " " + str(args))
         res = self.jsonRpc.call(method, args)
-        if isinstance(res, unicode):
-            res = str(res)
         return res
 
     def import_addresses(self, addr_list, wallet_name):
@@ -407,7 +405,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 continue
             used_address_dict[addr_info[0]] = (addr_info[1], addr_info[2])
         #for a first run, import first chunk
-        if len(used_address_dict.keys()) == 0:
+        if len(list(used_address_dict)) == 0:
             log.info("Detected new wallet, performing initial import")
             for i in range(wallet.max_mix_depth):
                 for j in [0, 1]:
@@ -456,14 +454,14 @@ class BitcoinCoreInterface(BlockchainInterface):
                     for i in range(j*BATCH_SIZE, (j+1)*BATCH_SIZE):
                         local_addr_cache[(md, fc, i)] = wallet.get_addr(md, fc, i)
             batch_found_addresses = [x for x in local_addr_cache.items(
-                ) if x[1] in used_address_dict.keys()]
+                ) if x[1] in list(used_address_dict)]
             for x in batch_found_addresses:
                 md, fc, i = x[0]
                 addr = x[1]
                 used_indices[md][fc].append(i)
                 wallet.addr_cache[addr] = (md, fc, i)
             found_addresses.extend(batch_found_addresses)
-            if len(found_addresses) == len(used_address_dict.keys()):
+            if len(found_addresses) == len(list(used_address_dict)):
                 break
         if j == 19:
             raise Exception("Failed to sync in fast mode after 20 batches; "

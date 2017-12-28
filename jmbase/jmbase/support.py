@@ -49,7 +49,7 @@ def set_logging_level(level):
     consoleHandler.setLevel(level)
 
 def chunks(d, n):
-    return [d[x:x + n] for x in range(0, len(d), n)]
+    return [d[x:x + n].decode("utf-8") for x in range(0, len(d), n)]
 
 def get_password(msg): #pragma: no cover
     return getpass(msg)

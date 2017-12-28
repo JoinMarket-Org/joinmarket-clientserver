@@ -233,7 +233,7 @@ class ElectrumInterface(BlockchainInterface):
     def get_server(self, electrum_server):
         if not electrum_server:
             while True:
-                electrum_server = random.choice(get_default_servers().keys())
+                electrum_server = random.choice(list(get_default_servers()))
                 if DEFAULT_PROTO in get_default_servers()[electrum_server]:
                     break
         s = electrum_server

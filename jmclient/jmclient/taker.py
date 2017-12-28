@@ -261,7 +261,7 @@ class Taker(object):
                     self.on_finished_callback(False)
                     return False
 
-        self.utxos = {None: self.input_utxos.keys()}
+        self.utxos = {None: list(self.input_utxos)}
         return True
 
     def receive_utxos(self, ioauth_data):
@@ -341,14 +341,14 @@ class Taker(object):
             self.maker_utxo_data[nick] = utxo_data
 
         #Apply business logic of how many counterparties are enough:
-        if len(self.maker_utxo_data.keys()) < jm_single().config.getint(
+        if len(list(self.maker_utxo_data)) < jm_single().config.getint(
                 "POLICY", "minimum_makers"):
             self.taker_info_callback("INFO", "Not enough counterparties, aborting.")
             return (False,
                     "Not enough counterparties responded to fill, giving up")
 
         self.taker_info_callback("INFO", "Got all parts, enough to build a tx")
-        self.nonrespondants = list(self.maker_utxo_data.keys())
+        self.nonrespondants = list(self.maker_utxo_data)
 
         my_total_in = sum([va['value'] for u, va in self.input_utxos.items()
                           ])
@@ -405,12 +405,12 @@ class Taker(object):
         self.latest_tx = btc.deserialize(tx)
         for index, ins in enumerate(self.latest_tx['ins']):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-            if utxo not in self.input_utxos.keys():
+            if utxo not in list(self.input_utxos):
                 continue
             # placeholders required
             ins['script'] = 'deadbeef'
         self.taker_info_callback("INFO", "Built tx, sending to counterparties.")
-        return (True, self.maker_utxo_data.keys(), tx)
+        return (True, list(self.maker_utxo_data), tx)
 
     def auth_counterparty(self, btc_sig, auth_pub, maker_pk):
         """Validate the counterpartys claim to own the btc
@@ -544,7 +544,7 @@ class Taker(object):
             #also returns lists "too_old" and "too_small" for any
             #utxos that did not satisfy the criteria for debugging.
             priv_utxo_pairs = []
-            new_utxos, too_old, too_small = filter_by_coin_age_amt(utxos.keys(),
+            new_utxos, too_old, too_small = filter_by_coin_age_amt(list(utxos),
                                                                    age, amt)
             new_utxos_dict = {k: v for k, v in utxos.items() if k in new_utxos}
             for k, v in new_utxos_dict.items():
@@ -582,9 +582,9 @@ class Taker(object):
             #Pre-filter the set of external commitments that work for this
             #transaction according to its size and age.
             dummy, extdict = get_podle_commitments()
-            if len(extdict.keys()) > 0:
+            if len(list(extdict)) > 0:
                 ext_valid, ext_to, ext_ts = filter_by_coin_age_amt(
-                    extdict.keys(), age, amt)
+                    list(extdict), age, amt)
             else:
                 ext_valid = None
             podle_data = generate_podle(priv_utxo_pairs, tries, ext_valid)
@@ -635,14 +635,14 @@ class Taker(object):
             addrs = {}
             for index, ins in enumerate(self.latest_tx['ins']):
                 utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-                if utxo not in self.input_utxos.keys():
+                if utxo not in list(self.input_utxos):
                     continue
                 addrs[index] = self.input_utxos[utxo]['address']
             tx = self.wallet.sign_tx(tx, addrs)
         else:
             for index, ins in enumerate(self.latest_tx['ins']):
                 utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-                if utxo not in self.input_utxos.keys():
+                if utxo not in list(self.input_utxos):
                     continue
                 addr = self.input_utxos[utxo]['address']
                 amount = self.input_utxos[utxo]["value"]
@@ -675,7 +675,7 @@ class Taker(object):
             if i == n:
                 pushed = jm_single().bc_interface.pushtx(tx)
             else:
-                nick_to_use = self.maker_utxo_data.keys()[i]
+                nick_to_use = list(self.maker_utxo_data)[i]
                 pushed = True
         else:
             jlog.info("Only self, random-peer and not-self broadcast "

@@ -17,15 +17,6 @@ def test_bad_code_string():
         with pytest.raises(ValueError) as e_info:
             btc.get_code_string(i)
 
-@pytest.mark.parametrize(
-    "st, frm, to, minlen, res",
-    [
-        ("0101aa", 16, 16, 12, "0000000101aa"),
-    ])
-def test_changebase(st, frm, to, minlen, res):
-    assert btc.changebase(st, frm, to, minlen) == res
-
-
 #Tests of compactsize encoding, see:
 #https://bitcoin.org/en/developer-reference#compactsize-unsigned-integers
 #note that little endian is used.
@@ -65,6 +56,5 @@ def test_compact_size(num, compactsize):
     #(("4e" + "03000100" + "aa"*65539), ["aa"*65539]),
 ])
 def test_deserialize_script(frm, to):
-    #print(len(btc.deserialize_script(frm)[0]))
-    assert btc.deserialize_script(frm) == to
+    assert btc.deserialize_script(binascii.unhexlify(frm)) == to
     assert btc.serialize_script(to) == btc.from_string_to_bytes(frm)

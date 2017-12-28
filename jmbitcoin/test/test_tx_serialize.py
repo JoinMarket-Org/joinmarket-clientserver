@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys
+import binascii
 import jmbitcoin as btc
 import pytest
 import json
@@ -199,7 +200,8 @@ testdir = os.path.dirname(os.path.realpath(__file__))
       "0300000000000186a0aa0a0000000000001976a91488d924f51033b74a895863a5fb57" +
       "fd545529df7d88ac00000000")])
 def test_serialization_roundtrip(tx_type, tx_id, tx_hex):
-    assert tx_hex == btc.serialize(btc.deserialize(tx_hex))
+    assert bytes(tx_hex, "utf-8") == binascii.hexlify(btc.serialize(
+        btc.deserialize(binascii.unhexlify(tx_hex))))
 
 @pytest.mark.parametrize(
     "ins, outs, txtype, valid",
@@ -231,6 +233,6 @@ def test_serialization_roundtrip2():
         if len(j) < 2:
             continue
         print(j)
-        deserialized = btc.deserialize(str(j[0]))
+        deserialized = btc.deserialize(binascii.unhexlify(str(j[0])))
         print(deserialized)
-        assert j[0] == btc.serialize(deserialized)
+        assert bytes(j[0], "utf-8") == binascii.hexlify(btc.serialize(deserialized))

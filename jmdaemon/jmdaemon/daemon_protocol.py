@@ -286,7 +286,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.active_orders[nick]["cjaddr"] = cjaddr
         self.active_orders[nick]["changeaddr"] = changeaddr
         self.active_orders[nick]["utxos"] = utxos
-        msg = str(",".join(utxos.keys())) + " " + " ".join(
+        msg = str(",".join(list(utxos))) + " " + " ".join(
             [pubkey, cjaddr, changeaddr, pubkeysig])
         self.mcc.prepare_privmsg(nick, "ioauth", msg)
         #In case of *blacklisted (ie already used) commitments, we already
@@ -428,7 +428,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """This is handled locally in the daemon; set up e2e
         encrypted messaging with this counterparty
         """
-        if nick not in self.active_orders.keys():
+        if nick not in list(self.active_orders):
             log.msg("Counterparty not part of this transaction. Ignoring")
             return
         try:
@@ -447,12 +447,12 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         they've all been received; note that we must also pass back the maker_pk
         so it can be verified against the btc-sigs for anti-MITM
         """
-        if nick not in self.active_orders.keys():
+        if nick not in list(self.active_orders):
             print("Got an unexpected ioauth from nick: " + str(nick))
             return
         self.ioauth_data[nick] = [utxo_list, auth_pub, cj_addr, change_addr,
                                   btc_sig, self.crypto_boxes[nick][0]]
-        if self.ioauth_data.keys() == self.active_orders.keys():
+        if list(self.ioauth_data) == list(self.active_orders):
             #Finish early if we got all
             self.respondToIoauths(True)
 
@@ -542,8 +542,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.jm_state = 3
         if not accepted:
             #use ioauth data field to return the list of non-responsive makers
-            nonresponders = [x for x in self.active_orders.keys() if x not
-                             in self.ioauth_data.keys()]
+            nonresponders = [x for x in list(self.active_orders) if x not
+                             in list(self.ioauth_data)]
         ioauth_data = self.ioauth_data if accepted else nonresponders
         d = self.callRemote(JMFillResponse,
                                 success=accepted,
@@ -562,7 +562,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         either send success + ioauth data if enough makers,
         else send failure to client.
         """
-        response = True if len(self.ioauth_data.keys()) >= self.minmakers else False
+        response = True if len(list(self.ioauth_data)) >= self.minmakers else False
         self.respondToIoauths(response)
 
     def checkUtxosAccepted(self, accepted):

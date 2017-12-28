@@ -14,7 +14,7 @@ offertypes = {"reloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
               "swabsoffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
                            (int, "txfee"), (int, "cjfee")]}
 
-offername_list = offertypes.keys()
+offername_list = list(offertypes)
 
 ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
               'cjfee']

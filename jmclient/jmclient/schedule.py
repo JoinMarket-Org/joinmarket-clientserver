@@ -21,29 +21,29 @@ def get_schedule(filename):
         schedule = []
         schedule_lines = f.readlines()
         for sl in schedule_lines:
-            if sl.startswith("#"):
+            if sl.startswith(b"#"):
                 continue
             try:
                 mixdepth, amount, makercount, destaddr, waittime, completed = \
-                    sl.split(',')
+                    sl.split(b',')
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
             try:
                 mixdepth = int(mixdepth)
                 #TODO this isn't the right way, but floats must be allowed
                 #for any persisted tumbler-style schedule
-                if "." in amount:
+                if b"." in amount:
                     amount = float(amount)
                 else:
                     amount = int(amount)
                 makercount = int(makercount)
-                destaddr = destaddr.strip()
+                destaddr = destaddr.strip().decode("utf-8")
                 waittime = float(waittime)
-                completed = completed.strip()
+                completed = completed.strip().decode("utf-8")
                 if not len(completed) == 64:
                     completed = int(completed)
             except ValueError as e:
-                return (False, "Failed to parse schedule line: " + sl)
+                return (False, "Failed to parse schedule line: " + sl.decode("utf-8"))
             if destaddr not in ["INTERNAL", "addrask"]:
                 success, errmsg = validate_address(destaddr)
                 if not success:

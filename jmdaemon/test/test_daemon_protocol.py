@@ -107,7 +107,7 @@ class JMTestClientProtocol(JMBaseProtocol):
     
     def maketx(self, ioauth_data):
         ioauth_data = json.loads(ioauth_data)
-        nl = ioauth_data.keys()
+        nl = list(ioauth_data)
         d = self.callRemote(JMMakeTx,
                             nick_list= json.dumps(nl),
                             txhex="deadbeef")
@@ -119,7 +119,7 @@ class JMTestClientProtocol(JMBaseProtocol):
             return {'accepted': True}
         jlog.debug("JMOFFERS" + str(orderbook))
         #Trigger receipt of verified privmsgs, including unverified
-        nick = str(t_chosen_orders.keys()[0])
+        nick = str(list(t_chosen_orders)[0])
         b64tx = base64.b64encode("deadbeef")
         d1 = self.callRemote(JMMsgSignatureVerify,
                             verif_result=True,
@@ -248,14 +248,14 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         dummypub = "073732a7ca60470f709f23c602b2b8a6b1ba62ee8f3f83a61e5484ab5cbf9c3d"
         #trigger invalid on_pubkey conditions
         reactor.callLater(1, self.on_pubkey, "notrealcp", dummypub)
-        reactor.callLater(2, self.on_pubkey, tmpfo.keys()[0], dummypub + "deadbeef")
+        reactor.callLater(2, self.on_pubkey, list(tmpfo)[0], dummypub + "deadbeef")
         #trigger invalid on_ioauth condition
         reactor.callLater(2, self.on_ioauth, "notrealcp", 1, 2, 3, 4, 5)
         #trigger msg sig verify request operation for a dummy message
         #currently a pass-through
         reactor.callLater(1, self.request_signature_verify, "1",
                           "!push abcd abc def", "3", "4",
-                          str(tmpfo.keys()[0]), 6, 7, self.mcc.mchannels[0].hostid)         
+                          str(list(tmpfo)[0]), 6, 7, self.mcc.mchannels[0].hostid)
         #send "valid" onpubkey, onioauth messages
         for k, v in tmpfo.items():
             reactor.callLater(1, self.on_pubkey, k, dummypub)

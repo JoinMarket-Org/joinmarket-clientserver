@@ -79,7 +79,7 @@ def test_mktx(setup_tx_creation):
 def test_bintxhash(setup_tx_creation):
     tx = "abcdef1234"
     x = bitcoin.bin_txhash(tx)
-    assert binascii.hexlify(x) == "121480fc2cccd5103434a9c88b037e08ef6c4f9f95dfb85b56f7043a344613fe"
+    assert binascii.hexlify(x) == b"121480fc2cccd5103434a9c88b037e08ef6c4f9f95dfb85b56f7043a344613fe"
 
 def test_all_same_priv(setup_tx_creation):
     #recipient
@@ -92,7 +92,7 @@ def test_all_same_priv(setup_tx_creation):
     sync_wallet(wallet, fast=True)
     insfull = wallet.select_utxos(0, 110000000)
     outs = [{"address": addr, "value": 1000000}]
-    ins = insfull.keys()
+    ins = list(insfull)
     tx = bitcoin.mktx(ins, outs)
     tx = bitcoin.signall(tx, wallet.get_key_from_addr(addrinwallet))
 
@@ -111,11 +111,11 @@ def test_verify_tx_input(setup_tx_creation, signall, mktxlist):
     print(insfull)    
     if not mktxlist:
         outs = [{"address": addr, "value": 1000000}]
-        ins = insfull.keys()
+        ins = list(insfull)
         tx = bitcoin.mktx(ins, outs)
     else:
         out1 = addr+":1000000"
-        ins0, ins1 = insfull.keys()
+        ins0, ins1 = list(insfull)
         print("INS0 is: " + str(ins0))
         print("INS1 is: " + str(ins1))
         tx = bitcoin.mktx(ins0, ins1, out1)

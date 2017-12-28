@@ -323,7 +323,7 @@ def get_podle_commitments():
         return ([], {})
     with open(PODLE_COMMIT_FILE, "rb") as f:
         c = json.loads(f.read())
-    if 'used' not in c.keys() or 'external' not in c.keys():
+    if 'used' not in list(c) or 'external' not in list(c):
         raise PoDLEError("Incorrectly formatted file: " + PODLE_COMMIT_FILE)
     return (c['used'], c['external'])
 
@@ -387,7 +387,7 @@ def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
         if utxo in external_commitments:
             ec = external_commitments[utxo]
             #use as many as were provided in the file, up to a max of max_tries
-            m = min([len(ec['reveal'].keys()), max_tries])
+            m = min([len(list(ec['reveal'])), max_tries])
             for i in reversed(range(m)):
                 key = str(i)
                 p = PoDLE(u=utxo,P=ec['P'],P2=ec['reveal'][key]['P2'],

@@ -67,14 +67,14 @@ def make_sign_and_push(ins_sw,
     All amounts are in satoshis and only converted to btc for grab_coins
     """
     #total value of all inputs
-    print ins_sw
-    print other_ins
+    print(ins_sw)
+    print(other_ins)
     total = sum([x[0] for x in ins_sw.values()])
     total += sum([x[0] for x in other_ins.values()])
     #construct the other inputs
     ins1 = other_ins
     ins1.update(ins_sw)
-    ins1 = sorted(ins1.keys(), key=lambda k: ins1[k][2])
+    ins1 = sorted(list(ins1), key=lambda k: ins1[k][2])
     #random output address and change addr
     output_addr = wallet.get_new_addr(1, 1) if not output_addr else output_addr
     change_addr = wallet.get_new_addr(1, 0) if not change_addr else change_addr
@@ -85,17 +85,17 @@ def make_sign_and_push(ins_sw,
     de_tx = btc.deserialize(tx)
     for index, ins in enumerate(de_tx['ins']):
         utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-        temp_ins = ins_sw if utxo in ins_sw.keys() else other_ins
+        temp_ins = ins_sw if utxo in list(ins_sw) else other_ins
         amt, priv, n = temp_ins[utxo]
-        temp_amt = amt if utxo in ins_sw.keys() else None
+        temp_amt = amt if utxo in list(ins_sw) else None
         #for better test code coverage
-        print "signing tx index: " + str(index) + ", priv: " + priv
+        print("signing tx index: " + str(index) + ", priv: " + priv)
         if index % 2:
             priv = binascii.unhexlify(priv)
         ms = "other" if not temp_amt else "amount: " + str(temp_amt)
         print ms
         tx = btc.sign(tx, index, priv, hashcode=hashcode, amount=temp_amt)
-    print pformat(btc.deserialize(tx))
+    print(pformat(btc.deserialize(tx)))
     txid = jm_single().bc_interface.pushtx(tx)
     time.sleep(3)
     received = jm_single().bc_interface.get_received_by_addr(

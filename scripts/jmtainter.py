@@ -193,7 +193,7 @@ def graft_onto_single_acp(wallet, txhex, amount, destaddr):
     change_amount = total_selected - amount - excess - fee
     changeaddr = wallet.get_new_addr(options.mixdepth, 1)
     #Build new transaction and, graft in signature
-    ins = [other_utxo_in] + input_utxos.keys()
+    ins = [other_utxo_in] + list(input_utxos)
     outs = [d['outs'][0], {'address': destaddr, 'value': amount},
             {'address': changeaddr, 'value': change_amount}]
     fulltx = btc.mktx(ins, outs)

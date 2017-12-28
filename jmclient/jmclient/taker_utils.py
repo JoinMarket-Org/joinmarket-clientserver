@@ -73,7 +73,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     log.info("Using a fee of : " + str(fee_est) + " satoshis.")
     if amount != 0:
         log.info("Using a change value of: " + str(changeval) + " satoshis.")
-    tx = mktx(utxos.keys(), outs)
+    tx = mktx(list(utxos), outs)
     stx = deserialize(tx)
     for index, ins in enumerate(stx['ins']):
         utxo = ins['outpoint']['hash'] + ':' + str(
