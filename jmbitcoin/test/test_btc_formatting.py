@@ -57,4 +57,4 @@ def test_compact_size(num, compactsize):
 ])
 def test_deserialize_script(frm, to):
     assert btc.deserialize_script(binascii.unhexlify(frm)) == to
-    assert btc.serialize_script(to) == btc.from_string_to_bytes(frm)
+    assert btc.serialize_script(to) == frm

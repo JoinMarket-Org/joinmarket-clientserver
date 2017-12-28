@@ -151,19 +151,16 @@ def make_sign_and_push(ins_full,
                                        'address': change_addr}]
 
     tx = btc.mktx(ins, outs)
-    de_tx = btc.deserialize(tx)
-    for index, ins in enumerate(de_tx['ins']):
+    for index, ins in enumerate(tx['ins']):
         utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
         addr = ins_full[utxo]['address']
         priv = wallet.get_key_from_addr(addr)
-        if index % 2:
-            priv = binascii.unhexlify(priv)
         tx = btc.sign(tx, index, priv, hashcode=hashcode)
     #pushtx returns False on any error
-    print(btc.deserialize(tx))
-    push_succeed = jm_single().bc_interface.pushtx(tx)
+    print(tx)
+    push_succeed = jm_single().bc_interface.pushtx(btc.serialize(tx))
     if push_succeed:
-        return btc.txhash(tx)
+        return btc.txhash(btc.serialize(tx))
     else:
         return False
 

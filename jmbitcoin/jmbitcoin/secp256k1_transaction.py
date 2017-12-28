@@ -8,7 +8,7 @@ import os
 # Transaction serialization and deserialization
 # =============================================
 
-def serialize(txobj):
+def serialize(tx):
     """Assumes a deserialized transaction in which all
     dictionary values are decoded hex strings or numbers.
     Rationale: mixing raw bytes/hex/strings in dict objects causes
@@ -33,6 +33,9 @@ def serialize(txobj):
 
     Returned serialized transaction is a byte string.
     """
+    #Because we are manipulating the dict in-place, need
+    #to work on a copy
+    txobj = copy.deepcopy(tx)
     o = bytes()
     o += encode(txobj["version"], 256, 4)[::-1]
     segwit = False
@@ -274,11 +277,12 @@ def segwit_txid(tx, hashcode=None):
 def txhash(tx, hashcode=None, check_sw=True):
     """Creates the appropriate sha256 hash as required
     either for signing or calculating txids.
+    Input should be the serialized transaction in bytes,
+    that is, as output from serialize().
     If check_sw is True it checks the serialized format for
     segwit flag bytes, and produces the correct form for txid (not wtxid).
+    Return value is decoded hex string.
     """
-    if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
-        tx = changebase(tx, 16, 256)
     if check_sw and from_byte_to_int(tx[4]) == 0:
         if not from_byte_to_int(tx[5]) == 1:
             #This is invalid, but a raise is a DOS vector in some contexts.
@@ -296,6 +300,10 @@ def bin_txhash(tx, hashcode=None):
 
 
 def ecdsa_tx_sign(tx, priv, hashcode=SIGHASH_ALL, usenonce=None):
+    """Input is a *serialized* transaction byte string,
+    and a hex private key string;
+    returned is a hex string signature.
+    """
     sig = ecdsa_raw_sign(
         txhash(tx, hashcode, check_sw=False),
         priv,
@@ -306,6 +314,10 @@ def ecdsa_tx_sign(tx, priv, hashcode=SIGHASH_ALL, usenonce=None):
 
 
 def ecdsa_tx_verify(tx, sig, pub, hashcode=SIGHASH_ALL):
+    """Input is a *serialized* transaction byte string,
+    and hex strings for sig and pub.
+    Returned is True/False.
+    """
     return ecdsa_raw_verify(
         txhash(tx, hashcode, check_sw=False),
         pub,
@@ -430,8 +442,7 @@ def serialize_script(script):
         if x is None or isinstance(x, int):
             return x
         return binascii.unhexlify(x)
-    print("Starting with script: ", script)
-    return binascii.hexlify(b''.join(map(serialize_script_unit,
+    return safe_hexlify(b''.join(map(serialize_script_unit,
                                          [unhexlify_if_needed(x) for x in script])))
 
 def mk_multisig_script(*args):  # [pubs],k or pub1,pub2...pub[n],k
@@ -446,23 +457,22 @@ def mk_multisig_script(*args):  # [pubs],k or pub1,pub2...pub[n],k
 
 
 def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
-    if re.match('^[0-9a-fA-F]*$', tx):
-        tx = binascii.unhexlify(tx)
-    if re.match('^[0-9a-fA-F]*$', script):
-        script = binascii.unhexlify(script)
-    if not re.match('^[0-9a-fA-F]*$', sig):
-        sig = safe_hexlify(sig)
-    if not re.match('^[0-9a-fA-F]*$', pub):
-        pub = safe_hexlify(pub)
-    if witness:
-        if not re.match('^[0-9a-fA-F]*$', witness):
-            witness = safe_hexlify(witness)
+    """Input types:
+    tx - dict (deserialized)
+    i - int
+    script - hex string
+    sig - hex string
+    pub - hex string
+    witness - hex string
+    amount - int (optional but required with witness)
+
+    Returns: True/False
+    """
     hashcode = decode(sig[-2:], 16)
     if witness and amount:
         #TODO assumes p2sh wrapped segwit input; OK for JM wallets
         scriptCode = "76a914"+hash160(binascii.unhexlify(pub))+"88ac"
-        modtx = segwit_signature_form(deserialize(binascii.hexlify(tx)), int(i),
-                                      scriptCode, amount, hashcode)
+        modtx = segwit_signature_form(tx, int(i), scriptCode, amount, hashcode)
     else:
         modtx = signature_form(tx, int(i), script, hashcode)
     return ecdsa_tx_verify(modtx, sig, pub, hashcode)
@@ -516,29 +526,26 @@ def signall(tx, priv):
 
 
 def multisign(tx, i, script, pk, hashcode=SIGHASH_ALL):
-    if re.match('^[0-9a-fA-F]*$', tx):
-        tx = binascii.unhexlify(tx)
-    if re.match('^[0-9a-fA-F]*$', script):
-        script = binascii.unhexlify(script)
+    """tx must be a deserialized transaction dict.
+    script must be a hex string.
+    Return value is a signature as hex string.
+    """
     modtx = signature_form(tx, i, script, hashcode)
     return ecdsa_tx_sign(modtx, pk, hashcode)
 
 
-def apply_multisignatures(*args):
-    # tx,i,script,sigs OR tx,i,script,sig1,sig2...,sig[n]
-    tx, i, script = args[0], int(args[1]), args[2]
-    sigs = args[3] if isinstance(args[3], list) else list(args[3:])
-
-    if isinstance(script, str) and re.match('^[0-9a-fA-F]*$', script):
-        script = binascii.unhexlify(script)
-    sigs = [binascii.unhexlify(x) if x[:2] == '30' else x for x in sigs]
-    if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
-        return safe_hexlify(apply_multisignatures(
-            binascii.unhexlify(tx), i, script, sigs))
-
-    txobj = deserialize(tx)
+def apply_multisignatures(tx, i, script, sigs):
+    """Args are:
+    tx - deserialized transaction
+    i - index of signing
+    script - redeem script, hex string
+    sigs - list of hex strings as sigs at each appropriate index.
+    Returns a deserialized transaction object (reasoning same as for 'sign').
+    """
+    i = int(i)
+    txobj = copy.deepcopy(tx)
     txobj["ins"][i]["script"] = serialize_script([None] + sigs + [script])
-    return serialize(txobj)
+    return txobj
 
 def mktx(ins, outs):
     """Assumed that all inputs to mktx are decoded strings, not byte strings.

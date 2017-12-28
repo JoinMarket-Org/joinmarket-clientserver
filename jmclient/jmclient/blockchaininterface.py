@@ -807,7 +807,8 @@ class BitcoinCoreInterface(BlockchainInterface):
                         wl[3] = True
                         return
 
-    def pushtx(self, txhex):
+    def pushtx(self, txraw):
+        txhex = binascii.hexlify(txraw).decode("utf-8")
         try:
             txid = self.rpc('sendrawtransaction', [txhex])
         except JsonRpcConnectionError as e:
