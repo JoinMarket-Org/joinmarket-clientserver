@@ -103,18 +103,24 @@ def serialize_derivation(roc, i):
     return x
 #=======================================================
 
-def get_privkey_amount_from_utxo(wallet, utxo):
+
+def get_script_amount_from_utxo(wallet, utxo):
     """Given a JM wallet and a utxo string, find
     the corresponding private key and amount controlled
     in satoshis.
     """
-    for k, v in wallet.unspent.iteritems():
-        if k == utxo:
-            print("Found utxo, its value is: ", v['value'])
-            return wallet.get_key_from_addr(v['address']), v['value']
-    return (None, None)
+    for md, utxos in wallet.get_utxos_by_mixdepth_().items():
+        for (txid, index), utxo in utxos.items():
+            txhex = binascii.hexlify(txid) + ':' + str(index)
+            if txhex != utxo:
+                continue
+            script = wallet.get_script_path(utxo['path'])
+            print("Found utxo, its value is: {}".format(utxo['value']))
+            return script, utxo['value']
+    return None, None
 
-def create_single_acp_pair(utxo_in, priv, addr_out, amount, bump, segwit=False):
+
+def create_single_acp_pair(wallet, utxo_in, script, addr_out, amount, bump, segwit=False):
     """Given a utxo and a signing key for it, and its amout in satoshis,
     sign a "transaction" consisting of only 1 input and one output, signed
     with single|acp sighash flags so it can be grafted into a bigger
@@ -129,10 +135,9 @@ def create_single_acp_pair(utxo_in, priv, addr_out, amount, bump, segwit=False):
     assert bump >= 0, "Output of single|acp pair must be bigger than input for safety."
     out = {"address": addr_out, "value": amount + bump}
     tx = btc.mktx([utxo_in], [out])
-    amt = amount if segwit else None
-    return btc.sign(tx, 0, priv,
-                    hashcode=btc.SIGHASH_SINGLE|btc.SIGHASH_ANYONECANPAY,
-                    amount=amt)
+    return wallet.sign_tx(tx, {0: (script, amount)},
+                          hashcode=btc.SIGHASH_SINGLE|btc.SIGHASH_ANYONECANPAY)
+
 
 def graft_onto_single_acp(wallet, txhex, amount, destaddr):
     """Given a serialized txhex which is checked to be of
@@ -187,13 +192,15 @@ def graft_onto_single_acp(wallet, txhex, amount, destaddr):
     df['ins'][0]['script'] = d['ins'][0]['script']
     if 'txinwitness' in d['ins'][0]:
         df['ins'][0]['txinwitness'] = d['ins'][0]['txinwitness']
-    fulltx = btc.serialize(df)
+
     for i, iu in enumerate(input_utxos):
-        priv, inamt = get_privkey_amount_from_utxo(wallet, iu)
-        print("Signing index: ", i+1, " with privkey: ", priv, " and amount: ", inamt, " for utxo: ", iu)
-        fulltx = btc.sign(fulltx, i+1, priv, amount=inamt)
-    return (True, fulltx)
-        
+        script, inamt = get_script_amount_from_utxo(wallet, iu)
+        print("Signing index: ", i+1, " with script: ", script, " and amount: ", inamt, " for utxo: ", iu)
+        fulltx = wallet.sign_tx(df, {i: (script, inamt)})
+
+    return True, btc.serialize(fulltx)
+
+
 if __name__ == "__main__":
     parser = get_parser()
     (options, args) = parser.parse_args()
@@ -214,22 +221,22 @@ if __name__ == "__main__":
             "Use wallet-tool.py method 'showutxos' to select one")
             exit(0)
         utxo_in = args[2]
-        priv, amount = get_privkey_amount_from_utxo(wallet, utxo_in)
-        if not priv:
+        script, amount = get_script_amount_from_utxo(wallet, utxo_in)
+        if not script:
             print("Failed to find the utxo's private key from the wallet; check "
                   "if this utxo is actually contained in the wallet using "
                   "wallet-tool.py showutxos")
             exit(0)
         #destination sourced from wallet
         addr_out = wallet.get_new_addr((options.mixdepth+1)%options.amtmixdepths, 1)
-        serialized_single_acp = create_single_acp_pair(utxo_in, priv, addr_out, amount,
-                                                       options.bump, segwit=True)
+        single_acp = create_single_acp_pair(wallet, utxo_in, script, addr_out, amount,
+                                            options.bump, segwit=True)
         print("Created the following one-in, one-out transaction, which will not "
               "be valid to broadcast itself (negative fee). Pass it to your "
               "counterparty:")
-        print(pformat(btc.deserialize(serialized_single_acp)))
+        print(pformat(single_acp))
         print("Pass the following raw hex to your counterparty:")
-        print(serialized_single_acp)
+        print(btc.serialize(single_acp))
         exit(0)
     elif args[1] == "take":
         try:

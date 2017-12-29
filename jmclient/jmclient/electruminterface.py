@@ -6,11 +6,9 @@ import pprint
 import random
 import socket
 import threading
-import time
-import sys
 import ssl
-from twisted.python.log import startLogging
-from twisted.internet.protocol import ClientFactory, Protocol
+import binascii
+from twisted.internet.protocol import ClientFactory
 from twisted.internet.ssl import ClientContextFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor, task, defer
@@ -328,10 +326,10 @@ class ElectrumInterface(BlockchainInterface):
 
     def sync_unspent(self, wallet):
         # finds utxos in the wallet
-        wallet.unspent = {}
+        wallet.reset_utxos()
         #Prepare list of all used addresses
-        addrs = []
-        for m in range(wallet.max_mix_depth):
+        addrs = set()
+        for m in range(wallet.max_mixdepth):
             for fc in [0, 1]:
                 branch_list = []
                 for k, v in self.temp_addr_history[m][fc].iteritems():
@@ -339,7 +337,7 @@ class ElectrumInterface(BlockchainInterface):
                         continue
                     if v["used"]:
                         branch_list.append(v["addr"])
-                addrs.extend(branch_list)
+                addrs.update(branch_list)
         if len(addrs) == 0:
             log.debug('no tx used')
             self.wallet_synced = True
@@ -348,21 +346,28 @@ class ElectrumInterface(BlockchainInterface):
             return
         #make sure to add any addresses during the run (a subset of those
         #added to the address cache)
-        addrs = list(set(self.wallet.addr_cache.keys()).union(set(addrs)))
-        self.listunspent_calls = 0
-        for a in addrs:
-            d = self.get_from_electrum('blockchain.address.listunspent', a)
-            d.addCallback(self.process_listunspent_data, wallet, a, len(addrs))
+        for md in range(wallet.max_mixdepth):
+            for internal in (True, False):
+                for index in range(wallet.get_next_unused_index(md, internal)):
+                    addrs.add(wallet.get_addr(md, internal, index))
+            for path in wallet.get_imported_paths(md):
+                addrs.add(wallet.get_addr_path(path))
 
-    def process_listunspent_data(self, unspent_info, wallet, address, n):
-        self.listunspent_calls += 1
+        self.listunspent_calls = len(addrs)
+        for a in addrs:
+            # FIXME: update to protocol version 1.1 and use scripthash instead
+            script = wallet.address_to_script(a)
+            d = self.get_from_electrum('blockchain.address.listunspent', a)
+            d.addCallback(self.process_listunspent_data, wallet, script)
+
+    def process_listunspent_data(self, unspent_info, wallet, script):
         res = unspent_info['result']
         for u in res:
-            wallet.unspent[str(u['tx_hash']) + ':' + str(
-                u['tx_pos'])] = {'address': address, 'value': int(u['value'])}
-        if self.listunspent_calls == n:
-            for u in wallet.spent_utxos:
-                wallet.unspent.pop(u, None)
+            txid = binascii.unhexlify(u['tx_hash'])
+            wallet.add_utxo(txid, int(u['tx_pos']), script, int(u['value']))
+
+        self.listunspent_calls -= 1
+        if self.listunspent_calls == 0:
             self.wallet_synced = True
             if self.synctype == "sync-only":
                 reactor.stop()

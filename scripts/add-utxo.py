@@ -9,6 +9,7 @@ the anti-snooping feature employed by makers.
 import sys
 import os
 import json
+import binascii
 from pprint import pformat
 
 from optparse import OptionParser
@@ -173,20 +174,16 @@ def main():
     #Three options (-w, -r, -R) for loading utxo and privkey pairs from a wallet,
     #csv file or json file.
     if options.loadwallet:
-        # TODO: new wallet has no unspent attribute
-        raise NotImplementedError("This is not yet implemented.")
         wallet_path = get_wallet_path(options.loadwallet, None)
         wallet = open_wallet(wallet_path, gap_limit=options.gaplimit)
         sync_wallet(wallet, fast=options.fastsync)
-        unsp = {}
-        for u, av in wallet.unspent.iteritems():
-                    addr = av['address']
-                    key = wallet.get_key_from_addr(addr)
-                    wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
-                    unsp[u] = {'address': av['address'],
-                               'value': av['value'], 'privkey': wifkey}
-        for u, pva  in unsp.iteritems():
-            utxo_data.append((u, pva['privkey']))
+
+        for md, utxos in wallet.get_utxos_by_mixdepth_().items():
+            for (txid, index), utxo in utxos.items():
+                txhex = binascii.hexlify(txid) + ':' + str(index)
+                wif = wallet.get_wif_path(utxo['path'])
+                utxo_data.append((txhex, wif))
+
     elif options.in_file:
         with open(options.in_file, "rb") as f:
             utxo_info = f.readlines()

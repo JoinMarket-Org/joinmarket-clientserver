@@ -51,7 +51,7 @@ class BlockchainInterface(object):
 
     @staticmethod
     def get_wallet_name(wallet):
-        return 'joinmarket-wallet-' + btc.dbl_sha256(wallet.keys[0][0])[:6]
+        return 'joinmarket-wallet-' + wallet.get_wallet_id()
 
     @abc.abstractmethod
     def sync_addresses(self, wallet):
@@ -60,8 +60,7 @@ class BlockchainInterface(object):
 
     @abc.abstractmethod
     def sync_unspent(self, wallet):
-        """Finds the unspent transaction outputs belonging to this wallet,
-        sets wallet.unspent """
+        """Finds the unspent transaction outputs belonging to this wallet"""
 
     def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr,
                       wallet_name=None, timeoutfun=None, spentfun=None, txid_flag=True,
@@ -642,7 +641,7 @@ class BitcoinCoreInterface(BlockchainInterface):
     def sync_unspent(self, wallet):
         st = time.time()
         wallet_name = self.get_wallet_name(wallet)
-        wallet.unspent = {}
+        wallet.reset_utxos()
 
         listunspent_args = []
         if 'listunspent_args' in jm_single().config.options('POLICY'):
@@ -655,15 +654,28 @@ class BitcoinCoreInterface(BlockchainInterface):
                 continue
             if u['account'] != wallet_name:
                 continue
+            # TODO
             if u['address'] not in wallet.addr_cache:
                 continue
-            wallet.unspent[u['txid'] + ':' + str(u['vout'])] = {
-                'address': u['address'],
-                'value': int(Decimal(str(u['amount'])) * Decimal('1e8'))
-            }
+            self._add_unspent_utxo(wallet, u)
         et = time.time()
         log.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
         self.wallet_synced = True
+
+    @staticmethod
+    def _add_unspent_utxo(wallet, utxo):
+        """
+        Add a UTXO as returned by rpc's listunspent call to the wallet.
+
+        params:
+            wallet: wallet
+            utxo: single utxo dict as returned by listunspent
+        """
+        txid = binascii.unhexlify(utxo['txid'])
+        script = binascii.unhexlify(utxo['scriptPubKey'])
+        value = int(Decimal(str(utxo['amount'])) * Decimal('1e8'))
+
+        wallet.add_utxo(txid, int(utxo['vout']), script, value)
 
     def get_deser_from_gettransaction(self, rpcretval):
         """Get full transaction deserialization from a call
