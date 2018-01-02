@@ -182,9 +182,10 @@ class JMRequestMsgSigVerify(JMCommand):
 class JMOffers(JMCommand):
     """Return the entire contents of the
     orderbook to TAKER, as a json-ified dict;
-    note uses BigString because can be very large
+    TODO needs BigString for large orderbooks,
+    but not supported in Py3 currently.
     """
-    arguments = [(b'orderbook', BigString())]
+    arguments = [(b'orderbook', String())]
 
 class JMFillResponse(JMCommand):
     """Returns ioauth data from MAKER if successful.

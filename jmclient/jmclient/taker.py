@@ -400,9 +400,9 @@ class Taker(object):
         random.shuffle(self.utxo_tx)
         random.shuffle(self.outputs)
         tx = btc.mktx(self.utxo_tx, self.outputs)
-        jlog.info('obtained tx\n' + pprint.pformat(btc.deserialize(tx)))
+        jlog.info('obtained tx\n' + pprint.pformat(tx))
 
-        self.latest_tx = btc.deserialize(tx)
+        self.latest_tx = tx
         for index, ins in enumerate(self.latest_tx['ins']):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
             if utxo not in list(self.input_utxos):
@@ -434,8 +434,9 @@ class Taker(object):
         """
         if self.aborted:
             return False
-        sig = base64.b64decode(sigb64).encode('hex')
+        sig = base64.b64decode(sigb64)
         inserted_sig = False
+        print("working with latest tx: ", self.latest_tx)
         txhex = btc.serialize(self.latest_tx)
 
         # batch retrieval of utxo data
@@ -461,7 +462,7 @@ class Taker(object):
             #from the utxo data retrieved from the blockchain to verify
             #the segwit-style signature. Note that this allows a mixed
             #SW/non-SW transaction as each utxo is interpreted separately.
-            sig_deserialized = btc.deserialize_script(sig)
+            sig_deserialized = btc.deserialize_script(btc.safe_from_hex(sig))
             if len(sig_deserialized) == 2:
                 ver_sig, ver_pub = sig_deserialized
                 wit = None
@@ -471,7 +472,7 @@ class Taker(object):
                 jlog.debug("Invalid signature message - more than 3 items")
                 break
             ver_amt = utxo_data[i]['value'] if wit else None
-            sig_good = btc.verify_tx_input(txhex, u[0], utxo_data[i]['script'],
+            sig_good = btc.verify_tx_input(btc.deserialize(txhex), u[0], utxo_data[i]['script'],
                                                ver_sig, ver_pub, witness=wit,
                                                amount=ver_amt)
             if sig_good:
@@ -554,7 +555,7 @@ class Taker(object):
                     priv_utxo_pairs.append((priv, k))
             return priv_utxo_pairs, too_old, too_small
 
-        commit_type_byte = "P"
+        commit_type_byte = b"P"
         podle_data = None
         tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
         age = jm_single().config.getint("POLICY", "taker_utxo_age")
@@ -603,7 +604,7 @@ class Taker(object):
                         jm_single().config.get("POLICY", "taker_utxo_age"),
                         jm_single().config.get("POLICY", "taker_utxo_amtpercent"))
 
-            with open("commitments_debug.txt", "wb") as f:
+            with open("commitments_debug.txt", "w") as f:
                 errmsgfileheader = ("THIS IS A TEMPORARY FILE FOR DEBUGGING; "
                         "IT CAN BE SAFELY DELETED ANY TIME.\n")
                 errmsgfileheader += ("***\n")
@@ -652,7 +653,7 @@ class Taker(object):
 
     def push(self):
         tx = btc.serialize(self.latest_tx)
-        jlog.debug('\n' + tx)
+        jlog.debug('\n' + btc.safe_hexlify(tx))
         self.txid = btc.txhash(tx)
         jlog.info('txid = ' + self.txid)
         #add the txnotify callbacks *before* pushing in case the

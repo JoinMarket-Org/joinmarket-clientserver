@@ -72,12 +72,21 @@ class DummyTaker(Taker):
         """For test, we exit 'early' on first message, since this marks the end
         of client-server communication with the daemon.
         """
-        jlog.debug("We got a sig: " + sigb64)
+        jlog.debug("We got a sig: " + str(sigb64, "utf-8"))
         end_test()
         return None
 
 
 class JMBaseProtocol(amp.AMP):
+    def _callRemote(self, *args, **kwargs):
+        newkwargs = {}
+        for k, a in kwargs.items():
+            if not isinstance(a, str):
+                newkwargs[k] = a
+            else:
+                newkwargs[k] = bytes(a, "utf-8")
+        return self.callRemote(*args, **newkwargs)
+
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
         is considered criticial.
@@ -113,7 +122,7 @@ class JMTestServerProtocol(JMBaseProtocol):
                    maker_timeout_sec):
         show_receipt("JMINIT", bcsource, network, irc_configs, minmakers,
                      maker_timeout_sec)
-        d = self.callRemote(JMInitProto,
+        d = self._callRemote(JMInitProto,
                             nick_hash_length=1,
                             nick_max_encoded=2,
                             joinmarket_nick_header="J",
@@ -124,14 +133,14 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMStartMC.responder
     def on_JM_START_MC(self, nick):
         show_receipt("STARTMC", nick)
-        d = self.callRemote(JMUp)
+        d = self._callRemote(JMUp)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMSetup.responder
     def on_JM_SETUP(self, role, initdata):
         show_receipt("JMSETUP", role, initdata)
-        d = self.callRemote(JMSetupDone)
+        d = self._callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -140,7 +149,7 @@ class JMTestServerProtocol(JMBaseProtocol):
         show_receipt("JMREQUESTOFFERS")
         #build a huge orderbook to test BigString Argument
         orderbook = ["aaaa" for _ in range(15)]
-        d = self.callRemote(JMOffers,
+        d = self._callRemote(JMOffers,
                         orderbook=json.dumps(orderbook))
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -149,7 +158,7 @@ class JMTestServerProtocol(JMBaseProtocol):
     def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
         success = False if amount == -1 else True
         show_receipt("JMFILL", amount, commitment, revelation, filled_offers)
-        d = self.callRemote(JMFillResponse,
+        d = self._callRemote(JMFillResponse,
                                 success=success,
                                 ioauth_data = json.dumps(['dummy', 'list']))
         return {'accepted': True}
@@ -157,12 +166,12 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
         show_receipt("JMMAKETX", nick_list, txhex)
-        d = self.callRemote(JMSigReceived,
+        d = self._callRemote(JMSigReceived,
                                nick="dummynick",
                                sig="xxxsig")
         self.defaultCallbacks(d)
         #add dummy calls to check message sign and message verify
-        d2 = self.callRemote(JMRequestMsgSig,
+        d2 = self._callRemote(JMRequestMsgSig,
                                     nick="dummynickforsign",
                                     cmd="command1",
                                     msg="msgforsign",
@@ -170,11 +179,11 @@ class JMTestServerProtocol(JMBaseProtocol):
                                     hostid="hostid1")
         self.defaultCallbacks(d2)
         #To test, this must include a valid ecdsa sig
-        fullmsg = "fullmsgforverify"
+        fullmsg = b"fullmsgforverify"
         priv = "aa"*32 + "01"
         pub = bitcoin.privkey_to_pubkey(priv)
         sig = bitcoin.ecdsa_sign(fullmsg, priv)
-        d3 = self.callRemote(JMRequestMsgSigVerify,
+        d3 = self._callRemote(JMRequestMsgSigVerify,
                                         msg="msgforverify",
                                         fullmsg=fullmsg,
                                         sig=sig,
@@ -184,7 +193,7 @@ class JMTestServerProtocol(JMBaseProtocol):
                                         max_encoded=5,
                                         hostid="hostid2")
         self.defaultCallbacks(d3)
-        d4 = self.callRemote(JMSigReceived,
+        d4 = self._callRemote(JMSigReceived,
                                 nick="dummynick",
                                 sig="dummysig")
         self.defaultCallbacks(d4)        

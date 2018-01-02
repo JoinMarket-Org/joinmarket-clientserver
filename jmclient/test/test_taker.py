@@ -57,7 +57,7 @@ class DummyWallet(AbstractWallet):
 
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
-        privs = [x*32 + "\x01" for x in [chr(y) for y in range(1,6)]]
+        privs = [x*32 + b"\x01" for x in [bytes([y]) for y in range(1,6)]]
         addrs = {}
         """
         mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ
@@ -123,7 +123,7 @@ def test_make_commitment(createcmtdata, failquery, external):
         jm_single().bc_interface.setQUSFail(False)
         os.remove('dummyext')
     old_commitment_file = get_commitment_file()
-    with open('dummyext', 'wb') as f:
+    with open('dummyext', 'w') as f:
         f.write(json.dumps(t_dummy_ext, indent=4))
     if external:
         set_commitment_file('dummyext')
@@ -377,13 +377,13 @@ def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
     #return the right values in query_utxo_set
     
     #create 2 privkey + utxos that are to be ours
-    privs = [x*32 + "\x01" for x in [chr(y) for y in range(1,6)]]
+    privs = [bitcoin.safe_hexlify(x*32 + b"\x01") for x in [bytes([y]) for y in range(1,6)]]
     utxos = [str(x)*64+":1" for x in range(5)]
     fake_query_results = [{'value': 200000000,
                            'utxo': utxos[x],
-                        'address': bitcoin.privkey_to_address(privs[x], False, magicbyte=0x6f),
+                        'address': bitcoin.privkey_to_address(privs[x], magicbyte=0x6f),
                         'script': bitcoin.mk_pubkey_script(
-                            bitcoin.privkey_to_address(privs[x], False, magicbyte=0x6f)),
+                            bitcoin.privkey_to_address(privs[x], magicbyte=0x6f)),
                         'confirms': 20} for x in range(5)]
 
     dbci = DummyBlockchainInterface()
@@ -394,17 +394,17 @@ def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
             {'value': 899990000, 'address': dummyaddr}]
     tx = bitcoin.mktx(utxos, outs)
     
-    de_tx = bitcoin.deserialize(tx)
+    de_tx = tx
     #prepare the Taker with the right intermediate data
     taker = get_taker(schedule=schedule, sign_method=signmethod)
     taker.nonrespondants=["cp1", "cp2", "cp3"]
     taker.latest_tx = de_tx
     #my inputs are the first 2 utxos
     taker.input_utxos = {utxos[0]:
-                        {'address': bitcoin.privkey_to_address(privs[0], False, magicbyte=0x6f),
+                        {'address': bitcoin.privkey_to_address(privs[0], magicbyte=0x6f),
                          'value': 200000000},
                         utxos[1]:
-                        {'address': bitcoin.privkey_to_address(privs[1], False, magicbyte=0x6f),
+                        {'address': bitcoin.privkey_to_address(privs[1], magicbyte=0x6f),
                          'value': 200000000}}    
     taker.utxos = {None: utxos[:2], "cp1": [utxos[2]], "cp2": [utxos[3]], "cp3":[utxos[4]]}
     for i in range(2):
@@ -414,17 +414,17 @@ def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
     taker.my_cj_addr = dummyaddr
     #make signatures for the last 3 fake utxos, considered as "not ours":
     tx3 = bitcoin.sign(tx, 2, privs[2])
-    sig3 = b64encode(bitcoin.deserialize(tx3)['ins'][2]['script'].decode('hex'))
+    sig3 = b64encode(tx3['ins'][2]['script'].encode('utf-8'))
     taker.on_sig("cp1", sig3)
     tx4 = bitcoin.sign(tx, 3, privs[3])
-    sig4 = b64encode(bitcoin.deserialize(tx4)['ins'][3]['script'].decode('hex'))
+    sig4 = b64encode(tx4['ins'][3]['script'].encode('utf-8'))
     taker.on_sig("cp2", sig4)
     tx5 = bitcoin.sign(tx, 4, privs[4])
     #Before completing with the final signature, which will trigger our own
     #signing, try with an injected failure of query utxo set, which should
     #prevent this signature being accepted.
     dbci.setQUSFail(True)
-    sig5 = b64encode(bitcoin.deserialize(tx5)['ins'][4]['script'].decode('hex'))
+    sig5 = b64encode(tx5['ins'][4]['script'].encode('utf-8'))
     taker.on_sig("cp3", sig5)
     #allow it to succeed, and try again
     dbci.setQUSFail(False)

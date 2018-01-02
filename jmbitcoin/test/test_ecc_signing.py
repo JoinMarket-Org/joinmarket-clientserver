@@ -36,6 +36,17 @@ def test_valid_sigs(setup_ecc):
                 continue
             assert res==False
 
+def test_message_signing():
+    """This tests JM internal message signing and verifying.
+    It does *not* use the 'formsg=True' flag which is only used
+    for generating signatures verifiable by Core.
+    """
+    message = b"Hello this is a test."
+    key = btc.safe_hexlify(b"\xaa"*32) + "01"
+    sig = btc.ecdsa_sign(message, key)
+    res = btc.ecdsa_verify(message, sig, btc.privkey_to_pubkey(key))
+    assert res
+
 @pytest.fixture(scope='module')
 def setup_ecc():
     global vectors

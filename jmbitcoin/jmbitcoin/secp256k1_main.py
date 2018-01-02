@@ -19,7 +19,7 @@ ctx = secp256k1.lib.secp256k1_context_create(secp256k1.ALL_FLAGS)
 dummy_pub = secp256k1.PublicKey(ctx=ctx)
 
 #Standard prefix for Bitcoin message signing.
-BITCOIN_MESSAGE_MAGIC = '\x18' + 'Bitcoin Signed Message:\n'
+BITCOIN_MESSAGE_MAGIC = b'\x18' + b'Bitcoin Signed Message:\n'
 
 string_types = (str)
 string_or_bytes_types = (str, bytes)
@@ -144,7 +144,7 @@ def getG(compressed=True):
     """Returns the public key binary
     representation of secp256k1 G
     """
-    priv = "\x00"*31 + "\x01"
+    priv = b"\x00"*31 + b"\x01"
     G = secp256k1.PrivateKey(priv, ctx=ctx).pubkey.serialize(compressed)
     return G
 
@@ -273,11 +273,11 @@ def ecdsa_sign(msg, priv, formsg=False, usehex=True):
     hashed_msg = message_sig_hash(msg)
     if usehex:
         #arguments to raw sign must be consistently hex or bin
-        hashed_msg = binascii.hexlify(hashed_msg)
+        hashed_msg = safe_hexlify(hashed_msg)
     sig = ecdsa_raw_sign(hashed_msg, priv, usehex, rawmsg=True, formsg=formsg)
     #note those functions only handles binary, not hex
     if usehex:
-        sig = binascii.unhexlify(sig)
+        sig = safe_from_hex(sig)
     return base64.b64encode(sig)
 
 def ecdsa_verify(msg, sig, pub, usehex=True):
@@ -285,8 +285,8 @@ def ecdsa_verify(msg, sig, pub, usehex=True):
     sig = base64.b64decode(sig)
     if usehex:
         #arguments to raw_verify must be consistently hex or bin
-        hashed_msg = binascii.hexlify(hashed_msg)
-        sig = binascii.hexlify(sig)
+        hashed_msg = safe_hexlify(hashed_msg)
+        sig = safe_hexlify(sig)
     return ecdsa_raw_verify(hashed_msg, pub, sig, usehex, rawmsg=True)
 
 #Use secp256k1 to handle all EC and ECDSA operations.
@@ -429,7 +429,7 @@ def ecdsa_raw_sign(msg,
     if formsg:
         sig = newpriv.ecdsa_sign_recoverable(msg, raw=rawmsg)
         s, rid = newpriv.ecdsa_recoverable_serialize(sig)
-        return chr(31+rid) + s
+        return bytes([31+rid]) + s
     #Donations, thus custom nonce, currently disabled, hence not covered.
     elif usenonce: #pragma: no cover
         raise NotImplementedError
@@ -461,7 +461,7 @@ def ecdsa_raw_verify(msg, pub, sig, usehex, rawmsg=False):
     '''
     try:
         if rawmsg:
-            assert len(msg) == 32
+            assert len(msg) == 32, "message is not 32 bytes"
         newpub = secp256k1.PublicKey(pubkey=pub, raw=True, ctx=ctx)
         sigobj = newpub.ecdsa_deserialize(sig)
         retval = newpub.ecdsa_verify(msg, sigobj, raw=rawmsg)

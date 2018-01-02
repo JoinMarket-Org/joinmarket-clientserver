@@ -88,3 +88,9 @@ def _byteify(data, ignore_dicts = False):
         }
     # if it's anything else, return it in its original form
     return data
+
+def byteconvert(data):
+    if isinstance(data, bytes):  return data.decode('utf-8')
+    if isinstance(data, dict):   return dict(map(byteconvert, data.items()))
+    if isinstance(data, tuple):  return map(byteconvert, data)
+    return data

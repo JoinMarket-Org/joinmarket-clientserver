@@ -7,9 +7,9 @@ import datetime
 from decimal import Decimal
 from mnemonic import Mnemonic
 try:
-    from ConfigParser import NoOptionError
+    from ConfigParser import NoOptionError, NoSectionError
 except:
-    from configparser import NoOptionError
+    from configparser import NoOptionError, NoSectionError
 from getpass import getpass
 
 from jmclient import btc

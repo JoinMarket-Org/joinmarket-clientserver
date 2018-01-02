@@ -3,10 +3,12 @@ from __future__ import print_function
 #Proof Of Discrete Logarithm Equivalence
 #For algorithm steps, see https://gist.github.com/AdamISZ/9cbba5e9408d23813ca8
 import os
+import sys
 import hashlib
 import json
 import binascii
 PODLE_COMMIT_FILE = None
+from jmbase import byteconvert
 from .btc import (multiply, add_pubkeys, getG, podle_PublicKey, podle_PrivateKey,
                  encode, decode, N,
                  podle_PublicKey_class, podle_PrivateKey_class)
@@ -98,7 +100,7 @@ class PoDLE(object):
             if P:
                 raise PoDLEError("Pubkey should not be provided with privkey")
             #any other formatting abnormality will just throw in PrivateKey
-            if len(priv) == 66 and priv[-2:] == '01':
+            if len(priv) == 66 and priv[-2:] == b'01':
                 priv = priv[:-2]
             self.priv = podle_PrivateKey(binascii.unhexlify(priv))
             self.P = self.priv.pubkey
@@ -166,7 +168,7 @@ class PoDLE(object):
         KJ = multiply(k, J.serialize(), False, return_serialized=False)
         self.P2 = getP2(self.priv, J)
         self.get_commitment()
-        self.e = hashlib.sha256(''.join([x.serialize(
+        self.e = hashlib.sha256(b"".join([x.serialize(
         ) for x in [KG, KJ, self.P, self.P2]])).digest()
         k_int = decode(k, 256)
         priv_int = decode(self.priv.private_key, 256)
@@ -196,16 +198,17 @@ class PoDLE(object):
                 'sig': shex,
                 'e': ehex}
 
-    def serialize_revelation(self, separator='|'):
+    def serialize_revelation(self, separator=b'|'):
         state_dict = self.reveal()
-        ser_list = []
-        for k in ['utxo', 'P', 'P2', 'sig', 'e']:
+        u = self.u if isinstance(self.u, bytes) else self.u.encode('utf-8')
+        ser_list = [u]
+        for k in ['P', 'P2', 'sig', 'e']:
             ser_list += [state_dict[k]]
         ser_string = separator.join(ser_list)
         return ser_string
 
     @classmethod
-    def deserialize_revelation(cls, ser_rev, separator='|'):
+    def deserialize_revelation(cls, ser_rev, separator=b'|'):
         ser_list = ser_rev.split(separator)
         if len(ser_list) != 5:
             raise PoDLEError("Failed to deserialize, wrong format")
@@ -260,14 +263,14 @@ def getNUMS(index=0):
     assert index in range(256)
     nums_point = None
     for G in [getG(True), getG(False)]:
-        seed = G + chr(index)
+        seed = G + bytes([index])
         for counter in range(256):
-            seed_c = seed + chr(counter)
+            seed_c = seed + bytes([counter])
             hashed_seed = hashlib.sha256(seed_c).digest()
             #Every x-coord on the curve has two y-values, encoded
             #in compressed form with 02/03 parity byte. We just
             #choose the former.
-            claimed_point = "\x02" + hashed_seed
+            claimed_point = b"\x02" + hashed_seed
             try:
                 nums_point = podle_PublicKey(claimed_point)
                 return nums_point
@@ -285,9 +288,9 @@ def verify_all_NUMS(write=False):
     """
     nums_points = {}
     for i in range(256):
-        nums_points[i] = binascii.hexlify(getNUMS(i).serialize())
+        nums_points[i] = binascii.hexlify(getNUMS(i).serialize()).decode('utf-8')
     if write:
-        with open("nums_basepoints.txt", "wb") as f:
+        with open("nums_basepoints.txt", "w") as f:
             from pprint import pformat
             f.write(pformat(nums_points))
     assert nums_points == precomp_NUMS, "Precomputed NUMS points are not valid!"
@@ -321,7 +324,7 @@ def get_podle_commitments():
     """
     if not os.path.isfile(PODLE_COMMIT_FILE):
         return ([], {})
-    with open(PODLE_COMMIT_FILE, "rb") as f:
+    with open(PODLE_COMMIT_FILE, "r") as f:
         c = json.loads(f.read())
     if 'used' not in list(c) or 'external' not in list(c):
         raise PoDLEError("Incorrectly formatted file: " + PODLE_COMMIT_FILE)
@@ -347,7 +350,7 @@ def update_commitments(commitment=None,
     """
     c = {}
     if os.path.isfile(PODLE_COMMIT_FILE):
-        with open(PODLE_COMMIT_FILE, "rb") as f:
+        with open(PODLE_COMMIT_FILE, "r") as f:
             try:
                 c = json.loads(f.read())
             except ValueError: #pragma: no cover
@@ -364,7 +367,7 @@ def update_commitments(commitment=None,
     else:
         external = {}
     if commitment:
-        commitments.append(commitment)
+        commitments.append(commitment.decode('utf-8'))
         #remove repeats
         commitments = list(set(commitments))
     if external_to_remove:
@@ -373,11 +376,12 @@ def update_commitments(commitment=None,
             for k, v in external.items() if k not in external_to_remove
         }
     if external_to_add:
+        external_to_add = byteconvert(external_to_add)
         external.update(external_to_add)
     to_write = {}
     to_write['used'] = commitments
     to_write['external'] = external
-    with open(PODLE_COMMIT_FILE, "wb") as f:
+    with open(PODLE_COMMIT_FILE, "w") as f:
         f.write(json.dumps(to_write, indent=4))
 
 def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
@@ -392,13 +396,13 @@ def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
                 key = str(i)
                 p = PoDLE(u=utxo,P=ec['P'],P2=ec['reveal'][key]['P2'],
                           s=ec['reveal'][key]['s'], e=ec['reveal'][key]['e'])
-                if p.get_commitment() in used_commitments:
+                if p.get_commitment().decode('utf-8') in used_commitments:
                     return i+1
     else:
         for i in reversed(range(max_tries)):
             p = PoDLE(u=utxo, priv=priv)
             c = p.generate_podle(i)
-            if c['commit'] in used_commitments:
+            if c['commit'].decode('utf-8') in used_commitments:
                 return i+1
     return 0
 

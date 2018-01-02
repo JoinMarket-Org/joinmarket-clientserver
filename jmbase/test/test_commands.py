@@ -22,6 +22,15 @@ class JMProtocolError(Exception):
     pass
 
 class JMBaseProtocol(amp.AMP):
+    def _callRemote(self, *args, **kwargs):
+        newkwargs = {}
+        for k, a in kwargs.items():
+            if not isinstance(a, str):
+                newkwargs[k] = a
+            else:
+                newkwargs[k] = bytes(a, "utf-8")
+        return self.callRemote(*args, **newkwargs)
+
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
         is considered criticial.
@@ -53,7 +62,7 @@ class JMTestServerProtocol(JMBaseProtocol):
                    maker_timeout_sec):
         show_receipt("JMINIT", bcsource, network, irc_configs, minmakers,
                      maker_timeout_sec)
-        d = self.callRemote(JMInitProto,
+        d = self._callRemote(JMInitProto,
                             nick_hash_length=1,
                             nick_max_encoded=2,
                             joinmarket_nick_header="J",
@@ -64,14 +73,14 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMStartMC.responder
     def on_JM_START_MC(self, nick):
         show_receipt("STARTMC", nick)
-        d = self.callRemote(JMUp)
+        d = self._callRemote(JMUp)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, n_counterparties):
-        show_receipt("JMSETUP", role,n_counterparties)
-        d = self.callRemote(JMSetupDone)
+    def on_JM_SETUP(self, role, initdata):
+        show_receipt("JMSETUP", role, initdata)
+        d = self._callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -79,8 +88,8 @@ class JMTestServerProtocol(JMBaseProtocol):
     def on_JM_REQUEST_OFFERS(self):
         show_receipt("JMREQUESTOFFERS")
         #build a huge orderbook to test BigString Argument
-        orderbook = ["aaaa" for _ in range(2**15)]
-        d = self.callRemote(JMOffers,
+        orderbook = ["aaaa" for _ in range(2**4)]
+        d = self._callRemote(JMOffers,
                         orderbook=json.dumps(orderbook))
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -88,7 +97,7 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMFill.responder
     def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
         show_receipt("JMFILL", amount, commitment, revelation, filled_offers)
-        d = self.callRemote(JMFillResponse,
+        d = self._callRemote(JMFillResponse,
                                 success=True,
                                 ioauth_data = json.dumps(['dummy', 'list']))
         return {'accepted': True}
@@ -96,19 +105,19 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
         show_receipt("JMMAKETX", nick_list, txhex)
-        d = self.callRemote(JMSigReceived,
+        d = self._callRemote(JMSigReceived,
                                nick="dummynick",
                                sig="xxxsig")
         self.defaultCallbacks(d)
         #add dummy calls to check message sign and message verify
-        d2 = self.callRemote(JMRequestMsgSig,
+        d2 = self._callRemote(JMRequestMsgSig,
                                     nick="dummynickforsign",
                                     cmd="command1",
                                     msg="msgforsign",
                                     msg_to_be_signed="fullmsgforsign",
                                     hostid="hostid1")
         self.defaultCallbacks(d2)
-        d3 = self.callRemote(JMRequestMsgSigVerify,
+        d3 = self._callRemote(JMRequestMsgSigVerify,
                                         msg="msgforverify",
                                         fullmsg="fullmsgforverify",
                                         sig="xxxsigforverify",
@@ -137,7 +146,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         self.clientStart()
 
     def clientStart(self):
-        d = self.callRemote(JMInit,
+        d = self._callRemote(JMInit,
                             bcsource="dummyblockchain",
                             network="dummynetwork",
                             irc_configs=json.dumps(['dummy', 'irc', 'config']),
@@ -150,7 +159,7 @@ class JMTestClientProtocol(JMBaseProtocol):
                          joinmarket_nick_header, joinmarket_version):
         show_receipt("JMINITPROTO", nick_hash_length, nick_max_encoded,
                      joinmarket_nick_header, joinmarket_version)
-        d = self.callRemote(JMStartMC,
+        d = self._callRemote(JMStartMC,
                             nick="dummynick")
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -158,23 +167,23 @@ class JMTestClientProtocol(JMBaseProtocol):
     @JMUp.responder
     def on_JM_UP(self):
         show_receipt("JMUP")
-        d = self.callRemote(JMSetup,
+        d = self._callRemote(JMSetup,
                             role="TAKER",
-                            n_counterparties=4) #TODO this number should be set
+                            initdata="none")
         self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMSetupDone.responder
     def on_JM_SETUP_DONE(self):
         show_receipt("JMSETUPDONE")
-        d = self.callRemote(JMRequestOffers)
+        d = self._callRemote(JMRequestOffers)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMFillResponse.responder
     def on_JM_FILL_RESPONSE(self, success, ioauth_data):
         show_receipt("JMFILLRESPONSE", success, ioauth_data)
-        d = self.callRemote(JMMakeTx,
+        d = self._callRemote(JMMakeTx,
                             nick_list= json.dumps(['nick1', 'nick2', 'nick3']),
                             txhex="deadbeef")
         self.defaultCallbacks(d)
@@ -183,7 +192,7 @@ class JMTestClientProtocol(JMBaseProtocol):
     @JMOffers.responder
     def on_JM_OFFERS(self, orderbook):
         show_receipt("JMOFFERS", orderbook)
-        d = self.callRemote(JMFill,
+        d = self._callRemote(JMFill,
                             amount=100,
                             commitment="dummycommitment",
                             revelation="dummyrevelation",
@@ -201,7 +210,7 @@ class JMTestClientProtocol(JMBaseProtocol):
     @JMRequestMsgSig.responder
     def on_JM_REQUEST_MSGSIG(self, nick, cmd, msg, msg_to_be_signed, hostid):
         show_receipt("JMREQUESTMSGSIG", nick, cmd, msg, msg_to_be_signed, hostid)
-        d = self.callRemote(JMMsgSignature,
+        d = self._callRemote(JMMsgSignature,
                             nick=nick,
                             cmd=cmd,
                             msg_to_return="xxxcreatedsigxx",
@@ -214,7 +223,7 @@ class JMTestClientProtocol(JMBaseProtocol):
                                     hashlen, max_encoded, hostid):
         show_receipt("JMREQUESTMSGSIGVERIFY", msg, fullmsg, sig, pubkey,
                      nick, hashlen, max_encoded, hostid)
-        d = self.callRemote(JMMsgSignatureVerify,
+        d = self._callRemote(JMMsgSignatureVerify,
                             verif_result=True,
                             nick=nick,
                             fullmsg=fullmsg,

@@ -12,6 +12,7 @@ import signal
 from commontest import make_wallets
 import time
 from pprint import pformat
+from jmbase import byteconvert
 from jmclient import (load_program_config, get_log, jm_single, generate_podle,
                       generate_podle_error_string, set_commitment_file,
                       get_commitment_file, PoDLE, get_podle_commitments,
@@ -105,21 +106,21 @@ def test_external_commitments(setup_podle):
     add_external_commitments(ecs)
     used, external = get_podle_commitments()
     for  u in external:
-        assert external[u]['P'] == ecs[u]['P']
+        assert external[u]['P'] == ecs[u]['P'].decode('utf-8')
         for i in range(tries):
             for x in ['P2', 's', 'e']:
-                assert external[u]['reveal'][str(i)][x] == ecs[u]['reveal'][i][x]
+                assert external[u]['reveal'][str(i)][x] == ecs[u]['reveal'][i][x].decode('utf-8')
     
     #add a dummy used commitment, then try again
-    update_commitments(commitment="ab"*32)
+    update_commitments(commitment=b"ab"*32)
     ecs = {}
     known_commits = []
     known_utxos = []
     tries = 3
     for i in range(1, 6):
-        u = binascii.hexlify(chr(i)*32)
+        u = bitcoin.safe_hexlify(bytes([i])*32)
         known_utxos.append(u)
-        priv = chr(i)*32+"\x01"
+        priv = bytes([i])*32+b"\x01"
         ecs[u] = {}
         ecs[u]['reveal']={}
         for j in range(tries):
@@ -135,19 +136,19 @@ def test_external_commitments(setup_podle):
     #this should find the remaining one utxo and return from it
     assert generate_podle([], max_tries=tries, allow_external=known_utxos)
     #test commitment removal
-    to_remove = ecs[binascii.hexlify(chr(3)*32)]
-    update_commitments(external_to_remove={binascii.hexlify(chr(3)*32):to_remove})
+    to_remove = ecs[bitcoin.safe_hexlify(bytes([3])*32)]
+    update_commitments(external_to_remove={binascii.hexlify(bytes([3])*32):to_remove})
     #test that an incorrectly formatted file raises
-    with open(get_commitment_file(), "rb") as f:
+    with open(get_commitment_file(), "r") as f:
         validjson = json.loads(f.read())
     corruptjson = copy.deepcopy(validjson)
     del corruptjson['used']
-    with open(get_commitment_file(), "wb") as f:
+    with open(get_commitment_file(), "w") as f:
         f.write(json.dumps(corruptjson, indent=4))
     with pytest.raises(PoDLEError) as e_info:
         get_podle_commitments()
     #clean up
-    with open(get_commitment_file(), "wb") as f:
+    with open(get_commitment_file(), "w") as f:
         f.write(json.dumps(validjson, indent=4))
 
 
@@ -156,14 +157,14 @@ def test_podle_constructor(setup_podle):
     """Tests rules about construction of PoDLE object
     are conformed to.
     """
-    priv  = "aa"*32
+    priv  = b"aa"*32
     #pub and priv together not allowed
     with pytest.raises(PoDLEError) as e_info:
         p = PoDLE(priv=priv, P="dummypub")
     #no pub or priv is allowed, i forget if this is useful for something
     p = PoDLE()
     #create from priv
-    p = PoDLE(priv=priv+"01", u="dummyutxo")
+    p = PoDLE(priv=priv+b"01", u=b"dummyutxo")
     pdict = p.generate_podle(2)
     assert all([k in pdict for k in ['used', 'utxo', 'P', 'P2', 'commit', 'sig', 'e']])
     #using the valid data, serialize/deserialize test
@@ -185,7 +186,7 @@ def test_podle_constructor(setup_podle):
     with pytest.raises(PoDLEError) as e_info:
         p.generate_podle(0)
     #Test construction from pubkey
-    pub = bitcoin.privkey_to_pubkey(priv+"01")
+    pub = bitcoin.privkey_to_pubkey(priv+b"01")
     p = PoDLE(P=pub)
     with pytest.raises(PoDLEError) as e_info:
         p.get_commitment()

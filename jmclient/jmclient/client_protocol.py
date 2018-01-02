@@ -38,6 +38,15 @@ class JMClientProtocol(amp.AMP):
 
             self.shutdown_requested = False
 
+    def _callRemote(self, *args, **kwargs):
+        newkwargs = {}
+        for k, a in kwargs.items():
+            if not isinstance(a, str):
+                newkwargs[k] = a
+            else:
+                newkwargs[k] = bytes(a, "utf-8")
+        return self.callRemote(*args, **newkwargs)
+
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
         is considered criticial.
@@ -81,19 +90,19 @@ class JMClientProtocol(amp.AMP):
         """
         self.nick_hashlen = nick_hash_length
         self.nick_maxencoded = nick_max_encoded
-        self.nick_header = joinmarket_nick_header
+        self.nick_header = joinmarket_nick_header.decode('utf-8')
         self.jm_version = joinmarket_version
         self.set_nick()
-        d = self.callRemote(commands.JMStartMC,
+        d = self._callRemote(commands.JMStartMC,
                             nick=self.nick)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
     @commands.JMRequestMsgSig.responder
     def on_JM_REQUEST_MSGSIG(self, nick, cmd, msg, msg_to_be_signed, hostid):
-        sig = btc.ecdsa_sign(str(msg_to_be_signed), self.nick_priv)
-        msg_to_return = str(msg) + " " + self.nick_pubkey + " " + sig
-        d = self.callRemote(commands.JMMsgSignature,
+        sig = btc.ecdsa_sign(msg_to_be_signed, self.nick_priv)
+        msg_to_return = msg + b" " + self.nick_pubkey + b" " + sig
+        d = self._callRemote(commands.JMMsgSignature,
                             nick=nick,
                             cmd=cmd,
                             msg_to_return=msg_to_return,
@@ -105,19 +114,19 @@ class JMClientProtocol(amp.AMP):
     def on_JM_REQUEST_MSGSIG_VERIFY(self, msg, fullmsg, sig, pubkey, nick,
                                     hashlen, max_encoded, hostid):
         verif_result = True
-        if not btc.ecdsa_verify(str(msg), sig, pubkey):
+        if not btc.ecdsa_verify(msg, sig, pubkey):
             jlog.debug("nick signature verification failed, ignoring.")
             verif_result = False
         #check that nick matches hash of pubkey
         nick_pkh_raw = hashlib.sha256(pubkey).digest()[:hashlen]
-        nick_stripped = nick[2:2 + max_encoded]
+        nick_stripped = str(nick[2:2 + max_encoded], "utf-8")
         #strip right padding
         nick_unpadded = ''.join([x for x in nick_stripped if x != 'O'])
         if not nick_unpadded == btc.changebase(nick_pkh_raw, 256, 58):
             jlog.debug("Nick hash check failed, expected: " + str(nick_unpadded)
                        + ", got: " + str(btc.changebase(nick_pkh_raw, 256, 58)))
             verif_result = False
-        d = self.callRemote(commands.JMMsgSignatureVerify,
+        d = self._callRemote(commands.JMMsgSignatureVerify,
                             verif_result=verif_result,
                             nick=nick,
                             fullmsg=fullmsg,
@@ -150,7 +159,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         if not self.client.offerlist:
             return
         self.offers_ready_loop.stop()
-        d = self.callRemote(commands.JMSetup,
+        d = self._callRemote(commands.JMSetup,
                             role="MAKER",
                             initdata=json.dumps(self.client.offerlist))
         self.defaultCallbacks(d)
@@ -177,7 +186,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         minmakers = jm_single().config.getint("POLICY", "minimum_makers")
         maker_timeout_sec = jm_single().maker_timeout_sec
 
-        d = self.callRemote(commands.JMInit,
+        d = self._callRemote(commands.JMInit,
                             bcsource=blockchain_source,
                             network=network,
                             irc_configs=json.dumps(irc_configs),
@@ -196,7 +205,7 @@ class JMMakerClientProtocol(JMClientProtocol):
             jlog.info("Maker refuses to continue on receiving auth.")
         else:
             utxos, auth_pub, cj_addr, change_addr, btc_sig = retval[1:]
-            d = self.callRemote(commands.JMIOAuth,
+            d = self._callRemote(commands.JMIOAuth,
                                 nick=nick,
                                 utxolist=json.dumps(utxos),
                                 pubkey=auth_pub,
@@ -223,7 +232,7 @@ class JMMakerClientProtocol(JMClientProtocol):
                         self.client.wallet),
                     txid_flag=False,
                     vb=get_p2sh_vbyte())
-            d = self.callRemote(commands.JMTXSigs,
+            d = self._callRemote(commands.JMTXSigs,
                                 nick=nick,
                                 sigs=json.dumps(sigs))
             self.defaultCallbacks(d)
@@ -246,7 +255,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         to_cancel, to_announce = self.client.on_tx_unconfirmed(offerinfo,
                                                                txid, removed_utxos)
         self.client.modify_orders(to_cancel, to_announce)
-        d = self.callRemote(commands.JMAnnounceOffers,
+        d = self._callRemote(commands.JMAnnounceOffers,
                             to_announce=json.dumps(to_announce),
                             to_cancel=json.dumps(to_cancel),
                             offerlist=json.dumps(self.client.offerlist))
@@ -277,7 +286,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         to_cancel, to_announce = self.client.on_tx_confirmed(offerinfo,
                                                              confirmations, txid)
         self.client.modify_orders(to_cancel, to_announce)
-        d = self.callRemote(commands.JMAnnounceOffers,
+        d = self._callRemote(commands.JMAnnounceOffers,
                             to_announce=json.dumps(to_announce),
                             to_cancel=json.dumps(to_cancel),
                             offerlist=json.dumps(self.client.offerlist))
@@ -311,8 +320,8 @@ class JMTakerClientProtocol(JMClientProtocol):
             reactor.callLater(20*maker_timeout_sec, self.stallMonitor,
                           self.client.schedule_index+1)
 
-        d = self.callRemote(commands.JMInit,
-                            bcsource=blockchain_source,
+        d = self._callRemote(commands.JMInit,
+                            bcsource=bytes(blockchain_source, "utf-8"),
                             network=network,
                             irc_configs=json.dumps(irc_configs),
                             minmakers=minmakers,
@@ -351,7 +360,7 @@ class JMTakerClientProtocol(JMClientProtocol):
 
     @commands.JMUp.responder
     def on_JM_UP(self):
-        d = self.callRemote(commands.JMSetup,
+        d = self._callRemote(commands.JMSetup,
                             role="TAKER",
                             initdata="none")
         self.defaultCallbacks(d)
@@ -373,7 +382,7 @@ class JMTakerClientProtocol(JMClientProtocol):
         tx construction, if successful. Then passes back the phase 2
         initiating data to the daemon.
         """
-        ioauth_data = json.loads(ioauth_data)
+        ioauth_data = json.loads(ioauth_data.decode('utf-8'))
         if not success:
             nonresponders = ioauth_data
             jlog.info("Makers didnt respond: " + str(nonresponders))
@@ -393,7 +402,7 @@ class JMTakerClientProtocol(JMClientProtocol):
 
     @commands.JMOffers.responder
     def on_JM_OFFERS(self, orderbook):
-        self.orderbook = json.loads(orderbook)
+        self.orderbook = json.loads(orderbook.decode('utf-8'))
         #Removed for now, as judged too large, even for DEBUG:
         #jlog.debug("Got the orderbook: " + str(self.orderbook))
         retval = self.client.initialize(self.orderbook)
@@ -408,7 +417,7 @@ class JMTakerClientProtocol(JMClientProtocol):
                 self.client.on_finished_callback(False, True, 0.0)
             return {'accepted': True}
         amt, cmt, rev, foffers = retval[1:]
-        d = self.callRemote(commands.JMFill,
+        d = self._callRemote(commands.JMFill,
                             amount=amt,
                             commitment=str(cmt),
                             revelation=str(rev),
@@ -425,17 +434,17 @@ class JMTakerClientProtocol(JMClientProtocol):
         return {'accepted': True}
 
     def get_offers(self):
-        d = self.callRemote(commands.JMRequestOffers)
+        d = self._callRemote(commands.JMRequestOffers)
         self.defaultCallbacks(d)
 
     def make_tx(self, nick_list, txhex):
-        d = self.callRemote(commands.JMMakeTx,
+        d = self._callRemote(commands.JMMakeTx,
                             nick_list= json.dumps(nick_list),
                             txhex=txhex)
         self.defaultCallbacks(d)
 
     def push_tx(self, nick_to_push, txhex_to_push):
-        d = self.callRemote(commands.JMPushTx, nick=str(nick_to_push),
+        d = self._callRemote(commands.JMPushTx, nick=str(nick_to_push),
                             txhex=str(txhex_to_push))
         self.defaultCallbacks(d)
 

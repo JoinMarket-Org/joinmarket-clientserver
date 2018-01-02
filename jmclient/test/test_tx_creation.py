@@ -178,7 +178,7 @@ def test_create_sighash_txs(setup_tx_creation):
 
 def test_spend_p2sh_utxos(setup_tx_creation):
     #make a multisig address from 3 privs
-    privs = [bytes(chr(x) * 32, "utf-8") + b'\x01' for x in range(1, 4)]
+    privs = [bytes([x]) * 32 + b"\x01" for x in range(1, 4)]
     pubs = [btc.privkey_to_pubkey(btc.safe_hexlify(priv)) for priv in privs]
     script = btc.mk_multisig_script(pubs, 2)
     msig_addr = btc.scriptaddr(script, magicbyte=196)
