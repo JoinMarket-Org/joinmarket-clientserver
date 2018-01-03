@@ -14,7 +14,7 @@ def test_pkcs7_bad_padding():
             fake_unpadded = sa.strip_PKCS7_padding(b)
 
 def test_aes():
-    cleartext = "This is a test!"
+    cleartext = b"This is a test!"
     iv = [103, 35, 148, 239, 76, 213, 47, 118, 255, 222, 123, 176, 106, 134, 98,
           92]
     for ks in [16,24,32]:

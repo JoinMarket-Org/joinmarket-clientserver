@@ -263,9 +263,9 @@ class Wallet(AbstractWallet):
         elif 'encrypted_entropy' in walletdata:
             encrypted_entropy = walletdata['encrypted_entropy']
         try:
-            decrypted_entropy = decryptData(
+            decrypted_entropy = btc.safe_hexlify(decryptData(
                     password_key,
-                    encrypted_entropy.decode('hex')).encode('hex')
+                    btc.safe_from_hex(encrypted_entropy)))
             # there is a small probability of getting a valid PKCS7
             # padding by chance from a wrong password; sanity check the
             # seed length
@@ -298,9 +298,9 @@ class Wallet(AbstractWallet):
             self.walletdata = walletdata
         if 'imported_keys' in walletdata:
             for epk_m in walletdata['imported_keys']:
-                privkey = decryptData(
+                privkey = btc.safe_hexlify(decryptData(
                         password_key,
-                        epk_m['encrypted_privkey'].decode( 'hex')).encode('hex')
+                        btc.safe_from_hex(epk_m['encrypted_privkey'])))
                 #Imported keys are stored as 32 byte strings only, so the
                 #second version below is sufficient, really.
                 if len(privkey) != 64:
@@ -438,10 +438,10 @@ class Bip39Wallet(Wallet):
         if get_network() == "testnet":
             if entropy.startswith("FAKESEED"):
                 return entropy[8:]
-        self.entropy = entropy.decode('hex')
+        self.entropy = btc.safe_from_hex(entropy)
         m = Mnemonic("english")
-        return m.to_seed(m.to_mnemonic(self.entropy),
-            '' if not self.mnemonic_extension else self.mnemonic_extension).encode('hex')
+        return btc.safe_hexlify(m.to_seed(m.to_mnemonic(self.entropy),
+            '' if not self.mnemonic_extension else self.mnemonic_extension))
 
 class SegwitWallet(Bip39Wallet):
 

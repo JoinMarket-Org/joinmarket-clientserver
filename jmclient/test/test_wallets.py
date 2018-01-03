@@ -81,16 +81,16 @@ def create_wallet_for_sync(wallet_file, password, wallet_structure, a):
     #We need a distinct seed for each run so as not to step over each other;
     #make it through a deterministic hash
     seedh = bitcoin.sha256("".join([str(x) for x in a]))[:32]
-    encrypted_seed = encryptData(password_key, seedh.decode('hex'))
+    encrypted_seed = encryptData(password_key, bitcoin.safe_from_hex(seedh))
     timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     walletfilejson = {'creator': 'joinmarket project',
                       'creation_time': timestamp,
-                      'encrypted_seed': encrypted_seed.encode('hex'),
+                      'encrypted_seed': bitcoin.safe_hexlify(encrypted_seed),
                       'network': get_network()}
     walletfile = json.dumps(walletfilejson)
     if not os.path.exists('wallets'):
         os.makedirs('wallets')
-    with open(os.path.join('wallets', wallet_file), "wb") as f:
+    with open(os.path.join('wallets', wallet_file), "w") as f:
         f.write(walletfile)
     #The call to Wallet() in make_wallets should now find the file
     #and read from it:
@@ -291,10 +291,10 @@ def test_pushtx_errors(setup_wallets):
     """Ensure pushtx fails return False
     """
     badtxhex = "aaaa"
-    assert not jm_single().bc_interface.pushtx(badtxhex)
+    assert not jm_single().bc_interface.pushtx(bitcoin.safe_from_hex(badtxhex))
     #Break the authenticated jsonrpc and try again
     jm_single().bc_interface.jsonRpc.port = 18333
-    assert not jm_single().bc_interface.pushtx(t_raw_signed_tx)
+    assert not jm_single().bc_interface.pushtx(bitcoin.safe_from_hex(t_raw_signed_tx))
     #rebuild a valid jsonrpc inside the bci
     load_program_config()
 
@@ -403,13 +403,13 @@ def test_create_bip39_with_me(setup_wallets, pwd, me, valid):
         walletdata = json.load(f)
     password_key = bitcoin.bin_dbl_sha256(getPassword())
     cleartext = decryptData(password_key,
-                            walletdata['encrypted_mnemonic_extension'].decode('hex'))
+                            bitcoin.safe_from_hex(walletdata['encrypted_mnemonic_extension']))
     assert len(cleartext) >= 79
     #throws if not len == 3
-    padding, me2, checksum = cleartext.split('\xff')
-    strippedme = me.strip()
+    padding, me2, checksum = cleartext.split(b"\xff")
+    strippedme = me.strip().encode("ascii")
     assert strippedme == me2
-    assert checksum == bitcoin.dbl_sha256(strippedme)[:8]
+    assert checksum == bitcoin.bin_dbl_sha256(strippedme)[:8]
     #also test recovery from this combination of mnemonic + extension
     if os.path.exists(os.path.join("wallets", getWalletFileName())):
         os.remove(os.path.join("wallets", getWalletFileName()))
@@ -423,8 +423,8 @@ def test_create_bip39_with_me(setup_wallets, pwd, me, valid):
     with open(os.path.join("wallets", getWalletFileName()), 'r') as f:
         walletdata = json.load(f)
         password_key = bitcoin.bin_dbl_sha256(getPassword())
-        cleartext = decryptData(password_key,
-                    walletdata['encrypted_entropy'].decode('hex')).encode('hex')
+        cleartext = bitcoin.safe_hexlify(decryptData(password_key,
+                    bitcoin.safe_from_hex(walletdata['encrypted_entropy'])))
         assert cleartext == "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f"
 
 def create_default_testnet_wallet():
@@ -471,12 +471,12 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
     password = "dummypassword"
     password_key = bitcoin.bin_dbl_sha256(password)
     seed = bitcoin.sha256("\xaa" * 64)[:32]
-    encrypted_seed = encryptData(password_key, seed.decode('hex'))
+    encrypted_seed = encryptData(password_key, bitcoin.safe_from_hex(seed))
     timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     net = get_network() if not wrongnet else 'mainnnet'
     walletfilejson = {'creator': 'joinmarket project',
                       'creation_time': timestamp,
-                      'encrypted_seed': encrypted_seed.encode('hex'),
+                      'encrypted_seed': bitcoin.safe_hexlify(encrypted_seed),
                       'network': net}
     if includecache:
         mmd = wallet.max_mix_depth if not extendmd else wallet.max_mix_depth + 5
@@ -485,7 +485,7 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
     walletfile = json.dumps(walletfilejson)
     if not os.path.exists(walletdir):
         os.makedirs(walletdir)
-    with open(pathtowallet, "wb") as f:
+    with open(pathtowallet, "w") as f:
         f.write(walletfile)
     if wrongnet:
         with pytest.raises(ValueError) as e_info:
@@ -556,31 +556,31 @@ def test_imported_privkey(setup_wallets):
             iaddr = "1LDsjB43N2NAQ1Vbc2xyHca4iBBciN8iwC"
         else:
             iaddr = "mzjq2E92B3oRB7yDKbwM7XnPaAnKfRERw2"
-        privkey_bin = bitcoin.from_wif_privkey(
+        privkey_bin = bitcoin.safe_from_hex(bitcoin.from_wif_privkey(
             wifprivkey,
-            vbyte=get_p2pk_vbyte()).decode('hex')[:-1]
+            vbyte=get_p2pk_vbyte()))[:-1]
         encrypted_privkey = encryptData(password_key, privkey_bin)
         encrypted_privkey_bad = encryptData(password_key, privkey_bin[:6])
         walletdir = "wallets"
         testwalletname = "test" + n
         pathtowallet = os.path.join(walletdir, testwalletname)
         seed = bitcoin.sha256("\xaa" * 64)[:32]
-        encrypted_seed = encryptData(password_key, seed.decode('hex'))
+        encrypted_seed = encryptData(password_key, bitcoin.safe_from_hex(seed))
         timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         for ep in [encrypted_privkey, encrypted_privkey_bad]:
             walletfilejson = {'creator': 'joinmarket project',
                               'creation_time': timestamp,
-                              'encrypted_seed': encrypted_seed.encode('hex'),
+                              'encrypted_seed': bitcoin.safe_hexlify(encrypted_seed),
                               'network': n,
                               'index_cache': [[0, 0]] * 5,
                               'imported_keys': [
-                                  {'encrypted_privkey': ep.encode('hex'),
+                                  {'encrypted_privkey': bitcoin.safe_hexlify(ep),
                                    'mixdepth': 0}
                               ]}
             walletfile = json.dumps(walletfilejson)
             if not os.path.exists(walletdir):
                 os.makedirs(walletdir)
-            with open(pathtowallet, "wb") as f:
+            with open(pathtowallet, "w") as f:
                 f.write(walletfile)
             if ep == encrypted_privkey_bad:
                 with pytest.raises(Exception) as e_info:

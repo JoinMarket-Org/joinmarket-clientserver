@@ -410,10 +410,10 @@ def persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
     timestamp = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     walletjson = {'creator': 'joinmarket project',
                   'creation_time': timestamp,
-                  'encrypted_entropy': encrypted_entropy.encode('hex'),
+                  'encrypted_entropy': btc.safe_hexlify(encrypted_entropy),
                   'network': get_network()}
     if encrypted_mnemonic_extension:
-        walletjson['encrypted_mnemonic_extension'] = encrypted_mnemonic_extension.encode('hex')
+        walletjson['encrypted_mnemonic_extension'] = btc.safe_hexlify(encrypted_mnemonic_extension)
     walletfile = json.dumps(walletjson)
     walletname = callbacks[0]()
     if len(walletname) == 0:
@@ -454,7 +454,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         words, mnemonic_extension = callbacks[1]()
         if not words:
             return False
-    entropy = str(m.to_entropy(words))
+    entropy = m.to_entropy(words)
     password = callbacks[2]()
     if not password:
         return False
@@ -464,7 +464,9 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     if mnemonic_extension:
         mnemonic_extension = mnemonic_extension.strip()
         #check all ascii printable
-        if not all([a > '\x19' and a < '\x7f' for a in mnemonic_extension]):
+        try:
+            mnemonic_extension = mnemonic_extension.encode("ascii")
+        except:
             return False
         #padding to stop an adversary easily telling how long the mn extension is
         #padding at the start because of how aes blocks are combined
@@ -472,11 +474,11 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         cleartext_length = 79
         padding_length = cleartext_length - 10 - len(mnemonic_extension)
         if padding_length > 0:
-            padding = os.urandom(padding_length).replace('\xff', '\xfe')
+            padding = os.urandom(padding_length).replace(b'\xff', b'\xfe')
         else:
-            padding = ''
-        cleartext = (padding + '\xff' + mnemonic_extension + '\xff'
-            + btc.dbl_sha256(mnemonic_extension)[:8])
+            padding = b""
+        cleartext = padding + b"\xff" + mnemonic_extension + b"\xff" \
+            + btc.bin_dbl_sha256(mnemonic_extension)[:8]
         encrypted_mnemonic_extension = encryptData(password_key, cleartext)
     return persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
                               encrypted_mnemonic_extension, callbacks=(callbacks[3],))
