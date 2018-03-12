@@ -902,7 +902,7 @@ class MessageChannel(object):
                     to_decrypt = ''.join(_chunks[1:])
                     try:
                         decrypted = decode_decrypt(to_decrypt, box)
-                    except (ValueError, TypeError) as e:
+                    except Exception as e:
                         log.debug('Error when decrypting, skipping: ' +
                                   repr(e))
                         return
