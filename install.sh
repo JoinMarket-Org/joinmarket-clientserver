@@ -357,6 +357,6 @@ main ()
 
     \`source jmvenv/bin/activate\`
 
-    from this directiry, to acticate virtualenv."
+    from this directory, to activate virtualenv."
 }
 main ${@}
