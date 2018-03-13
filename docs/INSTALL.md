@@ -94,7 +94,7 @@ At this point you should see `(jmvenv)` at the beginning of your command prompt.
 
     git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
     cd joinmarket-clientserver
-    git checkout v0.3.2
+    git checkout v0.3.3
 
  5b Non-segwit
 
