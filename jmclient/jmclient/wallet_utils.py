@@ -690,7 +690,7 @@ def wallet_fetch_history(wallet, options):
                 elif tx_type != 'unknown type':
                     if n > 0:
                         # print the previously-accumulated batch
-                        print_row('N='+str(n), cj_batch[1]/n, 'cj batch',
+                        print_row('N='+"%2d"%n, cj_batch[1]/n, 'cj batch   ',
                                   cj_batch[2], cj_batch[3], cj_batch[4],
                                   cj_batch[5]/n, cj_batch[6], cj_batch[7]/n,
                                   min(cj_batch[8]), max(cj_batch[9]), '...')
@@ -713,7 +713,7 @@ def wallet_fetch_history(wallet, options):
     if options.verbosity <= 2:
         n = cj_batch[0]
         if n > 0:
-            print_row('N='+str(n), cj_batch[1]/n, 'cj batch', cj_batch[2],
+            print_row('N='+"%2d"%n, cj_batch[1]/n, 'cj batch   ', cj_batch[2],
                       cj_batch[3], cj_batch[4], cj_batch[5]/n, cj_batch[6],
                       cj_batch[7]/n, min(cj_batch[8]), max(cj_batch[9]), '...')
 
