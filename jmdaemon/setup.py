@@ -1,6 +1,5 @@
 from setuptools import setup
 
-
 setup(name='joinmarketdaemon',
       version='0.3.3',
       description='Joinmarket client library for Bitcoin coinjoins',

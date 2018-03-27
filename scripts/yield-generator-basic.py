@@ -13,7 +13,7 @@ from jmclient import (YieldGenerator, YieldGeneratorBasic, ygmain, get_log,
 txfee = 1000
 cjfee_a = 200
 cjfee_r = '0.0002'
-ordertype = 'swreloffer' #'swreloffer' or 'swabsoffer'
+ordertype = 'swreloffer'  # 'swreloffer' or 'swabsoffer'
 nickserv_password = ''
 max_minsize = 100000
 gaplimit = 6

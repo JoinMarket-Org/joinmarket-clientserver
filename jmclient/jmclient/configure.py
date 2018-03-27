@@ -46,7 +46,7 @@ class AttributeDict(object):
                 ('%(asctime)s [%(threadName)-12.12s] '
                  '[%(levelname)-5.5s]  %(message)s'))
             logsdir = os.path.join(os.path.dirname(
-            global_singleton.config_location), "logs")
+                global_singleton.config_location), "logs")
             fileHandler = logging.FileHandler(
                 logsdir + '/{}.log'.format(value))
             fileHandler.setFormatter(logFormatter)
@@ -75,15 +75,16 @@ global_singleton.core_alert = core_alert
 global_singleton.joinmarket_alert = joinmarket_alert
 global_singleton.debug_silence = debug_silence
 global_singleton.config = SafeConfigParser()
-#This is reset to a full path after load_program_config call
+# This is reset to a full path after load_program_config call
 global_singleton.config_location = 'joinmarket.cfg'
-#as above
+# as above
 global_singleton.commit_file_location = 'cmtdata/commitments.json'
 global_singleton.wait_for_commitments = 0
 
 
 def jm_single():
     return global_singleton
+
 
 # FIXME: Add rpc_* options here in the future!
 required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
@@ -218,13 +219,15 @@ accept_commitment_broadcasts = 1
 commit_file_location = cmtdata/commitments.json
 """
 
-#This allows use of the jmclient package with a
-#configuration set by an external caller; not to be used
-#in conjuction with calls to load_program_config.
+
+# This allows use of the jmclient package with a
+# configuration set by an external caller; not to be used
+# in conjuction with calls to load_program_config.
 def set_config(cfg, bcint=None):
     global_singleton.config = cfg
     if bcint:
         global_singleton.bc_interface = bcint
+
 
 def get_irc_mchannels():
     fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
@@ -269,7 +272,7 @@ def validate_address(addr):
     try:
         assert len(addr) > 2
         if addr[:2].lower() in ['bc', 'tb']:
-            #Enforce testnet/mainnet per config
+            # Enforce testnet/mainnet per config
             if get_network() == "testnet":
                 hrpreq = 'tb'
             else:
@@ -277,7 +280,7 @@ def validate_address(addr):
             if btc.bech32addr_decode(hrpreq, addr)[1]:
                 return True, 'address validated'
             return False, 'Invalid bech32 address'
-        #Not bech32; assume b58 from here
+        # Not bech32; assume b58 from here
         ver = btc.get_version_byte(addr)
     except AssertionError:
         return False, 'Checksum wrong. Typo in address?'
@@ -290,8 +293,8 @@ def validate_address(addr):
     return True, 'address validated'
 
 
-def donation_address(reusable_donation_pubkey=None): #pragma: no cover
-    #Donation code currently disabled, so not tested.
+def donation_address(reusable_donation_pubkey=None):  # pragma: no cover
+    # Donation code currently disabled, so not tested.
     if not reusable_donation_pubkey:
         reusable_donation_pubkey = ('02be838257fbfddabaea03afbb9f16e852'
                                     '9dfe2de921260a5c46036d97b5eacf2a')
@@ -303,6 +306,7 @@ def donation_address(reusable_donation_pubkey=None): #pragma: no cover
     log.debug('sending coins to ' + sender_address)
     return sender_address, sign_k
 
+
 def load_program_config(config_path=None, bs=None):
     global_singleton.config.readfp(io.BytesIO(defaultconfig))
     if not config_path:
@@ -310,9 +314,9 @@ def load_program_config(config_path=None, bs=None):
     global_singleton.config_location = os.path.join(
         config_path, global_singleton.config_location)
     loadedFiles = global_singleton.config.read([global_singleton.config_location
-                                               ])
-    #Hack required for electrum; must be able to enforce a different
-    #blockchain interface even in default/new load.
+                                                ])
+    # Hack required for electrum; must be able to enforce a different
+    # blockchain interface even in default/new load.
     if bs:
         global_singleton.config.set("BLOCKCHAIN", "blockchain_source", bs)
     # Create default config file if not found
@@ -321,15 +325,15 @@ def load_program_config(config_path=None, bs=None):
             configfile.write(defaultconfig)
 
     # check for sections
-    #These are left as sanity checks but currently impossible
-    #since any edits are overlays to the default, these sections/options will
-    #always exist.
-    for s in required_options: #pragma: no cover
+    # These are left as sanity checks but currently impossible
+    # since any edits are overlays to the default, these sections/options will
+    # always exist.
+    for s in required_options:  # pragma: no cover
         if s not in global_singleton.config.sections():
             raise Exception(
                 "Config file does not contain the required section: " + s)
     # then check for specific options
-    for k, v in required_options.iteritems(): #pragma: no cover
+    for k, v in required_options.iteritems():  # pragma: no cover
         for o in v:
             if o not in global_singleton.config.options(k):
                 raise Exception(
@@ -343,7 +347,7 @@ def load_program_config(config_path=None, bs=None):
     try:
         global_singleton.maker_timeout_sec = global_singleton.config.getint(
             'TIMEOUT', 'maker_timeout_sec')
-    except NoOptionError: #pragma: no cover
+    except NoOptionError:  # pragma: no cover
         log.debug('TIMEOUT/maker_timeout_sec not found in .cfg file, '
                   'using default value')
 
@@ -351,15 +355,15 @@ def load_program_config(config_path=None, bs=None):
     global_singleton.bc_interface = get_blockchain_interface_instance(
         global_singleton.config)
 
-    #set the location of the commitments file
+    # set the location of the commitments file
     try:
         global_singleton.commit_file_location = global_singleton.config.get(
             "POLICY", "commit_file_location")
-    except NoOptionError: #pragma: no cover
+    except NoOptionError:  # pragma: no cover
         log.debug("No commitment file location in config, using default "
                   "location cmtdata/commitments.json")
     set_commitment_file(os.path.join(config_path,
-                                         global_singleton.commit_file_location))
+                                     global_singleton.commit_file_location))
 
 
 def get_blockchain_interface_instance(_config):
@@ -371,8 +375,8 @@ def get_blockchain_interface_instance(_config):
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
     testnet = network == 'testnet'
-    if source == 'bitcoin-rpc': #pragma: no cover
-        #This cannot be tested without mainnet or testnet blockchain (not regtest)
+    if source == 'bitcoin-rpc':  # pragma: no cover
+        # This cannot be tested without mainnet or testnet blockchain (not regtest)
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
         rpc_user = _config.get("BLOCKCHAIN", "rpc_user")
@@ -389,7 +393,7 @@ def get_blockchain_interface_instance(_config):
     elif source == 'electrum':
         bc_interface = ElectrumWalletInterface(testnet)
     elif source == 'electrum-server':
-        bc_interface = ElectrumInterface(testnet) #can specify server, config, TODO
+        bc_interface = ElectrumInterface(testnet)  # can specify server, config, TODO
     else:
         raise ValueError("Invalid blockchain source")
     return bc_interface

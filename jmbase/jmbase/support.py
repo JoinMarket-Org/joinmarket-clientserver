@@ -16,10 +16,11 @@ joinmarket_alert = ['']
 core_alert = ['']
 debug_silence = [False]
 
-#TODO pass this through from client, bitcoin paramater:
+# TODO pass this through from client, bitcoin paramater:
 DUST_THRESHOLD = 2730
 
-#consoleHandler = logging.StreamHandler(stream=sys.stdout)
+
+# consoleHandler = logging.StreamHandler(stream=sys.stdout)
 class JoinMarketStreamHandler(logging.StreamHandler):
 
     def __init__(self, stream):
@@ -38,6 +39,7 @@ consoleHandler = JoinMarketStreamHandler(stream=sys.stdout)
 consoleHandler.setFormatter(logFormatter)
 log.addHandler(consoleHandler)
 
+
 def get_log():
     """
     provides joinmarket logging instance
@@ -45,14 +47,18 @@ def get_log():
     """
     return log
 
+
 def set_logging_level(level):
     consoleHandler.setLevel(level)
+
 
 def chunks(d, n):
     return [d[x:x + n] for x in xrange(0, len(d), n)]
 
-def get_password(msg): #pragma: no cover
+
+def get_password(msg):  # pragma: no cover
     return getpass(msg)
+
 
 def debug_dump_object(obj, skip_fields=None):
     if skip_fields is None:
@@ -72,13 +78,14 @@ def debug_dump_object(obj, skip_fields=None):
         else:
             log.debug(str(v))
 
-def _byteify(data, ignore_dicts = False):
+
+def _byteify(data, ignore_dicts=False):
     # if this is a unicode string, return its string representation
     if isinstance(data, unicode):
         return data.encode('utf-8')
     # if this is a list of values, return list of byteified values
     if isinstance(data, list):
-        return [ _byteify(item, ignore_dicts=True) for item in data ]
+        return [_byteify(item, ignore_dicts=True) for item in data]
     # if this is a dictionary, return dictionary of byteified keys and values
     # but only if we haven't already byteified it
     if isinstance(data, dict) and not ignore_dicts:

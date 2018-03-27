@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
+
 '''test daemon-protocol interfacae.'''
 
 import pytest
@@ -7,7 +8,7 @@ from jmdaemon import (JMDaemonServerProtocolFactory, MessageChannelCollection)
 from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon.daemon_protocol import JMDaemonServerProtocol
 from jmdaemon.protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
-                       NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
+                               NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
 from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels)
 import os
 from twisted.python.log import startLogging, err
@@ -27,18 +28,22 @@ import time
 import base64
 from dummy_mc import DummyMessageChannel
 from test_message_channel import make_valid_nick
+
 test_completed = False
 end_early = False
 jlog = get_log()
 
+
 class DummyMC(DummyMessageChannel):
-    #override run() for twisted compatibility
+    # override run() for twisted compatibility
     def run(self):
         if self.on_welcome:
             reactor.callLater(1, self.on_welcome, self)
 
+
 class JMProtocolError(Exception):
     pass
+
 
 class JMBaseProtocol(amp.AMP):
     def checkClientResponse(self, response):
@@ -56,6 +61,7 @@ class JMBaseProtocol(amp.AMP):
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
         d.addErrback(self.defaultErrback)
+
 
 class JMTestClientProtocol(JMBaseProtocol):
 
@@ -88,7 +94,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            n_counterparties=4) #TODO this number should be set
+                            n_counterparties=4)  # TODO this number should be set
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -104,12 +110,12 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMFILLRESPONSE", success, ioauth_data)
         reactor.callLater(1, self.maketx, ioauth_data)
         return {'accepted': True}
-    
+
     def maketx(self, ioauth_data):
         ioauth_data = json.loads(ioauth_data)
         nl = ioauth_data.keys()
         d = self.callRemote(JMMakeTx,
-                            nick_list= json.dumps(nl),
+                            nick_list=json.dumps(nl),
                             txhex="deadbeef")
         self.defaultCallbacks(d)
 
@@ -118,22 +124,22 @@ class JMTestClientProtocol(JMBaseProtocol):
         if end_early:
             return {'accepted': True}
         jlog.debug("JMOFFERS" + str(orderbook))
-        #Trigger receipt of verified privmsgs, including unverified
+        # Trigger receipt of verified privmsgs, including unverified
         nick = str(t_chosen_orders.keys()[0])
         b64tx = base64.b64encode("deadbeef")
         d1 = self.callRemote(JMMsgSignatureVerify,
-                            verif_result=True,
-                            nick=nick,
-                            fullmsg="!push " + b64tx + " abc def",
-                            hostid="dummy")
+                             verif_result=True,
+                             nick=nick,
+                             fullmsg="!push " + b64tx + " abc def",
+                             hostid="dummy")
         self.defaultCallbacks(d1)
-        #unverified
+        # unverified
         d2 = self.callRemote(JMMsgSignatureVerify,
-                            verif_result=False,
-                            nick=nick,
-                            fullmsg="!push " + b64tx + " abc def",
-                            hostid="dummy")
-        self.defaultCallbacks(d2)        
+                             verif_result=False,
+                             nick=nick,
+                             fullmsg="!push " + b64tx + " abc def",
+                             hostid="dummy")
+        self.defaultCallbacks(d2)
         d = self.callRemote(JMFill,
                             amount=100,
                             commitment="dummycommitment",
@@ -147,7 +153,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMSIGRECEIVED", nick, sig)
         self.sigs_received += 1
         if self.sigs_received == 3:
-            #end of test
+            # end of test
             reactor.callLater(1, end_test)
         return {'accepted': True}
 
@@ -175,47 +181,48 @@ class JMTestClientProtocol(JMBaseProtocol):
         self.defaultCallbacks(d)
         return {'accepted': True}
 
+
 class JMTestClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTestClientProtocol
-        
+
 
 def show_receipt(name, *args):
     tmsg("Received msgtype: " + name + ", args: " + ",".join([str(x) for x in args]))
+
 
 def end_test():
     global test_completed
     test_completed = True
 
 
-
 class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
 
     def __init__(self, factory):
         super(JMDaemonTestServerProtocol, self).__init__(factory)
-        #respondtoioauths should do nothing unless jmstate = 2
+        # respondtoioauths should do nothing unless jmstate = 2
         self.respondToIoauths(True)
-        #calling on_JM_MAKE_TX should also do nothing in wrong state
+        # calling on_JM_MAKE_TX should also do nothing in wrong state
         assert super(JMDaemonTestServerProtocol, self).on_JM_MAKE_TX(
             1, 2) == {'accepted': False}
-        #calling on_JM_FILL with negative amount should reject
+        # calling on_JM_FILL with negative amount should reject
         assert super(JMDaemonTestServerProtocol, self).on_JM_FILL(
             -1000, 2, 3, 4) == {'accepted': False}
-        #checkutxos also does nothing for rejection at the moment
+        # checkutxos also does nothing for rejection at the moment
         self.checkUtxosAccepted(False)
-        #None should be returned requesting a cryptobox for an unknown cp
+        # None should be returned requesting a cryptobox for an unknown cp
         assert self.get_crypto_box_from_nick("notrealcp") == None
-        #does nothing yet
+        # does nothing yet
         self.on_error("dummy error")
 
     @JMRequestOffers.responder
     def on_JM_REQUEST_OFFERS(self):
         for o in t_orderbook:
-            #counterparty, oid, ordertype, minsize, maxsize,txfee, cjfee):
+            # counterparty, oid, ordertype, minsize, maxsize,txfee, cjfee):
             self.on_order_seen(o["counterparty"], o["oid"], o["ordertype"],
-                                 o["minsize"], o["maxsize"],
-                                 o["txfee"], o["cjfee"])
+                               o["minsize"], o["maxsize"],
+                               o["txfee"], o["cjfee"])
         return super(JMDaemonTestServerProtocol, self).on_JM_REQUEST_OFFERS()
-        
+
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
                    maker_timeout_sec):
@@ -223,46 +230,46 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         self.minmakers = int(minmakers)
         mcs = [DummyMC(None)]
         self.mcc = MessageChannelCollection(mcs)
-        #The following is a hack to get the counterparties marked seen/active;
-        #note it must happen before callign set_msgchan for OrderbookWatch
+        # The following is a hack to get the counterparties marked seen/active;
+        # note it must happen before callign set_msgchan for OrderbookWatch
         self.mcc.on_order_seen = None
         for c in [o['counterparty'] for o in t_orderbook]:
             self.mcc.on_order_seen_trigger(mcs[0], c, "a", "b", "c", "d", "e", "f")
         OrderbookWatch.set_msgchan(self, self.mcc)
-        #register taker-specific msgchan callbacks here
+        # register taker-specific msgchan callbacks here
         self.mcc.register_taker_callbacks(self.on_error, self.on_pubkey,
-                                                      self.on_ioauth, self.on_sig)
+                                          self.on_ioauth, self.on_sig)
         self.mcc.set_daemon(self)
         self.restart_mc_required = True
         d = self.callRemote(JMInitProto,
-                                   nick_hash_length=NICK_HASH_LENGTH,
-                                   nick_max_encoded=NICK_MAX_ENCODED,
-                                   joinmarket_nick_header=JOINMARKET_NICK_HEADER,
-                                   joinmarket_version=JM_VERSION)
+                            nick_hash_length=NICK_HASH_LENGTH,
+                            nick_max_encoded=NICK_MAX_ENCODED,
+                            joinmarket_nick_header=JOINMARKET_NICK_HEADER,
+                            joinmarket_version=JM_VERSION)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMFill.responder
-    def on_JM_FILL(self, amount, commitment, revelation, filled_offers):       
+    def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
         tmpfo = json.loads(filled_offers)
         dummypub = "073732a7ca60470f709f23c602b2b8a6b1ba62ee8f3f83a61e5484ab5cbf9c3d"
-        #trigger invalid on_pubkey conditions
+        # trigger invalid on_pubkey conditions
         reactor.callLater(1, self.on_pubkey, "notrealcp", dummypub)
         reactor.callLater(2, self.on_pubkey, tmpfo.keys()[0], dummypub + "deadbeef")
-        #trigger invalid on_ioauth condition
+        # trigger invalid on_ioauth condition
         reactor.callLater(2, self.on_ioauth, "notrealcp", 1, 2, 3, 4, 5)
-        #trigger msg sig verify request operation for a dummy message
-        #currently a pass-through
+        # trigger msg sig verify request operation for a dummy message
+        # currently a pass-through
         reactor.callLater(1, self.request_signature_verify, "1",
                           "!push abcd abc def", "3", "4",
-                          str(tmpfo.keys()[0]), 6, 7, self.mcc.mchannels[0].hostid)         
-        #send "valid" onpubkey, onioauth messages
+                          str(tmpfo.keys()[0]), 6, 7, self.mcc.mchannels[0].hostid)
+        # send "valid" onpubkey, onioauth messages
         for k, v in tmpfo.iteritems():
             reactor.callLater(1, self.on_pubkey, k, dummypub)
             reactor.callLater(2, self.on_ioauth, k, ['a', 'b'], "auth_pub",
                               "cj_addr", "change_addr", "btc_sig")
         return super(JMDaemonTestServerProtocol, self).on_JM_FILL(amount,
-                                            commitment, revelation, filled_offers)
+                                                                  commitment, revelation, filled_offers)
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
@@ -272,23 +279,25 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
                                                                      txhex)
 
 
-
 class JMDaemonTestServerProtocolFactory(ServerFactory):
     protocol = JMDaemonTestServerProtocol
-    
+
     def buildProtocol(self, addr):
         return JMDaemonTestServerProtocol(self)
 
 
 class JMDaemonTest2ServerProtocol(JMDaemonServerProtocol):
-    #override here to avoid actually instantiating IRCMessageChannels
+    # override here to avoid actually instantiating IRCMessageChannels
     def init_connections(self, nick):
         self.mc_shutdown()
 
+
 class JMDaemonTest2ServerProtocolFactory(ServerFactory):
     protocol = JMDaemonTest2ServerProtocol
+
     def buildProtocol(self, addr):
         return JMDaemonTest2ServerProtocol(self)
+
 
 class TrialTestJMDaemonProto(unittest.TestCase):
 

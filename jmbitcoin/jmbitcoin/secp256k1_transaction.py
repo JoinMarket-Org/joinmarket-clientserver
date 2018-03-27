@@ -7,9 +7,10 @@ import os
 
 is_python2 = sys.version_info.major == 2
 
+
 ### Hex to bin converter and vice versa for objects
 def json_is_base(obj, base):
-    if not is_python2 and isinstance(obj, bytes): #pragma: no cover
+    if not is_python2 and isinstance(obj, bytes):  # pragma: no cover
         return False
 
     alpha = get_code_string(base)
@@ -41,11 +42,12 @@ def json_changebase(obj, changer):
         return [json_changebase(x, changer) for x in obj]
     return dict((x, json_changebase(obj[x], changer)) for x in obj)
 
+
 # Transaction serialization and deserialization
 
 def deserialize(tx):
     if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
-        #tx = bytes(bytearray.fromhex(tx))
+        # tx = bytes(bytearray.fromhex(tx))
         return json_changebase(
             deserialize(binascii.unhexlify(tx)), lambda x: safe_hexlify(x))
     # http://stackoverflow.com/questions/4851463/python-closure-write-to-variable-in-parent-scope
@@ -53,7 +55,7 @@ def deserialize(tx):
     # so that it is call-by-reference
     pos = [0]
 
-    #TODO: these are disgustingly ignorant of overrun errors!
+    # TODO: these are disgustingly ignorant of overrun errors!
     def read_as_int(bytez):
         pos[0] += bytez
         return decode(tx[pos[0] - bytez:pos[0]][::-1], 256)
@@ -76,7 +78,7 @@ def deserialize(tx):
 
     def read_flag_byte(val):
         flag = read_bytes(1)
-        if from_byte_to_int(flag)==val:
+        if from_byte_to_int(flag) == val:
             return True
         else:
             pos[0] -= 1
@@ -88,8 +90,8 @@ def deserialize(tx):
     if read_flag_byte(0): segwit = True
     if segwit:
         if not read_flag_byte(1):
-            #BIP141 is currently "MUST" ==1
-            #A raise is a DOS vector in some contexts
+            # BIP141 is currently "MUST" ==1
+            # A raise is a DOS vector in some contexts
             return None
 
     ins = read_var_int()
@@ -99,7 +101,7 @@ def deserialize(tx):
                 "hash": read_bytes(32)[::-1],
                 "index": read_as_int(4)
             },
-            #TODO this will probably crap out on null for segwit
+            # TODO this will probably crap out on null for segwit
             "script": read_var_string(),
             "sequence": read_as_int(4)
         })
@@ -109,18 +111,18 @@ def deserialize(tx):
             "value": read_as_int(8),
             "script": read_var_string()
         })
-    #segwit flag is only set if at least one txinwitness exists,
-    #in other words it would have to be at least partially signed;
-    #and, if it is, the witness section must be properly created
-    #including "00" for any input that either does not YET or will not
-    #have a witness attached.
+    # segwit flag is only set if at least one txinwitness exists,
+    # in other words it would have to be at least partially signed;
+    # and, if it is, the witness section must be properly created
+    # including "00" for any input that either does not YET or will not
+    # have a witness attached.
     if segwit:
-        #read witness data
-        #there must be one witness object for each txin
-        #technically, we could parse the contents of the witness
-        #into objects, but we'll just replicate the behaviour of the
-        #rpc decoderawtx, and attach a "txinwitness" for each in, with
-        #the items in the witness space separated
+        # read witness data
+        # there must be one witness object for each txin
+        # technically, we could parse the contents of the witness
+        # into objects, but we'll just replicate the behaviour of the
+        # rpc decoderawtx, and attach a "txinwitness" for each in, with
+        # the items in the witness space separated
         for i in range(ins):
             num_items = read_var_int()
             items = []
@@ -130,6 +132,7 @@ def deserialize(tx):
 
     obj["locktime"] = read_as_int(4)
     return obj
+
 
 def serialize(txobj):
     o = []
@@ -143,7 +146,7 @@ def serialize(txobj):
     if any("txinwitness" in x.keys() for x in txobj["ins"]):
         segwit = True
     if segwit:
-        #append marker and flag
+        # append marker and flag
         o.append('\x00')
         o.append('\x01')
     o.append(num_to_var_int(len(txobj["ins"])))
@@ -151,15 +154,15 @@ def serialize(txobj):
         o.append(inp["outpoint"]["hash"][::-1])
         o.append(encode(inp["outpoint"]["index"], 256, 4)[::-1])
         o.append(num_to_var_int(len(inp["script"])) + (inp["script"] if inp[
-            "script"] or is_python2 else bytes()))
+                                                                            "script"] or is_python2 else bytes()))
         o.append(encode(inp["sequence"], 256, 4)[::-1])
     o.append(num_to_var_int(len(txobj["outs"])))
     for out in txobj["outs"]:
         o.append(encode(out["value"], 256, 8)[::-1])
         o.append(num_to_var_int(len(out["script"])) + out["script"])
     if segwit:
-        #number of witnesses is not explicitly encoded;
-        #it's implied by txin length
+        # number of witnesses is not explicitly encoded;
+        # it's implied by txin length
         for inp in txobj["ins"]:
             if "txinwitness" not in inp.keys():
                 o.append('\x00')
@@ -172,6 +175,7 @@ def serialize(txobj):
 
     return ''.join(o) if is_python2 else reduce(lambda x, y: x + y, o, bytes())
 
+
 # Hashing transactions for signing
 
 SIGHASH_ALL = 1
@@ -179,42 +183,43 @@ SIGHASH_NONE = 2
 SIGHASH_SINGLE = 3
 SIGHASH_ANYONECANPAY = 0x80
 
+
 def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
     """Given a deserialized transaction txobj, an input index i,
     which spends from a witness,
     a script for redemption and an amount in satoshis, prepare
     the version of the transaction to be hashed and signed.
     """
-    #if isinstance(txobj, string_or_bytes_types):
+    # if isinstance(txobj, string_or_bytes_types):
     #    return serialize(segwit_signature_form(deserialize(txobj), i, script,
     #                                           amount, hashcode))
     script = binascii.unhexlify(script)
     nVersion = encode(txobj["version"], 256, 4)[::-1]
-    #create hashPrevouts
+    # create hashPrevouts
     if hashcode & SIGHASH_ANYONECANPAY:
-        hashPrevouts = "\x00"*32
+        hashPrevouts = "\x00" * 32
     else:
         pi = ""
         for inp in txobj["ins"]:
             pi += binascii.unhexlify(inp["outpoint"]["hash"])[::-1]
             pi += encode(inp["outpoint"]["index"], 256, 4)[::-1]
         hashPrevouts = bin_dbl_sha256(pi)
-    #create hashSequence
+    # create hashSequence
     if not hashcode & SIGHASH_ANYONECANPAY and not (
-        hashcode & 0x1f == SIGHASH_NONE) and not (hashcode & 0x1f == SIGHASH_NONE):
+            hashcode & 0x1f == SIGHASH_NONE) and not (hashcode & 0x1f == SIGHASH_NONE):
         pi = ""
         for inp in txobj["ins"]:
             pi += encode(inp["sequence"], 256, 4)[::-1]
         hashSequence = bin_dbl_sha256(pi)
     else:
-        hashSequence = "\x00"*32
-    #add this input's outpoint
+        hashSequence = "\x00" * 32
+    # add this input's outpoint
     thisOut = binascii.unhexlify(txobj["ins"][i]["outpoint"]["hash"])[::-1]
     thisOut += encode(txobj["ins"][i]["outpoint"]["index"], 256, 4)[::-1]
     scriptCode = num_to_var_int(len(script)) + script
     amt = encode(amount, 256, 8)[::-1]
     thisSeq = encode(txobj["ins"][i]["sequence"], 256, 4)[::-1]
-    #create hashOutputs
+    # create hashOutputs
     if not (hashcode & 0x1f == SIGHASH_SINGLE) and not (hashcode & 0x1f == SIGHASH_NONE):
         pi = ""
         for out in txobj["outs"]:
@@ -227,13 +232,15 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
         if i < len(txobj['outs']):
             pi += encode(txobj["outs"][i]["value"], 256, 8)[::-1]
             pi += (num_to_var_int(len(binascii.unhexlify(txobj["outs"][i][
-                "script"]))) + binascii.unhexlify(txobj["outs"][i]["script"]))
+                                                             "script"]))) + binascii.unhexlify(
+                txobj["outs"][i]["script"]))
         hashOutputs = bin_dbl_sha256(pi)
     else:
-        hashOutputs = "\x00"*32
+        hashOutputs = "\x00" * 32
     nLockTime = encode(txobj["locktime"], 256, 4)[::-1]
     return nVersion + hashPrevouts + hashSequence + thisOut + scriptCode + amt + \
            thisSeq + hashOutputs + nLockTime
+
 
 def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
     i, hashcode = int(i), int(hashcode)
@@ -241,7 +248,7 @@ def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
         return serialize(signature_form(deserialize(tx), i, script, hashcode))
     newtx = copy.deepcopy(tx)
     for inp in newtx["ins"]:
-        #If tx is passed in in segwit form, it must be switched to non-segwit.
+        # If tx is passed in in segwit form, it must be switched to non-segwit.
         if "txinwitness" in inp:
             del inp["txinwitness"]
         inp["script"] = ""
@@ -255,9 +262,9 @@ def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
         if len(newtx["ins"]) > len(newtx["outs"]):
             raise Exception(
                 "Transactions with sighash single should have len in <= len out")
-        newtx["outs"] = newtx["outs"][:i+1]
+        newtx["outs"] = newtx["outs"][:i + 1]
         for out in newtx["outs"][:i]:
-            out['value'] = 2**64 - 1
+            out['value'] = 2 ** 64 - 1
             out['script'] = ""
         for j, inp in enumerate(newtx["ins"]):
             if j != i:
@@ -268,18 +275,20 @@ def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
         pass
     return newtx
 
+
 def segwit_txid(tx, hashcode=None):
-    #An easy way to construct the old-style hash (which is the real txid,
-    #the one without witness or marker/flag, is to remove all txinwitness
-    #entries from the deserialized form of the full tx, then reserialize,
-    #because serialize uses that as a flag to decide which serialization
-    #style to apply.
+    # An easy way to construct the old-style hash (which is the real txid,
+    # the one without witness or marker/flag, is to remove all txinwitness
+    # entries from the deserialized form of the full tx, then reserialize,
+    # because serialize uses that as a flag to decide which serialization
+    # style to apply.
     dtx = deserialize(tx)
     for vin in dtx["ins"]:
         if "txinwitness" in vin:
             del vin["txinwitness"]
             reserialized_tx = serialize(dtx)
     return txhash(reserialized_tx, hashcode)
+
 
 def txhash(tx, hashcode=None, check_sw=True):
     """Creates the appropriate sha256 hash as required
@@ -291,7 +300,7 @@ def txhash(tx, hashcode=None, check_sw=True):
         tx = changebase(tx, 16, 256)
     if check_sw and from_byte_to_int(tx[4]) == 0:
         if not from_byte_to_int(tx[5]) == 1:
-            #This invalid, but a raise is a DOS vector in some contexts.
+            # This invalid, but a raise is a DOS vector in some contexts.
             return None
         return segwit_txid(tx, hashcode)
     if hashcode:
@@ -323,6 +332,7 @@ def ecdsa_tx_verify(tx, sig, pub, hashcode=SIGHASH_ALL):
         True,
         rawmsg=True)
 
+
 # Scripts
 
 
@@ -334,6 +344,7 @@ def mk_pubkey_script(addr):
 def mk_scripthash_script(addr):
     return 'a914' + b58check_to_hex(addr) + '87'
 
+
 def segwit_scriptpubkey(witver, witprog):
     """Construct a Segwit scriptPubKey for a given witness program."""
     if sys.version_info >= (3, 0):
@@ -344,11 +355,14 @@ def segwit_scriptpubkey(witver, witprog):
         x += bytearray(witprog)
     return x
 
+
 def mk_native_segwit_script(addr):
     hrp = addr[:2]
-    ver, prog =  bech32addr_decode(hrp, addr)
+    ver, prog = bech32addr_decode(hrp, addr)
     scriptpubkey = segwit_scriptpubkey(ver, prog)
     return binascii.hexlify(scriptpubkey)
+
+
 # Address representation to output script
 
 def address_to_script(addr):
@@ -359,6 +373,7 @@ def address_to_script(addr):
     else:
         return mk_pubkey_script(addr)
 
+
 # Output script to address representation
 
 def is_p2pkh_script(script):
@@ -367,17 +382,19 @@ def is_p2pkh_script(script):
         return True
     return False
 
+
 def is_segwit_native_script(script):
     """Is scriptPubkey of form P2WPKH or P2WSH"""
     if script[:2] in [b'\x00\x14', b'\x00\x20']:
         return True
     return False
 
+
 def script_to_address(script, vbyte=0, witver=0):
     if re.match('^[0-9a-fA-F]*$', script):
         script = binascii.unhexlify(script)
     if is_segwit_native_script(script):
-        #hrp interpreted from the vbyte entry, TODO this should be cleaner.
+        # hrp interpreted from the vbyte entry, TODO this should be cleaner.
         if vbyte in [0, 5]:
             hrp = 'bc'
         else:
@@ -391,16 +408,19 @@ def script_to_address(script, vbyte=0, witver=0):
         if vbyte == 0: raise Exception("Invalid version byte for P2SH")
         return bin_to_b58check(script[2:-1], vbyte)
 
+
 def pubkey_to_p2sh_p2wpkh_script(pub):
     if re.match('^[0-9a-fA-F]*$', pub):
         pub = binascii.unhexlify(pub)
     return "0014" + hash160(pub)
+
 
 def pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=5):
     if re.match('^[0-9a-fA-F]*$', pub):
         pub = binascii.unhexlify(pub)
     script = pubkey_to_p2sh_p2wpkh_script(pub)
     return p2sh_scriptaddr(script, magicbyte=magicbyte)
+
 
 def p2sh_scriptaddr(script, magicbyte=5):
     if re.match('^[0-9a-fA-F]*$', script):
@@ -461,25 +481,25 @@ def serialize_script_unit(unit):
 if is_python2:
 
     def serialize_script(script):
-        #bugfix: if *every* item in the script is of type int,
-        #for example a script of OP_TRUE, or None,
-        #then the previous version would always report json_is_base as True,
-        #resulting in an infinite loop (look who's demented now).
-        #There is no easy solution without being less flexible;
-        #here we default to returning a hex serialization in cases where
-        #there are no strings to use as flags.
+        # bugfix: if *every* item in the script is of type int,
+        # for example a script of OP_TRUE, or None,
+        # then the previous version would always report json_is_base as True,
+        # resulting in an infinite loop (look who's demented now).
+        # There is no easy solution without being less flexible;
+        # here we default to returning a hex serialization in cases where
+        # there are no strings to use as flags.
         if all([(isinstance(x, int) or x is None) for x in script]):
-            #no indication given whether output should be hex or binary, so..?
+            # no indication given whether output should be hex or binary, so..?
             return binascii.hexlify(''.join(map(serialize_script_unit, script)))
         if json_is_base(script, 16):
             return binascii.hexlify(serialize_script(json_changebase(
                 script, lambda x: binascii.unhexlify(x))))
         return ''.join(map(serialize_script_unit, script))
 
-else: #pragma: no cover
+else:  # pragma: no cover
 
     def serialize_script(script):
-        #TODO Python 3 bugfix as above needed
+        # TODO Python 3 bugfix as above needed
         if json_is_base(script, 16):
             return safe_hexlify(serialize_script(json_changebase(
                 script, lambda x: binascii.unhexlify(x))))
@@ -498,6 +518,7 @@ def mk_multisig_script(*args):  # [pubs],k or pub1,pub2...pub[n],k
         k = int(args[len(pubs)])
     return serialize_script([k] + pubs + [len(pubs)]) + 'ae'
 
+
 # Signing and verifying
 
 
@@ -515,8 +536,8 @@ def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
             witness = safe_hexlify(witness)
     hashcode = decode(sig[-2:], 16)
     if witness and amount:
-        #TODO assumes p2sh wrapped segwit input; OK for JM wallets
-        scriptCode = "76a914"+hash160(binascii.unhexlify(pub))+"88ac"
+        # TODO assumes p2sh wrapped segwit input; OK for JM wallets
+        scriptCode = "76a914" + hash160(binascii.unhexlify(pub)) + "88ac"
         modtx = segwit_signature_form(deserialize(binascii.hexlify(tx)), int(i),
                                       scriptCode, amount, hashcode)
     else:
@@ -542,6 +563,7 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
     txobj["ins"][i]["script"] = serialize_script([sig, pub])
     return serialize(txobj)
 
+
 def p2sh_p2wpkh_sign(tx, i, priv, amount, hashcode=SIGHASH_ALL, usenonce=None):
     """Given a serialized transaction, index, private key in hex,
     amount in satoshis and optionally hashcode, return the serialized
@@ -550,14 +572,15 @@ def p2sh_p2wpkh_sign(tx, i, priv, amount, hashcode=SIGHASH_ALL, usenonce=None):
     """
     pub = privkey_to_pubkey(priv)
     script = pubkey_to_p2sh_p2wpkh_script(pub)
-    scriptCode = "76a914"+hash160(binascii.unhexlify(pub))+"88ac"
+    scriptCode = "76a914" + hash160(binascii.unhexlify(pub)) + "88ac"
     signing_tx = segwit_signature_form(deserialize(tx), i, scriptCode, amount,
                                        hashcode=hashcode)
     sig = ecdsa_tx_sign(signing_tx, priv, hashcode, usenonce=usenonce)
     txobj = deserialize(tx)
-    txobj["ins"][i]["script"] = "16"+script
+    txobj["ins"][i]["script"] = "16" + script
     txobj["ins"][i]["txinwitness"] = [sig, pub]
     return serialize(txobj)
+
 
 def signall(tx, priv):
     # if priv is a dictionary, assume format is
@@ -647,4 +670,3 @@ def mktx(*args):
         txobj["outs"].append(outobj)
 
     return serialize(txobj)
-

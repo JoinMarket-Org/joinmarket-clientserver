@@ -15,6 +15,7 @@ to libsodium.
 All modes require and install twisted.
 """
 
+
 def help():
     print("Usage: python setupall.py <mode>\n"
           "Mode is one of:\n"
@@ -24,6 +25,7 @@ def help():
           "`--develop` - uses the local code for all packages (does not install to site-packages)."
           )
     sys.exit(0)
+
 
 if len(sys.argv) != 2:
     help()

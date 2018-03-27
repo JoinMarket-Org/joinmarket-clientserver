@@ -29,6 +29,7 @@ import binascii
 import unittest
 import jmbitcoin as btc
 
+
 def segwit_scriptpubkey(witver, witprog):
     """Construct a Segwit scriptPubKey for a given witness program."""
     if sys.version_info >= (3, 0):
@@ -38,6 +39,7 @@ def segwit_scriptpubkey(witver, witprog):
         x += chr(len(witprog))
         x += bytearray(witprog)
     return x
+
 
 VALID_CHECKSUM = [
     "A12UEL5L",
@@ -92,6 +94,7 @@ INVALID_ADDRESS_ENC = [
     ("bc", 16, 41),
 ]
 
+
 class TestSegwitAddress(unittest.TestCase):
     """Unit test class for segwit addressess."""
 
@@ -101,7 +104,7 @@ class TestSegwitAddress(unittest.TestCase):
             hrp, _ = btc.bech32_decode(test)
             self.assertIsNotNone(hrp)
             pos = test.rfind('1')
-            test = test[:pos+1] + chr(ord(test[pos + 1]) ^ 1) + test[pos+2:]
+            test = test[:pos + 1] + chr(ord(test[pos + 1]) ^ 1) + test[pos + 2:]
             hrp, _ = btc.bech32_decode(test)
             self.assertIsNone(hrp)
 
@@ -138,6 +141,7 @@ class TestSegwitAddress(unittest.TestCase):
         for hrp, version, length in INVALID_ADDRESS_ENC:
             code = btc.bech32addr_encode(hrp, version, [0] * length)
             self.assertIsNone(code)
+
 
 if __name__ == "__main__":
     unittest.main()

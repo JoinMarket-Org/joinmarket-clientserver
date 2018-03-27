@@ -1,4 +1,4 @@
-#OP codes; disabled commented.
+# OP codes; disabled commented.
 
 # push value
 OP_0 = 0x00
@@ -31,8 +31,8 @@ OP_NOP = 0x61
 OP_VER = 0x62
 OP_IF = 0x63
 OP_NOTIF = 0x64
-#OP_VERIF = 0x65
-#OP_VERNOTIF = 0x66
+# OP_VERIF = 0x65
+# OP_VERNOTIF = 0x66
 OP_ELSE = 0x67
 OP_ENDIF = 0x68
 OP_VERIFY = 0x69
@@ -60,17 +60,17 @@ OP_SWAP = 0x7c
 OP_TUCK = 0x7d
 
 # splice ops
-#OP_CAT = 0x7e
-#OP_SUBSTR = 0x7f
-#OP_LEFT = 0x80
-#OP_RIGHT = 0x81
+# OP_CAT = 0x7e
+# OP_SUBSTR = 0x7f
+# OP_LEFT = 0x80
+# OP_RIGHT = 0x81
 OP_SIZE = 0x82
 
 # bit logic
-#OP_INVERT = 0x83
-#OP_AND = 0x84
-#OP_OR = 0x85
-#OP_XOR = 0x86
+# OP_INVERT = 0x83
+# OP_AND = 0x84
+# OP_OR = 0x85
+# OP_XOR = 0x86
 OP_EQUAL = 0x87
 OP_EQUALVERIFY = 0x88
 OP_RESERVED1 = 0x89
@@ -79,8 +79,8 @@ OP_RESERVED2 = 0x8a
 # numeric
 OP_1ADD = 0x8b
 OP_1SUB = 0x8c
-#OP_2MUL = 0x8d
-#OP_2DIV = 0x8e
+# OP_2MUL = 0x8d
+# OP_2DIV = 0x8e
 OP_NEGATE = 0x8f
 OP_ABS = 0x90
 OP_NOT = 0x91
@@ -88,11 +88,11 @@ OP_0NOTEQUAL = 0x92
 
 OP_ADD = 0x93
 OP_SUB = 0x94
-#OP_MUL = 0x95
-#OP_DIV = 0x96
-#OP_MOD = 0x97
-#OP_LSHIFT = 0x98
-#OP_RSHIFT = 0x99
+# OP_MUL = 0x95
+# OP_DIV = 0x96
+# OP_MOD = 0x97
+# OP_LSHIFT = 0x98
+# OP_RSHIFT = 0x99
 
 OP_BOOLAND = 0x9a
 OP_BOOLOR = 0x9b

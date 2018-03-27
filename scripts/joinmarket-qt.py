@@ -23,7 +23,6 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 import sys, base64, textwrap, datetime, os, logging
 import platform, csv, threading, time
 
-
 from decimal import Decimal
 from functools import partial
 
@@ -43,13 +42,14 @@ app = QApplication(sys.argv)
 if 'twisted.internet.reactor' in sys.modules:
     del sys.modules['twisted.internet.reactor']
 from qtreactor import pyqt4reactor
+
 pyqt4reactor.install()
-#General Joinmarket donation address; TODO
+# General Joinmarket donation address; TODO
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 
-#Underlying joinmarket code version (as per setup.py etc.)
+# Underlying joinmarket code version (as per setup.py etc.)
 JM_CORE_VERSION = '0.3.3'
-#Version of this Qt script specifically
+# Version of this Qt script specifically
 JM_GUI_VERSION = '7'
 
 from jmclient import (load_program_config, get_network, SegwitWallet,
@@ -73,10 +73,14 @@ from qtsupport import (ScheduleWizard, TumbleRestartWizard, warnings, config_tip
                        donation_more_message)
 
 from twisted.internet import task
+
+
 def satoshis_to_amt_str(x):
-    return str(Decimal(x)/Decimal('1e8')) + " BTC"
+    return str(Decimal(x) / Decimal('1e8')) + " BTC"
+
 
 log = get_log()
+
 
 def update_config_for_gui():
     '''The default joinmarket config does not contain these GUI settings
@@ -87,7 +91,7 @@ def update_config_for_gui():
     '''
     gui_config_names = ['gaplimit', 'history_file', 'check_high_fee',
                         'max_mix_depth', 'txfee_default', 'order_wait_time',
-                       'checktx']
+                        'checktx']
     gui_config_default_vals = ['6', 'jm-tx-history.txt', '2', '5', '5000', '30',
                                'true']
     if "GUI" not in jm_single().config.sections():
@@ -104,6 +108,7 @@ def persist_config():
     with open('joinmarket.cfg', 'w') as f:
         jm_single().config.write(f)
 
+
 def checkAddress(parent, addr):
     valid, errmsg = validate_address(str(addr))
     if not valid:
@@ -111,6 +116,7 @@ def checkAddress(parent, addr):
                        "Bitcoin address not valid.\n" + errmsg,
                        mbtype='warn',
                        title="Error")
+
 
 def getSettingsWidgets():
     results = []
@@ -125,7 +131,7 @@ def getSettingsWidgets():
           'If you enter 0, a SWEEP transaction\nwill be performed,' +
           ' spending all the coins \nin the given mixdepth.']
     sT = [str, int, int, float]
-    #todo maxmixdepth
+    # todo maxmixdepth
     sMM = ['', (2, 20),
            (0, jm_single().config.getint("GUI", "max_mix_depth") - 1),
            (0.00000001, 100.0, 8)]
@@ -145,6 +151,7 @@ def getSettingsWidgets():
 handler = QtHandler()
 handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
 log.addHandler(handler)
+
 
 class HelpLabel(QLabel):
 
@@ -170,6 +177,7 @@ class HelpLabel(QLabel):
         app.setOverrideCursor(QCursor(QtCore.Qt.ArrowCursor))
         return QLabel.leaveEvent(self, event)
 
+
 class SettingsTab(QDialog):
 
     def __init__(self):
@@ -186,11 +194,11 @@ class SettingsTab(QDialog):
         j = 0
         for i, section in enumerate(jm_single().config.sections()):
             pairs = jm_single().config.items(section)
-            #an awkward design element from the core code: maker_timeout_sec
-            #is set outside the config, if it doesn't exist in the config.
-            #Add it here and it will be in the newly updated config file.
+            # an awkward design element from the core code: maker_timeout_sec
+            # is set outside the config, if it doesn't exist in the config.
+            # Add it here and it will be in the newly updated config file.
             if section == 'TIMEOUT' and 'maker_timeout_sec' not in [
-                    _[0] for _ in pairs
+                _[0] for _ in pairs
             ]:
                 jm_single().config.set(section, 'maker_timeout_sec', '60')
                 pairs = jm_single().config.items(section)
@@ -203,8 +211,8 @@ class SettingsTab(QDialog):
             j += 1
             for k, ns in enumerate(newSettingsFields):
                 grid.addWidget(ns[0], j, 0)
-                #try to find the tooltip for this label from config tips;
-                #it might not be there
+                # try to find the tooltip for this label from config tips;
+                # it might not be there
                 if str(ns[0].text()) in config_tips:
                     ttS = config_tips[str(ns[0].text())]
                     ns[0].setToolTip(ttS)
@@ -212,12 +220,12 @@ class SettingsTab(QDialog):
                 sfindex = len(self.settingsFields) - len(newSettingsFields) + k
                 if isinstance(ns[1], QCheckBox):
                     ns[1].toggled.connect(lambda checked, s=section,
-                                          q=sfindex: self.handleEdit(
-                                    s, self.settingsFields[q], checked))
+                                                 q=sfindex: self.handleEdit(
+                        s, self.settingsFields[q], checked))
                 else:
                     ns[1].editingFinished.connect(
-                    lambda q=sfindex, s=section: self.handleEdit(s,
-                                                      self.settingsFields[q]))
+                        lambda q=sfindex, s=section: self.handleEdit(s,
+                                                                     self.settingsFields[q]))
                 j += 1
         outerGrid.addWidget(sA)
         sA.setWidget(frame)
@@ -240,9 +248,9 @@ class SettingsTab(QDialog):
                       ' to: ' + oval)
             jm_single().config.set(section, oname, oval)
 
-        else:  #currently there is only QLineEdit
+        else:  # currently there is only QLineEdit
             log.debug('setting section: ' + section + ' and name: ' + str(t[
-                0].text()) + ' to: ' + str(t[1].text()))
+                                                                              0].text()) + ' to: ' + str(t[1].text()))
             jm_single().config.set(section, str(t[0].text()), str(t[1].text()))
             if str(t[0].text()) == 'blockchain_source':
                 jm_single().bc_interface = get_blockchain_interface_instance(
@@ -273,10 +281,12 @@ class SettingsTab(QDialog):
             results.append((QLabel(label), qt))
         return results
 
+
 class SpendStateMgr(object):
     """A primitive class keep track of the mode
     in which the spend tab is being run
     """
+
     def __init__(self, updatecallback):
         self.reset_vars()
         self.updatecallback = updatecallback
@@ -299,6 +309,7 @@ class SpendStateMgr(object):
         self.reset_vars()
         self.updatecallback()
 
+
 class SpendTab(QWidget):
 
     def __init__(self):
@@ -308,17 +319,17 @@ class SpendTab(QWidget):
         self.filter_offers_response = None
         self.clientfactory = None
         self.tumbler_options = None
-        #timer for waiting for confirmation on restart
+        # timer for waiting for confirmation on restart
         self.restartTimer = QtCore.QTimer()
-        #timer for wait for next transaction
+        # timer for wait for next transaction
         self.nextTxTimer = None
-        #tracks which mode the spend tab is run in
+        # tracks which mode the spend tab is run in
         self.spendstate = SpendStateMgr(self.toggleButtons)
-        self.spendstate.reset() #trigger callback to 'ready' state
+        self.spendstate.reset()  # trigger callback to 'ready' state
 
     def generateTumbleSchedule(self):
-        #needs a set of tumbler options and destination addresses, so needs
-        #a wizard
+        # needs a set of tumbler options and destination addresses, so needs
+        # a wizard
         wizard = ScheduleWizard()
         wizard_return = wizard.exec_()
         if wizard_return == QDialog.Rejected:
@@ -328,16 +339,16 @@ class SpendTab(QWidget):
         self.updateSchedView()
         self.tumbler_options = wizard.opts
         self.tumbler_destaddrs = wizard.get_destaddrs()
-        #tumbler may require more mixdepths; update the wallet
+        # tumbler may require more mixdepths; update the wallet
         required_mixdepths = self.tumbler_options['mixdepthsrc'] + \
-            self.tumbler_options['mixdepthcount']
+                             self.tumbler_options['mixdepthcount']
         if required_mixdepths > jm_single().config.getint("GUI", "max_mix_depth"):
             jm_single().config.set("GUI", "max_mix_depth", str(required_mixdepths))
-            #recreate wallet and sync again; needed due to cache.
+            # recreate wallet and sync again; needed due to cache.
             JMQtMessageBox(self,
-            "Max mixdepth has been reset to: " + str(required_mixdepths) + ".\n" +
-            "Please choose 'Load' from the Wallet menu and resync before running.",
-            title='Wallet resync required')
+                           "Max mixdepth has been reset to: " + str(required_mixdepths) + ".\n" +
+                           "Please choose 'Load' from the Wallet menu and resync before running.",
+                           title='Wallet resync required')
             return
         self.sch_startButton.setEnabled(True)
 
@@ -346,11 +357,11 @@ class SpendTab(QWidget):
         firstarg = QFileDialog.getOpenFileName(self,
                                                'Choose Schedule File',
                                                directory=current_path)
-        #TODO validate the schedule
+        # TODO validate the schedule
         log.debug('Looking for schedule in: ' + firstarg)
         if not firstarg:
             return
-        #extract raw text before processing
+        # extract raw text before processing
         with open(firstarg, 'rb') as f:
             rawsched = f.read()
 
@@ -365,7 +376,7 @@ class SpendTab(QWidget):
             self.updateSchedView()
             if self.spendstate.schedule_name == "TUMBLE.schedule":
                 reply = JMQtMessageBox(self, "An incomplete tumble run detected. "
-                                       "\nDo you want to restart?",
+                                             "\nDo you want to restart?",
                                        title="Restart detected", mbtype='question')
                 if reply != QMessageBox.Yes:
                     self.giveUp()
@@ -380,7 +391,7 @@ class SpendTab(QWidget):
         donateLayout = QHBoxLayout()
         self.donateCheckBox = QCheckBox()
         self.donateCheckBox.setChecked(False)
-        #Temporarily disabled
+        # Temporarily disabled
         self.donateCheckBox.setEnabled(False)
         self.donateCheckBox.setMaximumWidth(30)
         self.donateLimitBox = QDoubleSpinBox()
@@ -426,12 +437,12 @@ class SpendTab(QWidget):
         self.qtw.addTab(self.single_join_tab, "Single Join")
         self.qtw.addTab(self.schedule_tab, "Multiple Join")
 
-        #construct layout for scheduler
+        # construct layout for scheduler
         sch_layout = QGridLayout()
         sch_layout.setSpacing(4)
         self.schedule_tab.setLayout(sch_layout)
         current_schedule_layout = QVBoxLayout()
-        sch_label1=QLabel("Current schedule: ")
+        sch_label1 = QLabel("Current schedule: ")
         sch_label1.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.sch_label2 = QLabel("None")
         current_schedule_layout.addWidget(sch_label1)
@@ -446,7 +457,7 @@ class SpendTab(QWidget):
         self.schedule_generate_button = QPushButton('Generate tumble schedule')
         self.schedule_generate_button.clicked.connect(self.generateTumbleSchedule)
         self.sch_startButton = QPushButton('Run schedule')
-        self.sch_startButton.setEnabled(False) #not runnable until schedule chosen
+        self.sch_startButton.setEnabled(False)  # not runnable until schedule chosen
         self.sch_startButton.clicked.connect(self.startMultiple)
         self.sch_abortButton = QPushButton('Abort')
         self.sch_abortButton.setEnabled(False)
@@ -479,7 +490,7 @@ class SpendTab(QWidget):
             'prompted to decide whether to accept\n'
             'the transaction after connecting, and shown the\n'
             'fees to pay; you can cancel at that point, or by \n'
-             'pressing "Abort".')
+            'pressing "Abort".')
         self.startButton.clicked.connect(self.startSingle)
         self.abortButton = QPushButton('Abort')
         self.abortButton.setEnabled(False)
@@ -503,12 +514,12 @@ class SpendTab(QWidget):
         self.show()
 
     def updateConsoleText(self, txt):
-        #these alerts are a bit suboptimal;
-        #colored is better, and in the ultra-rare
-        #case of getting both, one will be swallowed.
-        #However, the transaction confirmation dialog
-        #will at least show both in RED and BOLD, and they will be more prominent.
-        #TODO in new daemon this is not accessible? Or?
+        # these alerts are a bit suboptimal;
+        # colored is better, and in the ultra-rare
+        # case of getting both, one will be swallowed.
+        # However, the transaction confirmation dialog
+        # will at least show both in RED and BOLD, and they will be more prominent.
+        # TODO in new daemon this is not accessible? Or?
         """
         if joinmarket_alert[0]:
             w.statusBar().showMessage("JOINMARKET ALERT: " + joinmarket_alert[
@@ -539,39 +550,39 @@ class SpendTab(QWidget):
         self.spendstate.updateRun('running')
 
         if self.tumbler_options:
-            #Uses the flag 'True' value from selectSchedule to recognize a restart,
-            #which needs new dynamic option values. The rationale for using input
-            #is in case the user can increase success probability by changing them.
+            # Uses the flag 'True' value from selectSchedule to recognize a restart,
+            # which needs new dynamic option values. The rationale for using input
+            # is in case the user can increase success probability by changing them.
             if self.tumbler_options == True:
                 wizard = TumbleRestartWizard()
                 wizard_return = wizard.exec_()
                 if wizard_return == QDialog.Rejected:
                     return
                 self.tumbler_options = wizard.getOptions()
-            #check for a partially-complete schedule; if so,
-            #follow restart logic
-            #1. filter out complete:
+            # check for a partially-complete schedule; if so,
+            # follow restart logic
+            # 1. filter out complete:
             self.spendstate.loaded_schedule = [
                 s for s in self.spendstate.loaded_schedule if s[5] != 1]
-            #reload destination addresses
+            # reload destination addresses
             self.tumbler_destaddrs = [x[3] for x in self.spendstate.loaded_schedule
-                                     if x not in ["INTERNAL", "addrask"]]
-            #2 Check for unconfirmed
+                                      if x not in ["INTERNAL", "addrask"]]
+            # 2 Check for unconfirmed
             if isinstance(self.spendstate.loaded_schedule[0][5], str) and len(
-                self.spendstate.loaded_schedule[0][5]) == 64:
-                #ensure last transaction is confirmed before restart
+                    self.spendstate.loaded_schedule[0][5]) == 64:
+                # ensure last transaction is confirmed before restart
                 tumble_log.info("WAITING TO RESTART...")
                 w.statusBar().showMessage("Waiting for confirmation to restart..")
                 txid = self.spendstate.loaded_schedule[0][5]
-                #remove the already-done entry (this connects to the other TODO,
-                #probably better *not* to truncate the done-already txs from file,
-                #but simplest for now.
+                # remove the already-done entry (this connects to the other TODO,
+                # probably better *not* to truncate the done-already txs from file,
+                # but simplest for now.
                 self.spendstate.loaded_schedule = self.spendstate.loaded_schedule[1:]
-                #defers startJoin() call until tx seen on network. Note that
-                #since we already updated state to running, user cannot
-                #start another transactions while waiting. Also, use :0 because
-                #it always exists
-                self.waitingtxid=txid+":0"
+                # defers startJoin() call until tx seen on network. Note that
+                # since we already updated state to running, user cannot
+                # start another transactions while waiting. Also, use :0 because
+                # it always exists
+                self.waitingtxid = txid + ":0"
                 self.restartTimer.timeout.connect(self.restartWaitWrap)
                 self.restartTimer.start(5000)
                 return
@@ -604,15 +615,15 @@ class SpendTab(QWidget):
         if not self.validateSettings():
             return
         destaddr = str(self.widgets[0][1].text())
-        #convert from bitcoins (enforced by QDoubleValidator) to satoshis
+        # convert from bitcoins (enforced by QDoubleValidator) to satoshis
         btc_amount_str = str(self.widgets[3][1].text())
         amount = int(Decimal(btc_amount_str) * Decimal('1e8'))
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
         if makercount == 0:
             txid = direct_send(w.wallet, amount, mixdepth,
-                                  destaddr, accept_callback=self.checkDirectSend,
-                                  info_callback=self.infoDirectSend)
+                               destaddr, accept_callback=self.checkDirectSend,
+                               info_callback=self.infoDirectSend)
             if not txid:
                 self.giveUp()
             else:
@@ -620,8 +631,8 @@ class SpendTab(QWidget):
                 self.cleanUp()
             return
 
-        #note 'amount' is integer, so not interpreted as fraction
-        #see notes in sample testnet schedule for format
+        # note 'amount' is integer, so not interpreted as fraction
+        # see notes in sample testnet schedule for format
         self.spendstate.loaded_schedule = [[mixdepth, amount, makercount,
                                             destaddr, 0, 0]]
         self.spendstate.updateType('single')
@@ -634,7 +645,7 @@ class SpendTab(QWidget):
                            mbtype="crit", title="Error")
             return
         log.debug('starting coinjoin ..')
-        #Decide whether to interrupt processing to sanity check the fees
+        # Decide whether to interrupt processing to sanity check the fees
         if self.tumbler_options:
             check_offers_callback = self.checkOffersTumbler
         elif jm_single().config.get("GUI", "checktx") == "true":
@@ -652,26 +663,26 @@ class SpendTab(QWidget):
                            tdestaddrs=destaddrs,
                            ignored_makers=ignored_makers)
         if not self.clientfactory:
-            #First run means we need to start: create clientfactory
-            #and start reactor connections
+            # First run means we need to start: create clientfactory
+            # and start reactor connections
             self.clientfactory = JMClientProtocolFactory(self.taker)
             daemon = jm_single().config.getint("DAEMON", "no_daemon")
             daemon = True if daemon == 1 else False
             start_reactor("localhost",
-                   jm_single().config.getint("DAEMON", "daemon_port"),
-                   self.clientfactory,
-                   ish=False,
-                   daemon=daemon,
-                   gui=True)
+                          jm_single().config.getint("DAEMON", "daemon_port"),
+                          self.clientfactory,
+                          ish=False,
+                          daemon=daemon,
+                          gui=True)
         else:
-            #This will re-use IRC connections in background (daemon), no restart
+            # This will re-use IRC connections in background (daemon), no restart
             self.clientfactory.getClient().client = self.taker
             self.clientfactory.getClient().clientStart()
         w.statusBar().showMessage("Connecting to IRC ...")
 
     def takerInfo(self, infotype, infomsg):
         if infotype == "INFO":
-            #use of a dialog interrupts processing?, investigate.
+            # use of a dialog interrupts processing?, investigate.
             if len(infomsg) > 200:
                 log.info("INFO: " + infomsg)
             else:
@@ -679,7 +690,7 @@ class SpendTab(QWidget):
         elif infotype == "ABORT":
             JMQtMessageBox(self, infomsg,
                            mbtype='warn')
-            #Abort signal explicitly means this transaction will not continue.
+            # Abort signal explicitly means this transaction will not continue.
             self.abortTransactions()
         else:
             raise NotImplementedError
@@ -705,7 +716,7 @@ class SpendTab(QWidget):
             return
         offers, total_cj_fee = offers_fee
         total_fee_pc = 1.0 * total_cj_fee / self.taker.cjamount
-        #Note this will be a new value if sweep, else same as previously entered
+        # Note this will be a new value if sweep, else same as previously entered
         btc_amount_str = satoshis_to_amt_str(self.taker.cjamount)
 
         mbinfo = []
@@ -729,7 +740,7 @@ class SpendTab(QWidget):
                 display_fee))
         mbinfo.append('Total coinjoin fee = ' + str(total_cj_fee) +
                       ' satoshis, or ' + str(float('%.3g' % (
-                          100.0 * total_fee_pc))) + '%')
+                100.0 * total_fee_pc))) + '%')
         title = 'Check Transaction'
         if total_fee_pc * 100 > jm_single().config.getint("GUI",
                                                           "check_high_fee"):
@@ -739,8 +750,8 @@ class SpendTab(QWidget):
                                mbtype='question',
                                title=title)
         if reply == QMessageBox.Yes:
-            #amount is now accepted;
-            #The user is now committed to the transaction
+            # amount is now accepted;
+            # The user is now committed to the transaction
             self.abortButton.setEnabled(False)
             return True
         else:
@@ -755,54 +766,54 @@ class SpendTab(QWidget):
         """Callback (after pass-through signal) for jmclient.Taker
         on completion of each join transaction.
         """
-        #non-GUI-specific state updates first:
+        # non-GUI-specific state updates first:
         if self.tumbler_options:
             sfile = os.path.join(logsdir, 'TUMBLE.schedule')
             tumbler_taker_finished_update(self.taker, sfile, tumble_log,
-                                      self.tumbler_options, res,
-                                      fromtx,
-                                      waittime,
-                                      txdetails)
+                                          self.tumbler_options, res,
+                                          fromtx,
+                                          waittime,
+                                          txdetails)
 
         self.spendstate.loaded_schedule = self.taker.schedule
-        #Shows the schedule updates in the GUI; TODO make this more visual
+        # Shows the schedule updates in the GUI; TODO make this more visual
         if self.spendstate.typestate == 'multiple':
             self.updateSchedView()
 
-        #GUI-specific updates; QTimer.singleShot serves the role
-        #of reactor.callLater
+        # GUI-specific updates; QTimer.singleShot serves the role
+        # of reactor.callLater
         if fromtx == "unconfirmed":
             w.statusBar().showMessage(
                 "Transaction seen on network: " + self.taker.txid)
             if self.spendstate.typestate == 'single':
                 JMQtMessageBox(self, "Transaction broadcast OK. You can safely \n"
-                               "shut down if you don't want to wait.",
+                                     "shut down if you don't want to wait.",
                                title="Success")
-            #TODO: theoretically possible to miss this if confirmed event
-            #seen before unconfirmed.
+            # TODO: theoretically possible to miss this if confirmed event
+            # seen before unconfirmed.
             self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
-                                                        self.taker.txid)
+                                    self.taker.txid)
 
-            #TODO prob best to completely fold multiple and tumble to reduce
-            #complexity/duplication
+            # TODO prob best to completely fold multiple and tumble to reduce
+            # complexity/duplication
             if self.spendstate.typestate == 'multiple' and not self.tumbler_options:
                 self.taker.wallet.update_cache_index()
             return
         if fromtx:
             if res:
                 w.statusBar().showMessage("Transaction confirmed: " + self.taker.txid)
-                #singleShot argument is in milliseconds
+                # singleShot argument is in milliseconds
                 if self.nextTxTimer:
                     self.nextTxTimer.stop()
                 self.nextTxTimer = QtCore.QTimer()
                 self.nextTxTimer.setSingleShot(True)
                 self.nextTxTimer.timeout.connect(self.startNextTransaction)
-                self.nextTxTimer.start(int(waittime*60*1000))
-                #QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
+                self.nextTxTimer.start(int(waittime * 60 * 1000))
+                # QtCore.QTimer.singleShot(int(self.taker_finished_waittime*60*1000),
                 #                         self.startNextTransaction)
-                #see note above re multiple/tumble duplication
+                # see note above re multiple/tumble duplication
                 if self.spendstate.typestate == 'multiple' and \
-                   not self.tumbler_options:
+                        not self.tumbler_options:
                     txd, txid = txdetails
                     self.taker.wallet.remove_old_utxos(txd)
                     self.taker.wallet.add_new_utxos(txd, txid)
@@ -811,14 +822,14 @@ class SpendTab(QWidget):
                     w.statusBar().showMessage("Transaction failed, trying again...")
                     QtCore.QTimer.singleShot(0, self.startNextTransaction)
                 else:
-                    #currently does not continue for non-tumble schedules
+                    # currently does not continue for non-tumble schedules
                     self.giveUp()
         else:
             if res:
                 w.statusBar().showMessage("All transaction(s) completed successfully.")
                 if len(self.taker.schedule) == 1:
                     msg = "Transaction has been confirmed.\n" + "Txid: " + \
-                                           str(self.taker.txid)
+                          str(self.taker.txid)
                 else:
                     msg = "All transactions have been confirmed."
                 JMQtMessageBox(self, msg, title="Success")
@@ -827,13 +838,13 @@ class SpendTab(QWidget):
                 self.giveUp()
 
     def persistTxToHistory(self, addr, amt, txid):
-        #persist the transaction to history
+        # persist the transaction to history
         with open(jm_single().config.get("GUI", "history_file"), 'ab') as f:
             f.write(','.join([addr, satoshis_to_amt_str(amt), txid,
                               datetime.datetime.now(
-                                  ).strftime("%Y/%m/%d %H:%M:%S")]))
-            f.write('\n')  #TODO: Windows
-        #update the TxHistory tab
+                              ).strftime("%Y/%m/%d %H:%M:%S")]))
+            f.write('\n')  # TODO: Windows
+        # update the TxHistory tab
         txhist = w.centralWidget().widget(3)
         txhist.updateTxInfo()
 
@@ -842,8 +853,8 @@ class SpendTab(QWidget):
         tabs based on the current state as defined by the SpendStateMgr instance.
         Thus, should always be called on any update to that instance.
         """
-        #The first two buttons are for the single join tab; the remaining 4
-        #are for the multijoin tab.
+        # The first two buttons are for the single join tab; the remaining 4
+        # are for the multijoin tab.
         btns = (self.startButton, self.abortButton,
                 self.schedule_set_button, self.schedule_generate_button,
                 self.sch_startButton, self.sch_abortButton)
@@ -851,7 +862,7 @@ class SpendTab(QWidget):
             btnsettings = (True, False, True, True, True, False)
         elif self.spendstate.runstate == 'running':
             if self.spendstate.typestate == 'single':
-                #can only abort current run, nothing else
+                # can only abort current run, nothing else
                 btnsettings = (False, True, False, False, False, False)
             elif self.spendstate.typestate == 'multiple':
                 btnsettings = (False, False, False, False, False, True)
@@ -874,8 +885,8 @@ class SpendTab(QWidget):
         w.statusBar().showMessage("Transaction aborted.")
         if self.taker and len(self.taker.ignored_makers) > 0:
             JMQtMessageBox(self, "These Makers did not respond, and will be \n"
-                           "ignored in future: \n" + str(
-                            ','.join(self.taker.ignored_makers)),
+                                 "ignored in future: \n" + str(
+                ','.join(self.taker.ignored_makers)),
                            title="Transaction aborted")
             ignored_makers.extend(self.taker.ignored_makers)
         self.cleanUp()
@@ -883,9 +894,9 @@ class SpendTab(QWidget):
     def cleanUp(self):
         """Reset state to 'ready'
         """
-        #Qt specific: because schedules can restart in same app instance,
-        #we must clean up any existing delayed actions via singleShot.
-        #Currently this should only happen via self.abortTransactions.
+        # Qt specific: because schedules can restart in same app instance,
+        # we must clean up any existing delayed actions via singleShot.
+        # Currently this should only happen via self.abortTransactions.
         if self.nextTxTimer:
             self.nextTxTimer.stop()
         self.spendstate.reset()
@@ -911,6 +922,7 @@ class SpendTab(QWidget):
                            title="Error")
             return False
         return True
+
 
 class TxHistoryTab(QWidget):
 
@@ -965,7 +977,7 @@ class TxHistoryTab(QWidget):
                     w.statusBar().showMessage("No transaction history found.")
                     return []
         return txhist[::-1
-                     ]  #appended to file in date order, window shows reverse
+               ]  # appended to file in date order, window shows reverse
 
     def create_menu(self, position):
         item = self.tHTW.currentItem()
@@ -1016,8 +1028,8 @@ class JMWalletTab(QWidget):
         buttons = QWidget()
         vbox.addWidget(buttons)
         self.updateWalletInfo()
-        #vBoxLayout.addWidget(self.label2)
-        #vBoxLayout.addWidget(self.table)
+        # vBoxLayout.addWidget(self.label2)
+        # vBoxLayout.addWidget(self.table)
         self.show()
 
     def getHeaders(self):
@@ -1047,7 +1059,7 @@ class JMWalletTab(QWidget):
                            lambda: app.clipboard().setText(xpub))
         menu.addAction("Resync wallet from blockchain",
                        lambda: w.resyncWallet())
-        #TODO add more items to context menu
+        # TODO add more items to context menu
         menu.exec_(self.history.viewport().mapToGlobal(position))
 
     def updateWalletInfo(self, walletinfo=None):
@@ -1182,7 +1194,7 @@ class JMMainWindow(QMainWindow):
                            mbtype='crit',
                            title="Error")
             return
-        #TODO add password protection; too critical
+        # TODO add password protection; too critical
         d = QDialog(self)
         d.setWindowTitle('Private keys')
         d.setMinimumSize(850, 300)
@@ -1201,11 +1213,11 @@ class JMMainWindow(QMainWindow):
         b.setEnabled(False)
         vbox.addLayout(Buttons(CancelButton(d), b))
         private_keys = {}
-        #prepare list of addresses with non-zero balance
-        #TODO: consider adding a 'export insanely huge amount'
-        #option for anyone with gaplimit troubles, although
-        #that is a complete mess for a user, mostly changing
-        #the gaplimit in the Settings tab should address it.
+        # prepare list of addresses with non-zero balance
+        # TODO: consider adding a 'export insanely huge amount'
+        # option for anyone with gaplimit troubles, although
+        # that is a complete mess for a user, mostly changing
+        # the gaplimit in the Settings tab should address it.
         rows = get_wallet_printout(self.wallet)
         addresses = []
         for forchange in rows[0]:
@@ -1253,12 +1265,12 @@ class JMMainWindow(QMainWindow):
                 transaction = csv.writer(f)
                 transaction.writerow(["address", "private_key"])
                 for addr, pk in private_keys.items():
-                    #sanity check
+                    # sanity check
                     if not addr == btc.pubkey_to_p2sh_p2wpkh_address(
-                                    btc.privkey_to_pubkey(
-                                        btc.from_wif_privkey(pk, vbyte=get_p2pk_vbyte())
-                                    ), get_p2sh_vbyte()):
-                        JMQtMessageBox(None, "Failed to create privkey export -" +\
+                            btc.privkey_to_pubkey(
+                                btc.from_wif_privkey(pk, vbyte=get_p2pk_vbyte())
+                            ), get_p2sh_vbyte()):
+                        JMQtMessageBox(None, "Failed to create privkey export -" + \
                                        " critical error in key parsing.",
                                        mbtype='crit')
                         return
@@ -1293,7 +1305,7 @@ class JMMainWindow(QMainWindow):
         use_pp = QCheckBox('Input Mnemonic Extension', self)
         use_pp.setCheckState(False)
         use_pp.stateChanged.connect(lambda state: pp_field.setEnabled(state
-            == QtCore.Qt.Checked))
+                                                                      == QtCore.Qt.Checked))
         pp_hbox.addWidget(use_pp)
         pp_hbox.addWidget(pp_field)
 
@@ -1332,7 +1344,7 @@ class JMMainWindow(QMainWindow):
                            title="Error")
             return
         JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
-                                   title="Wallet created")
+                       title="Wallet created")
         self.initWallet(seed=self.walletname, restart_cb=self.restartForScan)
 
     def selectWallet(self, testnet_seed=None, restart_cb=None):
@@ -1344,7 +1356,7 @@ class JMMainWindow(QMainWindow):
                                                    'Choose Wallet File',
                                                    directory=current_path,
                                                    options=QFileDialog.DontUseNativeDialog)
-            #TODO validate the file looks vaguely like a wallet file
+            # TODO validate the file looks vaguely like a wallet file
             log.debug('Looking for wallet in: ' + firstarg)
             if not firstarg:
                 return
@@ -1368,7 +1380,7 @@ class JMMainWindow(QMainWindow):
                     return
             firstarg = str(testnet_seed)
             pwd = None
-            #ignore return value as there is no decryption failure possible
+            # ignore return value as there is no decryption failure possible
             self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
 
     def loadWalletFromBlockchain(self, firstarg=None, pwd=None, restart_cb=None):
@@ -1378,7 +1390,7 @@ class JMMainWindow(QMainWindow):
                     str(firstarg),
                     pwd,
                     max_mix_depth=jm_single().config.getint(
-                    "GUI", "max_mix_depth"),
+                        "GUI", "max_mix_depth"),
                     gaplimit=jm_single().config.getint("GUI", "gaplimit"))
             except WalletError:
                 JMQtMessageBox(self,
@@ -1395,10 +1407,10 @@ class JMMainWindow(QMainWindow):
 
     def syncWalletUpdate(self, fast, restart_cb=None):
         if restart_cb:
-            fast=False
-        #Special syncing condition for Electrum
+            fast = False
+        # Special syncing condition for Electrum
         iselectrum = jm_single().config.get("BLOCKCHAIN",
-                            "blockchain_source") == "electrum-server"
+                                            "blockchain_source") == "electrum-server"
         if iselectrum:
             jm_single().bc_interface.synctype = "with-script"
 
@@ -1406,8 +1418,8 @@ class JMMainWindow(QMainWindow):
                                              restart_cb=restart_cb)
 
         if iselectrum:
-            #sync_wallet only initialises, we must manually call its entry
-            #point here (because we can't use connectionMade as a trigger)
+            # sync_wallet only initialises, we must manually call its entry
+            # point here (because we can't use connectionMade as a trigger)
             jm_single().bc_interface.sync_addresses(self.wallet)
             self.wait_for_sync_loop = task.LoopingCall(self.updateWalletInfo)
             self.wait_for_sync_loop.start(0.2)
@@ -1416,12 +1428,12 @@ class JMMainWindow(QMainWindow):
 
     def updateWalletInfo(self):
         if jm_single().config.get("BLOCKCHAIN",
-                            "blockchain_source") == "electrum-server":
+                                  "blockchain_source") == "electrum-server":
             if not jm_single().bc_interface.wallet_synced:
                 return
             self.wait_for_sync_loop.stop()
         t = self.centralWidget().widget(0)
-        if not self.wallet:  #failure to sync in constructor means object is not created
+        if not self.wallet:  # failure to sync in constructor means object is not created
             newstmsg = "Unable to sync wallet - see error in console."
         else:
             t.updateWalletInfo(get_wallet_printout(self.wallet))
@@ -1498,13 +1510,13 @@ class JMMainWindow(QMainWindow):
     def promptMnemonicExtension(self):
         msg = "Would you like to use a two-factor mnemonic recovery phrase?\nIf you don\'t know what this is press No."
         reply = QMessageBox.question(self, 'Use mnemonic extension?',
-                    msg, QMessageBox.Yes, QMessageBox.No)
+                                     msg, QMessageBox.Yes, QMessageBox.No)
         if reply == QMessageBox.No:
             return None
         mnemonic_extension, ok = QInputDialog.getText(self,
-                                     'Input Mnemonic Extension',
-                                     'Enter mnemonic Extension:',
-                                     QLineEdit.Normal, "")
+                                                      'Input Mnemonic Extension',
+                                                      'Enter mnemonic Extension:',
+                                                      QLineEdit.Normal, "")
         if not ok:
             return None
         return str(mnemonic_extension)
@@ -1515,13 +1527,13 @@ class JMMainWindow(QMainWindow):
         '''
         if not seed:
             success = wallet_generate_recover_bip39("generate",
-                                                   "wallets",
-                                                   "wallet.json",
-                                                   callbacks=(self.displayWords,
-                                                              None,
-                                                              self.getPassword,
-                                                              self.getWalletFileName,
-                                                              self.promptMnemonicExtension))
+                                                    "wallets",
+                                                    "wallet.json",
+                                                    callbacks=(self.displayWords,
+                                                               None,
+                                                               self.getPassword,
+                                                               self.getWalletFileName,
+                                                               self.promptMnemonicExtension))
             if not success:
                 JMQtMessageBox(self, "Failed to create new wallet file.",
                                title="Error", mbtype="warn")
@@ -1530,6 +1542,7 @@ class JMMainWindow(QMainWindow):
                            title="Wallet created")
         self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword,
                                       restart_cb=restart_cb)
+
 
 def get_wallet_printout(wallet):
     """Given a joinmarket wallet, retrieve the list of
@@ -1544,7 +1557,7 @@ def get_wallet_printout(wallet):
     Bitcoin amounts returned are in btc, not satoshis
     """
     walletview = wallet_display(wallet, jm_single().config.getint("GUI",
-                                            "gaplimit"), False, serialized=False)
+                                                                  "gaplimit"), False, serialized=False)
     rows = []
     mbalances = []
     xpubs = []
@@ -1562,14 +1575,15 @@ def get_wallet_printout(wallet):
                                     entry.serialize_extra_data()])
     return (rows, mbalances, xpubs, walletview.get_fmt_balance())
 
+
 ################################
 config_load_error = False
 try:
     load_program_config()
 except Exception as e:
-    config_load_error = "Failed to setup joinmarket: "+repr(e)
+    config_load_error = "Failed to setup joinmarket: " + repr(e)
     if "RPC" in repr(e):
-        config_load_error += '\n'*3 + ''.join(
+        config_load_error += '\n' * 3 + ''.join(
             ["Errors about failed RPC connections usually mean an incorrectly ",
              "configured instance of Bitcoin Core (e.g. it hasn't been started ",
              "or the rpc ports are not correct in your joinmarket.cfg or your ",
@@ -1579,25 +1593,26 @@ except Exception as e:
     exit(1)
 update_config_for_gui()
 
-#to allow testing of confirm/unconfirm callback for multiple txs
+# to allow testing of confirm/unconfirm callback for multiple txs
 if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().bc_interface.simulating = True
     jm_single().maker_timeout_sec = 15
-    #trigger start with a fake tx
-    jm_single().bc_interface.pushtx("00"*20)
+    # trigger start with a fake tx
+    jm_single().bc_interface.pushtx("00" * 20)
 
-#prepare for logging
+# prepare for logging
 for dname in ['logs', 'wallets', 'cmtdata']:
     if not os.path.exists(dname):
         os.makedirs(dname)
 logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
-#tumble log will not always be used, but is made available anyway:
+# tumble log will not always be used, but is made available anyway:
 tumble_log = get_tumble_log(logsdir)
-#ignored makers list persisted across entire app run
+# ignored makers list persisted across entire app run
 ignored_makers = []
 appWindowTitle = 'JoinMarketQt'
 from twisted.internet import reactor
+
 w = JMMainWindow(reactor)
 tabWidget = QTabWidget(w)
 tabWidget.addTab(JMWalletTab(), "JM Wallet")

@@ -264,4 +264,3 @@ def mn_decode(wlist):
         x = w1 + n * ((w2 - w1) % n) + n * n * ((w3 - w2) % n)
         out += '%08x' % x
     return out
-

@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
+
 '''Some helper functions for testing'''
 
 import sys
@@ -18,19 +19,20 @@ from jmbase import chunks
 
 log = get_log()
 
+
 def make_sign_and_push(ins_full,
                        wallet,
                        amount,
                        output_addr=None,
                        change_addr=None,
                        hashcode=btc.SIGHASH_ALL,
-                       estimate_fee = False):
+                       estimate_fee=False):
     """Utility function for easily building transactions
     from wallets
     """
     total = sum(x['value'] for x in ins_full.values())
     ins = ins_full.keys()
-    #random output address and change addr
+    # random output address and change addr
     output_addr = wallet.get_new_addr(1, 1) if not output_addr else output_addr
     change_addr = wallet.get_new_addr(1, 0) if not change_addr else change_addr
     fee_est = estimate_tx_fee(len(ins), 2) if estimate_fee else 10000
@@ -47,13 +49,14 @@ def make_sign_and_push(ins_full,
         if index % 2:
             priv = binascii.unhexlify(priv)
         tx = btc.sign(tx, index, priv, hashcode=hashcode)
-    #pushtx returns False on any error
+    # pushtx returns False on any error
     print btc.deserialize(tx)
     push_succeed = jm_single().bc_interface.pushtx(tx)
     if push_succeed:
         return btc.txhash(tx)
     else:
         return False
+
 
 def make_wallets(n,
                  wallet_structures=None,
@@ -93,11 +96,11 @@ def make_wallets(n,
                 deviation = sdev_amt * random.random()
                 amt = mean_amt - sdev_amt / 2.0 + deviation
                 if amt < 0: amt = 0.001
-                amt = float(Decimal(amt).quantize(Decimal(10)**-8))
+                amt = float(Decimal(amt).quantize(Decimal(10) ** -8))
                 jm_single().bc_interface.grab_coins(
                     wallets[i + start_index]['wallet'].get_external_addr(j),
                     amt)
-            #reset the index so the coins can be seen if running in same script
+            # reset the index so the coins can be seen if running in same script
             wallets[i + start_index]['wallet'].index[j][0] -= wallet_structures[i][j]
     return wallets
 

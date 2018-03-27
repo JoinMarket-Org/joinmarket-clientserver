@@ -14,15 +14,17 @@ from jmclient.slowaes import encryptData, decryptData
 from jmclient.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
 from jmclient.configure import jm_single, get_network, get_p2pk_vbyte, get_p2sh_vbyte
 from jmbase.support import get_log
-from jmclient.support import select_gradual, select_greedy,select_greediest, select
+from jmclient.support import select_gradual, select_greedy, select_greediest, select
 
 log = get_log()
 
 JM_WALLET_P2PKH = "00"
 JM_WALLET_SW_P2SH_P2WPKH = "01"
 
+
 class WalletError(Exception):
     pass
+
 
 def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     '''Returns an estimate of the number of satoshis required
@@ -30,32 +32,34 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     based on information from the blockchain interface.
     '''
     fee_per_kb = jm_single().bc_interface.estimate_fee_per_kb(
-                jm_single().config.getint("POLICY","tx_fees"))
+        jm_single().config.getint("POLICY", "tx_fees"))
     absurd_fee = jm_single().config.getint("POLICY", "absurd_fee_per_kb")
     if fee_per_kb > absurd_fee:
-        #This error is considered critical; for safety reasons, shut down.
+        # This error is considered critical; for safety reasons, shut down.
         raise ValueError("Estimated fee per kB greater than absurd value: " + \
-                                     str(absurd_fee) + ", quitting.")
+                         str(absurd_fee) + ", quitting.")
     if txtype in ['p2pkh', 'p2shMofN']:
         tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype)
-        log.debug("Estimated transaction size: "+str(tx_estimated_bytes))
-        return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
-    elif txtype=='p2sh-p2wpkh':
+        log.debug("Estimated transaction size: " + str(tx_estimated_bytes))
+        return int((tx_estimated_bytes * fee_per_kb) / Decimal(1000.0))
+    elif txtype == 'p2sh-p2wpkh':
         witness_estimate, non_witness_estimate = btc.estimate_tx_size(
             ins, outs, 'p2sh-p2wpkh')
         return int(int((
-        non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
+                               non_witness_estimate + 0.25 * witness_estimate) * fee_per_kb) / Decimal(1000.0))
     else:
         raise NotImplementedError("Txtype: " + txtype + " not implemented.")
+
 
 def create_wallet_file(pwd, seed):
     password_key = btc.bin_dbl_sha256(pwd)
     encrypted_seed = encryptData(password_key, seed.decode('hex'))
     timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     return json.dumps({'creator': 'joinmarket project',
-                             'creation_time': timestamp,
-                             'encrypted_seed': encrypted_seed.encode('hex'),
-                             'network': get_network()})
+                       'creation_time': timestamp,
+                       'encrypted_seed': encrypted_seed.encode('hex'),
+                       'network': get_network()})
+
 
 class AbstractWallet(object):
     """
@@ -122,7 +126,7 @@ class AbstractWallet(object):
             mixdepth, amount))
         log.debug(pprint.pformat(inputs))
         return dict([(i['utxo'], {'value': i['value'],
-                             'address': utxo_list[i['utxo']]['address']})
+                                  'address': utxo_list[i['utxo']]['address']})
                      for i in inputs])
 
     def get_balance_by_mixdepth(self, verbose=True):
@@ -131,8 +135,9 @@ class AbstractWallet(object):
             mix_balance[m] = 0
         for mixdepth, utxos in self.get_utxos_by_mixdepth(verbose).iteritems():
             mix_balance[mixdepth] = sum(
-                    [addrval['value'] for addrval in utxos.values()])
+                [addrval['value'] for addrval in utxos.values()])
         return mix_balance
+
 
 class Wallet(AbstractWallet):
     def __init__(self,
@@ -172,13 +177,13 @@ class Wallet(AbstractWallet):
     def get_master_key(self):
         if not self.seed:
             raise Exception("Cannot extract master key of wallet, no seed.")
-        #Legacy used the seed in hex
+        # Legacy used the seed in hex
         if not isinstance(self, SegwitWallet):
             bip32seed = self.seed
         else:
             bip32seed = self.seed.decode('hex')
         return btc.bip32_master_key(bip32seed, (btc.MAINNET_PRIVATE if get_network(
-                ) == 'mainnet' else btc.TESTNET_PRIVATE))
+        ) == 'mainnet' else btc.TESTNET_PRIVATE))
 
     def get_mixing_depth_keys(self, master):
         """legacy path is m/0/n for n 0..N mixing depths
@@ -195,8 +200,8 @@ class Wallet(AbstractWallet):
         """
         if entropy is None:
             return None
-        #Feature for testnet testing: if we are using direct command line
-        #brainwallets (as we do for regtest), strip the flag.
+        # Feature for testnet testing: if we are using direct command line
+        # brainwallets (as we do for regtest), strip the flag.
         if entropy.startswith("FAKESEED"):
             entropy = entropy[8:]
         return entropy
@@ -243,26 +248,26 @@ class Wallet(AbstractWallet):
         walletdata = json.loads(walletfile)
         if walletdata['network'] != get_network():
             raise ValueError('wallet network(%s) does not match '
-                   'joinmarket configured network(%s)' % (
-                walletdata['network'], get_network()))
+                             'joinmarket configured network(%s)' % (
+                                 walletdata['network'], get_network()))
         if 'index_cache' in walletdata:
             self.index_cache = walletdata['index_cache']
             if self.max_mix_depth > len(self.index_cache):
-                #This can happen e.g. in tumbler when we need more mixdepths
-                #than currently exist. Since we have no info for those extra
-                #depths, we must default to (0,0) (but sync should find used
-                #adddresses).
-                self.index_cache += [[0,0]] * (
-                    self.max_mix_depth - len(self.index_cache))
+                # This can happen e.g. in tumbler when we need more mixdepths
+                # than currently exist. Since we have no info for those extra
+                # depths, we must default to (0,0) (but sync should find used
+                # adddresses).
+                self.index_cache += [[0, 0]] * (
+                        self.max_mix_depth - len(self.index_cache))
         password_key = btc.bin_dbl_sha256(pwd)
-        if 'encrypted_seed' in walletdata: #accept old field name
+        if 'encrypted_seed' in walletdata:  # accept old field name
             encrypted_entropy = walletdata['encrypted_seed']
         elif 'encrypted_entropy' in walletdata:
             encrypted_entropy = walletdata['encrypted_entropy']
         try:
             decrypted_entropy = decryptData(
-                    password_key,
-                    encrypted_entropy.decode('hex')).encode('hex')
+                password_key,
+                encrypted_entropy.decode('hex')).encode('hex')
             # there is a small probability of getting a valid PKCS7
             # padding by chance from a wrong password; sanity check the
             # seed length
@@ -275,8 +280,8 @@ class Wallet(AbstractWallet):
         if 'encrypted_mnemonic_extension' in walletdata:
             try:
                 cleartext = decryptData(password_key,
-                    walletdata['encrypted_mnemonic_extension'].decode('hex'))
-                #theres a small chance of not getting a ValueError from the wrong
+                                        walletdata['encrypted_mnemonic_extension'].decode('hex'))
+                # theres a small chance of not getting a ValueError from the wrong
                 # password so also check the sum
                 if cleartext[-9] != '\xff':
                     raise ValueError
@@ -296,19 +301,19 @@ class Wallet(AbstractWallet):
         if 'imported_keys' in walletdata:
             for epk_m in walletdata['imported_keys']:
                 privkey = decryptData(
-                        password_key,
-                        epk_m['encrypted_privkey'].decode( 'hex')).encode('hex')
-                #Imported keys are stored as 32 byte strings only, so the
-                #second version below is sufficient, really.
+                    password_key,
+                    epk_m['encrypted_privkey'].decode('hex')).encode('hex')
+                # Imported keys are stored as 32 byte strings only, so the
+                # second version below is sufficient, really.
                 if len(privkey) != 64:
                     raise Exception(
-                    "Unexpected privkey format; already compressed?:" + privkey)
+                        "Unexpected privkey format; already compressed?:" + privkey)
                 privkey += "01"
                 if epk_m['mixdepth'] not in self.imported_privkeys:
                     self.imported_privkeys[epk_m['mixdepth']] = []
                 self.addr_cache[btc.privtoaddr(
-                        privkey, magicbyte=get_p2pk_vbyte())] = (epk_m['mixdepth'], -1,
-                    len(self.imported_privkeys[epk_m['mixdepth']]))
+                    privkey, magicbyte=get_p2pk_vbyte())] = (epk_m['mixdepth'], -1,
+                                                             len(self.imported_privkeys[epk_m['mixdepth']]))
                 self.imported_privkeys[epk_m['mixdepth']].append(privkey)
 
         if mnemonic_extension:
@@ -333,11 +338,11 @@ class Wallet(AbstractWallet):
 
     def get_key(self, mixing_depth, forchange, i):
         return btc.bip32_extract_key(btc.bip32_ckd(
-                self.keys[mixing_depth][forchange], i))
+            self.keys[mixing_depth][forchange], i))
 
     def get_addr(self, mixing_depth, forchange, i):
         return btc.privtoaddr(
-                self.get_key(mixing_depth, forchange, i), magicbyte=get_p2pk_vbyte())
+            self.get_key(mixing_depth, forchange, i), magicbyte=get_p2pk_vbyte())
 
     def get_new_addr(self, mixing_depth, forchange, import_required=False):
         index = self.index[mixing_depth]
@@ -347,14 +352,14 @@ class Wallet(AbstractWallet):
         # self.update_cache_index()
         bc_interface = jm_single().bc_interface
         if isinstance(bc_interface, BitcoinCoreInterface) or isinstance(
-            bc_interface, RegtestBitcoinCoreInterface) or import_required:
+                bc_interface, RegtestBitcoinCoreInterface) or import_required:
             # do not import in the middle of sync_wallet()
             if bc_interface.wallet_synced:
                 if bc_interface.rpc('getaccount', [addr]) == '':
                     log.debug('importing address ' + addr + ' to bitcoin core')
                     bc_interface.rpc(
-                            'importaddress',
-                            [addr, bc_interface.get_wallet_name(self), False])
+                        'importaddress',
+                        [addr, bc_interface.get_wallet_name(self), False])
         return addr
 
     def get_external_addr(self, mixing_depth):
@@ -381,10 +386,9 @@ class Wallet(AbstractWallet):
             removed_utxos[utxo] = self.unspent[utxo]
             del self.unspent[utxo]
         log.debug('removed utxos, wallet now is \n' + pprint.pformat(
-                self.get_utxos_by_mixdepth(verbose=False)))
+            self.get_utxos_by_mixdepth(verbose=False)))
         self.spent_utxos += removed_utxos.keys()
         return removed_utxos
-
 
     def get_vbyte(self):
         return get_p2pk_vbyte()
@@ -400,7 +404,7 @@ class Wallet(AbstractWallet):
             added_utxos[utxo] = addrdict
             self.unspent[utxo] = addrdict
         log.debug('added utxos, wallet now is \n' + pprint.pformat(
-                self.get_utxos_by_mixdepth()))
+            self.get_utxos_by_mixdepth()))
         return added_utxos
 
     def get_utxos_by_mixdepth(self, verbose=True):
@@ -419,11 +423,13 @@ class Wallet(AbstractWallet):
             log.debug('get_utxos_by_mixdepth = \n' + pprint.pformat(mix_utxo_list))
         return mix_utxo_list
 
+
 class Bip39Wallet(Wallet):
     """Using python module `mnemonic` to implement
     BIP39, English only:
     https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
     """
+
     def wallet_data_to_seed(self, data):
         if data is None:
             return None
@@ -438,10 +444,10 @@ class Bip39Wallet(Wallet):
         self.entropy = entropy.decode('hex')
         m = Mnemonic("english")
         return m.to_seed(m.to_mnemonic(self.entropy),
-            '' if not self.mnemonic_extension else self.mnemonic_extension).encode('hex')
+                         '' if not self.mnemonic_extension else self.mnemonic_extension).encode('hex')
+
 
 class SegwitWallet(Bip39Wallet):
-
     """This implements an HD wallet (BIP32),
     with address type P2SH/P2WPKH of segwit (BIP141),
     using BIP39 mnemonics (see BIP39Wallet),
@@ -449,6 +455,7 @@ class SegwitWallet(Bip39Wallet):
     which is a derivative of BIP44:
     https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki
     """
+
     def __init__(self, seedarg, pwd, max_mix_depth=2, gaplimit=6,
                  extend_mixdepth=False, storepassword=False, wallet_dir=None):
         self.entropy = None
@@ -462,10 +469,10 @@ class SegwitWallet(Bip39Wallet):
         return "m/49'/" + testflag
 
     def get_mixing_depth_keys(self, master):
-        pre_root = btc.bip32_ckd(master, 49 + 2**31)
+        pre_root = btc.bip32_ckd(master, 49 + 2 ** 31)
         testnet_flag = 1 if get_network() == "testnet" else 0
-        root = btc.bip32_ckd(pre_root, testnet_flag + 2**31)
-        return [btc.bip32_ckd(root, c + 2**31) for c in range(self.max_mix_depth)]
+        root = btc.bip32_ckd(pre_root, testnet_flag + 2 ** 31)
+        return [btc.bip32_ckd(root, c + 2 ** 31) for c in range(self.max_mix_depth)]
 
     def get_vbyte(self):
         return get_p2sh_vbyte()
@@ -499,7 +506,8 @@ class SegwitWallet(Bip39Wallet):
         log.debug("About to sign for this amount: " + str(amount))
         return btc.sign(tx, i, priv, amount=amount)
 
-class BitcoinCoreWallet(AbstractWallet): #pragma: no cover
+
+class BitcoinCoreWallet(AbstractWallet):  # pragma: no cover
     def __init__(self, fromaccount):
         super(BitcoinCoreWallet, self).__init__()
         if not isinstance(jm_single().bc_interface,
@@ -521,8 +529,8 @@ class BitcoinCoreWallet(AbstractWallet): #pragma: no cover
             if not u['spendable']:
                 continue
             if self.fromaccount and (
-                        ('account' not in u) or u['account'] !=
-                        self.fromaccount):
+                    ('account' not in u) or u['account'] !=
+                    self.fromaccount):
                 continue
             result[0][u['txid'] + ':' + str(u['vout'])] = {
                 'address': u['address'],
@@ -539,13 +547,13 @@ class BitcoinCoreWallet(AbstractWallet): #pragma: no cover
             'unlocked_until'] <= 0:
             while True:
                 password = getpass(
-                        'Enter passphrase to unlock wallet: ')
+                    'Enter passphrase to unlock wallet: ')
                 if password == '':
                     raise RuntimeError('Aborting wallet unlock')
                 try:
                     # TODO cleanly unlock wallet after use, not with arbitrary timeout
                     jm_single().bc_interface.rpc(
-                            'walletpassphrase', [password, 10])
+                        'walletpassphrase', [password, 10])
                     break
                 except jm_single().JsonRpcError as exc:
                     if exc.code != -14:

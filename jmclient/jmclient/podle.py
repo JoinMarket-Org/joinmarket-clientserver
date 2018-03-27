@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 from __future__ import print_function
-#Proof Of Discrete Logarithm Equivalence
-#For algorithm steps, see https://gist.github.com/AdamISZ/9cbba5e9408d23813ca8
+# Proof Of Discrete Logarithm Equivalence
+# For algorithm steps, see https://gist.github.com/AdamISZ/9cbba5e9408d23813ca8
 import os
 import hashlib
 import json
 import binascii
+
 PODLE_COMMIT_FILE = None
 from btc import (multiply, add_pubkeys, getG, podle_PublicKey, podle_PrivateKey,
                  encode, decode, N,
@@ -29,8 +30,8 @@ def generate_podle_error_string(priv_utxo_pairs, to, ts, unspent, cjamount,
     errmsgheader = ("Failed to source a commitment; this debugging information"
                     " may help:\n\n")
     errmsg += ("1: Utxos that passed age and size limits, but have "
-                "been used too many times (see taker_utxo_retries "
-                "in the config):\n")
+               "been used too many times (see taker_utxo_retries "
+               "in the config):\n")
     if len(priv_utxo_pairs) == 0:
         errmsg += ("None\n")
     else:
@@ -66,6 +67,7 @@ def generate_podle_error_string(priv_utxo_pairs, to, ts, unspent, cjamount,
     errmsg += ("\n" + str(unspent))
     return (errmsgheader, errmsg)
 
+
 class PoDLEError(Exception):
     pass
 
@@ -84,20 +86,20 @@ class PoDLE(object):
                  s=None,
                  e=None,
                  used=False):
-        #This class allows storing of utxo in format "txid:n" only for
-        #convenience of storage/access; it doesn't check or use the data.
-        #Arguments must be provided in hex.
+        # This class allows storing of utxo in format "txid:n" only for
+        # convenience of storage/access; it doesn't check or use the data.
+        # Arguments must be provided in hex.
         self.u = u
         if not priv:
             if P:
-                #Construct a pubkey from raw hex
+                # Construct a pubkey from raw hex
                 self.P = podle_PublicKey(binascii.unhexlify(P))
             else:
                 self.P = None
         else:
             if P:
                 raise PoDLEError("Pubkey should not be provided with privkey")
-            #any other formatting abnormality will just throw in PrivateKey
+            # any other formatting abnormality will just throw in PrivateKey
             if len(priv) == 66 and priv[-2:] == '01':
                 priv = priv[:-2]
             self.priv = podle_PrivateKey(binascii.unhexlify(priv))
@@ -106,16 +108,16 @@ class PoDLE(object):
             self.P2 = podle_PublicKey(binascii.unhexlify(P2))
         else:
             self.P2 = None
-        #These sig values should be passed in hex.
+        # These sig values should be passed in hex.
         self.s = None
         self.e = None
         if s:
             self.s = binascii.unhexlify(s)
         if e:
             self.e = binascii.unhexlify(e)
-        #Optionally maintain usage state (boolean)
+        # Optionally maintain usage state (boolean)
         self.used = used
-        #the H(P2) value
+        # the H(P2) value
         self.commitment = None
 
     def get_commitment(self):
@@ -158,7 +160,7 @@ class PoDLE(object):
         and the associated signature data that can be used to open
         the commitment.
         """
-        #TODO nonce could be rfc6979?
+        # TODO nonce could be rfc6979?
         if not k:
             k = os.urandom(32)
         J = getNUMS(index)
@@ -231,12 +233,12 @@ class PoDLE(object):
             minus_e_P2 = multiply(minus_e, self.P2.serialize(), False)
             KGser = add_pubkeys([sG.serialize(), minus_e_P], False)
             KJser = add_pubkeys([sJ, minus_e_P2], False)
-            #check 2: e =?= H(K_G || K_J || P || P2)
+            # check 2: e =?= H(K_G || K_J || P || P2)
             e_check = hashlib.sha256(KGser + KJser + self.P.serialize() +
                                      self.P2.serialize()).digest()
             if e_check == self.e:
                 return True
-        #commitment fails for any NUMS in the provided range
+        # commitment fails for any NUMS in the provided range
         return False
 
 
@@ -264,9 +266,9 @@ def getNUMS(index=0):
         for counter in range(256):
             seed_c = seed + chr(counter)
             hashed_seed = hashlib.sha256(seed_c).digest()
-            #Every x-coord on the curve has two y-values, encoded
-            #in compressed form with 02/03 parity byte. We just
-            #choose the former.
+            # Every x-coord on the curve has two y-values, encoded
+            # in compressed form with 02/03 parity byte. We just
+            # choose the former.
             claimed_point = "\x02" + hashed_seed
             try:
                 nums_point = podle_PublicKey(claimed_point)
@@ -350,8 +352,8 @@ def update_commitments(commitment=None,
         with open(PODLE_COMMIT_FILE, "rb") as f:
             try:
                 c = json.loads(f.read())
-            except ValueError: #pragma: no cover
-                #Exit conditions cannot be included in tests.
+            except ValueError:  # pragma: no cover
+                # Exit conditions cannot be included in tests.
                 print("the file: " + PODLE_COMMIT_FILE + " is not valid json.")
                 sys.exit(0)
 
@@ -365,7 +367,7 @@ def update_commitments(commitment=None,
         external = {}
     if commitment:
         commitments.append(commitment)
-        #remove repeats
+        # remove repeats
         commitments = list(set(commitments))
     if external_to_remove:
         external = {
@@ -380,27 +382,29 @@ def update_commitments(commitment=None,
     with open(PODLE_COMMIT_FILE, "wb") as f:
         f.write(json.dumps(to_write, indent=4))
 
+
 def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
     used_commitments, external_commitments = get_podle_commitments()
 
     if external:
         if utxo in external_commitments:
             ec = external_commitments[utxo]
-            #use as many as were provided in the file, up to a max of max_tries
+            # use as many as were provided in the file, up to a max of max_tries
             m = min([len(ec['reveal'].keys()), max_tries])
             for i in reversed(range(m)):
                 key = str(i)
-                p = PoDLE(u=utxo,P=ec['P'],P2=ec['reveal'][key]['P2'],
+                p = PoDLE(u=utxo, P=ec['P'], P2=ec['reveal'][key]['P2'],
                           s=ec['reveal'][key]['s'], e=ec['reveal'][key]['e'])
                 if p.get_commitment() in used_commitments:
-                    return i+1
+                    return i + 1
     else:
         for i in reversed(range(max_tries)):
             p = PoDLE(u=utxo, priv=priv)
             c = p.generate_podle(i)
             if c['commit'] in used_commitments:
-                return i+1
+                return i + 1
     return 0
+
 
 def generate_podle(priv_utxo_pairs, max_tries=1, allow_external=None, k=None):
     """Given a list of privkeys, try to generate a
@@ -423,36 +427,36 @@ def generate_podle(priv_utxo_pairs, max_tries=1, allow_external=None, k=None):
         tries = get_podle_tries(utxo, priv, max_tries)
         if tries >= max_tries:
             continue
-        #Note that we will return the *lowest* index
-        #which is still available.
+        # Note that we will return the *lowest* index
+        # which is still available.
         index = tries
         p = PoDLE(u=utxo, priv=priv)
         c = p.generate_podle(index)
-        #persist for future checks
+        # persist for future checks
         update_commitments(commitment=c['commit'])
         return c
     if allow_external:
         for u in allow_external:
             tries = get_podle_tries(utxo=u, max_tries=max_tries, external=True)
             if (tries >= max_tries):
-                #If none of the entries in the 'reveal' list for this external
-                #commitment were available, they've all been used up, so
-                #remove this entry
+                # If none of the entries in the 'reveal' list for this external
+                # commitment were available, they've all been used up, so
+                # remove this entry
                 update_commitments(external_to_remove=u)
                 continue
             index = str(tries)
             ec = external_commitments[u]
-            p = PoDLE(u=u,P=ec['P'],P2=ec['reveal'][index]['P2'],
+            p = PoDLE(u=u, P=ec['P'], P2=ec['reveal'][index]['P2'],
                       s=ec['reveal'][index]['s'], e=ec['reveal'][index]['e'])
             update_commitments(commitment=p.get_commitment())
             return p.reveal()
-    #Failed to find any non-used valid commitment:
+    # Failed to find any non-used valid commitment:
     return None
 
 
 def verify_podle(Pser, P2ser, sig, e, commitment, index_range=range(10)):
     verifying_podle = PoDLE(P=Pser, P2=P2ser, s=sig, e=e)
-    #check 1: Hash(P2ser) =?= commitment
+    # check 1: Hash(P2ser) =?= commitment
     if not verifying_podle.verify(commitment, index_range):
         return False
     return True

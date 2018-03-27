@@ -45,13 +45,14 @@ def test_enc_wrapper(alice_bob_boxes, ab_message, ba_message, num_iterations):
             ba_message, alice_ptext)
         assert decode_decrypt(encrypt_encode(ab_message, bob_box), bob_box) == ab_message
 
+
 @pytest.mark.parametrize("invalid_pubkey",
                          [
                              # short ascii
                              ("abcdef"),
-                             ("tt"*32),
-                             ("ab"*33),
-                             ("cd"*31),
+                             ("tt" * 32),
+                             ("ab" * 33),
+                             ("cd" * 31),
                          ])
 def test_invalid_nacl_keys(alice_bob_boxes, invalid_pubkey):
     with pytest.raises(NaclError) as e_info:
@@ -59,13 +60,14 @@ def test_invalid_nacl_keys(alice_bob_boxes, invalid_pubkey):
     with pytest.raises(NaclError) as e_info:
         alice_kp = init_keypair()
         box = as_init_encryption(alice_kp, invalid_pubkey)
-    #also try when using the wrong object type as a keypair
+    # also try when using the wrong object type as a keypair
     with pytest.raises(NaclError) as e_info:
-        alice_bad_kp = init_pubkey("02"*32)
+        alice_bad_kp = init_pubkey("02" * 32)
         box = as_init_encryption(alice_bad_kp, alice_bad_kp)
-    #try to load a pubkey from a non-keypair object
+    # try to load a pubkey from a non-keypair object
     with pytest.raises(NaclError) as e_info:
         pk = get_pubkey(invalid_pubkey)
+
 
 @pytest.fixture()
 def alice_bob_boxes():

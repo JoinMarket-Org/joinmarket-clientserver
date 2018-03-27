@@ -7,14 +7,13 @@ import ssl
 import threading
 import time
 
-
-
 from jmdaemon.message_channel import MessageChannel
 from jmdaemon.protocol import *
 from jmclient import get_log
 from msgdata import *
 
 log = get_log()
+
 
 # handle one channel at a time
 class DummyMessageChannel(MessageChannel):
@@ -49,21 +48,23 @@ class DummyMessageChannel(MessageChannel):
                     log.debug("Calling on welcome")
                     self.on_welcome(self)
             i += 1
-    
+
     def shutdown(self):
         self.give_up = True
-    
+
     def close(self):
         self.shutdown()
 
     def _pubmsg(self, msg):
         pass
+
     def _privmsg(self, nick, cmd, message):
         """As for pubmsg
         """
         pass
+
     def _announce_orders(self, orderlist):
         pass
+
     def change_nick(self, new_nick):
         print("Changing nick supposedly")
-    

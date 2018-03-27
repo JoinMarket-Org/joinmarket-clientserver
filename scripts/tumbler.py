@@ -23,6 +23,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
 
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
+
 log = get_log()
 logsdir = os.path.join(os.path.dirname(
     jm_single().config_location), "logs")
@@ -36,7 +37,7 @@ def main():
         parser.error('Needs a wallet file')
         sys.exit(0)
     load_program_config()
-    #Load the wallet
+    # Load the wallet
     wallet_name = args[0]
     max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
     if not os.path.exists(os.path.join('wallets', wallet_name)):
@@ -58,14 +59,14 @@ def main():
         jm_single().bc_interface.synctype = "with-script"
     sync_wallet(wallet, fast=options['fastsync'])
 
-    #Parse options and generate schedule
-    #Output information to log files
+    # Parse options and generate schedule
+    # Output information to log files
     jm_single().mincjamount = options['mincjamount']
     destaddrs = args[1:]
     print(destaddrs)
-    #If the --restart flag is set we read the schedule
-    #from the file, and filter out entries that are
-    #already complete
+    # If the --restart flag is set we read the schedule
+    # from the file, and filter out entries that are
+    # already complete
     if options['restart']:
         res, schedule = get_schedule(os.path.join(logsdir,
                                                   options['schedulefile']))
@@ -74,25 +75,25 @@ def main():
                 options['schedulefile']))
             print("Error was: " + str(schedule))
             sys.exit(0)
-        #This removes all entries that are marked as done
+        # This removes all entries that are marked as done
         schedule = [s for s in schedule if s[5] != 1]
         if isinstance(schedule[0][5], str) and len(schedule[0][5]) == 64:
-            #ensure last transaction is confirmed before restart
+            # ensure last transaction is confirmed before restart
             tumble_log.info("WAITING TO RESTART...")
             txid = schedule[0][5]
-            restart_waiter(txid + ":0") #add 0 index because all have it
-            #remove the already-done entry (this connects to the other TODO,
-            #probably better *not* to truncate the done-already txs from file,
-            #but simplest for now.
+            restart_waiter(txid + ":0")  # add 0 index because all have it
+            # remove the already-done entry (this connects to the other TODO,
+            # probably better *not* to truncate the done-already txs from file,
+            # but simplest for now.
             schedule = schedule[1:]
         elif schedule[0][5] != 0:
             print("Error: first schedule entry is invalid.")
             sys.exit(0)
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
-                    f.write(schedule_to_text(schedule))
+            f.write(schedule_to_text(schedule))
         tumble_log.info("TUMBLE RESTARTING")
     else:
-        #Create a new schedule from scratch
+        # Create a new schedule from scratch
         schedule = get_tumble_schedule(options, destaddrs)
         tumble_log.info("TUMBLE STARTING")
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
@@ -119,15 +120,15 @@ def main():
         if not fromtx:
             reactor.stop()
         elif fromtx != "unconfirmed":
-            reactor.callLater(waittime*60, clientfactory.getClient().clientStart)
+            reactor.callLater(waittime * 60, clientfactory.getClient().clientStart)
 
-    #to allow testing of confirm/unconfirm callback for multiple txs
+    # to allow testing of confirm/unconfirm callback for multiple txs
     if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
         jm_single().bc_interface.tick_forward_chain_interval = 10
         jm_single().bc_interface.simulating = True
         jm_single().maker_timeout_sec = 15
 
-    #instantiate Taker with given schedule and run
+    # instantiate Taker with given schedule and run
     taker = Taker(wallet,
                   schedule,
                   order_chooser=weighted_order_choose,
@@ -141,6 +142,7 @@ def main():
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
                   clientfactory, daemon=daemon)
+
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import, print_function
+
 """A simple command line tool to create a bunch
 of utxos from one (thus giving more potential commitments
 for a Joinmarket user, although of course it may be useful
@@ -14,7 +15,9 @@ import jmclient.btc as btc
 from jmclient import (load_program_config, estimate_tx_fee, jm_single,
                       get_p2sh_vbyte, get_p2pk_vbyte, validate_address, get_log,
                       get_utxo_info, validate_utxo_data, quit)
+
 log = get_log()
+
 
 def sign(utxo, priv, destaddrs, segwit=True):
     """Sign a tx sending the amount amt, from utxo utxo,
@@ -33,7 +36,7 @@ def sign(utxo, priv, destaddrs, segwit=True):
     estfee = estimate_tx_fee(1, len(destaddrs), txtype=txtype)
     outs = []
     share = int((amt - estfee) / len(destaddrs))
-    fee = amt - share*len(destaddrs)
+    fee = amt - share * len(destaddrs)
     assert fee >= estfee
     log.info("Using fee: " + str(fee))
     for i, addr in enumerate(destaddrs):
@@ -42,7 +45,8 @@ def sign(utxo, priv, destaddrs, segwit=True):
     amtforsign = amt if segwit else None
     return btc.sign(unsigned_tx, 0, btc.from_wif_privkey(
         priv, vbyte=get_p2pk_vbyte()), amount=amtforsign)
-    
+
+
 def main():
     parser = OptionParser(
         usage=
@@ -102,7 +106,7 @@ def main():
     for d in destaddrs:
         if not validate_address(d):
             quit(parser, "Address was not valid; wrong network?: " + d)
-    txsigned = sign(u, priv, destaddrs, segwit = not options.nonsegwit)
+    txsigned = sign(u, priv, destaddrs, segwit=not options.nonsegwit)
     log.debug("Got signed transaction:\n" + txsigned)
     log.debug("Deserialized:")
     log.debug(pformat(btc.deserialize(txsigned)))
@@ -110,6 +114,7 @@ def main():
         log.info("You chose not to broadcast the transaction, quitting.")
         return
     jm_single().bc_interface.pushtx(txsigned)
+
 
 if __name__ == "__main__":
     main()

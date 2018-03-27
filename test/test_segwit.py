@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
+
 '''Test creation of segwit transactions.'''
 
 import sys
@@ -13,6 +14,7 @@ import jmbitcoin as btc
 import pytest
 from jmclient import (load_program_config, jm_single, get_p2pk_vbyte,
                       get_log, get_p2sh_vbyte, Wallet)
+
 log = get_log()
 
 
@@ -26,8 +28,8 @@ def test_segwit_valid_txs(setup_segwit):
         deserialized_tx = btc.deserialize(str(j[1]))
         print pformat(deserialized_tx)
         assert btc.serialize(deserialized_tx) == str(j[1])
-        #TODO use bcinterface to decoderawtransaction
-        #and compare the json values
+        # TODO use bcinterface to decoderawtransaction
+        # and compare the json values
 
 
 def get_utxo_from_txid(txid, addr):
@@ -66,16 +68,16 @@ def make_sign_and_push(ins_sw,
     and are ordinary p2pkh outputs.
     All amounts are in satoshis and only converted to btc for grab_coins
     """
-    #total value of all inputs
+    # total value of all inputs
     print ins_sw
     print other_ins
     total = sum([x[0] for x in ins_sw.values()])
     total += sum([x[0] for x in other_ins.values()])
-    #construct the other inputs
+    # construct the other inputs
     ins1 = other_ins
     ins1.update(ins_sw)
     ins1 = sorted(ins1.keys(), key=lambda k: ins1[k][2])
-    #random output address and change addr
+    # random output address and change addr
     output_addr = wallet.get_new_addr(1, 1) if not output_addr else output_addr
     change_addr = wallet.get_new_addr(1, 0) if not change_addr else change_addr
     outs = [{'value': amount,
@@ -88,7 +90,7 @@ def make_sign_and_push(ins_sw,
         temp_ins = ins_sw if utxo in ins_sw.keys() else other_ins
         amt, priv, n = temp_ins[utxo]
         temp_amt = amt if utxo in ins_sw.keys() else None
-        #for better test code coverage
+        # for better test code coverage
         print "signing tx index: " + str(index) + ", priv: " + priv
         if index % 2:
             priv = binascii.unhexlify(priv)
@@ -100,9 +102,9 @@ def make_sign_and_push(ins_sw,
     time.sleep(3)
     received = jm_single().bc_interface.get_received_by_addr(
         [output_addr], None)['data'][0]['balance']
-    #check coins were transferred as expected
+    # check coins were transferred as expected
     assert received == amount
-    #pushtx returns False on any error
+    # pushtx returns False on any error
     return txid
 
 
@@ -132,8 +134,8 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     other_ins = {}
     ctr = 0
     for k, v in wallet.unspent.iteritems():
-        #only extract as many non-segwit utxos as we need;
-        #doesn't matter which they are
+        # only extract as many non-segwit utxos as we need;
+        # doesn't matter which they are
         if ctr == len(o_ins):
             break
         other_ins[k] = (v["value"], wallet.get_key_from_addr(v["address"]),
@@ -141,22 +143,22 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
         ctr += 1
     ins_sw = {}
     for i in range(len(segwit_ins)):
-        #build segwit ins from "deterministic-random" keys;
-        #intended to be the same for each run with the same parameters
+        # build segwit ins from "deterministic-random" keys;
+        # intended to be the same for each run with the same parameters
         seed = json.dumps([i, wallet_structure, in_amt, amount, segwit_ins,
                            other_ins])
         priv = btc.sha256(seed) + "01"
         pub = btc.privtopub(priv)
-        #magicbyte is testnet p2sh
+        # magicbyte is testnet p2sh
         addr1 = btc.pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=196)
         print "got address for p2shp2wpkh: " + addr1
         txid = jm_single().bc_interface.grab_coins(addr1, segwit_amt)
-        #TODO - int cast, fix?
+        # TODO - int cast, fix?
         ins_sw[get_utxo_from_txid(txid, addr1)] = (int(segwit_amt * 100000000),
                                                    priv, segwit_ins[i])
-    #make_sign_and_push will sanity check the received amount is correct
+    # make_sign_and_push will sanity check the received amount is correct
     txid = make_sign_and_push(ins_sw, wallet, amount, other_ins)
-    #will always be False if it didn't push.
+    # will always be False if it didn't push.
     assert txid
 
 

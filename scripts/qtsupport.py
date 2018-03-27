@@ -27,7 +27,6 @@ from PyQt4.QtGui import *
 
 from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
-
 GREEN_BG = "QWidget {background-color:#80ff80;}"
 RED_BG = "QWidget {background-color:#ffcccc;}"
 RED_FG = "QWidget {color:red;}"
@@ -37,14 +36,14 @@ BLACK_FG = "QWidget {color:black;}"
 donation_address = 'Currently disabled'
 donation_address_testnet = 'Currently disabled'
 
-#TODO legacy, remove or change
+# TODO legacy, remove or change
 warnings = {"blockr_privacy": """You are using blockr as your method of
 connecting to the blockchain; this means
 that blockr.com can see the addresses you
 query. This is bad for privacy - consider
 using a Bitcoin Core node instead."""}
 
-#configuration types
+# configuration types
 config_types = {'rpc_port': int,
                 'network': bool,
                 'checktx': bool,
@@ -57,13 +56,13 @@ config_types = {'rpc_port': int,
                 'txfee_default': int,
                 'order_wait_time': int,
                 "no_daemon": int,
-                "daemon_port": int,}
+                "daemon_port": int, }
 config_tips = {
     'blockchain_source': 'options: bitcoin-rpc, regtest (for testing)',
     'network': 'one of "testnet" or "mainnet"',
     'checktx': 'whether to check fees before completing transaction',
     'rpc_host':
-    'the host for bitcoind; only used if blockchain_source is bitcoin-rpc',
+        'the host for bitcoind; only used if blockchain_source is bitcoin-rpc',
     'rpc_port': 'port for connecting to bitcoind over rpc',
     'rpc_user': 'user for connecting to bitcoind over rpc',
     'rpc_password': 'password for connecting to bitcoind over rpc',
@@ -71,70 +70,70 @@ config_tips = {
     'channel': 'channel name on IRC server (or comma separated list)',
     'port': 'port for connecting to IRC server (or comma separated list)',
     'usessl': "'true'/'false' to use SSL for each connection to IRC\n" +
-    "(or comma separated list)",
+              "(or comma separated list)",
     'socks5': "'true'/'false' to use a SOCKS5 proxy for each connection" +
-    "to IRC (or comma separated list)",
+              "to IRC (or comma separated list)",
     'socks5_host': 'host for SOCKS5 proxy (or comma separated list)',
     'socks5_port': 'port for SOCKS5 proxy (or comma separated list)',
     'maker_timeout_sec': 'timeout for waiting for replies from makers',
     'merge_algorithm': 'for dust sweeping, try merge_algorithm = gradual, \n' +
-    'for more rapid dust sweeping, try merge_algorithm = greedy \n' +
-    'for most rapid dust sweeping, try merge_algorithm = greediest \n' +
-    ' but dont forget to bump your miner fees!',
+                       'for more rapid dust sweeping, try merge_algorithm = greedy \n' +
+                       'for most rapid dust sweeping, try merge_algorithm = greediest \n' +
+                       ' but dont forget to bump your miner fees!',
     'tx_fees':
-    'the fee estimate is based on a projection of how many satoshis \n' +
-    'per kB are needed to get in one of the next N blocks, N set here \n' +
-    'as the value of "tx_fees". This estimate is high if you set N=1, \n' +
-    'so we choose N=3 for a more reasonable figure, \n' +
-    'as our default. Note that for clients not using a local blockchain \n' +
-    'instance, we retrieve an estimate from the API at blockcypher.com, currently. \n',
+        'the fee estimate is based on a projection of how many satoshis \n' +
+        'per kB are needed to get in one of the next N blocks, N set here \n' +
+        'as the value of "tx_fees". This estimate is high if you set N=1, \n' +
+        'so we choose N=3 for a more reasonable figure, \n' +
+        'as our default. Note that for clients not using a local blockchain \n' +
+        'instance, we retrieve an estimate from the API at blockcypher.com, currently. \n',
     'gaplimit': 'How far forward to search for used addresses in the HD wallet',
     'check_high_fee': 'Percent fee considered dangerously high, default 2%',
     'max_mix_depth': 'Total number of mixdepths in the wallet, default 5',
     'txfee_default': 'Number of satoshis per counterparty for an initial\n' +
-    'tx fee estimate; this value is not usually used and is best left at\n' +
-    'the default of 5000',
+                     'tx fee estimate; this value is not usually used and is best left at\n' +
+                     'the default of 5000',
     'order_wait_time': 'How long to wait for orders to arrive on entering\n' +
-    'the message channel, default is 30s',
+                       'the message channel, default is 30s',
     'no_daemon': "1 means don't use a separate daemon; set to 0 only if you\n" +
-    "are running an instance of joinmarketd separately",
+                 "are running an instance of joinmarketd separately",
     "daemon_port": "The port on which the joinmarket daemon is running",
     "daemon_host": "The host on which the joinmarket daemon is running; remote\n" +
-    "hosts should be considered *highly* experimental for now, not recommended.",
+                   "hosts should be considered *highly* experimental for now, not recommended.",
     "use_ssl": "Set to 'true' to use TLS for client-daemon connection; see\n" +
-    "documentation for details on how to set up certs if you use this.",
+               "documentation for details on how to set up certs if you use this.",
     "history_file": "Location of the file storing transaction history",
     "segwit": "Only used for migrating legacy wallets; see documentation.",
     "console_log_level": "one of INFO, DEBUG, WARN, ERROR; INFO is least noisy;\n" +
-    "consider switching to DEBUG in case of problems.",
+                         "consider switching to DEBUG in case of problems.",
     "absurd_fee_per_kb": "maximum satoshis/kilobyte you are willing to pay,\n" +
-    "whatever the fee estimate currently says.",
+                         "whatever the fee estimate currently says.",
     "tx_broadcast": "Options: self, random-peer, not-self (note: random-maker\n" +
-    "is not currently supported).\n" +
-    "self = broadcast transaction with your own ip\n" +
-    "random-peer = everyone who took part in the coinjoin has\n" +
-    "a chance of broadcasting.\n" +
-    "not-self = never broadcast with your own ip.",
+                    "is not currently supported).\n" +
+                    "self = broadcast transaction with your own ip\n" +
+                    "random-peer = everyone who took part in the coinjoin has\n" +
+                    "a chance of broadcasting.\n" +
+                    "not-self = never broadcast with your own ip.",
     "privacy_warning": "Not currently used, ignore.",
     "taker_utxo_retries": "Global consensus parameter, do NOT change.\n" +
-    "See documentation of use of 'commitments'.",
+                          "See documentation of use of 'commitments'.",
     "taker_utxo_age": "Global consensus parameter, do NOT change.\n" +
-    "See documentation of use of 'commitments'.",
+                      "See documentation of use of 'commitments'.",
     "taker_utxo_amtpercent": "Global consensus parameter, do not change.\n" +
-    "See documentation of use of 'commitments'.",
+                             "See documentation of use of 'commitments'.",
     "accept_commitment_broadcasts": "Not used, ignore.",
     "commit_file_location": "Location of the file that stores the commitments\n" +
-    "you've used, and any external commitments you've loaded.\n" +
-    "See documentation of use of 'commitments'.",
+                            "you've used, and any external commitments you've loaded.\n" +
+                            "See documentation of use of 'commitments'.",
     "listunspent_args": "Set to [1, 9999999] to show and use only coins that\n" +
-    "are confirmed; set to [0] to spend all coins including unconfirmed; this\n" +
-    "is not advisable.",
+                        "are confirmed; set to [0] to spend all coins including unconfirmed; this\n" +
+                        "is not advisable.",
     "minimum_makers": "The minimum number of counterparties for the transaction\n" +
-    "to complete (default 2). If set to a high value it can cause transactions\n" +
-    "to fail much more frequently.",
+                      "to complete (default 2). If set to a high value it can cause transactions\n" +
+                      "to fail much more frequently.",
 }
 
-#Temporarily disabled
+# Temporarily disabled
 donation_more_message = "Currently disabled"
 """
 donation_more_message = '\n'.join(
@@ -147,7 +146,8 @@ donation_more_message = '\n'.join(
              'is no change output that can be linked with your inputs later.'])
 """
 
-def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
+
+def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text=None):
     mbtypes = {'info': QMessageBox.information,
                'crit': QMessageBox.critical,
                'warn': QMessageBox.warning,
@@ -166,6 +166,7 @@ def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
                     self.setSizeGripEnabled(True)
                     self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
                     self.layout().setSizeConstraint(QLayout.SetMaximumSize)
+
                 def resizeEvent(self, event):
                     self.setMinimumHeight(0)
                     self.setMaximumHeight(16777215)
@@ -191,6 +192,7 @@ def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
             retval = b.exec_()
         else:
             mbtypes[mbtype](obj, title, msg)
+
 
 class TaskThread(QtCore.QThread):
     '''Thread that runs background tasks.  Callbacks are guaranteed
@@ -230,6 +232,7 @@ class TaskThread(QtCore.QThread):
 
     def stop(self):
         self.tasks.put(None)
+
 
 class QtHandler(logging.Handler):
 
@@ -350,15 +353,14 @@ def update_password_strength(pw_strength_label, password):
                   "Strong": "Green",
                   "Very Strong": "Green"}
         strength = check_password_strength(password)
-        label = "Password Strength"+ ": "+"<font color=" + \
-        colors[strength] + ">" + strength + "</font>"
+        label = "Password Strength" + ": " + "<font color=" + \
+                colors[strength] + ">" + strength + "</font>"
     else:
         label = ""
     pw_strength_label.setText(label)
 
 
 def make_password_dialog(self, msg, new_pass=True):
-
     self.new_pw = QLineEdit()
     self.new_pw.setEchoMode(2)
     self.conf_pw = QLineEdit()
@@ -372,7 +374,7 @@ def make_password_dialog(self, msg, new_pass=True):
     grid.setSpacing(8)
     grid.setColumnMinimumWidth(0, 70)
     grid.setColumnStretch(1, 1)
-    #TODO perhaps add an icon here
+    # TODO perhaps add an icon here
     logo = QLabel()
     lockfile = ":icons/lock.png"
     logo.setPixmap(QPixmap(lockfile).scaledToWidth(36))
@@ -394,7 +396,7 @@ def make_password_dialog(self, msg, new_pass=True):
     grid.addWidget(self.conf_pw, 2, 1)
     vbox.addLayout(grid)
 
-    #Password Strength Label
+    # Password Strength Label
     self.pw_strength = QLabel()
     grid.addWidget(self.pw_strength, 3, 0, 1, 2)
     self.new_pw.textChanged.connect(
@@ -448,7 +450,7 @@ class MyTreeWidget(QTreeWidget):
         self.setHeaderLabels(headers)
         self.header().setStretchLastSection(False)
         for col in range(len(headers)):
-            #note, a single stretch column is currently not used.
+            # note, a single stretch column is currently not used.
             self.header().setResizeMode(col, QHeaderView.Interactive)
 
     def editItem(self, item, column):
@@ -550,6 +552,7 @@ class MyTreeWidget(QTreeWidget):
             item.setHidden(all([unicode(item.text(column)).lower().find(p) == -1
                                 for column in columns]))
 
+
 """ TODO implement this option
 class SchStaticPage(QWizardPage):
     def __init__(self, parent):
@@ -565,6 +568,7 @@ class SchStaticPage(QWizardPage):
         self.setLayout(layout)
 """
 
+
 class SchDynamicPage1(QWizardPage):
     def __init__(self, parent):
         super(SchDynamicPage1, self).__init__(parent)
@@ -577,22 +581,22 @@ class SchDynamicPage1(QWizardPage):
               'Average number of transactions per mixdepth',
               'Max relative fee per counterparty (e.g. 0.005)',
               'Max fee per counterparty, satoshis (e.g. 10000)']
-        #Tooltips
+        # Tooltips
         sH = ["The starting mixdepth can be decided from the Wallet tab; it must\n"
-        "have coins in it, but it's OK if some coins are in other mixdepths.",
-        "How many other participants are in each coinjoin, on average; but\n"
-        "each individual coinjoin will have a number that's varied according to\n"
-        "settings on the next page",
-        "For example, if you start at mixdepth 1 and enter 4 here, the tumble\n"
-        "will move coins from mixdepth 1 to mixdepth 5",
-        "This is the time waited *after* 1 confirmation has occurred, and is\n"
-        "varied randomly.",
-        "Will be varied randomly, see advanced settings next page",
-        "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
-        "Integer number of satoshis (this AND previous must be violated to reject)"]
-        #types
+              "have coins in it, but it's OK if some coins are in other mixdepths.",
+              "How many other participants are in each coinjoin, on average; but\n"
+              "each individual coinjoin will have a number that's varied according to\n"
+              "settings on the next page",
+              "For example, if you start at mixdepth 1 and enter 4 here, the tumble\n"
+              "will move coins from mixdepth 1 to mixdepth 5",
+              "This is the time waited *after* 1 confirmation has occurred, and is\n"
+              "varied randomly.",
+              "Will be varied randomly, see advanced settings next page",
+              "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
+              "Integer number of satoshis (this AND previous must be violated to reject)"]
+        # types
         sT = [int, int, int, float, int, float, int]
-        #constraints
+        # constraints
         sMM = [(0, jm_single().config.getint("GUI", "max_mix_depth") - 1), (3, 20),
                (2, 7), (0.00000001, 100.0, 8), (2, 10), (0.000001, 0.25, 6),
                (0, 10000000)]
@@ -620,19 +624,20 @@ class SchDynamicPage1(QWizardPage):
         self.registerField("maxrelfee", results[5][1])
         self.registerField("maxabsfee", results[6][1])
 
+
 class SchDynamicPage2(QWizardPage):
 
     def initializePage(self):
         addrLEs = []
         requested_mixdepths = int(self.field("mixdepthcount").toString())
-        #for testing
+        # for testing
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
             testaddrs = ["mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS",
-                     "msFGHeut3rfJk5sKuoZNfpUq9MeVMqmido",
-                     "mkZfBXCRPs8fCmwWLrspjCvYozDhK6Eepz"]
+                         "msFGHeut3rfJk5sKuoZNfpUq9MeVMqmido",
+                         "mkZfBXCRPs8fCmwWLrspjCvYozDhK6Eepz"]
         else:
-            testaddrs = ["","",""]
-        #less than 3 is unacceptable for privacy effect, more is optional
+            testaddrs = ["", "", ""]
+        # less than 3 is unacceptable for privacy effect, more is optional
         self.required_addresses = max(3, requested_mixdepths - 1)
         for i in range(self.required_addresses):
             if i >= self.addrfieldsused:
@@ -642,9 +647,9 @@ class SchDynamicPage2(QWizardPage):
                 else:
                     addrLEs.append(QLineEdit(""))
                 self.layout.addWidget(addrLEs[-1], i, 1, 1, 2)
-                #addrLEs[-1].editingFinished.connect(
+                # addrLEs[-1].editingFinished.connect(
                 #    lambda: checkAddress(self, addrLEs[-1].text()))
-                self.registerField("destaddr"+str(i), addrLEs[-1])
+                self.registerField("destaddr" + str(i), addrLEs[-1])
         self.addrfieldsused = self.required_addresses
         self.setLayout(self.layout)
 
@@ -652,10 +657,11 @@ class SchDynamicPage2(QWizardPage):
         super(SchDynamicPage2, self).__init__(parent)
         self.setTitle("Destination addresses")
         self.setSubTitle("Enter destination addresses for coins; "
-                        "minimum 3 for privacy. You may leave later ones blank.")
+                         "minimum 3 for privacy. You may leave later ones blank.")
         self.layout = QGridLayout()
         self.layout.setSpacing(4)
         self.addrfieldsused = 0
+
 
 class SchFinishPage(QWizardPage):
     def __init__(self, parent):
@@ -672,20 +678,20 @@ class SchFinishPage(QWizardPage):
               'Minimum transaction count',
               'Min coinjoin amount',
               'wait time']
-        #Tooltips
+        # Tooltips
         sH = ["Standard deviation of the number of makers to use in each "
               "transaction.",
-        "Standard deviation of the number of transactions to use in each "
-        "mixdepth",
-        "A parameter to control the random coinjoin sizes.",
-        "The lowest allowed number of maker counterparties.",
-        "The lowest allowed number of transactions in one mixdepth.",
-        "The lowest allowed size of any coinjoin, in satoshis.",
-        "The time in seconds to wait for response from counterparties."]
-        #types
+              "Standard deviation of the number of transactions to use in each "
+              "mixdepth",
+              "A parameter to control the random coinjoin sizes.",
+              "The lowest allowed number of maker counterparties.",
+              "The lowest allowed number of transactions in one mixdepth.",
+              "The lowest allowed size of any coinjoin, in satoshis.",
+              "The time in seconds to wait for response from counterparties."]
+        # types
         sT = [float, float, float, int, int, int, float]
-        #constraints
-        sMM = [(0.0, 10.0, 2), (0.0, 10.0, 2), (1.0, 10000.0, 1), (2,20),
+        # constraints
+        sMM = [(0.0, 10.0, 2), (0.0, 10.0, 2), (1.0, 10000.0, 1), (2, 20),
                (1, 10), (100000, 100000000), (10.0, 500.0, 2)]
         sD = ['1.0', '1.0', '100.0', '2', '1', '1000000', '20']
         for x in zip(sN, sH, sT, sD, sMM):
@@ -703,7 +709,7 @@ class SchFinishPage(QWizardPage):
             layout.addWidget(x[0], i + 1, 0)
             layout.addWidget(x[1], i + 1, 1, 1, 2)
         self.setLayout(layout)
-        #fields not considered 'mandatory' as defaults are accepted
+        # fields not considered 'mandatory' as defaults are accepted
         self.registerField("makercountsdev", results[0][1])
         self.registerField("txcountsdev", results[1][1])
         self.registerField("amountpower", results[2][1])
@@ -711,6 +717,7 @@ class SchFinishPage(QWizardPage):
         self.registerField("mintxcount", results[4][1])
         self.registerField("mincjamount", results[5][1])
         self.registerField("waittime", results[6][1])
+
 
 class SchIntroPage(QWizardPage):
     def __init__(self, parent):
@@ -727,6 +734,7 @@ class SchIntroPage(QWizardPage):
         layout.addWidget(self.r1)
         self.setLayout(layout)
 
+
 """
     def nextId(self):
         if self.rbgroup.checkedButton() == self.r0:
@@ -739,6 +747,7 @@ class SchIntroPage(QWizardPage):
             return 0
 """
 
+
 class ScheduleWizard(QWizard):
     def __init__(self):
         super(ScheduleWizard, self).__init__()
@@ -746,13 +755,13 @@ class ScheduleWizard(QWizard):
         self.setPage(0, SchIntroPage(self))
         self.setPage(1, SchDynamicPage1(self))
         self.setPage(2, SchDynamicPage2(self))
-        #self.setPage(3, SchStaticPage(self))
+        # self.setPage(3, SchStaticPage(self))
         self.setPage(3, SchFinishPage(self))
 
     def get_name(self):
-        #TODO de-hardcode generated name
+        # TODO de-hardcode generated name
         return "TUMBLE.schedule"
-        #return self.field("schedfilename").toString()
+        # return self.field("schedfilename").toString()
 
     def get_destaddrs(self):
         return self.destaddrs
@@ -760,7 +769,7 @@ class ScheduleWizard(QWizard):
     def get_schedule(self):
         self.destaddrs = []
         for i in range(self.page(2).required_addresses):
-            daddrstring = str(self.field("destaddr"+str(i)).toString())
+            daddrstring = str(self.field("destaddr" + str(i)).toString())
             if validate_address(daddrstring)[0]:
                 self.destaddrs.append(daddrstring)
             elif daddrstring != "":
@@ -773,10 +782,10 @@ class ScheduleWizard(QWizard):
         self.opts['txfee'] = -1
         self.opts['addrcount'] = len(self.destaddrs)
         self.opts['makercountrange'] = (int(self.field("makercount").toString()),
-                                    float(self.field("makercountsdev").toString()))
+                                        float(self.field("makercountsdev").toString()))
         self.opts['minmakercount'] = int(self.field("minmakercount").toString())
         self.opts['txcountparams'] = (int(self.field("txcountparams").toString()),
-                                    float(self.field("txcountsdev").toString()))
+                                      float(self.field("txcountsdev").toString()))
         self.opts['mintxcount'] = int(self.field("mintxcount").toString())
         self.opts['amountpower'] = float(self.field("amountpower").toString())
         self.opts['timelambda'] = float(self.field("timelambda").toString())
@@ -785,9 +794,10 @@ class ScheduleWizard(QWizard):
         relfeeval = float(self.field("maxrelfee").toString())
         absfeeval = int(self.field("maxabsfee").toString())
         self.opts['maxcjfee'] = (relfeeval, absfeeval)
-        #needed for Taker to check:
+        # needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
         return get_tumble_schedule(self.opts, self.destaddrs)
+
 
 class TumbleRestartWizard(QWizard):
     def __init__(self):
@@ -802,9 +812,10 @@ class TumbleRestartWizard(QWizard):
         relfeeval = float(self.field("maxrelfee").toString())
         absfeeval = int(self.field("maxabsfee").toString())
         self.opts['maxcjfee'] = (relfeeval, absfeeval)
-        #needed for Taker to check:
+        # needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
         return self.opts
+
 
 class RestartSettingsPage(QWizardPage):
 
@@ -820,14 +831,14 @@ class RestartSettingsPage(QWizardPage):
               'Min coinjoin amount',
               'Max relative fee per counterparty (e.g. 0.005)',
               'Max fee per counterparty, satoshis (e.g. 10000)']
-        #Tooltips
+        # Tooltips
         sH = ["A parameter to control the random coinjoin sizes.",
-        "The lowest allowed size of any coinjoin, in satoshis.",
-        "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
-        "Integer number of satoshis (this AND previous must be violated to reject)"]
-        #types
+              "The lowest allowed size of any coinjoin, in satoshis.",
+              "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
+              "Integer number of satoshis (this AND previous must be violated to reject)"]
+        # types
         sT = [float, int, float, int]
-        #constraints
+        # constraints
         sMM = [(1.0, 10000.0, 1), (100000, 100000000), (0.000001, 0.25, 6),
                (0, 10000000)]
         sD = ['100.0', '1000000', '0.0005', '10000']
@@ -846,7 +857,7 @@ class RestartSettingsPage(QWizardPage):
             layout.addWidget(x[0], i + 1, 0)
             layout.addWidget(x[1], i + 1, 1, 1, 2)
         self.setLayout(layout)
-        #fields not considered 'mandatory' as defaults are accepted
+        # fields not considered 'mandatory' as defaults are accepted
         self.registerField("amountpower", results[0][1])
         self.registerField("mincjamount", results[1][1])
         self.registerField("maxrelfee", results[2][1])

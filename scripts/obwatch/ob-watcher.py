@@ -15,11 +15,10 @@ from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
 
-
-
 # https://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
 try:
     import matplotlib
+
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 except:
@@ -29,12 +28,13 @@ except:
 
 from jmclient import jm_single, load_program_config, get_log, calc_cj_fee, get_irc_mchannels
 from jmdaemon import OrderbookWatch, MessageChannelCollection, IRCMessageChannel
-#TODO this is only for base58, find a solution for a client without jmbitcoin
+# TODO this is only for base58, find a solution for a client without jmbitcoin
 import jmbitcoin as btc
 from jmdaemon.protocol import *
+
 log = get_log()
 
-#Initial state: allow only SW offer types
+# Initial state: allow only SW offer types
 swoffers = filter(lambda x: x[0:2] == 'sw', offername_list)
 pkoffers = filter(lambda x: x[0:2] != 'sw', offername_list)
 filtered_offername_list = swoffers
@@ -156,7 +156,7 @@ def create_orderbook_table(db, btc_unit, rel_unit):
     rows = db.execute('SELECT * FROM orderbook;').fetchall()
     if not rows:
         return 0, result
-    #print("len rows before filter: " + str(len(rows)))
+    # print("len rows before filter: " + str(len(rows)))
     rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
     order_keys_display = (('ordertype', ordertype_display),
                           ('counterparty', do_nothing), ('oid', order_str),
@@ -184,33 +184,33 @@ def create_orderbook_table(db, btc_unit, rel_unit):
 def create_table_heading(btc_unit, rel_unit):
     col = '  <th>{1}</th>\n'  # .format(field,label)
     tableheading = '<table class="tftable sortable" border="1">\n <tr>' + ''.join(
-            [
-                col.format('ordertype', 'Type'), col.format(
-                    'counterparty', 'Counterparty'),
-                col.format('oid', 'Order ID'),
-                col.format('cjfee', 'Fee'), col.format(
-                    'txfee', 'Miner Fee Contribution / ' + btc_unit),
-                col.format(
-                        'minsize', 'Minimum Size / ' + btc_unit), col.format(
-                    'maxsize', 'Maximum Size / ' + btc_unit)
-            ]) + ' </tr>'
+        [
+            col.format('ordertype', 'Type'), col.format(
+            'counterparty', 'Counterparty'),
+            col.format('oid', 'Order ID'),
+            col.format('cjfee', 'Fee'), col.format(
+            'txfee', 'Miner Fee Contribution / ' + btc_unit),
+            col.format(
+                'minsize', 'Minimum Size / ' + btc_unit), col.format(
+            'maxsize', 'Maximum Size / ' + btc_unit)
+        ]) + ' </tr>'
     return tableheading
 
 
 def create_choose_units_form(selected_btc, selected_rel):
     choose_units_form = (
-        '<form method="get" action="">' +
-        '<select name="btcunit" onchange="this.form.submit();">' +
-        ''.join(('<option>' + u + ' </option>' for u in sorted_units)) +
-        '</select><select name="relunit" onchange="this.form.submit();">' +
-        ''.join(('<option>' + u + ' </option>' for u in sorted_rel_units)) +
-        '</select></form>')
+            '<form method="get" action="">' +
+            '<select name="btcunit" onchange="this.form.submit();">' +
+            ''.join(('<option>' + u + ' </option>' for u in sorted_units)) +
+            '</select><select name="relunit" onchange="this.form.submit();">' +
+            ''.join(('<option>' + u + ' </option>' for u in sorted_rel_units)) +
+            '</select></form>')
     choose_units_form = choose_units_form.replace(
-            '<option>' + selected_btc,
-            '<option selected="selected">' + selected_btc)
+        '<option>' + selected_btc,
+        '<option selected="selected">' + selected_btc)
     choose_units_form = choose_units_form.replace(
-            '<option>' + selected_rel,
-            '<option selected="selected">' + selected_rel)
+        '<option>' + selected_rel,
+        '<option selected="selected">' + selected_rel)
     return choose_units_form
 
 
@@ -219,7 +219,7 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.taker = base_server.taker
         self.base_server = base_server
         SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(
-                self, request, client_address, base_server)
+            self, request, client_address, base_server)
 
     def create_orderbook_obj(self):
         rows = self.taker.db.execute('SELECT * FROM orderbook;').fetchall()
@@ -230,8 +230,8 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
         for row in rows:
             o = dict(row)
             if 'cjfee' in o:
-                o['cjfee'] = int(o['cjfee']) if o['ordertype']\
-                             == 'swabsoffer' else float(o['cjfee'])
+                o['cjfee'] = int(o['cjfee']) if o['ordertype'] \
+                                                == 'swabsoffer' else float(o['cjfee'])
             result.append(o)
         return result
 
@@ -267,7 +267,7 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
             if rel_unit not in sorted_rel_units:
                 rel_unit = sorted_rel_units[0]
             ordercount, ordertable = create_orderbook_table(
-                    self.taker.db, btc_unit, rel_unit)
+                self.taker.db, btc_unit, rel_unit)
             choose_units_form = create_choose_units_form(btc_unit, rel_unit)
             table_heading = create_table_heading(btc_unit, rel_unit)
             replacements = {
@@ -277,8 +277,8 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
                     (str(ordercount) + ' orders found by ' +
                      self.get_counterparty_count() + ' counterparties' + alert_msg),
                 'MAINBODY': (
-                    toggleSWform + refresh_orderbook_form + choose_units_form +
-                    table_heading + ordertable + '</table>\n')
+                        toggleSWform + refresh_orderbook_form + choose_units_form +
+                        table_heading + ordertable + '</table>\n')
             }
         elif self.path == '/ordersize':
             replacements = {
@@ -342,6 +342,7 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.path = '/'
             self.do_GET()
 
+
 class HTTPDThread(threading.Thread):
     def __init__(self, taker, hostport):
         threading.Thread.__init__(self, name='HTTPDThread')
@@ -355,13 +356,14 @@ class HTTPDThread(threading.Thread):
                                           OrderbookPageRequestHeader)
         httpd.taker = self.taker
         print('\nstarted http server, visit http://{0}:{1}/\n'.format(
-                *self.hostport))
+            *self.hostport))
         httpd.serve_forever()
 
 
 class ObBasic(OrderbookWatch):
     """Dummy orderbook watch class
     with hooks for triggering orderbook request"""
+
     def __init__(self, msgchan, hostport):
         self.hostport = hostport
         self.set_msgchan(msgchan)
@@ -377,14 +379,16 @@ class ObBasic(OrderbookWatch):
     def request_orderbook(self):
         self.msgchan.request_orderbook()
 
+
 class ObIRCMessageChannel(IRCMessageChannel):
     """A customisation of the message channel
     to allow receipt of privmsgs without the
     verification hooks in client-daemon communication."""
+
     def on_privmsg(self, nick, message):
         if len(message) < 2:
             return
-        
+
         if message[0] != COMMAND_PREFIX:
             log.debug('message not a cmd')
             return
@@ -392,9 +396,9 @@ class ObIRCMessageChannel(IRCMessageChannel):
         if cmd_string not in offername_list:
             log.debug('non-offer ignored')
             return
-        #Ignore sigs (TODO better to include check)
+        # Ignore sigs (TODO better to include check)
         sig = message[1:].split(' ')[-2:]
-        #reconstruct original message without cmd pref
+        # reconstruct original message without cmd pref
         rawmessage = ' '.join(message[1:].split(' ')[:-2])
         for command in rawmessage.split(COMMAND_PREFIX):
             _chunks = command.split(" ")
@@ -403,7 +407,7 @@ class ObIRCMessageChannel(IRCMessageChannel):
             except:
                 pass
 
-        
+
 def get_dummy_nick():
     """In Joinmarket-CS nick creation is negotiated
     between client and server/daemon so as to allow
@@ -414,20 +418,21 @@ def get_dummy_nick():
     import binascii
     nick_pkh_raw = hashlib.sha256(os.urandom(10)).digest()[:NICK_HASH_LENGTH]
     nick_pkh = btc.changebase(nick_pkh_raw, 256, 58)
-    #right pad to maximum possible; b58 is not fixed length.
-    #Use 'O' as one of the 4 not included chars in base58.
+    # right pad to maximum possible; b58 is not fixed length.
+    # Use 'O' as one of the 4 not included chars in base58.
     nick_pkh += 'O' * (NICK_MAX_ENCODED - len(nick_pkh))
-    #The constructed length will be 1 + 1 + NICK_MAX_ENCODED
+    # The constructed length will be 1 + 1 + NICK_MAX_ENCODED
     nick = JOINMARKET_NICK_HEADER + str(JM_VERSION) + nick_pkh
     jm_single().nickname = nick
     return nick
+
 
 def main():
     load_program_config(config_path='..')
 
     parser = OptionParser(
-            usage='usage: %prog [options]',
-            description='Runs a webservice which shows the orderbook.')
+        usage='usage: %prog [options]',
+        description='Runs a webservice which shows the orderbook.')
     parser.add_option('-H',
                       '--host',
                       action='store',
@@ -451,7 +456,6 @@ def main():
     taker = ObBasic(mcc, hostport)
     log.info("Starting ob-watcher")
     mcc.run()
-
 
 
 if __name__ == "__main__":

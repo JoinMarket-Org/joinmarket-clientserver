@@ -41,13 +41,16 @@ inbound callbacks trigger in the DaemonProtocol
 object.
 """
 
+
 def maker_only(func):
     @wraps(func)
     def func_wrapper(inst, *args, **kwargs):
         if inst.role == "MAKER":
             return func(inst, *args, **kwargs)
         return None
+
     return func_wrapper
+
 
 def taker_only(func):
     @wraps(func)
@@ -55,7 +58,9 @@ def taker_only(func):
         if inst.role == "TAKER":
             return func(inst, *args, **kwargs)
         return None
+
     return func_wrapper
+
 
 def check_utxo_blacklist(commitment, persist=False):
     """Compare a given commitment with the persisted blacklist log file,
@@ -65,7 +70,7 @@ def check_utxo_blacklist(commitment, persist=False):
     else return True.
     If flagged, persist the usage of this commitment to the above file.
     """
-    #TODO format error checking?
+    # TODO format error checking?
     fname = "commitmentlist"
     if os.path.isfile(fname):
         with open(fname, "rb") as f:
@@ -79,13 +84,15 @@ def check_utxo_blacklist(commitment, persist=False):
         with open(fname, "wb") as f:
             f.write('\n'.join(blacklisted_commitments))
             f.flush()
-    #If the commitment is new and we are *not* persisting, nothing to do
-    #(we only add it to the list on sending io_auth, which represents actual
-    #usage).
+    # If the commitment is new and we are *not* persisting, nothing to do
+    # (we only add it to the list on sending io_auth, which represents actual
+    # usage).
     return True
+
 
 class JMProtocolError(Exception):
     pass
+
 
 class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
@@ -95,7 +102,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.restart_mc_required = False
         self.irc_configs = None
         self.mcc = None
-        #Default role is TAKER; must be overriden to MAKER in JMSetup message.
+        # Default role is TAKER; must be overriden to MAKER in JMSetup message.
         self.role = "TAKER"
         self.crypto_boxes = {}
         self.sig_lock = threading.Lock()
@@ -106,7 +113,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop() #pragma: no cover
+            reactor.stop()  # pragma: no cover
 
     def defaultErrback(self, failure):
         """TODO better network error handling.
@@ -130,7 +137,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.maker_timeout_sec = int(maker_timeout_sec)
         self.minmakers = int(minmakers)
         irc_configs = json.loads(irc_configs)
-        #(bitcoin) network only referenced in channel name construction
+        # (bitcoin) network only referenced in channel name construction
         self.network = network
         if irc_configs == self.irc_configs:
             self.restart_mc_required = False
@@ -138,7 +145,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                     " setup.")
         else:
             if self.irc_configs:
-                #close the existing connections
+                # close the existing connections
                 self.mc_shutdown()
             self.irc_configs = irc_configs
             self.restart_mc_required = True
@@ -148,7 +155,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                    for c in self.irc_configs]
             self.mcc = MessageChannelCollection(mcs)
             OrderbookWatch.set_msgchan(self, self.mcc)
-            #register taker-specific msgchan callbacks here
+            # register taker-specific msgchan callbacks here
             self.mcc.register_taker_callbacks(self.on_error, self.on_pubkey,
                                               self.on_ioauth, self.on_sig)
             self.mcc.register_maker_callbacks(self.on_orderbook_requested,
@@ -184,10 +191,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.kp = init_keypair()
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
-        #Request orderbook here, on explicit setup request from client,
-        #assumes messagechannels are in "up" state. Orders are read
-        #in the callback on_order_seen in OrderbookWatch.
-        #TODO: pubmsg should not (usually?) fire if already up from previous run.
+        # Request orderbook here, on explicit setup request from client,
+        # assumes messagechannels are in "up" state. Orders are read
+        # in the callback on_order_seen in OrderbookWatch.
+        # TODO: pubmsg should not (usually?) fire if already up from previous run.
         if self.role == "TAKER":
             self.mcc.pubmsg(COMMAND_PREFIX + "orderbook")
         elif self.role == "MAKER":
@@ -221,18 +228,18 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         log.msg("About to send orderbook of size: " + str(len(self.orderbook)))
         string_orderbook = json.dumps(self.orderbook)
         d = self.callRemote(JMOffers,
-                        orderbook=string_orderbook)
+                            orderbook=string_orderbook)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
     @JMFill.responder
     def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
-        if not (self.jm_state == 1 and isinstance(amount, int) and amount >=0):
+        if not (self.jm_state == 1 and isinstance(amount, int) and amount >= 0):
             return {'accepted': False}
         self.cjamount = amount
         self.commitment = commitment
         self.revelation = revelation
-        #Reset utxo data to null for this new transaction
+        # Reset utxo data to null for this new transaction
         self.ioauth_data = {}
         self.active_orders = json.loads(filled_offers)
         for nick, offer_dict in self.active_orders.iteritems():
@@ -281,21 +288,21 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             return
         if not nick in self.active_orders:
             return
-        utxos= json.loads(utxolist)
-        #completed population of order/offer object
+        utxos = json.loads(utxolist)
+        # completed population of order/offer object
         self.active_orders[nick]["cjaddr"] = cjaddr
         self.active_orders[nick]["changeaddr"] = changeaddr
         self.active_orders[nick]["utxos"] = utxos
         msg = str(",".join(utxos.keys())) + " " + " ".join(
             [pubkey, cjaddr, changeaddr, pubkeysig])
         self.mcc.prepare_privmsg(nick, "ioauth", msg)
-        #In case of *blacklisted (ie already used) commitments, we already
-        #broadcasted them on receipt; in case of valid, and now used commitments,
-        #we broadcast them here, and not early - to avoid accidentally
-        #blacklisting commitments that are broadcast between makers in real time
-        #for the same transaction.
+        # In case of *blacklisted (ie already used) commitments, we already
+        # broadcasted them on receipt; in case of valid, and now used commitments,
+        # we broadcast them here, and not early - to avoid accidentally
+        # blacklisting commitments that are broadcast between makers in real time
+        # for the same transaction.
         self.transfer_commitment(self.active_orders[nick]["commit"])
-        #now persist the fact that the commitment is actually used.
+        # now persist the fact that the commitment is actually used.
         check_utxo_blacklist(self.active_orders[nick]["commit"], persist=True)
         return {"accepted": True}
 
@@ -335,9 +342,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if not check_utxo_blacklist(scommit):
             log.msg("Taker utxo commitment is blacklisted, rejecting.")
             self.mcc.send_error(nick, "Commitment is blacklisted: " + str(scommit))
-            #Note that broadcast is happening here to reflect an already
-            #consumed commitment; it can also be broadcast separately (earlier) on
-            #valid usage
+            # Note that broadcast is happening here to reflect an already
+            # consumed commitment; it can also be broadcast separately (earlier) on
+            # valid usage
             self.transfer_commitment(scommit)
             return
         offer_s = [o for o in self.offerlist if o['oid'] == oid]
@@ -346,7 +353,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         offer = offer_s[0]
         if amount < offer['minsize'] or amount > offer['maxsize']:
             self.mcc.send_error(nick, 'amount out of range')
-        #prepare a pubkey for this valid transaction
+        # prepare a pubkey for this valid transaction
         kp = init_keypair()
         try:
             crypto_box = as_init_encryption(kp, init_pubkey(taker_pk))
@@ -354,18 +361,18 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             log.msg("Unable to set up cryptobox with counterparty: " + repr(e))
             self.mcc.send_error(nick, "Invalid nacl pubkey: " + taker_pk)
         self.active_orders[nick] = {"crypto_box": crypto_box,
-                                        "kp": kp,
-                                        "offer": offer,
-                                        "amount": amount,
-                                        "commit": scommit}
+                                    "kp": kp,
+                                    "offer": offer,
+                                    "amount": amount,
+                                    "commit": scommit}
         self.mcc.prepare_privmsg(nick, "pubkey", kp.hex_pk())
 
     @maker_only
     def on_seen_auth(self, nick, commitment_revelation):
         if not nick in self.active_orders:
             return
-        ao =self.active_orders[nick]
-        #ask the client to validate the commitment and prepare the utxo data
+        ao = self.active_orders[nick]
+        # ask the client to validate the commitment and prepare the utxo data
         d = self.callRemote(JMAuthReceived,
                             nick=nick,
                             offer=json.dumps(ao["offer"]),
@@ -383,11 +390,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 	"""
         if jm_single().config.has_option("POLICY", "accept_commitment_broadcasts"):
             blacklist_add = jm_single().config.getint("POLICY",
-                                                    "accept_commitment_broadcasts")
+                                                      "accept_commitment_broadcasts")
         else:
             blacklist_add = 0
         if blacklist_add > 0:
-            #just add if necessary, ignore return value.
+            # just add if necessary, ignore return value.
             check_utxo_blacklist(commitment, persist=True)
             log.msg("Received commitment broadcast by other maker: " + str(
                 commitment) + ", now blacklisted.")
@@ -412,8 +419,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     def on_seen_tx(self, nick, txhex):
         if nick not in self.active_orders:
             return
-        #we send a copy of the entire "active_orders" entry except the cryptobox,
-        #so make a temporary copy
+        # we send a copy of the entire "active_orders" entry except the cryptobox,
+        # so make a temporary copy
         ao = copy.deepcopy(self.active_orders[nick])
         del ao["crypto_box"]
         del ao["kp"]
@@ -453,7 +460,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.ioauth_data[nick] = [utxo_list, auth_pub, cj_addr, change_addr,
                                   btc_sig, self.crypto_boxes[nick][0]]
         if self.ioauth_data.keys() == self.active_orders.keys():
-            #Finish early if we got all
+            # Finish early if we got all
             self.respondToIoauths(True)
 
     @taker_only
@@ -461,8 +468,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """Pass signature through to Taker.
         """
         d = self.callRemote(JMSigReceived,
-                        nick=nick,
-                        sig=sig)
+                            nick=nick,
+                            sig=sig)
         self.defaultCallbacks(d)
 
     def on_error(self, msg):
@@ -482,11 +489,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         with self.sig_lock:
             d = self.callRemote(JMRequestMsgSig,
-                            nick=str(nick),
-                            cmd=str(cmd),
-                            msg=str(msg),
-                            msg_to_be_signed=str(msg_to_be_signed),
-                            hostid=str(hostid))
+                                nick=str(nick),
+                                cmd=str(cmd),
+                                msg=str(msg),
+                                msg_to_be_signed=str(msg_to_be_signed),
+                                hostid=str(hostid))
             self.defaultCallbacks(d)
 
     def request_signature_verify(self, msg, fullmsg, sig, pubkey, nick, hashlen,
@@ -509,13 +516,13 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         for a new transaction; effectively means any previous
         incomplete transaction is wiped.
         """
-        self.jm_state = 0  #uninited
+        self.jm_state = 0  # uninited
         if self.restart_mc_required:
             self.mcc.run()
             self.restart_mc_required = False
         else:
-            #if we are not restarting the MC,
-            #we must simulate the on_welcome message:
+            # if we are not restarting the MC,
+            # we must simulate the on_welcome message:
             self.on_welcome()
         self.mcc.set_nick(nick)
 
@@ -524,36 +531,36 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 	other maker.
 	"""
         crow = self.db.execute(
-                        'SELECT DISTINCT counterparty FROM orderbook ORDER BY ' +
-                        'RANDOM() LIMIT 1;'
-                    ).fetchone()
+            'SELECT DISTINCT counterparty FROM orderbook ORDER BY ' +
+            'RANDOM() LIMIT 1;'
+        ).fetchone()
         if crow is None:
             return
         counterparty = crow['counterparty']
-        #TODO de-hardcode hp2
+        # TODO de-hardcode hp2
         log.msg("Sending commitment to: " + str(counterparty))
         self.mcc.prepare_privmsg(counterparty, 'hp2', commit)
 
     def respondToIoauths(self, accepted):
         if self.jm_state != 2:
-            #this can be called a second time on timeout, in which case we
-            #do nothing
+            # this can be called a second time on timeout, in which case we
+            # do nothing
             return
         self.jm_state = 3
         if not accepted:
-            #use ioauth data field to return the list of non-responsive makers
+            # use ioauth data field to return the list of non-responsive makers
             nonresponders = [x for x in self.active_orders.keys() if x not
                              in self.ioauth_data.keys()]
         ioauth_data = self.ioauth_data if accepted else nonresponders
         d = self.callRemote(JMFillResponse,
-                                success=accepted,
-                                ioauth_data = json.dumps(ioauth_data))
+                            success=accepted,
+                            ioauth_data=json.dumps(ioauth_data))
         if not accepted:
-            #Client simply accepts failure TODO
+            # Client simply accepts failure TODO
             self.defaultCallbacks(d)
         else:
-            #Act differently if *we* provided utxos, but
-            #client does not accept for some reason
+            # Act differently if *we* provided utxos, but
+            # client does not accept for some reason
             d.addCallback(self.checkUtxosAccepted)
             d.addErrback(self.defaultErrback)
 
@@ -568,9 +575,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     def checkUtxosAccepted(self, accepted):
         if not accepted:
             log.msg("Taker rejected utxos provided; resetting.")
-            #TODO create re-set function to start again
+            # TODO create re-set function to start again
         else:
-            #only update state if client accepted
+            # only update state if client accepted
             self.jm_state = 4
 
     def get_crypto_box_from_nick(self, nick):
@@ -583,7 +590,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             return self.active_orders[nick]["crypto_box"]
         else:
             log.msg('something wrong, no crypto object, nick=' + nick +
-                      ', message will be dropped')
+                    ', message will be dropped')
             return None
 
     def mc_shutdown(self):

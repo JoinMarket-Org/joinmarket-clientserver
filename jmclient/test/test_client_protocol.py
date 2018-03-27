@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
+
 '''test client-protocol interfacae.'''
 
 import pytest
@@ -23,6 +24,7 @@ import time
 import jmbitcoin as bitcoin
 
 import twisted
+
 twisted.internet.base.DelayedCall.debug = True
 
 test_completed = False
@@ -31,16 +33,19 @@ clientfactory = None
 runno = 0
 jlog = get_log()
 
+
 def dummy_taker_finished(res, fromtx, waittime=0.0):
     pass
+
 
 class DummyTaker(Taker):
 
     def set_fail_init(self, val):
         self.failinit = val
+
     def set_fail_utxos(self, val):
         self.failutxos = val
-        
+
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
 
@@ -49,12 +54,12 @@ class DummyTaker(Taker):
         select offers, re-initialize variables and prepare a commitment,
         then send it to the protocol to fill offers.
         """
-        if self.failinit==-1:
-            return (True, -1, "aa"*32, {'dummy':'revelation'},orderbook[:2])
+        if self.failinit == -1:
+            return (True, -1, "aa" * 32, {'dummy': 'revelation'}, orderbook[:2])
         elif self.failinit:
             return (False,)
         else:
-            return (True, 1000000, "aa"*32, {'dummy':'revelation'},
+            return (True, 1000000, "aa" * 32, {'dummy': 'revelation'},
                     orderbook[:2])
 
     def receive_utxos(self, ioauth_data):
@@ -65,8 +70,7 @@ class DummyTaker(Taker):
         if self.failutxos:
             return (False, "dummyreason")
         else:
-            return (True, [x*64 + ":01" for x in ["a", "b", "c"]], t_raw_signed_tx)
-
+            return (True, [x * 64 + ":01" for x in ["a", "b", "c"]], t_raw_signed_tx)
 
     def on_sig(self, nick, sigb64):
         """For test, we exit 'early' on first message, since this marks the end
@@ -94,17 +98,21 @@ class JMBaseProtocol(amp.AMP):
         d.addCallback(self.checkClientResponse)
         d.addErrback(self.defaultErrback)
 
+
 def show_receipt(name, *args):
     tmsg("Received msgtype: " + name + ", args: " + ",".join([str(x) for x in args]))
 
+
 def end_client(client):
     pass
+
 
 def end_test():
     global test_completed
     test_completed = True
     client = clientfactory.getClient()
     reactor.callLater(1, end_client, client)
+
 
 class JMTestServerProtocol(JMBaseProtocol):
 
@@ -138,10 +146,10 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMRequestOffers.responder
     def on_JM_REQUEST_OFFERS(self):
         show_receipt("JMREQUESTOFFERS")
-        #build a huge orderbook to test BigString Argument
+        # build a huge orderbook to test BigString Argument
         orderbook = ["aaaa" for _ in range(15)]
         d = self.callRemote(JMOffers,
-                        orderbook=json.dumps(orderbook))
+                            orderbook=json.dumps(orderbook))
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -150,46 +158,45 @@ class JMTestServerProtocol(JMBaseProtocol):
         success = False if amount == -1 else True
         show_receipt("JMFILL", amount, commitment, revelation, filled_offers)
         d = self.callRemote(JMFillResponse,
-                                success=success,
-                                ioauth_data = json.dumps(['dummy', 'list']))
+                            success=success,
+                            ioauth_data=json.dumps(['dummy', 'list']))
         return {'accepted': True}
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
         show_receipt("JMMAKETX", nick_list, txhex)
         d = self.callRemote(JMSigReceived,
-                               nick="dummynick",
-                               sig="xxxsig")
+                            nick="dummynick",
+                            sig="xxxsig")
         self.defaultCallbacks(d)
-        #add dummy calls to check message sign and message verify
+        # add dummy calls to check message sign and message verify
         d2 = self.callRemote(JMRequestMsgSig,
-                                    nick="dummynickforsign",
-                                    cmd="command1",
-                                    msg="msgforsign",
-                                    msg_to_be_signed="fullmsgforsign",
-                                    hostid="hostid1")
+                             nick="dummynickforsign",
+                             cmd="command1",
+                             msg="msgforsign",
+                             msg_to_be_signed="fullmsgforsign",
+                             hostid="hostid1")
         self.defaultCallbacks(d2)
-        #To test, this must include a valid ecdsa sig
+        # To test, this must include a valid ecdsa sig
         fullmsg = "fullmsgforverify"
-        priv = "aa"*32 + "01"
+        priv = "aa" * 32 + "01"
         pub = bitcoin.privkey_to_pubkey(priv)
         sig = bitcoin.ecdsa_sign(fullmsg, priv)
         d3 = self.callRemote(JMRequestMsgSigVerify,
-                                        msg="msgforverify",
-                                        fullmsg=fullmsg,
-                                        sig=sig,
-                                        pubkey=pub,
-                                        nick="dummynickforverify",
-                                        hashlen=4,
-                                        max_encoded=5,
-                                        hostid="hostid2")
+                             msg="msgforverify",
+                             fullmsg=fullmsg,
+                             sig=sig,
+                             pubkey=pub,
+                             nick="dummynickforverify",
+                             hashlen=4,
+                             max_encoded=5,
+                             hostid="hostid2")
         self.defaultCallbacks(d3)
         d4 = self.callRemote(JMSigReceived,
-                                nick="dummynick",
-                                sig="dummysig")
-        self.defaultCallbacks(d4)        
+                             nick="dummynick",
+                             sig="dummysig")
+        self.defaultCallbacks(d4)
         return {'accepted': True}
-            
 
     @JMMsgSignature.responder
     def on_JM_MSGSIGNATURE(self, nick, cmd, msg_to_return, hostid):
@@ -201,12 +208,15 @@ class JMTestServerProtocol(JMBaseProtocol):
         show_receipt("JMMSGSIGVERIFY", verif_result, nick, fullmsg, hostid)
         return {'accepted': True}
 
+
 class JMTestServerProtocolFactory(protocol.ServerFactory):
     protocol = JMTestServerProtocol
 
+
 class DummyClientProtocolFactory(JMClientProtocolFactory):
     def buildProtocol(self, addr):
-        return JMTakerClientProtocol(self, self.client, nick_priv="aa"*32)
+        return JMTakerClientProtocol(self, self.client, nick_priv="aa" * 32)
+
 
 class TrialTestJMClientProto(unittest.TestCase):
 
@@ -218,9 +228,11 @@ class TrialTestJMClientProto(unittest.TestCase):
         jm_single().maker_timeout_sec = 1
         self.port = reactor.listenTCP(28184, JMTestServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
+
         def cb(client):
             self.client = client
             self.addCleanup(self.client.transport.loseConnection)
+
         clientfactories = []
         takers = [DummyTaker(
             None, ["a", "b"], callbacks=(

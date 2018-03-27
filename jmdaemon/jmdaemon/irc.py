@@ -4,7 +4,7 @@ import base64
 import random
 import socket
 import ssl
-#TODO: SSL support (can it be done without back-end openssl?)
+# TODO: SSL support (can it be done without back-end openssl?)
 import threading
 import time
 from twisted.internet import reactor, protocol
@@ -20,9 +20,11 @@ from jmbase.support import get_log, chunks
 from txsocksx.client import SOCKS5ClientEndpoint
 from txsocksx.tls import TLSWrapClientEndpoint
 from jmdaemon.protocol import *
+
 MAX_PRIVMSG_LEN = 450
 
 log = get_log()
+
 
 def wlog(*x):
     """Simplifier to add lists to the debug log
@@ -30,13 +32,14 @@ def wlog(*x):
     msg = " ".join([str(a) for a in x])
     log.debug(msg)
 
+
 def get_irc_text(line):
     return line[line[1:].find(':') + 2:]
 
 
 def get_irc_nick(source):
     full_nick = source[0:source.find('!')]
-    return full_nick[:NICK_MAX_ENCODED+2]
+    return full_nick[:NICK_MAX_ENCODED + 2]
 
 
 def get_config_irc_channel(chan_name, btcnet):
@@ -44,6 +47,7 @@ def get_config_irc_channel(chan_name, btcnet):
     if btcnet == "testnet":
         channel += "-test"
     return channel
+
 
 class TxIRCFactory(protocol.ReconnectingClientFactory):
     def __init__(self, wrapper):
@@ -62,7 +66,7 @@ class TxIRCFactory(protocol.ReconnectingClientFactory):
             if reactor.running:
                 log.info('Attempting to reconnect...')
                 protocol.ReconnectingClientFactory.clientConnectionLost(self,
-                                                                connector, reason)
+                                                                        connector, reason)
 
     def clientConnectionFailed(self, connector, reason):
         log.info('IRC connection failed')
@@ -70,7 +74,8 @@ class TxIRCFactory(protocol.ReconnectingClientFactory):
             if reactor.running:
                 log.info('Attempting to reconnect...')
                 protocol.ReconnectingClientFactory.clientConnectionFailed(self,
-                                                                connector, reason)
+                                                                          connector, reason)
+
 
 class IRCMessageChannel(MessageChannel):
 
@@ -83,7 +88,7 @@ class IRCMessageChannel(MessageChannel):
         MessageChannel.__init__(self, daemon=daemon)
         self.give_up = True
         self.serverport = (configdata['host'], configdata['port'])
-        #default hostid for use with miniircd which doesnt send NETWORK
+        # default hostid for use with miniircd which doesnt send NETWORK
         self.hostid = configdata['host'] + str(configdata['port'])
         self.socks5 = configdata["socks5"]
         self.usessl = configdata["usessl"]
@@ -95,13 +100,14 @@ class IRCMessageChannel(MessageChannel):
         if password and len(password) == 0:
             password = None
         self.password = password
-        
+
         self.tx_irc_client = None
-        #TODO can be configuration var, how long between reconnect attempts:
+        # TODO can be configuration var, how long between reconnect attempts:
         self.reconnect_interval = 10
-    #implementation of abstract base class methods;
-    #these are mostly but not exclusively acting as pass through
-    #to the wrapped twisted IRC client protocol
+
+    # implementation of abstract base class methods;
+    # these are mostly but not exclusively acting as pass through
+    # to the wrapped twisted IRC client protocol
     def run(self):
         self.give_up = False
         self.build_irc()
@@ -121,7 +127,8 @@ class IRCMessageChannel(MessageChannel):
 
     def _announce_orders(self, offerlist):
         self.tx_irc_client._announce_orders(offerlist)
-    #end ABC impl.
+
+    # end ABC impl.
 
     def set_tx_irc_client(self, txircclt):
         self.tx_irc_client = txircclt
@@ -141,7 +148,7 @@ class IRCMessageChannel(MessageChannel):
                                factory, ctx)
         elif self.socks5.lower() == 'true':
             factory = TxIRCFactory(self)
-            #str() casts needed else unicode error
+            # str() casts needed else unicode error
             torEndpoint = TCP4ClientEndpoint(reactor, str(self.socks5_host),
                                              self.socks5_port)
             ircEndpoint = SOCKS5ClientEndpoint(str(self.serverport[0]),
@@ -160,19 +167,20 @@ class IRCMessageChannel(MessageChannel):
                 wlog('build_irc: ', self.serverport[0], self.serverport[1],
                      self.channel)
                 self.tcp_connector = reactor.connectTCP(
-                        self.serverport[0], self.serverport[1], factory)
+                    self.serverport[0], self.serverport[1], factory)
             except Exception as e:
                 wlog('error in buildirc: ' + repr(e))
+
 
 class txIRC_Client(irc.IRCClient, object):
     """
     lineRate is a class variable in the superclass used to limit
     messages / second.  heartbeat is what you'd think.
     """
-    #In previous implementation, 450 bytes per second over the last 4 seconds
-    #was used as the rate limiter/throttle parameter.
-    #Since we still have max_privmsg_len = 450, that corresponds to a lineRate
-    #value of 1.0 (seconds). Bumped to 1.3 here for breathing room.
+    # In previous implementation, 450 bytes per second over the last 4 seconds
+    # was used as the rate limiter/throttle parameter.
+    # Since we still have max_privmsg_len = 450, that corresponds to a lineRate
+    # value of 1.0 (seconds). Bumped to 1.3 here for breathing room.
     lineRate = 1.3
     heartbeatinterval = 60
 
@@ -249,8 +257,9 @@ class txIRC_Client(irc.IRCClient, object):
                 if i < len(offerlist) - 1:
                     line = header + ''.join(offerlines[:-1]) + ' ~'
                 self.sendLine(line)
-                offerlines = [offerlines[-1]]        
-    # ---------------------------------------------
+                offerlines = [offerlines[-1]]
+                # ---------------------------------------------
+
     # general callbacks from superclass
     # ---------------------------------------------
 
@@ -260,7 +269,7 @@ class txIRC_Client(irc.IRCClient, object):
 
     def joined(self, channel):
         wlog('joined: ', channel)
-        #Use as trigger for start to mcc:
+        # Use as trigger for start to mcc:
         reactor.callLater(0.0, self.wrapper.on_welcome, self.wrapper)
 
     def privmsg(self, userIn, channel, msg):
@@ -283,7 +292,7 @@ class txIRC_Client(irc.IRCClient, object):
                     if message[0] != COMMAND_PREFIX:
                         wlog('bad command ', message[0])
                         return
-    
+
                     # new message starting
                     cmd_string = message[1:].split(' ')[0]
                     self.built_privmsg[nick] = [cmd_string, message[:-2]]
@@ -308,7 +317,7 @@ class txIRC_Client(irc.IRCClient, object):
 
     def action(self, user, channel, msg):
         pass
-        #wlog('unhandled action: ', user, channel, msg)
+        # wlog('unhandled action: ', user, channel, msg)
 
     def alterCollidedNick(self, nickname):
         """
@@ -322,32 +331,32 @@ class txIRC_Client(irc.IRCClient, object):
 
     def modeChanged(self, user, channel, _set, modes, args):
         pass
-        #wlog('(unhandled) modeChanged: ', user, channel, _set, modes, args)
+        # wlog('(unhandled) modeChanged: ', user, channel, _set, modes, args)
 
     def pong(self, user, secs):
         pass
-        #wlog('pong: ', user, secs)
+        # wlog('pong: ', user, secs)
 
     def userJoined(self, user, channel):
         pass
-        #wlog('user joined: ', user, channel)
+        # wlog('user joined: ', user, channel)
 
     def userKicked(self, kickee, channel, kicker, message):
-        #wlog('kicked: ', kickee, channel, kicker, message)
+        # wlog('kicked: ', kickee, channel, kicker, message)
         if self.wrapper.on_nick_leave:
             reactor.callLater(0.0, self.wrapper.on_nick_leave, kickee, self.wrapper)
 
     def userLeft(self, user, channel):
-        #wlog('left: ', user, channel)
+        # wlog('left: ', user, channel)
         if self.wrapper.on_nick_leave:
             reactor.callLater(0.0, self.wrapper.on_nick_leave, user, self.wrapper)
 
     def userRenamed(self, oldname, newname):
         wlog('rename: ', oldname, newname)
-        #TODO nick change handling
+        # TODO nick change handling
 
     def userQuit(self, user, quitMessage):
-        #wlog('userQuit: ', user, quitMessage)
+        # wlog('userQuit: ', user, quitMessage)
         if self.wrapper.on_nick_leave:
             reactor.callLater(0.0, self.wrapper.on_nick_leave, user, self.wrapper)
 
@@ -358,15 +367,15 @@ class txIRC_Client(irc.IRCClient, object):
 
     def receivedMOTD(self, motd):
         pass
-        #wlog('motd: ', motd)
+        # wlog('motd: ', motd)
 
     def created(self, when):
         pass
-        #wlog('(unhandled) created: ', when)
+        # wlog('(unhandled) created: ', when)
 
     def yourHost(self, info):
         pass
-        #wlog('(unhandled) yourhost: ', info)
+        # wlog('(unhandled) yourhost: ', info)
 
     def isupport(self, options):
         """Used to set the name of the IRC *network*
@@ -383,23 +392,23 @@ class txIRC_Client(irc.IRCClient, object):
                     self.wrapper.hostid = v
             except Exception as e:
                 pass
-                #wlog('failed to parse isupport option, ignoring')
+                # wlog('failed to parse isupport option, ignoring')
 
     def myInfo(self, servername, version, umodes, cmodes):
         pass
-        #wlog('(unhandled) myInfo: ', servername, version, umodes, cmodes)
+        # wlog('(unhandled) myInfo: ', servername, version, umodes, cmodes)
 
     def luserChannels(self, channels):
         pass
-        #wlog('(unhandled) luserChannels: ', channels)
+        # wlog('(unhandled) luserChannels: ', channels)
 
     def bounce(self, info):
         pass
-        #wlog('(unhandled) bounce: ', info)
+        # wlog('(unhandled) bounce: ', info)
 
     def left(self, channel):
         pass
-        #wlog('(unhandled) left: ', channel)
+        # wlog('(unhandled) left: ', channel)
 
     def noticed(self, user, channel, message):
         wlog('(unhandled) noticed: ', user, channel, message)

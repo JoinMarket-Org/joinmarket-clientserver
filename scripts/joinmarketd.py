@@ -3,6 +3,7 @@ from twisted.internet import reactor, ssl
 from twisted.python.log import startLogging, err
 import jmdaemon
 
+
 def startup_joinmarketd(host, port, usessl, finalizer=None, finalizer_args=None):
     """Start event loop for joinmarket daemon here.
     Args:

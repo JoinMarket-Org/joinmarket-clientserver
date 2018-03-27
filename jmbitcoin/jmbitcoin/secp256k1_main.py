@@ -11,14 +11,14 @@ import random
 import hmac
 import secp256k1
 
-#Required only for PoDLE calculation:
+# Required only for PoDLE calculation:
 N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
-#Global context for secp256k1 operations (helps with performance)
+# Global context for secp256k1 operations (helps with performance)
 ctx = secp256k1.lib.secp256k1_context_create(secp256k1.ALL_FLAGS)
-#required for point addition
+# required for point addition
 dummy_pub = secp256k1.PublicKey(ctx=ctx)
 
-#Standard prefix for Bitcoin message signing.
+# Standard prefix for Bitcoin message signing.
 BITCOIN_MESSAGE_MAGIC = '\x18' + 'Bitcoin Signed Message:\n'
 
 if sys.version_info.major == 2:
@@ -36,14 +36,17 @@ if sys.version_info.major == 2:
         256: ''.join([chr(x) for x in range(256)])
     }
 
+
     def bin_dbl_sha256(s):
         bytes_to_hash = from_string_to_bytes(s)
         return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
+
 
     def lpad(msg, symbol, length):
         if len(msg) >= length:
             return msg
         return symbol * (length - len(msg)) + msg
+
 
     def get_code_string(base):
         if base in code_strings:
@@ -51,10 +54,12 @@ if sys.version_info.major == 2:
         else:
             raise ValueError("Invalid base!")
 
+
     def changebase(string, frm, to, minlen=0):
         if frm == to:
             return lpad(string, get_code_string(frm)[0], minlen)
         return encode(decode(string, frm), to, minlen)
+
 
     def bin_to_b58check(inp, magicbyte=0):
         inp_fmtd = chr(int(magicbyte)) + inp
@@ -62,23 +67,30 @@ if sys.version_info.major == 2:
         checksum = bin_dbl_sha256(inp_fmtd)[:4]
         return '1' * leadingzbytes + changebase(inp_fmtd + checksum, 256, 58)
 
+
     def bytes_to_hex_string(b):
         return b.encode('hex')
+
 
     def safe_from_hex(s):
         return s.decode('hex')
 
+
     def from_int_to_byte(a):
         return chr(a)
+
 
     def from_byte_to_int(a):
         return ord(a)
 
+
     def from_string_to_bytes(a):
         return a
 
+
     def safe_hexlify(a):
         return binascii.hexlify(a)
+
 
     def encode(val, base, minlen=0):
         base, minlen = int(base), int(minlen)
@@ -88,6 +100,7 @@ if sys.version_info.major == 2:
             result = code_string[val % base] + result
             val //= base
         return code_string[0] * max(minlen - len(result), 0) + result
+
 
     def decode(string, base):
         base = int(base)
@@ -102,25 +115,30 @@ if sys.version_info.major == 2:
         return result
 
 else:
-    raise NotImplementedError("Only Python2 currently supported by btc interface") #pragma: no cover
+    raise NotImplementedError("Only Python2 currently supported by btc interface")  # pragma: no cover
 
 """PoDLE related primitives
 """
+
+
 def getG(compressed=True):
     """Returns the public key binary
     representation of secp256k1 G
     """
-    priv = "\x00"*31 + "\x01"
+    priv = "\x00" * 31 + "\x01"
     G = secp256k1.PrivateKey(priv, ctx=ctx).pubkey.serialize(compressed)
     return G
 
+
 podle_PublicKey_class = secp256k1.PublicKey
 podle_PrivateKey_class = secp256k1.PrivateKey
+
 
 def podle_PublicKey(P):
     """Returns a PublicKey object from a binary string
     """
     return secp256k1.PublicKey(P, raw=True, ctx=ctx)
+
 
 def podle_PrivateKey(priv):
     """Returns a PrivateKey object from a binary string
@@ -131,42 +149,56 @@ def podle_PrivateKey(priv):
 def privkey_to_address(priv, from_hex=True, magicbyte=0):
     return pubkey_to_address(privkey_to_pubkey(priv, from_hex), magicbyte)
 
+
 privtoaddr = privkey_to_address
+
 
 # Hashes
 def bin_hash160(string):
     intermed = hashlib.sha256(string).digest()
     return hashlib.new('ripemd160', intermed).digest()
 
+
 def hash160(string):
     return safe_hexlify(bin_hash160(string))
+
 
 def bin_sha256(string):
     binary_data = string if isinstance(string, bytes) else bytes(string,
                                                                  'utf-8')
     return hashlib.sha256(binary_data).digest()
 
+
 def sha256(string):
     return bytes_to_hex_string(bin_sha256(string))
+
 
 def bin_dbl_sha256(s):
     bytes_to_hash = from_string_to_bytes(s)
     return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
 
+
 def dbl_sha256(string):
     return safe_hexlify(bin_dbl_sha256(string))
+
 
 def hash_to_int(x):
     if len(x) in [40, 64]:
         return decode(x, 16)
     return decode(x, 256)
 
+
 def num_to_var_int(x):
     x = int(x)
-    if x < 253: return from_int_to_byte(x)
-    elif x < 65536: return from_int_to_byte(253) + encode(x, 256, 2)[::-1]
-    elif x < 4294967296: return from_int_to_byte(254) + encode(x, 256, 4)[::-1]
-    else: return from_int_to_byte(255) + encode(x, 256, 8)[::-1]
+    if x < 253:
+        return from_int_to_byte(x)
+    elif x < 65536:
+        return from_int_to_byte(253) + encode(x, 256, 2)[::-1]
+    elif x < 4294967296:
+        return from_int_to_byte(254) + encode(x, 256, 4)[::-1]
+    else:
+        return from_int_to_byte(255) + encode(x, 256, 8)[::-1]
+
 
 def message_sig_hash(message):
     """Used for construction of signatures of
@@ -176,6 +208,7 @@ def message_sig_hash(message):
         message)) + from_string_to_bytes(message)
     return bin_dbl_sha256(padded)
 
+
 # Encodings
 def b58check_to_bin(inp):
     leadingzbytes = len(re.match('^1*', inp).group(0))
@@ -183,17 +216,21 @@ def b58check_to_bin(inp):
     assert bin_dbl_sha256(data[:-4])[:4] == data[-4:]
     return data[1:-4]
 
+
 def get_version_byte(inp):
     leadingzbytes = len(re.match('^1*', inp).group(0))
     data = b'\x00' * leadingzbytes + changebase(inp, 58, 256)
     assert bin_dbl_sha256(data[:-4])[:4] == data[-4:]
     return ord(data[0])
 
+
 def hex_to_b58check(inp, magicbyte=0):
     return bin_to_b58check(binascii.unhexlify(inp), magicbyte)
 
+
 def b58check_to_hex(inp):
     return safe_hexlify(b58check_to_bin(inp))
+
 
 def pubkey_to_address(pubkey, magicbyte=0):
     if len(pubkey) in [66, 130]:
@@ -201,7 +238,9 @@ def pubkey_to_address(pubkey, magicbyte=0):
             bin_hash160(binascii.unhexlify(pubkey)), magicbyte)
     return bin_to_b58check(bin_hash160(pubkey), magicbyte)
 
+
 pubtoaddr = pubkey_to_address
+
 
 def wif_compressed_privkey(priv, vbyte=0):
     """Convert privkey in hex compressed to WIF compressed
@@ -221,7 +260,7 @@ def from_wif_privkey(wif_priv, compressed=True, vbyte=0):
     """
     bin_key = b58check_to_bin(wif_priv)
     claimed_version_byte = get_version_byte(wif_priv)
-    if not 128+vbyte == claimed_version_byte:
+    if not 128 + vbyte == claimed_version_byte:
         raise Exception(
             "WIF key version byte is wrong network (mainnet/testnet?)")
     if compressed and not len(bin_key) == 33:
@@ -230,29 +269,32 @@ def from_wif_privkey(wif_priv, compressed=True, vbyte=0):
         raise Exception("Private key has incorrect compression byte")
     return safe_hexlify(bin_key)
 
+
 def ecdsa_sign(msg, priv, formsg=False, usehex=True):
     hashed_msg = message_sig_hash(msg)
     if usehex:
-        #arguments to raw sign must be consistently hex or bin
+        # arguments to raw sign must be consistently hex or bin
         hashed_msg = binascii.hexlify(hashed_msg)
     sig = ecdsa_raw_sign(hashed_msg, priv, usehex, rawmsg=True, formsg=formsg)
-    #note those functions only handles binary, not hex
+    # note those functions only handles binary, not hex
     if usehex:
         sig = binascii.unhexlify(sig)
     return base64.b64encode(sig)
+
 
 def ecdsa_verify(msg, sig, pub, usehex=True):
     hashed_msg = message_sig_hash(msg)
     sig = base64.b64decode(sig)
     if usehex:
-        #arguments to raw_verify must be consistently hex or bin
+        # arguments to raw_verify must be consistently hex or bin
         hashed_msg = binascii.hexlify(hashed_msg)
         sig = binascii.hexlify(sig)
     return ecdsa_raw_verify(hashed_msg, pub, sig, usehex, rawmsg=True)
 
-#Use secp256k1 to handle all EC and ECDSA operations.
-#Data types: only hex and binary.
-#Compressed and uncompressed private and public keys.
+
+# Use secp256k1 to handle all EC and ECDSA operations.
+# Data types: only hex and binary.
+# Compressed and uncompressed private and public keys.
 def hexbin(func):
     '''To enable each function to 'speak' either hex or binary,
     requires that the decorated function's final positional argument
@@ -278,6 +320,7 @@ def hexbin(func):
 
     return func_wrapper
 
+
 def read_privkey(priv):
     if len(priv) == 33:
         if priv[-1] == '\x01':
@@ -290,6 +333,7 @@ def read_privkey(priv):
         raise Exception("Invalid private key")
     return (compressed, priv[:32])
 
+
 @hexbin
 def privkey_to_pubkey_inner(priv, usehex):
     '''Take 32/33 byte raw private key as input.
@@ -297,9 +341,10 @@ def privkey_to_pubkey_inner(priv, usehex):
     If 33 bytes, read the final byte as compression flag,
     and return compressed/uncompressed public key as appropriate.'''
     compressed, priv = read_privkey(priv)
-    #secp256k1 checks for validity of key value.
+    # secp256k1 checks for validity of key value.
     newpriv = secp256k1.PrivateKey(privkey=priv, ctx=ctx)
     return newpriv.pubkey.serialize(compressed=compressed)
+
 
 def privkey_to_pubkey(priv, usehex=True):
     '''To avoid changing the interface from the legacy system,
@@ -309,7 +354,9 @@ def privkey_to_pubkey(priv, usehex=True):
     '''
     return privkey_to_pubkey_inner(priv, usehex)
 
+
 privtopub = privkey_to_pubkey
+
 
 @hexbin
 def multiply(s, pub, usehex, rawpub=True, return_serialized=True):
@@ -322,24 +369,26 @@ def multiply(s, pub, usehex, rawpub=True, return_serialized=True):
     ('raw' options passed in)
     '''
     newpub = secp256k1.PublicKey(pub, raw=rawpub, ctx=ctx)
-    #see note to "tweak_mul" function in podle.py
+    # see note to "tweak_mul" function in podle.py
     res = secp256k1._tweak_public(newpub,
-                                   secp256k1.lib.secp256k1_ec_pubkey_tweak_mul,
-                                   s)
+                                  secp256k1.lib.secp256k1_ec_pubkey_tweak_mul,
+                                  s)
     if not return_serialized:
         return res
     return res.serialize()
+
 
 @hexbin
 def add_pubkeys(pubkeys, usehex):
     '''Input a list of binary compressed pubkeys
     and return their sum as a binary compressed pubkey.'''
-    r = secp256k1.PublicKey(ctx=ctx)  #dummy holding object
+    r = secp256k1.PublicKey(ctx=ctx)  # dummy holding object
     pubkey_list = [secp256k1.PublicKey(x,
                                        raw=True,
                                        ctx=ctx).public_key for x in pubkeys]
     r.combine(pubkey_list)
     return r.serialize()
+
 
 @hexbin
 def add_privkeys(priv1, priv2, usehex):
@@ -358,6 +407,7 @@ def add_privkeys(priv1, priv2, usehex):
     if compressed:
         res += '\x01'
     return res
+
 
 @hexbin
 def ecdsa_raw_sign(msg,
@@ -390,22 +440,23 @@ def ecdsa_raw_sign(msg,
     if formsg:
         sig = newpriv.ecdsa_sign_recoverable(msg, raw=rawmsg)
         s, rid = newpriv.ecdsa_recoverable_serialize(sig)
-        return chr(31+rid) + s
-    #Donations, thus custom nonce, currently disabled, hence not covered.
-    elif usenonce: #pragma: no cover
+        return chr(31 + rid) + s
+    # Donations, thus custom nonce, currently disabled, hence not covered.
+    elif usenonce:  # pragma: no cover
         raise NotImplementedError
-        #if len(usenonce) != 32:
+        # if len(usenonce) != 32:
         #    raise ValueError("Invalid nonce passed to ecdsa_sign: " + str(
         #        usenonce))
-        #nf = ffi.addressof(_noncefunc.lib, "nonce_function_rand")
-        #ndata = ffi.new("char [32]", usenonce)
-        #usenonce = (nf, ndata)
-        #sig = newpriv.ecdsa_sign(msg, raw=rawmsg, custom_nonce=usenonce)
+        # nf = ffi.addressof(_noncefunc.lib, "nonce_function_rand")
+        # ndata = ffi.new("char [32]", usenonce)
+        # usenonce = (nf, ndata)
+        # sig = newpriv.ecdsa_sign(msg, raw=rawmsg, custom_nonce=usenonce)
     else:
-        #partial fix for secp256k1-transient not including customnonce;
-        #partial because donations will crash on windows in the "if".
+        # partial fix for secp256k1-transient not including customnonce;
+        # partial because donations will crash on windows in the "if".
         sig = newpriv.ecdsa_sign(msg, raw=rawmsg)
     return newpriv.ecdsa_serialize(sig)
+
 
 @hexbin
 def ecdsa_raw_verify(msg, pub, sig, usehex, rawmsg=False):
@@ -430,6 +481,7 @@ def ecdsa_raw_verify(msg, pub, sig, usehex, rawmsg=False):
         return False
     return retval
 
+
 def estimate_tx_size(ins, outs, txtype='p2pkh'):
     '''Estimate transaction size.
     Assuming p2pkh:
@@ -444,18 +496,18 @@ def estimate_tx_size(ins, outs, txtype='p2pkh'):
     if txtype == 'p2pkh':
         return 10 + ins * 147 + 34 * outs
     elif txtype == 'p2sh-p2wpkh':
-        #return the estimate for the witness and non-witness
-        #portions of the transaction, assuming that all the inputs
-        #are of segwit type p2sh-p2wpkh
-        #witness are roughly 3+~73+33 for each input
-        #non-witness input fields are roughly 32+4+4+20+4=64, so total becomes
-        #n_in * 64 + 4(ver) + 4(locktime) + n_out*34 + n_in * 109
-        witness_estimate = ins*109
-        non_witness_estimate = 4 + 4 + outs*34 + ins*64
+        # return the estimate for the witness and non-witness
+        # portions of the transaction, assuming that all the inputs
+        # are of segwit type p2sh-p2wpkh
+        # witness are roughly 3+~73+33 for each input
+        # non-witness input fields are roughly 32+4+4+20+4=64, so total becomes
+        # n_in * 64 + 4(ver) + 4(locktime) + n_out*34 + n_in * 109
+        witness_estimate = ins * 109
+        non_witness_estimate = 4 + 4 + outs * 34 + ins * 64
         return (witness_estimate, non_witness_estimate)
     elif txtype == 'p2shMofN':
         ins, M, N = ins
-        return 10 + (45 + 74*M + 34*N) * ins + 34 * outs
+        return 10 + (45 + 74 * M + 34 * N) * ins + 34 * outs
     else:
         raise NotImplementedError("Transaction size estimation not" +
                                   "yet implemented for type: " + txtype)

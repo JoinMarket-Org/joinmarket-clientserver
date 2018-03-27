@@ -1,6 +1,5 @@
 from setuptools import setup
 
-
 setup(name='joinmarketbitcoin',
       version='0.3.3',
       description='Joinmarket client library for Bitcoin coinjoins',
@@ -9,5 +8,5 @@ setup(name='joinmarketbitcoin',
       author_email='ekaggata@gmail.com',
       license='GPL',
       packages=['jmbitcoin'],
-      install_requires=['secp256k1',],
+      install_requires=['secp256k1', ],
       zip_safe=False)

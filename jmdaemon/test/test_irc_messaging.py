@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
+
 '''Tests of joinmarket bots end-to-end (including IRC and bitcoin) '''
 
 import subprocess
@@ -17,23 +18,29 @@ from jmdaemon import (JOINMARKET_NICK_HEADER, NICK_HASH_LENGTH,
                       MessageChannelCollection)
 from jmdaemon.message_channel import CJPeerError
 import jmdaemon
-#needed for test framework
+# needed for test framework
 from jmclient import (load_program_config, get_irc_mchannels, jm_single)
 
 si = 1
+
+
 class DummyDaemon(object):
     def request_signature_verify(self, a, b, c, d, e,
-            f, g, h):
+                                 f, g, h):
         return True
-    
+
+
 class DummyMC(IRCMessageChannel):
     def __init__(self, configdata, nick, daemon):
         super(DummyMC, self).__init__(configdata, daemon=daemon)
         self.daemon = daemon
         self.set_nick(nick)
 
+
 def on_connect(x):
     print('simulated on-connect')
+
+
 def on_welcome(mc):
     print('simulated on-welcome')
     mc.tx_irc_client.lineRate = 0.2
@@ -43,67 +50,75 @@ def on_welcome(mc):
         d.addCallback(junk_announce)
         d.addCallback(junk_fill)
 
+
 def on_disconnect(x):
     print('simulated on-disconnect')
 
+
 def on_order_seen(dummy, counterparty, oid, ordertype, minsize,
-                                           maxsize, txfee, cjfee):
+                  maxsize, txfee, cjfee):
     global yg_name
     yg_name = counterparty
+
 
 def on_pubkey(pubkey):
     print "received pubkey: " + pubkey
 
+
 def junk_pubmsgs(mc):
-    #start a raw IRCMessageChannel instance in a thread;
-    #then call send_* on it with various errant messages
+    # start a raw IRCMessageChannel instance in a thread;
+    # then call send_* on it with various errant messages
     time.sleep(si)
     mc.request_orderbook()
     time.sleep(si)
-    #now try directly
+    # now try directly
     mc.pubmsg("!orderbook")
     time.sleep(si)
-    #should be ignored; can we check?
+    # should be ignored; can we check?
     mc.pubmsg("!orderbook!orderbook")
     return mc
 
+
 def junk_longmsgs(mc):
-    #assuming MAX_PRIVMSG_LEN is not something crazy
-    #big like 550, this should fail
-    #with pytest.raises(AssertionError) as e_info:
-    mc.pubmsg("junk and crap"*40)
+    # assuming MAX_PRIVMSG_LEN is not something crazy
+    # big like 550, this should fail
+    # with pytest.raises(AssertionError) as e_info:
+    mc.pubmsg("junk and crap" * 40)
     time.sleep(si)
-    #assuming MAX_PRIVMSG_LEN is not something crazy
-    #small like 180, this should succeed
-    mc.pubmsg("junk and crap"*15)
+    # assuming MAX_PRIVMSG_LEN is not something crazy
+    # small like 180, this should succeed
+    mc.pubmsg("junk and crap" * 15)
     time.sleep(si)
     return mc
 
+
 def junk_announce(mc):
-    #try a long order announcement in public
-    #because we don't want to build a real orderbook,
-    #call the underlying IRC announce function.
-    #TODO: how to test that the sent format was correct?
+    # try a long order announcement in public
+    # because we don't want to build a real orderbook,
+    # call the underlying IRC announce function.
+    # TODO: how to test that the sent format was correct?
     print('got here')
-    mc._announce_orders(["!abc def gh 0001"]*30)
+    mc._announce_orders(["!abc def gh 0001"] * 30)
     time.sleep(si)
     return mc
+
 
 def junk_fill(mc):
     cpname = "irc_receiver"
-    #send a fill with an invalid pubkey to the existing yg;
-    #this should trigger a NaclError but should NOT kill it.
+    # send a fill with an invalid pubkey to the existing yg;
+    # this should trigger a NaclError but should NOT kill it.
     mc._privmsg(cpname, "fill", "0 10000000 abcdef")
-    #Try with ob flag
+    # Try with ob flag
     mc._pubmsg("!reloffer stuff")
     time.sleep(si)
-    #Trigger throttling with large messages
-    mc._privmsg(cpname, "tx", "aa"*5000)
+    # Trigger throttling with large messages
+    mc._privmsg(cpname, "tx", "aa" * 5000)
     time.sleep(si)
-    #with pytest.raises(CJPeerError) as e_info:
+    # with pytest.raises(CJPeerError) as e_info:
     mc.send_error(cpname, "fly you fools!")
     time.sleep(si)
     return mc
+
 
 def getmc(nick):
     dm = DummyDaemon()
@@ -116,6 +131,7 @@ def getmc(nick):
     mcc = MessageChannelCollection([mc])
     return dm, mc, mcc
 
+
 class TrialIRC(unittest.TestCase):
 
     def setUp(self):
@@ -126,24 +142,21 @@ class TrialIRC(unittest.TestCase):
         dm2, mc2, mcc2 = getmc("irc_receiver")
         mcc.run()
         mcc2.run()
+
         def cb(m):
-            #don't try to reconnect
+            # don't try to reconnect
             m.give_up = True
             m.tcp_connector.disconnect()
+
         self.addCleanup(cb, mc)
         self.addCleanup(cb, mc2)
-        #test_junk_messages()
+        # test_junk_messages()
         print("Got here")
 
     def test_waiter(self):
         print("test_main()")
-        #reactor.callLater(1.0, junk_messages, self.mcc)
+        # reactor.callLater(1.0, junk_messages, self.mcc)
         return task.deferLater(reactor, 22, self._called_by_deffered)
 
     def _called_by_deffered(self):
         pass
-
-
-
-
-

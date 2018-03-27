@@ -18,8 +18,10 @@ import pytest
 
 test_completed = False
 
+
 class JMProtocolError(Exception):
     pass
+
 
 class JMBaseProtocol(amp.AMP):
     def checkClientResponse(self, response):
@@ -38,8 +40,10 @@ class JMBaseProtocol(amp.AMP):
         d.addCallback(self.checkClientResponse)
         d.addErrback(self.defaultErrback)
 
+
 def show_receipt(name, *args):
     print("Received msgtype: " + name + ", args: " + ",".join([str(x) for x in args]))
+
 
 def end_test():
     global test_completed
@@ -70,7 +74,7 @@ class JMTestServerProtocol(JMBaseProtocol):
 
     @JMSetup.responder
     def on_JM_SETUP(self, role, n_counterparties):
-        show_receipt("JMSETUP", role,n_counterparties)
+        show_receipt("JMSETUP", role, n_counterparties)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -78,10 +82,10 @@ class JMTestServerProtocol(JMBaseProtocol):
     @JMRequestOffers.responder
     def on_JM_REQUEST_OFFERS(self):
         show_receipt("JMREQUESTOFFERS")
-        #build a huge orderbook to test BigString Argument
-        orderbook = ["aaaa" for _ in range(2**15)]
+        # build a huge orderbook to test BigString Argument
+        orderbook = ["aaaa" for _ in range(2 ** 15)]
         d = self.callRemote(JMOffers,
-                        orderbook=json.dumps(orderbook))
+                            orderbook=json.dumps(orderbook))
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -89,37 +93,36 @@ class JMTestServerProtocol(JMBaseProtocol):
     def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
         show_receipt("JMFILL", amount, commitment, revelation, filled_offers)
         d = self.callRemote(JMFillResponse,
-                                success=True,
-                                ioauth_data = json.dumps(['dummy', 'list']))
+                            success=True,
+                            ioauth_data=json.dumps(['dummy', 'list']))
         return {'accepted': True}
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
         show_receipt("JMMAKETX", nick_list, txhex)
         d = self.callRemote(JMSigReceived,
-                               nick="dummynick",
-                               sig="xxxsig")
+                            nick="dummynick",
+                            sig="xxxsig")
         self.defaultCallbacks(d)
-        #add dummy calls to check message sign and message verify
+        # add dummy calls to check message sign and message verify
         d2 = self.callRemote(JMRequestMsgSig,
-                                    nick="dummynickforsign",
-                                    cmd="command1",
-                                    msg="msgforsign",
-                                    msg_to_be_signed="fullmsgforsign",
-                                    hostid="hostid1")
+                             nick="dummynickforsign",
+                             cmd="command1",
+                             msg="msgforsign",
+                             msg_to_be_signed="fullmsgforsign",
+                             hostid="hostid1")
         self.defaultCallbacks(d2)
         d3 = self.callRemote(JMRequestMsgSigVerify,
-                                        msg="msgforverify",
-                                        fullmsg="fullmsgforverify",
-                                        sig="xxxsigforverify",
-                                        pubkey="pubkey1",
-                                        nick="dummynickforverify",
-                                        hashlen=4,
-                                        max_encoded=5,
-                                        hostid="hostid2")
-        self.defaultCallbacks(d3)        
+                             msg="msgforverify",
+                             fullmsg="fullmsgforverify",
+                             sig="xxxsigforverify",
+                             pubkey="pubkey1",
+                             nick="dummynickforverify",
+                             hashlen=4,
+                             max_encoded=5,
+                             hostid="hostid2")
+        self.defaultCallbacks(d3)
         return {'accepted': True}
-            
 
     @JMMsgSignature.responder
     def on_JM_MSGSIGNATURE(self, nick, cmd, msg_to_return, hostid):
@@ -130,6 +133,7 @@ class JMTestServerProtocol(JMBaseProtocol):
     def on_JM_MSGSIGNATURE_VERIFY(self, verif_result, nick, fullmsg, hostid):
         show_receipt("JMMSGSIGVERIFY", verif_result, nick, fullmsg, hostid)
         return {'accepted': True}
+
 
 class JMTestClientProtocol(JMBaseProtocol):
 
@@ -160,7 +164,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            n_counterparties=4) #TODO this number should be set
+                            n_counterparties=4)  # TODO this number should be set
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -175,7 +179,7 @@ class JMTestClientProtocol(JMBaseProtocol):
     def on_JM_FILL_RESPONSE(self, success, ioauth_data):
         show_receipt("JMFILLRESPONSE", success, ioauth_data)
         d = self.callRemote(JMMakeTx,
-                            nick_list= json.dumps(['nick1', 'nick2', 'nick3']),
+                            nick_list=json.dumps(['nick1', 'nick2', 'nick3']),
                             txhex="deadbeef")
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -194,7 +198,7 @@ class JMTestClientProtocol(JMBaseProtocol):
     @JMSigReceived.responder
     def on_JM_SIG_RECEIVED(self, nick, sig):
         show_receipt("JMSIGRECEIVED", nick, sig)
-        #end of test
+        # end of test
         reactor.callLater(1, end_test)
         return {'accepted': True}
 
@@ -222,11 +226,14 @@ class JMTestClientProtocol(JMBaseProtocol):
         self.defaultCallbacks(d)
         return {'accepted': True}
 
+
 class JMTestClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTestClientProtocol
 
+
 class JMTestServerProtocolFactory(protocol.ServerFactory):
     protocol = JMTestServerProtocol
+
 
 class TrialTestJMProto(unittest.TestCase):
 
@@ -234,9 +241,11 @@ class TrialTestJMProto(unittest.TestCase):
         print("setUp()")
         self.port = reactor.listenTCP(28184, JMTestServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
+
         def cb(client):
             self.client = client
             self.addCleanup(self.client.transport.loseConnection)
+
         creator = protocol.ClientCreator(reactor, JMTestClientProtocol)
         creator.connectTCP("localhost", 28184).addCallback(cb)
 

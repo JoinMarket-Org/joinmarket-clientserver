@@ -333,7 +333,7 @@ class socksocket(socket.socket):
                 raise Socks4Error((94, _socks4errors[4]))
         # Get the bound address/port
         self.__proxysockname = (socket.inet_ntoa(resp[4:]), struct.unpack(
-                ">H", resp[2:4])[0])
+            ">H", resp[2:4])[0])
         if rmtrslv is not None:
             self.__proxypeername = (socket.inet_ntoa(ipaddr), destport)
         else:
@@ -380,8 +380,8 @@ class socksocket(socket.socket):
 		"""
         # Do a minimal input check first
         if (type(destpair) in
-                (list, tuple) == False) or (len(destpair) < 2) or (
-                    type(destpair[0]) != str) or (type(destpair[1]) != int):
+            (list, tuple) == False) or (len(destpair) < 2) or (
+                type(destpair[0]) != str) or (type(destpair[1]) != int):
             raise GeneralProxyError((5, _generalerrors[5]))
         if self.__proxy[0] == PROXY_TYPE_SOCKS5:
             if self.__proxy[2] is not None:

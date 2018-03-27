@@ -177,7 +177,7 @@ class AES(object):
                 rconIteration += 1
             # For 256-bit keys, we add an extra sbox to the calculation
             if size == self.keySize["SIZE_256"] and (
-                        (currentSize % size) == 16):
+                    (currentSize % size) == 16):
                 for l in range(4):
                     t[l] = self.getSBoxValue(t[l])
 
@@ -318,14 +318,14 @@ class AES(object):
         state = self.subBytes(state, False)
         state = self.shiftRows(state, False)
         state = self.addRoundKey(
-                state, self.createRoundKey(expandedKey, 16 * nbrRounds))
+            state, self.createRoundKey(expandedKey, 16 * nbrRounds))
         return state
 
     # Perform the initial operations, the standard round, and the final
     # operations of the inverse aes, creating a round key for each round
     def aes_invMain(self, state, expandedKey, nbrRounds):
         state = self.addRoundKey(
-                state, self.createRoundKey(expandedKey, 16 * nbrRounds))
+            state, self.createRoundKey(expandedKey, 16 * nbrRounds))
         i = nbrRounds - 1
         while i > 0:
             state = self.aes_invRound(state,
@@ -657,4 +657,3 @@ def decryptData(key, data, mode=AESModeOfOperation.modeOfOperation["CBC"]):
     if mode == AESModeOfOperation.modeOfOperation["CBC"]:
         decr = strip_PKCS7_padding(decr)
     return decr
-

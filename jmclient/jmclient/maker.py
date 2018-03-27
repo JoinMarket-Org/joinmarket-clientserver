@@ -14,9 +14,11 @@ from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)
 from jmclient.wallet import estimate_tx_fee
 from jmclient.podle import (generate_podle, get_podle_commitments, verify_podle,
-                                    PoDLE, PoDLEError, generate_podle_error_string)
+                            PoDLE, PoDLEError, generate_podle_error_string)
 from twisted.internet import task
+
 jlog = get_log()
+
 
 class Maker(object):
     def __init__(self, wallet):
@@ -41,20 +43,22 @@ class Maker(object):
         """Receives data on proposed transaction offer from daemon, verifies
         commitment, returns necessary data to send ioauth message (utxos etc)
         """
-        #deserialize the commitment revelation
+        # deserialize the commitment revelation
         cr_dict = PoDLE.deserialize_revelation(cr)
-        #check the validity of the proof of discrete log equivalence
+        # check the validity of the proof of discrete log equivalence
         tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
+
         def reject(msg):
             jlog.info("Counterparty commitment not accepted, reason: " + msg)
             return (False,)
+
         if not verify_podle(str(cr_dict['P']), str(cr_dict['P2']), str(cr_dict['sig']),
-                                str(cr_dict['e']), str(commitment),
-                                index_range=range(tries)):
+                            str(cr_dict['e']), str(commitment),
+                            index_range=range(tries)):
             reason = "verify_podle failed"
             return reject(reason)
-        #finally, check that the proffered utxo is real, old enough, large enough,
-        #and corresponds to the pubkey
+        # finally, check that the proffered utxo is real, old enough, large enough,
+        # and corresponds to the pubkey
         res = jm_single().bc_interface.query_utxo_set([cr_dict['utxo']],
                                                       includeconf=True)
         if len(res) != 1 or not res[0]:
@@ -70,15 +74,15 @@ class Maker(object):
             reason = "commitment utxo too small: " + str(res[0]['value'])
             return reject(reason)
         if res[0]['address'] != btc.pubkey_to_p2sh_p2wpkh_address(cr_dict['P'],
-                                                      self.wallet.get_vbyte()):
+                                                                  self.wallet.get_vbyte()):
             reason = "Invalid podle pubkey: " + str(cr_dict['P'])
             return reject(reason)
 
         # authorisation of taker passed
-        #Find utxos for the transaction now:
+        # Find utxos for the transaction now:
         utxos, cj_addr, change_addr = self.oid_to_order(offer, amount)
         if not utxos:
-            #could not find funds
+            # could not find funds
             return (False,)
         self.wallet.update_cache_index()
         # Construct data for auth request back to taker.
@@ -115,17 +119,17 @@ class Maker(object):
                                    amount=amount)
             sigmsg = btc.deserialize(txs)["ins"][index]["script"].decode("hex")
             if "txinwitness" in btc.deserialize(txs)["ins"][index].keys():
-                #We prepend the witness data since we want (sig, pub, scriptCode);
-                #also, the items in witness are not serialize_script-ed.
+                # We prepend the witness data since we want (sig, pub, scriptCode);
+                # also, the items in witness are not serialize_script-ed.
                 sigmsg = "".join([btc.serialize_script_unit(
                     x.decode("hex")) for x in btc.deserialize(
-                        txs)["ins"][index]["txinwitness"]]) + sigmsg
+                    txs)["ins"][index]["txinwitness"]]) + sigmsg
             sigs.append(base64.b64encode(sigmsg))
         return (True, sigs)
 
     def verify_unsigned_tx(self, txd, offerinfo):
         tx_utxo_set = set(ins['outpoint']['hash'] + ':' + str(
-                ins['outpoint']['index']) for ins in txd['ins'])
+            ins['outpoint']['index']) for ins in txd['ins'])
 
         utxos = offerinfo["utxos"]
         cjaddr = offerinfo["cjaddr"]
@@ -165,7 +169,7 @@ class Maker(object):
 
     def modify_orders(self, to_cancel, to_announce):
         jlog.info('modifying orders. to_cancel={}\nto_announce={}'.format(
-                to_cancel, to_announce))
+            to_cancel, to_announce))
         for oid in to_cancel:
             order = [o for o in self.offerlist if o['oid'] == oid]
             if len(order) == 0:

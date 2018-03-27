@@ -11,11 +11,12 @@ import base64
 import string
 import random
 
-
 from libnacl import public
+
 
 class NaclError(Exception):
     pass
+
 
 def init_keypair(fname=None):
     """Create a new encryption

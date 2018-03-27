@@ -4,9 +4,11 @@ import sys, os
 import jmclient.btc as btc
 from jmclient import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
 
-def quit(parser, errmsg): #pragma: no cover
+
+def quit(parser, errmsg):  # pragma: no cover
     parser.error(errmsg)
     sys.exit(0)
+
 
 def get_utxo_info(upriv):
     """Verify that the input string parses correctly as (utxo, priv)
@@ -17,12 +19,12 @@ def get_utxo_info(upriv):
         u = u.strip()
         priv = priv.strip()
         txid, n = u.split(':')
-        assert len(txid)==64
+        assert len(txid) == 64
         assert len(n) in range(1, 4)
         n = int(n)
         assert n in range(256)
     except:
-        #not sending data to stdout in case privkey info
+        # not sending data to stdout in case privkey info
         print("Failed to parse utxo information for utxo")
         raise
     try:
@@ -31,7 +33,8 @@ def get_utxo_info(upriv):
         print("failed to parse privkey, make sure it's WIF compressed format.")
         raise
     return u, priv
-    
+
+
 def validate_utxo_data(utxo_datas, retrieve=False, segwit=False):
     """For each txid: N, privkey, first
     convert the privkey and convert to address,

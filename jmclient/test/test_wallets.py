@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
+
 '''Wallet functionality tests.'''
 
 import sys
@@ -27,6 +28,7 @@ from jmclient import (load_program_config, jm_single, sync_wallet,
                       wallet_generate_recover_bip39, decryptData, encryptData)
 from jmbase.support import chunks
 from taker_test_data import t_obtained_tx, t_raw_signed_tx
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 
@@ -43,7 +45,7 @@ def do_tx(wallet, amount):
                               change_addr=change_addr,
                               estimate_fee=True)
     assert txid
-    time.sleep(2)  #blocks
+    time.sleep(2)  # blocks
     jm_single().bc_interface.sync_unspent(wallet)
     return txid
 
@@ -73,10 +75,10 @@ def test_query_utxo_set(setup_wallets):
 
 
 def create_wallet_for_sync(wallet_file, password, wallet_structure, a):
-    #Prepare a testnet wallet file for this wallet
+    # Prepare a testnet wallet file for this wallet
     password_key = bitcoin.bin_dbl_sha256(password)
-    #We need a distinct seed for each run so as not to step over each other;
-    #make it through a deterministic hash
+    # We need a distinct seed for each run so as not to step over each other;
+    # make it through a deterministic hash
     seedh = bitcoin.sha256("".join([str(x) for x in a]))[:32]
     encrypted_seed = encryptData(password_key, seedh.decode('hex'))
     timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -89,8 +91,8 @@ def create_wallet_for_sync(wallet_file, password, wallet_structure, a):
         os.makedirs('wallets')
     with open(os.path.join('wallets', wallet_file), "wb") as f:
         f.write(walletfile)
-    #The call to Wallet() in make_wallets should now find the file
-    #and read from it:
+    # The call to Wallet() in make_wallets should now find the file
+    # and read from it:
     return make_wallets(1,
                         [wallet_structure],
                         fixed_seeds=[wallet_file],
@@ -103,17 +105,17 @@ def create_wallet_for_sync(wallet_file, password, wallet_structure, a):
     [
         (3, 13, [11, 3, 4, 5, 6], 150000000, 'test_import_wallet.json',
          'import-pwd'),
-        #Uncomment all these for thorough tests. Passing currently.
-        #Lots of used addresses
-        #(7, 1, [51, 3, 4, 5, 6], 150000000, 'test_import_wallet.json',
+        # Uncomment all these for thorough tests. Passing currently.
+        # Lots of used addresses
+        # (7, 1, [51, 3, 4, 5, 6], 150000000, 'test_import_wallet.json',
         # 'import-pwd'),
-        #(3, 1, [3, 1, 4, 5, 6], 50000000, 'test_import_wallet.json',
+        # (3, 1, [3, 1, 4, 5, 6], 50000000, 'test_import_wallet.json',
         # 'import-pwd'),
-        #No spams/fakes
-        #(2, 0, [5, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
+        # No spams/fakes
+        # (2, 0, [5, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
         # 'import-pwd'),
-        #Lots of transactions and fakes
-        #(25, 30, [30, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
+        # Lots of transactions and fakes
+        # (25, 30, [30, 20, 1, 1, 1], 50000000, 'test_import_wallet.json',
         # 'import-pwd'),
     ])
 def test_wallet_sync_with_fast(setup_wallets, num_txs, fake_count,
@@ -127,23 +129,23 @@ def test_wallet_sync_with_fast(setup_wallets, num_txs, fake_count,
     while not jm_single().bc_interface.wallet_synced:
         sync_wallet(wallet)
         sync_count += 1
-        #avoid infinite loop
+        # avoid infinite loop
         assert sync_count < 10
         log.debug("Tried " + str(sync_count) + " times")
 
     assert jm_single().bc_interface.wallet_synced
     assert not jm_single().bc_interface.fast_sync_called
-    #do some transactions with the wallet, then close, then resync
+    # do some transactions with the wallet, then close, then resync
     for i in range(num_txs):
         do_tx(wallet, amount)
         log.debug("After doing a tx, index is now: " + str(wallet.index))
-        #simulate a spammer requesting a bunch of transactions. This
-        #mimics what happens in CoinJoinOrder.__init__()
+        # simulate a spammer requesting a bunch of transactions. This
+        # mimics what happens in CoinJoinOrder.__init__()
         for j in range(fake_count):
-            #Note that as in a real script run,
-            #the initial call to sync_wallet will
-            #have set wallet_synced to True, so these will
-            #trigger actual imports.
+            # Note that as in a real script run,
+            # the initial call to sync_wallet will
+            # have set wallet_synced to True, so these will
+            # trigger actual imports.
             cj_addr = wallet.get_internal_addr(0)
             change_addr = wallet.get_internal_addr(0)
             wallet.update_cache_index()
@@ -151,60 +153,60 @@ def test_wallet_sync_with_fast(setup_wallets, num_txs, fake_count,
 
     assert wallet.index[0][1] == num_txs + fake_count * 2 * num_txs
 
-    #Attempt re-sync, simulating a script restart.
+    # Attempt re-sync, simulating a script restart.
 
     jm_single().bc_interface.wallet_synced = False
     sync_count = 0
-    #Probably should be fixed in main code:
-    #wallet.index_cache is only assigned in Wallet.__init__(),
-    #meaning a second sync in the same script, after some transactions,
-    #will not know about the latest index_cache value (see is_index_ahead_of_cache),
-    #whereas a real re-sync will involve reading the cache from disk.
-    #Hence, simulation of the fact that the cache index will
-    #be read from the file on restart:
+    # Probably should be fixed in main code:
+    # wallet.index_cache is only assigned in Wallet.__init__(),
+    # meaning a second sync in the same script, after some transactions,
+    # will not know about the latest index_cache value (see is_index_ahead_of_cache),
+    # whereas a real re-sync will involve reading the cache from disk.
+    # Hence, simulation of the fact that the cache index will
+    # be read from the file on restart:
     wallet.index_cache = wallet.index
 
     while not jm_single().bc_interface.wallet_synced:
-        #Wallet.__init__() resets index to zero.
+        # Wallet.__init__() resets index to zero.
         wallet.index = []
         for i in range(5):
             wallet.index.append([0, 0])
-        #Wallet.__init__() also updates the cache index
-        #from file, but we can reuse from the above pre-loop setting,
-        #since nothing else in sync will overwrite the cache.
+        # Wallet.__init__() also updates the cache index
+        # from file, but we can reuse from the above pre-loop setting,
+        # since nothing else in sync will overwrite the cache.
 
-        #for regtest add_watchonly_addresses does not exit(), so can
-        #just repeat as many times as possible. This might
-        #be usable for non-test code (i.e. no need to restart the
-        #script over and over again)?
+        # for regtest add_watchonly_addresses does not exit(), so can
+        # just repeat as many times as possible. This might
+        # be usable for non-test code (i.e. no need to restart the
+        # script over and over again)?
         sync_count += 1
         log.debug("TRYING SYNC NUMBER: " + str(sync_count))
         sync_wallet(wallet, fast=True)
         assert jm_single().bc_interface.fast_sync_called
-        #avoid infinite loop on failure.
+        # avoid infinite loop on failure.
         assert sync_count < 10
-    #Wallet should recognize index_cache on fast sync, so should not need to
-    #run sync process more than once.
+    # Wallet should recognize index_cache on fast sync, so should not need to
+    # run sync process more than once.
     assert sync_count == 1
-    #validate the wallet index values after sync
+    # validate the wallet index values after sync
     for i, ws in enumerate(wallet_structure):
-        assert wallet.index[i][0] == ws  #spends into external only
-    #Same number as above; note it includes the spammer's extras.
+        assert wallet.index[i][0] == ws  # spends into external only
+    # Same number as above; note it includes the spammer's extras.
     assert wallet.index[0][1] == num_txs + fake_count * 2 * num_txs
-    assert wallet.index[1][1] == num_txs  #one change per transaction
+    assert wallet.index[1][1] == num_txs  # one change per transaction
     for i in range(2, 5):
-        assert wallet.index[i][1] == 0  #unused
+        assert wallet.index[i][1] == 0  # unused
 
-    #Now try to do more transactions as sanity check.
+    # Now try to do more transactions as sanity check.
     do_tx(wallet, 50000000)
 
 
 @pytest.mark.parametrize(
     "wallet_structure, wallet_file, password, ic",
     [
-        #As usual, more test cases are preferable but time
-        #of build test is too long, so only one activated.
-        #([11,3,4,5,6], 'test_import_wallet.json', 'import-pwd',
+        # As usual, more test cases are preferable but time
+        # of build test is too long, so only one activated.
+        # ([11,3,4,5,6], 'test_import_wallet.json', 'import-pwd',
         # [(12,3),(100,99),(7, 40), (200, 201), (10,0)]
         # ),
         ([1, 3, 0, 2, 9], 'test_import_wallet.json', 'import-pwd',
@@ -227,16 +229,16 @@ def test_wallet_sync_from_scratch(setup_wallets, wallet_structure, wallet_file,
         wallet.index = []
         for i in range(5):
             wallet.index.append([0, 0])
-        #will call with fast=False but index_cache exists; should use slow-sync
+        # will call with fast=False but index_cache exists; should use slow-sync
         sync_wallet(wallet)
         sync_count += 1
-        #avoid infinite loop
+        # avoid infinite loop
         assert sync_count < 10
         log.debug("Tried " + str(sync_count) + " times")
-    #after #586 we expect to ALWAYS succeed within 2 rounds
+    # after #586 we expect to ALWAYS succeed within 2 rounds
     assert sync_count <= 2
-    #for each external branch, the new index may be higher than
-    #the original index_cache if there was a higher used address
+    # for each external branch, the new index may be higher than
+    # the original index_cache if there was a higher used address
     expected_wallet_index = []
     for i, val in enumerate(wallet_structure):
         if val > wallet.index_cache[i][0]:
@@ -269,7 +271,7 @@ def test_core_wallet_no_sync(setup_wallets):
     """Ensure BitcoinCoreWallet sync attempt does nothing
     """
     wallet = BitcoinCoreWallet("")
-    #this will not trigger sync due to absence of non-zero index_cache, usually.
+    # this will not trigger sync due to absence of non-zero index_cache, usually.
     wallet.index_cache = [[1, 1]]
     jm_single().bc_interface.wallet_synced = False
     jm_single().bc_interface.sync_wallet(wallet, fast=True)
@@ -289,10 +291,10 @@ def test_pushtx_errors(setup_wallets):
     """
     badtxhex = "aaaa"
     assert not jm_single().bc_interface.pushtx(badtxhex)
-    #Break the authenticated jsonrpc and try again
+    # Break the authenticated jsonrpc and try again
     jm_single().bc_interface.jsonRpc.port = 18333
     assert not jm_single().bc_interface.pushtx(t_raw_signed_tx)
-    #rebuild a valid jsonrpc inside the bci
+    # rebuild a valid jsonrpc inside the bci
     load_program_config()
 
 
@@ -307,7 +309,6 @@ def test_absurd_fee(setup_wallets):
 
 
 def test_abstract_wallet(setup_wallets):
-
     class DoNothingWallet(AbstractWallet):
         pass
 
@@ -316,7 +317,7 @@ def test_abstract_wallet(setup_wallets):
         if algo == "none":
             with pytest.raises(Exception) as e_info:
                 dnw = DoNothingWallet()
-            #also test if the config is blank
+            # also test if the config is blank
             jm_single().config = SafeConfigParser()
             dnw = DoNothingWallet()
             assert dnw.utxo_selector == select
@@ -331,6 +332,7 @@ def test_abstract_wallet(setup_wallets):
         dnw.add_new_utxos("b", "c")
         load_program_config()
 
+
 def check_bip39_case(vectors, language="english"):
     mnemo = Mnemonic(language)
     for v in vectors:
@@ -343,42 +345,53 @@ def check_bip39_case(vectors, language="english"):
         assert v[1] == code
         assert v[2] == seed
 
+
 """
 Sanity check of basic bip39 functionality for 12 words seed, copied from
 https://github.com/trezor/python-mnemonic/blob/master/test_mnemonic.py
 """
+
+
 def test_bip39_vectors(setup_wallets):
     with open(os.path.join(testdir, 'bip39vectors.json'), 'r') as f:
         vectors_full = json.load(f)
     vectors = vectors_full['english']
-    #default from-file cases use passphrase 'TREZOR'; TODO add other
-    #extensions, but note there is coverage of that in the below test
+    # default from-file cases use passphrase 'TREZOR'; TODO add other
+    # extensions, but note there is coverage of that in the below test
     for v in vectors:
         v.append("TREZOR")
-    #12 word seeds only
-    vectors = filter(lambda x: len(x[1].split())==12, vectors)
+    # 12 word seeds only
+    vectors = filter(lambda x: len(x[1].split()) == 12, vectors)
     check_bip39_case(vectors)
+
 
 @pytest.mark.parametrize(
     "pwd, me, valid", [
         ("asingleword", "1234aaaaaaaaaaaaaaaaa", True),
         ("a whole set of words", "a whole set of words", True),
         ("wordwithtrailingspaces   ", "A few words with trailing  ", True),
-        ("monkey", "verylongpasswordindeedxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz", True),
+        ("monkey",
+         "verylongpasswordindeedxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+         True),
         ("blablah", "invalidcontainsnonascii\xee", False)
     ])
 def test_create_bip39_with_me(setup_wallets, pwd, me, valid):
     def dummyDisplayWords(a, b):
         pass
+
     def getMnemonic():
         return ("legal winner thank year wave sausage worth useful legal winner thank yellow",
                 me)
+
     def getPassword():
         return pwd
+
     def getWalletFileName():
         return "bip39-test-wallet-name-from-callback.json"
+
     def promptMnemonicExtension():
         return me
+
     if os.path.exists(os.path.join("wallets", getWalletFileName())):
         os.remove(os.path.join("wallets", getWalletFileName()))
     success = wallet_generate_recover_bip39("generate",
@@ -390,24 +403,24 @@ def test_create_bip39_with_me(setup_wallets, pwd, me, valid):
                                                        getWalletFileName,
                                                        promptMnemonicExtension))
     if not valid:
-        #wgrb39 returns false for failed wallet creation case
+        # wgrb39 returns false for failed wallet creation case
         assert not success
         return
     assert success
-    #open the wallet file, and decrypt the encrypted mnemonic extension and check
-    #it's the one we intended.
+    # open the wallet file, and decrypt the encrypted mnemonic extension and check
+    # it's the one we intended.
     with open(os.path.join("wallets", getWalletFileName()), 'r') as f:
         walletdata = json.load(f)
     password_key = bitcoin.bin_dbl_sha256(getPassword())
     cleartext = decryptData(password_key,
                             walletdata['encrypted_mnemonic_extension'].decode('hex'))
     assert len(cleartext) >= 79
-    #throws if not len == 3
+    # throws if not len == 3
     padding, me2, checksum = cleartext.split('\xff')
     strippedme = me.strip()
     assert strippedme == me2
     assert checksum == bitcoin.dbl_sha256(strippedme)[:8]
-    #also test recovery from this combination of mnemonic + extension
+    # also test recovery from this combination of mnemonic + extension
     if os.path.exists(os.path.join("wallets", getWalletFileName())):
         os.remove(os.path.join("wallets", getWalletFileName()))
     success = wallet_generate_recover_bip39("recover", "wallets", "wallet.json",
@@ -421,8 +434,9 @@ def test_create_bip39_with_me(setup_wallets, pwd, me, valid):
         walletdata = json.load(f)
         password_key = bitcoin.bin_dbl_sha256(getPassword())
         cleartext = decryptData(password_key,
-                    walletdata['encrypted_entropy'].decode('hex')).encode('hex')
+                                walletdata['encrypted_entropy'].decode('hex')).encode('hex')
         assert cleartext == "7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f7f"
+
 
 def create_default_testnet_wallet():
     walletdir = "wallets"
@@ -433,11 +447,12 @@ def create_default_testnet_wallet():
     seed = "deadbeef"
     return (walletdir, pathtowallet, testwalletname,
             SegwitWallet(seed,
-                   None,
-                   5,
-                   6,
-                   extend_mixdepth=False,
-                   storepassword=False))
+                         None,
+                         5,
+                         6,
+                         extend_mixdepth=False,
+                         storepassword=False))
+
 
 @pytest.mark.parametrize(
     "includecache, wrongnet, storepwd, extendmd, pwdnumtries", [
@@ -463,7 +478,7 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
         addr3internal) == "089a7173314d29f99e02a37e36da517ce41537a317c83284db1f33dda0af0cc201"
     dummyaddr = "mvw1NazKDRbeNufFANqpYNAANafsMC2zVU"
     assert not wallet.get_key_from_addr(dummyaddr)
-    #Make a new Wallet(), and prepare a testnet wallet file for this wallet
+    # Make a new Wallet(), and prepare a testnet wallet file for this wallet
 
     password = "dummypassword"
     password_key = bitcoin.bin_dbl_sha256(password)
@@ -487,52 +502,52 @@ def test_wallet_create(setup_wallets, includecache, wrongnet, storepwd,
     if wrongnet:
         with pytest.raises(ValueError) as e_info:
             SegwitWallet(testwalletname,
-                   password,
-                   5,
-                   6,
-                   extend_mixdepth=extendmd,
-                   storepassword=storepwd)
+                         password,
+                         5,
+                         6,
+                         extend_mixdepth=extendmd,
+                         storepassword=storepwd)
         return
     from string import ascii_letters
     for i in range(
-            pwdnumtries):  #multiple tries to ensure pkcs7 error is triggered
+            pwdnumtries):  # multiple tries to ensure pkcs7 error is triggered
         with pytest.raises(WalletError) as e_info:
             wrongpwd = "".join([random.choice(ascii_letters) for _ in range(20)
-                               ])
+                                ])
             SegwitWallet(testwalletname,
-                   wrongpwd,
-                   5,
-                   6,
-                   extend_mixdepth=extendmd,
-                   storepassword=storepwd)
+                         wrongpwd,
+                         5,
+                         6,
+                         extend_mixdepth=extendmd,
+                         storepassword=storepwd)
 
     with pytest.raises(WalletError) as e_info:
         SegwitWallet(testwalletname,
-               None,
-               5,
-               6,
-               extend_mixdepth=extendmd,
-               storepassword=storepwd)
+                     None,
+                     5,
+                     6,
+                     extend_mixdepth=extendmd,
+                     storepassword=storepwd)
     newwallet = SegwitWallet(testwalletname,
-                       password,
-                       5,
-                       6,
-                       extend_mixdepth=extendmd,
-                       storepassword=storepwd)
+                             password,
+                             5,
+                             6,
+                             extend_mixdepth=extendmd,
+                             storepassword=storepwd)
     assert newwallet.seed == wallet.wallet_data_to_seed(seed)
-    #now we have a functional wallet + file, update the cache; first try
-    #with failed paths
+    # now we have a functional wallet + file, update the cache; first try
+    # with failed paths
     oldpath = newwallet.path
     newwallet.path = None
     newwallet.update_cache_index()
     newwallet.path = "fake-path-definitely-doesnt-exist"
     newwallet.update_cache_index()
-    #with real path
+    # with real path
     newwallet.path = oldpath
     newwallet.index = [[1, 1]] * 5
     newwallet.update_cache_index()
 
-    #ensure we cannot find a mainnet wallet from seed
+    # ensure we cannot find a mainnet wallet from seed
     seed = "goodbye"
     jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
     with pytest.raises(IOError) as e_info:
@@ -547,8 +562,8 @@ def test_imported_privkey(setup_wallets):
         password = "dummypassword"
         password_key = bitcoin.bin_dbl_sha256(password)
         wifprivkey = bitcoin.wif_compressed_privkey(privkey, get_p2pk_vbyte())
-        #mainnet is "L1RrrnXkcKut5DEMwtDthjwRcTTwED36thyL1DebVrKuwvohjMNi"
-        #to verify use from_wif_privkey and privkey_to_address
+        # mainnet is "L1RrrnXkcKut5DEMwtDthjwRcTTwED36thyL1DebVrKuwvohjMNi"
+        # to verify use from_wif_privkey and privkey_to_address
         if n == "mainnet":
             iaddr = "1LDsjB43N2NAQ1Vbc2xyHca4iBBciN8iwC"
         else:
@@ -585,7 +600,7 @@ def test_imported_privkey(setup_wallets):
                 continue
             newwallet = Wallet(testwalletname, password, 5, 6, False, False)
             assert newwallet.seed == seed
-            #test accessing the key from the addr
+            # test accessing the key from the addr
             assert newwallet.get_key_from_addr(
                 iaddr) == bitcoin.from_wif_privkey(wifprivkey,
                                                    vbyte=get_p2pk_vbyte())
@@ -593,18 +608,19 @@ def test_imported_privkey(setup_wallets):
                 jm_single().bc_interface.sync_wallet(newwallet)
     load_program_config()
 
+
 def test_add_remove_utxos(setup_wallets):
-    #Make a fake wallet and inject and then remove fake utxos
+    # Make a fake wallet and inject and then remove fake utxos
     walletdir, pathtowallet, testwalletname, wallet = create_default_testnet_wallet()
     assert wallet.get_addr(2, 0, 5) == "2NBUxbEQrGPKrYCV6d4o7Y4AtJ34Uy6gZZg"
     wallet.addr_cache["2NBUxbEQrGPKrYCV6d4o7Y4AtJ34Uy6gZZg"] = (2, 0, 5)
-    #'a914c80b3c03b96c0da5ef983942d9e541cb788aed8787'
-    #these calls automatically update the addr_cache:
+    # 'a914c80b3c03b96c0da5ef983942d9e541cb788aed8787'
+    # these calls automatically update the addr_cache:
     assert wallet.get_new_addr(1, 0) == "2Mz817RE6zqywgkG2h9cATUoiXwnFSxufk2"
-    #a9144b6b3836a1708fd38d4728e41b86e69d5bb15d5187
+    # a9144b6b3836a1708fd38d4728e41b86e69d5bb15d5187
     assert wallet.get_external_addr(3) == "2N3gn65WXEzbLnjk5FLDZPc1pL6ebvZAmoA"
-    #a914728673d95ceafa892ed82f9cc23c8bf1700b6c6187
-    #using the above pubkey scripts:
+    # a914728673d95ceafa892ed82f9cc23c8bf1700b6c6187
+    # using the above pubkey scripts:
     faketxforwallet = {'outs': [
         {'script': 'a914c80b3c03b96c0da5ef983942d9e541cb788aed8787',
          'value': 110000000},
@@ -613,29 +629,29 @@ def test_add_remove_utxos(setup_wallets):
         {'script': 'a914728673d95ceafa892ed82f9cc23c8bf1700b6c6187',
          'value': 90021000},
         {'script':
-         '76a9145ece2dac945c8ff5b2b6635360ca0478ade305d488ac',  #not ours
+             '76a9145ece2dac945c8ff5b2b6635360ca0478ade305d488ac',  # not ours
          'value': 110000000}
     ],
-                       'version': 1}
+        'version': 1}
     wallet.add_new_utxos(faketxforwallet, "aa" * 32)
     faketxforspending = {'ins': [
         {'outpoint': {'hash': 'aa' * 32,
                       'index': 0}}, {'outpoint': {'hash': 'aa' * 32,
                                                   'index': 1}}, {'outpoint':
-                                                                 {'hash':
-                                                                  'aa' * 32,
-                                                                  'index': 2}},
+                                                                     {'hash':
+                                                                          'aa' * 32,
+                                                                      'index': 2}},
         {'outpoint':
-         {'hash':
-          '3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c',
-          'index': 1},
+             {'hash':
+                  '3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c',
+              'index': 1},
          'script': '',
          'sequence': 4294967295}
     ]}
     wallet.select_utxos(1, 100000)
     with pytest.raises(Exception) as e_info:
         wallet.select_utxos(0, 100000)
-    #ensure get_utxos_by_mixdepth can handle utxos outside of maxmixdepth
+    # ensure get_utxos_by_mixdepth can handle utxos outside of maxmixdepth
     wallet.max_mix_depth = 2
     mul = wallet.get_utxos_by_mixdepth()
     assert mul[3] != {}

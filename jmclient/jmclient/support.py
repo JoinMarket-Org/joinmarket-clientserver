@@ -36,9 +36,9 @@ def rand_exp_array(lamda, n):
 def rand_pow_array(power, n):
     # rather crude in that uses a uniform sample which is a multiple of 1e-4
     # for basis of formula, see: http://mathworld.wolfram.com/RandomNumber.html
-    return [y**(1.0 / power)
+    return [y ** (1.0 / power)
             for y in [x * 0.0001 for x in random.sample(
-                xrange(10000), n)]]
+            xrange(10000), n)]]
 
 
 def rand_weighted_choice(n, p_arr):
@@ -56,6 +56,7 @@ def rand_weighted_choice(n, p_arr):
     cum_pr = [sum(p_arr[:i + 1]) for i in xrange(len(p_arr))]
     r = random.random()
     return sorted(cum_pr + [r]).index(r)
+
 
 # End random functions
 
@@ -76,6 +77,7 @@ def select(unspent, value):
     if tv < value:
         raise Exception("Not enough funds")
     return low[:i]
+
 
 def select_gradual(unspent, value):
     """
@@ -120,14 +122,14 @@ def select_greedy(unspent, value):
             picked += [utxo]  # definitely need this utxo
             break  # proceed to dilution
         cursor += 1
-    for utxo in utxos[max(cursor-1, 0)::-1]:  # dilution loop
+    for utxo in utxos[max(cursor - 1, 0)::-1]:  # dilution loop
         value += key(utxo)  # see if we can skip this one
         if value > 0:  # no, that drops us below the target
             picked += [utxo]  # so we need this one too
             value -= key(utxo)  # 'backtrack' the counter
     if len(picked) > 0:
         if len(picked) < len(utxos) or sum(
-            key(u) for u in picked) >= original_value:
+                key(u) for u in picked) >= original_value:
             return picked
     raise Exception('Not enough funds')  # if all else fails, we do too
 
@@ -209,15 +211,15 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
                   pick=False, allowed_types=["swreloffer", "swabsoffer"]):
     if ignored_makers is None:
         ignored_makers = []
-    #Filter ignored makers and inappropriate amounts
+    # Filter ignored makers and inappropriate amounts
     orders = [o for o in offers if o['counterparty'] not in ignored_makers]
     orders = [o for o in orders if o['minsize'] < cj_amount]
     orders = [o for o in orders if o['maxsize'] > cj_amount]
-    #Filter those not using wished-for offertypes
+    # Filter those not using wished-for offertypes
     orders = [o for o in orders if o["ordertype"] in allowed_types]
     orders_fees = [(
         o, calc_cj_fee(o['ordertype'], o['cjfee'], cj_amount) - o['txfee'])
-                   for o in orders]
+        for o in orders]
 
     counterparties = set([o['counterparty'] for o in orders])
     if n > len(counterparties):
@@ -240,9 +242,9 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
                                  reverse=True)).values(),
             key=feekey)
     else:
-        orders_fees = sorted(orders_fees, key=feekey)  #pragma: no cover
+        orders_fees = sorted(orders_fees, key=feekey)  # pragma: no cover
     log.debug('considered orders = \n' + '\n'.join([str(o) for o in orders_fees
-                                                   ]))
+                                                    ]))
     total_cj_fee = 0
     chosen_orders = []
     for i in range(n):
@@ -289,10 +291,10 @@ def choose_sweep_orders(offers,
                 sumabsfee += int(order['cjfee'])
             elif order['ordertype'] in ['swreloffer', 'reloffer']:
                 sumrelfee += Decimal(order['cjfee'])
-            #this is unreachable since calc_cj_fee must already have been called
-            else: #pragma: no cover
+            # this is unreachable since calc_cj_fee must already have been called
+            else:  # pragma: no cover
                 raise RuntimeError('unknown order type: {}'.format(order[
-                    'ordertype']))
+                                                                       'ordertype']))
 
         my_txfee = max(total_txfee - sumtxfee_contribution, 0)
         cjamount = (total_input_value - my_txfee - sumabsfee) / (1 + sumrelfee)
@@ -302,7 +304,7 @@ def choose_sweep_orders(offers,
     log.debug('choosing sweep orders for total_input_value = ' + str(
         total_input_value) + ' n=' + str(n))
     offers = [o for o in offers if o["ordertype"] in allowed_types]
-    #Filter ignored makers and inappropriate amounts
+    # Filter ignored makers and inappropriate amounts
     offers = [o for o in offers if o['counterparty'] not in ignored_makers]
     offers = [o for o in offers if o['minsize'] < total_input_value]
 
@@ -340,4 +342,3 @@ def choose_sweep_orders(offers,
     result = dict([(o['counterparty'], o) for o in chosen_orders])
     log.debug('cj amount = ' + str(cj_amount))
     return result, cj_amount, total_fee
-

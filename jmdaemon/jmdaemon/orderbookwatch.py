@@ -13,6 +13,7 @@ from decimal import InvalidOperation, Decimal
 
 from jmdaemon.protocol import JM_VERSION
 from jmbase.support import get_log, joinmarket_alert, DUST_THRESHOLD
+
 log = get_log()
 
 
@@ -72,7 +73,7 @@ class OrderbookWatch(object):
                 ("DELETE FROM orderbook WHERE counterparty=? "
                  "AND oid=?;"), (counterparty, oid))
             # now validate the remaining fields
-            if int(minsize) < 0 or int(minsize) > 21 * 10**14:
+            if int(minsize) < 0 or int(minsize) > 21 * 10 ** 14:
                 log.debug("Got invalid minsize: {} from {}".format(
                     minsize, counterparty))
                 return
@@ -81,7 +82,7 @@ class OrderbookWatch(object):
                 log.debug("{} has dusty minsize, capping at {}".format(
                     counterparty, minsize))
                 # do not pass return, go not drop this otherwise fine offer
-            if int(maxsize) < 0 or int(maxsize) > 21 * 10**14:
+            if int(maxsize) < 0 or int(maxsize) > 21 * 10 ** 14:
                 log.debug("Got invalid maxsize: " + maxsize + " from " +
                           counterparty)
                 return
@@ -90,7 +91,6 @@ class OrderbookWatch(object):
                                                                  counterparty))
                 return
             if int(minsize) > int(maxsize):
-
                 fmt = ("Got minsize bigger than maxsize: {} - {} "
                        "from {}").format
                 log.debug(fmt(minsize, maxsize, counterparty))

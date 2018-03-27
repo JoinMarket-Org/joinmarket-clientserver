@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import
+
 '''test schedule module.'''
 
 import pytest
@@ -28,7 +29,7 @@ invalids3 = """#sample for testing
 0, notinteger, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0
 """
 
-#invalid address
+# invalid address
 invalids4 = """#sample for testing
 1, 110000000, 3, INTERNAL, 0, 0
 0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qq, 0, 0
@@ -44,14 +45,16 @@ def test_get_schedule():
         with open(tsf, "wb") as f:
             f.write(s)
         result = get_schedule(tsf)
-        if s== valids:
+        if s == valids:
             assert result[0]
-            assert len(result[1])==2
+            assert len(result[1]) == 2
         else:
             assert not result[0]
 
+
 class Options(object):
     pass
+
 
 def get_options():
     options = Options()
@@ -72,16 +75,17 @@ def get_options():
     options = vars(options)
     return options
 
+
 @pytest.mark.parametrize(
     "destaddrs, txcparams, mixdepthcount",
     [
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (18,3), 4),
-        #intended to trigger txcount=1 bump to 2
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (18, 3), 4),
+        # intended to trigger txcount=1 bump to 2
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,2), 80),
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3, 2), 80),
     ])
 def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
     options = get_options()
@@ -91,32 +95,33 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
     dests = [x[3] for x in schedule]
     assert set(destaddrs).issubset(set(dests))
 
+
 @pytest.mark.parametrize(
     "destaddrs, txcparams, mixdepthcount, lastcompleted, makercountrange",
     [
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (6,0), 5, 17, (6,0)),
-        #edge case: very first transaction
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (6, 0), 5, 17, (6, 0)),
+        # edge case: very first transaction
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,0), 4, -1, (6,0)),
-        #edge case: hit minimum_makers limit
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3, 0), 4, -1, (6, 0)),
+        # edge case: hit minimum_makers limit
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,0), 4, -1, (2,0)),
-        #edge case: it's a sweep
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3, 0), 4, -1, (2, 0)),
+        # edge case: it's a sweep
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,0), 4, 1, (5,0)),
-        #mid-run case in 2nd mixdepth
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3, 0), 4, 1, (5, 0)),
+        # mid-run case in 2nd mixdepth
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (6,0), 4, 7, (5,0)),
-        #sanity check, typical parameters
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (6, 0), 4, 7, (5, 0)),
+        # sanity check, typical parameters
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (4,1), 4, 6, (6,1)),
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (4, 1), 4, 6, (6, 1)),
     ])
 def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
                       makercountrange):
@@ -129,12 +134,12 @@ def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
     dests = [x[3] for x in schedule]
     assert set(destaddrs).issubset(set(dests))
     new_schedule = tweak_tumble_schedule(options, schedule, lastcompleted)
-    #sanity check: each amount fraction list should add up to near 1.0,
-    #so some is left over for sweep
+    # sanity check: each amount fraction list should add up to near 1.0,
+    # so some is left over for sweep
     for i in range(mixdepthcount):
         entries = [x for x in new_schedule if x[0] == i]
         total_frac_for_mixdepth = sum([x[1] for x in entries])
-        #TODO spurious failure is possible here, not an ideal check
+        # TODO spurious failure is possible here, not an ideal check
         print('got total frac for mixdepth: ', str(total_frac_for_mixdepth))
         assert total_frac_for_mixdepth < 0.999
     from pprint import pformat

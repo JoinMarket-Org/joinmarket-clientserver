@@ -2,13 +2,15 @@ import jmbitcoin as btc
 import json
 import pytest
 import os
+
 testdir = os.path.dirname(os.path.realpath(__file__))
+
 
 def validate_address(addr, nettype):
     """A mock of jmclient.validate_address
     """
     BTC_P2PK_VBYTE = {"mainnet": 0x00, "testnet": 0x6f}
-    BTC_P2SH_VBYTE = {"mainnet": 0x05, "testnet": 0xc4}    
+    BTC_P2SH_VBYTE = {"mainnet": 0x05, "testnet": 0xc4}
     try:
         ver = btc.get_version_byte(addr)
     except AssertionError:
@@ -22,6 +24,7 @@ def validate_address(addr, nettype):
         return False, "Address has correct checksum but wrong length."
     return True, 'address validated'
 
+
 @pytest.mark.parametrize(
     "net",
     [
@@ -31,8 +34,8 @@ def validate_address(addr, nettype):
         ("testnet")
     ])
 def test_b58_invalid_addresses(net):
-    #none of these are valid as any kind of key or address
-    with open(os.path.join(testdir,"base58_keys_invalid.json"), "r") as f:
+    # none of these are valid as any kind of key or address
+    with open(os.path.join(testdir, "base58_keys_invalid.json"), "r") as f:
         json_data = f.read()
     invalid_key_list = json.loads(json_data)
     for k in invalid_key_list:
@@ -40,8 +43,9 @@ def test_b58_invalid_addresses(net):
         res, message = validate_address(bad_key, nettype=net)
         assert res == False, "Incorrectly validated address: " + bad_key + " with message: " + message
 
+
 def test_b58_valid_addresses():
-    with open(os.path.join(testdir,"base58_keys_valid.json"), "r") as f:
+    with open(os.path.join(testdir, "base58_keys_valid.json"), "r") as f:
         json_data = f.read()
     valid_keys_list = json.loads(json_data)
     for a in valid_keys_list:
@@ -51,8 +55,7 @@ def test_b58_valid_addresses():
                 net = "testnet"
             else:
                 net = "mainnet"
-            #if using py.test -s ; sanity check to see what's actually being tested
+            # if using py.test -s ; sanity check to see what's actually being tested
             print 'testing this address: ' + addr
             res, message = validate_address(addr, net)
             assert res == True, "Incorrectly failed to validate address: " + addr + " with message: " + message
-

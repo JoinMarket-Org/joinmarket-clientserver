@@ -1,11 +1,12 @@
 try:
     from cStringIO import StringIO
-except ImportError: #pragma: no cover
-    from StringIO import StringIO #pragma: no cover
+except ImportError:  # pragma: no cover
+    from StringIO import StringIO  # pragma: no cover
 from itertools import count
 from twisted.protocols import amp
 
 CHUNK_MAX = 0xffff
+
 
 class BigString(amp.Argument):
     """
@@ -18,6 +19,7 @@ class BigString(amp.Argument):
     number of key/value pairs that are given automatic key
     names by prefixing this Argument's key name to a counter.
     """
+
     def fromBox(self, name, strings, objects, proto):
         value = StringIO()
         value.write(strings.get(name))

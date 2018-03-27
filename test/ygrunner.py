@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import, print_function
+
 '''Creates wallets and yield generators in regtest. 
    Provides seed for joinmarket-qt test.
    This should be run via pytest, even though
@@ -22,19 +23,23 @@ from jmclient import (YieldGeneratorBasic, ygmain, load_program_config,
                       jm_single, sync_wallet, JMClientProtocolFactory,
                       start_reactor)
 
+
 class MaliciousYieldGenerator(YieldGeneratorBasic):
     """Overrides, randomly, some maker functions
     to prevent taker continuing successfully (unless
     they can complete-with-subset).
     """
+
     def set_maliciousness(self, frac):
         self.mfrac = frac
+
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
         if random.randint(1, 100) < self.mfrac:
             print("Counterparty commitment rejected maliciously")
             return (False,)
         return super(MaliciousYieldGenerator, self).on_auth_received(nick,
-                                    offer, commitment, cr, amount, kphex)
+                                                                     offer, commitment, cr, amount, kphex)
+
     def on_tx_received(self, nick, txhex, offerinfo):
         if random.randint(1, 100) < self.mfrac:
             print("Counterparty tx rejected maliciously")
@@ -49,7 +54,7 @@ class MaliciousYieldGenerator(YieldGeneratorBasic):
         # 1sp 3yg, honest makers
         (3, [[1, 3, 0, 0, 0]] * 4, 2, 0),
         # 1sp 3yg, malicious makers reject on auth and on tx 30% of time
-        #(4, [[1, 3, 0, 0, 0]] * 5, 2, 30),
+        # (4, [[1, 3, 0, 0, 0]] * 5, 2, 30),
     ])
 def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
                    malicious):
@@ -60,10 +65,10 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     wallets = make_wallets(num_ygs + 1,
                            wallet_structures=wallet_structures,
                            mean_amt=mean_amt)
-    #the sendpayment bot uses the last wallet in the list
+    # the sendpayment bot uses the last wallet in the list
     wallet = wallets[num_ygs]['wallet']
     print("Seed : " + wallets[num_ygs]['seed'])
-    #useful to see the utxos on screen sometimes
+    # useful to see the utxos on screen sometimes
     sync_wallet(wallet, fast=True)
     print(wallet.unspent)
     txfee = 1000
@@ -73,7 +78,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     minsize = 100000
     ygclass = MaliciousYieldGenerator if malicious else YieldGeneratorBasic
     for i in range(num_ygs):
-        
+
         cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize]
         sync_wallet(wallets[i]["wallet"], fast=True)
         yg = ygclass(wallets[i]["wallet"], cfg)
@@ -86,6 +91,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
         start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
                       clientfactory, daemon=daemon, rs=rs)
+
 
 @pytest.fixture(scope="module")
 def setup_ygrunner():

@@ -5,7 +5,8 @@ import sys
 import time
 import platform
 from jmbase.support import get_log
-if platform.system() == "Windows": #pragma: no cover
+
+if platform.system() == "Windows":  # pragma: no cover
     import ssl
     import urllib2
 else:
@@ -16,9 +17,10 @@ else:
 
 log = get_log()
 
+
 # Makes a request to a given URL (first arg) and optional params (second arg)
 def make_request(*args):
-    if platform.system() == "Windows": #pragma: no cover
+    if platform.system() == "Windows":  # pragma: no cover
         sctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
         sh = urllib2.HTTPSHandler(debuglevel=0, context=sctx)
         opener = urllib2.build_opener(sh)
@@ -35,22 +37,25 @@ def make_request(*args):
             p = e
         raise Exception(p)
 
+
 def make_request_blockr(*args):
     counter = 0
     while True:
         data = json.loads(make_request(*args))
         if data['status'] == 'error' and data['code'] == 429:
             log.debug('Blockr service error: ' + data['message'])
-            time.sleep(min(60, 2**counter / 2.))
+            time.sleep(min(60, 2 ** counter / 2.))
             counter += 1
             continue
         return data
+
 
 # Pushes a transaction to the network using https://blockchain.info/pushtx
 def bci_pushtx(tx):
     if not re.match('^[0-9a-fA-F]*$', tx):
         tx = tx.encode('hex')
     return make_request('https://blockchain.info/pushtx', 'tx=' + tx)
+
 
 def blockr_pushtx(tx, network='btc'):
     if network == 'testnet':
@@ -64,10 +69,3 @@ def blockr_pushtx(tx, network='btc'):
     if not re.match('^[0-9a-fA-F]*$', tx):
         tx = tx.encode('hex')
     return make_request(blockr_url, '{"hex":"%s"}' % tx)
-
-
-
-
-
-
-

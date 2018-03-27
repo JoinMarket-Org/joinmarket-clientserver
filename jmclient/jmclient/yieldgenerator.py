@@ -16,6 +16,7 @@ jlog = get_log()
 
 MAX_MIX_DEPTH = 5
 
+
 class YieldGenerator(Maker):
     """A maker for the purposes of generating a yield from held
     bitcoins, offering from the maximum mixdepth and trying to offer
@@ -68,15 +69,17 @@ class YieldGenerator(Maker):
         a transaction into a block (e.g. announce orders)
         """
 
+
 class YieldGeneratorBasic(YieldGenerator):
     """A simplest possible instantiation of a yieldgenerator.
     It will often (but not always) reannounce orders after transactions,
     thus is somewhat suboptimal in giving more information to spies.
     """
+
     def __init__(self, wallet, offerconfig):
         self.txfee, self.cjfee_a, self.cjfee_r, self.ordertype, self.minsize \
-             = offerconfig
-        super(YieldGeneratorBasic,self).__init__(wallet)
+            = offerconfig
+        super(YieldGeneratorBasic, self).__init__(wallet)
 
     def create_my_orders(self):
         mix_balance = self.wallet.get_balance_by_mixdepth(verbose=False)
@@ -89,10 +92,10 @@ class YieldGeneratorBasic(YieldGenerator):
         f = '0'
         if self.ordertype == 'swreloffer':
             f = self.cjfee_r
-            #minimum size bumped if necessary such that you always profit
-            #least 50% of the miner fee
+            # minimum size bumped if necessary such that you always profit
+            # least 50% of the miner fee
             self.minsize = max(int(1.5 * self.txfee / float(self.cjfee_r)),
-                self.minsize)
+                               self.minsize)
         elif self.ordertype == 'swabsoffer':
             f = str(self.txfee + self.cjfee_a)
         order = {'oid': 0,
@@ -139,7 +142,7 @@ class YieldGeneratorBasic(YieldGenerator):
         change_value = my_total_in - amount - offer["txfee"] + real_cjfee
         if change_value <= jm_single().DUST_THRESHOLD:
             jlog.debug(('change value={} below dust threshold, '
-                       'finding new utxos').format(change_value))
+                        'finding new utxos').format(change_value))
             try:
                 utxos = self.wallet.select_utxos(
                     mixdepth, total_amount + jm_single().DUST_THRESHOLD)
@@ -175,9 +178,10 @@ class YieldGeneratorBasic(YieldGenerator):
                                  offer["offer"]["cjfee"], offer["amount"])
         self.log_statement([timestamp, offer["amount"], len(
             offer["utxos"]), sum([av['value'] for av in offer["utxos"].values(
-            )]), real_cjfee, real_cjfee - offer["offer"]["txfee"], round(
-                confirm_time / 60.0, 2), ''])
+        )]), real_cjfee, real_cjfee - offer["offer"]["txfee"], round(
+            confirm_time / 60.0, 2), ''])
         return self.on_tx_unconfirmed(offer, txid, None)
+
 
 def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffer',
            nickserv_password='', minsize=100000, gaplimit=6):
@@ -201,13 +205,13 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
                       help='minimum coinjoin size in satoshis')
     parser.add_option('-g', '--gap-limit', action='store', type="int",
                       dest='gaplimit', default=gaplimit,
-                      help='gap limit for wallet, default='+str(gaplimit))
+                      help='gap limit for wallet, default=' + str(gaplimit))
     parser.add_option('--fast',
                       action='store_true',
                       dest='fastsync',
                       default=False,
                       help=('choose to do fast wallet sync, only for Core and '
-                      'only for previously synced wallet'))
+                            'only for previously synced wallet'))
     (options, args) = parser.parse_args()
     if len(args) < 1:
         parser.error('Needs a wallet')
@@ -219,14 +223,14 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
         if options.cjfee != '':
             cjfee_r = options.cjfee
         # minimum size is such that you always net profit at least 20%
-        #of the miner fee
+        # of the miner fee
         minsize = max(int(1.2 * txfee / float(cjfee_r)), options.minsize)
     elif ordertype == 'swabsoffer':
         if options.cjfee != '':
             cjfee_a = int(options.cjfee)
         minsize = options.minsize
     else:
-        parser.error('You specified an incorrect offer type which ' +\
+        parser.error('You specified an incorrect offer type which ' + \
                      'can be either swreloffer or swabsoffer')
         sys.exit(0)
     nickserv_password = options.password
@@ -263,6 +267,5 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
         startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
-                      jm_single().config.getint("DAEMON", "daemon_port"),
-                      clientfactory, daemon=daemon)
-
+                  jm_single().config.getint("DAEMON", "daemon_port"),
+                  clientfactory, daemon=daemon)

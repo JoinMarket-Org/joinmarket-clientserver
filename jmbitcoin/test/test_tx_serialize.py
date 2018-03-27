@@ -3,9 +3,11 @@ import jmbitcoin as btc
 import pytest
 import json
 import os
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 
-#TODO: fold these examples into the tx_valid.json file
+
+# TODO: fold these examples into the tx_valid.json file
 @pytest.mark.parametrize(
     "tx_type, tx_id, tx_hex",
     [("simple-tx",
@@ -200,6 +202,7 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 def test_serialization_roundtrip(tx_type, tx_id, tx_hex):
     assert tx_hex == btc.serialize(btc.deserialize(tx_hex))
 
+
 @pytest.mark.parametrize(
     "ins, outs, txtype, valid",
     [
@@ -207,26 +210,26 @@ def test_serialization_roundtrip(tx_type, tx_id, tx_hex):
         (4, 3, "p2sh", False),
     ])
 def test_estimate_tx_size(ins, outs, txtype, valid):
-    #TODO: this function should throw on invalid number of ins or outs
+    # TODO: this function should throw on invalid number of ins or outs
     if valid:
-        assert btc.estimate_tx_size(ins, outs, txtype)== 10 + 147*ins + 34*outs
+        assert btc.estimate_tx_size(ins, outs, txtype) == 10 + 147 * ins + 34 * outs
     else:
         with pytest.raises(NotImplementedError) as e_info:
             btc.estimate_tx_size(ins, outs, txtype)
 
-        
+
 def test_serialization_roundtrip2():
-    #Data extracted from:
-    #https://github.com/bitcoin/bitcoin/blob/master/src/test/data/tx_valid.json
-    #These are a variety of rather strange edge case transactions, which are
-    #still valid.
-    #Note that of course this is only a serialization, not validity test, so
-    #only currently of very limited significance
-    with open(os.path.join(testdir,"tx_valid.json"), "r") as f:
+    # Data extracted from:
+    # https://github.com/bitcoin/bitcoin/blob/master/src/test/data/tx_valid.json
+    # These are a variety of rather strange edge case transactions, which are
+    # still valid.
+    # Note that of course this is only a serialization, not validity test, so
+    # only currently of very limited significance
+    with open(os.path.join(testdir, "tx_valid.json"), "r") as f:
         json_data = f.read()
     valid_txs = json.loads(json_data)
     for j in valid_txs:
-        #ignore comment entries
+        # ignore comment entries
         if len(j) < 2:
             continue
         print j

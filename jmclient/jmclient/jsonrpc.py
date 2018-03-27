@@ -82,7 +82,7 @@ class JsonRpc(object):
                 if response.status == 401:
                     self.conn.close()
                     raise JsonRpcConnectionError(
-                            "authentication for JSON-RPC failed")
+                        "authentication for JSON-RPC failed")
 
                 # All of the codes below are 'fine' from a JSON-RPC point of view.
                 if response.status not in [200, 404, 500]:
@@ -115,17 +115,17 @@ class JsonRpc(object):
         self.queryId += 1
 
         request = {"method": method, "params": params, "id": currentId}
-        #query can fail from keepalive timeout; keep retrying if it does, up
-        #to a reasonable limit, then raise (failure to access blockchain
-        #is a critical failure). Note that a real failure to connect (e.g.
-        #wrong port) is raised in queryHTTP directly.
+        # query can fail from keepalive timeout; keep retrying if it does, up
+        # to a reasonable limit, then raise (failure to access blockchain
+        # is a critical failure). Note that a real failure to connect (e.g.
+        # wrong port) is raised in queryHTTP directly.
         response_received = False
         for i in range(100):
             response = self.queryHTTP(request)
             if response != "CONNFAILURE":
                 response_received = True
                 break
-            #Failure means keepalive timed out, just make a new one
+            # Failure means keepalive timed out, just make a new one
             self.conn = httplib.HTTPConnection(self.host, self.port)
         if not response_received:
             raise JsonRpcConnectionError("Unable to connect over RPC")

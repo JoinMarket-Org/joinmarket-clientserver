@@ -4,6 +4,7 @@ import copy
 from pprint import pformat
 from jmclient import (validate_address, rand_exp_array,
                       rand_norm_array, rand_pow_array, jm_single)
+
 """Utility functions for dealing with Taker schedules.
 
 - get_schedule(filename):
@@ -15,6 +16,7 @@ from jmclient import (validate_address, rand_exp_array,
     make alterations to the remaining entries in a mixdepth to maximize
     the chance of success on re-trying
 """
+
 
 def get_schedule(filename):
     with open(filename, "rb") as f:
@@ -30,8 +32,8 @@ def get_schedule(filename):
                 return (False, "Failed to parse schedule line: " + sl)
             try:
                 mixdepth = int(mixdepth)
-                #TODO this isn't the right way, but floats must be allowed
-                #for any persisted tumbler-style schedule
+                # TODO this isn't the right way, but floats must be allowed
+                # for any persisted tumbler-style schedule
                 if "." in amount:
                     amount = float(amount)
                 else:
@@ -52,6 +54,7 @@ def get_schedule(filename):
                              waittime, completed])
     return (True, schedule)
 
+
 def get_amount_fractions(power, count):
     """Get 'count' fractions following power law distn according to
     parameter 'power'
@@ -59,6 +62,7 @@ def get_amount_fractions(power, count):
     amount_fractions = rand_pow_array(power, count)
     amount_fractions = [1.0 - x for x in amount_fractions]
     return [x / sum(amount_fractions) for x in amount_fractions]
+
 
 def get_tumble_schedule(options, destaddrs):
     """for the general intent and design of the tumbler algo, see the docs in
@@ -71,7 +75,8 @@ def get_tumble_schedule(options, destaddrs):
     and zero as sweep (as before).
     This is a modified version of tumbler.py/generate_tumbler_tx()
     """
-    #if options['mixdepthsrc'] != 0:
+
+    # if options['mixdepthsrc'] != 0:
     #    raise NotImplementedError("Non-zero mixdepth source not supported; "
     #                              "restart the tumbler with --restart instead")
 
@@ -85,7 +90,7 @@ def get_tumble_schedule(options, destaddrs):
     for m, txcount in enumerate(txcounts):
         if options['mixdepthcount'] - options['addrcount'] <= m and m < \
                 options['mixdepthcount'] - 1:
-            #these mixdepths send to a destination address, so their
+            # these mixdepths send to a destination address, so their
             # amount_fraction cant be 1.0, some coins must be left over
             if txcount == 1:
                 txcount = 2
@@ -106,14 +111,14 @@ def get_tumble_schedule(options, destaddrs):
                   'makercount': makercount,
                   'destination': 'INTERNAL'}
             tx_list.append(tx)
-        #reset the final amt_frac to zero, as it's the last one for this mixdepth:
+        # reset the final amt_frac to zero, as it's the last one for this mixdepth:
         tx_list[-1]['amount_fraction'] = 0
 
     addrask = options['addrcount'] - len(destaddrs)
     external_dest_addrs = ['addrask'] * addrask + destaddrs
     for mix_offset in range(options['addrcount']):
         srcmix = (options['mixdepthsrc'] + options['mixdepthcount'] -
-            mix_offset - 1)
+                  mix_offset - 1)
         for tx in reversed(tx_list):
             if tx['srcmixdepth'] == srcmix:
                 tx['destination'] = external_dest_addrs[mix_offset]
@@ -131,8 +136,9 @@ def get_tumble_schedule(options, destaddrs):
     schedule = []
     for t in tx_list:
         schedule.append([t['srcmixdepth'], t['amount_fraction'],
-                  t['makercount'], t['destination'], t['wait'], 0])
+                         t['makercount'], t['destination'], t['wait'], 0])
     return schedule
+
 
 def tweak_tumble_schedule(options, schedule, last_completed, destaddrs=[]):
     """If a tx in a schedule failed for some reason, and we want
@@ -147,48 +153,49 @@ def tweak_tumble_schedule(options, schedule, last_completed, destaddrs=[]):
     altered = new_schedule[last_completed + 1]
     if not altered[3] in destaddrs:
         altered[3] = "INTERNAL"
-    #For sweeps, we'll try with a lower number of counterparties if we can.
-    #Note that this is usually counterproductive for non-sweeps, which fall
-    #back and so benefit in reliability from *higher* counterparty numbers.
+    # For sweeps, we'll try with a lower number of counterparties if we can.
+    # Note that this is usually counterproductive for non-sweeps, which fall
+    # back and so benefit in reliability from *higher* counterparty numbers.
     if altered[1] == 0:
         new_n_cp = altered[2] - 1
         if new_n_cp < jm_single().config.getint("POLICY", "minimum_makers"):
             new_n_cp = jm_single().config.getint("POLICY", "minimum_makers")
         altered[2] = new_n_cp
     if not altered[1] == 0:
-        #For non-sweeps, there's a fractional amount (tumbler).
-        #Increasing or decreasing the amount could improve the odds of success,
-        #since it depends on liquidity and minsizes, so we tweak in both
-        #directions randomly.
-        #Strategy:
-        #1. calculate the total percentage remaining in the mixdepth.
-        #2. calculate the number remaining incl. sweep.
-        #3. Re-use 'getamountfracs' algo for this reduced number, then scale it
-        #to the number remaining.
-        #4. As before, reset the final to '0' for sweep.
-        #find the number of entries remaining, not including the final sweep,
-        #for this mixdepth:
+        # For non-sweeps, there's a fractional amount (tumbler).
+        # Increasing or decreasing the amount could improve the odds of success,
+        # since it depends on liquidity and minsizes, so we tweak in both
+        # directions randomly.
+        # Strategy:
+        # 1. calculate the total percentage remaining in the mixdepth.
+        # 2. calculate the number remaining incl. sweep.
+        # 3. Re-use 'getamountfracs' algo for this reduced number, then scale it
+        # to the number remaining.
+        # 4. As before, reset the final to '0' for sweep.
+        # find the number of entries remaining, not including the final sweep,
+        # for this mixdepth:
 
-        #First get all sched entries for this mixdepth
+        # First get all sched entries for this mixdepth
         this_mixdepth_entries = [s for s in new_schedule if s[0] == altered[0]]
         already_done = this_mixdepth_entries[:this_mixdepth_entries.index(altered)]
         tobedone = this_mixdepth_entries[this_mixdepth_entries.index(altered):]
 
-        #find total frac left to be spent
+        # find total frac left to be spent
         alreadyspent = sum([x[1] for x in already_done])
         tobespent = 1.0 - alreadyspent
-        #power law for what's left:
+        # power law for what's left:
         new_fracs = get_amount_fractions(options['amountpower'], len(tobedone))
-        #rescale; the sum must be 'tobespent':
-        new_fracs = [x*tobespent for x in new_fracs]
-        #starting from the known 'last_completed+1' index, apply these new
-        #fractions, with 0 at the end for sweep
+        # rescale; the sum must be 'tobespent':
+        new_fracs = [x * tobespent for x in new_fracs]
+        # starting from the known 'last_completed+1' index, apply these new
+        # fractions, with 0 at the end for sweep
         for i, j in enumerate(range(
-            last_completed + 1, last_completed + 1 + len(tobedone))):
+                last_completed + 1, last_completed + 1 + len(tobedone))):
             new_schedule[j][1] = new_fracs[i]
-        #reset the sweep
+        # reset the sweep
         new_schedule[last_completed + 1 + len(tobedone) - 1][1] = 0
     return new_schedule
+
 
 def human_readable_schedule_entry(se, amt=None, destn=None):
     hrs = []
@@ -199,6 +206,7 @@ def human_readable_schedule_entry(se, amt=None, destn=None):
     hrs.append("to destination address: " + dest_info)
     hrs.append("after coinjoin with " + str(se[2]) + " counterparties.")
     return ", ".join(hrs)
+
 
 def schedule_to_text(schedule):
     return "\n".join([",".join([str(y) for y in x]) for x in schedule])

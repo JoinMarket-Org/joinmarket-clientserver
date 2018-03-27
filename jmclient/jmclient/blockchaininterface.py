@@ -23,22 +23,25 @@ from jmbase.support import get_log, chunks
 
 log = get_log()
 
+
 def is_index_ahead_of_cache(wallet, mix_depth, forchange):
     if mix_depth >= len(wallet.index_cache):
         return True
     return wallet.index[mix_depth][forchange] >= wallet.index_cache[mix_depth][
         forchange]
 
+
 def sync_wallet(wallet, fast=False):
     """Wrapper function to choose fast syncing where it's
     both possible and requested.
     """
     if fast and (
-        isinstance(jm_single().bc_interface, BitcoinCoreInterface) or isinstance(
-                jm_single().bc_interface, RegtestBitcoinCoreInterface)):
+            isinstance(jm_single().bc_interface, BitcoinCoreInterface) or isinstance(
+        jm_single().bc_interface, RegtestBitcoinCoreInterface)):
         jm_single().bc_interface.sync_wallet(wallet, fast=True)
     else:
         jm_single().bc_interface.sync_wallet(wallet)
+
 
 class BlockchainInterface(object):
     __metaclass__ = abc.ABCMeta
@@ -86,11 +89,11 @@ class BlockchainInterface(object):
         if not vb:
             vb = get_p2pk_vbyte()
         if isinstance(self, BitcoinCoreInterface) or isinstance(self,
-                                        RegtestBitcoinCoreInterface):
-            #This code ensures that a walletnotify is triggered, by
-            #ensuring that at least one of the output addresses is
-            #imported into the wallet (note the sweep special case, where
-            #none of the output addresses belong to me).
+                                                                RegtestBitcoinCoreInterface):
+            # This code ensures that a walletnotify is triggered, by
+            # ensuring that at least one of the output addresses is
+            # imported into the wallet (note the sweep special case, where
+            # none of the output addresses belong to me).
             one_addr_imported = False
             for outs in txd['outs']:
                 addr = btc.script_to_address(outs['script'], vb)
@@ -105,8 +108,8 @@ class BlockchainInterface(object):
             if not one_addr_imported:
                 self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
 
-        #Warning! In case of txid_flag false, this is *not* a valid txid,
-        #but only a hash of an incomplete transaction serialization.
+        # Warning! In case of txid_flag false, this is *not* a valid txid,
+        # but only a hash of an incomplete transaction serialization.
         txid = btc.txhash(btc.serialize(txd))
         if not txid_flag:
             tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
@@ -121,12 +124,12 @@ class BlockchainInterface(object):
             log.debug("Created watcher loop for txid: " + txid)
             loopkey = txid
         self.tx_watcher_loops[loopkey] = [loop, False, False, False]
-        #Hardcoded polling interval, but in any case it can be very short.
+        # Hardcoded polling interval, but in any case it can be very short.
         loop.start(5.0)
-        #Give up on un-broadcast transactions and broadcast but not confirmed
-        #transactions as per settings in the config.
+        # Give up on un-broadcast transactions and broadcast but not confirmed
+        # transactions as per settings in the config.
         reactor.callLater(float(jm_single().config.get("TIMEOUT",
-                    "unconfirm_timeout_sec")), self.tx_network_timeout, loopkey)
+                                                       "unconfirm_timeout_sec")), self.tx_network_timeout, loopkey)
         confirm_timeout_sec = int(jm_single().config.get(
             "TIMEOUT", "confirm_timeout_hours")) * 3600
         reactor.callLater(confirm_timeout_sec, self.tx_timeout, txd, loopkey, timeoutfun)
@@ -146,10 +149,10 @@ class BlockchainInterface(object):
 	transaction, give up once this triggers if confirmation has not occurred.
 	"""
         if not loopkey in self.tx_watcher_loops:
-            #Occurs if the tx has already confirmed before this
+            # Occurs if the tx has already confirmed before this
             return
         if not self.tx_watcher_loops[loopkey][2]:
-            #Not confirmed after prescribed timeout in hours; give up
+            # Not confirmed after prescribed timeout in hours; give up
             log.info("Timed out waiting for confirmation of: " + str(loopkey))
             if self.tx_watcher_loops[loopkey][0].running:
                 self.tx_watcher_loops[loopkey][0].stop()
@@ -208,7 +211,7 @@ class BlockchainInterface(object):
             return False
 
 
-class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
+class ElectrumWalletInterface(BlockchainInterface):  # pragma: no cover
     """A pseudo-blockchain interface using the existing 
     Electrum server connection in an Electrum wallet.
     Usage requires calling set_wallet with a valid Electrum
@@ -239,7 +242,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         log.debug("Dummy electrum interface, no tx watcher")
 
     def pushtx(self, txhex, timeout=10):
-        #synchronous send
+        # synchronous send
         from electrum.transaction import Transaction
         etx = Transaction(txhex)
         etx.deserialize()
@@ -291,10 +294,10 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
             }
             if includeconf:
                 if int(u['height']) in [0, -1]:
-                    #-1 means unconfirmed inputs
+                    # -1 means unconfirmed inputs
                     r['confirms'] = 0
                 else:
-                    #+1 because if current height = tx height, that's 1 conf
+                    # +1 because if current height = tx height, that's 1 conf
                     r['confirms'] = int(self.current_height) - int(u['height']) + 1
             result.append(r)
         return result
@@ -303,10 +306,11 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         if super(ElectrumWalletInterface, self).fee_per_kb_has_been_manually_set(N):
             return int(random.uniform(N * float(0.8), N * float(1.2)))
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
-                                                  ))
+                                                   ))
         log.debug("Got fee: " + str(fee))
         fee_per_kb_sat = int(float(fee) * 100000000)
         return fee_per_kb_sat
+
 
 class BitcoinCoreInterface(BlockchainInterface):
 
@@ -323,9 +327,9 @@ class BitcoinCoreInterface(BlockchainInterface):
 
         self.txnotify_fun = []
         self.wallet_synced = False
-        #task.LoopingCall objects that track transactions, keyed by txids.
-        #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
-        #spent true/false), ..}
+        # task.LoopingCall objects that track transactions, keyed by txids.
+        # Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
+        # spent true/false), ..}
         self.tx_watcher_loops = {}
 
     def get_block(self, blockheight):
@@ -360,8 +364,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         """
         self.import_addresses(addr_list, wallet_name)
         if jm_single().config.get("BLOCKCHAIN",
-                                  "blockchain_source") != 'regtest': #pragma: no cover
-            #Exit conditions cannot be included in tests
+                                  "blockchain_source") != 'regtest':  # pragma: no cover
+            # Exit conditions cannot be included in tests
             restart_msg = ("restart Bitcoin Core with -rescan if you're "
                            "recovering an existing wallet from backup seed\n"
                            "Otherwise just restart this joinmarket application.")
@@ -372,8 +376,8 @@ class BitcoinCoreInterface(BlockchainInterface):
                 sys.exit(0)
 
     def sync_wallet(self, wallet, fast=False, restart_cb=None):
-        #trigger fast sync if the index_cache is available
-        #(and not specifically disabled).
+        # trigger fast sync if the index_cache is available
+        # (and not specifically disabled).
         if fast:
             self.sync_wallet_fast(wallet)
             self.fast_sync_called = True
@@ -402,34 +406,34 @@ class BitcoinCoreInterface(BlockchainInterface):
             return
         wallet_name = self.get_wallet_name(wallet)
         agd = self.rpc('listaddressgroupings', [])
-        #flatten all groups into a single list; then, remove duplicates
+        # flatten all groups into a single list; then, remove duplicates
         fagd = [tuple(item) for sublist in agd for item in sublist]
-        #"deduplicated flattened address grouping data" = dfagd
+        # "deduplicated flattened address grouping data" = dfagd
         dfagd = list(set(fagd))
-        #for lookup, want dict of form {"address": amount}
+        # for lookup, want dict of form {"address": amount}
         used_address_dict = {}
         for addr_info in dfagd:
             if len(addr_info) < 3 or addr_info[2] != wallet_name:
                 continue
             used_address_dict[addr_info[0]] = (addr_info[1], addr_info[2])
-        #for a first run, import first chunk
+        # for a first run, import first chunk
         if len(used_address_dict.keys()) == 0:
             log.info("Detected new wallet, performing initial import")
             for i in range(wallet.max_mix_depth):
                 for j in [0, 1]:
                     addrs_to_import = []
-                    for k in range(wallet.gaplimit + 10): # a few more for safety
+                    for k in range(wallet.gaplimit + 10):  # a few more for safety
                         addrs_to_import.append(wallet.get_addr(i, j, k))
                     self.import_addresses(addrs_to_import, wallet_name)
                     wallet.index[i][j] = 0
             self.wallet_synced = True
             return
-        #Wallet has been used; scan forwards.
+        # Wallet has been used; scan forwards.
         log.debug("Fast sync in progress. Got this many used addresses: " + str(
             len(used_address_dict)))
-        #Need to have wallet.index point to the last used address
-        #and fill addr_cache.
-        #Algo:
+        # Need to have wallet.index point to the last used address
+        # and fill addr_cache.
+        # Algo:
         #    1. Scan batch 1 of each branch, accumulate wallet addresses into dict.
         #    2. Find matches between that dict and used addresses, add those to
         #        used_indices dict and add to address cache.
@@ -440,7 +444,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         #       quit with error.
         #    6. If all used addresses were matched, set wallet index to highest
         #       found index in each branch and mark wallet sync complete.
-        #Rationale for this algo:
+        # Rationale for this algo:
         #    Retrieving addresses is a non-zero computational load, so batching
         #    and then caching allows a small sync to complete *reasonably*
         #    quickly while a larger one is not really negatively affected.
@@ -459,10 +463,10 @@ class BitcoinCoreInterface(BlockchainInterface):
                 for fc in [0, 1]:
                     if fc not in used_indices[md]:
                         used_indices[md][fc] = []
-                    for i in range(j*BATCH_SIZE, (j+1)*BATCH_SIZE):
+                    for i in range(j * BATCH_SIZE, (j + 1) * BATCH_SIZE):
                         local_addr_cache[(md, fc, i)] = wallet.get_addr(md, fc, i)
             batch_found_addresses = [x for x in local_addr_cache.iteritems(
-                ) if x[1] in used_address_dict.keys()]
+            ) if x[1] in used_address_dict.keys()]
             for x in batch_found_addresses:
                 md, fc, i = x[0]
                 addr = x[1]
@@ -474,7 +478,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         if j == 19:
             raise Exception("Failed to sync in fast mode after 20 batches; "
                             "please re-try wallet sync without --fast flag.")
-        #Find the highest index in each branch and set the wallet index
+        # Find the highest index in each branch and set the wallet index
         for md in range(wallet.max_mix_depth):
             for fc in [0, 1]:
                 if len(used_indices[md][fc]):
@@ -486,7 +490,6 @@ class BitcoinCoreInterface(BlockchainInterface):
                     wallet.index[md][fc] = wallet.index_cache[md][fc]
         self.wallet_synced = True
 
-
     def sync_addresses(self, wallet, restart_cb=None):
         from jmclient.wallet import BitcoinCoreWallet
 
@@ -494,37 +497,37 @@ class BitcoinCoreInterface(BlockchainInterface):
             return
         log.debug('requesting detailed wallet history')
         wallet_name = self.get_wallet_name(wallet)
-        #TODO It is worth considering making this user configurable:
+        # TODO It is worth considering making this user configurable:
         addr_req_count = 20
         wallet_addr_list = []
         for mix_depth in range(wallet.max_mix_depth):
             for forchange in [0, 1]:
-                #If we have an index-cache available, we can use it
-                #to decide how much to import (note that this list
-                #*always* starts from index 0 on each branch).
-                #In cases where the Bitcoin Core instance is fresh,
-                #this will allow the entire import+rescan to occur
-                #in 2 steps only.
+                # If we have an index-cache available, we can use it
+                # to decide how much to import (note that this list
+                # *always* starts from index 0 on each branch).
+                # In cases where the Bitcoin Core instance is fresh,
+                # this will allow the entire import+rescan to occur
+                # in 2 steps only.
                 if wallet.index_cache != [[0, 0]] * wallet.max_mix_depth:
-                    #Need to request N*addr_req_count where N is least s.t.
-                    #N*addr_req_count > index_cache val. This is so that the batching
-                    #process in the main loop *always* has already imported enough
-                    #addresses to complete.
+                    # Need to request N*addr_req_count where N is least s.t.
+                    # N*addr_req_count > index_cache val. This is so that the batching
+                    # process in the main loop *always* has already imported enough
+                    # addresses to complete.
                     req_count = int(wallet.index_cache[mix_depth][forchange] /
                                     addr_req_count) + 1
                     req_count *= addr_req_count
                 else:
-                    #If we have *nothing* - no index_cache, and no info
-                    #in Core wallet (imports), we revert to a batching mode
-                    #with a default size.
-                    #In this scenario it could require several restarts *and*
-                    #rescans; perhaps user should set addr_req_count high
-                    #(see above TODO)
+                    # If we have *nothing* - no index_cache, and no info
+                    # in Core wallet (imports), we revert to a batching mode
+                    # with a default size.
+                    # In this scenario it could require several restarts *and*
+                    # rescans; perhaps user should set addr_req_count high
+                    # (see above TODO)
                     req_count = addr_req_count
                 wallet_addr_list += [wallet.get_new_addr(mix_depth, forchange)
                                      for _ in range(req_count)]
-                #Indices are reset here so that the next algorithm step starts
-                #from the beginning of each branch
+                # Indices are reset here so that the next algorithm step starts
+                # from the beginning of each branch
                 wallet.index[mix_depth][forchange] = 0
         # makes more sense to add these in an account called "joinmarket-imported" but its much
         # simpler to add to the same account here
@@ -571,7 +574,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                     for mc_addr in mix_change_addrs:
                         if mc_addr not in imported_addr_list:
                             too_few_addr_mix_change.append((mix_depth, forchange
-                                                           ))
+                                                            ))
                             breakloop = True
                             break
                         if mc_addr in used_addr_list:
@@ -579,12 +582,12 @@ class BitcoinCoreInterface(BlockchainInterface):
                             unused_addr_count = 0
                         else:
                             unused_addr_count += 1
-#index setting here depends on whether we broke out of the loop
-#early; if we did, it means we need to prepare the index
-#at the level of the last used address or zero so as to not
-#miss any imports in add_watchonly_addresses.
-#If we didn't, we need to respect the index_cache to avoid
-#potential address reuse.
+                # index setting here depends on whether we broke out of the loop
+                # early; if we did, it means we need to prepare the index
+                # at the level of the last used address or zero so as to not
+                # miss any imports in add_watchonly_addresses.
+                # If we didn't, we need to respect the index_cache to avoid
+                # potential address reuse.
                 if breakloop:
                     if last_used_addr == '':
                         wallet.index[mix_depth][forchange] = 0
@@ -594,10 +597,10 @@ class BitcoinCoreInterface(BlockchainInterface):
                 else:
                     if last_used_addr == '':
                         next_avail_idx = max([wallet.index_cache[mix_depth][
-                            forchange], 0])
+                                                  forchange], 0])
                     else:
                         next_avail_idx = max([wallet.addr_cache[last_used_addr][
-                            2] + 1, wallet.index_cache[mix_depth][forchange]])
+                                                  2] + 1, wallet.index_cache[mix_depth][forchange]])
                     wallet.index[mix_depth][forchange] = next_avail_idx
 
         wallet_addr_list = []
@@ -661,7 +664,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         if not "hex" in rpcretval:
             log.info("Malformed gettransaction output")
             return None
-        #str cast for unicode
+        # str cast for unicode
         hexval = str(rpcretval["hex"])
         return btc.deserialize(hexval)
 
@@ -677,14 +680,14 @@ class BitcoinCoreInterface(BlockchainInterface):
         account_name = wallet_name if wallet_name else "*"
         txlist = self.rpc("listtransactions", [wallet_name, 100, 0, True])
         for tx in txlist[::-1]:
-            #changed syntax in 0.14.0; allow both syntaxes
+            # changed syntax in 0.14.0; allow both syntaxes
             try:
                 res = self.rpc("gettransaction", [tx["txid"], True])
             except:
                 try:
                     res = self.rpc("gettransaction", [tx["txid"], 1])
                 except JsonRpcError as e:
-                    #This should never happen (gettransaction is a wallet rpc).
+                    # This should never happen (gettransaction is a wallet rpc).
                     log.info("Failed any gettransaction call")
                     res = None
                 except Exception as e:
@@ -700,7 +703,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             txos = set([(sv['script'], sv['value']) for sv in txd['outs']])
             if not txos == tx_output_set:
                 continue
-            #Here we have found a matching transaction in the wallet.
+            # Here we have found a matching transaction in the wallet.
             real_txid = btc.txhash(btc.serialize(txd))
             if not wl[1] and res["confirmations"] == 0:
                 log.debug("Tx: " + str(real_txid) + " seen on network.")
@@ -709,7 +712,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 return
             if not wl[2] and res["confirmations"] > 0:
                 log.debug("Tx: " + str(real_txid) + " has " + str(
-                res["confirmations"]) + " confirmations.")
+                    res["confirmations"]) + " confirmations.")
                 confirmfun(txd, real_txid, res["confirmations"])
                 wl[2] = True
                 wl[0].stop()
@@ -748,8 +751,8 @@ class BitcoinCoreInterface(BlockchainInterface):
             confirmfun(txd, txid, res["confirmations"])
             if c <= res["confirmations"]:
                 wl[2] = True
-                #Note we do not stop the monitoring loop when
-                #confirmations occur, since we are also monitoring for spending.
+                # Note we do not stop the monitoring loop when
+                # confirmations occur, since we are also monitoring for spending.
             return
         if res["confirmations"] < 0:
             log.debug("Tx: " + str(txid) + " has a conflict. Abandoning.")
@@ -757,10 +760,10 @@ class BitcoinCoreInterface(BlockchainInterface):
             return
         if not spentfun or wl[3]:
             return
-        #To trigger the spent callback, we check if this utxo outpoint appears in
-        #listunspent output with 0 or more confirmations. Note that this requires
-        #we have added the destination address to the watch-only wallet, otherwise
-        #that outpoint will not be returned by listunspent.
+        # To trigger the spent callback, we check if this utxo outpoint appears in
+        # listunspent output with 0 or more confirmations. Note that this requires
+        # we have added the destination address to the watch-only wallet, otherwise
+        # that outpoint will not be returned by listunspent.
         res2 = self.rpc('listunspent', [0, 999999])
         if not res2:
             return
@@ -772,21 +775,21 @@ class BitcoinCoreInterface(BlockchainInterface):
                 txunspent = True
                 break
         if not txunspent:
-            #We need to find the transaction which spent this one;
-            #assuming the address was added to the wallet, then this
-            #transaction must be in the recent list retrieved via listunspent.
-            #For each one, use gettransaction to check its inputs.
-            #This is a bit expensive, but should only occur once.
+            # We need to find the transaction which spent this one;
+            # assuming the address was added to the wallet, then this
+            # transaction must be in the recent list retrieved via listunspent.
+            # For each one, use gettransaction to check its inputs.
+            # This is a bit expensive, but should only occur once.
             txlist = self.rpc("listtransactions", ["*", 1000, 0, True])
             for tx in txlist[::-1]:
-                #changed syntax in 0.14.0; allow both syntaxes
+                # changed syntax in 0.14.0; allow both syntaxes
                 try:
                     res = self.rpc("gettransaction", [tx["txid"], True])
                 except:
                     try:
                         res = self.rpc("gettransaction", [tx["txid"], 1])
                     except:
-                        #This should never happen (gettransaction is a wallet rpc).
+                        # This should never happen (gettransaction is a wallet rpc).
                         log.info("Failed any gettransaction call")
                         res = None
                 if not res:
@@ -796,19 +799,19 @@ class BitcoinCoreInterface(BlockchainInterface):
                     continue
                 for vin in deser["ins"]:
                     if not "outpoint" in vin:
-                        #coinbases
+                        # coinbases
                         continue
                     if vin["outpoint"]["hash"] == txid and vin["outpoint"]["index"] == n:
-                        #recover the deserialized form of the spending transaction.
+                        # recover the deserialized form of the spending transaction.
                         log.info("We found a spending transaction: " + \
-                                   btc.txhash(binascii.unhexlify(res["hex"])))
+                                 btc.txhash(binascii.unhexlify(res["hex"])))
                         res2 = self.rpc("gettransaction", [tx["txid"], True])
                         spending_deser = self.get_deser_from_gettransaction(res2)
                         if not spending_deser:
                             log.info("ERROR: could not deserialize spending tx.")
-                            #Should never happen, it's a parsing bug.
-                            #No point continuing to monitor, we just hope we
-                            #can extract the secret by scanning blocks.
+                            # Should never happen, it's a parsing bug.
+                            # No point continuing to monitor, we just hope we
+                            # can extract the secret by scanning blocks.
                             wl[3] = True
                             return
                         spentfun(spending_deser, vin["outpoint"]["hash"])
@@ -852,18 +855,19 @@ class BitcoinCoreInterface(BlockchainInterface):
             # Special bitcoin core case: sometimes the highest priority
             # cannot be estimated in that case the 2nd highest priority
             # should be used instead of falling back to hardcoded values
-            estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatesmartfee', [N+1])['feerate']))
+            estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatesmartfee', [N + 1])['feerate']))
         if estimate < 0:
             # This occurs when Core has insufficient data to estimate.
             return 100000
         else:
             return estimate
 
+
 # class for regtest chain access
 # running on local daemon. Only
 # to be instantiated after network is up
 # with > 100 blocks.
-class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
+class RegtestBitcoinCoreInterface(BitcoinCoreInterface):  # pragma: no cover
 
     def __init__(self, jsonRpc):
         super(RegtestBitcoinCoreInterface, self).__init__(jsonRpc, 'regtest')
@@ -897,7 +901,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
         self.simulating = True
 
     def pushtx(self, txhex):
-        if self.pushtx_failure_prob != 0 and random.random() <\
+        if self.pushtx_failure_prob != 0 and random.random() < \
                 self.pushtx_failure_prob:
             log.debug('randomly not broadcasting %0.1f%% of the time' %
                       (self.pushtx_failure_prob * 100))
@@ -918,9 +922,9 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
         try:
             self.rpc('generate', [n])
         except JsonRpcConnectionError:
-            #can happen if the blockchain is shut down
-            #automatically at the end of tests; this shouldn't
-            #trigger an error
+            # can happen if the blockchain is shut down
+            # automatically at the end of tests; this shouldn't
+            # trigger an error
             log.debug(
                 "Failed to generate blocks, looks like the bitcoin daemon \
 	    has been shut down. Ignoring.")
@@ -958,7 +962,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
         # in the wallet
         res = []
         for address in addresses:
-            #self.rpc('importaddress', [address, 'watchonly'])
+            # self.rpc('importaddress', [address, 'watchonly'])
             res.append({'address': address,
                         'balance': int(round(Decimal(1e8) * Decimal(self.rpc(
                             'getreceivedbyaddress', [address, 0]))))})

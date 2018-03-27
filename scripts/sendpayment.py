@@ -18,21 +18,22 @@ import os
 import pprint
 
 from jmclient import (Taker, load_program_config, get_schedule,
-                              JMClientProtocolFactory, start_reactor,
-                              validate_address, jm_single, WalletError,
-                              choose_orders, choose_sweep_orders,
-                              cheapest_order_choose, weighted_order_choose,
-                              Wallet, BitcoinCoreWallet, sync_wallet,
-                              RegtestBitcoinCoreInterface, estimate_tx_fee,
-                              direct_send, SegwitWallet)
+                      JMClientProtocolFactory, start_reactor,
+                      validate_address, jm_single, WalletError,
+                      choose_orders, choose_sweep_orders,
+                      cheapest_order_choose, weighted_order_choose,
+                      Wallet, BitcoinCoreWallet, sync_wallet,
+                      RegtestBitcoinCoreInterface, estimate_tx_fee,
+                      direct_send, SegwitWallet)
 from twisted.python.log import startLogging
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_sendpayment_parser
 
 log = get_log()
 
-#CLI specific, so relocated here (not used by tumbler)
-def pick_order(orders, n): #pragma: no cover
+
+# CLI specific, so relocated here (not used by tumbler)
+def pick_order(orders, n):  # pragma: no cover
     print("Considered orders:")
     for i, o in enumerate(orders):
         print("    %2d. %20s, CJ fee: %6s, tx fee: %6d" %
@@ -53,22 +54,23 @@ def pick_order(orders, n): #pragma: no cover
             return orders[pickedOrderIndex]
         pickedOrderIndex = -1
 
+
 def main():
     parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
     load_program_config()
     walletclass = SegwitWallet if jm_single().config.get(
-            "POLICY", "segwit") == "true" else Wallet
+        "POLICY", "segwit") == "true" else Wallet
     if options.schedule == '' and len(args) < 3:
         parser.error('Needs a wallet, amount and destination address')
         sys.exit(0)
 
-    #without schedule file option, use the arguments to create a schedule
-    #of a single transaction
+    # without schedule file option, use the arguments to create a schedule
+    # of a single transaction
     sweeping = False
     if options.schedule == '':
-        #note that sendpayment doesn't support fractional amounts, fractions throw
-        #here.
+        # note that sendpayment doesn't support fractional amounts, fractions throw
+        # here.
         amount = int(args[1])
         if amount == 0:
             sweeping = True
@@ -90,12 +92,12 @@ def main():
         for s in schedule:
             if s[1] == 0:
                 sweeping = True
-            #only used for checking the maximum mixdepth required
+            # only used for checking the maximum mixdepth required
             mixdepth = max([mixdepth, s[0]])
 
     wallet_name = args[0]
 
-    #to allow testing of confirm/unconfirm callback for multiple txs
+    # to allow testing of confirm/unconfirm callback for multiple txs
     if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
         jm_single().bc_interface.tick_forward_chain_interval = 10
         jm_single().bc_interface.simulating = True
@@ -125,9 +127,9 @@ def main():
     log.debug('starting sendpayment')
 
     if not options.userpcwallet:
-        #maxmixdepth in the wallet is actually the *number* of mixdepths (so misnamed);
-        #to ensure we have enough, must be at least (requested index+1)
-        max_mix_depth = max([mixdepth+1, options.amtmixdepths])
+        # maxmixdepth in the wallet is actually the *number* of mixdepths (so misnamed);
+        # to ensure we have enough, must be at least (requested index+1)
+        max_mix_depth = max([mixdepth + 1, options.amtmixdepths])
         if not os.path.exists(os.path.join('wallets', wallet_name)):
             wallet = walletclass(wallet_name, None, max_mix_depth, options.gaplimit)
         else:
@@ -145,9 +147,9 @@ def main():
     else:
         wallet = BitcoinCoreWallet(fromaccount=wallet_name)
     if jm_single().config.get("BLOCKCHAIN",
-        "blockchain_source") == "electrum-server" and options.makercount != 0:
+                              "blockchain_source") == "electrum-server" and options.makercount != 0:
         jm_single().bc_interface.synctype = "with-script"
-    #wallet sync will now only occur on reactor start if we're joining.
+    # wallet sync will now only occur on reactor start if we're joining.
     sync_wallet(wallet, fast=options.fastsync)
     if options.makercount == 0:
         if isinstance(wallet, BitcoinCoreWallet):
@@ -162,11 +164,11 @@ def main():
 
     def filter_orders_callback(orders_fees, cjamount):
         orders, total_cj_fee = orders_fees
-        log.info("Chose these orders: " +pprint.pformat(orders))
+        log.info("Chose these orders: " + pprint.pformat(orders))
         log.info('total cj fee = ' + str(total_cj_fee))
         total_fee_pc = 1.0 * total_cj_fee / cjamount
         log.info('total coinjoin fee = ' + str(float('%.3g' % (
-            100.0 * total_fee_pc))) + '%')
+                100.0 * total_fee_pc))) + '%')
         WARNING_THRESHOLD = 0.02  # 2%
         if total_fee_pc > WARNING_THRESHOLD:
             log.info('\n'.join(['=' * 60] * 3))
@@ -183,7 +185,7 @@ def main():
 
     def taker_finished(res, fromtx=False, waittime=0.0, txdetails=None):
         if fromtx == "unconfirmed":
-            #If final entry, stop *here*, don't wait for confirmation
+            # If final entry, stop *here*, don't wait for confirmation
             if taker.schedule_index + 1 == len(taker.schedule):
                 reactor.stop()
             return
@@ -192,16 +194,16 @@ def main():
                 txd, txid = txdetails
                 taker.wallet.remove_old_utxos(txd)
                 taker.wallet.add_new_utxos(txd, txid)
-                reactor.callLater(waittime*60,
+                reactor.callLater(waittime * 60,
                                   clientfactory.getClient().clientStart)
             else:
-                #a transaction failed; just stop
+                # a transaction failed; just stop
                 reactor.stop()
         else:
             if not res:
                 log.info("Did not complete successfully, shutting down")
-            #Should usually be unreachable, unless conf received out of order;
-            #because we should stop on 'unconfirmed' for last (see above)
+            # Should usually be unreachable, unless conf received out of order;
+            # because we should stop on 'unconfirmed' for last (see above)
             else:
                 log.info("All transactions completed correctly")
             reactor.stop()
@@ -218,6 +220,7 @@ def main():
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
                   clientfactory, daemon=daemon)
+
 
 if __name__ == "__main__":
     main()
