@@ -362,6 +362,30 @@ def load_program_config(config_path=None, bs=None):
                                          global_singleton.commit_file_location))
 
 
+##########################################################
+## Returns a tuple (rpc_user: String, rpc_pass: String) ##
+##########################################################
+def get_bitcoin_rpc_credentials(_config):
+    filepath = None
+
+    try:
+        filepath = _config.get("BLOCKCHAIN", "rpc_cookie_file")
+    except NoOptionError:
+        pass
+
+    if filepath:
+        if os.path.isfile(filepath):
+            rpc_credentials_string = open(filepath, 'r').read()
+            return rpc_credentials_string.split(":")
+        else:
+            raise ValueError("Invalid cookie auth credentials file location")
+    else:
+        rpc_user = _config.get("BLOCKCHAIN", "rpc_user")
+        rpc_password = _config.get("BLOCKCHAIN", "rpc_password")
+        if not (rpc_user and rpc_password):
+            raise ValueError("Invalid RPC auth credentials `rpc_user` and `rpc_password`")
+        return rpc_user, rpc_password
+
 def get_blockchain_interface_instance(_config):
     # todo: refactor joinmarket module to get rid of loops
     # importing here is necessary to avoid import loops
@@ -375,15 +399,13 @@ def get_blockchain_interface_instance(_config):
         #This cannot be tested without mainnet or testnet blockchain (not regtest)
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
-        rpc_user = _config.get("BLOCKCHAIN", "rpc_user")
-        rpc_password = _config.get("BLOCKCHAIN", "rpc_password")
+        rpc_user, rpc_password = get_bitcoin_rpc_credentials(_config)
         rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password)
         bc_interface = BitcoinCoreInterface(rpc, network)
     elif source == 'regtest':
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
-        rpc_user = _config.get("BLOCKCHAIN", "rpc_user")
-        rpc_password = _config.get("BLOCKCHAIN", "rpc_password")
+        rpc_user, rpc_password = get_bitcoin_rpc_credentials(_config)
         rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password)
         bc_interface = RegtestBitcoinCoreInterface(rpc)
     elif source == 'electrum':
