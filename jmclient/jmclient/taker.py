@@ -434,6 +434,10 @@ class Taker(object):
         """
         if self.aborted:
             return False
+        if nick not in self.nonrespondants:
+            jlog.debug(('add_signature => nick={} '
+                       'not in nonrespondants {}').format(nick, self.nonrespondants))
+            return
         sig = base64.b64decode(sigb64).encode('hex')
         inserted_sig = False
         txhex = btc.serialize(self.latest_tx)
@@ -462,6 +466,11 @@ class Taker(object):
             #the segwit-style signature. Note that this allows a mixed
             #SW/non-SW transaction as each utxo is interpreted separately.
             sig_deserialized = btc.deserialize_script(sig)
+            #verify_tx_input will not even parse the script if it has integers or None,
+            #so abort in case we were given a junk sig:
+            if not all([not isinstance(x, int) and x for x in sig_deserialized]):
+                print("Junk signature: ", sig_deserialized, ", not attempting to verify")
+                break
             if len(sig_deserialized) == 2:
                 ver_sig, ver_pub = sig_deserialized
                 wit = None
@@ -470,6 +479,7 @@ class Taker(object):
             else:
                 jlog.debug("Invalid signature message - more than 3 items")
                 break
+            print("Got sig_deserialized: ", sig_deserialized)
             ver_amt = utxo_data[i]['value'] if wit else None
             sig_good = btc.verify_tx_input(txhex, u[0], utxo_data[i]['script'],
                                                ver_sig, ver_pub, witness=wit,
@@ -483,11 +493,17 @@ class Taker(object):
                     self.latest_tx["ins"][u[0]]["script"] = sig
                 inserted_sig = True
                 # check if maker has sent everything possible
-                self.utxos[nick].remove(u[1])
+                try:
+                    self.utxos[nick].remove(u[1])
+                except ValueError:
+                    pass
                 if len(self.utxos[nick]) == 0:
                     jlog.debug(('nick = {} sent all sigs, removing from '
                                'nonrespondant list').format(nick))
-                    self.nonrespondants.remove(nick)
+                    try:
+                        self.nonrespondants.remove(nick)
+                    except ValueError:
+                        pass
                 break
         if not inserted_sig:
             jlog.debug('signature did not match anything in the tx')
