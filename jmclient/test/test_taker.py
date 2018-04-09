@@ -416,8 +416,12 @@ def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
     tx3 = bitcoin.sign(tx, 2, privs[2])
     sig3 = b64encode(bitcoin.deserialize(tx3)['ins'][2]['script'].decode('hex'))
     taker.on_sig("cp1", sig3)
+    #try sending the same sig again; should be ignored
+    taker.on_sig("cp1", sig3)
     tx4 = bitcoin.sign(tx, 3, privs[3])
     sig4 = b64encode(bitcoin.deserialize(tx4)['ins'][3]['script'].decode('hex'))
+    #try sending junk instead of cp2's correct sig
+    taker.on_sig("cp2", str("junk"))
     taker.on_sig("cp2", sig4)
     tx5 = bitcoin.sign(tx, 4, privs[4])
     #Before completing with the final signature, which will trigger our own
