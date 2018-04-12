@@ -350,7 +350,19 @@ class BitcoinCoreInterface(BlockchainInterface):
         log.debug('importing ' + str(len(addr_list)) +
                   ' addresses into account ' + wallet_name)
         for addr in addr_list:
-            self.rpc('importaddress', [addr, wallet_name, False])
+            try:
+                self.rpc('importaddress', [addr, wallet_name, False])
+            except JsonRpcError as e:
+                if e.code == -4 and e.message == "The wallet already " + \
+                   "contains the private key for this address or script":
+                    log.warn("Fatal sync error: import of address: " + addr +
+                             " failed, since it's already owned by this Bitcoin Core "
+                             "wallet in another account. To prevent coin or privacy "
+                             "loss, Joinmarket will not load a wallet in this conflicted "
+                             "state. To fix: use a new Bitcoin Core wallet to sync this "
+                             "Joinmarket wallet, or use a new Joinmarket wallet.")
+                    sys.exit(1)
+                raise
 
     def add_watchonly_addresses(self, addr_list, wallet_name, restart_cb=None):
         """For backwards compatibility, this fn name is preserved
