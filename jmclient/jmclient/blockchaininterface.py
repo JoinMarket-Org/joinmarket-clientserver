@@ -103,7 +103,18 @@ class BlockchainInterface(object):
                     log.debug("This is normal for bech32 addresses.")
                     continue
             if not one_addr_imported:
-                self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
+                try:
+                    self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
+                except JsonRpcError as e:
+                    #In edge case of address already controlled
+                    #by another account, warn but do not quit in middle of tx.
+                    #Can occur if destination is owned in Core wallet.
+                    if e.code == -4 and e.message == "The wallet already " + \
+                       "contains the private key for this address or script":
+                        log.warn("WARNING: Failed to import address: " + notifyaddr)
+                    #No other error should be possible
+                    else:
+                        raise
 
         #Warning! In case of txid_flag false, this is *not* a valid txid,
         #but only a hash of an incomplete transaction serialization.
@@ -347,6 +358,11 @@ class BitcoinCoreInterface(BlockchainInterface):
         return res
 
     def import_addresses(self, addr_list, wallet_name):
+        """Imports addresses in a batch during initial sync.
+        Refuses to proceed if keys are found to be under control
+        of another account/label (see console output), and quits.
+        Do NOT use for in-run imports, use rpc('importaddress',..) instead.
+        """
         log.debug('importing ' + str(len(addr_list)) +
                   ' addresses into account ' + wallet_name)
         for addr in addr_list:
