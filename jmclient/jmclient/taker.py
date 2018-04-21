@@ -92,7 +92,7 @@ class Taker(object):
         self.on_finished_callback = callbacks[2]
 
     def default_taker_info_callback(self, infotype, msg):
-        jlog.debug(infotype + ":" + msg)
+        jlog.info(infotype + ":" + msg)
 
     def add_ignored_makers(self, makers):
         self.ignored_makers.extend(makers)

@@ -221,7 +221,7 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
 
     counterparties = set([o['counterparty'] for o in orders])
     if n > len(counterparties):
-        log.debug(('ERROR not enough liquidity in the orderbook n=%d '
+        log.warn(('ERROR not enough liquidity in the orderbook n=%d '
                    'suitable-counterparties=%d amount=%d totalorders=%d') %
                   (n, len(counterparties), cj_amount, len(orders)))
         # TODO handle not enough liquidity better, maybe an Exception
