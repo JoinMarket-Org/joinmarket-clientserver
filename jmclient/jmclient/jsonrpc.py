@@ -51,12 +51,15 @@ class JsonRpc(object):
   to connect to Bitcoin.
   """
 
-    def __init__(self, host, port, user, password):
+    def __init__(self, host, port, user, password, wallet_file=""):
         self.host = host
         self.port = port
         self.conn = httplib.HTTPConnection(self.host, self.port)
         self.authstr = "%s:%s" % (user, password)
-
+        if len(wallet_file) > 0:
+            self.url = "/wallet/" + wallet_file
+        else:
+            self.url = ""
         self.queryId = 1
 
     def queryHTTP(self, obj):
@@ -76,7 +79,7 @@ class JsonRpc(object):
 
         while True:
             try:
-                self.conn.request("POST", "", body, headers)
+                self.conn.request("POST", self.url, body, headers)
                 response = self.conn.getresponse()
 
                 if response.status == 401:
