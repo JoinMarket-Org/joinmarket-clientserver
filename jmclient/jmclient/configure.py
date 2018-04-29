@@ -117,6 +117,7 @@ rpc_host = localhost
 rpc_port = 8332
 rpc_user = bitcoin
 rpc_password = password
+rpc_wallet_file =
 
 [MESSAGING]
 host = irc.cyberguerrilla.org, agora.anarplex.net
@@ -395,19 +396,17 @@ def get_blockchain_interface_instance(_config):
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
     testnet = network == 'testnet'
-    if source == 'bitcoin-rpc': #pragma: no cover
-        #This cannot be tested without mainnet or testnet blockchain (not regtest)
+    if source in ('bitcoin-rpc', 'regtest'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
         rpc_user, rpc_password = get_bitcoin_rpc_credentials(_config)
-        rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password)
-        bc_interface = BitcoinCoreInterface(rpc, network)
-    elif source == 'regtest':
-        rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
-        rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
-        rpc_user, rpc_password = get_bitcoin_rpc_credentials(_config)
-        rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password)
-        bc_interface = RegtestBitcoinCoreInterface(rpc)
+        rpc_wallet_file = _config.get("BLOCKCHAIN", "rpc_wallet_file")
+        rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password,
+            rpc_wallet_file)
+        if source == 'bitcoin-rpc': #pragma: no cover
+            bc_interface = BitcoinCoreInterface(rpc, network)
+        else:
+            bc_interface = RegtestBitcoinCoreInterface(rpc)
     elif source == 'electrum':
         bc_interface = ElectrumWalletInterface(testnet)
     elif source == 'electrum-server':
