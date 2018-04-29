@@ -39,7 +39,13 @@ If you are not new to Joinmarket, the notes in the [scripts readme](scripts/READ
 Provides single join and multi-join/tumbler functionality (i.e. "Taker") only, in a GUI.
 
 Binaries that are built and signed will be in the Releases page. To run the script
-`joinmarket-qt.py` from the command line, pay attention to the note [here](https://github.com/AdamISZ/electrum-joinmarket-plugin#a-note-on-pyqt4-and-virtualenv).
+`joinmarket-qt.py` from the command line, the following extra manual step is unfortunately necessary:
+
+PyQt doesn't play nice with virtualenvs; to use it, as required here, you can copy the files from your system Python installation into the virtualenv:
+
+Copy the directory `PyQt4`, the files `sip*.so`, `sipconfig.py` and `sipconfig_nd.py` from the
+system level `dist-packages` (usually `/usr/lib/python2.7/dist-packages` to the virtualenv `site-packages` directory (usually `/home/user/joinmarket-clientserver/jmvenv/lib/python2.7/site-packages`).
+ Afterwards, be sure to reactivate the virtualenv (use `deactivate` and `source jmvenv/bin/activate`). Then the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work. There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
 
 ### Notes on architectural changes (can be ignored)
 
