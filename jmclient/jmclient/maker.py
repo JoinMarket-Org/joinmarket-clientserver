@@ -69,8 +69,7 @@ class Maker(object):
         if res[0]['value'] < reqd_amt:
             reason = "commitment utxo too small: " + str(res[0]['value'])
             return reject(reason)
-        if res[0]['address'] != btc.pubkey_to_p2sh_p2wpkh_address(cr_dict['P'],
-                                                      self.wallet.get_vbyte()):
+        if res[0]['address'] != self.wallet.pubkey_to_address(cr_dict['P']):
             reason = "Invalid podle pubkey: " + str(cr_dict['P'])
             return reject(reason)
 
@@ -129,7 +128,9 @@ class Maker(object):
 
         utxos = offerinfo["utxos"]
         cjaddr = offerinfo["cjaddr"]
+        cjaddr_script = btc.address_to_script(cjaddr)
         changeaddr = offerinfo["changeaddr"]
+        changeaddr_script = btc.address_to_script(changeaddr)
         amount = offerinfo["amount"]
         cjfee = offerinfo["offer"]["cjfee"]
         txfee = offerinfo["offer"]["txfee"]
@@ -147,12 +148,11 @@ class Maker(object):
         times_seen_cj_addr = 0
         times_seen_change_addr = 0
         for outs in txd['outs']:
-            addr = btc.script_to_address(outs['script'], get_p2sh_vbyte())
-            if addr == cjaddr:
+            if outs['script'] == cjaddr_script:
                 times_seen_cj_addr += 1
                 if outs['value'] != amount:
                     return (False, 'Wrong cj_amount. I expect ' + str(amount))
-            if addr == changeaddr:
+            if outs['script'] == changeaddr_script:
                 times_seen_change_addr += 1
                 if outs['value'] != expected_change_value:
                     return (False, 'wrong change, i expect ' + str(
