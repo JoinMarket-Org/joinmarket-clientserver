@@ -12,7 +12,7 @@ from decimal import Decimal
 data_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.insert(0, os.path.join(data_dir))
 
-from jmclient import SegwitWallet, Wallet, get_log, estimate_tx_fee, jm_single
+from jmclient import get_wallet_cls, get_log, estimate_tx_fee, jm_single
 import jmbitcoin as btc
 from jmbase import chunks
 
@@ -63,7 +63,7 @@ def make_wallets(n,
                  fixed_seeds=None,
                  test_wallet=False,
                  passwords=None,
-                 walletclass=SegwitWallet):
+                 walletclass=None):
     '''n: number of wallets to be created
        wallet_structure: array of n arrays , each subarray
        specifying the number of addresses to be populated with coins
@@ -85,7 +85,11 @@ def make_wallets(n,
         if test_wallet:
             w = TestWallet(seeds[i], max_mix_depth=5, pwd=passwords[i])
         else:
-            w = walletclass(seeds[i], pwd=None, max_mix_depth=5)
+            if walletclass:
+                wc = walletclass
+            else:
+                wc = get_wallet_cls()
+            w = wc(seeds[i], pwd=None, max_mix_depth=5)
         wallets[i + start_index] = {'seed': seeds[i],
                                     'wallet': w}
         for j in range(5):

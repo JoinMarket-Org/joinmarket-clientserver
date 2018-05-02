@@ -103,6 +103,9 @@ def main():
         if not validate_address(d):
             quit(parser, "Address was not valid; wrong network?: " + d)
     txsigned = sign(u, priv, destaddrs, segwit = not options.nonsegwit)
+    if not txsigned:
+        log.info("Transaction signing operation failed, see debug messages for details.")
+        return
     log.debug("Got signed transaction:\n" + txsigned)
     log.debug("Deserialized:")
     log.debug(pformat(btc.deserialize(txsigned)))

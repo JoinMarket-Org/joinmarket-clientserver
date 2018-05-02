@@ -14,7 +14,7 @@ from mnemonic import Mnemonic
 from ConfigParser import SafeConfigParser, NoSectionError
 from decimal import Decimal
 from commontest import (interact, make_wallets,
-                        make_sign_and_push, DummyBlockchainInterface)
+                        make_sign_and_push)
 import json
 
 import jmbitcoin as bitcoin
