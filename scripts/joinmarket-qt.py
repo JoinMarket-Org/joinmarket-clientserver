@@ -1577,6 +1577,15 @@ except Exception as e:
              ])
     JMQtMessageBox(None, config_load_error, mbtype='crit', title='failed to load')
     exit(1)
+#refuse to load non-segwit wallet (needs extra work in wallet-utils).
+if not jm_single().config.get("POLICY", "segwit") == "true":
+    wallet_load_error = ''.join(["Joinmarket-Qt only supports segwit based wallets, ",
+                                 "please edit the config file and remove any setting ",
+                                 "of the field `segwit` in the `POLICY` section."])
+    JMQtMessageBox(None, wallet_load_error, mbtype='crit',
+                   title='Incompatible wallet type')
+    exit(1)
+
 update_config_for_gui()
 
 #to allow testing of confirm/unconfirm callback for multiple txs
