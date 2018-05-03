@@ -175,9 +175,11 @@ class Taker(object):
         if sweep:
             self.orderbook = orderbook #offers choosing deferred to next step
         else:
+            allowed_types = ["reloffer", "absoffer"] if jm_single().config.get(
+                "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
-                self.ignored_makers)
+                self.ignored_makers, allowed_types=allowed_types)
             if self.orderbook is None:
                 #Failure to get an orderbook means order selection failed
                 #for some reason; no action is taken, we let the stallMonitor
@@ -246,10 +248,12 @@ class Taker(object):
             self.total_txfee = max([estimated_fee,
                                     self.n_counterparties * self.txfee_default])
             total_value = sum([va['value'] for va in self.input_utxos.values()])
+            allowed_types = ["reloffer", "absoffer"] if jm_single().config.get(
+                "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
             self.orderbook, self.cjamount, self.total_cj_fee = choose_sweep_orders(
                 self.orderbook, total_value, self.total_txfee,
                 self.n_counterparties, self.order_chooser,
-                self.ignored_makers)
+                self.ignored_makers, allowed_types=allowed_types)
             if not self.orderbook:
                 self.taker_info_callback("ABORT",
                                 "Could not find orders to complete transaction")
