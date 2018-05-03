@@ -17,8 +17,8 @@ from pprint import pformat
 import jmbitcoin as btc
 from jmclient import (load_program_config, validate_address, jm_single,
                       WalletError, sync_wallet, RegtestBitcoinCoreInterface,
-                      estimate_tx_fee, Wallet, SegwitWallet, get_p2pk_vbyte,
-                      get_p2sh_vbyte)
+                      estimate_tx_fee, SegwitWallet, get_p2pk_vbyte,
+                      get_p2sh_vbyte, get_wallet_cls)
 from jmbase.support import get_password
 
 def get_parser():
@@ -79,15 +79,13 @@ def is_utxo(utxo):
     return True
 
 def cli_get_wallet(wallet_name, sync=True):
-    walletclass = SegwitWallet if jm_single().config.get(
-        "POLICY", "segwit") == "true" else Wallet    
     if not os.path.exists(os.path.join('wallets', wallet_name)):
-        wallet = walletclass(wallet_name, None, max_mix_depth=options.amtmixdepths)
+        wallet = get_wallet_cls()(wallet_name, None, max_mix_depth=options.amtmixdepths)
     else:
         while True:
             try:
                 pwd = get_password("Enter wallet decryption passphrase: ")
-                wallet = walletclass(wallet_name, pwd, max_mix_depth=options.amtmixdepths)
+                wallet = get_wallet_cls()(wallet_name, pwd, max_mix_depth=options.amtmixdepths)
             except WalletError:
                 print("Wrong password, try again.")
                 continue
@@ -213,6 +211,10 @@ if __name__ == "__main__":
     parser = get_parser()
     (options, args) = parser.parse_args()
     load_program_config()
+    if get_wallet_cls() != SegwitWallet:
+        print("Only segwit wallets are supported; remove any setting of `segwit`"
+              " in `POLICY` in joinmarket.cfg. Quitting.")
+        exit(0)
     #default args causes wallet sync here:
     wallet = cli_get_wallet(args[0])
     if args[1] not in ['make', 'take']:

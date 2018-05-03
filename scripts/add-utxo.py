@@ -15,7 +15,7 @@ from pprint import pformat
 from optparse import OptionParser
 import jmclient.btc as btc
 from jmbase import get_password
-from jmclient import (load_program_config, jm_single, get_p2pk_vbyte, SegwitWallet,
+from jmclient import (load_program_config, jm_single, get_p2pk_vbyte, get_wallet_cls,
                       WalletError, sync_wallet, add_external_commitments,
                       generate_podle, update_commitments, PoDLE,
                       set_commitment_file, get_podle_commitments,
@@ -73,7 +73,7 @@ def main():
                     "BE CAREFUL about handling private keys! "
                     "Don't do this in insecure environments. "
                     
-                    "Also note this ONLY works for standard (p2pkh) utxos."
+                    "Also note this ONLY works for standard (p2pkh or p2sh-p2wpkh) utxos."
     )
     parser.add_option(
         '-r',
@@ -91,7 +91,7 @@ def main():
         type='str',
         dest='in_json',
         help='name of json formatted file containing utxos with private keys, as '
-        'output from "python wallet-tool.py -u -p walletname showutxos"'
+        'output from "python wallet-tool.py -p walletname showutxos"'
         )
     parser.add_option(
         '-w',
@@ -177,7 +177,7 @@ def main():
         while True:
             pwd = get_password("Enter wallet decryption passphrase: ")
             try:
-                wallet = SegwitWallet(options.loadwallet,
+                wallet = get_wallet_cls()(options.loadwallet,
                                 pwd,
                                 options.maxmixdepth,
                                 options.gaplimit)
@@ -231,7 +231,8 @@ def main():
     else:
         quit(parser, 'Invalid syntax')
     if options.validate or options.vonly:
-        if not validate_utxo_data(utxo_data, segwit=True):
+        sw = False if jm_single().config.get("POLICY", "segwit") == "false" else True
+        if not validate_utxo_data(utxo_data, segwit=sw):
             quit(parser, "Utxos did not validate, quitting")
     if options.vonly:
         sys.exit(0)

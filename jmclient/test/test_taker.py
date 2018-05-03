@@ -10,8 +10,8 @@ import pytest
 import json
 from base64 import b64encode
 from jmclient import (load_program_config, jm_single, set_commitment_file,
-                      get_commitment_file, AbstractWallet, Taker,
-                      get_p2sh_vbyte)
+                      get_commitment_file, AbstractWallet, Taker, SegwitWallet,
+                      get_p2sh_vbyte, get_p2pk_vbyte)
 from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
                              t_maker_response, t_chosen_orders, t_dummy_ext)
 
@@ -52,8 +52,9 @@ class DummyWallet(AbstractWallet):
         """
         return 'p2sh-p2wpkh'
 
-    def get_vbyte(self):
-        return get_p2sh_vbyte()
+    @classmethod
+    def pubkey_to_address(cls, pubkey):
+        return SegwitWallet.pubkey_to_address(pubkey)
 
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""

@@ -175,9 +175,11 @@ class Taker(object):
         if sweep:
             self.orderbook = orderbook #offers choosing deferred to next step
         else:
+            allowed_types = ["reloffer", "absoffer"] if jm_single().config.get(
+                "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
-                self.ignored_makers)
+                self.ignored_makers, allowed_types=allowed_types)
             if self.orderbook is None:
                 #Failure to get an orderbook means order selection failed
                 #for some reason; no action is taken, we let the stallMonitor
@@ -246,10 +248,12 @@ class Taker(object):
             self.total_txfee = max([estimated_fee,
                                     self.n_counterparties * self.txfee_default])
             total_value = sum([va['value'] for va in self.input_utxos.values()])
+            allowed_types = ["reloffer", "absoffer"] if jm_single().config.get(
+                "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
             self.orderbook, self.cjamount, self.total_cj_fee = choose_sweep_orders(
                 self.orderbook, total_value, self.total_txfee,
                 self.n_counterparties, self.order_chooser,
-                self.ignored_makers)
+                self.ignored_makers, allowed_types=allowed_types)
             if not self.orderbook:
                 self.taker_info_callback("ABORT",
                                 "Could not find orders to complete transaction")
@@ -303,8 +307,7 @@ class Taker(object):
             #Construct the Bitcoin address for the auth_pub field
             #Ensure that at least one address from utxos corresponds.
             input_addresses = [d['address'] for d in utxo_data]
-            auth_address = btc.pubkey_to_p2sh_p2wpkh_address(auth_pub,
-                                                             get_p2sh_vbyte())
+            auth_address = self.wallet.pubkey_to_address(auth_pub)
             if not auth_address in input_addresses:
                 jlog.warn("ERROR maker's (" + nick + ")"
                          " authorising pubkey is not included "
@@ -479,7 +482,6 @@ class Taker(object):
             else:
                 jlog.debug("Invalid signature message - more than 3 items")
                 break
-            print("Got sig_deserialized: ", sig_deserialized)
             ver_amt = utxo_data[i]['value'] if wit else None
             sig_good = btc.verify_tx_input(txhex, u[0], utxo_data[i]['script'],
                                                ver_sig, ver_pub, witness=wit,

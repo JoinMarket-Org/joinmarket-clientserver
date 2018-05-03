@@ -15,7 +15,7 @@ from twisted.python.log import startLogging
 from jmclient import (Taker, load_program_config, get_schedule,
                       weighted_order_choose, JMClientProtocolFactory,
                       start_reactor, validate_address, jm_single, WalletError,
-                      Wallet, SegwitWallet, sync_wallet, get_tumble_schedule,
+                      get_wallet_cls, sync_wallet, get_tumble_schedule,
                       RegtestBitcoinCoreInterface, estimate_tx_fee,
                       tweak_tumble_schedule, human_readable_schedule_entry,
                       schedule_to_text, restart_waiter, get_tumble_log,
@@ -40,7 +40,7 @@ def main():
     wallet_name = args[0]
     max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
     if not os.path.exists(os.path.join('wallets', wallet_name)):
-        wallet = SegwitWallet(wallet_name, None, max_mix_depth)
+        wallet = get_wallet_cls()(wallet_name, None, max_mix_depth)
     else:
         while True:
             try:

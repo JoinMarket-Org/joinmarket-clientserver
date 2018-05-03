@@ -800,8 +800,9 @@ def wallet_importprivkey(wallet, mixdepth):
 def wallet_dumpprivkey(wallet, hdpath):
     pathlist = bip32pathparse(hdpath)
     print('got pathlist: ' + str(pathlist))
-    if pathlist and len(pathlist) == 5:
-        cointype, purpose, m, forchange, k = pathlist
+    if pathlist and len(pathlist) in [5, 4]:
+        #note here we assume the path conforms to Wallet or SegwitWallet(BIP49) standard
+        m, forchange, k = pathlist[-3:]
         key = wallet.get_key(m, forchange, k)
         wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
         return wifkey
@@ -810,9 +811,10 @@ def wallet_dumpprivkey(wallet, hdpath):
 
 def wallet_signmessage(wallet, hdpath, message):
     if hdpath.startswith(wallet.get_root_path()):
-        m, forchange, k = [int(y) for y in hdpath[4:].split('/')]
+        hp = bip32pathparse(hdpath)
+        m, forchange, k = hp[-3:]
         key = wallet.get_key(m, forchange, k)
-        addr = btc.privkey_to_address(key, magicbyte=get_p2sh_vbyte())
+        addr = wallet.pubkey_to_address(btc.privkey_to_pubkey(key))
         print('Using address: ' + addr)
     else:
         print('%s is not a valid hd wallet path' % hdpath)
@@ -908,7 +910,7 @@ def wallet_tool_main(wallet_root_path):
         wallet_importprivkey(wallet, options.mixdepth)
         return "Key import completed."
     elif method == "signmessage":
-        return wallet_signmessage(wallet, options.hd_path, args[1])
+        return wallet_signmessage(wallet, options.hd_path, args[2])
 
 #Testing (can port to test modules, TODO)
 if __name__ == "__main__":
