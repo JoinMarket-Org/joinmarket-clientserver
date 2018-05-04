@@ -24,6 +24,20 @@ sha256_verify ()
     fi
 }
 
+deps_install ()
+{
+    if [[ ${install_os} == 'debian' ]]; then
+        if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool"; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        echo "OS can not be determined. Trying to build."
+        return 0
+    fi
+}
+
 deb_deps_check ()
 {
     apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
@@ -31,7 +45,7 @@ deb_deps_check ()
 
 deb_deps_install ()
 {
-    deb_deps=( 'python-virtualenv' 'curl' 'python-dev' 'python-pip' 'build-essential' 'automake' 'pkg-config' 'libtool' )
+    deb_deps=( ${1} )
     if deb_deps_check; then
         clear
         echo "
@@ -306,6 +320,57 @@ parse_flags ()
     done
 }
 
+os_is_deb ()
+{
+    ( which apt-get && which dpkg-query ) 2>/dev/null 1>&2
+}
+
+install_get_os ()
+{
+    if os_is_deb; then
+        echo 'debian'
+    else
+        echo 'unknown'
+    fi
+}
+
+qt_deps_install ()
+{
+    if [[ ${install_os} == 'debian' ]]; then
+        if deb_deps_install "python-qt4 python-sip"; then
+            return 0;
+        fi
+    else
+        return 1
+    fi
+}
+
+qt_deps_link ()
+{
+    if [[ ${install_os} == 'debian' ]]; then
+        if deb_qt_deps_link; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        return 1
+    fi
+}
+
+deb_qt_deps_link ()
+{
+    pyqt4dir="$( dpkg-query -L python-qt4 | grep -m1 "/PyQt4$" )"
+    sip_so="$( dpkg-query -L python-sip | grep -m1 "sip.*.so" )"
+
+    if [[ -r "${pyqt4dir}" ]] && [[ -r ${sip_so} ]]; then
+        ln -sf -t "${VIRTUAL_ENV}/lib/python2.7/site-packages/" "${sip_so}" "${pyqt4dir}"
+        return 0
+    else
+        return 1
+    fi
+}
+
 main ()
 {
     jm_source="$PWD"
@@ -320,7 +385,10 @@ main ()
     no_gpg_validation=''
     parse_flags ${@}
 
-    if ! deb_deps_install; then
+    # os check
+    install_os="$( install_get_os )"
+
+    if ! deps_install; then
         echo "Dependecies could not be installed. Exiting."
         return 1
     fi
@@ -350,6 +418,20 @@ main ()
         echo "Joinmarket was not installed. Exiting."
         deactivate
         return 1
+    fi
+    if [[ ${install_os} != 'unknown' ]] && ! qt_deps_link; then
+        read -p "
+        Install Joinmarket-Qt? (may require additional dependencies)
+        (y/n)  "
+        if [[ ${REPLY} =~ y|Y ]]; then
+            if qt_deps_install; then
+                if ! qt_deps_link; then
+                    echo "Qt dependencies installed but could not be found."
+                fi
+            else
+                echo "Qt dependencies could not be installed. Joinmarket-Qt might not work."
+            fi
+        fi
     fi
     deactivate
     echo "Joinmarket successfully installed
