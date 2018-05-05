@@ -196,7 +196,6 @@ class Taker(object):
                     #`if self.orderbook is None`
                     return False
                 if not accepted:
-                    self.on_finished_callback(False)
                     return False
         return True
 
@@ -262,7 +261,6 @@ class Taker(object):
                 if not self.filter_orders_callback((self.orderbook,
                                                     self.total_cj_fee),
                                                    self.cjamount):
-                    self.on_finished_callback(False)
                     return False
 
         self.utxos = {None: self.input_utxos.keys()}
