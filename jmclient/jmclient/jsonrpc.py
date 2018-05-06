@@ -20,10 +20,14 @@ from __future__ import absolute_import, print_function
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import errno
+import socket
 import base64
 import httplib
 import json
+from jmclient import get_log
 
+jlog = get_log()
 
 class JsonRpcError(Exception):
     """
@@ -100,13 +104,17 @@ class JsonRpc(object):
                 raise exc
             except httplib.BadStatusLine:
                 return "CONNFAILURE"
+            except socket.error as e:
+                if e.errno != errno.ECONNRESET:
+                    jlog.error('Unhandled connection error ' + str(e))
+                    raise e
+                jlog.warn('Connection was reset, attempting reconnect.')
+                self.conn.close()
+                self.conn.connect()
+                continue
             except Exception as exc:
-                if str(exc) == "Connection reset by peer":
-                    self.conn.connect()
-                    continue
-                else:
-                    raise JsonRpcConnectionError("JSON-RPC connection failed. Err:" +
-                                                 repr(exc))
+                raise JsonRpcConnectionError("JSON-RPC connection failed. Err:" +
+                                             repr(exc))
             break
 
     def call(self, method, params):
