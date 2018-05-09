@@ -559,7 +559,7 @@ def wallet_fetch_history(wallet, options):
     if options.verbosity % 2 == 0: field_names += ['txid']
     if options.csv:
         print('Bumping verbosity level to 4 due to --csv flag')
-        options.verbosity = 1
+        options.verbosity = 4
     if options.verbosity > 0: print(s().join(field_names))
     if options.verbosity <= 2: cj_batch = [0]*8 + [[]]*2
     balance = 0
@@ -744,8 +744,8 @@ def wallet_fetch_history(wallet, options):
               str(r * 100) + ' %')
         print('(as if yield generator was a bank account)')
     except ImportError:
-        print('numpy/scipy not installed, unable to calculate effective ' +
-                'interest rate')
+        print('scipy not installed, unable to predict accumulation rate')
+        print('to add it to this virtualenv, use `pip2 install scipy`')
 
     total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
     if balance != total_wallet_balance:
