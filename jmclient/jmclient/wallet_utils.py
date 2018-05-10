@@ -727,25 +727,28 @@ def wallet_fetch_history(wallet, options):
         now = jm_single().bc_interface.rpc('getblock', [bestblockhash])['time']
     print('     %s best block is %s' % (datetime.fromtimestamp(now)
         .strftime("%Y-%m-%d %H:%M"), bestblockhash))
-    print('total profit = ' + str(float(balance - sum(deposits)) / float(100000000)) + ' BTC')
-    try:
-        # https://gist.github.com/chris-belcher/647da261ce718fc8ca10
-        import numpy as np
-        from scipy.optimize import brentq
-        deposit_times = np.array(deposit_times)
-        now -= deposit_times[0]
-        deposit_times -= deposit_times[0]
-        deposits = np.array(deposits)
-        def f(r, deposits, deposit_times, now, final_balance):
-            return np.sum(np.exp((now - deposit_times) / 60.0 / 60 / 24 /
-                365)**r * deposits) - final_balance
-        r = brentq(f, a=1, b=-1, args=(deposits, deposit_times, now, balance))
-        print('continuously compounded equivalent annual interest rate = ' +
-              str(r * 100) + ' %')
-        print('(as if yield generator was a bank account)')
-    except ImportError:
-        print('scipy not installed, unable to predict accumulation rate')
-        print('to add it to this virtualenv, use `pip2 install scipy`')
+    total_profit = float(balance - sum(deposits)) / float(100000000)
+    print('total profit = ' + str(total_profit) + ' BTC')
+
+    if abs(total_profit) > 0:
+        try:
+            # https://gist.github.com/chris-belcher/647da261ce718fc8ca10
+            import numpy as np
+            from scipy.optimize import brentq
+            deposit_times = np.array(deposit_times)
+            now -= deposit_times[0]
+            deposit_times -= deposit_times[0]
+            deposits = np.array(deposits)
+            def f(r, deposits, deposit_times, now, final_balance):
+                return np.sum(np.exp((now - deposit_times) / 60.0 / 60 / 24 /
+                    365)**r * deposits) - final_balance
+            r = brentq(f, a=1, b=-1, args=(deposits, deposit_times, now, balance))
+            print('continuously compounded equivalent annual interest rate = ' +
+                str(r * 100) + ' %')
+            print('(as if yield generator was a bank account)')
+        except ImportError:
+            print('scipy not installed, unable to predict accumulation rate')
+            print('to add it to this virtualenv, use `pip2 install scipy`')
 
     total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
     if balance != total_wallet_balance:
