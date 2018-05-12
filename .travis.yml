@@ -10,6 +10,7 @@ addons:
       key_url: 'http://keyserver.ubuntu.com:11371/pks/lookup?op=get&search=0xD46F45428842CE5E'
     packages:
       - bitcoind
+      - python-qt4 python-sip
 before_install:
   - do_on(){ if [ "$TRAVIS_OS_NAME" = "$1" ]; then shift; $@ ; fi; }
 install:
