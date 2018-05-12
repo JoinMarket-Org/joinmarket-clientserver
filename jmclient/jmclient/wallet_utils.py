@@ -728,7 +728,7 @@ def wallet_fetch_history(wallet, options):
     print('     %s best block is %s' % (datetime.fromtimestamp(now)
         .strftime("%Y-%m-%d %H:%M"), bestblockhash))
     total_profit = float(balance - sum(deposits)) / float(100000000)
-    print('total profit = ' + str(total_profit) + ' BTC')
+    print('total profit = %.8f BTC' % total_profit)
 
     if abs(total_profit) > 0:
         try:
