@@ -21,6 +21,7 @@ from jmclient import (Taker, load_program_config, get_schedule,
                       schedule_to_text, restart_waiter, get_tumble_log,
                       tumbler_taker_finished_update, tumbler_filter_orders_callback)
 
+from jmclient.wallet import SegwitWallet
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
 log = get_log()
