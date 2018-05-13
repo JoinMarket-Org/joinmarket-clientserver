@@ -27,9 +27,9 @@ def test_load_config():
     jm_single().config_location = "joinmarket.cfg"
     #TODO hack: load from default implies a connection error unless
     #actually mainnet, but tests cannot; for now catch the connection error
-    with pytest.raises(JsonRpcConnectionError) as e_info:
+    with pytest.raises(Exception) as e_info:
         load_program_config(config_path=ncp, bs="regtest")
-    assert str(e_info.value) in ["authentication for JSON-RPC failed",
+    assert str(e_info.value) in ["[Errno 111] Connection refused", "authentication for JSON-RPC failed",
                                  "JSON-RPC connection failed. Err:error(111, 'Connection refused')"]
     os.remove("dummydirforconfig/joinmarket.cfg")
     os.removedirs("dummydirforconfig")
