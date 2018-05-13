@@ -45,7 +45,7 @@ def main():
         while True:
             try:
                 pwd = get_password("Enter wallet decryption passphrase: ")
-                wallet = SegwitWallet(wallet_name, pwd, max_mix_depth)
+                wallet = get_wallet_cls()(wallet_name, pwd, max_mix_depth)
             except WalletError:
                 print("Wrong password, try again.")
                 continue
