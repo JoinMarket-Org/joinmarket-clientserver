@@ -55,10 +55,23 @@ def get_schedule(filename):
 def get_amount_fractions(power, count):
     """Get 'count' fractions following power law distn according to
     parameter 'power'
+    Note that this function is not entirely generic; it ensures that
+    the final entry is larger than a certain fraction, for a reason
+    specific to the way the tumbler algo works: the last entry
+    corresponds to a sweep which takes the remaining coins; if this
+    ends up being too small, it cannot be tweaked using the mincjamount
+    setting, so we make sure it's appreciable to begin with.
     """
-    amount_fractions = rand_pow_array(power, count)
-    amount_fractions = [1.0 - x for x in amount_fractions]
-    return [x / sum(amount_fractions) for x in amount_fractions]
+    while True:
+        amount_fractions = rand_pow_array(power, count)
+        amount_fractions = [1.0 - x for x in amount_fractions]
+        y = [x / sum(amount_fractions) for x in amount_fractions]
+        #Here we insist that the last entry in the list is more
+        #than 5% of the total, to account for tweaks upwards
+        #on previous joins.
+        if y[-1] > 0.05:
+            break
+    return y
 
 def get_tumble_schedule(options, destaddrs):
     """for the general intent and design of the tumbler algo, see the docs in
