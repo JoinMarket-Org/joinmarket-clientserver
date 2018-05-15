@@ -1,3 +1,28 @@
+### What if I don't want to migrate to segwit yet?
+
+If, for whatever reason, you want to keep using the non-segwit version of Joinmarket,
+you can do so by adding the following entry in your `joinmarket.cfg` file:
+
+```
+[POLICY]
+segwit = false
+```
+
+(obviously, add it *into* the `POLICY` section, don't create a duplicate of that
+section. Also make sure to enter exactly `false` in lower case, otherwise it
+will be ignored. The default is segwit).
+
+If you do this, the pre-existing Joinmarket wallet should load fine and you should
+be able to do coinjoins just as before.
+
+Note, however, that most are migrating to segwit, and we strongly encourage it
+(it's better not to have a split into two groups), not least because segwit
+transactions are cheaper.
+
+The rest of this document will assume you *do* want to migrate.
+
+---
+
 ### Migrating to a new segwit based wallet.
 
 To do joinmarket coinjoins with other participants using segwit, you need to use
@@ -40,7 +65,7 @@ Note down at least 3 addresses from mixdepth 0 if you plan to use as a Taker; if
 a Maker (yieldgenerator), best to note down one address from each mixdepth.
 
 Next, load your old wallet; you have two options - either (1) use your old Joinmarket
-installation (easier), or (2) use this one, and go into joinmarket.cfg and add:
+installation, or (2) use this one, and go into joinmarket.cfg and add:
 
     segwit = false
 
@@ -140,8 +165,8 @@ Second, this new wallet type is not compatible with the old; that doesn't make s
 you would still have to transfer to new segwit style outputs.
 
 Third, the new type is based on [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki),
-which is currently supported only by TREZOR to my knowledge, although others may later adopt it.
-So these Joinmarket wallets could be loaded into TREZOR; at least, that's expected.
+which is currently supported by TREZOR, Ledger, Electrum (via custom HD path option, only one account at a time), Samourai, Eclair to my knowledge, and probably others.
+So these Joinmarket wallets could be loaded into those wallets, but be wary of privacy issues if querying your addresses over some external server.
 
 BIP49 is a modification of BIP44 for segwit, but really it's just a new BIP32 HD path.
 (To get even further into the technical weeds, these standards (44/49) use hardened derivation except for keys below the account level).
@@ -166,5 +191,6 @@ Since segwit-style joinmarket must be done "all-in-one" for privacy (otherwise a
 risks creating a single '1' address output), the yieldgenerator in this implementation
 makes `swreloffer` and `swabsoffer` offer types, and won't also offer original-type offers.
 However, the parameters of the offer are the same, and are still set in the (now much
-simplified) `yield-generator-basic.py` script. Other variants may be added later subject to
-anyone getting around to doing it.
+simplified) `yield-generator-basic.py` or `yg-privacyenhanced.py` scripts.
+
+Other variants may be added later subject to anyone getting around to doing it.
