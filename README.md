@@ -3,7 +3,8 @@
 Joinmarket refactored to separate client and backend operations
 
 **The [latest release](https://github.com/AdamISZ/joinmarket-clientserver/releases)
-is upgraded for segwit and to be used only for that; to use non-segwit use [0.2.2](https://github.com/AdamISZ/joinmarket-clientserver/tree/v0.2.2) or earlier.**
+is upgraded for segwit and to be used only for that; to use non-segwit you can use [0.2.2](https://github.com/AdamISZ/joinmarket-clientserver/tree/v0.2.2), or you can run
+the latest commit on the master branch; see [here](docs/SEGWIT-UPGRADE.md) (first section) for more details on the new non-segwit option.**
 
 ### Quickstart
 
