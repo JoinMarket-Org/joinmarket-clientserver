@@ -135,6 +135,10 @@ def test_spend_p2wsh(setup_segwit):
     tx = btc.apply_p2wsh_multisignatures(tx, 0, btc.mk_multisig_script(pubs, 2),
                                          sigs)
     print pformat(btc.deserialize(tx))
+    #check validity
+    for i in range(2):
+        assert btc.verify_tx_input(tx, 0, btc.mk_multisig_script(pubs, 2), sigs[i], pubs[i],
+                                   witness="deadbeef", amount=100000000)
     txid = jm_single().bc_interface.pushtx(tx)
     time.sleep(3)
     received = jm_single().bc_interface.get_received_by_addr(

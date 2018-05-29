@@ -534,8 +534,12 @@ def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
             witness = safe_hexlify(witness)
     hashcode = decode(sig[-2:], 16)
     if witness and amount:
-        #TODO assumes p2sh wrapped segwit input; OK for JM wallets
-        scriptCode = "76a914"+hash160(binascii.unhexlify(pub))+"88ac"
+        #TODO assumes either p2wsh or p2sh-p2wpkh
+        #in both cases, the scriptCode is just the script
+        #passed in; in the former case it's the output
+        #of mk_multisig_script, in the latter it's the
+        #exact scriptPubKey
+        scriptCode = binascii.hexlify(script)
         modtx = segwit_signature_form(deserialize(binascii.hexlify(tx)), int(i),
                                       scriptCode, amount, hashcode)
     else:
