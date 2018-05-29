@@ -63,6 +63,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     #the sendpayment bot uses the last wallet in the list
     wallet = wallets[num_ygs]['wallet']
     print("Seed : " + wallets[num_ygs]['seed'])
+    print("Seed2: " + wallets[num_ygs-1]['seed'])
     #useful to see the utxos on screen sometimes
     sync_wallet(wallet, fast=True)
     print(wallet.unspent)

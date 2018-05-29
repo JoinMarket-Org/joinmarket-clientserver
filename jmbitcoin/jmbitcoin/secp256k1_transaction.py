@@ -167,7 +167,10 @@ def serialize(txobj):
             items = inp["txinwitness"]
             o.append(num_to_var_int(len(items)))
             for item in items:
-                o.append(num_to_var_int(len(item)) + item)
+                if item is None:
+                    o.append(b"\x00")
+                else:
+                    o.append(num_to_var_int(len(item)) + item)
     o.append(encode(txobj["locktime"], 256, 4)[::-1])
 
     return ''.join(o) if is_python2 else reduce(lambda x, y: x + y, o, bytes())
@@ -345,7 +348,10 @@ def segwit_scriptpubkey(witver, witprog):
     return x
 
 def mk_native_segwit_script(addr):
-    hrp = addr[:2]
+    if addr[:4] == 'bcrt':
+        hrp = addr[:4]
+    else:
+        hrp = addr[:2]
     ver, prog =  bech32addr_decode(hrp, addr)
     scriptpubkey = segwit_scriptpubkey(ver, prog)
     return binascii.hexlify(scriptpubkey)
@@ -380,6 +386,8 @@ def script_to_address(script, vbyte=0, witver=0):
         #hrp interpreted from the vbyte entry, TODO this should be cleaner.
         if vbyte in [0, 5]:
             hrp = 'bc'
+        elif vbyte == 100:
+            hrp = 'bcrt'
         else:
             hrp = 'tb'
         return bech32addr_encode(hrp=hrp, witver=witver,
@@ -401,6 +409,17 @@ def pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=5):
         pub = binascii.unhexlify(pub)
     script = pubkey_to_p2sh_p2wpkh_script(pub)
     return p2sh_scriptaddr(script, magicbyte=magicbyte)
+
+def pubkeys_to_p2wsh_script(pubs):
+    """Specifically for N of N multisig, for now.
+    """
+    N = len(pubs)
+    script = mk_multisig_script(pubs, N)
+    return "0020" + sha256(binascii.unhexlify(script))
+
+def pubkeys_to_p2wsh_address(pubs, vbyte=0):
+    script = pubkeys_to_p2wsh_script(pubs)
+    return script_to_address(script, vbyte=vbyte)
 
 def p2sh_scriptaddr(script, magicbyte=5):
     if re.match('^[0-9a-fA-F]*$', script):
@@ -572,14 +591,43 @@ def signall(tx, priv):
     return tx
 
 
-def multisign(tx, i, script, pk, hashcode=SIGHASH_ALL):
+def multisign(tx, i, script, pk, amount=None, hashcode=SIGHASH_ALL):
     if re.match('^[0-9a-fA-F]*$', tx):
         tx = binascii.unhexlify(tx)
     if re.match('^[0-9a-fA-F]*$', script):
         script = binascii.unhexlify(script)
+    if amount:
+        return p2wsh_multisign(tx, i, script, pk, amount, hashcode)
     modtx = signature_form(tx, i, script, hashcode)
     return ecdsa_tx_sign(modtx, pk, hashcode)
 
+def p2wsh_multisign(tx, i, script, pk, amount, hashcode=SIGHASH_ALL):
+    """The script passed in must be the actual multisig script used
+    to form the scriptPubkey, i.e. the output of mk_multisig_script.
+    The pk is here of course a private key for one of the pubkeys
+    in the multisig. Amount is as normal for segwit.
+    Tx is assumed to be serialized.
+    """
+    scriptCode = script
+    modtx = segwit_signature_form(deserialize(tx), i, scriptCode, amount, hashcode)
+    return ecdsa_tx_sign(modtx, pk, hashcode)
+
+def apply_p2wsh_multisignatures(tx, i, script, sigs):
+    """Sigs must be passed in as a list, and must be a
+    complete list for this multisig, in the same order
+    as the list of pubkeys when creating the scriptPubKey.
+    """
+    if isinstance(script, str) and re.match('^[0-9a-fA-F]*$', script):
+        script = binascii.unhexlify(script)
+    sigs = [binascii.unhexlify(x) if x[:2] == '30' else x for x in sigs]
+    if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
+        return safe_hexlify(apply_p2wsh_multisignatures(
+            binascii.unhexlify(tx), i, script, sigs))
+    txobj = deserialize(tx)
+    txobj["ins"][i]["script"] = ""
+    alist = [None] + sigs + [script]
+    txobj["ins"][i]["txinwitness"] = [None] + sigs + [script]
+    return serialize(txobj)
 
 def apply_multisignatures(*args):
     # tx,i,script,sigs OR tx,i,script,sig1,sig2...,sig[n]

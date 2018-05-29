@@ -105,6 +105,44 @@ def make_sign_and_push(ins_sw,
     #pushtx returns False on any error
     return txid
 
+def test_spend_p2wsh(setup_segwit):
+    """make a single p2wsh address for 2 pubkeys (2 of 2).
+    Grab coins into it.
+    Then craft a transaction to spend out of it, to itself.
+    TODO this is not currently a passing test (will fail randomly
+    due to not knowing correct outpoint of funding tx).
+    """
+    seed = "blah"
+    pubs = []
+    privs = []
+    for i in range(2):
+        seed = btc.sha256(seed)
+        privs.append(seed + "01")
+        pubs.append(btc.privtopub(privs[-1]))
+    #magicbyte is regtest (nonsense flag value)
+    addr1 = btc.pubkeys_to_p2wsh_address(pubs, vbyte=100)
+    print "got address for p2wsh: " + addr1
+    jm_single().bc_interface.import_addresses([addr1], "")
+    txid = jm_single().bc_interface.grab_coins(addr1, 1.0)
+    ins = [txid+":0"]
+    outs = [{"value": 99990000, "address": addr1}]
+    tx = btc.mktx(ins, outs)
+    sigs = []
+    for i in range(2):
+        sigs.append(btc.p2wsh_multisign(tx, 0, btc.mk_multisig_script(pubs, 2),
+                                        privs[i],100000000))
+    print("Created sigs: ", sigs)
+    tx = btc.apply_p2wsh_multisignatures(tx, 0, btc.mk_multisig_script(pubs, 2),
+                                         sigs)
+    print pformat(btc.deserialize(tx))
+    txid = jm_single().bc_interface.pushtx(tx)
+    time.sleep(3)
+    received = jm_single().bc_interface.get_received_by_addr(
+        [addr1], None)['data'][0]['balance']
+    #check coins were transferred as expected
+    assert received == 199990000
+    #pushtx returns False on any error
+    assert txid
 
 @pytest.mark.parametrize(
     "wallet_structure, in_amt, amount, segwit_amt, segwit_ins, o_ins", [
