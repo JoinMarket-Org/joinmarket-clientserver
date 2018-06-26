@@ -241,7 +241,7 @@ def get_sendpayment_parser():
         dest='pickorders',
         default=False,
         help=
-        'manually pick which orders to take. doesn\'t work while sweeping.')
+        'interactively pick which orders to take. doesn\'t work while sweeping.')
     parser.add_option('-m',
                       '--mixdepth',
                       action='store',
