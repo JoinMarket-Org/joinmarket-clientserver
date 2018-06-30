@@ -3,7 +3,6 @@ import binascii, re, json, copy, sys
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.bech32 import *
 from _functools import reduce
-import os
 
 is_python2 = sys.version_info.major == 2
 
@@ -201,7 +200,7 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
         hashPrevouts = bin_dbl_sha256(pi)
     #create hashSequence
     if not hashcode & SIGHASH_ANYONECANPAY and not (
-        hashcode & 0x1f == SIGHASH_NONE) and not (hashcode & 0x1f == SIGHASH_NONE):
+        hashcode & 0x1f == SIGHASH_SINGLE) and not (hashcode & 0x1f == SIGHASH_NONE):
         pi = ""
         for inp in txobj["ins"]:
             pi += encode(inp["sequence"], 256, 4)[::-1]
@@ -222,12 +221,10 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL):
             pi += (num_to_var_int(len(binascii.unhexlify(out["script"]))) + \
                    binascii.unhexlify(out["script"]))
         hashOutputs = bin_dbl_sha256(pi)
-    elif hashcode & 0x1f == SIGHASH_SINGLE:
-        pi = ""
-        if i < len(txobj['outs']):
-            pi += encode(txobj["outs"][i]["value"], 256, 8)[::-1]
-            pi += (num_to_var_int(len(binascii.unhexlify(txobj["outs"][i][
-                "script"]))) + binascii.unhexlify(txobj["outs"][i]["script"]))
+    elif hashcode & 0x1f == SIGHASH_SINGLE and i < len(txobj['outs']):
+        pi = encode(txobj["outs"][i]["value"], 256, 8)[::-1]
+        pi += (num_to_var_int(len(binascii.unhexlify(txobj["outs"][i]["script"]))) +
+               binascii.unhexlify(txobj["outs"][i]["script"]))
         hashOutputs = bin_dbl_sha256(pi)
     else:
         hashOutputs = "\x00"*32
