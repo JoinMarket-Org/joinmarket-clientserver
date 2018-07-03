@@ -4,7 +4,6 @@ from __future__ import print_function
 import base64
 import pprint
 import random
-from itertools import chain
 
 import btc
 from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
@@ -184,6 +183,7 @@ class Taker(object):
                 jlog.info("Choosing a destination from mixdepth: " + str(next_mixdepth))
                 self.my_cj_addr = self.wallet.get_internal_addr(next_mixdepth)
                 jlog.info("Chose destination address: " + self.my_cj_addr)
+                self.import_new_addresses([self.my_cj_addr])
             self.outputs = []
             self.cjfee_total = 0
             self.maker_txfee_contributions = 0
@@ -268,6 +268,7 @@ class Taker(object):
         if self.cjamount != 0:
             try:
                 self.my_change_addr = self.wallet.get_internal_addr(self.mixdepth)
+                self.import_new_addresses([self.my_change_addr])
             except:
                 self.taker_info_callback("ABORT", "Failed to get a change address")
                 return False
@@ -806,3 +807,11 @@ class Taker(object):
         waittime = self.schedule[self.schedule_index][4]
         self.on_finished_callback(True, fromtx=fromtx, waittime=waittime,
                                   txdetails=(txd, txid))
+
+    def import_new_addresses(self, addr_list):
+        # FIXME: same code as in maker.py
+        bci = jm_single().bc_interface
+        if not hasattr(bci, 'import_addresses'):
+            return
+        assert hasattr(bci, 'get_wallet_name')
+        bci.import_addresses(addr_list, bci.get_wallet_name(self.wallet))

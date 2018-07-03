@@ -216,3 +216,11 @@ class Maker(object):
                 if len(oldorder_s) > 0:
                     self.offerlist.remove(oldorder_s[0])
             self.offerlist += to_announce
+
+    def import_new_addresses(self, addr_list):
+        # FIXME: same code as in taker.py
+        bci = jm_single().bc_interface
+        if not hasattr(bci, 'import_addresses'):
+            return
+        assert hasattr(bci, 'get_wallet_name')
+        bci.import_addresses(addr_list, bci.get_wallet_name(self.wallet))
