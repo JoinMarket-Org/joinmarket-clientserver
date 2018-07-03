@@ -12,7 +12,7 @@ from twisted.internet.protocol import ClientFactory
 from twisted.internet.ssl import ClientContextFactory
 from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor, task, defer
-from .blockchaininterface import BlockchainInterface, is_index_ahead_of_cache
+from .blockchaininterface import BlockchainInterface
 from .configure import get_p2sh_vbyte
 from .support import get_log
 from .electrum_data import (get_default_ports, get_default_servers,
@@ -248,10 +248,10 @@ class ElectrumInterface(BlockchainInterface):
             reactor.callLater(0.2, self.sync_addresses, wallet, restart_cb)
             return
         log.debug("downloading wallet history from Electrum server ...")
-        for mixdepth in range(wallet.max_mix_depth):
+        for mixdepth in range(wallet.max_mixdepth + 1):
             for forchange in [0, 1]:
                 #start from a clean index
-                wallet.index[mixdepth][forchange] = 0
+                wallet.set_next_index(mixdepth, forchange, 0)
                 self.synchronize_batch(wallet, mixdepth, forchange, 0)
 
     def synchronize_batch(self, wallet, mixdepth, forchange, start_index):
@@ -295,9 +295,8 @@ class ElectrumInterface(BlockchainInterface):
             #existing index_cache from the wallet file; if both true, end, else, continue
             #to next batch
             if all([tah[i]['used'] is False for i in range(
-                start_index+self.BATCH_SIZE-wallet.gaplimit,
-                start_index+self.BATCH_SIZE)]) and is_index_ahead_of_cache(
-                    wallet, mixdepth, forchange):
+                start_index + self.BATCH_SIZE - wallet.gap_limit,
+                start_index + self.BATCH_SIZE)]):
                 last_used_addr = None
                 #to find last used, note that it may be in the *previous* batch;
                 #may as well just search from the start, since it takes no time.
@@ -305,12 +304,11 @@ class ElectrumInterface(BlockchainInterface):
                     if tah[i]['used']:
                         last_used_addr = tah[i]['addr']
                 if last_used_addr:
-                    wallet.index[mixdepth][forchange] = wallet.addr_cache[last_used_addr][2] + 1
+                    wallet.set_next_index(
+                        mixdepth, forchange,
+                        wallet.get_next_unused_index(mixdepth, forchange))
                 else:
-                    wallet.index[mixdepth][forchange] = 0
-                #account for index_cache
-                if not is_index_ahead_of_cache(wallet, mixdepth, forchange):
-                    wallet.index[mixdepth][forchange] = wallet.index_cache[mixdepth][forchange]
+                    wallet.set_next_index(mixdepth, forchange, 0)
                 tah["finished"] = True
                 #check if all branches are finished to trigger next stage of sync.
                 addr_sync_complete = True
@@ -350,7 +348,7 @@ class ElectrumInterface(BlockchainInterface):
             for internal in (True, False):
                 for index in range(wallet.get_next_unused_index(md, internal)):
                     addrs.add(wallet.get_addr(md, internal, index))
-            for path in wallet.get_imported_paths(md):
+            for path in wallet.yield_imported_paths(md):
                 addrs.add(wallet.get_addr_path(path))
 
         self.listunspent_calls = len(addrs)
