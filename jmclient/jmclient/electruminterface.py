@@ -356,7 +356,7 @@ class ElectrumInterface(BlockchainInterface):
         self.listunspent_calls = len(addrs)
         for a in addrs:
             # FIXME: update to protocol version 1.1 and use scripthash instead
-            script = wallet.address_to_script(a)
+            script = wallet.addr_to_script(a)
             d = self.get_from_electrum('blockchain.address.listunspent', a)
             d.addCallback(self.process_listunspent_data, wallet, script)
 

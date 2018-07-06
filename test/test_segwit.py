@@ -113,7 +113,7 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
 
     # import new addresses to bitcoind
     jm_single().bc_interface.import_addresses(
-        [nsw_wallet.script_to_address(x)
+        [nsw_wallet.script_to_addr(x)
          for x in [cj_script, change_script]],
         jm_single().bc_interface.get_wallet_name(nsw_wallet))
 
@@ -137,8 +137,8 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     assert txid
 
     balances = jm_single().bc_interface.get_received_by_addr(
-        [nsw_wallet.script_to_address(cj_script),
-         nsw_wallet.script_to_address(change_script)], None)['data']
+        [nsw_wallet.script_to_addr(cj_script),
+         nsw_wallet.script_to_addr(change_script)], None)['data']
     assert balances[0]['balance'] == amount
     assert balances[1]['balance'] == change_amt
 
