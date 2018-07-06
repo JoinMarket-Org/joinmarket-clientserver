@@ -14,7 +14,7 @@ run_jm_tests ()
     export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${VIRTUAL_ENV}/include"
 
     pushd "${jm_source}"
-    curl -L https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz -o miniircd.tar.gz
+    curl --retry 5 -L https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz -o miniircd.tar.gz
     rm -rf ./miniircd
     mkdir -p miniircd
     tar -xzf miniircd.tar.gz -C ./miniircd --strip-components=1
