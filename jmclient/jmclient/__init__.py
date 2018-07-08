@@ -26,7 +26,7 @@ from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
 from .configure import (
     load_program_config, get_p2pk_vbyte, jm_single, get_network,
     validate_address, get_irc_mchannels, get_blockchain_interface_instance,
-    get_p2sh_vbyte, set_config)
+    get_p2sh_vbyte, set_config, is_segwit_mode)
 from .blockchaininterface import (BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
