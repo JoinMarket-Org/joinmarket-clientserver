@@ -92,12 +92,12 @@ openssl_get ()
 {
     if [[ -z "${no_gpg_validation}" ]]; then
         openssl_file=( "${openssl_lib_tar}" "${openssl_lib_sha}" "${openssl_lib_sig}" )
-        curl -L "${openssl_signer_key_url}" -o openssl_signer.key
+        curl --retry 5 -L "${openssl_signer_key_url}" -o openssl_signer.key
     else
         openssl_file=( "${openssl_lib_tar}" )
     fi
     for file in ${openssl_files[@]}; do
-        curl -L -O "${openssl_url}/${file}"
+        curl --retry 5 -L -O "${openssl_url}/${file}"
     done
 }
 
@@ -211,7 +211,7 @@ libffi_install ()
         return 0
     fi
     pushd libffi
-    curl -L -O "${libffi_url}/${libffi_lib_tar}"
+    curl --retry 5 -L -O "${libffi_url}/${libffi_lib_tar}"
     if sha256_verify "${libffi_lib_sha}" "${libffi_lib_tar}"; then
         tar -xzf "${libffi_lib_tar}"
     else
@@ -234,12 +234,12 @@ libsodium_get ()
 {
     if [[ -z "${no_gpg_validation}" ]]; then
         libsodium_files=( "${sodium_lib_tar}" "${sodium_lib_sig}" )
-        curl -L "${sodium_signer_key_url}" -o libsodium_signer.key
+        curl --retry 5 -L "${sodium_signer_key_url}" -o libsodium_signer.key
     else
         libsodium_files=( "${sodium_lib_tar}" )
     fi
     for file in ${libsodium_files[@]}; do
-        curl -L -O "${sodium_url}/${file}"
+        curl --retry 5 -L -O "${sodium_url}/${file}"
     done
 }
 
