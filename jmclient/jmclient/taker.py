@@ -78,6 +78,10 @@ class Taker(object):
         self.schedule = schedule
         self.order_chooser = order_chooser
         self.ignored_makers = [] if not ignored_makers else ignored_makers
+        #Used in attempts to complete with subset after second round failure:
+        self.honest_makers = []
+        #Toggle: if set, only honest makers will be used from orderbook
+        self.honest_only = False
         self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
@@ -95,7 +99,32 @@ class Taker(object):
         jlog.info(infotype + ":" + msg)
 
     def add_ignored_makers(self, makers):
+        """Makers should be added to this list when they have refused to
+        complete the protocol honestly, and should remain in this set
+        for the duration of the Taker run (so, the whole schedule).
+        """
         self.ignored_makers.extend(makers)
+
+    def add_honest_makers(self, makers):
+        """A maker who has shown willigness to complete the protocol
+        by returning a valid signature for a coinjoin can be added to
+        this list, the taker can optionally choose to only source
+        offers from thus-defined "honest" makers.
+        """
+        self.honest_makers.extend(makers)
+
+    def set_honest_only(self, truefalse):
+        """Toggle; if set, offers will only be accepted
+        from makers in the self.honest_makers list.
+        This should not be called unless we already have
+        a list of such honest makers (see add_honest_makers()).
+        """
+        if truefalse:
+            if not len(self.honest_makers):
+                jlog.debug("Attempt to set honest-only without "
+                           "any honest makers; ignored.")
+                return
+        self.honest_only = truefalse
 
     def initialize(self, orderbook):
         """Once the daemon is active and has returned the current orderbook,
@@ -172,6 +201,15 @@ class Taker(object):
         return (True, self.cjamount, commitment, revelation, self.orderbook)
 
     def filter_orderbook(self, orderbook, sweep=False):
+        #If honesty filter is set, we immediately filter to only the prescribed
+        #honest makers before continuing. In this case, the number of
+        #counterparties should already match, and this has to be set by the
+        #script instantiating the Taker.
+        #Note: If one or more of the honest makers has dropped out in the meantime,
+        #we will just have insufficient offers and it will fail in the usual way
+        #for insufficient liquidity.
+        if self.honest_only:
+            orderbook = [o for o in orderbook if o['counterparty'] in self.honest_makers]
         if sweep:
             self.orderbook = orderbook #offers choosing deferred to next step
         else:
