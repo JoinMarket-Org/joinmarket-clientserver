@@ -27,8 +27,12 @@ log = get_log()
 def wlog(*x):
     """Simplifier to add lists to the debug log
     """
-    msg = " ".join([str(a) for a in x])
-    log.debug(msg)
+    if x[0] == "WARNING":
+        msg = " ".join([str(a) for a in x[1:]])
+        log.warn(msg)
+    else:
+        msg = " ".join([str(a) for a in x])
+        log.debug(msg)
 
 def get_irc_text(line):
     return line[line[1:].find(':') + 2:]
@@ -310,15 +314,20 @@ class txIRC_Client(irc.IRCClient, object):
         pass
         #wlog('unhandled action: ', user, channel, msg)
 
-    def alterCollidedNick(self, nickname):
+    def irc_ERR_NICKNAMEINUSE(self, prefix, params):
         """
-        Generate an altered version of a nickname that caused a collision in an
-        effort to create an unused related name for subsequent registration.
-        :param nickname:
+        Called when we try to register or change to a nickname that is already
+        taken.
+        This is overriden from base class to insist on retrying with the same
+        nickname, after a hardcoded 10s timeout. The user is amply warned at
+        WARNING logging level, and can just restart if they are around to see it.
         """
-        newnick = nickname + '_'
-        wlog('nickname collision, changed to ', newnick)
-        return newnick
+        wlog("WARNING", "Your nickname is in use. This usually happens "
+                 "as a result of a network failure. You are recommended to "
+                 "restart, otherwise you should regain your nick after "
+                 "some time. This is not a security risk, but you may lose "
+                 "access to coinjoins during this period.")
+        reactor.callLater(10.0, self.setNick, self._attemptedNick)
 
     def modeChanged(self, user, channel, _set, modes, args):
         pass
