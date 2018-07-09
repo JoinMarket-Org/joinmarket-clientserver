@@ -1320,7 +1320,7 @@ class JMMainWindow(QMainWindow):
 
     def recoverWallet(self):
         success = wallet_generate_recover_bip39("recover", "wallets",
-                                                "wallet.json",
+                                                "wallet.jmdat",
                                                 callbacks=(None, self.seedEntry,
                                                            self.getPassword,
                                                            self.getWalletFileName))
@@ -1470,7 +1470,7 @@ class JMMainWindow(QMainWindow):
     def getWalletFileName(self):
         walletname, ok = QInputDialog.getText(self, 'Choose wallet name',
                                               'Enter wallet file name:',
-                                              QLineEdit.Normal, "wallet.json")
+                                              QLineEdit.Normal, "wallet.jmdat")
         if not ok:
             JMQtMessageBox(self, "Create wallet aborted", mbtype='warn')
             return None
@@ -1513,7 +1513,7 @@ class JMMainWindow(QMainWindow):
         if not seed:
             success = wallet_generate_recover_bip39("generate",
                                                    "wallets",
-                                                   "wallet.json",
+                                                   "wallet.jmdat",
                                                    callbacks=(self.displayWords,
                                                               None,
                                                               self.getPassword,
