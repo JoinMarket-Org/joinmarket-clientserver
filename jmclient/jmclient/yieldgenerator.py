@@ -129,8 +129,8 @@ class YieldGeneratorBasic(YieldGenerator):
         jlog.info('filling offer, mixdepth=' + str(mixdepth))
 
         # mixdepth is the chosen depth we'll be spending from
-        cj_addr = self.wallet.get_internal_addr((mixdepth + 1) %
-                                                self.wallet.max_mix_depth)
+        cj_addr = self.wallet.get_internal_addr(
+            (mixdepth + 1) % (self.wallet.max_mixdepth + 1))
         change_addr = self.wallet.get_internal_addr(mixdepth)
         self.import_new_addresses([cj_addr, change_addr])
 
