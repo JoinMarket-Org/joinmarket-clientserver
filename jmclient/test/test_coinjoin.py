@@ -7,6 +7,7 @@ Test doing full coinjoins, bypassing IRC
 import os
 import sys
 import pytest
+from twisted.internet import reactor
 
 from jmclient import load_program_config, jm_single, get_log,\
     YieldGeneratorBasic, Taker, sync_wallet
@@ -145,3 +146,7 @@ def setup_cj():
     jm_single().config.set('POLICY', 'tx_broadcast', 'self')
     jm_single().bc_interface.tick_forward_chain_interval = 5
     jm_single().bc_interface.simulate_blocks()
+    yield None
+    # teardown
+    for dc in reactor.getDelayedCalls():
+        dc.cancel()
