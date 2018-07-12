@@ -875,17 +875,22 @@ class BitcoinCoreInterface(BlockchainInterface):
     def estimate_fee_per_kb(self, N):
         if super(BitcoinCoreInterface, self).fee_per_kb_has_been_manually_set(N):
             return int(random.uniform(N * float(0.8), N * float(1.2)))
-        estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatesmartfee', [N])['feerate']))
-        if (N == 1) and (estimate < 0):
-            # Special bitcoin core case: sometimes the highest priority
-            # cannot be estimated in that case the 2nd highest priority
-            # should be used instead of falling back to hardcoded values
-            estimate = int(Decimal(1e8) * Decimal(self.rpc('estimatesmartfee', [N+1])['feerate']))
-        if estimate < 0:
-            # This occurs when Core has insufficient data to estimate.
-            return 100000
-        else:
-            return estimate
+
+        # Special bitcoin core case: sometimes the highest priority
+        # cannot be estimated in that case the 2nd highest priority
+        # should be used instead of falling back to hardcoded values
+        tries = 2 if N == 1 else 1
+
+        estimate = -1
+        for i in range(tries):
+            rpc_result = self.rpc('estimatesmartfee', [N + i])
+            estimate = rpc_result.get('feerate', estimate)
+            if estimate > 0:
+                break
+        else:  # estimate <= 0
+            return 10000
+        return int(Decimal(1e8) * Decimal(estimate))
+
 
 # class for regtest chain access
 # running on local daemon. Only
