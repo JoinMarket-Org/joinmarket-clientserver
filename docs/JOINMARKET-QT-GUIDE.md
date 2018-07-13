@@ -59,7 +59,7 @@ yet created one, do Wallet->Generate (otherwise, do Wallet-->Load):
 
 This list of 12 words allows you to recreate the wallet in future. **WRITE IT DOWN and do not 
 lose it under any circumstances**! (This seedphrase has the same function as for all other
-HD wallets, like Electrum, Trezor etc. The seedphrase should be compatible with Trezor in future, but not with most other wallets by default).
+HD wallets, like Electrum, Trezor etc. The seedphrase should be compatible with Trezor, Ledger, Electrum, Samourai and some others).
 
 Next, enter a password for encrypting the wallet:
 
@@ -205,7 +205,7 @@ is using the "sweep" feature. To do this, simply set the "Amount" field in the S
 ### Export private keys
 
 **DON'T TRY TO USE THIS USUALLY**.
-You should be able to import the wallet into a TREZOR using the 12 word seedphrase, once
+You should be able to import the wallet into some other wallets, as was mentioned above.
 segwit wallets are implemented there. The keys here control coins (utxos), but only according to the p2sh/p2wpkh standard within segwit; if you import them into a random wallet they won't show any coins.
 
 If this feature is still useful for some reason:
