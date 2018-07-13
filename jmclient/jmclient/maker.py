@@ -29,6 +29,12 @@ class Maker(object):
         self.aborted = False
 
     def try_to_create_my_orders(self):
+        """Because wallet syncing is not synchronous(!),
+        we cannot calculate our offers until we know the wallet
+        contents, so poll until BlockchainInterface.wallet_synced
+        is flagged as True. TODO: Use a deferred, probably.
+        Note that create_my_orders() is defined by subclasses.
+        """
         if not jm_single().bc_interface.wallet_synced:
             return
         self.offerlist = self.create_my_orders()
@@ -91,6 +97,11 @@ class Maker(object):
         return (True, utxos, auth_pub, cj_addr, change_addr, btc_sig)
 
     def on_tx_received(self, nick, txhex, offerinfo):
+        """Called when the counterparty has sent an unsigned
+        transaction. Sigs are created and returned if and only
+        if the transaction passes verification checks (see
+        verify_unsigned_tx()).
+        """
         try:
             tx = btc.deserialize(txhex)
         except IndexError as e:
@@ -123,6 +134,13 @@ class Maker(object):
         return (True, sigs)
 
     def verify_unsigned_tx(self, txd, offerinfo):
+        """This code is security-critical.
+        Before signing the transaction the Maker must ensure
+        that all details are as expected, and most importantly
+        that it receives the exact number of coins to expected
+        in total. The data is taken from the offerinfo dict and
+        compared with the serialized txhex.
+        """
         tx_utxo_set = set(ins['outpoint']['hash'] + ':' + str(
                 ins['outpoint']['index']) for ins in txd['ins'])
 
@@ -131,6 +149,8 @@ class Maker(object):
         cjaddr_script = btc.address_to_script(cjaddr)
         changeaddr = offerinfo["changeaddr"]
         changeaddr_script = btc.address_to_script(changeaddr)
+        #Note: this value is under the control of the Taker,
+        #see comment below.
         amount = offerinfo["amount"]
         cjfee = offerinfo["offer"]["cjfee"]
         txfee = offerinfo["offer"]["txfee"]
@@ -139,12 +159,25 @@ class Maker(object):
         if not tx_utxo_set.issuperset(my_utxo_set):
             return (False, 'my utxos are not contained')
 
+        #The three lines below ensure that the Maker receives
+        #back what he puts in, minus his bitcointxfee contribution,
+        #plus his expected fee. These values are fully under
+        #Maker control so no combination of messages from the Taker
+        #can change them.
+        #(mathematically: amount + expected_change_value is independent
+        #of amount); there is not a (known) way for an attacker to
+        #alter the amount (note: !fill resubmissions *overwrite*
+        #the active_orders[dict] entry in daemon), but this is an
+        #extra layer of safety.
         my_total_in = sum([va['value'] for va in utxos.values()])
         real_cjfee = calc_cj_fee(ordertype, cjfee, amount)
         expected_change_value = (my_total_in - amount - txfee + real_cjfee)
         jlog.info('potentially earned = {}'.format(real_cjfee - txfee))
         jlog.info('mycjaddr, mychange = {}, {}'.format(cjaddr, changeaddr))
 
+        #The remaining checks are needed to ensure
+        #that the coinjoin and change addresses occur
+        #exactly once with the required amts, in the output.
         times_seen_cj_addr = 0
         times_seen_change_addr = 0
         for outs in txd['outs']:
@@ -164,6 +197,10 @@ class Maker(object):
         return (True, None)
 
     def modify_orders(self, to_cancel, to_announce):
+        """This code is called on unconfirm and confirm callbacks,
+        and replaces existing orders with new ones, or just cancels
+        old ones.
+        """
         jlog.info('modifying orders. to_cancel={}\nto_announce={}'.format(
                 to_cancel, to_announce))
         for oid in to_cancel:

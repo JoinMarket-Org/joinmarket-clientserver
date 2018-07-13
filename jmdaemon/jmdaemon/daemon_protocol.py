@@ -227,6 +227,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMFill.responder
     def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
+        """Takes the necessary data from the Taker and initiates the Stage 1
+	interaction with the Makers.
+	"""
         if not (self.jm_state == 1 and isinstance(amount, int) and amount >=0):
             return {'accepted': False}
         self.cjamount = amount
@@ -245,6 +248,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
+        """Taker sends the prepared unsigned transaction
+	to all the Makers in nick_list
+	"""
         if not self.jm_state == 4:
             log.msg("Make tx was called in wrong state, rejecting")
             return {'accepted': False}
@@ -262,6 +268,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMAnnounceOffers.responder
     def on_JM_ANNOUNCE_OFFERS(self, to_announce, to_cancel, offerlist):
+        """Called by Maker to reset his current offerlist;
+	Daemon decides what messages (cancel, announce) to
+	send to the message channel.
+	"""
         if self.role != "MAKER":
             return
         to_announce = json.loads(to_announce)
@@ -275,6 +285,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMIOAuth.responder
     def on_JM_IOAUTH(self, nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig):
+        """Daemon constructs full !ioauth message to be sent on message
+	channel based on data from Maker. Relevant data (utxos, addresses)
+	are stored in the active_orders dict keyed by the nick of the Taker.
+	"""
         nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig = [_byteify(
             x) for x in nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig]
         if not self.role == "MAKER":
@@ -301,6 +315,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMTXSigs.responder
     def on_JM_TX_SIGS(self, nick, sigs):
+        """Signatures that the Maker has produced
+	are passed here to the daemon as a list and
+	broadcast one by one. TODO: could shorten this,
+	have more than one sig per message.
+	"""
         sigs = _byteify(json.loads(sigs))
         for sig in sigs:
             self.mcc.prepare_privmsg(nick, "sig", sig)
@@ -323,7 +342,17 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @maker_only
     def on_order_fill(self, nick, oid, amount, taker_pk, commit):
-        """Handled locally in daemon.
+        """Handled locally in daemon. This is the start of
+        communication with the Taker. Does the following:
+
+        * Immediately rejects if commitment is invalid or already used.
+        * Checks that the fill is against a valid offer.
+        * Establishes encryption with a new ephemeral keypair
+        * Creates the amount, commitment and keypair fields in
+          active_orders[nick] (or resets if already existing).
+
+        Processing will only return to the Maker once the conversation
+        up to !ioauth is complete.
         """
         if nick in self.active_orders:
             log.msg("Restarting transaction for nick: " + nick)
@@ -353,6 +382,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         except NaclError as e:
             log.msg("Unable to set up cryptobox with counterparty: " + repr(e))
             self.mcc.send_error(nick, "Invalid nacl pubkey: " + taker_pk)
+            return
+        #Note this sets the *whole* dict, old entries (e.g. changeaddr)
+        #are removed, so we can't have a conflict between old and new
+        #versions of active_orders[nick]
         self.active_orders[nick] = {"crypto_box": crypto_box,
                                         "kp": kp,
                                         "offer": offer,
@@ -362,6 +395,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @maker_only
     def on_seen_auth(self, nick, commitment_revelation):
+        """Passes to Maker the !auth message from the Taker,
+	for processing. This will include validating the PoDLE
+	commitment revelation against the existing commitment,
+	which was already stored in active_orders[nick].
+	"""
         if not nick in self.active_orders:
             return
         ao =self.active_orders[nick]
@@ -406,10 +444,15 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @maker_only
     def on_push_tx(self, nick, txhex):
+        """Not yet implemented; ignore rather than raise.
+	"""
         log.msg('received pushtx message, ignoring, TODO')
 
     @maker_only
     def on_seen_tx(self, nick, txhex):
+        """Passes the txhex to the Maker for verification
+	and signing. Note the security checks occur in Maker.
+	"""
         if nick not in self.active_orders:
             return
         #we send a copy of the entire "active_orders" entry except the cryptobox,
@@ -535,6 +578,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.mcc.prepare_privmsg(counterparty, 'hp2', commit)
 
     def respondToIoauths(self, accepted):
+        """Sends the full set of data from the Makers to the
+        Taker after processing of first stage is completed,
+        using the JMFillResponse command. But if the responses
+        were not accepted (including, not sufficient number
+        of responses), we send the list of Makers who did not
+        respond to the Taker, instead of the ioauth data,
+        so that the Taker can keep track of non-responders
+        (although note this code is not yet quite ideal, see
+        comments below).
+        """
         if self.jm_state != 2:
             #this can be called a second time on timeout, in which case we
             #do nothing
