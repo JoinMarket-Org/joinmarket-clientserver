@@ -44,7 +44,7 @@ BUT: a couple of differences:
 * The layout is also slightly different, but it's the same information.
 * The BIP32 paths look like m/49'/0'/0'/0/000 instead of m/0/0/0/000; that's just a new segwit standard.
 
-(The new standard *should* be compatible with TREZOR and possibly Ledger, including the 12 word seed; other wallets, mostly not, although standards haven't settled down yet).
+(The new standard (BIP49) *should* be compatible with TREZOR, Ledger, Electrum, Samourai and some others, including the 12 word seed).
 
 ### Second step: Funding the wallet.
 
