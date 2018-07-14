@@ -4,6 +4,7 @@ from __future__ import print_function
 import base64
 import pprint
 import random
+from binascii import hexlify, unhexlify
 
 import btc
 from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
@@ -25,7 +26,6 @@ class Taker(object):
                  wallet,
                  schedule,
                  order_chooser=weighted_order_choose,
-                 sign_method=None,
                  callbacks=None,
                  tdestaddrs=None,
                  ignored_makers=None):
@@ -98,9 +98,6 @@ class Taker(object):
         self.schedule_index = -1
         self.utxos = {}
         self.tdestaddrs = [] if not tdestaddrs else tdestaddrs
-        #allow custom wallet-based clients to use their own signing code;
-        #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
-        self.sign_method = sign_method
         self.filter_orders_callback = callbacks[0]
         self.taker_info_callback = callbacks[1]
         if not self.taker_info_callback:
@@ -367,7 +364,9 @@ class Taker(object):
             #Construct the Bitcoin address for the auth_pub field
             #Ensure that at least one address from utxos corresponds.
             input_addresses = [d['address'] for d in utxo_data]
-            auth_address = self.wallet.pubkey_to_address(auth_pub)
+            # FIXME: This only works if taker's commitment address is of same type
+            # as our wallet.
+            auth_address = self.wallet.pubkey_to_addr(unhexlify(auth_pub))
             if not auth_address in input_addresses:
                 jlog.warn("ERROR maker's (" + nick + ")"
                          " authorising pubkey is not included "
@@ -710,37 +709,23 @@ class Taker(object):
             #Note: donation code removed (possibly temporarily)
             raise NotImplementedError
 
-    def sign_tx(self, tx, i, priv, amount):
-        if self.my_cj_addr:
-            return self.wallet.sign(tx, i, priv, amount)
-        else:
-            #Note: donation code removed (possibly temporarily)
-            raise NotImplementedError
-
     def self_sign(self):
         # now sign it ourselves
-        tx = btc.serialize(self.latest_tx)
-        if self.sign_method == "wallet":
-            #Currently passes addresses of to-be-signed inputs
-            #to backend wallet; this is correct for Electrum, may need
-            #different info for other backends.
-            addrs = {}
-            for index, ins in enumerate(self.latest_tx['ins']):
-                utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-                if utxo not in self.input_utxos.keys():
-                    continue
-                addrs[index] = self.input_utxos[utxo]['address']
-            tx = self.wallet.sign_tx(tx, addrs)
-        else:
-            for index, ins in enumerate(self.latest_tx['ins']):
-                utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-                if utxo not in self.input_utxos.keys():
-                    continue
-                addr = self.input_utxos[utxo]['address']
-                amount = self.input_utxos[utxo]["value"]
-                tx = self.sign_tx(tx, index, self.wallet.get_key_from_addr(addr),
-                                  amount)
-        self.latest_tx = btc.deserialize(tx)
+        our_inputs = {}
+        for index, ins in enumerate(self.latest_tx['ins']):
+            utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
+            if utxo not in self.input_utxos.keys():
+                continue
+            script = self.wallet.addr_to_script(self.input_utxos[utxo]['address'])
+            amount = self.input_utxos[utxo]['value']
+            our_inputs[index] = (script, amount)
+
+        # FIXME: ugly hack
+        tx_bin = btc.deserialize(unhexlify(btc.serialize(self.latest_tx)))
+        self.wallet.sign_tx(tx_bin, our_inputs)
+
+        self.latest_tx = btc.deserialize(hexlify(btc.serialize(tx_bin)))
+
 
     def push(self):
         tx = btc.serialize(self.latest_tx)

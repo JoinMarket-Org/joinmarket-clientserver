@@ -2,19 +2,16 @@
 
 from __future__ import print_function
 
-from jmclient import AbstractWallet, Maker, btc, get_p2sh_vbyte, get_p2pk_vbyte, \
+from jmclient import Maker, btc, get_p2sh_vbyte, get_p2pk_vbyte, \
     load_program_config, jm_single
 import jmclient
 from commontest import DummyBlockchainInterface
+from test_taker import DummyWallet
 
 import struct
 import binascii
 from itertools import chain
 import pytest
-
-
-class MockWallet(AbstractWallet):
-    pass
 
 
 class OfflineMaker(Maker):
@@ -116,7 +113,7 @@ def test_verify_unsigned_tx_sw_valid(setup_env_nodeps):
     p2sh_gen = address_p2sh_generator()
     p2pkh_gen = address_p2pkh_generator()
 
-    wallet = MockWallet()
+    wallet = DummyWallet()
     maker = OfflineMaker(wallet)
 
     cj_addr, cj_script = next(p2sh_gen)
@@ -149,7 +146,7 @@ def test_verify_unsigned_tx_nonsw_valid(setup_env_nodeps):
     p2sh_gen = address_p2sh_generator()
     p2pkh_gen = address_p2pkh_generator()
 
-    wallet = MockWallet()
+    wallet = DummyWallet()
     maker = OfflineMaker(wallet)
 
     cj_addr, cj_script = next(p2pkh_gen)

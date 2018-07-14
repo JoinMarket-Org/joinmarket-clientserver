@@ -11,12 +11,12 @@ import json
 from base64 import b64encode
 from jmclient import (
     load_program_config, jm_single, set_commitment_file, get_commitment_file,
-    LegacyWallet, Taker, VolatileStorage, get_p2sh_vbyte, get_network)
+    SegwitLegacyWallet, Taker, VolatileStorage, get_p2sh_vbyte, get_network)
 from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
                              t_maker_response, t_chosen_orders, t_dummy_ext)
 
 
-class DummyWallet(LegacyWallet):
+class DummyWallet(SegwitLegacyWallet):
     def __init__(self):
         storage = VolatileStorage()
         super(DummyWallet, self).initialize(storage, get_network(),
@@ -79,10 +79,6 @@ class DummyWallet(LegacyWallet):
         """
         return 'p2sh-p2wpkh'
 
-    @classmethod
-    def pubkey_to_address(cls, pubkey):
-        return SegwitWallet.pubkey_to_address(pubkey)
-
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
         privs = [x*32 + "\x01" for x in [chr(y) for y in range(1,6)]]
@@ -111,7 +107,7 @@ def dummy_filter_orderbook(orders_fees, cjamount):
     print("calling dummy filter orderbook")
     return True
 
-def get_taker(schedule=None, schedule_len=0, sign_method=None, on_finished=None,
+def get_taker(schedule=None, schedule_len=0, on_finished=None,
               filter_orders=None):
     if not schedule:
         #note, for taker.initalize() this will result in junk
@@ -120,8 +116,7 @@ def get_taker(schedule=None, schedule_len=0, sign_method=None, on_finished=None,
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
     return Taker(DummyWallet(), schedule,
-                  callbacks=[filter_orders_callback, None, on_finished_callback],
-                  sign_method=sign_method)
+                  callbacks=[filter_orders_callback, None, on_finished_callback])
 
 def test_filter_rejection(createcmtdata):
     def filter_orders_reject(orders_feesl, cjamount):
@@ -341,8 +336,6 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
     with pytest.raises(NotImplementedError) as e_info:
         taker.prepare_my_bitcoin_data()
     with pytest.raises(NotImplementedError) as e_info:
-        taker.sign_tx("a", "b", "c", "d")
-    with pytest.raises(NotImplementedError) as e_info:
         a = taker.coinjoin_address()
     taker.wallet.inject_addr_get_failure = True
     taker.my_cj_addr = "dummy"
@@ -377,14 +370,12 @@ def test_unconfirm_confirm(schedule_len):
     assert not test_unconfirm_confirm.txflag
     
 @pytest.mark.parametrize(
-    "dummyaddr, signmethod, schedule",
+    "dummyaddr, schedule",
     [
-        ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ", None,
-         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]),
-        ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ", "wallet",
-         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]),
+        ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
+         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
     ])
-def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
+def test_on_sig(createcmtdata, dummyaddr, schedule):
     #plan: create a new transaction with known inputs and dummy outputs;
     #then, create a signature with various inputs, pass in in b64 to on_sig.
     #in order for it to verify, the DummyBlockchainInterface will have to 
@@ -410,7 +401,7 @@ def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
     
     de_tx = bitcoin.deserialize(tx)
     #prepare the Taker with the right intermediate data
-    taker = get_taker(schedule=schedule, sign_method=signmethod)
+    taker = get_taker(schedule=schedule)
     taker.nonrespondants=["cp1", "cp2", "cp3"]
     taker.latest_tx = de_tx
     #my inputs are the first 2 utxos
