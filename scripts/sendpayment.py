@@ -134,7 +134,8 @@ def main():
         "blockchain_source") == "electrum-server" and options.makercount != 0:
         jm_single().bc_interface.synctype = "with-script"
     #wallet sync will now only occur on reactor start if we're joining.
-    sync_wallet(wallet, fast=options.fastsync)
+    while not jm_single().bc_interface.wallet_synced:
+        sync_wallet(wallet, fast=options.fastsync)
     if options.makercount == 0:
         direct_send(wallet, amount, mixdepth, destaddr, options.answeryes)
         return

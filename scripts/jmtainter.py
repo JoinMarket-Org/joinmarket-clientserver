@@ -84,7 +84,8 @@ def cli_get_wallet(wallet_name, sync=True):
                               "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"
     if sync:
-        sync_wallet(wallet, fast=options.fastsync)
+        while not jm_single().bc_interface.wallet_synced:
+            sync_wallet(wallet, fast=options.fastsync)
     return wallet
 
 #======Electrum specific utils=========================

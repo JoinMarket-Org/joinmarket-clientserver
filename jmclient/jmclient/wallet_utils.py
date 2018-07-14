@@ -985,8 +985,8 @@ def wallet_tool_main(wallet_root_path):
             # unconfirmed balance is included in the wallet display by default
             if 'listunspent_args' not in jm_single().config.options('POLICY'):
                 jm_single().config.set('POLICY','listunspent_args', '[0]')
-            sync_wallet(wallet, fast=options.fastsync)
-            wallet.save()
+            while not jm_single().bc_interface.wallet_synced:
+                sync_wallet(wallet, fast=options.fastsync)
     #Now the wallet/data is prepared, execute the script according to the method
     if method == "display":
         return wallet_display(wallet, options.gaplimit, options.showprivkey)

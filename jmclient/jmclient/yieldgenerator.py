@@ -240,7 +240,9 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
 
     if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"
-    sync_wallet(wallet, fast=options.fastsync)
+
+    while not jm_single().bc_interface.wallet_synced:
+        sync_wallet(wallet, fast=options.fastsync)
 
     maker = ygclass(wallet, [options.txfee, cjfee_a, cjfee_r,
                              options.ordertype, options.minsize])

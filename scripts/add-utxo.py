@@ -176,7 +176,8 @@ def main():
     if options.loadwallet:
         wallet_path = get_wallet_path(options.loadwallet, None)
         wallet = open_wallet(wallet_path, gap_limit=options.gaplimit)
-        sync_wallet(wallet, fast=options.fastsync)
+        while not jm_single().bc_interface.wallet_synced:
+            sync_wallet(wallet, fast=options.fastsync)
 
         for md, utxos in wallet.get_utxos_by_mixdepth_().items():
             for (txid, index), utxo in utxos.items():

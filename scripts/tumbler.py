@@ -38,7 +38,8 @@ def main():
     if jm_single().config.get("BLOCKCHAIN",
                               "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"
-    sync_wallet(wallet, fast=options['fastsync'])
+    while not jm_single().bc_interface.wallet_synced:
+        sync_wallet(wallet, fast=options['fastsync'])
 
     #Parse options and generate schedule
     #Output information to log files
