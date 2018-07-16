@@ -27,32 +27,77 @@ class MaliciousYieldGenerator(YieldGeneratorBasic):
     to prevent taker continuing successfully (unless
     they can complete-with-subset).
     """
-    def set_maliciousness(self, frac):
+    def set_maliciousness(self, frac, mtype=None):
+        self.authmal = False
+        self.txmal = False
+        if mtype == "tx":
+            self.txmal = True
+        elif mtype == "auth":
+            self.authmal = True
+        else:
+            self.txmal = True
+            self.authmal = True
         self.mfrac = frac
+
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
-        if random.randint(1, 100) < self.mfrac:
-            print("Counterparty commitment rejected maliciously")
-            return (False,)
+        if self.authmal:
+            if random.randint(1, 100) < self.mfrac:
+                print("Counterparty commitment rejected maliciously")
+                return (False,)
         return super(MaliciousYieldGenerator, self).on_auth_received(nick,
                                     offer, commitment, cr, amount, kphex)
     def on_tx_received(self, nick, txhex, offerinfo):
-        if random.randint(1, 100) < self.mfrac:
-            print("Counterparty tx rejected maliciously")
-            return (False, "malicious tx rejection")
+        if self.txmal:
+            if random.randint(1, 100) < self.mfrac:
+                print("Counterparty tx rejected maliciously")
+                return (False, "malicious tx rejection")
         return super(MaliciousYieldGenerator, self).on_tx_received(nick, txhex,
                                                                    offerinfo)
 
+class DeterministicMaliciousYieldGenerator(YieldGeneratorBasic):
+    """Overrides, randomly chosen persistently, some maker functions
+    to prevent taker continuing successfully (unless
+    they can complete-with-subset).
+    """
+    def set_maliciousness(self, frac, mtype=None):
+        self.authmal = False
+        self.txmal = False
+        if mtype == "tx":
+            if random.randint(1, 100) < frac:
+                self.txmal = True
+        elif mtype == "auth":
+            if random.randint(1, 100) < frac:
+                self.authmal = True
+        else:
+            if random.randint(1, 100) < frac:
+                self.txmal = True
+                self.authmal = True
+
+    def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
+        if self.authmal:
+            print("Counterparty commitment rejected maliciously")
+            return (False,)
+        return super(DeterministicMaliciousYieldGenerator, self).on_auth_received(nick,
+                                    offer, commitment, cr, amount, kphex)
+    def on_tx_received(self, nick, txhex, offerinfo):
+        if self.txmal:
+            print("Counterparty tx rejected maliciously")
+            return (False, "malicious tx rejection")
+        return super(DeterministicMaliciousYieldGenerator, self).on_tx_received(nick, txhex,
+                                                                   offerinfo)
 
 @pytest.mark.parametrize(
-    "num_ygs, wallet_structures, mean_amt, malicious",
+    "num_ygs, wallet_structures, mean_amt, malicious, deterministic",
     [
         # 1sp 3yg, honest makers
-        (3, [[1, 3, 0, 0, 0]] * 4, 2, 0),
+        (3, [[1, 3, 0, 0, 0]] * 4, 2, 0, False),
         # 1sp 3yg, malicious makers reject on auth and on tx 30% of time
-        #(4, [[1, 3, 0, 0, 0]] * 5, 2, 30),
+        #(3, [[1, 3, 0, 0, 0]] * 4, 2, 30, False),
+        # 1 sp 9 ygs, deterministically malicious 50% of time
+        #(9, [[1, 3, 0, 0, 0]] * 10, 2, 50, True),
     ])
 def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
-                   malicious):
+                   malicious, deterministic):
     """Set up some wallets, for the ygs and 1 sp.
     Then start the ygs in background and publish
     the seed of the sp wallet for easy import into -qt
@@ -71,14 +116,19 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     cjfee_r = '0.001'
     ordertype = 'swreloffer'
     minsize = 100000
-    ygclass = MaliciousYieldGenerator if malicious else YieldGeneratorBasic
+    ygclass = YieldGeneratorBasic
+    if malicious:
+        if deterministic:
+            ygclass = DeterministicMaliciousYieldGenerator
+        else:
+            ygclass = MaliciousYieldGenerator
     for i in range(num_ygs):
         
         cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize]
         sync_wallet(wallets[i]["wallet"], fast=True)
         yg = ygclass(wallets[i]["wallet"], cfg)
         if malicious:
-            yg.set_maliciousness(malicious)
+            yg.set_maliciousness(malicious, mtype="tx")
         clientfactory = JMClientProtocolFactory(yg, proto_type="MAKER")
         nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
         daemon = True if nodaemon == 1 else False
