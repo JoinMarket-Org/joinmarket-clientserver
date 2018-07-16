@@ -10,9 +10,9 @@ from jmclient import (YieldGenerator, YieldGeneratorBasic, ygmain, get_log,
 
 """THESE SETTINGS CAN SIMPLY BE EDITED BY HAND IN THIS FILE:
 """
-txfee = 1000
-cjfee_a = 200
-cjfee_r = '0.0002'
+txfee = 100
+cjfee_a = 500
+cjfee_r = '0.00002'
 ordertype = 'swreloffer' #'swreloffer' or 'swabsoffer'
 nickserv_password = ''
 max_minsize = 100000
