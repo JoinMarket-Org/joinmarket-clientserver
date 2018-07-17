@@ -29,6 +29,9 @@ and edit:
     rpc_host = localhost #default usually correct 
     rpc_port = 8332 # default for mainnet
 
+Note, you can also use a cookie file by setting, in this section, a variable `rpc_cookie_file` to the location of the file,
+as an alternative to using user/password.
+
 (or, if not using Core, just make the edit mentioned above for `electrum-server`).
 
 Then retry the same `generate` command; it should now not error (see below).

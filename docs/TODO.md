@@ -6,6 +6,9 @@ The Issues list is for specific bugs or feature requests.
 * PEP8 compliance.
 * Details which may or may not be included in PEP8 might be, consistent variable naming conventions, and use of single/double quotes.
 * Porting to Python 3.
+
+A note on the above - took a look at it last December, but had problems in particular with some twisted elements, specifically `txsocksx`
+
 * Twisted related: there are cases where much better use of deferreds should be possible.
 
 ### Testing
@@ -32,7 +35,9 @@ concern (there is already no bitcoin security concern even without it).
 
 ### Blockchain
 
-* Investigate adding SPV mode inherited from work on Bitcoin Core
+* We should look into lite-client modes, in particular client-side filtering as used by Neutrino and others,
+and described [here](https://github.com/Roasbeef/bips/blob/master/gcs_light_client.mediawiki}.
+
 * ~~Re-work the existing electrum code so it works reliably and with some decent performance (easier short term goal).~~ (Done)
 
 ### Joinmarket protocol
@@ -41,8 +46,16 @@ concern (there is already no bitcoin security concern even without it).
 
 ### Qt GUI
 
-* Binary build process automated and, more importantly, working for Linux, Windows and Mac. We have nothing for Mac and the Windows build process I'm using is horribly "custom".
+* Binary build process automated and, more importantly, working for Linux, Windows and Mac.
+
+There is no current process for building binaries on Mac or Windows (theoretically the latter is possible but a mess, so I'm not doing it).
 
 ### Alternative implementations
 
 * Build an alternative client implementation in Java or Javascript for example, using some existing Bitcoin library in that language, perhaps using some lite client solution e.g. SPV, and then connecting to the daemon (executable or Python script).
+
+### Bitcoin
+
+* Several related concepts here: 1/ switching to Peter Todd's python-bitcoinlib, but want good backend i.e. libsecp256k1 binding.
+2/ coincurve of Ofek looks like a better (and better-maintained) option than secp256k1-py, so ideally put that behind python-bitcoinlib.
+3/ Also doing all this without Python3 usage doesn't seem to make much sense.
