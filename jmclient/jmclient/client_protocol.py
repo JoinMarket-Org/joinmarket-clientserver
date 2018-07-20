@@ -405,7 +405,7 @@ class JMTakerClientProtocol(JMClientProtocol):
                 #In single sendpayments, allow immediate quit.
                 #This could be an optional feature also for multi-entry schedules,
                 #but is not the functionality desired in general (tumbler).
-                self.client.on_finished_callback(False, True, 0.0)
+                self.client.on_finished_callback(False, False, 0.0)
             return {'accepted': True}
         amt, cmt, rev, foffers = retval[1:]
         d = self.callRemote(commands.JMFill,
