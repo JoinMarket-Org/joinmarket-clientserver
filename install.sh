@@ -361,7 +361,7 @@ qt_deps_link ()
 deb_qt_deps_link ()
 {
     pyqt4dir="$( dpkg-query -L python-qt4 | grep -m1 "/PyQt4$" )"
-    sip_so="$( dpkg-query -L python-sip | grep -m1 "sip.*.so" )"
+    sip_so="$( dpkg-query -L python-sip | grep -m1 "sip.*\.so" )"
 
     if [[ -r "${pyqt4dir}" ]] && [[ -r ${sip_so} ]]; then
         ln -sf -t "${VIRTUAL_ENV}/lib/python2.7/site-packages/" "${sip_so}" "${pyqt4dir}"
