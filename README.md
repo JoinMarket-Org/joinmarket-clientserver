@@ -38,14 +38,35 @@ If you are not new to Joinmarket, the notes in the [scripts readme](scripts/READ
 
 Provides single join and multi-join/tumbler functionality (i.e. "Taker") only, in a GUI.
 
-Binaries that are built and signed will be in the Releases page. To run the script
-`joinmarket-qt.py` from the command line, the following extra manual step is unfortunately necessary:
+Binaries that are built and signed will be in the Releases page.  
+To run the script `joinmarket-qt.py` from the command line, both the `PyQt4` and `sip` libraries are needed as dependencies. To make these two libraries available to Joinmarket, it's best to create symbolic links (symlinks) for them in the virtualenv directory `jmvenv`.  
+For Debian and Ubuntu users, the install script attempts to install `python-qt4` and `python-sip` from the repositories, and then creates appropriate symlinks for them in the `jmvenv` directory.  
+The steps to manually set up the Qt dependencies on Ubuntu\Debian are
 
-PyQt doesn't play nice with virtualenvs; to use it, as required here, you can copy the files from your system Python installation into the virtualenv:
+1. first activate the Joinmarket virtualenv
+    ```
+    source ./jmvenv/bin/activate
+    ```
+2. Install the required dependencies
+    ```
+    sudo apt-get install python-qt4 python-sip
+    ```
+3. Locate the installed files
+    ```
+    dpkg-query -L python-qt4 | grep -m1 "/PyQt4$"
+    dpkg-query -L python-sip | grep -m1 "sip.*\.so"
+    ```
+4. Create symlinks to each of the paths returned by the two previous commands in the virtualenv directory
+    ```
+    ln -sf -t "${VIRTUAL_ENV}/lib/python2.7/site-packages/" <python-qt4 path> <python-sip path>
+    ```
 
-Copy the directory `PyQt4`, the files `sip*.so`, `sipconfig.py` and `sipconfig_nd.py` from the
-system level `dist-packages` (usually `/usr/lib/python2.7/dist-packages` to the virtualenv `site-packages` directory (usually `/home/user/joinmarket-clientserver/jmvenv/lib/python2.7/site-packages`).
- Afterwards, be sure to reactivate the virtualenv (use `deactivate` and `source jmvenv/bin/activate`). Then the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work. There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
+The last two commands can be combined as :
+```
+ln -sf -t "${VIRTUAL_ENV}/lib/python2.7/site-packages/" "$(dpkg-query -L python-qt4 | grep -m1 "/PyQt4$")" "$(dpkg-query -L python-sip | grep -m1 "sip.*\.so")"
+```
+
+Finally, the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work. There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
 
 ### Notes on architectural changes (can be ignored)
 
