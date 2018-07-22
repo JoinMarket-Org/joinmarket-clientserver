@@ -238,52 +238,57 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
             taker.wallet.add_new_utxos(txd, txid)
         else:
             #a transaction failed, either because insufficient makers
-            #(acording to minimum_makers) responded in Stage 1, or not all
-            #makers responded in Stage 2. We'll first try to repeat without the
+            #(acording to minimum_makers) responded in Phase 1, or not all
+            #makers responded in Phase 2. We'll first try to repeat without the
             #troublemakers.
-            #Note that Taker.nonrespondants is always set to the full maker
-            #list at the start of Taker.receive_utxos, so it is always updated
-            #to a new list in each tx run.
             log.info("Schedule entry: " + str(
                 taker.schedule[taker.schedule_index]) + \
                      " failed after timeout, trying again")
             taker.add_ignored_makers(taker.nonrespondants)
-            #Now we have to set the specific group we want to use, and hopefully
-            #they will respond again as they showed honesty last time.
-            taker.add_honest_makers(list(set(
-                taker.maker_utxo_data.keys()).symmetric_difference(
-                    set(taker.nonrespondants))))
-            #If no makers were honest, we can only tweak the schedule.
-            #If some were, we prefer the restart with them only:
-            if len(taker.honest_makers) != 0:
-                tumble_log.info("Transaction attempt failed, attempting to "
-                                "restart with subset.")
-                tumble_log.info("The paramaters of the failed attempt: ")
-                tumble_log.info(str(taker.schedule[taker.schedule_index]))
-                #we must reset the number of counterparties, as well as fix who they
-                #are; this is because the number is used to e.g. calculate fees.
-                #cleanest way is to reset the number in the schedule before restart.
-                taker.schedule[taker.schedule_index][2] = len(taker.honest_makers)
-                retry_str = "Retrying with: " + str(taker.schedule[
-                    taker.schedule_index][2]) + " counterparties."
-                tumble_log.info(retry_str)
-                log.info(retry_str)
-                taker.set_honest_only(True)
-                taker.schedule_index -= 1
+            #Is the failure in Phase 2?
+            if not taker.latest_tx is None:
+                #Now we have to set the specific group we want to use, and hopefully
+                #they will respond again as they showed honesty last time.
+                #Note that we must wipe the list first; other honest makers needn't
+                #have the right settings (e.g. max cjamount), so can't be carried
+                #over from earlier transactions.
+                taker.honest_makers = []
+                taker.add_honest_makers(list(set(
+                    taker.maker_utxo_data.keys()).symmetric_difference(
+                        set(taker.nonrespondants))))
+                #If insufficient makers were honest, we can only tweak the schedule.
+                #If enough were, we prefer the restart with them only:
+                log.info("Inside a Phase 2 failure; number of honest respondants was: " + str(len(taker.honest_makers)))
+                log.info("They were: " + str(taker.honest_makers))
+                if len(taker.honest_makers) >= jm_single().config.getint(
+                    "POLICY", "minimum_makers"):
+                    tumble_log.info("Transaction attempt failed, attempting to "
+                                    "restart with subset.")
+                    tumble_log.info("The paramaters of the failed attempt: ")
+                    tumble_log.info(str(taker.schedule[taker.schedule_index]))
+                    #we must reset the number of counterparties, as well as fix who they
+                    #are; this is because the number is used to e.g. calculate fees.
+                    #cleanest way is to reset the number in the schedule before restart.
+                    taker.schedule[taker.schedule_index][2] = len(taker.honest_makers)
+                    retry_str = "Retrying with: " + str(taker.schedule[
+                        taker.schedule_index][2]) + " counterparties."
+                    tumble_log.info(retry_str)
+                    log.info(retry_str)
+                    taker.set_honest_only(True)
+                    taker.schedule_index -= 1
+                    return
 
-            #a tumbler is aggressive in trying to complete; we tweak the schedule
-            #from this point in the mixdepth, then try again. However we only
-            #try this strategy if the previous (select-honest-only) strategy
-            #failed.
-            else:
-                tumble_log.info("Transaction attempt failed, tweaking schedule"
-                                " and trying again.")
-                tumble_log.info("The paramaters of the failed attempt: ")
-                tumble_log.info(str(taker.schedule[taker.schedule_index]))
-                taker.schedule_index -= 1
-                taker.schedule = tweak_tumble_schedule(options, taker.schedule,
-                                                       taker.schedule_index,
-                                                       taker.tdestaddrs)
+            #There were not enough honest counterparties.
+            #Tumbler is aggressive in trying to complete; we tweak the schedule
+            #from this point in the mixdepth, then try again.
+            tumble_log.info("Transaction attempt failed, tweaking schedule"
+                            " and trying again.")
+            tumble_log.info("The paramaters of the failed attempt: ")
+            tumble_log.info(str(taker.schedule[taker.schedule_index]))
+            taker.schedule_index -= 1
+            taker.schedule = tweak_tumble_schedule(options, taker.schedule,
+                                                   taker.schedule_index,
+                                                   taker.tdestaddrs)
             tumble_log.info("We tweaked the schedule, the new schedule is:")
             tumble_log.info(pprint.pformat(taker.schedule))
     else:

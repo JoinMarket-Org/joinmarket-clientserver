@@ -632,7 +632,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         if nick in self.crypto_boxes and self.crypto_boxes[nick] != None:
             return self.crypto_boxes[nick][1]
-        elif nick in self.active_orders and self.active_orders[nick] != None:
+        elif nick in self.active_orders and self.active_orders[nick] != None \
+             and "crypto_box" in self.active_orders[nick]:
             return self.active_orders[nick]["crypto_box"]
         else:
             log.msg('something wrong, no crypto object, nick=' + nick +
