@@ -152,7 +152,7 @@ segwit = true
 # for more rapid dust sweeping, try merge_algorithm = greedy
 # for most rapid dust sweeping, try merge_algorithm = greediest
 # but don't forget to bump your miner fees!
-merge_algorithm = default
+merge_algorithm = greedy
 # the fee estimate is based on a projection of how many satoshis
 # per kB are needed to get in one of the next N blocks, N set here
 # as the value of 'tx_fees'. This estimate is high if you set N=1, 
