@@ -189,24 +189,35 @@ def main():
                                   clientfactory.getClient().clientStart)
             else:
                 #a transaction failed; we'll try to repeat without the
-                #troublemakers
-                #Note that Taker.nonrespondants is always set to the full maker
-                #list at the start of Taker.receive_utxos, so it is always updated
-                #to a new list in each run.
-                print("We failed to complete the transaction. The following "
-                      "makers didn't respond: ", taker.nonrespondants,
-                      ", so we will retry without them.")
-                taker.add_ignored_makers(taker.nonrespondants)
-                #Now we have to set the specific group we want to use, and hopefully
-                #they will respond again as they showed honesty last time.
+                #troublemakers.
+                #If this error condition is reached from Phase 1 processing,
+                #and there are less than minimum_makers honest responses, we
+                #just give up (note that in tumbler we tweak and retry, but
+                #for sendpayment the user is "online" and so can manually
+                #try again).
+                #However if the error is in Phase 2 and we have minimum_makers
+                #or more responses, we do try to restart with the honest set, here.
+                if taker.latest_tx is None:
+                    #can only happen with < minimum_makers; see above.
+                    log.info("A transaction failed but there are insufficient "
+                             "honest respondants to continue; giving up.")
+                    reactor.stop()
+                    return
+                #This is Phase 2; do we have enough to try again?
                 taker.add_honest_makers(list(set(
                     taker.maker_utxo_data.keys()).symmetric_difference(
                         set(taker.nonrespondants))))
-                if len(taker.honest_makers) == 0:
-                    log.info("None of the makers responded honestly; "
+                if len(taker.honest_makers) < jm_single().config.getint(
+                    "POLICY", "minimum_makers"):
+                    log.info("Too few makers responded honestly; "
                              "giving up this attempt.")
                     reactor.stop()
                     return
+                print("We failed to complete the transaction. The following "
+                      "makers responded honestly: ", taker.honest_makers,
+                      ", so we will retry with them.")
+                #Now we have to set the specific group we want to use, and hopefully
+                #they will respond again as they showed honesty last time.
                 #we must reset the number of counterparties, as well as fix who they
                 #are; this is because the number is used to e.g. calculate fees.
                 #cleanest way is to reset the number in the schedule before restart.

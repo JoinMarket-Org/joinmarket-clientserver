@@ -77,11 +77,25 @@ class Taker(object):
         self.wallet = wallet
         self.schedule = schedule
         self.order_chooser = order_chooser
+
+        #List (which persists between transactions) of makers
+        #who have not responded or behaved maliciously at any
+        #stage of the protocol.
         self.ignored_makers = [] if not ignored_makers else ignored_makers
+
         #Used in attempts to complete with subset after second round failure:
         self.honest_makers = []
         #Toggle: if set, only honest makers will be used from orderbook
         self.honest_only = False
+
+        #Temporary (per transaction) list of makers that keeps track of
+        #which have responded, both in Stage 1 and Stage 2. Before each
+        #stage, the list is set to the full set of expected responders,
+        #and entries are removed when honest responses are received;
+        #emptiness of the list can be used to trigger completion of
+        #processing.
+        self.nonrespondants = []
+
         self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
@@ -104,6 +118,7 @@ class Taker(object):
         for the duration of the Taker run (so, the whole schedule).
         """
         self.ignored_makers.extend(makers)
+        self.ignored_makers = list(set(self.ignored_makers))
 
     def add_honest_makers(self, makers):
         """A maker who has shown willigness to complete the protocol
@@ -112,6 +127,7 @@ class Taker(object):
         offers from thus-defined "honest" makers.
         """
         self.honest_makers.extend(makers)
+        self.honest_makers = list(set(self.honest_makers))
 
     def set_honest_only(self, truefalse):
         """Toggle; if set, offers will only be accepted
@@ -173,6 +189,7 @@ class Taker(object):
             self.cjfee_total = 0
             self.maker_txfee_contributions = 0
             self.txfee_default = 5000
+            self.latest_tx = None
             self.txid = None
 
         sweep = True if self.cjamount == 0 else False
@@ -198,6 +215,11 @@ class Taker(object):
             return (False,)
         else:
             self.taker_info_callback("INFO", errmsg)
+
+        #Initialization has been successful. We must set the nonrespondants
+        #now to keep track of what changed when we receive the utxo data
+        self.nonrespondants = self.orderbook.keys()
+
         return (True, self.cjamount, commitment, revelation, self.orderbook)
 
     def filter_orderbook(self, orderbook, sweep=False):
@@ -311,8 +333,10 @@ class Taker(object):
         """
         if self.aborted:
             return (False, "User aborted")
+
+        #Temporary list used to aggregate all ioauth data that must be removed
         rejected_counterparties = []
-        #Enough data, but need to authorize against the btc pubkey first.
+        #Need to authorize against the btc pubkey first.
         for nick, nickdata in ioauth_data.iteritems():
             utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
             if not self.auth_counterparty(btc_sig, auth_pub, maker_pk):
@@ -378,8 +402,16 @@ class Taker(object):
             self.cjfee_total += real_cjfee
             self.maker_txfee_contributions += self.orderbook[nick]['txfee']
             self.maker_utxo_data[nick] = utxo_data
+            #We have succesfully processed the data from this nick:
+            try:
+                self.nonrespondants.remove(nick)
+            except Exception as e:
+                jlog.warn("Failure to remove counterparty from nonrespondants list: " + str(nick) + \
+                          ", error message: " + repr(e))
 
-        #Apply business logic of how many counterparties are enough:
+        #Apply business logic of how many counterparties are enough; note that
+        #this must occur after the above ioauth data processing, since we only now
+        #know for sure that the data meets all business-logic requirements.
         if len(self.maker_utxo_data.keys()) < jm_single().config.getint(
                 "POLICY", "minimum_makers"):
             self.taker_info_callback("INFO", "Not enough counterparties, aborting.")
@@ -387,6 +419,9 @@ class Taker(object):
                     "Not enough counterparties responded to fill, giving up")
 
         self.taker_info_callback("INFO", "Got all parts, enough to build a tx")
+
+        #The list self.nonrespondants is now reset and
+        #used to track return of signatures for phase 2
         self.nonrespondants = list(self.maker_utxo_data.keys())
 
         my_total_in = sum([va['value'] for u, va in self.input_utxos.iteritems()
