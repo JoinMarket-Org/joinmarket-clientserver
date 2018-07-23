@@ -25,8 +25,8 @@ USER chaum
 WORKDIR /home/chaum
 RUN ls -la .
 RUN ls -la ${repo_name}
-RUN ls -la ${repo_name}/deps
-RUN tar xaf ./${repo_name}/deps/${core_dist} -C /home/chaum
+RUN ls -la ${repo_name}/deps/cache
+RUN tar xaf ./${repo_name}/deps/cache/${core_dist} -C /home/chaum
 ENV PATH "/home/chaum/bitcoin-${core_version}/bin:${PATH}"
 RUN bitcoind --version | head -1
 
