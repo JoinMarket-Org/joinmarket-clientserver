@@ -1,19 +1,19 @@
 sudo: required
 dist: trusty
-addons:
-  apt:
-    sources:
-    - sourceline: 'ppa:bitcoin/bitcoin'
-      key_url: 'http://keyserver.ubuntu.com:11371/pks/lookup?op=get&search=0xD46F45428842CE5E'
-    packages:
-      - bitcoind
-      - python-qt4 python-sip
 matrix:
   include:
     - os: osx
       env: PIP_DOWNLOAD_CACHE=$HOME/Library/Caches/pip
     - os: linux
       env: PIP_DOWNLOAD_CACHE=$HOME/.cache/pip
+      addons:
+        apt:
+           sources:
+           - sourceline: 'ppa:bitcoin/bitcoin'
+             key_url: 'http://keyserver.ubuntu.com:11371/pks/lookup?op=get&search=0xD46F45428842CE5E'
+           packages:
+             - bitcoind
+             - python-qt4 python-sip
     - os: linux
       services: docker
       env: DOCKER_IMG_JM=xenial
