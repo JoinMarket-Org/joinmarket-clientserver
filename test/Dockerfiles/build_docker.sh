@@ -18,16 +18,23 @@ build_docker ()
     core_version='0.16.1'
     core_dist="bitcoin-${core_version}-x86_64-linux-gnu.tar.gz"
     core_url="https://bitcoin.org/bin/bitcoin-core-${core_version}/${core_dist}"
+    libffi_lib_tar='v3.2.1.tar.gz'
+    libffi_url="https://github.com/libffi/libffi/archive/${libffi_lib_tar}"
+    sodium_lib_tar='libsodium-1.0.13.tar.gz'
+    sodium_url="https://download.libsodium.org/libsodium/releases/${sodium_lib_tar}"
+    declare -A deps=( [${core_dist}]="${core_url}" [${libffi_lib_tar}]="${libffi_url}" [${sodium_lib_tar}]="${sodium_url}" )
     jm_root="${TRAVIS_BUILD_DIR}"
     owner_name="${TRAVIS_REPO_SLUG%\/*}"
     repo_name="${TRAVIS_REPO_SLUG#*\/}"
 
-    if [[ ! -f "${HOME}/downloads/${core_dist}" ]]; then
-        wget "${core_url}" -O "$HOME/downloads/${core_dist}"
-    fi
+    for dep in ${!deps[@]}; do
+        if [[ ! -r "${HOME}/downloads/${dep}" ]]; then
+            curl --retry 5 -L "${deps[${dep}]}" -o "$HOME/downloads/${dep}"
+        fi
+    done
 
-    mkdir -p "${jm_root}/deps"
-    cp "${HOME}/downloads/${core_dist}" "${jm_root}/deps/"
+    mkdir -p "${jm_root}/deps/cache"
+    find "$HOME/downloads" -type f -exec cp -v {} "${jm_root}/deps/cache/" \;
     cd "${jm_root}/../"
 
     docker build \

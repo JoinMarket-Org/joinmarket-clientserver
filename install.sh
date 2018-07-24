@@ -17,10 +17,12 @@ gpg_verify_sig ()
 
 sha256_verify ()
 {
-    if [ "$(uname)" == "Darwin" ]; then
+    if [[ "$(uname)" == "Darwin" ]]; then
         shasum -a 256 -c <<<"$1  $2"
+        return "$?"
     else
         sha256sum -c <<<"$1  $2"
+        return "$?"
     fi
 }
 
@@ -61,7 +63,7 @@ deb_deps_install ()
 
 check_skip_build ()
 {
-    if ! mkdir "$1"; then
+    if [[ ${reinstall} == false ]] && [[ -d "$1" ]]; then
         read -p "Directory ${1} exists.  Remove and recreate?  (y/n)  " q
         if [[ "${q}" =~ Y|y ]]; then
             rm -rf "./${1}"
@@ -79,8 +81,9 @@ venv_setup ()
 {
     if check_skip_build 'jmvenv'; then
         return 0
+    else
+        reinstall='true'
     fi
-    rm -rf "${jm_source}/deps"
     virtualenv -p python2 "${jm_source}/jmvenv" || return 1
     source "${jm_source}/jmvenv/bin/activate" || return 1
     pip install --upgrade pip
@@ -91,10 +94,10 @@ venv_setup ()
 openssl_get ()
 {
     if [[ -z "${no_gpg_validation}" ]]; then
-        openssl_file=( "${openssl_lib_tar}" "${openssl_lib_sha}" "${openssl_lib_sig}" )
+        openssl_files=( "${openssl_lib_tar}" "${openssl_lib_sig}" )
         curl --retry 5 -L "${openssl_signer_key_url}" -o openssl_signer.key
     else
-        openssl_file=( "${openssl_lib_tar}" )
+        openssl_files=( "${openssl_lib_tar}" )
     fi
     for file in ${openssl_files[@]}; do
         curl --retry 5 -L -O "${openssl_url}/${file}"
@@ -122,19 +125,20 @@ openssl_install ()
 {
     openssl_version='openssl-1.0.2l'
     openssl_lib_tar="${openssl_version}.tar.gz"
-    openssl_lib_sha="${openssl_lib_tar}.sha256"
+    openssl_lib_sha='ce07195b659e75f4e1db43552860070061f156a98bb37b672b101ba6e3ddf30c'
     openssl_lib_sig="${openssl_lib_tar}.asc"
     openssl_url='https://www.openssl.org/source'
-    openssl_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0xD9C4D26D0E604491'
     openssl_signer_key_id='D9C4D26D0E604491'
-    openssl_root="${jm_deps}/openssl"
+    openssl_signer_key_url="https://pgp.mit.edu/pks/lookup?op=get&search=0x${openssl_signer_key_id}"
 
-    if check_skip_build 'openssl'; then
+    if check_skip_build "${openssl_version}"; then
         return 0
     fi
-    pushd openssl
-    openssl_get
-    if ! sha256_verify "${openssl_lib_tar}" "${openssl_lib_sha}"; then
+    pushd cache
+    if ! sha256_verify "${openssl_lib_sha}" "${openssl_lib_tar}"; then
+        openssl_get
+    fi
+    if ! sha256_verify "${openssl_lib_sha}" "${openssl_lib_tar}"; then
         return 1
     fi
     if [[ -z "${no_gpg_validation}" ]]; then
@@ -144,20 +148,20 @@ openssl_install ()
             return 1
         fi
         if gpg_verify_sig "${openssl_lib_sig}"; then
-            tar -xzf "${openssl_lib_tar}"
+            tar -xzf "${openssl_lib_tar}" -C ../
         else
             return 1
         fi
     else
-        tar -xzf "${openssl_lib_tar}"
+        tar -xzf "${openssl_lib_tar}" -C ../
     fi
+    popd
     pushd "${openssl_version}"
     if openssl_build; then
         make install_sw
     else
         return 1
     fi
-    popd
     popd
 }
 
@@ -175,6 +179,15 @@ libffi_patch_disable_docs ()
 > endif
 EOF
 
+    # autogen.sh is not happy when run from some directories, causing it
+    # to create an ltmain.sh file in our ${jm_root} directory.  weird.
+    # https://github.com/meetecho/janus-gateway/issues/290#issuecomment-125160739
+    # https://github.com/meetecho/janus-gateway/commit/ac38cfdae7185f9061569b14809af4d4052da700
+    cat <<'EOF' > autoreconf.patch
+18a19
+> AC_CONFIG_AUX_DIR([.])
+EOF
+
     cat <<'EOF' > configure.ac.patch
 545a546,552
 > AC_ARG_ENABLE(docs,
@@ -186,6 +199,7 @@ EOF
 > 
 EOF
     patch Makefile.am Makefile.am.patch
+    patch configure.ac autoreconf.patch
     patch configure.ac configure.ac.patch
 }
 
@@ -207,16 +221,19 @@ libffi_install ()
     libffi_lib_sha='96d08dee6f262beea1a18ac9a3801f64018dc4521895e9198d029d6850febe23'
     libffi_url="https://github.com/libffi/libffi/archive"
 
-    if check_skip_build 'libffi'; then
+    if check_skip_build "${libffi_version}"; then
         return 0
     fi
-    pushd libffi
-    curl --retry 5 -L -O "${libffi_url}/${libffi_lib_tar}"
+    pushd cache
+    if ! sha256_verify "${libffi_lib_sha}" "${libffi_lib_tar}"; then
+        curl --retry 5 -L -O "${libffi_url}/${libffi_lib_tar}"
+    fi
     if sha256_verify "${libffi_lib_sha}" "${libffi_lib_tar}"; then
-        tar -xzf "${libffi_lib_tar}"
+        tar -xzf "${libffi_lib_tar}" -C ../
     else
         return 1
     fi
+    popd
     pushd "${libffi_version}"
     if ! libffi_patch_disable_docs; then
         return 1
@@ -226,7 +243,6 @@ libffi_install ()
     else
         return 1
     fi
-    popd
     popd
 }
 
@@ -259,15 +275,21 @@ libsodium_install ()
     sodium_version='libsodium-1.0.13'
     sodium_lib_tar="${sodium_version}.tar.gz"
     sodium_lib_sig="${sodium_lib_tar}.sig"
+    sodium_lib_sha='9c13accb1a9e59ab3affde0e60ef9a2149ed4d6e8f99c93c7a5b97499ee323fd'
     sodium_url='https://download.libsodium.org/libsodium/releases'
     sodium_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0x210627AABA709FE1'
     sodium_signer_key_id='62F25B592B6F76DA'
 
-    if check_skip_build 'libsodium'; then
+    if check_skip_build "${sodium_version}"; then
         return 0
     fi
-    pushd libsodium
-    libsodium_get
+    pushd cache
+    if ! sha256_verify "${sodium_lib_sha}" "${sodium_lib_tar}"; then
+        libsodium_get
+    fi
+    if ! sha256_verify "${sodium_lib_sha}" "${sodium_lib_tar}"; then
+        return 1
+    fi
     if [[ -z "${no_gpg_validation}" ]]; then
         if gpg_verify_key libsodium_signer.key "${sodium_signer_key_id}"; then
             gpg_add_to_keyring libsodium_signer.key
@@ -275,20 +297,20 @@ libsodium_install ()
             return 1
         fi
         if gpg_verify_sig "${sodium_lib_sig}"; then
-            tar -xzf "${sodium_lib_tar}"
+            tar -xzf "${sodium_lib_tar}" -C ../
         else
             return 1
         fi
     else
-        tar -xzf "${sodium_lib_tar}"
+        tar -xzf "${sodium_lib_tar}" -C ../
     fi
+    popd
     pushd "${sodium_version}"
     if libsodium_build; then
         make install
     else
         return 1
     fi
-    popd
     popd
 }
 
@@ -383,6 +405,7 @@ main ()
     # flags
     develop_build=''
     no_gpg_validation=''
+    reinstall='false'
     parse_flags ${@}
 
     # os check
@@ -397,9 +420,8 @@ main ()
         return 1
     fi
     source "${jm_root}/bin/activate"
-    mkdir -p deps
+    mkdir -p "deps/cache"
     pushd deps
-    rm -f ./keyring.gpg
 # openssl build disabled. using OS package manager's version.
 #    if ! openssl_install; then
 #        echo "Openssl was not built. Exiting."

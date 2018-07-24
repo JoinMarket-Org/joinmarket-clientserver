@@ -1,17 +1,19 @@
 sudo: required
 dist: trusty
-addons:
-  apt:
-    sources:
-    - sourceline: 'ppa:bitcoin/bitcoin'
-      key_url: 'http://keyserver.ubuntu.com:11371/pks/lookup?op=get&search=0xD46F45428842CE5E'
-    packages:
-      - bitcoind
-      - python-qt4 python-sip
 matrix:
   include:
     - os: osx
+      env: PIP_DOWNLOAD_CACHE=$HOME/Library/Caches/pip
     - os: linux
+      env: PIP_DOWNLOAD_CACHE=$HOME/.cache/pip
+      addons:
+        apt:
+           sources:
+           - sourceline: 'ppa:bitcoin/bitcoin'
+             key_url: 'http://keyserver.ubuntu.com:11371/pks/lookup?op=get&search=0xD46F45428842CE5E'
+           packages:
+             - bitcoind
+             - python-qt4 python-sip
     - os: linux
       services: docker
       env: DOCKER_IMG_JM=xenial
@@ -33,9 +35,15 @@ before_install:
   - on_docker(){ if [ -n "$DOCKER_IMG_JM" ]; then $@ ; fi; }
 cache:
   directories:
-    $HOME/downloads
+   - $HOME/downloads
+   - $HOME/.cache/pip
+   - $HOME/Library/Caches/pip
 install:
+  - mkdir -p "$HOME/downloads"
+  - mkdir -p "$TRAVIS_BUILD_DIR/deps/cache/"
+  - find "$HOME/downloads" -type f -exec cp -v {} "$TRAVIS_BUILD_DIR/deps/cache/" \;
   - on_host ./install.sh --develop --no-gpg-validation
+  - on_host find "$TRAVIS_BUILD_DIR/deps/cache/" -type f -exec cp -v {} "$HOME/downloads/" \;
 before_script:
   - on_host source jmvenv/bin/activate
 script:
