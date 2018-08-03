@@ -60,8 +60,6 @@ def generate_podle_error_string(priv_utxo_pairs, to, ts, unspent, cjamount,
                "to these rules, use the tool add-utxo.py to source a "
                "utxo external to your joinmarket wallet. Read the help "
                "with 'python add-utxo.py --help'\n\n")
-    errmsg += ("You can also reset the rules in the joinmarket.cfg "
-               "file, but this is generally inadvisable.\n")
     errmsg += ("***\nFor reference, here are the utxos in your wallet:\n")
     errmsg += ("\n" + str(unspent))
     return (errmsgheader, errmsg)
