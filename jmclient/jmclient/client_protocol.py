@@ -413,6 +413,11 @@ class JMTakerClientProtocol(JMClientProtocol):
                 #but is not the functionality desired in general (tumbler).
                 self.client.on_finished_callback(False, False, 0.0)
             return {'accepted': True}
+        elif retval[0] == "commitment-failure":
+            #This case occurs if we cannot find any utxos for reasons
+            #other than age, which is a permanent failure
+            self.client.on_finished_callback(False, False, 0.0)
+            return {'accepted': True}
         amt, cmt, rev, foffers = retval[1:]
         d = self.callRemote(commands.JMFill,
                             amount=amt,

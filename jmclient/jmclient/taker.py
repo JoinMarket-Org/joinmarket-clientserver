@@ -209,10 +209,10 @@ class Taker(object):
                 #(TODO, it's possible for user to dynamically add more coins,
                 #consider if this option means we should stay alive).
                 self.taker_info_callback("ABORT", errmsg)
-                self.on_finished_callback(False)
+                return ("commitment-failure",)
             else:
                 self.taker_info_callback("INFO", errmsg)
-            return (False,)
+                return (False,)
         else:
             self.taker_info_callback("INFO", errmsg)
 

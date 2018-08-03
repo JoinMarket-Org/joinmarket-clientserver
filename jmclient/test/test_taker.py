@@ -254,7 +254,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         return clean_up()
     if nocommit:
         print(str(res))
-        assert not res[0]
+        assert res[0] == "commitment-failure"
         return clean_up()
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
     maker_response = copy.deepcopy(t_maker_response)
