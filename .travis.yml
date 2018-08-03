@@ -33,6 +33,7 @@ before_install:
   - do_on(){ if [ "$TRAVIS_OS_NAME" = "$1" ]; then shift; $@ ; fi; }
   - on_host(){ if [ -z "$DOCKER_IMG_JM" ]; then $@ ; fi; }
   - on_docker(){ if [ -n "$DOCKER_IMG_JM" ]; then $@ ; fi; }
+  - do_on osx pip install virtualenv
 cache:
   directories:
    - $HOME/downloads
