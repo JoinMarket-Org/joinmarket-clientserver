@@ -2,11 +2,11 @@ from setuptools import setup
 
 
 setup(name='joinmarketbitcoin',
-      version='0.3.4',
+      version='0.3.5',
       description='Joinmarket client library for Bitcoin coinjoins',
-      url='http://github.com/AdamISZ/joinmarket-clientserver/jmbitcoin',
-      author='Adam Gibson',
-      author_email='ekaggata@gmail.com',
+      url='http://github.com/Joinmarket-Org/joinmarket-clientserver/jmbitcoin',
+      author='',
+      author_email='',
       license='GPL',
       packages=['jmbitcoin'],
       install_requires=['secp256k1',],
