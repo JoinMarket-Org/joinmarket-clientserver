@@ -1,28 +1,61 @@
-from __future__ import print_function
-import json
-import os
-import pprint
-import sys
-import datetime
-from decimal import Decimal
+from __future__ import print_function, absolute_import, division, unicode_literals
+
+from ConfigParser import NoOptionError
+import warnings
+import functools
+import collections
+import numbers
+from binascii import hexlify, unhexlify
+from datetime import datetime
+from copy import deepcopy
 from mnemonic import Mnemonic
-from ConfigParser import NoSectionError
-from getpass import getpass
+from hashlib import sha256
+from itertools import chain
+from decimal import Decimal
 
-import btc
-from jmclient.slowaes import encryptData, decryptData
-from jmclient.blockchaininterface import BitcoinCoreInterface, RegtestBitcoinCoreInterface
-from jmclient.configure import jm_single, get_network, get_p2pk_vbyte, get_p2sh_vbyte
-from jmbase.support import get_log
-from jmclient.support import select_gradual, select_greedy,select_greediest, select
 
-log = get_log()
+from .configure import jm_single
+from .support import select_gradual, select_greedy, select_greediest, \
+    select
+from .cryptoengine import BTC_P2PKH, BTC_P2SH_P2WPKH, TYPE_P2PKH, \
+    TYPE_P2SH_P2WPKH
+from .support import get_random_bytes
+from . import mn_encode, mn_decode, btc
 
-JM_WALLET_P2PKH = "00"
-JM_WALLET_SW_P2SH_P2WPKH = "01"
+
+"""
+transaction dict format:
+    {
+        'version': int,
+        'locktime': int,
+        'ins': [
+            {
+                'outpoint': {
+                    'hash': bytes,
+                    'index': int
+                },
+                'script': bytes,
+                'sequence': int,
+                'txinwitness': [bytes]
+            }
+        ],
+        'outs': [
+            {
+                'script': bytes,
+                'value': int
+            }
+        ]
+    }
+"""
+
+
+def _int_to_bytestr(i):
+    return str(i).encode('ascii')
+
 
 class WalletError(Exception):
     pass
+
 
 def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     '''Returns an estimate of the number of satoshis required
@@ -38,7 +71,6 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
                                      str(absurd_fee) + ", quitting.")
     if txtype in ['p2pkh', 'p2shMofN']:
         tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype)
-        log.debug("Estimated transaction size: "+str(tx_estimated_bytes))
         return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
     elif txtype=='p2sh-p2wpkh':
         witness_estimate, non_witness_estimate = btc.estimate_tx_size(
@@ -48,526 +80,1261 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     else:
         raise NotImplementedError("Txtype: " + txtype + " not implemented.")
 
-def create_wallet_file(pwd, seed):
-    password_key = btc.bin_dbl_sha256(pwd)
-    encrypted_seed = encryptData(password_key, seed.decode('hex'))
-    timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    return json.dumps({'creator': 'joinmarket project',
-                             'creation_time': timestamp,
-                             'encrypted_seed': encrypted_seed.encode('hex'),
-                             'network': get_network()})
 
-class AbstractWallet(object):
-    """
-    Abstract wallet for use with JoinMarket
-    Mostly written with Wallet in mind, the default JoinMarket HD wallet
-    """
+#FIXME: move this to a utilities file?
+def deprecated(func):
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+        warnings.warn("Call to deprecated function {}.".format(func.__name__),
+                      category=DeprecationWarning, stacklevel=2)
+        return func(*args, **kwargs)
 
-    def __init__(self):
-        self.max_mix_depth = 0
-        self.unspent = None
-        self.utxo_selector = select
-        try:
-            config = jm_single().config
-            if config.get("POLICY", "merge_algorithm") == "gradual":
-                self.utxo_selector = select_gradual
-            elif config.get("POLICY", "merge_algorithm") == "greedy":
-                self.utxo_selector = select_greedy
-            elif config.get("POLICY", "merge_algorithm") == "greediest":
-                self.utxo_selector = select_greediest
-            elif config.get("POLICY", "merge_algorithm") != "default":
-                raise Exception("Unknown merge algorithm")
-        except NoSectionError:
-            pass
+    return wrapped
 
-    def get_key_from_addr(self, addr):
-        return None
+
+class UTXOManager(object):
+    STORAGE_KEY = b'utxo'
+    TXID_LEN = 32
+
+    def __init__(self, storage, merge_func):
+        self.storage = storage
+        self.selector = merge_func
+        # {mixdexpth: {(txid, index): (path, value)}}
+        self._utxo = None
+        self._load_storage()
+        assert self._utxo is not None
+
+    @classmethod
+    def initialize(cls, storage):
+        storage.data[cls.STORAGE_KEY] = {}
+
+    def _load_storage(self):
+        assert isinstance(self.storage.data[self.STORAGE_KEY], dict)
+
+        self._utxo = collections.defaultdict(dict)
+        for md, data in self.storage.data[self.STORAGE_KEY].items():
+            md = int(md)
+            md_data = self._utxo[md]
+            for utxo, value in data.items():
+                txid = utxo[:self.TXID_LEN]
+                index = int(utxo[self.TXID_LEN:])
+                md_data[(txid, index)] = value
+
+    def save(self, write=True):
+        new_data = {}
+        self.storage.data[self.STORAGE_KEY] = new_data
+        for md, data in self._utxo.items():
+            md = _int_to_bytestr(md)
+            new_data[md] = {}
+            # storage keys must be bytes()
+            for (txid, index), value in data.items():
+                new_data[md][txid + _int_to_bytestr(index)] = value
+        if write:
+            self.storage.save()
+
+    def reset(self):
+        self._utxo = collections.defaultdict(dict)
+
+    def have_utxo(self, txid, index):
+        for md in self._utxo:
+            if (txid, index) in self._utxo[md]:
+                return md
+        return False
+
+    def remove_utxo(self, txid, index, mixdepth):
+        assert isinstance(txid, bytes)
+        assert len(txid) == self.TXID_LEN
+        assert isinstance(index, numbers.Integral)
+        assert isinstance(mixdepth, numbers.Integral)
+
+        return self._utxo[mixdepth].pop((txid, index))
+
+    def add_utxo(self, txid, index, path, value, mixdepth):
+        assert isinstance(txid, bytes)
+        assert len(txid) == self.TXID_LEN
+        assert isinstance(index, numbers.Integral)
+        assert isinstance(value, numbers.Integral)
+        assert isinstance(mixdepth, numbers.Integral)
+
+        self._utxo[mixdepth][(txid, index)] = (path, value)
+
+    def select_utxos(self, mixdepth, amount, utxo_filter=()):
+        assert isinstance(mixdepth, numbers.Integral)
+        utxos = self._utxo[mixdepth]
+        available = [{'utxo': utxo, 'value': val}
+            for utxo, (addr, val) in utxos.items() if utxo not in utxo_filter]
+        selected = self.selector(available, amount)
+        return {s['utxo']: {'path': utxos[s['utxo']][0],
+                            'value': utxos[s['utxo']][1]}
+                for s in selected}
+
+    def get_balance_by_mixdepth(self):
+        balance_dict = collections.defaultdict(int)
+        for mixdepth, utxomap in self._utxo.items():
+            value = sum(x[1] for x in utxomap.values())
+            balance_dict[mixdepth] = value
+        return balance_dict
 
     def get_utxos_by_mixdepth(self):
-        return None
+        return deepcopy(self._utxo)
 
-    def get_external_addr(self, mixing_depth):
+    def __eq__(self, o):
+        return self._utxo == o._utxo and \
+            self.selector is o.selector
+
+
+class BaseWallet(object):
+    TYPE = None
+
+    MERGE_ALGORITHMS = {
+        'default': select,
+        'gradual': select_gradual,
+        'greedy': select_greedy,
+        'greediest': select_greediest
+    }
+
+    _ENGINES = {
+        TYPE_P2PKH: BTC_P2PKH,
+        TYPE_P2SH_P2WPKH: BTC_P2SH_P2WPKH
+    }
+
+    _ENGINE = None
+
+    def __init__(self, storage, gap_limit=6, merge_algorithm_name=None):
+        # to be defined by inheriting classes
+        assert self.TYPE is not None
+        assert self._ENGINE is not None
+
+        self.merge_algorithm = self._get_merge_algorithm(merge_algorithm_name)
+        self.gap_limit = gap_limit
+        self._storage = storage
+        self._utxos = None
+        self.max_mixdepth = None
+        self.network = None
+
+        # {script: path}, should always hold mappings for all "known" keys
+        self._script_map = {}
+
+        self._load_storage()
+
+        assert self._utxos is not None
+        assert self.max_mixdepth is not None
+        assert self.max_mixdepth >= 0
+        assert self.network in ('mainnet', 'testnet')
+
+    @property
+    @deprecated
+    def max_mix_depth(self):
+        return self.max_mixdepth
+
+    @property
+    @deprecated
+    def gaplimit(self):
+        return self.gap_limit
+
+    def _load_storage(self):
+        """
+        load data from storage
+        """
+        if self._storage.data[b'wallet_type'] != self.TYPE:
+            raise Exception("Wrong class to initialize wallet of type {}."
+                            .format(self.TYPE))
+        self.network = self._storage.data[b'network'].decode('ascii')
+        self.max_mixdepth = self._storage.data[b'max_mixdepth']
+        self._utxos = UTXOManager(self._storage, self.merge_algorithm)
+
+    def save(self):
+        """
+        Write data to associated storage object and trigger persistent update.
+        """
+        self._storage.data[b'max_mixdepth'] = self.max_mixdepth
+        self._storage.save()
+
+    @classmethod
+    def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
+                   write=True):
+        """
+        Initialize wallet in an empty storage. Must be used on a storage object
+        before creating a wallet object with it.
+
+        args:
+            storage: a Storage object
+            network: str, network we are on, 'mainnet' or 'testnet'
+            max_mixdepth: int, number of the highest mixdepth
+            timestamp: bytes or None, defaults to the current time
+            write: execute storage.save()
+        """
+        assert network in ('mainnet', 'testnet')
+        assert max_mixdepth >= 0
+
+        if storage.data != {}:
+            # prevent accidentally overwriting existing wallet
+            raise WalletError("Refusing to initialize wallet in non-empty "
+                              "storage.")
+
+        if not timestamp:
+            timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S')
+
+        storage.data[b'network'] = network.encode('ascii')
+        storage.data[b'max_mixdepth'] = max_mixdepth
+        storage.data[b'created'] = timestamp.encode('ascii')
+        storage.data[b'wallet_type'] = cls.TYPE
+
+        UTXOManager.initialize(storage)
+
+        if write:
+            storage.save()
+
+    def get_txtype(self):
+        """
+        use TYPE constant instead if possible
+        """
+        if self.TYPE == TYPE_P2PKH:
+            return 'p2pkh'
+        elif self.TYPE == TYPE_P2SH_P2WPKH:
+            return 'p2sh-p2wpkh'
+        assert False
+
+    def sign_tx(self, tx, scripts, **kwargs):
+        """
+        Add signatures to transaction for inputs referenced by scripts.
+
+        args:
+            tx: transaction dict
+            scripts: {input_index: (output_script, amount)}
+            kwargs: additional arguments for engine.sign_transaction
+        returns:
+            input transaction dict with added signatures
+        """
+        for index, (script, amount) in scripts.items():
+            assert amount > 0
+            path = self.script_to_path(script)
+            privkey, engine = self._get_priv_from_path(path)
+            engine.sign_transaction(tx, index, privkey, amount, **kwargs)
+        return tx
+
+    @deprecated
+    def get_key_from_addr(self, addr):
+        """
+        There should be no reason for code outside the wallet to need a privkey.
+        """
+        script = self._ENGINE.address_to_script(addr)
+        path = self.script_to_path(script)
+        privkey = self._get_priv_from_path(path)[0]
+        return hexlify(privkey)
+
+    def get_external_addr(self, mixdepth):
         """
         Return an address suitable for external distribution, including funding
         the wallet from other sources, or receiving payments or donations.
         JoinMarket will never generate these addresses for internal use.
         """
-        return None
+        script = self.get_external_script(mixdepth)
+        return self.script_to_addr(script)
 
-    def get_internal_addr(self, mixing_depth):
+    def get_internal_addr(self, mixdepth):
         """
         Return an address for internal usage, as change addresses and when
         participating in transactions initiated by other parties.
         """
-        return None
+        script = self.get_internal_script(mixdepth)
+        return self.script_to_addr(script)
+
+    def get_external_script(self, mixdepth):
+        return self.get_new_script(mixdepth, False)
+
+    def get_internal_script(self, mixdepth):
+        return self.get_new_script(mixdepth, True)
 
     @classmethod
-    def pubkey_to_address(cls, pubkey):
-        return None
+    def addr_to_script(cls, addr):
+        return cls._ENGINE.address_to_script(addr)
 
+    @classmethod
+    def pubkey_to_addr(cls, pubkey):
+        return cls._ENGINE.pubkey_to_address(pubkey)
+
+    def script_to_addr(self, script):
+        assert self.is_known_script(script)
+        path = self.script_to_path(script)
+        engine = self._get_priv_from_path(path)[1]
+        return engine.script_to_address(script)
+
+    @deprecated
+    def get_key(self, mixdepth, internal, index):
+        raise NotImplementedError()
+
+    def get_addr(self, mixdepth, internal, index):
+        script = self.get_script(mixdepth, internal, index)
+        return self.script_to_addr(script)
+
+    def get_addr_path(self, path):
+        script = self.get_script_path(path)
+        return self.script_to_addr(script)
+
+    def get_new_addr(self, mixdepth, internal):
+        """
+        use get_external_addr/get_internal_addr
+        """
+        script = self.get_new_script(mixdepth, internal)
+        return self.script_to_addr(script)
+
+    def get_new_script(self, mixdepth, internal):
+        raise NotImplementedError()
+
+    def get_wif(self, mixdepth, internal, index):
+        return self.get_wif_path(self.get_path(mixdepth, internal, index))
+
+    def get_wif_path(self, path):
+        priv, engine = self._get_priv_from_path(path)
+        return engine.privkey_to_wif(priv)
+
+    def get_path(self, mixdepth=None, internal=None, index=None):
+        raise NotImplementedError()
+
+    def get_details(self, path):
+        """
+        Return mixdepth, internal, index for a given path
+
+        args:
+            path: wallet path
+        returns:
+            tuple (mixdepth, type, index)
+
+            type is one of 0, 1, 'imported'
+        """
+        raise NotImplementedError()
+
+    @deprecated
     def update_cache_index(self):
-        pass
+        """
+        Deprecated alias for save()
+        """
+        self.save()
 
+    @deprecated
     def remove_old_utxos(self, tx):
-        pass
+        tx = deepcopy(tx)
+        for inp in tx['ins']:
+            inp['outpoint']['hash'] = unhexlify(inp['outpoint']['hash'])
 
-    def add_new_utxos(self, tx, txid):
-        pass
+        ret = self.remove_old_utxos_(tx)
 
-    def select_utxos(self, mixdepth, amount, utxo_filter=None):
-        if utxo_filter is None:
-            utxo_filter = []
-        utxo_list = self.get_utxos_by_mixdepth()[mixdepth]
-        unspent = [{'utxo': utxo,
-                    'value': addrval['value']}
-                   for utxo, addrval in utxo_list.iteritems() if utxo not in utxo_filter]
-        inputs = self.utxo_selector(unspent, amount)
-        log.debug('for mixdepth={} amount={} selected:'.format(
-            mixdepth, amount))
-        log.debug(pprint.pformat(inputs))
-        return dict([(i['utxo'], {'value': i['value'],
-                             'address': utxo_list[i['utxo']]['address']})
-                     for i in inputs])
-
-    def get_balance_by_mixdepth(self, verbose=True):
-        mix_balance = {}
-        for m in range(self.max_mix_depth):
-            mix_balance[m] = 0
-        for mixdepth, utxos in self.get_utxos_by_mixdepth(verbose).iteritems():
-            mix_balance[mixdepth] = sum(
-                    [addrval['value'] for addrval in utxos.values()])
-        return mix_balance
-
-class Wallet(AbstractWallet):
-    def __init__(self,
-                 seedarg,
-                 pwd,
-                 max_mix_depth=2,
-                 gaplimit=6,
-                 extend_mixdepth=False,
-                 storepassword=False,
-                 wallet_dir=None):
-        super(Wallet, self).__init__()
-        self.vflag = JM_WALLET_P2PKH
-        self.max_mix_depth = max_mix_depth
-        self.storepassword = storepassword
-        # key is address, value is (mixdepth, forchange, index) if mixdepth =
-        #  -1 it's an imported key and index refers to imported_privkeys
-        self.addr_cache = {}
-        self.unspent = {}
-        self.spent_utxos = []
-        self.imported_privkeys = {}
-        self.seed = self.wallet_data_to_seed(
-            self.read_wallet_file_data(seedarg, pwd, wallet_dir=wallet_dir))
-        if not self.seed:
-            raise WalletError("Failed to decrypt wallet")
-        if extend_mixdepth and len(self.index_cache) > max_mix_depth:
-            self.max_mix_depth = len(self.index_cache)
-        self.gaplimit = gaplimit
-        mixing_depth_keys = self.get_mixing_depth_keys(self.get_master_key())
-        self.keys = [(btc.bip32_ckd(m, 0), btc.bip32_ckd(m, 1))
-                     for m in mixing_depth_keys]
-
-        # self.index = [[0, 0]]*max_mix_depth
-        self.index = []
-        for i in range(self.max_mix_depth):
-            self.index.append([0, 0])
-
-    def get_master_key(self):
-        if not self.seed:
-            raise Exception("Cannot extract master key of wallet, no seed.")
-        #Legacy used the seed in hex
-        if not isinstance(self, SegwitWallet):
-            bip32seed = self.seed
-        else:
-            bip32seed = self.seed.decode('hex')
-        return btc.bip32_master_key(bip32seed, (btc.MAINNET_PRIVATE if get_network(
-                ) == 'mainnet' else btc.TESTNET_PRIVATE))
-
-    def get_mixing_depth_keys(self, master):
-        """legacy path is m/0/n for n 0..N mixing depths
-        """
-        m_0 = btc.bip32_ckd(master, 0)
-        return [btc.bip32_ckd(m_0, c) for c in range(self.max_mix_depth)]
-
-    def get_root_path(self):
-        return "m/0"
-
-    def wallet_data_to_seed(self, entropy):
-        """for base/legacy wallet type, this is a passthrough.
-        for bip39 style wallets, this will convert from one to the other
-        """
-        if entropy is None:
-            return None
-        #Feature for testnet testing: if we are using direct command line
-        #brainwallets (as we do for regtest), strip the flag.
-        if entropy.startswith("FAKESEED"):
-            entropy = entropy[8:]
-        return entropy
-
-    def get_txtype(self):
-        """Return string defining wallet type
-        for purposes of transaction size estimates
-        """
-        return 'p2pkh'
-
-    def sign(self, tx, i, priv, amount):
-        """Sign a transaction for pushing
-        onto the network. The amount field
-        is not used in this case (p2pkh)
-        """
-        return btc.sign(tx, i, priv)
-
-    @classmethod
-    def script_to_address(cls, script):
-        """Return the address for a given output script,
-        which will be p2pkh for the default Wallet object,
-        and reading the correct network byte from the config.
-        """
-        return btc.script_to_address(script, cls.get_vbyte())
-
-    @classmethod
-    def pubkey_to_address(cls, pubkey):
-        return btc.pubkey_to_address(pubkey, cls.get_vbyte())
-
-    def read_wallet_file_data(self, filename, pwd=None, wallet_dir=None):
-        self.path = None
-        wallet_dir = wallet_dir if wallet_dir else 'wallets'
-        self.index_cache = [[0, 0]] * self.max_mix_depth
-        path = os.path.join(wallet_dir, filename)
-        if not os.path.isfile(path):
-            if get_network() == 'testnet':
-                log.debug('filename interpreted as seed, only available in '
-                          'testnet because this probably has lower entropy')
-                return "FAKESEED" + filename
-            else:
-                raise IOError('wallet file not found')
-        if not pwd:
-            log.info("Password required for non-testnet seed wallet")
-            return None
-        self.path = path
-        fd = open(path, 'r')
-        walletfile = fd.read()
-        fd.close()
-        walletdata = json.loads(walletfile)
-        if walletdata['network'] != get_network():
-            raise ValueError('wallet network(%s) does not match '
-                   'joinmarket configured network(%s)' % (
-                walletdata['network'], get_network()))
-        if 'index_cache' in walletdata:
-            self.index_cache = walletdata['index_cache']
-            if self.max_mix_depth > len(self.index_cache):
-                #This can happen e.g. in tumbler when we need more mixdepths
-                #than currently exist. Since we have no info for those extra
-                #depths, we must default to (0,0) (but sync should find used
-                #adddresses).
-                self.index_cache += [[0,0]] * (
-                    self.max_mix_depth - len(self.index_cache))
-        password_key = btc.bin_dbl_sha256(pwd)
-        if 'encrypted_seed' in walletdata: #accept old field name
-            encrypted_entropy = walletdata['encrypted_seed']
-        elif 'encrypted_entropy' in walletdata:
-            encrypted_entropy = walletdata['encrypted_entropy']
-        try:
-            decrypted_entropy = decryptData(
-                    password_key,
-                    encrypted_entropy.decode('hex')).encode('hex')
-            # there is a small probability of getting a valid PKCS7
-            # padding by chance from a wrong password; sanity check the
-            # seed length
-            if len(decrypted_entropy) != 32:
-                raise ValueError
-        except ValueError:
-            log.info('Incorrect password')
-            return None
-
-        if 'encrypted_mnemonic_extension' in walletdata:
-            try:
-                cleartext = decryptData(password_key,
-                    walletdata['encrypted_mnemonic_extension'].decode('hex'))
-                #theres a small chance of not getting a ValueError from the wrong
-                # password so also check the sum
-                if cleartext[-9] != '\xff':
-                    raise ValueError
-                chunks = cleartext.split('\xff')
-                if len(chunks) < 3 or cleartext[-8:] != btc.dbl_sha256(chunks[1])[:8]:
-                    raise ValueError
-                mnemonic_extension = chunks[1]
-            except ValueError:
-                log.info('incorrect password')
-                return None
-        else:
-            mnemonic_extension = None
-
-        if self.storepassword:
-            self.password_key = password_key
-            self.walletdata = walletdata
-        if 'imported_keys' in walletdata:
-            for epk_m in walletdata['imported_keys']:
-                privkey = decryptData(
-                        password_key,
-                        epk_m['encrypted_privkey'].decode( 'hex')).encode('hex')
-                #Imported keys are stored as 32 byte strings only, so the
-                #second version below is sufficient, really.
-                if len(privkey) != 64:
-                    raise Exception(
-                    "Unexpected privkey format; already compressed?:" + privkey)
-                privkey += "01"
-                if epk_m['mixdepth'] not in self.imported_privkeys:
-                    self.imported_privkeys[epk_m['mixdepth']] = []
-                self.addr_cache[btc.privtoaddr(
-                        privkey, magicbyte=get_p2pk_vbyte())] = (epk_m['mixdepth'], -1,
-                    len(self.imported_privkeys[epk_m['mixdepth']]))
-                self.imported_privkeys[epk_m['mixdepth']].append(privkey)
-
-        if mnemonic_extension:
-            return (decrypted_entropy, mnemonic_extension)
-        else:
-            return decrypted_entropy
-
-    def update_cache_index(self):
-        if not self.path:
-            return
-        if not os.path.isfile(self.path):
-            return
-        fd = open(self.path, 'r')
-        walletfile = fd.read()
-        fd.close()
-        walletdata = json.loads(walletfile)
-        walletdata['index_cache'] = self.index
-        walletfile = json.dumps(walletdata)
-        fd = open(self.path, 'w')
-        fd.write(walletfile)
-        fd.close()
-
-    def get_key(self, mixing_depth, forchange, i):
-        return btc.bip32_extract_key(btc.bip32_ckd(
-                self.keys[mixing_depth][forchange], i))
-
-    def get_addr(self, mixing_depth, forchange, i):
-        return btc.privtoaddr(
-                self.get_key(mixing_depth, forchange, i), magicbyte=get_p2pk_vbyte())
-
-    def get_new_addr(self, mixing_depth, forchange, import_required=False):
-        index = self.index[mixing_depth]
-        addr = self.get_addr(mixing_depth, forchange, index[forchange])
-        self.addr_cache[addr] = (mixing_depth, forchange, index[forchange])
-        index[forchange] += 1
-        # self.update_cache_index()
-        bc_interface = jm_single().bc_interface
-        if isinstance(bc_interface, BitcoinCoreInterface) or isinstance(
-            bc_interface, RegtestBitcoinCoreInterface) or import_required:
-            # do not import in the middle of sync_wallet()
-            if bc_interface.wallet_synced:
-                if bc_interface.rpc('getaccount', [addr]) == '':
-                    log.debug('importing address ' + addr + ' to bitcoin core')
-                    bc_interface.rpc(
-                            'importaddress',
-                            [addr, bc_interface.get_wallet_name(self), False])
-        return addr
-
-    def get_external_addr(self, mixing_depth):
-        return self.get_new_addr(mixing_depth, 0)
-
-    def get_internal_addr(self, mixing_depth):
-        return self.get_new_addr(mixing_depth, 1)
-
-    def get_key_from_addr(self, addr):
-        if addr not in self.addr_cache:
-            return None
-        ac = self.addr_cache[addr]
-        if ac[1] >= 0:
-            return self.get_key(*ac)
-        else:
-            return self.imported_privkeys[ac[0]][ac[2]]
-
-    def remove_old_utxos(self, tx):
         removed_utxos = {}
-        for ins in tx['ins']:
-            utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-            if utxo not in self.unspent:
-                continue
-            removed_utxos[utxo] = self.unspent[utxo]
-            del self.unspent[utxo]
-        log.debug('removed utxos, wallet now is \n' + pprint.pformat(
-                self.get_utxos_by_mixdepth(verbose=False)))
-        self.spent_utxos += removed_utxos.keys()
+        for (txid, index), val in ret.items():
+            val['address'] = self.get_addr_path(val['path'])
+            removed_utxos[hexlify(txid) + ':' + str(index)] = val
         return removed_utxos
 
-    @staticmethod
-    def get_vbyte():
-        return get_p2pk_vbyte()
+    def remove_old_utxos_(self, tx):
+        """
+        Remove all own inputs of tx from internal utxo list.
 
-    def add_new_utxos(self, tx, txid):
-        added_utxos = {}
-        for index, outs in enumerate(tx['outs']):
-            addr = btc.script_to_address(outs['script'], self.get_vbyte())
-            if addr not in self.addr_cache:
+        args:
+            tx: transaction dict
+        returns:
+            {(txid, index): {'script': bytes, 'value': int} for all removed utxos
+        """
+        removed_utxos = {}
+        for inp in tx['ins']:
+            txid, index = inp['outpoint']['hash'], inp['outpoint']['index']
+            md = self._utxos.have_utxo(txid, index)
+            if md is False:
                 continue
-            addrdict = {'address': addr, 'value': outs['value']}
-            utxo = txid + ':' + str(index)
-            added_utxos[utxo] = addrdict
-            self.unspent[utxo] = addrdict
-        log.debug('added utxos, wallet now is \n' + pprint.pformat(
-                self.get_utxos_by_mixdepth()))
+            path, value = self._utxos.remove_utxo(txid, index, md)
+            script = self.get_script_path(path)
+            removed_utxos[(txid, index)] = {'script': script,
+                                            'path': path,
+                                            'value': value}
+        return removed_utxos
+
+    @deprecated
+    def add_new_utxos(self, tx, txid):
+        tx = deepcopy(tx)
+        for out in tx['outs']:
+            out['script'] = unhexlify(out['script'])
+
+        ret = self.add_new_utxos_(tx, unhexlify(txid))
+
+        added_utxos = {}
+        for (txid_bin, index), val in ret.items():
+            addr = self.get_addr_path(val['path'])
+            val['address'] = addr
+            added_utxos[txid + ':' + str(index)] = val
         return added_utxos
 
+    def add_new_utxos_(self, tx, txid):
+        """
+        Add all outputs of tx for this wallet to internal utxo list.
+
+        args:
+            tx: transaction dict
+        returns:
+            {(txid, index): {'script': bytes, 'path': tuple, 'value': int}
+                for all added utxos
+        """
+        assert isinstance(txid, bytes) and len(txid) == self._utxos.TXID_LEN
+        added_utxos = {}
+        for index, outs in enumerate(tx['outs']):
+            try:
+                self.add_utxo(txid, index, outs['script'], outs['value'])
+            except WalletError:
+                continue
+
+            path = self.script_to_path(outs['script'])
+            added_utxos[(txid, index)] = {'script': outs['script'],
+                                          'path': path,
+                                          'value': outs['value']}
+        return added_utxos
+
+    def add_utxo(self, txid, index, script, value):
+        assert isinstance(txid, bytes)
+        assert isinstance(index, int)
+        assert isinstance(script, bytes)
+        assert isinstance(value, int)
+
+        if script not in self._script_map:
+            raise WalletError("Tried to add UTXO for unknown key to wallet.")
+
+        path = self.script_to_path(script)
+        mixdepth = self._get_mixdepth_from_path(path)
+        self._utxos.add_utxo(txid, index, path, value, mixdepth)
+
+    @deprecated
+    def select_utxos(self, mixdepth, amount, utxo_filter=None):
+        utxo_filter_new = None
+        if utxo_filter:
+            utxo_filter_new = [(unhexlify(utxo[:64]), int(utxo[65:]))
+                               for utxo in utxo_filter]
+        ret = self.select_utxos_(mixdepth, amount, utxo_filter_new)
+        ret_conv = {}
+        for utxo, data in ret.items():
+            addr = self.get_addr_path(data['path'])
+            utxo_txt = hexlify(utxo[0]) + ':' + str(utxo[1])
+            ret_conv[utxo_txt] = {'address': addr, 'value': data['value']}
+        return ret_conv
+
+    def select_utxos_(self, mixdepth, amount, utxo_filter=None):
+        """
+        args:
+            mixdepth: int, mixdepth to select utxos from
+            amount: int, total minimum amount of all selected utxos
+            utxo_filter: list of (txid, index), utxos not to select
+
+        returns:
+            {(txid, index): {'script': bytes, 'path': tuple, 'value': int}}
+        """
+        assert isinstance(mixdepth, numbers.Integral)
+        assert isinstance(amount, numbers.Integral)
+
+        if not utxo_filter:
+            utxo_filter = ()
+        for i in utxo_filter:
+            assert len(i) == 2
+            assert isinstance(i[0], bytes)
+            assert isinstance(i[1], numbers.Integral)
+        ret = self._utxos.select_utxos(mixdepth, amount, utxo_filter)
+
+        for data in ret.values():
+            data['script'] = self.get_script_path(data['path'])
+
+        return ret
+
+    def reset_utxos(self):
+        self._utxos.reset()
+
+    def get_balance_by_mixdepth(self, verbose=True):
+        # TODO: verbose
+        return self._utxos.get_balance_by_mixdepth()
+
+    @deprecated
     def get_utxos_by_mixdepth(self, verbose=True):
-        """
-        returns a list of utxos sorted by different mix levels
-        """
-        mix_utxo_list = {}
-        for m in range(self.max_mix_depth):
-            mix_utxo_list[m] = {}
-        for utxo, addrvalue in self.unspent.iteritems():
-            mixdepth = self.addr_cache[addrvalue['address']][0]
-            if mixdepth not in mix_utxo_list:
-                mix_utxo_list[mixdepth] = {}
-            mix_utxo_list[mixdepth][utxo] = addrvalue
-        if verbose:
-            log.debug('get_utxos_by_mixdepth = \n' + pprint.pformat(mix_utxo_list))
-        return mix_utxo_list
+        # TODO: verbose
+        ret = self.get_utxos_by_mixdepth_()
 
-class Bip39Wallet(Wallet):
-    """Using python module `mnemonic` to implement
-    BIP39, English only:
-    https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
+        utxos_conv = collections.defaultdict(dict)
+        for md, utxos in ret.items():
+            for utxo, data in utxos.items():
+                utxo_str = hexlify(utxo[0]) + ':' + str(utxo[1])
+                addr = self.get_addr_path(data['path'])
+                data['address'] = addr
+                utxos_conv[md][utxo_str] = data
+        return utxos_conv
+
+    def get_utxos_by_mixdepth_(self):
+        """
+        returns:
+            {mixdepth: {(txid, index):
+                {'script': bytes, 'path': tuple, 'value': int}}}
+        """
+        mix_utxos = self._utxos.get_utxos_by_mixdepth()
+
+        script_utxos = collections.defaultdict(dict)
+        for md, data in mix_utxos.items():
+            for utxo, (path, value) in data.items():
+                script = self.get_script_path(path)
+                script_utxos[md][utxo] = {'script': script,
+                                          'path': path,
+                                          'value': value}
+        return script_utxos
+
+    @classmethod
+    def _get_merge_algorithm(cls, algorithm_name=None):
+        if not algorithm_name:
+            try:
+                algorithm_name = jm_single().config.get('POLICY',
+                                                        'merge_algorithm')
+            except NoOptionError:
+                algorithm_name = 'default'
+
+        alg = cls.MERGE_ALGORITHMS.get(algorithm_name)
+        if alg is None:
+            raise Exception("Unknown merge algorithm: '{}'."
+                            "".format(algorithm_name))
+        return alg
+
+    def _get_mixdepth_from_path(self, path):
+        raise NotImplementedError()
+
+    def get_script_path(self, path):
+        """
+        internal note: This is the final sink for all operations that somehow
+            need to derive a script. If anything goes wrong when deriving a
+            script this is the place to look at.
+
+        args:
+            path: wallet path
+        returns:
+            script
+        """
+        raise NotImplementedError()
+
+    def get_script(self, mixdepth, internal, index):
+        path = self.get_path(mixdepth, internal, index)
+        return self.get_script_path(path)
+
+    def _get_priv_from_path(self, path):
+        raise NotImplementedError()
+
+    def get_path_repr(self, path):
+        """
+        Get a human-readable representation of the wallet path.
+
+        args:
+            path: path tuple
+        returns:
+            str
+        """
+        raise NotImplementedError()
+
+    def path_repr_to_path(self, pathstr):
+        """
+        Convert a human-readable path representation to internal representation.
+
+        args:
+            pathstr: str
+        returns:
+            path tuple
+        """
+        raise NotImplementedError()
+
+    def get_next_unused_index(self, mixdepth, internal):
+        """
+        Get the next index for public scripts/addresses not yet handed out.
+
+        returns:
+            int >= 0
+        """
+        raise NotImplementedError()
+
+    def get_mnemonic_words(self):
+        """
+        Get mnemonic seed words for master key.
+
+        returns:
+            mnemonic_seed, seed_extension
+                mnemonic_seed is a space-separated str of words
+                seed_extension is a str or None
+        """
+        raise NotImplementedError()
+
+    def sign_message(self, message, path):
+        """
+        Sign the message using the key referenced by path.
+
+        args:
+            message: bytes
+            path: path tuple
+        returns:
+            signature as base64-encoded string
+        """
+        priv, engine = self._get_priv_from_path(path)
+        return engine.sign_message(priv, message)
+
+    def get_wallet_id(self):
+        """
+        Get a human-readable identifier for the wallet.
+
+        returns:
+            str
+        """
+        raise NotImplementedError()
+
+    def yield_imported_paths(self, mixdepth):
+        """
+        Get an iterator for all imported keys in given mixdepth.
+
+        params:
+            mixdepth: int
+        returns:
+            iterator of wallet paths
+        """
+        return iter([])
+
+    def is_known_addr(self, addr):
+        """
+        Check if address is known to belong to this wallet.
+
+        params:
+            addr: str
+        returns:
+            bool
+        """
+        script = self.addr_to_script(addr)
+        return script in self._script_map
+
+    def is_known_script(self, script):
+        """
+        Check if script is known to belong to this wallet.
+
+        params:
+            script: bytes
+        returns:
+            bool
+        """
+        assert isinstance(script, bytes)
+        return script in self._script_map
+
+    def get_addr_mixdepth(self, addr):
+        script = self.addr_to_script(addr)
+        return self.get_script_mixdepth(script)
+
+    def get_script_mixdepth(self, script):
+        path = self.script_to_path(script)
+        return self._get_mixdepth_from_path(path)
+
+    def yield_known_paths(self):
+        """
+        Generator for all paths currently known to the wallet
+
+        returns:
+            path generator
+        """
+        for s in self._script_map.values():
+            yield s
+
+    def addr_to_path(self, addr):
+        script = self.addr_to_script(addr)
+        return self.script_to_path(script)
+
+    def script_to_path(self, script):
+        assert script in self._script_map
+        return self._script_map[script]
+
+    def set_next_index(self, mixdepth, internal, index, force=False):
+        """
+        Set the next index to use when generating a new key pair.
+
+        params:
+            mixdepth: int
+            internal: 0/False or 1/True
+            index: int
+            force: True if you know the wallet already knows all scripts
+                   up to (excluding) the given index
+
+        Warning: improper use of 'force' will cause undefined behavior!
+        """
+        raise NotImplementedError()
+
+    def close(self):
+        self._storage.close()
+
+    def __del__(self):
+        self.close()
+
+
+class ImportWalletMixin(object):
     """
-    def wallet_data_to_seed(self, data):
-        if data is None:
-            return None
-        self.mnemonic_extension = None
-        if isinstance(data, tuple):
-            entropy, self.mnemonic_extension = data
+    Mixin for BaseWallet to support importing keys.
+    """
+    _IMPORTED_STORAGE_KEY = b'imported_keys'
+    _IMPORTED_ROOT_PATH = b'imported'
+
+    def __init__(self, storage, gap_limit=6, merge_algorithm_name=None):
+        # {mixdepth: [(privkey, type)]}
+        self._imported = None
+        # path is (_IMPORTED_ROOT_PATH, mixdepth, key_index)
+        super(ImportWalletMixin, self).__init__(storage, gap_limit,
+                                                merge_algorithm_name)
+
+    def _load_storage(self):
+        super(ImportWalletMixin, self)._load_storage()
+        self._imported = collections.defaultdict(list)
+        for md, keys in self._storage.data[self._IMPORTED_STORAGE_KEY].items():
+            md = int(md)
+            self._imported[md] = keys
+            for index, (key, key_type) in enumerate(keys):
+                if not key:
+                    # imported key was removed
+                    continue
+                assert key_type in self._ENGINES
+                self._cache_imported_key(md, key, key_type, index)
+
+    def save(self):
+        import_data = {}
+        for md in self._imported:
+            import_data[_int_to_bytestr(md)] = self._imported[md]
+        self._storage.data[self._IMPORTED_STORAGE_KEY] = import_data
+        super(ImportWalletMixin, self).save()
+
+    @classmethod
+    def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
+                   write=True, **kwargs):
+        super(ImportWalletMixin, cls).initialize(
+            storage, network, max_mixdepth, timestamp, write=False, **kwargs)
+        storage.data[cls._IMPORTED_STORAGE_KEY] = {}
+
+        if write:
+            storage.save()
+
+    def import_private_key(self, mixdepth, wif, key_type=None):
+        """
+        Import a private key in WIF format.
+
+        args:
+            mixdepth: int, mixdepth to import key into
+            wif: str, private key in WIF format
+            key_type: int, must match a TYPE_* constant of this module,
+                used to verify against the key type extracted from WIF
+
+        raises:
+            WalletError: if key's network does not match wallet network
+            WalletError: if key is not compressed and type is not P2PKH
+            WalletError: if key_type does not match data from WIF
+
+        returns:
+            path of imported key
+        """
+        if not 0 <= mixdepth <= self.max_mixdepth:
+            raise WalletError("Mixdepth must be positive and at most {}."
+                              "".format(self.max_mixdepth))
+        if key_type is not None and key_type not in self._ENGINES:
+            raise WalletError("Unsupported key type for imported keys.")
+
+        privkey, key_type_wif = self._ENGINE.wif_to_privkey(wif)
+
+        # FIXME: there is no established standard for encoding key type in wif
+        #if key_type is not None and key_type_wif is not None and \
+        #        key_type != key_type_wif:
+        #    raise WalletError("Expected key type does not match WIF type.")
+
+        # default to wallet key type if not told otherwise
+        if key_type is None:
+            key_type = self.TYPE
+            #key_type = key_type_wif if key_type_wif is not None else self.TYPE
+        engine = self._ENGINES[key_type]
+
+        if engine.privkey_to_script(privkey) in self._script_map:
+            raise WalletError("Cannot import key, already in wallet: {}"
+                              "".format(wif))
+
+        self._imported[mixdepth].append((privkey, key_type))
+        return self._cache_imported_key(mixdepth, privkey, key_type,
+                                        len(self._imported[mixdepth]) - 1)
+
+    def remove_imported_key(self, script=None, address=None, path=None):
+        """
+        Remove an imported key. Arguments are exclusive.
+
+        args:
+            script: bytes
+            address: str
+            path: path
+        """
+        if sum((bool(script), bool(address), bool(path))) != 1:
+            raise Exception("Only one of script|address|path may be given.")
+
+        if address:
+            script = self.addr_to_script(address)
+        if script:
+            path = self.script_to_path(script)
+
+        if not path:
+            raise WalletError("Cannot find key in wallet.")
+
+        if not self._is_imported_path(path):
+            raise WalletError("Cannot remove non-imported key.")
+
+        assert len(path) == 3
+
+        if not script:
+            script = self.get_script_path(path)
+
+        # we need to retain indices
+        self._imported[path[1]][path[2]] = (b'', -1)
+
+        del self._script_map[script]
+
+    def _cache_imported_key(self, mixdepth, privkey, key_type, index):
+        engine = self._ENGINES[key_type]
+        path = (self._IMPORTED_ROOT_PATH, mixdepth, index)
+
+        self._script_map[engine.privkey_to_script(privkey)] = path
+
+        return path
+
+    def _get_mixdepth_from_path(self, path):
+        if not self._is_imported_path(path):
+            return super(ImportWalletMixin, self)._get_mixdepth_from_path(path)
+
+        assert len(path) == 3
+        return path[1]
+
+    def _get_priv_from_path(self, path):
+        if not self._is_imported_path(path):
+            return super(ImportWalletMixin, self)._get_priv_from_path(path)
+
+        assert len(path) == 3
+        md, i = path[1], path[2]
+        assert 0 <= md <= self.max_mixdepth
+
+        if len(self._imported[md]) <= i:
+            raise WalletError("unknown imported key at {}"
+                              "".format(self.get_path_repr(path)))
+
+        key, key_type = self._imported[md][i]
+
+        if key_type == -1:
+            raise WalletError("imported key was removed")
+
+        return key, self._ENGINES[key_type]
+
+    @classmethod
+    def _is_imported_path(cls, path):
+        return len(path) == 3 and path[0] == cls._IMPORTED_ROOT_PATH
+
+    def path_repr_to_path(self, pathstr):
+        spath = pathstr.encode('ascii').split(b'/')
+        if not self._is_imported_path(spath):
+            return super(ImportWalletMixin, self).path_repr_to_path(pathstr)
+
+        return self._IMPORTED_ROOT_PATH, int(spath[1]), int(spath[2])
+
+    def get_path_repr(self, path):
+        if not self._is_imported_path(path):
+            return super(ImportWalletMixin, self).get_path_repr(path)
+
+        assert len(path) == 3
+        return 'imported/{}/{}'.format(*path[1:])
+
+    def yield_imported_paths(self, mixdepth):
+        assert 0 <= mixdepth <= self.max_mixdepth
+
+        for index in range(len(self._imported[mixdepth])):
+            if self._imported[mixdepth][index][1] == -1:
+                continue
+            yield (self._IMPORTED_ROOT_PATH, mixdepth, index)
+
+    def get_details(self, path):
+        if not self._is_imported_path(path):
+            return super(ImportWalletMixin, self).get_details(path)
+        return path[1], 'imported', path[2]
+
+    def get_script_path(self, path):
+        if not self._is_imported_path(path):
+            return super(ImportWalletMixin, self).get_script_path(path)
+
+        priv, engine = self._get_priv_from_path(path)
+        return engine.privkey_to_script(priv)
+
+
+class BIP39WalletMixin(object):
+    """
+    Mixin to use BIP-39 mnemonic seed with BIP32Wallet
+    """
+    _BIP39_EXTENSION_KEY = b'seed_extension'
+    MNEMONIC_LANG = 'english'
+
+    def _load_storage(self):
+        super(BIP39WalletMixin, self)._load_storage()
+        self._entropy_extension = self._storage.data.get(self._BIP39_EXTENSION_KEY)
+
+    @classmethod
+    def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
+                   entropy=None, entropy_extension=None, write=True, **kwargs):
+        super(BIP39WalletMixin, cls).initialize(
+            storage, network, max_mixdepth, timestamp, entropy,
+            write=False, **kwargs)
+        if entropy_extension:
+            storage.data[cls._BIP39_EXTENSION_KEY] = entropy_extension
+
+        if write:
+            storage.save()
+
+    def _create_master_key(self):
+        ent, ext = self.get_mnemonic_words()
+        m = Mnemonic(self.MNEMONIC_LANG)
+        return m.to_seed(ent, ext or b'')
+
+    @classmethod
+    def _verify_entropy(cls, ent):
+        # every 4-bytestream is a valid entropy for BIP-39
+        return ent and len(ent) % 4 == 0
+
+    def get_mnemonic_words(self):
+        entropy = super(BIP39WalletMixin, self)._create_master_key()
+        m = Mnemonic(self.MNEMONIC_LANG)
+        return m.to_mnemonic(entropy), self._entropy_extension
+
+    @classmethod
+    def entropy_from_mnemonic(cls, seed):
+        m = Mnemonic(cls.MNEMONIC_LANG)
+        seed = seed.lower()
+        if not m.check(seed):
+            raise WalletError("Invalid mnemonic seed.")
+
+        ent = m.to_entropy(seed)
+
+        if not cls._verify_entropy(ent):
+            raise WalletError("Seed entropy is too low.")
+
+        return bytes(ent)
+
+
+class BIP32Wallet(BaseWallet):
+    _STORAGE_ENTROPY_KEY = b'entropy'
+    _STORAGE_INDEX_CACHE = b'index_cache'
+    BIP32_MAX_PATH_LEVEL = 2**31
+    BIP32_EXT_ID = 0
+    BIP32_INT_ID = 1
+    ENTROPY_BYTES = 16
+
+    def __init__(self, storage, gap_limit=6, merge_algorithm_name=None):
+        self._entropy = None
+        # {mixdepth: {type: index}} with type being 0/1 for [non]-internal
+        self._index_cache = None
+        # path is a tuple of BIP32 levels,
+        # m is the master key's fingerprint
+        # other levels are ints
+        super(BIP32Wallet, self).__init__(storage, gap_limit,
+                                          merge_algorithm_name)
+        assert self._index_cache is not None
+        assert self._verify_entropy(self._entropy)
+
+        _master_entropy = self._create_master_key()
+        assert _master_entropy
+        self._master_key = self._derive_bip32_master_key(_master_entropy)
+
+        # used to verify paths for sanity checking and for wallet id creation
+        self._key_ident = b''  # otherwise get_bip32_* won't work
+        self._key_ident = sha256(sha256(
+            self.get_bip32_priv_export(0, 0).encode('ascii')).digest())\
+            .digest()[:3]
+        self._populate_script_map()
+
+    @classmethod
+    def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
+                   entropy=None, write=True):
+        """
+        args:
+            entropy: ENTROPY_BYTES bytes or None to have wallet generate some
+        """
+        if entropy and not cls._verify_entropy(entropy):
+            raise WalletError("Invalid entropy.")
+
+        super(BIP32Wallet, cls).initialize(storage, network, max_mixdepth,
+                                           timestamp, write=False)
+
+        if not entropy:
+            entropy = get_random_bytes(cls.ENTROPY_BYTES, True)
+
+        storage.data[cls._STORAGE_ENTROPY_KEY] = entropy
+        storage.data[cls._STORAGE_INDEX_CACHE] = {}
+
+        if write:
+            storage.save()
+
+    def _load_storage(self):
+        super(BIP32Wallet, self)._load_storage()
+        self._entropy = self._storage.data[self._STORAGE_ENTROPY_KEY]
+
+        self._index_cache = collections.defaultdict(
+            lambda: collections.defaultdict(int))
+
+        for md, data in self._storage.data[self._STORAGE_INDEX_CACHE].items():
+            md = int(md)
+            md_map = self._index_cache[md]
+            for t, k in data.items():
+                md_map[int(t)] = k
+
+    def _populate_script_map(self):
+        for md in self._index_cache:
+            for int_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID):
+                for i in range(self._index_cache[md][int_type]):
+                    path = self.get_path(md, int_type, i)
+                    script = self.get_script_path(path)
+                    self._script_map[script] = path
+
+    def save(self):
+        for md, data in self._index_cache.items():
+            str_data = {}
+            str_md = _int_to_bytestr(md)
+
+            for t, k in data.items():
+                str_data[_int_to_bytestr(t)] = k
+
+            self._storage.data[self._STORAGE_INDEX_CACHE][str_md] = str_data
+
+        super(BIP32Wallet, self).save()
+
+    def _create_master_key(self):
+        """
+        for base/legacy wallet type, this is a passthrough.
+        for bip39 style wallets, this will convert from one to the other
+        """
+        return self._entropy
+
+    @classmethod
+    def _verify_entropy(cls, ent):
+        # This is not very useful but true for BIP32. Subclasses may have
+        # stricter requirements.
+        return bool(ent)
+
+    @classmethod
+    def _derive_bip32_master_key(cls, seed):
+        return cls._ENGINE.derive_bip32_master_key(seed)
+
+    def get_script_path(self, path):
+        if not self._is_my_bip32_path(path):
+            raise WalletError("unable to get script for unknown key path")
+
+        md, int_type, index = self.get_details(path)
+
+        if not 0 <= md <= self.max_mixdepth:
+            raise WalletError("Mixdepth outside of wallet's range.")
+        assert int_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID)
+
+        current_index = self._index_cache[md][int_type]
+
+        if index == current_index:
+            return self.get_new_script(md, int_type)
+
+        priv, engine = self._get_priv_from_path(path)
+        script = engine.privkey_to_script(priv)
+
+        return script
+
+    def get_path(self, mixdepth=None, internal=None, index=None):
+        if mixdepth is not None:
+            assert isinstance(mixdepth, int)
+            if not 0 <= mixdepth <= self.max_mixdepth:
+                raise WalletError("Mixdepth outside of wallet's range.")
+
+        if internal is not None:
+            if mixdepth is None:
+                raise Exception("mixdepth must be set if internal is set")
+            int_type = self._get_internal_type(internal)
+
+        if index is not None:
+            assert isinstance(index, int)
+            if internal is None:
+                raise Exception("internal must be set if index is set")
+            assert index <= self._index_cache[mixdepth][int_type]
+            assert index < self.BIP32_MAX_PATH_LEVEL
+            return tuple(chain(self._get_bip32_export_path(mixdepth, internal),
+                               (index,)))
+
+        return tuple(self._get_bip32_export_path(mixdepth, internal))
+
+    def get_path_repr(self, path):
+        path = list(path)
+        assert self._is_my_bip32_path(path)
+        path.pop(0)
+        return 'm' + '/' + '/'.join(map(self._path_level_to_repr, path))
+
+    @classmethod
+    def _harden_path_level(cls, lvl):
+        assert isinstance(lvl, int)
+        if not 0 <= lvl < cls.BIP32_MAX_PATH_LEVEL:
+            raise WalletError("Unable to derive hardened path level from {}."
+                              "".format(lvl))
+        return lvl + cls.BIP32_MAX_PATH_LEVEL
+
+    @classmethod
+    def _path_level_to_repr(cls, lvl):
+        assert isinstance(lvl, int)
+        if not 0 <= lvl < cls.BIP32_MAX_PATH_LEVEL * 2:
+            raise WalletError("Invalid path level {}.".format(lvl))
+        if lvl < cls.BIP32_MAX_PATH_LEVEL:
+            return str(lvl)
+        return str(lvl - cls.BIP32_MAX_PATH_LEVEL) + "'"
+
+    def path_repr_to_path(self, pathstr):
+        spath = pathstr.split('/')
+        assert len(spath) > 0
+        if spath[0] != 'm':
+            raise WalletError("Not a valid wallet path: {}".format(pathstr))
+
+        def conv_level(lvl):
+            if lvl[-1] == "'":
+                return self._harden_path_level(int(lvl[:-1]))
+            return int(lvl)
+
+        return tuple(chain((self._key_ident,), map(conv_level, spath[1:])))
+
+    def _get_mixdepth_from_path(self, path):
+        if not self._is_my_bip32_path(path):
+            raise WalletError("Invalid path, unknown root: {}".format(path))
+
+        return path[len(self._get_bip32_base_path())]
+
+    def _get_priv_from_path(self, path):
+        if not self._is_my_bip32_path(path):
+            raise WalletError("Invalid path, unknown root: {}".format(path))
+
+        return self._ENGINE.derive_bip32_privkey(self._master_key, path), \
+            self._ENGINE
+
+    def _is_my_bip32_path(self, path):
+        return path[0] == self._key_ident
+
+    def get_new_script(self, mixdepth, internal):
+        # This is called by get_script_path and calls back there. We need to
+        # ensure all conditions match to avoid endless recursion.
+        int_type = self._get_internal_type(internal)
+        index = self._index_cache[mixdepth][int_type]
+        self._index_cache[mixdepth][int_type] += 1
+        path = self.get_path(mixdepth, int_type, index)
+        script = self.get_script_path(path)
+        self._script_map[script] = path
+        return script
+
+    def get_script(self, mixdepth, internal, index):
+        path = self.get_path(mixdepth, internal, index)
+        return self.get_script_path(path)
+
+    @deprecated
+    def get_key(self, mixdepth, internal, index):
+        int_type = self._get_internal_type(internal)
+        path = self.get_path(mixdepth, int_type, index)
+        priv = self._ENGINE.derive_bip32_privkey(self._master_key, path)
+        return hexlify(priv)
+
+    def get_bip32_priv_export(self, mixdepth=None, internal=None):
+        path = self._get_bip32_export_path(mixdepth, internal)
+        return self._ENGINE.derive_bip32_priv_export(self._master_key, path)
+
+    def get_bip32_pub_export(self, mixdepth=None, internal=None):
+        path = self._get_bip32_export_path(mixdepth, internal)
+        return self._ENGINE.derive_bip32_pub_export(self._master_key, path)
+
+    def _get_bip32_export_path(self, mixdepth=None, internal=None):
+        if mixdepth is None:
+            assert internal is None
+            path = tuple()
         else:
-            entropy = data
-        if get_network() == "testnet":
-            if entropy.startswith("FAKESEED"):
-                return entropy[8:]
-        self.entropy = entropy.decode('hex')
-        m = Mnemonic("english")
-        return m.to_seed(m.to_mnemonic(self.entropy),
-            '' if not self.mnemonic_extension else self.mnemonic_extension).encode('hex')
+            assert 0 <= mixdepth <= self.max_mixdepth
+            if internal is None:
+                path = (self._get_bip32_mixdepth_path_level(mixdepth),)
+            else:
+                int_type = self._get_internal_type(internal)
+                path = (self._get_bip32_mixdepth_path_level(mixdepth), int_type)
 
-class SegwitWallet(Bip39Wallet):
+        return tuple(chain(self._get_bip32_base_path(), path))
 
-    """This implements an HD wallet (BIP32),
-    with address type P2SH/P2WPKH of segwit (BIP141),
-    using BIP39 mnemonics (see BIP39Wallet),
-    and the structure is intended as an implementation of BIP49,
-    which is a derivative of BIP44:
-    https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki
-    """
-    def __init__(self, seedarg, pwd, max_mix_depth=2, gaplimit=6,
-                 extend_mixdepth=False, storepassword=False, wallet_dir=None):
-        self.entropy = None
-        super(SegwitWallet, self).__init__(seedarg, pwd, max_mix_depth, gaplimit,
-                                           extend_mixdepth, storepassword,
-                                           wallet_dir=wallet_dir)
-        self.vflag = JM_WALLET_SW_P2SH_P2WPKH
-
-    def get_root_path(self):
-        testflag = "1'" if get_network() == "testnet" else "0'"
-        return "m/49'/" + testflag
-
-    def get_mixing_depth_keys(self, master):
-        pre_root = btc.bip32_ckd(master, 49 + 2**31)
-        testnet_flag = 1 if get_network() == "testnet" else 0
-        root = btc.bip32_ckd(pre_root, testnet_flag + 2**31)
-        return [btc.bip32_ckd(root, c + 2**31) for c in range(self.max_mix_depth)]
-
-    @staticmethod
-    def get_vbyte():
-        return get_p2sh_vbyte()
-
-    def get_txtype(self):
-        """Return string defining wallet type
-        for purposes of transaction size estimates
-        """
-        return 'p2sh-p2wpkh'
-
-    def get_addr(self, mixing_depth, forchange, i):
-        """Construct a p2sh-p2wpkh style address for the
-        keypair corresponding to mixing depth mixing_depth,
-        branch forchange and index i
-        """
-        pub = btc.privtopub(self.get_key(mixing_depth, forchange, i))
-        return btc.pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=self.get_vbyte())
+    def _get_bip32_base_path(self):
+        return self._key_ident,
 
     @classmethod
-    def script_to_address(cls, script):
-        """Return the address for a given output script,
-        which will be p2sh-p2wpkh for the segwit (currently).
-        The underlying witness is however invisible at this layer;
-        so it's just a p2sh address.
-        """
-        return btc.script_to_address(script, cls.get_vbyte())
+    def _get_bip32_mixdepth_path_level(cls, mixdepth):
+        return mixdepth
+
+    def _get_internal_type(self, is_internal):
+        return self.BIP32_INT_ID if is_internal else self.BIP32_EXT_ID
+
+    def get_next_unused_index(self, mixdepth, internal):
+        assert 0 <= mixdepth <= self.max_mixdepth
+        int_type = self._get_internal_type(internal)
+
+        if self._index_cache[mixdepth][int_type] >= self.BIP32_MAX_PATH_LEVEL:
+            # FIXME: theoretically this should work for up to
+            # self.BIP32_MAX_PATH_LEVEL * 2, no?
+            raise WalletError("All addresses used up, cannot generate new ones.")
+
+        return self._index_cache[mixdepth][int_type]
+
+    def get_mnemonic_words(self):
+        return ' '.join(mn_encode(hexlify(self._entropy))), None
 
     @classmethod
-    def pubkey_to_address(cls, pubkey):
-        return btc.pubkey_to_p2sh_p2wpkh_address(pubkey, cls.get_vbyte())
+    def entropy_from_mnemonic(cls, seed):
+        words = seed.split()
+        if len(words) != 12:
+            raise WalletError("Seed phrase must consist of exactly 12 words.")
 
-    def sign(self, tx, i, priv, amount):
-        """Sign a transaction; the amount field
-        triggers the segwit style signing.
-        """
-        log.debug("About to sign for this amount: " + str(amount))
-        return btc.sign(tx, i, priv, amount=amount)
+        return unhexlify(mn_decode(words))
 
-class BitcoinCoreWallet(AbstractWallet): #pragma: no cover
-    def __init__(self, fromaccount):
-        super(BitcoinCoreWallet, self).__init__()
-        if not isinstance(jm_single().bc_interface,
-                          BitcoinCoreInterface):
-            raise RuntimeError('Bitcoin Core wallet can only be used when '
-                               'blockchain interface is BitcoinCoreInterface')
-        self.fromaccount = fromaccount
-        self.max_mix_depth = 1
+    def get_wallet_id(self):
+        return hexlify(self._key_ident)
 
-    def get_key_from_addr(self, addr):
-        self.ensure_wallet_unlocked()
-        wifkey = jm_single().bc_interface.rpc('dumpprivkey', [addr])
-        return btc.from_wif_privkey(wifkey, vbyte=get_p2pk_vbyte())
+    def set_next_index(self, mixdepth, internal, index, force=False):
+        int_type = self._get_internal_type(internal)
+        if not (force or index <= self._index_cache[mixdepth][int_type]):
+            raise Exception("cannot advance index without force=True")
+        self._index_cache[mixdepth][int_type] = index
 
-    def get_utxos_by_mixdepth(self):
-        unspent_list = jm_single().bc_interface.rpc('listunspent', [])
-        result = {0: {}}
-        for u in unspent_list:
-            if not u['spendable']:
-                continue
-            if self.fromaccount and (
-                        ('account' not in u) or u['account'] !=
-                        self.fromaccount):
-                continue
-            result[0][u['txid'] + ':' + str(u['vout'])] = {
-                'address': u['address'],
-                'value': int(Decimal(str(u['amount'])) * Decimal('1e8'))}
-        return result
+    def get_details(self, path):
+        if not self._is_my_bip32_path(path):
+            raise Exception("path does not belong to wallet")
+        return self._get_mixdepth_from_path(path), path[-2], path[-1]
 
-    def get_internal_addr(self, mixing_depth):
-        return jm_single().bc_interface.rpc('getrawchangeaddress', [])
 
-    @staticmethod
-    def ensure_wallet_unlocked():
-        wallet_info = jm_single().bc_interface.rpc('getwalletinfo', [])
-        if 'unlocked_until' in wallet_info and wallet_info[
-            'unlocked_until'] <= 0:
-            while True:
-                password = getpass(
-                        'Enter passphrase to unlock wallet: ')
-                if password == '':
-                    raise RuntimeError('Aborting wallet unlock')
-                try:
-                    # TODO cleanly unlock wallet after use, not with arbitrary timeout
-                    jm_single().bc_interface.rpc(
-                            'walletpassphrase', [password, 10])
-                    break
-                except jm_single().JsonRpcError as exc:
-                    if exc.code != -14:
-                        raise exc
-                        # Wrong passphrase, try again.
+class LegacyWallet(ImportWalletMixin, BIP32Wallet):
+    TYPE = TYPE_P2PKH
+    _ENGINE = BTC_P2PKH
 
-def get_wallet_cls():
-    if jm_single().config.get("POLICY", "segwit") == "true":
-        return SegwitWallet
-    return Wallet
+    def _create_master_key(self):
+        return hexlify(self._entropy).encode('ascii')
+
+    def _get_bip32_base_path(self):
+        return self._key_ident, 0
+
+
+class BIP49Wallet(BIP32Wallet):
+    _BIP49_PURPOSE = 2**31 + 49
+    _ENGINE = BTC_P2SH_P2WPKH
+
+    def _get_bip32_base_path(self):
+        return self._key_ident, self._BIP49_PURPOSE,\
+               self._ENGINE.BIP44_COIN_TYPE
+
+    @classmethod
+    def _get_bip32_mixdepth_path_level(cls, mixdepth):
+        assert 0 <= mixdepth < 2**31
+        return cls._harden_path_level(mixdepth)
+
+    def _get_mixdepth_from_path(self, path):
+        if not self._is_my_bip32_path(path):
+            raise WalletError("Invalid path, unknown root: {}".format(path))
+
+        return path[len(self._get_bip32_base_path())] - 2**31
+
+
+class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, BIP49Wallet):
+    TYPE = TYPE_P2SH_P2WPKH
+
+
+WALLET_IMPLEMENTATIONS = {
+    LegacyWallet.TYPE: LegacyWallet,
+    SegwitLegacyWallet.TYPE: SegwitLegacyWallet
+}
