@@ -75,6 +75,12 @@ class SimpleLruCache(OrderedDict):
         OrderedDict.__setitem__(self, key, value)
         self._adjust_size()
 
+    def __getitem__(self, item):
+        e = OrderedDict.__getitem__(self, item)
+        del self[item]
+        OrderedDict.__setitem__(self, item, e)
+        return e
+
     def _adjust_size(self):
         while len(self) > self.max_size:
             self.popitem(last=False)
@@ -156,8 +162,7 @@ class BTCEngine(object):
     def _walk_bip32_path(cls, master_key, path):
         key = master_key
         for lvl in path[1:]:
-            assert lvl >= 0
-            assert lvl < 2**32
+            assert 0 <= lvl < 2**32
             if (key, lvl) in cls.__LRU_KEY_CACHE:
                 key = cls.__LRU_KEY_CACHE[(key, lvl)]
             else:
