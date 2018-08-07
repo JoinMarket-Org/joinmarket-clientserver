@@ -6,6 +6,7 @@ import random
 import sys
 import time
 import binascii
+from copy import deepcopy
 from decimal import Decimal
 from twisted.internet import reactor, task
 
@@ -463,13 +464,22 @@ class BitcoinCoreInterface(BlockchainInterface):
 
         BATCH_SIZE = 100
         MAX_ITERATIONS = 20
+        current_indices = deepcopy(saved_indices)
         for j in range(MAX_ITERATIONS):
             if not remaining_used_addresses:
                 break
             for addr in \
                     self._collect_addresses_gap(wallet, gap_limit=BATCH_SIZE):
                 remaining_used_addresses.discard(addr)
+
+            # increase wallet indices for next iteration
+            for md in current_indices:
+                current_indices[md][0] += BATCH_SIZE
+                current_indices[md][1] += BATCH_SIZE
+            self._rewind_wallet_indices(wallet, current_indices,
+                                        current_indices)
         else:
+            self._rewind_wallet_indices(wallet, saved_indices, saved_indices)
             raise Exception("Failed to sync in fast mode after 20 batches; "
                             "please re-try wallet sync without --fast flag.")
 
