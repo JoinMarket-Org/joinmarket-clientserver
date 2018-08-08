@@ -29,8 +29,11 @@ class DummyWallet(SegwitLegacyWallet):
         for md, utxo in t_utxos_by_mixdepth.items():
             for i, (txid, data) in enumerate(utxo.items()):
                 txid, index = txid.split(':')
+                path = (b'dummy', md, i)
                 self._utxos.add_utxo(binascii.unhexlify(txid), int(index),
-                                     (b'dummy', md, i), data['value'], md)
+                                     path, data['value'], md)
+                script = self._ENGINE.address_to_script(data['address'])
+                self._script_map[script] = path
 
     def get_utxos_by_mixdepth(self, verbose=True):
         return t_utxos_by_mixdepth
@@ -96,6 +99,10 @@ class DummyWallet(SegwitLegacyWallet):
             if a == addr:
                 return binascii.hexlify(p)
         raise ValueError("No such keypair")
+
+    def _is_my_bip32_path(self, path):
+        return True
+
 
 def dummy_order_chooser():
     return t_chosen_orders

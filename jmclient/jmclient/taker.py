@@ -12,8 +12,9 @@ from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
 from jmclient.wallet import estimate_tx_fee
-from jmclient.podle import (generate_podle, get_podle_commitments,
-                                    PoDLE, PoDLEError, generate_podle_error_string)
+from jmclient.podle import generate_podle, get_podle_commitments, PoDLE
+from .output import generate_podle_error_string
+
 jlog = get_log()
 
 
@@ -690,7 +691,7 @@ class Taker(object):
                     "Commitment sourced OK")
         else:
             errmsgheader, errmsg = generate_podle_error_string(priv_utxo_pairs,
-                        to, ts, self.wallet.get_utxos_by_mixdepth(), self.cjamount,
+                        to, ts, self.wallet, self.cjamount,
                         jm_single().config.get("POLICY", "taker_utxo_age"),
                         jm_single().config.get("POLICY", "taker_utxo_amtpercent"))
 

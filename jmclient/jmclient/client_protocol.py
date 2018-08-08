@@ -15,9 +15,9 @@ import json
 import hashlib
 import os
 import sys
-import pprint
 from jmclient import (jm_single, get_irc_mchannels, get_log, get_p2sh_vbyte,
                       RegtestBitcoinCoreInterface)
+from .output import fmt_tx_data
 from jmbase import _byteify
 import btc
 
@@ -240,8 +240,9 @@ class JMMakerClientProtocol(JMClientProtocol):
             jlog.info("Failed to find notified unconfirmed transaction: " + txid)
             return
         removed_utxos = self.client.wallet.remove_old_utxos(txd)
-        jlog.info('saw tx on network, removed_utxos=\n{}'.format(
-                pprint.pformat(removed_utxos)))
+        jlog.info('saw tx on network, removed_utxos=\n{}'.format('\n'.join(
+            '{} - {}'.format(u, fmt_tx_data(tx_data, self.client.wallet))
+            for u, tx_data in removed_utxos.items())))
         to_cancel, to_announce = self.client.on_tx_unconfirmed(offerinfo,
                                                                txid, removed_utxos)
         self.client.modify_orders(to_cancel, to_announce)

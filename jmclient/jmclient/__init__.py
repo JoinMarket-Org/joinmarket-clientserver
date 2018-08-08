@@ -33,9 +33,11 @@ from .electruminterface import ElectrumInterface
 from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
                               start_reactor)
 from .podle import (set_commitment_file, get_commitment_file,
-                    generate_podle_error_string, add_external_commitments,
+                    add_external_commitments,
                     PoDLE, generate_podle, get_podle_commitments,
                     update_commitments)
+from .output import generate_podle_error_string, fmt_utxos, fmt_utxo,\
+    fmt_tx_data
 from .schedule import (get_schedule, get_tumble_schedule, schedule_to_text,
                        tweak_tumble_schedule, human_readable_schedule_entry,
                        schedule_to_text)

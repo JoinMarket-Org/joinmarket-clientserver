@@ -7,11 +7,10 @@ import sys
 from binascii import unhexlify
 
 import btc
-from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
+from jmclient.configure import jm_single
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)
-from jmclient.podle import (generate_podle, get_podle_commitments, verify_podle,
-                                    PoDLE, PoDLEError, generate_podle_error_string)
+from jmclient.podle import verify_podle, PoDLE
 from twisted.internet import task
 jlog = get_log()
 
