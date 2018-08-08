@@ -342,14 +342,13 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
     then return its serialization directly if serialized,
     else return the WalletView object.
     """
-    wallet.close()
     acctlist = []
     for m in xrange(wallet.max_mixdepth + 1):
         branchlist = []
         for forchange in [0, 1]:
             entrylist = []
-            # FIXME: why does this if/else exist?
             if forchange == 0:
+                # users would only want to hand out the xpub for externals
                 xpub_key = wallet.get_bip32_pub_export(m, forchange)
             else:
                 xpub_key = ""
@@ -372,6 +371,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
                     entrylist.append(WalletViewEntry(
                         wallet.get_path_repr(path), m, forchange, k, addr,
                         [balance, balance], priv=privkey, used=used))
+            wallet.set_next_index(m, forchange, unused_index)
             path = wallet.get_path_repr(wallet.get_path(m, forchange))
             branchlist.append(WalletViewBranch(path, m, forchange, entrylist,
                                                xpub=xpub_key))
@@ -884,8 +884,9 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
             test_wallet_cls.initialize(
                 storage, get_network(), max_mixdepth=max_mixdepth,
                 entropy=seed)
-            assert 'ask_for_password' not in kwargs
-            assert 'read_only' not in kwargs
+            assert 'ask_for_password' not in kwargs or\
+                   not kwargs['ask_for_password']
+            assert 'read_only' not in kwargs or not kwargs['read_only']
             return test_wallet_cls(storage, **kwargs)
 
     return open_wallet(path, **kwargs)
