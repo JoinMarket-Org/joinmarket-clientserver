@@ -884,9 +884,8 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
             test_wallet_cls.initialize(
                 storage, get_network(), max_mixdepth=max_mixdepth,
                 entropy=seed)
-            assert 'ask_for_password' not in kwargs or\
-                   not kwargs['ask_for_password']
-            assert 'read_only' not in kwargs or not kwargs['read_only']
+            assert 'ask_for_password' not in kwargs
+            assert 'read_only' not in kwargs
             return test_wallet_cls(storage, **kwargs)
 
     return open_wallet(path, **kwargs)
