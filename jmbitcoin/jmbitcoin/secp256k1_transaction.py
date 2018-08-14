@@ -410,6 +410,16 @@ def pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=5):
     script = pubkey_to_p2sh_p2wpkh_script(pub)
     return p2sh_scriptaddr(script, magicbyte=magicbyte)
 
+def pubkey_to_p2wpkh_script(pub):
+    if re.match('^[0-9a-fA-F]*$', pub):
+        pub = binascii.unhexlify(pub)
+    return "0014" + hash160(pub)
+
+def pubkey_to_p2wpkh_address(pub, vbyte=0):
+    script = pubkey_to_p2wpkh_script(pub)
+    s = script_to_address(script, vbyte=vbyte)
+    return s
+
 def pubkeys_to_p2wsh_script(pubs):
     """Specifically for N of N multisig, for now.
     """
@@ -547,7 +557,7 @@ def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
     return ecdsa_tx_verify(modtx, sig, pub, hashcode)
 
 
-def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
+def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None, native=False):
     i = int(i)
     if (not is_python2 and isinstance(re, bytes)) or not re.match(
             '^[0-9a-fA-F]*$', tx):
@@ -555,6 +565,9 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
     if len(priv) <= 33:
         priv = safe_hexlify(priv)
     if amount:
+        if native:
+            return p2wpkh_sign(tx, i, priv, amount, hashcode=hashcode,
+                               usenonce=usenonce)
         return p2sh_p2wpkh_sign(tx, i, priv, amount, hashcode=hashcode,
                                 usenonce=usenonce)
     pub = privkey_to_pubkey(priv, True)
@@ -579,6 +592,22 @@ def p2sh_p2wpkh_sign(tx, i, priv, amount, hashcode=SIGHASH_ALL, usenonce=None):
     sig = ecdsa_tx_sign(signing_tx, priv, hashcode, usenonce=usenonce)
     txobj = deserialize(tx)
     txobj["ins"][i]["script"] = "16"+script
+    txobj["ins"][i]["txinwitness"] = [sig, pub]
+    return serialize(txobj)
+
+def p2wpkh_sign(tx, i, priv, amount, hashcode=SIGHASH_ALL, usenonce=None):
+    """Given a serialized transaction, index, private key in hex,
+    amount in satoshis and optionally hashcode, return the serialized
+    transaction containing a witness for this input; it's assumed that
+    the input is of type native segwit pay to witness pubkeyhash.
+    """
+    pub = privkey_to_pubkey(priv)
+    scriptCode = "76a914"+hash160(binascii.unhexlify(pub))+"88ac"
+    signing_tx = segwit_signature_form(deserialize(tx), i, scriptCode,
+                                       amount, hashcode=hashcode)
+    sig = ecdsa_tx_sign(signing_tx, priv, hashcode, usenonce=usenonce)
+    txobj = deserialize(tx)
+    txobj["ins"][i]["script"] = ""
     txobj["ins"][i]["txinwitness"] = [sig, pub]
     return serialize(txobj)
 

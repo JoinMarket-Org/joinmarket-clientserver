@@ -105,6 +105,29 @@ def make_sign_and_push(ins_sw,
     #pushtx returns False on any error
     return txid
 
+def test_spend_p2wpkh(setup_segwit):
+    """make a single p2wpkh address. Grab coins to it.
+    Then craft a transaction to spend out of it, to itself.
+    """
+    priv = btc.sha256("seed") + "01"
+    pub = btc.privtopub(priv)
+    addr = btc.pubkey_to_p2wpkh_address(pub, vbyte=100)
+    jm_single().bc_interface.import_addresses([addr], "")
+    txid = jm_single().bc_interface.grab_coins(addr, 1.0)
+    ins = [get_utxo_from_txid(txid, addr)]
+    outs = [{"value": 99990000, "address": addr}]
+    tx = btc.mktx(ins, outs)
+    tx = btc.sign(tx, 0, priv, amount=100000000, native=True)
+    print btc.deserialize(tx)
+    txid = jm_single().bc_interface.pushtx(tx)
+    time.sleep(3)
+    received = jm_single().bc_interface.get_received_by_addr(
+        [addr], None)['data'][0]['balance']
+    #check coins were transferred as expected
+    assert received == 199990000
+    #pushtx returns False on any error
+    assert txid
+
 def test_spend_p2wsh(setup_segwit):
     """make a single p2wsh address for 2 pubkeys (2 of 2).
     Grab coins into it.
