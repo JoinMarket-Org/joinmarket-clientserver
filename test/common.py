@@ -4,7 +4,6 @@ from __future__ import absolute_import
 
 import sys
 import os
-import time
 import binascii
 import random
 from decimal import Decimal
@@ -12,7 +11,8 @@ from decimal import Decimal
 data_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.insert(0, os.path.join(data_dir))
 
-from jmclient import get_wallet_cls, get_log, estimate_tx_fee, jm_single
+from jmclient import open_test_wallet_maybe, BIP32Wallet, SegwitLegacyWallet, \
+    get_log, estimate_tx_fee, jm_single
 import jmbitcoin as btc
 from jmbase import chunks
 
@@ -63,7 +63,8 @@ def make_wallets(n,
                  fixed_seeds=None,
                  test_wallet=False,
                  passwords=None,
-                 walletclass=None):
+                 walletclass=SegwitLegacyWallet,
+                 mixdepths=5):
     '''n: number of wallets to be created
        wallet_structure: array of n arrays , each subarray
        specifying the number of addresses to be populated with coins
@@ -74,35 +75,36 @@ def make_wallets(n,
        Default Wallet constructor is joinmarket.Wallet, else use TestWallet,
        which takes a password parameter as in the list passwords.
        '''
+    # FIXME: this is basically the same code as jmclient/test/commontest.py
     if len(wallet_structures) != n:
         raise Exception("Number of wallets doesn't match wallet structures")
     if not fixed_seeds:
-        seeds = chunks(binascii.hexlify(os.urandom(15 * n)), 15 * 2)
+        seeds = chunks(binascii.hexlify(os.urandom(BIP32Wallet.ENTROPY_BYTES * n)),
+                       BIP32Wallet.ENTROPY_BYTES * 2)
     else:
         seeds = fixed_seeds
     wallets = {}
     for i in range(n):
-        if test_wallet:
-            w = TestWallet(seeds[i], max_mix_depth=5, pwd=passwords[i])
+        assert len(seeds[i]) == BIP32Wallet.ENTROPY_BYTES * 2
+
+        # FIXME: pwd is ignored (but do we really need this anyway?)
+        if test_wallet and passwords and i < len(passwords):
+            pwd = passwords[i]
         else:
-            if walletclass:
-                wc = walletclass
-            else:
-                wc = get_wallet_cls()
-            w = wc(seeds[i], pwd=None, max_mix_depth=5)
+            pwd = None
+
+        w = open_test_wallet_maybe(seeds[i], seeds[i], mixdepths,
+                                   test_wallet_cls=walletclass)
+
         wallets[i + start_index] = {'seed': seeds[i],
                                     'wallet': w}
-        for j in range(5):
+        for j in range(mixdepths):
             for k in range(wallet_structures[i][j]):
                 deviation = sdev_amt * random.random()
                 amt = mean_amt - sdev_amt / 2.0 + deviation
                 if amt < 0: amt = 0.001
                 amt = float(Decimal(amt).quantize(Decimal(10)**-8))
-                jm_single().bc_interface.grab_coins(
-                    wallets[i + start_index]['wallet'].get_external_addr(j),
-                    amt)
-            #reset the index so the coins can be seen if running in same script
-            wallets[i + start_index]['wallet'].index[j][0] -= wallet_structures[i][j]
+                jm_single().bc_interface.grab_coins(w.get_external_addr(j), amt)
     return wallets
 
 

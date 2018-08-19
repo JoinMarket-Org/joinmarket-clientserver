@@ -3,18 +3,15 @@ from __future__ import absolute_import
 '''Test of unusual transaction types creation and push to
 network to check validity.'''
 
-import sys
-import os
 import time
 import binascii
-import random
 from commontest import make_wallets, make_sign_and_push
 
 import jmbitcoin as bitcoin
 import pytest
-from jmclient import (load_program_config, jm_single, sync_wallet,
-                      get_p2pk_vbyte, get_log, Wallet, select_gradual,
-                      select, select_greedy, select_greediest, estimate_tx_fee)
+from jmclient import (
+    load_program_config, jm_single, sync_wallet, get_p2pk_vbyte, get_log,
+    select_gradual, select, select_greedy, select_greediest, estimate_tx_fee)
 
 log = get_log()
 #just a random selection of pubkeys for receiving multisigs;
@@ -176,15 +173,6 @@ def test_create_sighash_txs(setup_tx_creation):
         print "using hashcode: " + str(sighash)
         txid = make_sign_and_push(ins_full, wallet, amount, hashcode=sighash)
         assert txid
-
-    #Create an invalid sighash single (too many inputs)
-    extra = wallet.select_utxos(4, 100000000)  #just a few more inputs
-    ins_full.update(extra)
-    with pytest.raises(Exception) as e_info:
-        txid = make_sign_and_push(ins_full,
-                                  wallet,
-                                  amount,
-                                  hashcode=bitcoin.SIGHASH_SINGLE)
 
     #trigger insufficient funds
     with pytest.raises(Exception) as e_info:

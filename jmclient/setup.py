@@ -9,5 +9,5 @@ setup(name='joinmarketclient',
       author_email='',
       license='GPL',
       packages=['jmclient'],
-      install_requires=['joinmarketbase==0.3.5', 'mnemonic', 'qt4reactor'],
+      install_requires=['joinmarketbase==0.3.5', 'mnemonic', 'qt4reactor', 'argon2_cffi', 'bencoder.pyx', 'pyaes'],
       zip_safe=False)

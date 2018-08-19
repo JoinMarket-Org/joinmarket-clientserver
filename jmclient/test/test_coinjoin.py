@@ -10,10 +10,11 @@ import pytest
 from twisted.internet import reactor
 
 from jmclient import load_program_config, jm_single, get_log,\
-    YieldGeneratorBasic, Taker, sync_wallet
+    YieldGeneratorBasic, Taker, sync_wallet, LegacyWallet, SegwitLegacyWallet
 from jmclient.podle import set_commitment_file
-from commontest import make_wallets
+from commontest import make_wallets, binarize_tx
 from test_taker import dummy_filter_orderbook
+import jmbitcoin as btc
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
@@ -51,8 +52,11 @@ def create_orderbook(makers):
 
 def create_taker(wallet, schedule, monkeypatch):
     def on_finished_callback(*args, **kwargs):
+        log.debug("on finished called with: {}, {}".format(args, kwargs))
+        on_finished_callback.status = args[0]
         on_finished_callback.called = True
     on_finished_callback.called = False
+    on_finished_callback.status = None
     taker = Taker(wallet, schedule, callbacks=(dummy_filter_orderbook, None,
                                                on_finished_callback))
 
@@ -104,7 +108,8 @@ def do_tx_signing(taker, makers, active_orders, txdata):
     return taker_final_result
 
 
-def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj):
+@pytest.mark.parametrize('wallet_cls', (LegacyWallet, SegwitLegacyWallet))
+def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
     def raise_exit(i):
         raise Exception("sys.exit called")
     monkeypatch.setattr(sys, 'exit', raise_exit)
@@ -113,7 +118,7 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj):
     MAKER_NUM = 3
     wallets = make_wallets_to_list(make_wallets(
         MAKER_NUM + 1, wallet_structures=[[4, 0, 0, 0, 0]] * (MAKER_NUM + 1),
-        mean_amt=1))
+        mean_amt=1, wallet_cls=wallet_cls))
 
     jm_single().bc_interface.tickchain()
     sync_wallets(wallets)
@@ -138,6 +143,115 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj):
 
     taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
     assert taker_final_result is not False
+    assert taker.on_finished_callback.status is not False
+
+
+def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
+    def raise_exit(i):
+        raise Exception("sys.exit called")
+    monkeypatch.setattr(sys, 'exit', raise_exit)
+    set_commitment_file(str(tmpdir.join('commitments.json')))
+
+    MAKER_NUM = 3
+    wallets = make_wallets_to_list(make_wallets(
+        MAKER_NUM + 1,
+        wallet_structures=[[4, 0, 0, 0, 0]] * MAKER_NUM + [[0, 0, 0, 0, 3]],
+        mean_amt=1))
+
+    for w in wallets:
+        assert w.max_mixdepth == 4
+
+    jm_single().bc_interface.tickchain()
+    jm_single().bc_interface.tickchain()
+    sync_wallets(wallets)
+
+    cj_fee = 2000
+    makers = [YieldGeneratorBasic(
+        wallets[i],
+        [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
+
+    orderbook = create_orderbook(makers)
+    assert len(orderbook) == MAKER_NUM
+
+    cj_amount = int(1.1 * 10**8)
+    # mixdepth, amount, counterparties, dest_addr, waittime
+    schedule = [(4, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
+    taker = create_taker(wallets[-1], schedule, monkeypatch)
+
+    active_orders, maker_data = init_coinjoin(taker, makers,
+                                              orderbook, cj_amount)
+
+    txdata = taker.receive_utxos(maker_data)
+    assert txdata[0], "taker.receive_utxos error"
+
+    taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
+    assert taker_final_result is not False
+
+    tx = btc.deserialize(txdata[2])
+    binarize_tx(tx)
+
+    w = wallets[-1]
+    w.remove_old_utxos_(tx)
+    w.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
+
+    balances = w.get_balance_by_mixdepth()
+    assert balances[0] == cj_amount
+    # <= because of tx fee
+    assert balances[4] <= 3 * 10**8 - cj_amount - (cj_fee * MAKER_NUM)
+
+
+def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
+    def raise_exit(i):
+        raise Exception("sys.exit called")
+    monkeypatch.setattr(sys, 'exit', raise_exit)
+    set_commitment_file(str(tmpdir.join('commitments.json')))
+
+    MAKER_NUM = 2
+    wallets = make_wallets_to_list(make_wallets(
+        MAKER_NUM + 1,
+        wallet_structures=[[0, 0, 0, 0, 4]] * MAKER_NUM + [[3, 0, 0, 0, 0]],
+        mean_amt=1))
+
+    for w in wallets:
+        assert w.max_mixdepth == 4
+
+    jm_single().bc_interface.tickchain()
+    jm_single().bc_interface.tickchain()
+    sync_wallets(wallets)
+
+    cj_fee = 2000
+    makers = [YieldGeneratorBasic(
+        wallets[i],
+        [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
+
+    orderbook = create_orderbook(makers)
+    assert len(orderbook) == MAKER_NUM
+
+    cj_amount = int(1.1 * 10**8)
+    # mixdepth, amount, counterparties, dest_addr, waittime
+    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
+    taker = create_taker(wallets[-1], schedule, monkeypatch)
+
+    active_orders, maker_data = init_coinjoin(taker, makers,
+                                              orderbook, cj_amount)
+
+    txdata = taker.receive_utxos(maker_data)
+    assert txdata[0], "taker.receive_utxos error"
+
+    taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
+    assert taker_final_result is not False
+
+    tx = btc.deserialize(txdata[2])
+    binarize_tx(tx)
+
+    for i in range(MAKER_NUM):
+        w = wallets[i]
+        w.remove_old_utxos_(tx)
+        w.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
+
+        balances = w.get_balance_by_mixdepth()
+        assert balances[0] == cj_amount
+        assert balances[4] == 4 * 10**8 - cj_amount + cj_fee
 
 
 @pytest.fixture(scope='module')

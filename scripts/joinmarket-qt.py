@@ -52,17 +52,16 @@ JM_CORE_VERSION = '0.3.5'
 #Version of this Qt script specifically
 JM_GUI_VERSION = '7'
 
-from jmclient import (load_program_config, get_network, SegwitWallet,
-                      get_p2sh_vbyte, get_p2pk_vbyte, jm_single, validate_address,
-                      get_log, weighted_order_choose, Taker,
-                      JMClientProtocolFactory, WalletError,
-                      start_reactor, get_schedule, get_tumble_schedule,
-                      schedule_to_text, create_wallet_file,
-                      get_blockchain_interface_instance, sync_wallet, direct_send,
-                      RegtestBitcoinCoreInterface, tweak_tumble_schedule,
-                      human_readable_schedule_entry, tumbler_taker_finished_update,
-                      get_tumble_log, restart_wait, tumbler_filter_orders_callback,
-                      wallet_generate_recover_bip39, wallet_display)
+from jmclient import (
+    load_program_config, get_network, open_wallet, get_wallet_path,
+    get_p2sh_vbyte, get_p2pk_vbyte, jm_single, validate_address, get_log,
+    weighted_order_choose, Taker, JMClientProtocolFactory, WalletError,
+    start_reactor, get_schedule, get_tumble_schedule, schedule_to_text,
+    get_blockchain_interface_instance, sync_wallet,
+    direct_send, RegtestBitcoinCoreInterface, tweak_tumble_schedule,
+    human_readable_schedule_entry, tumbler_taker_finished_update,
+    get_tumble_log, restart_wait, tumbler_filter_orders_callback,
+    wallet_generate_recover_bip39, wallet_display)
 
 from qtsupport import (ScheduleWizard, TumbleRestartWizard, warnings, config_tips,
                        config_types, TaskThread, QtHandler, XStream, Buttons,
@@ -1321,7 +1320,7 @@ class JMMainWindow(QMainWindow):
 
     def recoverWallet(self):
         success = wallet_generate_recover_bip39("recover", "wallets",
-                                                "wallet.json",
+                                                "wallet.jmdat",
                                                 callbacks=(None, self.seedEntry,
                                                            self.getPassword,
                                                            self.getWalletFileName))
@@ -1373,16 +1372,14 @@ class JMMainWindow(QMainWindow):
 
     def loadWalletFromBlockchain(self, firstarg=None, pwd=None, restart_cb=None):
         if (firstarg and pwd) or (firstarg and get_network() == 'testnet'):
+            wallet_path = get_wallet_path(str(firstarg), None)
             try:
-                self.wallet = SegwitWallet(
-                    str(firstarg),
-                    pwd,
-                    max_mix_depth=jm_single().config.getint(
-                    "GUI", "max_mix_depth"),
-                    gaplimit=jm_single().config.getint("GUI", "gaplimit"))
-            except WalletError:
+                self.wallet = open_wallet(
+                    wallet_path, ask_for_password=False, password=pwd,
+                    gap_limit=jm_single().config.getint("GUI", "gaplimit"))
+            except Exception as e:
                 JMQtMessageBox(self,
-                               "Wrong password",
+                               str(e),
                                mbtype='warn',
                                title="Error")
                 return False
@@ -1473,7 +1470,7 @@ class JMMainWindow(QMainWindow):
     def getWalletFileName(self):
         walletname, ok = QInputDialog.getText(self, 'Choose wallet name',
                                               'Enter wallet file name:',
-                                              QLineEdit.Normal, "wallet.json")
+                                              QLineEdit.Normal, "wallet.jmdat")
         if not ok:
             JMQtMessageBox(self, "Create wallet aborted", mbtype='warn')
             return None
@@ -1516,7 +1513,7 @@ class JMMainWindow(QMainWindow):
         if not seed:
             success = wallet_generate_recover_bip39("generate",
                                                    "wallets",
-                                                   "wallet.json",
+                                                   "wallet.jmdat",
                                                    callbacks=(self.displayWords,
                                                               None,
                                                               self.getPassword,

@@ -18,12 +18,12 @@ Brief explanation of the function of each of the scripts:
 
 Either use the same syntax as for normal Joinmarket:
 
-    `python sendpayment.py --fast -N 3 -m 1 -P wallet.json 50000000 <address>`
+    `python sendpayment.py --fast -N 3 -m 1 -P wallet.jmdat 50000000 <address>`
 
 or use the new schedule approach. For an example, see the [sample schedule file](https://github.com/AdamISZ/joinmarket-clientserver/blob/master/scripts/sample-schedule-for-testnet).
 Do:
 
-    `python sendpayment.py --fast -S sample-schedule-for-testnet wallet.json`
+    `python sendpayment.py --fast -S sample-schedule-for-testnet wallet.jmdat`
 
 Note that the magic string `INTERNAL` in the file creates a payment to a new address
 in the next mixdepth (wrapping around to zero if you reach the maximum mixdepth).

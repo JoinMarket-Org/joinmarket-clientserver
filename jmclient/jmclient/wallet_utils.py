@@ -1,20 +1,19 @@
 from __future__ import print_function
 import json
 import os
-import pprint
 import sys
 import sqlite3
 import binascii
 from datetime import datetime
-from mnemonic import Mnemonic
 from optparse import OptionParser
-import getpass
-from jmclient import (get_network, get_wallet_cls, Bip39Wallet, podle,
-                      encryptData, get_p2sh_vbyte, get_p2pk_vbyte, jm_single,
-                      mn_decode, mn_encode, BitcoinCoreInterface,
-                      JsonRpcError, sync_wallet, WalletError)
+from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
+    jm_single, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
+    VolatileStorage, StoragePasswordError,
+    is_segwit_mode, SegwitLegacyWallet, LegacyWallet)
 from jmbase.support import get_password
+from cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH
 import jmclient.btc as btc
+
 
 def get_wallettool_parser():
     description = (
@@ -43,8 +42,9 @@ def get_wallettool_parser():
                       '--maxmixdepth',
                       action='store',
                       type='int',
-                      dest='maxmixdepth',
-                      help='how many mixing depths to display, default=5')
+                      dest='mixdepths',
+                      help='how many mixing depths to initialize in the wallet',
+                      default=5)
     parser.add_option('-g',
                       '--gap-limit',
                       type="int",
@@ -83,7 +83,28 @@ def get_wallettool_parser():
                       type='str',
                       dest='hd_path',
                       help='hd wallet path (e.g. m/0/0/0/000)')
+    parser.add_option('--key-type',  # note: keep in sync with map_key_type
+                      type='choice',
+                      choices=('standard', 'segwit-p2sh'),
+                      action='store',
+                      dest='key_type',
+                      default=None,
+                      help=("Key type when importing private keys.\n"
+                            "If your address starts with '1' use 'standard', "
+                            "if your address starts with '3' use 'segwit-p2sh.\n"
+                            "Native segwit addresses (starting with 'bc') are"
+                            "not yet supported."))
     return parser
+
+
+def map_key_type(parser_key_choice):
+    if not parser_key_choice:
+        return parser_key_choice
+    if parser_key_choice == 'standard':
+        return TYPE_P2PKH
+    if parser_key_choice == 'segwit-p2sh':
+        return TYPE_P2SH_P2WPKH
+    raise Exception("Unknown key type choice '{}'.".format(parser_key_choice))
 
 
 """The classes in this module manage representations
@@ -123,10 +144,9 @@ WalletView* classes manage wallet representations.
 """
 
 class WalletViewBase(object):
-    def __init__(self, bip32path, children=None, serclass=str,
+    def __init__(self, wallet_path_repr, children=None, serclass=str,
                  custom_separator=None):
-        assert bip32pathparse(bip32path)
-        self.bip32path = bip32path
+        self.wallet_path_repr = wallet_path_repr
         self.children = children
         self.serclass = serclass
         self.separator = custom_separator if custom_separator else "\t"
@@ -140,11 +160,10 @@ class WalletViewBase(object):
         return "{0:.08f}".format(self.get_balance(include_unconf))
 
 class WalletViewEntry(WalletViewBase):
-    def __init__(self, bip32path, account, forchange, aindex, addr, amounts,
+    def __init__(self, wallet_path_repr, account, forchange, aindex, addr, amounts,
                  used = 'new', serclass=str, priv=None, custom_separator=None):
-        self.bip32path = bip32path
-        super(WalletViewEntry, self).__init__(bip32path, serclass=serclass,
-                                             custom_separator=custom_separator)
+        super(WalletViewEntry, self).__init__(wallet_path_repr, serclass=serclass,
+                                              custom_separator=custom_separator)
         self.account = account
         assert forchange in [0, 1, -1]
         self.forchange =forchange
@@ -172,10 +191,7 @@ class WalletViewEntry(WalletViewBase):
         return self.serclass(self.separator.join([left, addr, amounts, extradata]))
 
     def serialize_wallet_position(self):
-        bippath = self.bip32path + bip32sep + str(self.account) + "'" + \
-        bip32sep + str(self.forchange) + bip32sep + "{0:03d}".format(self.aindex)
-        assert bip32pathparse(bippath)
-        return self.serclass(bippath)
+        return self.wallet_path_repr.ljust(20)
 
     def serialize_address(self):
         return self.serclass(self.address)
@@ -195,11 +211,11 @@ class WalletViewEntry(WalletViewBase):
         return self.serclass(ed)
 
 class WalletViewBranch(WalletViewBase):
-    def __init__(self, bip32path, account, forchange, branchentries=None,
+    def __init__(self, wallet_path_repr, account, forchange, branchentries=None,
                  xpub=None, serclass=str, custom_separator=None):
-        super(WalletViewBranch, self).__init__(bip32path, children=branchentries,
-                                              serclass=serclass,
-                                              custom_separator=custom_separator)
+        super(WalletViewBranch, self).__init__(wallet_path_repr, children=branchentries,
+                                               serclass=serclass,
+                                               custom_separator=custom_separator)
         self.account = account
         assert forchange in [0, 1, -1]
         self.forchange = forchange
@@ -220,20 +236,18 @@ class WalletViewBranch(WalletViewBase):
             return self.serclass(entryseparator.join(lines))
 
     def serialize_branch_header(self):
-        bippath = self.bip32path + bip32sep + str(self.account) + "'" + \
-            bip32sep + str(self.forchange)
-        assert bip32pathparse(bippath)
         start = "external addresses" if self.forchange == 0 else "internal addresses"
         if self.forchange == -1:
             start = "Imported keys"
-        return self.serclass(self.separator.join([start, bippath, self.xpub]))
+        return self.serclass(self.separator.join([start, self.wallet_path_repr,
+                                                  self.xpub]))
 
 class WalletViewAccount(WalletViewBase):
-    def __init__(self, bip32path, account, branches=None, account_name="mixdepth",
+    def __init__(self, wallet_path_repr, account, branches=None, account_name="mixdepth",
                  serclass=str, custom_separator=None, xpub=None):
-        super(WalletViewAccount, self).__init__(bip32path, children=branches,
-                                               serclass=serclass,
-                                               custom_separator=custom_separator)
+        super(WalletViewAccount, self).__init__(wallet_path_repr, children=branches,
+                                                serclass=serclass,
+                                                custom_separator=custom_separator)
         self.account = account
         self.account_name = account_name
         self.xpub = xpub
@@ -256,12 +270,11 @@ class WalletViewAccount(WalletViewBase):
                 x.serialize(entryseparator) for x in self.branches] + [footer]))
 
 class WalletView(WalletViewBase):
-    def __init__(self, bip32path, accounts, wallet_name="JM wallet",
+    def __init__(self, wallet_path_repr, accounts, wallet_name="JM wallet",
                  serclass=str, custom_separator=None):
-        super(WalletView, self).__init__(bip32path, children=accounts,
-                                              serclass=serclass,
-                                              custom_separator=custom_separator)
-        self.bip32path = bip32path
+        super(WalletView, self).__init__(wallet_path_repr, children=accounts,
+                                         serclass=serclass,
+                                         custom_separator=custom_separator)
         self.wallet_name = wallet_name
         assert all([isinstance(x, WalletViewAccount) for x in accounts])
         self.accounts = accounts
@@ -277,40 +290,41 @@ class WalletView(WalletViewBase):
                 x.serialize(entryseparator, summarize=False) for x in self.accounts] + [footer]))
 
 def get_imported_privkey_branch(wallet, m, showprivkey):
-    if m in wallet.imported_privkeys:
-        entries = []
-        for i, privkey in enumerate(wallet.imported_privkeys[m]):
-            pub = btc.privkey_to_pubkey(privkey)
-            addr = btc.pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=get_p2sh_vbyte())
-            balance = 0.0
-            for addrvalue in wallet.unspent.values():
-                if addr == addrvalue['address']:
-                    balance += addrvalue['value']
-            used = ('used' if balance > 0.0 else 'empty')
-            if showprivkey:
-                wip_privkey = btc.wif_compressed_privkey(
-                privkey, get_p2pk_vbyte())
-            else:
-                wip_privkey = ''
-            entries.append(WalletViewEntry("m/0", m, -1,
-                                           i, addr, [balance, balance],
-                                           used=used,priv=wip_privkey))
+    entries = []
+    for path in wallet.yield_imported_paths(m):
+        addr = wallet.get_addr_path(path)
+        script = wallet.get_script_path(path)
+        balance = 0.0
+        for data in wallet.get_utxos_by_mixdepth_()[m].values():
+            if script == data['script']:
+                balance += data['value']
+        used = ('used' if balance > 0.0 else 'empty')
+        if showprivkey:
+            wip_privkey = wallet.get_wif_path(path)
+        else:
+            wip_privkey = ''
+        entries.append(WalletViewEntry(wallet.get_path_repr(path), m, -1,
+                                       0, addr, [balance, balance],
+                                       used=used, priv=wip_privkey))
+
+    if entries:
         return WalletViewBranch("m/0", m, -1, branchentries=entries)
     return None
 
 def wallet_showutxos(wallet, showprivkey):
     unsp = {}
     max_tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
-    for u, av in wallet.unspent.iteritems():
-        key = wallet.get_key_from_addr(av['address'])
-        tries = podle.get_podle_tries(u, key, max_tries)
-        tries_remaining = max(0, max_tries - tries)
-        unsp[u] = {'address': av['address'], 'value': av['value'],
-                   'tries': tries, 'tries_remaining': tries_remaining,
-                   'external': False}
-        if showprivkey:
-            wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
-            unsp[u]['privkey'] = wifkey
+    utxos = wallet.get_utxos_by_mixdepth()
+    for md in utxos:
+        for u, av in utxos[md].items():
+            key = wallet.get_key_from_addr(av['address'])
+            tries = podle.get_podle_tries(u, key, max_tries)
+            tries_remaining = max(0, max_tries - tries)
+            unsp[u] = {'address': av['address'], 'value': av['value'],
+                       'tries': tries, 'tries_remaining': tries_remaining,
+                       'external': False}
+            if showprivkey:
+                unsp[u]['privkey'] = wallet.get_wif_path(av['path'])
 
     used_commitments, external_commitments = podle.get_podle_commitments()
     for u, ec in external_commitments.iteritems():
@@ -329,44 +343,48 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
     else return the WalletView object.
     """
     acctlist = []
-    rootpath = wallet.get_root_path()
-    for m in range(wallet.max_mix_depth):
+    for m in xrange(wallet.max_mixdepth + 1):
         branchlist = []
         for forchange in [0, 1]:
             entrylist = []
             if forchange == 0:
-                xpub_key = btc.bip32_privtopub(wallet.keys[m][forchange])
+                # users would only want to hand out the xpub for externals
+                xpub_key = wallet.get_bip32_pub_export(m, forchange)
             else:
                 xpub_key = ""
 
-            for k in range(wallet.index[m][forchange] + gaplimit):
-                addr = wallet.get_addr(m, forchange, k)
+            unused_index = wallet.get_next_unused_index(m, forchange)
+            for k in xrange(unused_index + gaplimit):
+                path = wallet.get_path(m, forchange, k)
+                addr = wallet.get_addr_path(path)
                 balance = 0
-                for addrvalue in wallet.unspent.values():
-                    if addr == addrvalue['address']:
-                        balance += addrvalue['value']
-                used = 'used' if k < wallet.index[m][forchange] else 'new'
+                for utxodata in wallet.get_utxos_by_mixdepth_()[m].values():
+                    if path == utxodata['path']:
+                        balance += utxodata['value']
+                used = 'used' if k < unused_index else 'new'
                 if showprivkey:
-                    privkey = btc.wif_compressed_privkey(
-                        wallet.get_key(m, forchange, k), get_p2pk_vbyte())
+                    privkey = wallet.get_wif_path(path)
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
-                    (used == 'new' and forchange == 0)):
-                    entrylist.append(WalletViewEntry(rootpath, m, forchange, k,
-                                                 addr, [balance, balance],
-                                                 priv=privkey, used=used))
-            branchlist.append(WalletViewBranch(rootpath, m, forchange,
-                entrylist, xpub=xpub_key))
+                        (used == 'new' and forchange == 0)):
+                    entrylist.append(WalletViewEntry(
+                        wallet.get_path_repr(path), m, forchange, k, addr,
+                        [balance, balance], priv=privkey, used=used))
+            wallet.set_next_index(m, forchange, unused_index)
+            path = wallet.get_path_repr(wallet.get_path(m, forchange))
+            branchlist.append(WalletViewBranch(path, m, forchange, entrylist,
+                                               xpub=xpub_key))
         ipb = get_imported_privkey_branch(wallet, m, showprivkey)
         if ipb:
             branchlist.append(ipb)
         #get the xpub key of the whole account
-        xpub_account = btc.bip32_privtopub(
-            wallet.get_mixing_depth_keys(wallet.get_master_key())[m])
-        acctlist.append(WalletViewAccount(rootpath, m, branchlist,
+        xpub_account = wallet.get_bip32_pub_export(mixdepth=m)
+        path = wallet.get_path_repr(wallet.get_path(m))
+        acctlist.append(WalletViewAccount(path, m, branchlist,
                                           xpub=xpub_account))
-    walletview = WalletView(rootpath, acctlist)
+    path = wallet.get_path_repr(wallet.get_path())
+    walletview = WalletView(path, acctlist)
     if serialized:
         return walletview.serialize(summarize=summarized)
     else:
@@ -381,7 +399,7 @@ def cli_get_wallet_passphrase_check():
     return password
 
 def cli_get_wallet_file_name():
-    return raw_input('Input wallet file name (default: wallet.json): ')
+    return raw_input('Input wallet file name (default: wallet.jmdat): ')
 
 def cli_display_user_words(words, mnemonic_extension):
     text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
@@ -390,47 +408,24 @@ def cli_display_user_words(words, mnemonic_extension):
     print(text)
 
 def cli_user_mnemonic_entry():
-    mnemonic_phrase = raw_input("Input 12 word mnemonic recovery phrase: ")
+    mnemonic_phrase = raw_input("Input mnemonic recovery phrase: ")
     mnemonic_extension = raw_input("Input mnemonic extension, leave blank if there isnt one: ")
     if len(mnemonic_extension.strip()) == 0:
         mnemonic_extension = None
     return (mnemonic_phrase, mnemonic_extension)
 
 def cli_get_mnemonic_extension():
-    uin = raw_input('Would you like to use a two-factor mnemonic recovery'
-        + ' phrase? write \'n\' if you don\'t know what this is (y/n): ')
+    uin = raw_input("Would you like to use a two-factor mnemonic recovery "
+                    "phrase? write 'n' if you don't know what this is (y/n): ")
     if len(uin) == 0 or uin[0] != 'y':
-        print('Not using mnemonic extension')
+        print("Not using mnemonic extension")
         return None #no mnemonic extension
-    return raw_input('Enter mnemonic extension: ')
+    print("Note: This will be stored in a reversible way. Do not reuse!")
+    return raw_input("Enter mnemonic extension: ")
 
-def persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
-                       encrypted_mnemonic_extension=None,
-                       callbacks=(cli_get_wallet_file_name,)):
-    timestamp = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    walletjson = {'creator': 'joinmarket project',
-                  'creation_time': timestamp,
-                  'encrypted_entropy': encrypted_entropy.encode('hex'),
-                  'network': get_network()}
-    if encrypted_mnemonic_extension:
-        walletjson['encrypted_mnemonic_extension'] = encrypted_mnemonic_extension.encode('hex')
-    walletfile = json.dumps(walletjson)
-    walletname = callbacks[0]()
-    if len(walletname) == 0:
-        walletname = default_wallet_name
-    walletpath = os.path.join(walletspath, walletname)
-    # Does a wallet with the same name exist?
-    if os.path.isfile(walletpath):
-        print('ERROR: ' + walletpath + ' already exists. Aborting.')
-        return False
-    else:
-        fd = open(walletpath, 'w')
-        fd.write(walletfile)
-        fd.close()
-        print('saved to ' + walletname)
-    return True
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
+                                  mixdepths=5,
                                   callbacks=(cli_display_user_words,
                                              cli_user_mnemonic_entry,
                                              cli_get_wallet_passphrase_check,
@@ -444,68 +439,77 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     4 - enter mnemonic extension
     The defaults are for terminal entry.
     """
-    #using 128 bit entropy, 12 words, mnemonic module
-    m = Mnemonic("english")
+    entropy = None
+    mnemonic_extension = None
     if method == "generate":
         mnemonic_extension = callbacks[4]()
-        words = m.generate()
-        callbacks[0](words, mnemonic_extension)
     elif method == 'recover':
         words, mnemonic_extension = callbacks[1]()
+        mnemonic_extension = mnemonic_extension and mnemonic_extension.strip()
         if not words:
             return False
-    entropy = str(m.to_entropy(words))
+        try:
+            entropy = SegwitLegacyWallet.entropy_from_mnemonic(words)
+        except WalletError:
+            return False
+    else:
+        raise Exception("unknown method for wallet creation: '{}'"
+                        .format(method))
+
     password = callbacks[2]()
     if not password:
         return False
-    password_key = btc.bin_dbl_sha256(password)
-    encrypted_entropy = encryptData(password_key, entropy)
-    encrypted_mnemonic_extension = None
-    if mnemonic_extension:
-        mnemonic_extension = mnemonic_extension.strip()
-        #check all ascii printable
-        if not all([a > '\x19' and a < '\x7f' for a in mnemonic_extension]):
-            return False
-        #padding to stop an adversary easily telling how long the mn extension is
-        #padding at the start because of how aes blocks are combined
-        #checksum in order to tell whether the decryption was successful
-        cleartext_length = 79
-        padding_length = cleartext_length - 10 - len(mnemonic_extension)
-        if padding_length > 0:
-            padding = os.urandom(padding_length).replace('\xff', '\xfe')
-        else:
-            padding = ''
-        cleartext = (padding + '\xff' + mnemonic_extension + '\xff'
-            + btc.dbl_sha256(mnemonic_extension)[:8])
-        encrypted_mnemonic_extension = encryptData(password_key, cleartext)
-    return persist_walletfile(walletspath, default_wallet_name, encrypted_entropy,
-                              encrypted_mnemonic_extension, callbacks=(callbacks[3],))
+
+    wallet_name = callbacks[3]()
+    if not wallet_name:
+        wallet_name = default_wallet_name
+    wallet_path = os.path.join(walletspath, wallet_name)
+
+    wallet = create_wallet(wallet_path, password, mixdepths - 1,
+                           entropy=entropy,
+                           entropy_extension=mnemonic_extension)
+    mnemonic, mnext = wallet.get_mnemonic_words()
+    callbacks[0] and callbacks[0](mnemonic, mnext or '')
+    wallet.close()
+    return True
+
 
 def wallet_generate_recover(method, walletspath,
-                            default_wallet_name='wallet.json'):
-    if jm_single().config.get("POLICY", "segwit") == "true":
+                            default_wallet_name='wallet.jmdat',
+                            mixdepths=5):
+    if is_segwit_mode():
         #Here using default callbacks for scripts (not used in Qt)
-        return wallet_generate_recover_bip39(method, walletspath,
-                                             default_wallet_name)
-    if method == 'generate':
-        seed = btc.sha256(os.urandom(64))[:32]
-        words = mn_encode(seed)
-        print('Write down this wallet recovery seed\n\n' + ' '.join(words) +
-              '\n')
-    elif method == 'recover':
-        words = raw_input('Input 12 word recovery seed: ')
-        words = words.split()  # default for split is 1 or more whitespace chars
-        if len(words) != 12:
-            print('ERROR: Recovery seed phrase must be exactly 12 words.')
+        return wallet_generate_recover_bip39(
+            method, walletspath, default_wallet_name, mixdepths=mixdepths)
+
+    entropy = None
+    if method == 'recover':
+        seed = raw_input("Input 12 word recovery seed: ")
+        try:
+            entropy = LegacyWallet.entropy_from_mnemonic(seed)
+        except WalletError as e:
+            print("Unable to restore seed: {}".format(e.message))
             return False
-        seed = mn_decode(words)
-        print(seed)
+    elif method != 'generate':
+        raise Exception("unknown method for wallet creation: '{}'"
+                        .format(method))
+
     password = cli_get_wallet_passphrase_check()
     if not password:
         return False
-    password_key = btc.bin_dbl_sha256(password)
-    encrypted_seed = encryptData(password_key, seed.decode('hex'))
-    return persist_walletfile(walletspath, default_wallet_name, encrypted_seed)
+
+    wallet_name = cli_get_wallet_file_name()
+    if not wallet_name:
+        wallet_name = default_wallet_name
+    wallet_path = os.path.join(walletspath, wallet_name)
+
+    wallet = create_wallet(wallet_path, password, mixdepths - 1,
+                           wallet_cls=LegacyWallet, entropy=entropy)
+    print("Write down and safely store this wallet recovery seed\n\n{}\n"
+          .format(wallet.get_mnemonic_words()[0]))
+    wallet.close()
+    return True
+
 
 def wallet_fetch_history(wallet, options):
     # sort txes in a db because python can be really bad with large lists
@@ -528,10 +532,12 @@ def wallet_fetch_history(wallet, options):
                     in tx)
             tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?);',
                     tx_data)
-            txes = tx_db.execute('SELECT DISTINCT txid, blockhash, blocktime '
-                    'FROM transactions ORDER BY blocktime').fetchall()
-            wallet_addr_cache = wallet.addr_cache
-    wallet_addr_set = set(wallet_addr_cache.keys())
+
+    txes = tx_db.execute(
+        'SELECT DISTINCT txid, blockhash, blocktime '
+        'FROM transactions ORDER BY blocktime').fetchall()
+    wallet_script_set = set(wallet.get_script_path(p)
+                            for p in wallet.yield_known_paths())
 
     def s():
         return ',' if options.csv else ' '
@@ -570,13 +576,13 @@ def wallet_fetch_history(wallet, options):
         rpctx = jm_single().bc_interface.rpc('gettransaction', [tx['txid']])
         txhex = str(rpctx['hex'])
         txd = btc.deserialize(txhex)
-        output_addr_values = dict(((btc.script_to_address(sv['script'],
-            get_p2sh_vbyte()), sv['value']) for sv in txd['outs']))
-        our_output_addrs = wallet_addr_set.intersection(
-                output_addr_values.keys())
+        output_script_values = {binascii.unhexlify(sv['script']): sv['value']
+                                for sv in txd['outs']}
+        our_output_scripts = wallet_script_set.intersection(
+                output_script_values.keys())
 
         from collections import Counter
-        value_freq_list = sorted(Counter(output_addr_values.values())
+        value_freq_list = sorted(Counter(output_script_values.values())
                 .most_common(), key=lambda x: -x[1])
         non_cj_freq = 0 if len(value_freq_list)==1 else sum(zip(
             *value_freq_list[1:])[1])
@@ -596,12 +602,12 @@ def wallet_fetch_history(wallet, options):
                 'outpoint']['index']]
             rpc_inputs.append(input_dict)
 
-        rpc_input_addrs = set((btc.script_to_address(ind['script'],
-            get_p2sh_vbyte()) for ind in rpc_inputs))
-        our_input_addrs = wallet_addr_set.intersection(rpc_input_addrs)
-        our_input_values = [ind['value'] for ind in rpc_inputs if btc.
-                script_to_address(ind['script'], get_p2sh_vbyte()) in
-                our_input_addrs]
+        rpc_input_scripts = set(binascii.unhexlify(ind['script'])
+                                for ind in rpc_inputs)
+        our_input_scripts = wallet_script_set.intersection(rpc_input_scripts)
+        our_input_values = [
+            ind['value'] for ind in rpc_inputs
+            if binascii.unhexlify(ind['script']) in our_input_scripts]
         our_input_value = sum(our_input_values)
         utxos_consumed = len(our_input_values)
 
@@ -613,19 +619,19 @@ def wallet_fetch_history(wallet, options):
         mixdepth_dst = -1
         #TODO this seems to assume all the input addresses are from the same
         # mixdepth, which might not be true
-        if len(our_input_addrs) == 0 and len(our_output_addrs) > 0:
+        if len(our_input_scripts) == 0 and len(our_output_scripts) > 0:
             #payment to us
-            amount = sum([output_addr_values[a] for a in our_output_addrs])
+            amount = sum([output_script_values[a] for a in our_output_scripts])
             tx_type = 'deposit    '
             cj_n = -1
             delta_balance = amount
-            mixdepth_dst = tuple(wallet_addr_cache[a][0] for a in
-                    our_output_addrs)
+            mixdepth_dst = tuple(wallet.get_script_mixdepth(a)
+                                 for a in our_output_scripts)
             if len(mixdepth_dst) == 1:
                 mixdepth_dst = mixdepth_dst[0]
-        elif len(our_input_addrs) == 0 and len(our_output_addrs) == 0:
+        elif len(our_input_scripts) == 0 and len(our_output_scripts) == 0:
             continue            # skip those that don't belong to our wallet
-        elif len(our_input_addrs) > 0 and len(our_output_addrs) == 0:
+        elif len(our_input_scripts) > 0 and len(our_output_scripts) == 0:
             # we swept coins elsewhere
             if is_coinjoin:
                 tx_type = 'cj sweepout'
@@ -633,13 +639,13 @@ def wallet_fetch_history(wallet, options):
                 fees = our_input_value - cj_amount
             else:
                 tx_type = 'sweep out  '
-                amount = sum([v for v in output_addr_values.values()])
+                amount = sum([v for v in output_script_values.values()])
                 fees = our_input_value - amount
             delta_balance = -our_input_value
-            mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
-        elif len(our_input_addrs) > 0 and len(our_output_addrs) == 1:
+            mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
+        elif len(our_input_scripts) > 0 and len(our_output_scripts) == 1:
             # payment to somewhere with our change address getting the remaining
-            change_value = output_addr_values[list(our_output_addrs)[0]]
+            change_value = output_script_values[list(our_output_scripts)[0]]
             if is_coinjoin:
                 tx_type = 'cj withdraw'
                 amount = cj_amount
@@ -650,25 +656,25 @@ def wallet_fetch_history(wallet, options):
                 cj_n = -1
             delta_balance = change_value - our_input_value
             fees = our_input_value - change_value - cj_amount
-            mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
-        elif len(our_input_addrs) > 0 and len(our_output_addrs) == 2:
+            mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
+        elif len(our_input_scripts) > 0 and len(our_output_scripts) == 2:
             #payment to self
-            out_value = sum([output_addr_values[a] for a in our_output_addrs])
+            out_value = sum([output_script_values[a] for a in our_output_scripts])
             if not is_coinjoin:
                 print('this is wrong TODO handle non-coinjoin internal')
             tx_type = 'cj internal'
             amount = cj_amount
             delta_balance = out_value - our_input_value
-            mixdepth_src = wallet_addr_cache[list(our_input_addrs)[0]][0]
-            cj_addr = list(set([a for a,v in output_addr_values.iteritems()
-                if v == cj_amount]).intersection(our_output_addrs))[0]
-            mixdepth_dst = wallet_addr_cache[cj_addr][0]
+            mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
+            cj_script = list(set([a for a, v in output_script_values.iteritems()
+                if v == cj_amount]).intersection(our_output_scripts))[0]
+            mixdepth_dst = wallet.get_script_mixdepth(cj_script)
         else:
             tx_type = 'unknown type'
-            print('our utxos: ' + str(len(our_input_addrs)) \
-                  + ' in, ' + str(len(our_output_addrs)) + ' out')
+            print('our utxos: ' + str(len(our_input_scripts)) \
+                  + ' in, ' + str(len(our_output_scripts)) + ' out')
         balance += delta_balance
-        utxo_count += (len(our_output_addrs) - utxos_consumed)
+        utxo_count += (len(our_output_scripts) - utxos_consumed)
         index = '% 4d'%(i)
         timestamp = datetime.fromtimestamp(rpctx['blocktime']
                 ).strftime("%Y-%m-%d %H:%M")
@@ -755,89 +761,200 @@ def wallet_fetch_history(wallet, options):
         print(('BUG ERROR: wallet balance (%s) does not match balance from ' +
             'history (%s)') % (sat_to_str(total_wallet_balance),
                 sat_to_str(balance)))
-    if utxo_count != len(wallet.unspent):
+    wallet_utxo_count = sum(map(len, wallet.get_utxos_by_mixdepth_().values()))
+    if utxo_count != wallet_utxo_count:
         print(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
-            'history (%s)') % (len(wallet.unspent), utxo_count))
+            'history (%s)') % (wallet_utxo_count, utxo_count))
 
 
 def wallet_showseed(wallet):
-    if isinstance(wallet, Bip39Wallet):
-        if not wallet.entropy:
-            return "Entropy is not initialized."
-        m = Mnemonic("english")
-        text = "Wallet mnemonic recovery phrase:\n\n" + m.to_mnemonic(wallet.entropy) + "\n"
-        if wallet.mnemonic_extension:
-            text += '\nWallet mnemonic extension: ' + wallet.mnemonic_extension + '\n'
-        return text
-    hexseed = wallet.seed
-    print("hexseed = " + hexseed)
-    words = mn_encode(hexseed)
-    return "Wallet mnemonic seed phrase:\n\n" + " ".join(words) + "\n"
+    seed, extension = wallet.get_mnemonic_words()
+    text = "Wallet mnemonic recovery phrase:\n\n{}\n".format(seed)
+    if extension:
+        text += "\nWallet mnemonic extension: {}\n".format(extension)
+    return text
 
-def wallet_importprivkey(wallet, mixdepth):
-    print('WARNING: This imported key will not be recoverable with your 12 ' +
-          'word mnemonic phrase. Make sure you have backups.')
-    print('WARNING: Handling of raw ECDSA bitcoin private keys can lead to '
-          'non-intuitive behaviour and loss of funds.\n  Recommended instead '
-          'is to use the \'sweep\' feature of sendpayment.py ')
-    privkeys = raw_input('Enter private key(s) to import: ')
+
+def wallet_importprivkey(wallet, mixdepth, key_type):
+    print("WARNING: This imported key will not be recoverable with your 12 "
+          "word mnemonic phrase. Make sure you have backups.")
+    print("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
+          "non-intuitive behaviour and loss of funds.\n  Recommended instead "
+          "is to use the \'sweep\' feature of sendpayment.py.")
+    privkeys = raw_input("Enter private key(s) to import: ")
     privkeys = privkeys.split(',') if ',' in privkeys else privkeys.split()
+    imported_addr = []
+    import_failed = 0
     # TODO read also one key for each line
-    for privkey in privkeys:
+    for wif in privkeys:
         # TODO is there any point in only accepting wif format? check what
         # other wallets do
-        privkey_bin = btc.from_wif_privkey(privkey,
-                                        vbyte=get_p2pk_vbyte()).decode('hex')[:-1]
-        encrypted_privkey = encryptData(wallet.password_key, privkey_bin)
-        if 'imported_keys' not in wallet.walletdata:
-            wallet.walletdata['imported_keys'] = []
-        wallet.walletdata['imported_keys'].append(
-            {'encrypted_privkey': encrypted_privkey.encode('hex'),
-             'mixdepth': mixdepth})
-    if wallet.walletdata['imported_keys']:
-        fd = open(wallet.path, 'w')
-        fd.write(json.dumps(wallet.walletdata))
-        fd.close()
-        print('Private key(s) successfully imported')
+        try:
+            path = wallet.import_private_key(mixdepth, wif, key_type=key_type)
+        except WalletError as e:
+            print("Failed to import key {}: {}".format(wif, e))
+            import_failed += 1
+        else:
+            imported_addr.append(wallet.get_addr_path(path))
+
+    if not imported_addr:
+        print("Warning: No keys imported!")
+        return
+
+    wallet.save()
+
+    # show addresses to user so they can verify everything went as expected
+    print("Imported keys for addresses:\n{}".format('\n'.join(imported_addr)))
+    if import_failed:
+        print("Warning: failed to import {} keys".format(import_failed))
+
 
 def wallet_dumpprivkey(wallet, hdpath):
-    pathlist = bip32pathparse(hdpath)
-    print('got pathlist: ' + str(pathlist))
-    if pathlist and len(pathlist) in [5, 4]:
-        #note here we assume the path conforms to Wallet or SegwitWallet(BIP49) standard
-        m, forchange, k = pathlist[-3:]
-        key = wallet.get_key(m, forchange, k)
-        wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
-        return wifkey
-    else:
-        return hdpath + " is not a valid hd wallet path"
+    if not hdpath:
+        print("Error: no hd wallet path supplied")
+        return False
+    path = wallet.path_repr_to_path(hdpath)
+    return wallet.get_wif_path(path)  # will raise exception on invalid path
+
 
 def wallet_signmessage(wallet, hdpath, message):
-    if hdpath.startswith(wallet.get_root_path()):
-        hp = bip32pathparse(hdpath)
-        m, forchange, k = hp[-3:]
-        key = wallet.get_key(m, forchange, k)
-        addr = wallet.pubkey_to_address(btc.privkey_to_pubkey(key))
-        print('Using address: ' + addr)
+    msg = message.encode('utf-8')
+
+    if not hdpath:
+        return "Error: no key path for signing specified"
+    if not message:
+        return "Error: no message specified"
+
+    path = wallet.path_repr_to_path(hdpath)
+    sig = wallet.sign_message(msg, path)
+    return ("Signature: {}\n"
+            "To verify this in Bitcoin Core use the RPC command 'verifymessage'"
+            .format(sig))
+
+
+def get_wallet_type():
+    if is_segwit_mode():
+        return TYPE_P2SH_P2WPKH
+    return TYPE_P2PKH
+
+
+def get_wallet_cls(wtype=None):
+    if wtype is None:
+        wtype = get_wallet_type()
+
+    cls = WALLET_IMPLEMENTATIONS.get(wtype)
+
+    if not cls:
+        raise WalletError("No wallet implementation found for type {}."
+                          "".format(wtype))
+    return cls
+
+
+def create_wallet(path, password, max_mixdepth, wallet_cls=None, **kwargs):
+    storage = Storage(path, password, create=True)
+    wallet_cls = wallet_cls or get_wallet_cls()
+    wallet_cls.initialize(storage, get_network(), max_mixdepth=max_mixdepth,
+                          **kwargs)
+    storage.save()
+    return wallet_cls(storage)
+
+
+def open_test_wallet_maybe(path, seed, max_mixdepth,
+                           test_wallet_cls=SegwitLegacyWallet, **kwargs):
+    """
+    Create a volatile test wallet if path is a hex-encoded string of length 64,
+    otherwise run open_wallet().
+
+    params:
+        path: path to wallet file, ignored for test wallets
+        seed: hex-encoded test seed
+        max_mixdepth: see create_wallet(), ignored when calling open_wallet()
+        kwargs: see open_wallet()
+
+    returns:
+        wallet object
+    """
+    if len(seed) == test_wallet_cls.ENTROPY_BYTES * 2:
+        try:
+            seed = binascii.unhexlify(seed)
+        except binascii.Error:
+            pass
+        else:
+            storage = VolatileStorage()
+            test_wallet_cls.initialize(
+                storage, get_network(), max_mixdepth=max_mixdepth,
+                entropy=seed)
+            assert 'ask_for_password' not in kwargs
+            assert 'read_only' not in kwargs
+            return test_wallet_cls(storage, **kwargs)
+
+    return open_wallet(path, **kwargs)
+
+
+def open_wallet(path, ask_for_password=True, password=None, read_only=False,
+                **kwargs):
+    """
+    Open the wallet file at path and return the corresponding wallet object.
+
+    params:
+        path: str, full path to wallet file
+        ask_for_password: bool, if False password is assumed unset and user
+            will not be asked to type it
+        password: password for storage, ignored if ask_for_password is True
+        read_only: bool, if True, open wallet in read-only mode
+        kwargs: additional options to pass to wallet's init method
+
+    returns:
+        wallet object
+    """
+    if ask_for_password:
+        while True:
+            try:
+                # do not try empty password, assume unencrypted on empty password
+                pwd = get_password("Enter wallet decryption passphrase: ") or None
+                storage = Storage(path, password=pwd, read_only=read_only)
+            except StoragePasswordError:
+                print("Wrong password, try again.")
+                continue
+            except Exception as e:
+                print("Failed to load wallet, error message: " + repr(e))
+                raise e
+            break
     else:
-        print('%s is not a valid hd wallet path' % hdpath)
-        return None
-    sig = btc.ecdsa_sign(message, key, formsg=True)
-    retval = "Signature: " + str(sig) + "\n"
-    retval += "To verify this in Bitcoin Core use the RPC command 'verifymessage'"
-    return retval
+        storage = Storage(path, password, read_only=read_only)
+
+    wallet_cls = get_wallet_cls_from_storage(storage)
+    wallet = wallet_cls(storage, **kwargs)
+    wallet_sanity_check(wallet)
+    return wallet
+
+
+def get_wallet_cls_from_storage(storage):
+    wtype = storage.data.get(b'wallet_type')
+
+    if wtype is None:
+        raise WalletError("File {} is not a valid wallet.".format(storage.path))
+
+    return get_wallet_cls(wtype)
+
+
+def wallet_sanity_check(wallet):
+    if wallet.network != get_network():
+        raise Exception("Wallet network mismatch: we are on '{}' but wallet "
+                        "is on '{}'.".format(get_network(), wallet.network))
+
+
+def get_wallet_path(file_name, wallet_dir):
+    # TODO: move default wallet path to ~/.joinmarket
+    wallet_dir = wallet_dir or 'wallets'
+    return os.path.join(wallet_dir, file_name)
+
 
 def wallet_tool_main(wallet_root_path):
     """Main wallet tool script function; returned is a string (output or error)
     """
     parser = get_wallettool_parser()
     (options, args) = parser.parse_args()
-    # if the index_cache stored in wallet.json is longer than the default
-    # then set maxmixdepth to the length of index_cache
-    maxmixdepth_configured = True
-    if not options.maxmixdepth:
-        maxmixdepth_configured = False
-        options.maxmixdepth = 5
 
     noseed_methods = ['generate', 'recover']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
@@ -849,44 +966,33 @@ def wallet_tool_main(wallet_root_path):
         parser.error('Needs a wallet file or method')
         sys.exit(0)
 
+    if options.mixdepths < 1:
+        parser.error("Must have at least one mixdepth.")
+        sys.exit(0)
+
     if args[0] in noseed_methods:
         method = args[0]
     else:
         seed = args[0]
+        wallet_path = get_wallet_path(seed, wallet_root_path)
         method = ('display' if len(args) == 1 else args[1].lower())
-        if not os.path.exists(os.path.join(wallet_root_path, seed)):
-            wallet = get_wallet_cls()(seed, None, options.maxmixdepth,
-                    options.gaplimit, extend_mixdepth= not maxmixdepth_configured,
-                    storepassword=(method == 'importprivkey'),
-                    wallet_dir=wallet_root_path)
-        else:
-            while True:
-                try:
-                    pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = get_wallet_cls()(seed, pwd,
-                            options.maxmixdepth,
-                            options.gaplimit,
-                            extend_mixdepth=not maxmixdepth_configured,
-                            storepassword=(method == 'importprivkey'),
-                            wallet_dir=wallet_root_path)
-                except WalletError:
-                    print("Wrong password, try again.")
-                    continue
-                except Exception as e:
-                    print("Failed to load wallet, error message: " + repr(e))
-                    sys.exit(0)
-                break
+
+        wallet = open_test_wallet_maybe(
+            wallet_path, seed, options.mixdepths - 1, gap_limit=options.gaplimit)
+
         if method not in noscan_methods:
             # if nothing was configured, we override bitcoind's options so that
             # unconfirmed balance is included in the wallet display by default
             if 'listunspent_args' not in jm_single().config.options('POLICY'):
                 jm_single().config.set('POLICY','listunspent_args', '[0]')
-            sync_wallet(wallet, fast=options.fastsync)
+            while not jm_single().bc_interface.wallet_synced:
+                sync_wallet(wallet, fast=options.fastsync)
     #Now the wallet/data is prepared, execute the script according to the method
     if method == "display":
         return wallet_display(wallet, options.gaplimit, options.showprivkey)
     elif method == "displayall":
-        return wallet_display(wallet, options.gaplimit, options.showprivkey, displayall=True)
+        return wallet_display(wallet, options.gaplimit, options.showprivkey,
+                              displayall=True)
     elif method == "summary":
         return wallet_display(wallet, options.gaplimit, options.showprivkey, summarized=True)
     elif method == "history":
@@ -897,10 +1003,12 @@ def wallet_tool_main(wallet_root_path):
         else:
             return wallet_fetch_history(wallet, options)
     elif method == "generate":
-        retval = wallet_generate_recover("generate", wallet_root_path)
+        retval = wallet_generate_recover("generate", wallet_root_path,
+                                         mixdepths=options.mixdepths)
         return retval if retval else "Failed"
     elif method == "recover":
-        retval = wallet_generate_recover("recover", wallet_root_path)
+        retval = wallet_generate_recover("recover", wallet_root_path,
+                                         mixdepths=options.mixdepths)
         return retval if retval else "Failed"
     elif method == "showutxos":
         return wallet_showutxos(wallet, options.showprivkey)
@@ -910,10 +1018,12 @@ def wallet_tool_main(wallet_root_path):
         return wallet_dumpprivkey(wallet, options.hd_path)
     elif method == "importprivkey":
         #note: must be interactive (security)
-        wallet_importprivkey(wallet, options.mixdepth)
+        wallet_importprivkey(wallet, options.mixdepth,
+                             map_key_type(options.key_type))
         return "Key import completed."
     elif method == "signmessage":
         return wallet_signmessage(wallet, options.hd_path, args[2])
+
 
 #Testing (can port to test modules, TODO)
 if __name__ == "__main__":

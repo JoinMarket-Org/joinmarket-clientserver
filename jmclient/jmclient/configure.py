@@ -414,3 +414,7 @@ def get_blockchain_interface_instance(_config):
     else:
         raise ValueError("Invalid blockchain source")
     return bc_interface
+
+
+def is_segwit_mode():
+    return jm_single().config.get('POLICY', 'segwit') != 'false'

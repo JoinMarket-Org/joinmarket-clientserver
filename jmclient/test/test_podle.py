@@ -7,16 +7,12 @@ import binascii
 import json
 import pytest
 import copy
-import subprocess
-import signal
-from commontest import make_wallets
-import time
-from pprint import pformat
 from jmclient import (load_program_config, get_log, jm_single, generate_podle,
                       generate_podle_error_string, set_commitment_file,
                       get_commitment_file, PoDLE, get_podle_commitments,
                       add_external_commitments, update_commitments)
 from jmclient.podle import verify_all_NUMS, verify_podle, PoDLEError
+from commontest import make_wallets
 log = get_log()
 
 def test_commitments_empty(setup_podle):
@@ -197,14 +193,14 @@ def test_podle_error_string(setup_podle):
                              ('fakepriv2', 'fakeutxo2')]
     to = ['tooold1', 'tooold2']
     ts = ['toosmall1', 'toosmall2']
-    unspent = "dummyunspent"
+    wallet = make_wallets(1, [[1, 0, 0, 0, 0]])[0]['wallet']
     cjamt = 100
     tua = "3"
     tuamtper = "20"
     errmgsheader, errmsg = generate_podle_error_string(priv_utxo_pairs,
                                                        to,
                                                        ts,
-                                                       unspent,
+                                                       wallet,
                                                        cjamt,
                                                        tua,
                                                        tuamtper)
@@ -213,7 +209,7 @@ def test_podle_error_string(setup_podle):
     y = [x[1] for x in priv_utxo_pairs]
     assert all([errmsg.find(x) != -1 for x in to + ts + y])
     #ensure OK with nothing
-    errmgsheader, errmsg = generate_podle_error_string([], [], [], unspent,
+    errmgsheader, errmsg = generate_podle_error_string([], [], [], wallet,
                                                        cjamt, tua, tuamtper)
 
 @pytest.fixture(scope="module")

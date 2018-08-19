@@ -5,10 +5,11 @@ import pprint
 import os
 import time
 import numbers
+from binascii import hexlify, unhexlify
 from .configure import get_log, jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule
-from .wallet import Wallet, SegwitWallet, estimate_tx_fee
-from jmclient import mktx, deserialize, sign, txhash
+from .wallet import BaseWallet, estimate_tx_fee
+from .btc import mktx, serialize, deserialize, sign, txhash
 log = get_log()
 
 """
@@ -42,10 +43,10 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     assert mixdepth >= 0
     assert isinstance(amount, numbers.Integral)
     assert amount >=0
-    assert isinstance(wallet, Wallet) or isinstance(wallet, SegwitWallet)
+    assert isinstance(wallet, BaseWallet)
 
     from pprint import pformat
-    txtype = 'p2sh-p2wpkh' if isinstance(wallet, SegwitWallet) else 'p2pkh'
+    txtype = wallet.get_txtype()
     if amount == 0:
         utxos = wallet.get_utxos_by_mixdepth()[mixdepth]
         if utxos == {}:
@@ -67,21 +68,14 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
         changeval = total_inputs_val - fee_est - amount
         outs = [{"value": amount, "address": destaddr}]
         change_addr = wallet.get_internal_addr(mixdepth)
+        import_new_addresses(wallet, [change_addr])
         outs.append({"value": changeval, "address": change_addr})
 
     #Now ready to construct transaction
     log.info("Using a fee of : " + str(fee_est) + " satoshis.")
     if amount != 0:
         log.info("Using a change value of: " + str(changeval) + " satoshis.")
-    tx = mktx(utxos.keys(), outs)
-    stx = deserialize(tx)
-    for index, ins in enumerate(stx['ins']):
-        utxo = ins['outpoint']['hash'] + ':' + str(
-                ins['outpoint']['index'])
-        addr = utxos[utxo]['address']
-        signing_amount = utxos[utxo]['value']
-        amt = signing_amount if isinstance(wallet, SegwitWallet) else None
-        tx = sign(tx, index, wallet.get_key_from_addr(addr), amount=amt)
+    tx = sign_tx(wallet, mktx(utxos.keys(), outs), utxos)
     txsigned = deserialize(tx)
     log.info("Got signed transaction:\n")
     log.info(tx + "\n")
@@ -104,6 +98,31 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     cb = log.info if not info_callback else info_callback
     cb(successmsg)
     return txid
+
+
+def sign_tx(wallet, tx, utxos):
+    stx = deserialize(tx)
+    our_inputs = {}
+    for index, ins in enumerate(stx['ins']):
+        utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
+        script = wallet.addr_to_script(utxos[utxo]['address'])
+        amount = utxos[utxo]['value']
+        our_inputs[index] = (script, amount)
+
+    # FIXME: ugly hack
+    tx_bin = deserialize(unhexlify(serialize(stx)))
+    wallet.sign_tx(tx_bin, our_inputs)
+    return hexlify(serialize(tx_bin))
+
+
+def import_new_addresses(wallet, addr_list):
+    # FIXME: same code as in maker.py and taker.py
+    bci = jm_single().bc_interface
+    if not hasattr(bci, 'import_addresses'):
+        return
+    assert hasattr(bci, 'get_wallet_name')
+    bci.import_addresses(addr_list, bci.get_wallet_name(wallet))
+
 
 def get_tumble_log(logsdir):
     tumble_log = logging.getLogger('tumbler')

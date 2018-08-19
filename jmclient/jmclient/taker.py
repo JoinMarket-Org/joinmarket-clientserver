@@ -4,9 +4,7 @@ from __future__ import print_function
 import base64
 import pprint
 import random
-import sys
-import time
-import copy
+from binascii import hexlify, unhexlify
 
 import btc
 from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
@@ -14,8 +12,9 @@ from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
 from jmclient.wallet import estimate_tx_fee
-from jmclient.podle import (generate_podle, get_podle_commitments,
-                                    PoDLE, PoDLEError, generate_podle_error_string)
+from jmclient.podle import generate_podle, get_podle_commitments, PoDLE
+from .output import generate_podle_error_string
+
 jlog = get_log()
 
 
@@ -28,7 +27,6 @@ class Taker(object):
                  wallet,
                  schedule,
                  order_chooser=weighted_order_choose,
-                 sign_method=None,
                  callbacks=None,
                  tdestaddrs=None,
                  ignored_makers=None):
@@ -99,10 +97,8 @@ class Taker(object):
         self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
+        self.utxos = {}
         self.tdestaddrs = [] if not tdestaddrs else tdestaddrs
-        #allow custom wallet-based clients to use their own signing code;
-        #currently only setting "wallet" is allowed, calls wallet.sign_tx(tx)
-        self.sign_method = sign_method
         self.filter_orders_callback = callbacks[0]
         self.taker_info_callback = callbacks[1]
         if not self.taker_info_callback:
@@ -181,10 +177,11 @@ class Taker(object):
             #if destination is flagged "INTERNAL", choose a destination
             #from the next mixdepth modulo the maxmixdepth
             if self.my_cj_addr == "INTERNAL":
-                next_mixdepth = (self.mixdepth + 1) % self.wallet.max_mix_depth
+                next_mixdepth = (self.mixdepth + 1) % (self.wallet.max_mixdepth + 1)
                 jlog.info("Choosing a destination from mixdepth: " + str(next_mixdepth))
                 self.my_cj_addr = self.wallet.get_internal_addr(next_mixdepth)
                 jlog.info("Chose destination address: " + self.my_cj_addr)
+                self.import_new_addresses([self.my_cj_addr])
             self.outputs = []
             self.cjfee_total = 0
             self.maker_txfee_contributions = 0
@@ -269,6 +266,7 @@ class Taker(object):
         if self.cjamount != 0:
             try:
                 self.my_change_addr = self.wallet.get_internal_addr(self.mixdepth)
+                self.import_new_addresses([self.my_change_addr])
             except:
                 self.taker_info_callback("ABORT", "Failed to get a change address")
                 return False
@@ -367,7 +365,9 @@ class Taker(object):
             #Construct the Bitcoin address for the auth_pub field
             #Ensure that at least one address from utxos corresponds.
             input_addresses = [d['address'] for d in utxo_data]
-            auth_address = self.wallet.pubkey_to_address(auth_pub)
+            # FIXME: This only works if taker's commitment address is of same type
+            # as our wallet.
+            auth_address = self.wallet.pubkey_to_addr(unhexlify(auth_pub))
             if not auth_address in input_addresses:
                 jlog.warn("ERROR maker's (" + nick + ")"
                          " authorising pubkey is not included "
@@ -665,9 +665,12 @@ class Taker(object):
             #in the transaction, about to be consumed, rather than use
             #random utxos that will persist after. At this step we also
             #allow use of external utxos in the json file.
-            if self.wallet.unspent:
+            if any(self.wallet.get_utxos_by_mixdepth_().values()):
+                utxos = {}
+                for mdutxo in self.wallet.get_utxos_by_mixdepth().values():
+                    utxos.update(mdutxo)
                 priv_utxo_pairs, to, ts = priv_utxo_pairs_from_utxos(
-                    self.wallet.unspent, age, amt)
+                    utxos, age, amt)
             #Pre-filter the set of external commitments that work for this
             #transaction according to its size and age.
             dummy, extdict = get_podle_commitments()
@@ -688,7 +691,7 @@ class Taker(object):
                     "Commitment sourced OK")
         else:
             errmsgheader, errmsg = generate_podle_error_string(priv_utxo_pairs,
-                        to, ts, self.wallet.unspent, self.cjamount,
+                        to, ts, self.wallet, self.cjamount,
                         jm_single().config.get("POLICY", "taker_utxo_age"),
                         jm_single().config.get("POLICY", "taker_utxo_amtpercent"))
 
@@ -707,37 +710,23 @@ class Taker(object):
             #Note: donation code removed (possibly temporarily)
             raise NotImplementedError
 
-    def sign_tx(self, tx, i, priv, amount):
-        if self.my_cj_addr:
-            return self.wallet.sign(tx, i, priv, amount)
-        else:
-            #Note: donation code removed (possibly temporarily)
-            raise NotImplementedError
-
     def self_sign(self):
         # now sign it ourselves
-        tx = btc.serialize(self.latest_tx)
-        if self.sign_method == "wallet":
-            #Currently passes addresses of to-be-signed inputs
-            #to backend wallet; this is correct for Electrum, may need
-            #different info for other backends.
-            addrs = {}
-            for index, ins in enumerate(self.latest_tx['ins']):
-                utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-                if utxo not in self.input_utxos.keys():
-                    continue
-                addrs[index] = self.input_utxos[utxo]['address']
-            tx = self.wallet.sign_tx(tx, addrs)
-        else:
-            for index, ins in enumerate(self.latest_tx['ins']):
-                utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-                if utxo not in self.input_utxos.keys():
-                    continue
-                addr = self.input_utxos[utxo]['address']
-                amount = self.input_utxos[utxo]["value"]
-                tx = self.sign_tx(tx, index, self.wallet.get_key_from_addr(addr),
-                                  amount)
-        self.latest_tx = btc.deserialize(tx)
+        our_inputs = {}
+        for index, ins in enumerate(self.latest_tx['ins']):
+            utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
+            if utxo not in self.input_utxos.keys():
+                continue
+            script = self.wallet.addr_to_script(self.input_utxos[utxo]['address'])
+            amount = self.input_utxos[utxo]['value']
+            our_inputs[index] = (script, amount)
+
+        # FIXME: ugly hack
+        tx_bin = btc.deserialize(unhexlify(btc.serialize(self.latest_tx)))
+        self.wallet.sign_tx(tx_bin, our_inputs)
+
+        self.latest_tx = btc.deserialize(hexlify(btc.serialize(tx_bin)))
+
 
     def push(self):
         tx = btc.serialize(self.latest_tx)
@@ -804,3 +793,11 @@ class Taker(object):
         waittime = self.schedule[self.schedule_index][4]
         self.on_finished_callback(True, fromtx=fromtx, waittime=waittime,
                                   txdetails=(txd, txid))
+
+    def import_new_addresses(self, addr_list):
+        # FIXME: same code as in maker.py
+        bci = jm_single().bc_interface
+        if not hasattr(bci, 'import_addresses'):
+            return
+        assert hasattr(bci, 'get_wallet_name')
+        bci.import_addresses(addr_list, bci.get_wallet_name(self.wallet))

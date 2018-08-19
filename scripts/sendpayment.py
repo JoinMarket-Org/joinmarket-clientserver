@@ -17,14 +17,12 @@ import time
 import os
 import pprint
 
-from jmclient import (Taker, load_program_config, get_schedule,
-                              JMClientProtocolFactory, start_reactor,
-                              validate_address, jm_single, WalletError,
-                              choose_orders, choose_sweep_orders,
-                              cheapest_order_choose, weighted_order_choose,
-                              sync_wallet, RegtestBitcoinCoreInterface,
-                              estimate_tx_fee, direct_send, get_wallet_cls,
-                              BitcoinCoreWallet)
+from jmclient import (
+    Taker, load_program_config, get_schedule, JMClientProtocolFactory,
+    start_reactor, validate_address, jm_single, WalletError, choose_orders,
+    choose_sweep_orders, cheapest_order_choose, weighted_order_choose,
+    sync_wallet, RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,
+    open_test_wallet_maybe, get_wallet_path)
 from twisted.python.log import startLogging
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_sendpayment_parser
@@ -126,31 +124,25 @@ def main():
         #maxmixdepth in the wallet is actually the *number* of mixdepths (so misnamed);
         #to ensure we have enough, must be at least (requested index+1)
         max_mix_depth = max([mixdepth+1, options.amtmixdepths])
-        if not os.path.exists(os.path.join('wallets', wallet_name)):
-            wallet = get_wallet_cls()(wallet_name, None, max_mix_depth, options.gaplimit)
-        else:
-            while True:
-                try:
-                    pwd = get_password("Enter wallet decryption passphrase: ")
-                    wallet = get_wallet_cls()(wallet_name, pwd, max_mix_depth, options.gaplimit)
-                except WalletError:
-                    print("Wrong password, try again.")
-                    continue
-                except Exception as e:
-                    print("Failed to load wallet, error message: " + repr(e))
-                    sys.exit(0)
-                break
+
+        wallet_path = get_wallet_path(wallet_name, None)
+        wallet = open_test_wallet_maybe(
+            wallet_path, wallet_name, max_mix_depth, gap_limit=options.gaplimit)
     else:
-        wallet = BitcoinCoreWallet(fromaccount=wallet_name)
+        raise NotImplemented("Using non-joinmarket wallet is not supported.")
     if jm_single().config.get("BLOCKCHAIN",
         "blockchain_source") == "electrum-server" and options.makercount != 0:
         jm_single().bc_interface.synctype = "with-script"
     #wallet sync will now only occur on reactor start if we're joining.
-    sync_wallet(wallet, fast=options.fastsync)
+    while not jm_single().bc_interface.wallet_synced:
+        sync_wallet(wallet, fast=options.fastsync)
     if options.makercount == 0:
-        if isinstance(wallet, BitcoinCoreWallet):
-            raise NotImplementedError("Direct send only supported for JM wallets")
         direct_send(wallet, amount, mixdepth, destaddr, options.answeryes)
+        return
+
+    if wallet.get_txtype() == 'p2pkh':
+        print("Only direct sends (use -N 0) are supported for "
+              "legacy (non-segwit) wallets.")
         return
 
     def filter_orders_callback(orders_fees, cjamount):

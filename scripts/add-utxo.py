@@ -6,20 +6,20 @@ users to retry transactions more often without getting banned by
 the anti-snooping feature employed by makers.
 """
 
-import binascii
 import sys
 import os
 import json
+import binascii
 from pprint import pformat
 
 from optparse import OptionParser
 import jmclient.btc as btc
-from jmbase import get_password
-from jmclient import (load_program_config, jm_single, get_p2pk_vbyte, get_wallet_cls,
-                      WalletError, sync_wallet, add_external_commitments,
-                      generate_podle, update_commitments, PoDLE,
-                      set_commitment_file, get_podle_commitments,
-                      get_utxo_info, validate_utxo_data, quit)
+from jmclient import (
+    load_program_config, jm_single, get_p2pk_vbyte, open_wallet, WalletError,
+    sync_wallet, add_external_commitments, generate_podle, update_commitments,
+    PoDLE, set_commitment_file, get_podle_commitments, get_utxo_info,
+    validate_utxo_data, quit, get_wallet_path)
+
 
 def add_ext_commitments(utxo_datas):
     """Persist the PoDLE commitments for this utxo
@@ -174,30 +174,17 @@ def main():
     #Three options (-w, -r, -R) for loading utxo and privkey pairs from a wallet,
     #csv file or json file.
     if options.loadwallet:
-        while True:
-            pwd = get_password("Enter wallet decryption passphrase: ")
-            try:
-                wallet = get_wallet_cls()(options.loadwallet,
-                                pwd,
-                                options.maxmixdepth,
-                                options.gaplimit)
-            except WalletError:
-                print("Wrong password, try again.")
-                continue
-            except Exception as e:
-                print("Failed to load wallet, error message: " + repr(e))
-                sys.exit(0)
-            break
-        sync_wallet(wallet, fast=options.fastsync)
-        unsp = {}
-        for u, av in wallet.unspent.iteritems():
-                    addr = av['address']
-                    key = wallet.get_key_from_addr(addr)
-                    wifkey = btc.wif_compressed_privkey(key, vbyte=get_p2pk_vbyte())
-                    unsp[u] = {'address': av['address'],
-                               'value': av['value'], 'privkey': wifkey}
-        for u, pva  in unsp.iteritems():
-            utxo_data.append((u, pva['privkey']))
+        wallet_path = get_wallet_path(options.loadwallet, None)
+        wallet = open_wallet(wallet_path, gap_limit=options.gaplimit)
+        while not jm_single().bc_interface.wallet_synced:
+            sync_wallet(wallet, fast=options.fastsync)
+
+        for md, utxos in wallet.get_utxos_by_mixdepth_().items():
+            for (txid, index), utxo in utxos.items():
+                txhex = binascii.hexlify(txid) + ':' + str(index)
+                wif = wallet.get_wif_path(utxo['path'])
+                utxo_data.append((txhex, wif))
+
     elif options.in_file:
         with open(options.in_file, "rb") as f:
             utxo_info = f.readlines()

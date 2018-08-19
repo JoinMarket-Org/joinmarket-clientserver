@@ -1,26 +1,19 @@
 #! /usr/bin/env python
 from __future__ import absolute_import, print_function
 
-import random
 import sys
-import threading
-from optparse import OptionParser
 from twisted.internet import reactor
-import time
 import os
 import pprint
-import copy
-import logging
 from twisted.python.log import startLogging
-from jmclient import (Taker, load_program_config, get_schedule,
-                      weighted_order_choose, JMClientProtocolFactory,
-                      start_reactor, validate_address, jm_single, WalletError,
-                      get_wallet_cls, sync_wallet, get_tumble_schedule,
-                      RegtestBitcoinCoreInterface, estimate_tx_fee,
-                      tweak_tumble_schedule, human_readable_schedule_entry,
-                      schedule_to_text, restart_waiter, get_tumble_log,
-                      tumbler_taker_finished_update, tumbler_filter_orders_callback)
-
+from jmclient import (
+    Taker, load_program_config, get_schedule,  weighted_order_choose,
+    JMClientProtocolFactory, start_reactor, validate_address, jm_single,
+    get_wallet_path, open_test_wallet_maybe, WalletError, sync_wallet,
+    get_tumble_schedule, RegtestBitcoinCoreInterface, estimate_tx_fee,
+    tweak_tumble_schedule, human_readable_schedule_entry, schedule_to_text,
+    restart_waiter, get_tumble_log, tumbler_taker_finished_update,
+    tumbler_filter_orders_callback)
 from jmbase.support import get_log, debug_dump_object, get_password
 from cli_options import get_tumbler_parser
 log = get_log()
@@ -39,24 +32,14 @@ def main():
     #Load the wallet
     wallet_name = args[0]
     max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
-    if not os.path.exists(os.path.join('wallets', wallet_name)):
-        wallet = get_wallet_cls()(wallet_name, None, max_mix_depth)
-    else:
-        while True:
-            try:
-                pwd = get_password("Enter wallet decryption passphrase: ")
-                wallet = get_wallet_cls()(wallet_name, pwd, max_mix_depth)
-            except WalletError:
-                print("Wrong password, try again.")
-                continue
-            except Exception as e:
-                print("Failed to load wallet, error message: " + repr(e))
-                sys.exit(0)
-            break
+    wallet_path = get_wallet_path(wallet_name, None)
+    wallet = open_test_wallet_maybe(wallet_path, wallet_name, max_mix_depth)
+
     if jm_single().config.get("BLOCKCHAIN",
                               "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"
-    sync_wallet(wallet, fast=options['fastsync'])
+    while not jm_single().bc_interface.wallet_synced:
+        sync_wallet(wallet, fast=options['fastsync'])
 
     #Parse options and generate schedule
     #Output information to log files

@@ -7,10 +7,10 @@ import time
 import abc
 from twisted.python.log import startLogging
 from optparse import OptionParser
-from jmbase import get_password
 from jmclient import (Maker, jm_single, get_network, load_program_config, get_log,
-                      get_wallet_cls, sync_wallet, JMClientProtocolFactory,
+                      sync_wallet, JMClientProtocolFactory,
                       start_reactor, calc_cj_fee, WalletError)
+from .wallet_utils import open_test_wallet_maybe, get_wallet_path
 
 jlog = get_log()
 
@@ -129,9 +129,10 @@ class YieldGeneratorBasic(YieldGenerator):
         jlog.info('filling offer, mixdepth=' + str(mixdepth))
 
         # mixdepth is the chosen depth we'll be spending from
-        cj_addr = self.wallet.get_internal_addr((mixdepth + 1) %
-                                                self.wallet.max_mix_depth)
+        cj_addr = self.wallet.get_internal_addr(
+            (mixdepth + 1) % (self.wallet.max_mixdepth + 1))
         change_addr = self.wallet.get_internal_addr(mixdepth)
+        self.import_new_addresses([cj_addr, change_addr])
 
         utxos = self.wallet.select_utxos(mixdepth, total_amount)
         my_total_in = sum([va['value'] for va in utxos.values()])
@@ -232,26 +233,16 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     nickserv_password = options.password
 
     load_program_config()
-    if not os.path.exists(os.path.join('wallets', wallet_name)):
-        wallet = get_wallet_cls()(wallet_name, None, max_mix_depth=MAX_MIX_DEPTH,
-                                  gaplimit=options.gaplimit)
-    else:
-        while True:
-            try:
-                pwd = get_password("Enter wallet decryption passphrase: ")
-                wallet = get_wallet_cls()(wallet_name, pwd,
-                                          max_mix_depth=MAX_MIX_DEPTH,
-                                          gaplimit=options.gaplimit)
-            except WalletError:
-                print("Wrong password, try again.")
-                continue
-            except Exception as e:
-                print("Failed to load wallet, error message: " + repr(e))
-                sys.exit(0)
-            break
+
+    wallet_path = get_wallet_path(wallet_name, 'wallets')
+    wallet = open_test_wallet_maybe(
+        wallet_path, wallet_name, 4, gap_limit=options.gaplimit)
+
     if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"
-    sync_wallet(wallet, fast=options.fastsync)
+
+    while not jm_single().bc_interface.wallet_synced:
+        sync_wallet(wallet, fast=options.fastsync)
 
     maker = ygclass(wallet, [options.txfee, cjfee_a, cjfee_r,
                              options.ordertype, options.minsize])
@@ -265,4 +256,3 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
                       clientfactory, daemon=daemon)
-

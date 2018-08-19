@@ -110,7 +110,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     print("Seed : " + wallets[num_ygs]['seed'])
     #useful to see the utxos on screen sometimes
     sync_wallet(wallet, fast=True)
-    print(wallet.unspent)
+    print(wallet.get_utxos_by_mixdepth())
     txfee = 1000
     cjfee_a = 4200
     cjfee_r = '0.001'

@@ -3,18 +3,14 @@ from __future__ import print_function
 
 import base64
 import pprint
-import random
 import sys
-import time
-import copy
+from binascii import unhexlify
 
 import btc
-from jmclient.configure import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
+from jmclient.configure import jm_single
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)
-from jmclient.wallet import estimate_tx_fee
-from jmclient.podle import (generate_podle, get_podle_commitments, verify_podle,
-                                    PoDLE, PoDLEError, generate_podle_error_string)
+from jmclient.podle import verify_podle, PoDLE
 from twisted.internet import task
 jlog = get_log()
 
@@ -75,7 +71,11 @@ class Maker(object):
         if res[0]['value'] < reqd_amt:
             reason = "commitment utxo too small: " + str(res[0]['value'])
             return reject(reason)
-        if res[0]['address'] != self.wallet.pubkey_to_address(cr_dict['P']):
+
+        # FIXME: This only works if taker's commitment address is of same type
+        # as our wallet.
+        if res[0]['address'] != \
+                self.wallet.pubkey_to_addr(unhexlify(cr_dict['P'])):
             reason = "Invalid podle pubkey: " + str(cr_dict['P'])
             return reject(reason)
 
@@ -114,22 +114,25 @@ class Maker(object):
         jlog.info('goodtx')
         sigs = []
         utxos = offerinfo["utxos"]
+
+        our_inputs = {}
         for index, ins in enumerate(tx['ins']):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-            if utxo not in utxos.keys():
+            if utxo not in utxos:
                 continue
-            addr = utxos[utxo]['address']
-            amount = utxos[utxo]["value"]
-            txs = self.wallet.sign(txhex, index,
-                                   self.wallet.get_key_from_addr(addr),
-                                   amount=amount)
-            sigmsg = btc.deserialize(txs)["ins"][index]["script"].decode("hex")
-            if "txinwitness" in btc.deserialize(txs)["ins"][index].keys():
+            script = self.wallet.addr_to_script(utxos[utxo]['address'])
+            amount = utxos[utxo]['value']
+            our_inputs[index] = (script, amount)
+
+        txs = self.wallet.sign_tx(btc.deserialize(unhexlify(txhex)), our_inputs)
+
+        for index in our_inputs:
+            sigmsg = txs['ins'][index]['script']
+            if 'txinwitness' in txs['ins'][index]:
                 #We prepend the witness data since we want (sig, pub, scriptCode);
                 #also, the items in witness are not serialize_script-ed.
-                sigmsg = "".join([btc.serialize_script_unit(
-                    x.decode("hex")) for x in btc.deserialize(
-                        txs)["ins"][index]["txinwitness"]]) + sigmsg
+                sigmsg = b''.join(btc.serialize_script_unit(x)
+                                  for x in txs['ins'][index]['txinwitness']) + sigmsg
             sigs.append(base64.b64encode(sigmsg))
         return (True, sigs)
 
@@ -216,3 +219,11 @@ class Maker(object):
                 if len(oldorder_s) > 0:
                     self.offerlist.remove(oldorder_s[0])
             self.offerlist += to_announce
+
+    def import_new_addresses(self, addr_list):
+        # FIXME: same code as in taker.py
+        bci = jm_single().bc_interface
+        if not hasattr(bci, 'import_addresses'):
+            return
+        assert hasattr(bci, 'get_wallet_name')
+        bci.import_addresses(addr_list, bci.get_wallet_name(self.wallet))

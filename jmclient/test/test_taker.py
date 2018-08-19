@@ -9,26 +9,56 @@ import shutil
 import pytest
 import json
 from base64 import b64encode
-from jmclient import (load_program_config, jm_single, set_commitment_file,
-                      get_commitment_file, AbstractWallet, Taker, SegwitWallet,
-                      get_p2sh_vbyte, get_p2pk_vbyte)
+from jmclient import (
+    load_program_config, jm_single, set_commitment_file, get_commitment_file,
+    SegwitLegacyWallet, Taker, VolatileStorage, get_p2sh_vbyte, get_network)
 from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
                              t_maker_response, t_chosen_orders, t_dummy_ext)
 
-class DummyWallet(AbstractWallet):
 
+class DummyWallet(SegwitLegacyWallet):
     def __init__(self):
-        super(DummyWallet, self).__init__()
-        self.max_mix_depth = 5
+        storage = VolatileStorage()
+        super(DummyWallet, self).initialize(storage, get_network(),
+                                            max_mixdepth=5)
+        super(DummyWallet, self).__init__(storage)
+        self._add_utxos()
         self.inject_addr_get_failure = False
+
+    def _add_utxos(self):
+        for md, utxo in t_utxos_by_mixdepth.items():
+            for i, (txid, data) in enumerate(utxo.items()):
+                txid, index = txid.split(':')
+                path = (b'dummy', md, i)
+                self._utxos.add_utxo(binascii.unhexlify(txid), int(index),
+                                     path, data['value'], md)
+                script = self._ENGINE.address_to_script(data['address'])
+                self._script_map[script] = path
 
     def get_utxos_by_mixdepth(self, verbose=True):
         return t_utxos_by_mixdepth
 
+    def get_utxos_by_mixdepth_(self, verbose=True):
+        utxos = self.get_utxos_by_mixdepth(verbose)
+
+        utxos_conv = {}
+        for md, utxo_data in utxos.items():
+            md_utxo = utxos_conv.setdefault(md, {})
+            for i, (utxo_hex, data) in enumerate(utxo_data.items()):
+                utxo, index = utxo_hex.split(':')
+                data_conv = {
+                    'script': self._ENGINE.address_to_script(data['address']),
+                    'path': (b'dummy', md, i),
+                    'value': data['value']
+                }
+                md_utxo[(binascii.unhexlify(utxo), int(index))] = data_conv
+
+        return utxos_conv
+
     def select_utxos(self, mixdepth, amount):
         if amount > self.get_balance_by_mixdepth()[mixdepth]:
             raise Exception("Not enough funds")
-        return self.get_utxos_by_mixdepth()[mixdepth]
+        return t_utxos_by_mixdepth[mixdepth]
 
     def get_internal_addr(self, mixing_depth):
         if self.inject_addr_get_failure:
@@ -52,10 +82,6 @@ class DummyWallet(AbstractWallet):
         """
         return 'p2sh-p2wpkh'
 
-    @classmethod
-    def pubkey_to_address(cls, pubkey):
-        return SegwitWallet.pubkey_to_address(pubkey)
-
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
         privs = [x*32 + "\x01" for x in [chr(y) for y in range(1,6)]]
@@ -74,6 +100,10 @@ class DummyWallet(AbstractWallet):
                 return binascii.hexlify(p)
         raise ValueError("No such keypair")
 
+    def _is_my_bip32_path(self, path):
+        return True
+
+
 def dummy_order_chooser():
     return t_chosen_orders
 
@@ -84,7 +114,7 @@ def dummy_filter_orderbook(orders_fees, cjamount):
     print("calling dummy filter orderbook")
     return True
 
-def get_taker(schedule=None, schedule_len=0, sign_method=None, on_finished=None,
+def get_taker(schedule=None, schedule_len=0, on_finished=None,
               filter_orders=None):
     if not schedule:
         #note, for taker.initalize() this will result in junk
@@ -93,8 +123,7 @@ def get_taker(schedule=None, schedule_len=0, sign_method=None, on_finished=None,
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
     return Taker(DummyWallet(), schedule,
-                  callbacks=[filter_orders_callback, None, on_finished_callback],
-                  sign_method=sign_method)
+                  callbacks=[filter_orders_callback, None, on_finished_callback])
 
 def test_filter_rejection(createcmtdata):
     def filter_orders_reject(orders_feesl, cjamount):
@@ -135,22 +164,8 @@ def test_make_commitment(createcmtdata, failquery, external):
     mixdepth = 0
     amount = 110000000
     taker = get_taker([(mixdepth, amount, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")])
-    taker.wallet.unspent = {'f34b635ed8891f16c4ec5b8236ae86164783903e8e8bb47fa9ef2ca31f3c2d7a:0':
-                            {'address': u'n31WD8pkfAjg2APV78GnbDTdZb1QonBi5D',
-                             'value': 10000000},
-                            'f780d6e5e381bff01a3519997bb4fcba002493103a198fde334fd264f9835d75:1':
-                            {'address': u'mmVEKH61BZbLbnVEmk9VmojreB4G4PmBPd',
-                             'value': 20000000},
-                            'fe574db96a4d43a99786b3ea653cda9e4388f377848f489332577e018380cff1:0':
-                            {'address': u'msxyyydNXTiBmt3SushXbH5Qh2ukBAThk3',
-                             'value': 500000000},
-                            'fd9711a2ef340750db21efb761f5f7d665d94b312332dc354e252c77e9c48349:0':
-                            {'address': u'musGZczug3BAbqobmYherywCwL9REgNaNm',
-                             'value': 500000000}}
     taker.cjamount = amount
-    taker.input_utxos = {'f34b635ed8891f16c4ec5b8236ae86164783903e8e8bb47fa9ef2ca31f3c2d7a:0':
-                            {'address': u'n31WD8pkfAjg2APV78GnbDTdZb1QonBi5D',
-                             'value': 10000000}}
+    taker.input_utxos = t_utxos_by_mixdepth[0]
     if failquery:
         jm_single().bc_interface.setQUSFail(True)
     taker.make_commitment()
@@ -328,8 +343,6 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
     with pytest.raises(NotImplementedError) as e_info:
         taker.prepare_my_bitcoin_data()
     with pytest.raises(NotImplementedError) as e_info:
-        taker.sign_tx("a", "b", "c", "d")
-    with pytest.raises(NotImplementedError) as e_info:
         a = taker.coinjoin_address()
     taker.wallet.inject_addr_get_failure = True
     taker.my_cj_addr = "dummy"
@@ -364,14 +377,12 @@ def test_unconfirm_confirm(schedule_len):
     assert not test_unconfirm_confirm.txflag
     
 @pytest.mark.parametrize(
-    "dummyaddr, signmethod, schedule",
+    "dummyaddr, schedule",
     [
-        ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ", None,
-         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]),
-        ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ", "wallet",
-         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)]),
+        ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
+         [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
     ])
-def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
+def test_on_sig(createcmtdata, dummyaddr, schedule):
     #plan: create a new transaction with known inputs and dummy outputs;
     #then, create a signature with various inputs, pass in in b64 to on_sig.
     #in order for it to verify, the DummyBlockchainInterface will have to 
@@ -397,7 +408,7 @@ def test_on_sig(createcmtdata, dummyaddr, signmethod, schedule):
     
     de_tx = bitcoin.deserialize(tx)
     #prepare the Taker with the right intermediate data
-    taker = get_taker(schedule=schedule, sign_method=signmethod)
+    taker = get_taker(schedule=schedule)
     taker.nonrespondants=["cp1", "cp2", "cp3"]
     taker.latest_tx = de_tx
     #my inputs are the first 2 utxos
@@ -461,7 +472,3 @@ def createcmtdata(request):
     load_program_config()
     jm_single().bc_interface = DummyBlockchainInterface()
     jm_single().config.set("BLOCKCHAIN", "network", "testnet")
-
-            
-        
-    
