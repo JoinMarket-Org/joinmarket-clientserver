@@ -53,7 +53,7 @@ JM_CORE_VERSION = '0.3.5'
 JM_GUI_VERSION = '7'
 
 from jmclient import (
-    load_program_config, get_network, open_wallet, get_wallet_path,
+    load_program_config, get_network, open_test_wallet_maybe, get_wallet_path,
     get_p2sh_vbyte, get_p2pk_vbyte, jm_single, validate_address, get_log,
     weighted_order_choose, Taker, JMClientProtocolFactory, WalletError,
     start_reactor, get_schedule, get_tumble_schedule, schedule_to_text,
@@ -1058,7 +1058,7 @@ class JMWalletTab(QWidget):
             if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
                 self.wallet_name = self.mainwindow.wallet.seed
             else:
-                self.wallet_name = os.path.basename(self.mainwindow.wallet.path)
+                self.wallet_name = os.path.basename(self.mainwindow.wallet._storage.path)
             self.label1.setText("CURRENT WALLET: " + self.wallet_name +
                                 ', total balance: ' + total_bal)
 
@@ -1374,15 +1374,16 @@ class JMMainWindow(QMainWindow):
         if (firstarg and pwd) or (firstarg and get_network() == 'testnet'):
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
-                self.wallet = open_wallet(
-                    wallet_path, ask_for_password=False, password=pwd,
-                    gap_limit=jm_single().config.getint("GUI", "gaplimit"))
+                self.wallet = open_test_wallet_maybe(wallet_path, str(firstarg),
+                        4, ask_for_password=False, password=pwd,
+                        gap_limit=jm_single().config.getint("GUI", "gaplimit"))
             except Exception as e:
                 JMQtMessageBox(self,
                                str(e),
                                mbtype='warn',
                                title="Error")
                 return False
+            self.wallet.seed = str(firstarg)
         if 'listunspent_args' not in jm_single().config.options('POLICY'):
             jm_single().config.set('POLICY', 'listunspent_args', '[0]')
         assert self.wallet, "No wallet loaded"

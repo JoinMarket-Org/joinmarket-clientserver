@@ -884,6 +884,13 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
             test_wallet_cls.initialize(
                 storage, get_network(), max_mixdepth=max_mixdepth,
                 entropy=seed)
+            #wallet instantiation insists on no unexpected kwargs,
+            #but Qt caller opens both test and mainnet with same args,
+            #hence these checks/deletes of unwanted args for tests.
+            if 'ask_for_password' in kwargs:
+                del kwargs['ask_for_password']
+            if 'password' in kwargs:
+                del kwargs['password']
             assert 'ask_for_password' not in kwargs
             assert 'read_only' not in kwargs
             return test_wallet_cls(storage, **kwargs)
