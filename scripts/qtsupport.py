@@ -20,7 +20,6 @@ Qt files for the wizard for initiating a tumbler run.
 '''
 import sys, math, re, logging, Queue
 from collections import namedtuple
-from decimal import Decimal
 
 from PyQt4 import QtCore
 from PyQt4.QtGui import *

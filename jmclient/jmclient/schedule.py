@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import copy
-from pprint import pformat
 from jmclient import (validate_address, rand_exp_array,
                       rand_norm_array, rand_pow_array, jm_single)
 """Utility functions for dealing with Taker schedules.

@@ -2,24 +2,19 @@
 from __future__ import absolute_import
 '''test client-protocol interfacae.'''
 
-import pytest
 from jmclient import (get_schedule, load_program_config, start_reactor,
                       Taker, get_log, JMClientProtocolFactory, jm_single)
-from jmclient.client_protocol import JMProtocolError, JMTakerClientProtocol
-import os
-from twisted.python.log import startLogging, err
+from jmclient.client_protocol import JMTakerClientProtocol
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor, task
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
 from twisted.protocols.amp import UnknownRemoteError
-from twisted.python import failure
 from twisted.protocols import amp
 from twisted.trial import unittest
 from jmbase.commands import *
 from taker_test_data import t_raw_signed_tx
 import json
-import time
 import jmbitcoin as bitcoin
 
 import twisted

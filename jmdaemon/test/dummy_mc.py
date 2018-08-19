@@ -1,10 +1,5 @@
 from __future__ import absolute_import, print_function
 
-import base64
-import random
-import socket
-import ssl
-import threading
 import time
 
 
@@ -61,7 +56,6 @@ class DummyMessageChannel(MessageChannel):
     def _privmsg(self, nick, cmd, message):
         """As for pubmsg
         """
-        pass
     def _announce_orders(self, orderlist):
         pass
     def change_nick(self, new_nick):

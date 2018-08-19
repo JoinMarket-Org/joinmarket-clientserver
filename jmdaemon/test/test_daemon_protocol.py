@@ -2,31 +2,25 @@
 from __future__ import absolute_import
 '''test daemon-protocol interfacae.'''
 
-import pytest
 from jmdaemon import (JMDaemonServerProtocolFactory, MessageChannelCollection)
 from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon.daemon_protocol import JMDaemonServerProtocol
 from jmdaemon.protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
 from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels)
-import os
-from twisted.python.log import startLogging, err
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor, task
-from twisted.internet.protocol import ServerFactory, ClientCreator
+from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
 from twisted.protocols.amp import UnknownRemoteError
-from twisted.python import failure
 from twisted.protocols import amp
 from twisted.trial import unittest
 from jmbase.commands import *
 from msgdata import *
 import json
-import time
 import base64
 from dummy_mc import DummyMessageChannel
-from test_message_channel import make_valid_nick
 test_completed = False
 end_early = False
 jlog = get_log()

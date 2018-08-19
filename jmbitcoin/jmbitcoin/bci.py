@@ -1,7 +1,6 @@
 #!/usr/bin/python
 import json, re
 import random
-import sys
 import time
 import platform
 from jmbase.support import get_log

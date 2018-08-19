@@ -6,7 +6,6 @@ from twisted.internet.error import (ConnectionLost, ConnectionAborted,
 from twisted.protocols import amp
 try:
     from twisted.internet.ssl import ClientContextFactory
-    from twisted.internet import ssl
 except ImportError:
     pass
 from jmbase import commands

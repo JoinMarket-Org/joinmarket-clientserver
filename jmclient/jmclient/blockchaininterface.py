@@ -164,7 +164,6 @@ class BlockchainInterface(object):
         the wallet. Call the callbacks and update the watcher loop state.
         End the loop when the confirmation has been seen (no spent monitoring here).
         """
-        pass
 
     @abc.abstractmethod
     def tx_watcher(self, txd, unconfirmfun, confirmfun, spentfun, c, n):
@@ -174,7 +173,6 @@ class BlockchainInterface(object):
         of confs = c.
         TODO: Deal with conflicts correctly. Here just abandons monitoring.
         """
-        pass
 
     @abc.abstractmethod
     def pushtx(self, txhex):
@@ -924,7 +922,6 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
             log.debug(
                 "Failed to generate blocks, looks like the bitcoin daemon \
 	    has been shut down. Ignoring.")
-            pass
 
     def grab_coins(self, receiving_addr, amt=50):
         """

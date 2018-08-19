@@ -1,17 +1,10 @@
 from __future__ import absolute_import, print_function
 
-import base64
-import random
-import socket
-import ssl
 #TODO: SSL support (can it be done without back-end openssl?)
-import threading
-import time
 from twisted.internet import reactor, protocol
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.application.internet import ClientService
 from twisted.internet.ssl import ClientContextFactory
-from twisted.logger import Logger
 from twisted.words.protocols import irc
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)

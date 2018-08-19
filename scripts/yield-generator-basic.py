@@ -1,9 +1,6 @@
 #! /usr/bin/env python
 from __future__ import absolute_import, print_function
 
-import datetime
-import os
-import time
 
 from jmclient import (YieldGenerator, YieldGeneratorBasic, ygmain, get_log,
                       jm_single, calc_cj_fee)

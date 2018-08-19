@@ -8,8 +8,6 @@ from jmclient import (load_program_config, jm_single, get_irc_mchannels,
                       JsonRpcConnectionError)
 from jmclient.configure import (get_config_irc_channel, get_p2sh_vbyte,
                                 get_p2pk_vbyte, get_blockchain_interface_instance)
-import jmbitcoin as bitcoin
-import copy
 import os
 
 def test_attribute_dict():
