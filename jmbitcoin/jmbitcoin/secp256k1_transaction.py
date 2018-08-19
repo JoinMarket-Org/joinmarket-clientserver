@@ -1,5 +1,8 @@
 #!/usr/bin/python
-import binascii, re, json, copy, sys
+import binascii
+import copy
+import re
+import sys
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.bech32 import *
 from _functools import reduce

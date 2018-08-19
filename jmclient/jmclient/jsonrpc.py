@@ -46,7 +46,6 @@ class JsonRpcConnectionError(Exception):
   are wrong.
   """
 
-    pass
 
 
 class JsonRpc(object):

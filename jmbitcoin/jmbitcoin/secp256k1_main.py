@@ -4,11 +4,7 @@ import binascii
 import hashlib
 import re
 import sys
-import os
 import base64
-import time
-import random
-import hmac
 import secp256k1
 
 #Required only for PoDLE calculation:

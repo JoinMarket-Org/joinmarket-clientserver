@@ -4,7 +4,6 @@ import sys
 
 import logging
 import pprint
-import random
 from getpass import getpass
 
 logFormatter = logging.Formatter(

@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 from __future__ import print_function
-from jmbase.support import debug_dump_object, get_password, get_log, joinmarket_alert
-import pytest
+from jmbase.support import debug_dump_object, joinmarket_alert
 
 def test_debug_dump_object():
     joinmarket_alert[0] = "dummy jm alert"

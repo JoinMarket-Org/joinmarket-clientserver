@@ -8,8 +8,6 @@ from __future__ import absolute_import, print_function
 
 import binascii
 import base64
-import string
-import random
 
 
 from libnacl import public

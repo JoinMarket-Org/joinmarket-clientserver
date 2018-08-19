@@ -9,7 +9,7 @@ from binascii import hexlify, unhexlify
 from .configure import get_log, jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule
 from .wallet import BaseWallet, estimate_tx_fee
-from .btc import mktx, serialize, deserialize, sign, txhash
+from .btc import deserialize, mktx, serialize, txhash
 log = get_log()
 
 """

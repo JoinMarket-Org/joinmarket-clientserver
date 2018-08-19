@@ -6,8 +6,6 @@ for a Joinmarket user, although of course it may be useful
 for other reasons).
 """
 
-import binascii
-import sys, os
 from pprint import pformat
 from optparse import OptionParser
 import jmclient.btc as btc

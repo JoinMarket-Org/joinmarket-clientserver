@@ -1,7 +1,6 @@
 from __future__ import print_function, absolute_import, division, unicode_literals
 
 from jmclient import Argon2Hash, get_random_bytes
-import pytest
 
 
 def test_argon2_sanity():

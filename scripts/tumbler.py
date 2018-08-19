@@ -14,7 +14,7 @@ from jmclient import (
     tweak_tumble_schedule, human_readable_schedule_entry, schedule_to_text,
     restart_waiter, get_tumble_log, tumbler_taker_finished_update,
     tumbler_filter_orders_callback)
-from jmbase.support import get_log, debug_dump_object, get_password
+from jmbase.support import get_log
 from cli_options import get_tumbler_parser
 log = get_log()
 logsdir = os.path.join(os.path.dirname(

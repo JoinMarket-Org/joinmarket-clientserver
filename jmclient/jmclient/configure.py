@@ -5,7 +5,6 @@ import logging
 import threading
 import os
 import binascii
-import sys
 
 from ConfigParser import SafeConfigParser, NoOptionError
 

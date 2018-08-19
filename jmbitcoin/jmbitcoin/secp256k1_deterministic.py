@@ -1,7 +1,6 @@
 from jmbitcoin.secp256k1_main import *
 import hmac
 import hashlib
-from binascii import hexlify
 
 # Below code ASSUMES binary inputs and compressed pubkeys
 MAINNET_PRIVATE = b'\x04\x88\xAD\xE4'

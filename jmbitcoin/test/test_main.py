@@ -5,7 +5,6 @@ from __future__ import absolute_import
 
 import jmbitcoin as btc
 import binascii
-import json
 import pytest
 import os
 testdir = os.path.dirname(os.path.realpath(__file__))

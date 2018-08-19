@@ -8,13 +8,8 @@ For notes, see scripts/README.md; in particular, note the use
 of "schedules" with the -S flag.
 """
 
-import random
 import sys
-import threading
-from optparse import OptionParser
 from twisted.internet import reactor
-import time
-import os
 import pprint
 
 from jmclient import (
@@ -24,7 +19,7 @@ from jmclient import (
     sync_wallet, RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,
     open_test_wallet_maybe, get_wallet_path)
 from twisted.python.log import startLogging
-from jmbase.support import get_log, debug_dump_object, get_password
+from jmbase.support import get_log
 from cli_options import get_sendpayment_parser
 
 log = get_log()

@@ -3,7 +3,7 @@ from __future__ import absolute_import, print_function
 """Blockchaininterface functionality tests."""
 
 import binascii
-from commontest import create_wallet_for_sync, make_sign_and_push
+from commontest import create_wallet_for_sync
 
 import pytest
 from jmclient import load_program_config, jm_single, sync_wallet, get_log

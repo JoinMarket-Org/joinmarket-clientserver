@@ -5,7 +5,6 @@ from __future__ import absolute_import
 import jmbitcoin as btc
 import pytest
 import binascii
-import hashlib
 
 #used in p2sh addresses
 def test_hash160():
