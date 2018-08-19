@@ -107,7 +107,7 @@ openssl_get ()
 openssl_build ()
 {
     ./config shared --prefix="${jm_root}"
-    make -j
+    make
     rm -rf "${jm_root}/ssl" \
         "${jm_root}/lib/engines" \
         "${jm_root}/lib/pkgconfig/openssl.pc" \
@@ -208,7 +208,7 @@ libffi_build ()
     ./autogen.sh
     ./configure --disable-docs --enable-shared --prefix="${jm_root}"
     make uninstall
-    make -j
+    make
     if ! make check; then
         return 1
     fi
@@ -246,6 +246,71 @@ libffi_install ()
     popd
 }
 
+libsecp256k1-py_build ()
+{
+    if [[ -d "${jm_deps}/secp256k1-${secp256k1_version}" ]]; then
+        unlink ./libsecp256k1
+        ln -sf "${jm_source}/deps/secp256k1-${secp256k1_version}"/ ./libsecp256k1
+    else
+        return 1
+    fi
+    python setup.py install
+    return "$?"
+}
+
+secp256k1-py_install ()
+{
+    secp256k1_py_version='0.13.2.4'
+    secp256k1_py_lib_tar="${secp256k1_py_version}.tar.gz"
+    secp256k1_py_lib_sha='f7920b1b887fe6745c49aebea40cefe867adddf11eb2c164624f1f2729f74657'
+    secp256k1_py_url='https://github.com/ludbb/secp256k1-py/archive'
+
+    rm -rf "./secp256k1-py-${secp256k1_py_version}"
+    pushd cache
+    if ! sha256_verify "${secp256k1_py_lib_sha}" "${secp256k1_py_lib_tar}"; then
+        curl --retry 5 -L -O "${secp256k1_py_url}/${secp256k1_py_lib_tar}"
+    fi
+    if sha256_verify "${secp256k1_py_lib_sha}" "${secp256k1_py_lib_tar}"; then
+        tar -xzf "${secp256k1_py_lib_tar}" -C ../
+    else
+        return 1
+    fi
+    popd
+    pushd "secp256k1-py-${secp256k1_py_version}"
+    if ! libsecp256k1-py_build; then
+        return 1
+    fi
+    popd
+}
+
+libsecp256k1_install ()
+{
+    # https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/177
+    # https://github.com/bitcoin-core/secp256k1/commit/d33352151699bd7598b868369dace092f7855740
+
+    secp256k1_version='d33352151699bd7598b868369dace092f7855740'
+    secp256k1_lib_tar="${secp256k1_version}.tar.gz"
+    secp256k1_lib_sha='77fd87ae53830b40a2c38490cbe7b689af71db1b55362abdec1496c45ef329b0'
+    secp256k1_url='https://github.com/bitcoin-core/secp256k1/archive'
+
+    if check_skip_build "secp256k1-${secp256k1_version}"; then
+        return 0
+    fi
+    pushd cache
+    if ! sha256_verify "${secp256k1_lib_sha}" "${secp256k1_lib_tar}"; then
+        curl --retry 5 -L -O "${secp256k1_url}/${secp256k1_lib_tar}"
+    fi
+    if sha256_verify "${secp256k1_lib_sha}" "${secp256k1_lib_tar}"; then
+        tar -xzf "${secp256k1_lib_tar}" -C ../
+    else
+        return 1
+    fi
+    popd
+    if ! secp256k1-py_install; then
+        return 1
+    fi
+}
+
 libsodium_get ()
 {
     if [[ -z "${no_gpg_validation}" ]]; then
@@ -264,7 +329,7 @@ libsodium_build ()
     ./autogen.sh
     ./configure --enable-shared --prefix="${jm_root}"
     make uninstall
-    make -j
+    make
     if ! make check; then
         return 1
     fi
@@ -398,9 +463,10 @@ main ()
     jm_source="$PWD"
     jm_root="${jm_source}/jmvenv"
     jm_deps="${jm_source}/deps"
-    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${jm_root}/lib/pkgconfig"
-    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${jm_root}/lib"
-    export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${jm_root}/include"
+    export PKG_CONFIG_PATH="${jm_root}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+    export LD_LIBRARY_PATH="${jm_root}/lib:${LD_LIBRARY_PATH}"
+    export C_INCLUDE_PATH="${jm_root}/include:${C_INCLUDE_PATH}"
+    export MAKEFLAGS='-j'
 
     # flags
     develop_build=''
@@ -429,6 +495,10 @@ main ()
 #    fi
     if ! libffi_install; then
         echo "Libffi was not built. Exiting."
+        return 1
+    fi
+    if ! libsecp256k1_install; then
+        echo "libsecp256k1 was not build. Exiting."
         return 1
     fi
     if ! libsodium_install; then
