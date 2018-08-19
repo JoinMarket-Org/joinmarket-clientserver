@@ -914,7 +914,16 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
     returns:
         wallet object
     """
-    if ask_for_password:
+    if not os.path.isfile(path):
+        raise Exception("Failed to open wallet at '{}': not a file".format(path))
+
+    if not Storage.is_storage_file(path):
+        raise Exception("Failed to open wallet at '{}': not a valid joinmarket"
+                        " wallet.\n\nIf this wallet is in the old json format "
+                        "you need to convert it using the conversion script"
+                        "at `scripts/convert_old_wallet.py`".format(path))
+
+    if ask_for_password and Storage.is_encrypted_storage_file(path):
         while True:
             try:
                 # do not try empty password, assume unencrypted on empty password
