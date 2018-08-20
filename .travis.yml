@@ -50,6 +50,7 @@ before_script:
 script:
   - on_host do_on linux bitcoind --help | head -1
   - on_host do_on linux ./test/run_tests.sh
+  - on_host do_on linux flake8 jmbase jmbitcoin jmclient jmdaemon scripts test
   - on_docker ./test/Dockerfiles/build_docker.sh
 after_success:
   - on_docker echo "Success !"
