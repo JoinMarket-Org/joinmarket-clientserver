@@ -341,7 +341,7 @@ libsodium_install ()
     sodium_lib_tar="${sodium_version}.tar.gz"
     sodium_lib_sig="${sodium_lib_tar}.sig"
     sodium_lib_sha='9c13accb1a9e59ab3affde0e60ef9a2149ed4d6e8f99c93c7a5b97499ee323fd'
-    sodium_url='https://download.libsodium.org/libsodium/releases'
+    sodium_url='https://download.libsodium.org/libsodium/releases/old'
     sodium_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0x210627AABA709FE1'
     sodium_signer_key_id='62F25B592B6F76DA'
 
