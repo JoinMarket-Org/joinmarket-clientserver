@@ -520,18 +520,17 @@ def wallet_fetch_history(wallet, options):
             "blockhash TEXT, blocktime INTEGER);")
     jm_single().debug_silence[0] = True
     wallet_name = jm_single().bc_interface.get_wallet_name(wallet)
-    for wn in [wallet_name, ""]:
-        buf = range(1000)
-        t = 0
-        while len(buf) == 1000:
-            buf = jm_single().bc_interface.rpc('listtransactions', [wn,
-                1000, t, True])
-            t += len(buf)
-            tx_data = ((tx['txid'], tx['blockhash'], tx['blocktime']) for tx
-                    in buf if 'txid' in tx and 'blockhash' in tx and 'blocktime'
-                    in tx)
-            tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?);',
-                    tx_data)
+    buf = range(1000)
+    t = 0
+    while len(buf) == 1000:
+        buf = jm_single().bc_interface.rpc('listtransactions', ["*",
+            1000, t, True])
+        t += len(buf)
+        tx_data = ((tx['txid'], tx['blockhash'], tx['blocktime']) for tx
+                in buf if 'txid' in tx and 'blockhash' in tx and 'blocktime'
+                in tx)
+        tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?);',
+                tx_data)
 
     txes = tx_db.execute(
         'SELECT DISTINCT txid, blockhash, blocktime '
@@ -572,7 +571,8 @@ def wallet_fetch_history(wallet, options):
     utxo_count = 0
     deposits = []
     deposit_times = []
-    for i, tx in enumerate(txes):
+    tx_number = 0
+    for tx in txes:
         rpctx = jm_single().bc_interface.rpc('gettransaction', [tx['txid']])
         txhex = str(rpctx['hex'])
         txd = btc.deserialize(txhex)
@@ -675,7 +675,8 @@ def wallet_fetch_history(wallet, options):
                   + ' in, ' + str(len(our_output_scripts)) + ' out')
         balance += delta_balance
         utxo_count += (len(our_output_scripts) - utxos_consumed)
-        index = '% 4d'%(i)
+        index = '% 4d'%(tx_number)
+        tx_number += 1
         timestamp = datetime.fromtimestamp(rpctx['blocktime']
                 ).strftime("%Y-%m-%d %H:%M")
         utxo_count_str = '% 3d' % (utxo_count)
