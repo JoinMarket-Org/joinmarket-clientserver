@@ -10,6 +10,7 @@ import time
 import threading
 import json
 from decimal import InvalidOperation, Decimal
+from numbers import Integral
 
 from jmdaemon.protocol import JM_VERSION
 from jmbase.support import get_log, joinmarket_alert, DUST_THRESHOLD
@@ -95,7 +96,8 @@ class OrderbookWatch(object):
                        "from {}").format
                 log.debug(fmt(minsize, maxsize, counterparty))
                 return
-            if ordertype in ['swabsoffer', 'absoffer'] and not isinstance(cjfee, int):
+            if ordertype in ['swabsoffer', 'absoffer']\
+                    and not isinstance(cjfee, Integral):
                 try:
                     cjfee = int(cjfee)
                 except ValueError:

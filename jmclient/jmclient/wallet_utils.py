@@ -6,6 +6,7 @@ import sqlite3
 import binascii
 from datetime import datetime
 from optparse import OptionParser
+from numbers import Integral
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
     VolatileStorage, StoragePasswordError,
@@ -167,7 +168,7 @@ class WalletViewEntry(WalletViewBase):
         self.account = account
         assert forchange in [0, 1, -1]
         self.forchange =forchange
-        assert isinstance(aindex, int)
+        assert isinstance(aindex, Integral)
         assert aindex >= 0
         self.aindex = aindex
         self.address = addr

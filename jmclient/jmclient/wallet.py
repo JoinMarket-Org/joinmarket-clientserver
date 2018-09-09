@@ -12,6 +12,7 @@ from mnemonic import Mnemonic
 from hashlib import sha256
 from itertools import chain
 from decimal import Decimal
+from numbers import Integral
 
 
 from .configure import jm_single
@@ -489,9 +490,9 @@ class BaseWallet(object):
 
     def add_utxo(self, txid, index, script, value):
         assert isinstance(txid, bytes)
-        assert isinstance(index, int)
+        assert isinstance(index, Integral)
         assert isinstance(script, bytes)
-        assert isinstance(value, int)
+        assert isinstance(value, Integral)
 
         if script not in self._script_map:
             raise WalletError("Tried to add UTXO for unknown key to wallet.")
@@ -1136,7 +1137,7 @@ class BIP32Wallet(BaseWallet):
 
     def get_path(self, mixdepth=None, internal=None, index=None):
         if mixdepth is not None:
-            assert isinstance(mixdepth, int)
+            assert isinstance(mixdepth, Integral)
             if not 0 <= mixdepth <= self.max_mixdepth:
                 raise WalletError("Mixdepth outside of wallet's range.")
 
@@ -1146,7 +1147,7 @@ class BIP32Wallet(BaseWallet):
             int_type = self._get_internal_type(internal)
 
         if index is not None:
-            assert isinstance(index, int)
+            assert isinstance(index, Integral)
             if internal is None:
                 raise Exception("internal must be set if index is set")
             assert index <= self._index_cache[mixdepth][int_type]
@@ -1164,7 +1165,7 @@ class BIP32Wallet(BaseWallet):
 
     @classmethod
     def _harden_path_level(cls, lvl):
-        assert isinstance(lvl, int)
+        assert isinstance(lvl, Integral)
         if not 0 <= lvl < cls.BIP32_MAX_PATH_LEVEL:
             raise WalletError("Unable to derive hardened path level from {}."
                               "".format(lvl))
@@ -1172,7 +1173,7 @@ class BIP32Wallet(BaseWallet):
 
     @classmethod
     def _path_level_to_repr(cls, lvl):
-        assert isinstance(lvl, int)
+        assert isinstance(lvl, Integral)
         if not 0 <= lvl < cls.BIP32_MAX_PATH_LEVEL * 2:
             raise WalletError("Invalid path level {}.".format(lvl))
         if lvl < cls.BIP32_MAX_PATH_LEVEL:
