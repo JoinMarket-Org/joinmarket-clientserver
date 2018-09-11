@@ -978,6 +978,8 @@ def wallet_tool_main(wallet_root_path):
                'history', 'showutxos']
     methods.extend(noseed_methods)
     noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
+    readonly_methods = ['display', 'displayall', 'summary', 'showseed',
+                        'history', 'showutxos', 'dumpprivkey', 'signmessage']
 
     if len(args) < 1:
         parser.error('Needs a wallet file or method')
@@ -993,9 +995,11 @@ def wallet_tool_main(wallet_root_path):
         seed = args[0]
         wallet_path = get_wallet_path(seed, wallet_root_path)
         method = ('display' if len(args) == 1 else args[1].lower())
+        read_only = method in readonly_methods
 
         wallet = open_test_wallet_maybe(
-            wallet_path, seed, options.mixdepths - 1, gap_limit=options.gaplimit)
+            wallet_path, seed, options.mixdepths - 1, read_only=read_only,
+            gap_limit=options.gaplimit)
 
         if method not in noscan_methods:
             # if nothing was configured, we override bitcoind's options so that
