@@ -39,7 +39,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     """
     #Sanity checks
     assert validate_address(destaddr)[0]
-    assert isinstance(mixdepth, int)
+    assert isinstance(mixdepth, numbers.Integral)
     assert mixdepth >= 0
     assert isinstance(amount, numbers.Integral)
     assert amount >=0

@@ -23,6 +23,7 @@ import threading
 import os
 import copy
 from functools import wraps
+from numbers import Integral
 
 """Joinmarket application protocol control flow.
 For documentation on protocol (formats, message sequence) see
@@ -228,9 +229,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @JMFill.responder
     def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
         """Takes the necessary data from the Taker and initiates the Stage 1
-	interaction with the Makers.
-	"""
-        if not (self.jm_state == 1 and isinstance(amount, int) and amount >=0):
+        interaction with the Makers.
+        """
+        if not (self.jm_state == 1 and isinstance(amount, Integral)
+                and amount >= 0):
             return {'accepted': False}
         self.cjamount = amount
         self.commitment = commitment
