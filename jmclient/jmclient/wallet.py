@@ -1074,6 +1074,8 @@ class BIP32Wallet(BaseWallet):
 
         for md, data in self._storage.data[self._STORAGE_INDEX_CACHE].items():
             md = int(md)
+            if md > self.max_mixdepth:
+                continue
             md_map = self._index_cache[md]
             for t, k in data.items():
                 md_map[int(t)] = k
