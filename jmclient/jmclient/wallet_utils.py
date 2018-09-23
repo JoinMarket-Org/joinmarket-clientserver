@@ -31,7 +31,10 @@ def get_wallettool_parser():
         '(importprivkey) Adds privkeys to this wallet, privkeys are spaces or commas separated.\n'
         '(dumpprivkey) Export a single private key, specify an hd wallet path\n'
         '(signmessage) Sign a message with the private key from an address in \n'
-        'the wallet. Use with -H and specify an HD wallet path for the address.')
+        'the wallet. Use with -H and specify an HD wallet path for the address.\n'
+        '(changemixdepth) Use with -m to change the *maximum* number of mixdepths\n'
+        'in the wallet; you are advised to only increase, not decrease this \n'
+        'number from the current value (initially 5).')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
                           description=description)
     parser.add_option('-p',
@@ -851,6 +854,11 @@ def get_wallet_cls(wtype=None):
     return cls
 
 
+def change_wallet_mixdepth(wallet, max_mixdepth):
+    wallet.max_mixdepth = max_mixdepth
+    wallet.save()
+    return "Maximum mixdepth successfully updated."
+
 def create_wallet(path, password, max_mixdepth, wallet_cls=None, **kwargs):
     storage = Storage(path, password, create=True)
     wallet_cls = wallet_cls or get_wallet_cls()
@@ -977,7 +985,8 @@ def wallet_tool_main(wallet_root_path):
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
                'history', 'showutxos']
     methods.extend(noseed_methods)
-    noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
+    noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey',
+                      'signmessage', 'changemixdepth']
     readonly_methods = ['display', 'displayall', 'summary', 'showseed',
                         'history', 'showutxos', 'dumpprivkey', 'signmessage']
 
@@ -1044,6 +1053,8 @@ def wallet_tool_main(wallet_root_path):
         return "Key import completed."
     elif method == "signmessage":
         return wallet_signmessage(wallet, options.hd_path, args[2])
+    elif method == 'changemixdepth':
+        return change_wallet_mixdepth(wallet, options.mixdepth-1)
 
 
 #Testing (can port to test modules, TODO)
