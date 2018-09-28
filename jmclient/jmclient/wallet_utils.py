@@ -1054,6 +1054,8 @@ def wallet_tool_main(wallet_root_path):
     elif method == "signmessage":
         return wallet_signmessage(wallet, options.hd_path, args[2])
     elif method == 'changemixdepth':
+        if options.mixdepth < 1:
+            return "Number of mixdepths must be at least 1"
         return change_wallet_mixdepth(wallet, options.mixdepth-1)
 
 

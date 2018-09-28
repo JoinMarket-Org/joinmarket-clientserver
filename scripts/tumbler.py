@@ -38,7 +38,7 @@ def main():
         print("Your wallet does not contain the required number of mixdepths: ",
               max_mix_depth)
         print("Increase using this command: `python wallet-tool.py -m ",
-              max_mix_depth, " (yourwalletname) changemixdepth")
+              max_mix_depth + 1, " (yourwalletname) changemixdepth")
         print("Then start the tumbler again with the same settings.")
         sys.exit(0)
     if jm_single().config.get("BLOCKCHAIN",
