@@ -11,12 +11,14 @@ This document explains the delta to the operation of that script, which is almos
 In this implementation, each coinjoin has an associated "schedule" of format like this:
 
 ```
-[mixdepth, amount-in-satoshis, N-counterparties (requested), destination address, wait time in minutes, flag indicating incomplete/broadcast/completed (0/txid/1)]
+[mixdepth, amount-fraction, N-counterparties (requested), destination address, wait time in minutes, flag indicating incomplete/broadcast/completed (0/txid/1)]
 ```
 
 `[]` here represents a Python list. It's recorded in files in a csv format (because in some cases users may edit). See [this](https://github.com/AdamISZ/joinmarket-clientserver/blob/master/scripts/sample-schedule-for-testnet) testnet sample given in the repo. A couple of extra notes on the format:
 
 * the 4th entry, the destination address, can have special values "INTERNAL" and "addrask"; the former indicates that the coins are to be sent to the "next" mixdepth, modulo the maximum mixdepth. The latter is the same function as in the original implementation, i.e. it takes a destination from those provided by the user, either in the initial command line or on a prompt during the run.
+
+* the 2nd entry, amount fraction, is a decimal between 0 and 1; *this is specific to the tumbler*; for sendpayment, this amount is an integer in satoshis.
 
 * 0 amounts for the second entry indicate, as for command line flags, a sweep; decimals indicate mixdepth fractions (for tumbler)
 
