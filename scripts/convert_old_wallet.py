@@ -35,7 +35,7 @@ def decrypt_entropy_extension(enc_data, key):
     if data[-9] != b'\xff':
         raise ConvertException("Wrong password.")
     chunks = data.split(b'\xff')
-    if len(chunks) < 3 or data[-8:] != double_sha256(chunks[1])[:8]:
+    if len(chunks) < 3 or data[-8:] != hexlify(double_sha256(chunks[1])[:4]):
         raise ConvertException("Wrong password.")
     return chunks[1]
 
