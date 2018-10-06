@@ -32,13 +32,6 @@ def main():
     max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
     wallet_path = get_wallet_path(wallet_name, None)
     wallet = open_test_wallet_maybe(wallet_path, wallet_name, max_mix_depth)
-    if wallet.max_mixdepth < max_mix_depth:
-        print("Your wallet does not contain the required number of mixdepths: ",
-              max_mix_depth)
-        print("Increase using this command: `python wallet-tool.py -M ",
-              max_mix_depth + 1, " (yourwalletname) changemixdepth")
-        print("Then start the tumbler again with the same settings.")
-        sys.exit(0)
     if jm_single().config.get("BLOCKCHAIN",
                               "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"
