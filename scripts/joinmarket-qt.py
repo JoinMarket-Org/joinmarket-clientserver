@@ -1369,7 +1369,7 @@ class JMMainWindow(QMainWindow):
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
                 self.wallet = open_test_wallet_maybe(wallet_path, str(firstarg),
-                        4, ask_for_password=False, password=pwd,
+                        None, ask_for_password=False, password=pwd,
                         gap_limit=jm_single().config.getint("GUI", "gaplimit"))
             except Exception as e:
                 JMQtMessageBox(self,

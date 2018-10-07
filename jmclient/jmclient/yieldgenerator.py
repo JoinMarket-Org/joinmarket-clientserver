@@ -129,7 +129,7 @@ class YieldGeneratorBasic(YieldGenerator):
 
         # mixdepth is the chosen depth we'll be spending from
         cj_addr = self.wallet.get_internal_addr(
-            (mixdepth + 1) % (self.wallet.max_mixdepth + 1))
+            (mixdepth + 1) % (self.wallet.mixdepth + 1))
         change_addr = self.wallet.get_internal_addr(mixdepth)
         self.import_new_addresses([cj_addr, change_addr])
 
@@ -207,7 +207,10 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
                       dest='fastsync',
                       default=False,
                       help=('choose to do fast wallet sync, only for Core and '
-                      'only for previously synced wallet'))
+                            'only for previously synced wallet'))
+    parser.add_option('-m', '--mixdepth', action='store', type='int',
+                      dest='mixdepth', default=None,
+                      help="highest mixdepth to use")
     (options, args) = parser.parse_args()
     if len(args) < 1:
         parser.error('Needs a wallet')
@@ -235,7 +238,8 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
 
     wallet_path = get_wallet_path(wallet_name, 'wallets')
     wallet = open_test_wallet_maybe(
-        wallet_path, wallet_name, 4, gap_limit=options.gaplimit)
+        wallet_path, wallet_name, options.mixdepth,
+        gap_limit=options.gaplimit)
 
     if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "electrum-server":
         jm_single().bc_interface.synctype = "with-script"

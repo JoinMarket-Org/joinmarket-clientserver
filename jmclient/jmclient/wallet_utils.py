@@ -16,6 +16,10 @@ from cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH
 import jmclient.btc as btc
 
 
+# used for creating new wallets
+DEFAULT_MIXDEPTH = 4
+
+
 def get_wallettool_parser():
     description = (
         'Use this script to monitor and manage your Joinmarket wallet.\n'
@@ -40,12 +44,13 @@ def get_wallettool_parser():
                       dest='showprivkey',
                       help='print private key along with address, default false')
     parser.add_option('-m',
-                      '--maxmixdepth',
+                      '--mixdepth',
                       action='store',
                       type='int',
-                      dest='mixdepths',
-                      help='how many mixing depths to initialize in the wallet',
-                      default=5)
+                      dest='mixdepth',
+                      help="Mixdepth(s) to use in the wallet. Default: {}"
+                           .format(DEFAULT_MIXDEPTH),
+                      default=None)
     parser.add_option('-g',
                       '--gap-limit',
                       type="int",
@@ -53,13 +58,6 @@ def get_wallettool_parser():
                       dest='gaplimit',
                       help='gap limit for wallet, default=6',
                       default=6)
-    parser.add_option('-M',
-                      '--mix-depth',
-                      type="int",
-                      action='store',
-                      dest='mixdepth',
-                      help='mixing depth to import private key into',
-                      default=0)
     parser.add_option('--csv',
                       action='store_true',
                       dest='csv',
@@ -344,7 +342,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
     else return the WalletView object.
     """
     acctlist = []
-    for m in xrange(wallet.max_mixdepth + 1):
+    for m in xrange(wallet.mixdepth + 1):
         branchlist = []
         for forchange in [0, 1]:
             entrylist = []
@@ -426,7 +424,7 @@ def cli_get_mnemonic_extension():
 
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
-                                  mixdepths=5,
+                                  mixdepth=DEFAULT_MIXDEPTH,
                                   callbacks=(cli_display_user_words,
                                              cli_user_mnemonic_entry,
                                              cli_get_wallet_passphrase_check,
@@ -466,7 +464,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         wallet_name = default_wallet_name
     wallet_path = os.path.join(walletspath, wallet_name)
 
-    wallet = create_wallet(wallet_path, password, mixdepths - 1,
+    wallet = create_wallet(wallet_path, password, mixdepth,
                            entropy=entropy,
                            entropy_extension=mnemonic_extension)
     mnemonic, mnext = wallet.get_mnemonic_words()
@@ -477,11 +475,11 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
 
 def wallet_generate_recover(method, walletspath,
                             default_wallet_name='wallet.jmdat',
-                            mixdepths=5):
+                            mixdepth=DEFAULT_MIXDEPTH):
     if is_segwit_mode():
         #Here using default callbacks for scripts (not used in Qt)
         return wallet_generate_recover_bip39(
-            method, walletspath, default_wallet_name, mixdepths=mixdepths)
+            method, walletspath, default_wallet_name, mixdepth=mixdepth)
 
     entropy = None
     if method == 'recover':
@@ -504,7 +502,7 @@ def wallet_generate_recover(method, walletspath,
         wallet_name = default_wallet_name
     wallet_path = os.path.join(walletspath, wallet_name)
 
-    wallet = create_wallet(wallet_path, password, mixdepths - 1,
+    wallet = create_wallet(wallet_path, password, mixdepth,
                            wallet_cls=LegacyWallet, entropy=entropy)
     print("Write down and safely store this wallet recovery seed\n\n{}\n"
           .format(wallet.get_mnemonic_words()[0]))
@@ -870,7 +868,7 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
     params:
         path: path to wallet file, ignored for test wallets
         seed: hex-encoded test seed
-        max_mixdepth: see create_wallet(), ignored when calling open_wallet()
+        max_mixdepth: maximum mixdepth to use
         kwargs: see open_wallet()
 
     returns:
@@ -882,6 +880,9 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
         except binascii.Error:
             pass
         else:
+            if max_mixdepth is None:
+                max_mixdepth = DEFAULT_MIXDEPTH
+
             storage = VolatileStorage()
             test_wallet_cls.initialize(
                 storage, get_network(), max_mixdepth=max_mixdepth,
@@ -893,11 +894,11 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
                 del kwargs['ask_for_password']
             if 'password' in kwargs:
                 del kwargs['password']
-            assert 'ask_for_password' not in kwargs
-            assert 'read_only' not in kwargs
+            if 'read_only' in kwargs:
+                del kwargs['read_only']
             return test_wallet_cls(storage, **kwargs)
 
-    return open_wallet(path, **kwargs)
+    return open_wallet(path, mixdepth=max_mixdepth, **kwargs)
 
 
 def open_wallet(path, ask_for_password=True, password=None, read_only=False,
@@ -986,12 +987,14 @@ def wallet_tool_main(wallet_root_path):
         parser.error('Needs a wallet file or method')
         sys.exit(0)
 
-    if options.mixdepths < 1:
+    if options.mixdepth is not None and options.mixdepth < 0:
         parser.error("Must have at least one mixdepth.")
         sys.exit(0)
 
     if args[0] in noseed_methods:
         method = args[0]
+        if options.mixdepth is None:
+            options.mixdepth = DEFAULT_MIXDEPTH
     else:
         seed = args[0]
         wallet_path = get_wallet_path(seed, wallet_root_path)
@@ -999,7 +1002,7 @@ def wallet_tool_main(wallet_root_path):
         read_only = method in readonly_methods
 
         wallet = open_test_wallet_maybe(
-            wallet_path, seed, options.mixdepths - 1, read_only=read_only,
+            wallet_path, seed, options.mixdepth, read_only=read_only,
             gap_limit=options.gaplimit)
 
         if method not in noscan_methods:
@@ -1026,11 +1029,11 @@ def wallet_tool_main(wallet_root_path):
             return wallet_fetch_history(wallet, options)
     elif method == "generate":
         retval = wallet_generate_recover("generate", wallet_root_path,
-                                         mixdepths=options.mixdepths)
+                                         mixdepth=options.mixdepth)
         return retval if retval else "Failed"
     elif method == "recover":
         retval = wallet_generate_recover("recover", wallet_root_path,
-                                         mixdepths=options.mixdepths)
+                                         mixdepth=options.mixdepth)
         return retval if retval else "Failed"
     elif method == "showutxos":
         return wallet_showutxos(wallet, options.showprivkey)
@@ -1040,6 +1043,8 @@ def wallet_tool_main(wallet_root_path):
         return wallet_dumpprivkey(wallet, options.hd_path)
     elif method == "importprivkey":
         #note: must be interactive (security)
+        if options.mixdepth is None:
+            parser.error("You need to specify a mixdepth with -m")
         wallet_importprivkey(wallet, options.mixdepth,
                              map_key_type(options.key_type))
         return "Key import completed."

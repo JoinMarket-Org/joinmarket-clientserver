@@ -93,7 +93,7 @@ def make_wallets(n,
         else:
             pwd = None
 
-        w = open_test_wallet_maybe(seeds[i], seeds[i], mixdepths,
+        w = open_test_wallet_maybe(seeds[i], seeds[i], mixdepths - 1,
                                    test_wallet_cls=walletclass)
 
         wallets[i + start_index] = {'seed': seeds[i],
