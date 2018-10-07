@@ -3,8 +3,8 @@ from __future__ import absolute_import, print_function
 
 import random
 
-from jmclient import (YieldGenerator, YieldGeneratorBasic, ygmain, get_log,
-                      jm_single, calc_cj_fee)
+from jmclient import YieldGeneratorBasic, ygmain, get_log, jm_single
+
 
 # This is a maker for the purposes of generating a yield from held bitcoins
 # while maximising the difficulty of spying on blockchain activity.

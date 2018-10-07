@@ -20,12 +20,11 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-import sys, base64, textwrap, datetime, os, logging
+import sys, datetime, os, logging
 import platform, csv, threading, time
 
 
 from decimal import Decimal
-from functools import partial
 
 from PyQt4 import QtCore
 from PyQt4.QtGui import *
@@ -52,24 +51,19 @@ JM_CORE_VERSION = '0.3.5'
 #Version of this Qt script specifically
 JM_GUI_VERSION = '7'
 
-from jmclient import (
-    load_program_config, get_network, open_test_wallet_maybe, get_wallet_path,
-    get_p2sh_vbyte, get_p2pk_vbyte, jm_single, validate_address, get_log,
-    weighted_order_choose, Taker, JMClientProtocolFactory, WalletError,
-    start_reactor, get_schedule, get_tumble_schedule, schedule_to_text,
-    get_blockchain_interface_instance, sync_wallet,
-    direct_send, RegtestBitcoinCoreInterface, tweak_tumble_schedule,
-    human_readable_schedule_entry, tumbler_taker_finished_update,
-    get_tumble_log, restart_wait, tumbler_filter_orders_callback,
-    wallet_generate_recover_bip39, wallet_display)
+from jmclient import load_program_config, get_network,\
+    open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
+    jm_single, validate_address, get_log, weighted_order_choose, Taker,\
+    JMClientProtocolFactory, start_reactor, get_schedule, schedule_to_text,\
+    get_blockchain_interface_instance, direct_send,\
+    RegtestBitcoinCoreInterface, tumbler_taker_finished_update,\
+    get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
+    wallet_generate_recover_bip39, wallet_display
+from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
+    config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
+    PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
+    donation_more_message
 
-from qtsupport import (ScheduleWizard, TumbleRestartWizard, warnings, config_tips,
-                       config_types, TaskThread, QtHandler, XStream, Buttons,
-                       CloseButton, CopyButton, CopyCloseButton, OkButton,
-                       CancelButton, check_password_strength,
-                       update_password_strength, make_password_dialog,
-                       PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,
-                       donation_more_message)
 
 from twisted.internet import task
 def satoshis_to_amt_str(x):

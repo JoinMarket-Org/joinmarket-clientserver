@@ -2,8 +2,8 @@
 from __future__ import absolute_import
 '''test client-protocol interfacae.'''
 
-from jmclient import (get_schedule, load_program_config, start_reactor,
-                      Taker, get_log, JMClientProtocolFactory, jm_single)
+from jmclient import load_program_config, Taker, get_log,\
+    JMClientProtocolFactory, jm_single
 from jmclient.client_protocol import JMTakerClientProtocol
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor, task

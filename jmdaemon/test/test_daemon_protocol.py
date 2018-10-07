@@ -2,11 +2,11 @@
 from __future__ import absolute_import
 '''test daemon-protocol interfacae.'''
 
-from jmdaemon import (JMDaemonServerProtocolFactory, MessageChannelCollection)
+from jmdaemon import MessageChannelCollection
 from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon.daemon_protocol import JMDaemonServerProtocol
-from jmdaemon.protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
-                       NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
+from jmdaemon.protocol import NICK_HASH_LENGTH, NICK_MAX_ENCODED, JM_VERSION,\
+    JOINMARKET_NICK_HEADER
 from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels)
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor, task

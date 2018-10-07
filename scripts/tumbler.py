@@ -6,14 +6,12 @@ from twisted.internet import reactor
 import os
 import pprint
 from twisted.python.log import startLogging
-from jmclient import (
-    Taker, load_program_config, get_schedule,  weighted_order_choose,
-    JMClientProtocolFactory, start_reactor, validate_address, jm_single,
-    get_wallet_path, open_test_wallet_maybe, WalletError, sync_wallet,
-    get_tumble_schedule, RegtestBitcoinCoreInterface, estimate_tx_fee,
-    tweak_tumble_schedule, human_readable_schedule_entry, schedule_to_text,
-    restart_waiter, get_tumble_log, tumbler_taker_finished_update,
-    tumbler_filter_orders_callback)
+from jmclient import Taker, load_program_config, get_schedule,\
+    weighted_order_choose, JMClientProtocolFactory, start_reactor, jm_single,\
+    get_wallet_path, open_test_wallet_maybe, sync_wallet,\
+    get_tumble_schedule, RegtestBitcoinCoreInterface, schedule_to_text,\
+    restart_waiter, get_tumble_log, tumbler_taker_finished_update,\
+    tumbler_filter_orders_callback
 from jmbase.support import get_log
 from cli_options import get_tumbler_parser
 log = get_log()
@@ -26,7 +24,7 @@ def main():
     (options, args) = get_tumbler_parser().parse_args()
     options = vars(options)
     if len(args) < 1:
-        parser.error('Needs a wallet file')
+        print('Error: Needs a wallet file')
         sys.exit(0)
     load_program_config()
     #Load the wallet

@@ -3,17 +3,13 @@ from __future__ import absolute_import
 '''test messagechannel management code.'''
 
 import pytest
-from jmdaemon import (JMDaemonServerProtocolFactory, MessageChannelCollection)
+from jmdaemon import MessageChannelCollection
 from jmdaemon.message_channel import MChannelThread
 from jmdaemon.orderbookwatch import OrderbookWatch
-from jmdaemon.daemon_protocol import JMDaemonServerProtocol
-from jmdaemon.protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
-                       NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER)
+from jmdaemon.protocol import COMMAND_PREFIX, NICK_HASH_LENGTH,\
+    NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER
 from jmclient import get_log
-import os
-from jmbase.commands import *
 from msgdata import *
-import json
 import time
 import hashlib
 import base64
@@ -21,7 +17,8 @@ import traceback
 import threading
 import jmbitcoin as bitcoin
 from dummy_mc import DummyMessageChannel
-from twisted.internet import reactor
+
+
 jlog = get_log()
 
 def make_valid_nick(i=0):

@@ -5,8 +5,7 @@ import pytest
 
 from jmclient import (load_program_config, jm_single)
 from jmclient.commitment_utils import get_utxo_info, validate_utxo_data
-from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
-                             t_maker_response, t_chosen_orders, t_dummy_ext)
+
 
 def test_get_utxo_info():
     load_program_config()
@@ -55,4 +54,3 @@ def test_get_utxo_info():
     retval = validate_utxo_data(utxodatas, False)
     assert not retval
     dbci.setQUSFail(False)
-    

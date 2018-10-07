@@ -9,9 +9,8 @@ from commontest import make_wallets, make_sign_and_push
 
 import jmbitcoin as bitcoin
 import pytest
-from jmclient import (
-    load_program_config, jm_single, sync_wallet, get_p2pk_vbyte, get_log,
-    select_gradual, select, select_greedy, select_greediest, estimate_tx_fee)
+from jmclient import load_program_config, jm_single, sync_wallet,\
+    get_p2pk_vbyte, get_log
 
 log = get_log()
 #just a random selection of pubkeys for receiving multisigs;

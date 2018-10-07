@@ -411,7 +411,6 @@ def get_dummy_nick():
     an orderbook request, so no such need, but for better
     privacy, a conformant nick is created based on a random
     pseudo-pubkey."""
-    import binascii
     nick_pkh_raw = hashlib.sha256(os.urandom(10)).digest()[:NICK_HASH_LENGTH]
     nick_pkh = btc.changebase(nick_pkh_raw, 256, 58)
     #right pad to maximum possible; b58 is not fixed length.

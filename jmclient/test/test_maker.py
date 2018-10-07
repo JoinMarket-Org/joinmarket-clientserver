@@ -77,10 +77,9 @@ def get_address_generator(script_pre, script_post, vbyte):
         counter += 1
 
 
-def create_tx_and_offerlist(cj_addr, changeaddr, other_output_scripts,
+def create_tx_and_offerlist(cj_addr, cj_change_addr, other_output_scripts,
                             cj_script=None, cj_change_script=None, offertype='swreloffer'):
     assert len(other_output_scripts) % 2 == 0, "bug in test"
-    other_participant_count = len(other_output_scripts) // 2
 
     cj_value = 100000000
     maker_total_value = cj_value*3
@@ -88,7 +87,7 @@ def create_tx_and_offerlist(cj_addr, changeaddr, other_output_scripts,
     if cj_script is None:
         cj_script = btc.address_to_script(cj_addr)
     if cj_change_script is None:
-        changeaddr = btc.address_to_script(cj_change_addr)
+        cj_change_script = btc.address_to_script(cj_change_addr)
 
     inputs = create_tx_inputs(3)
     outputs = create_tx_outputs(
@@ -101,7 +100,7 @@ def create_tx_and_offerlist(cj_addr, changeaddr, other_output_scripts,
     maker_utxos = [inputs[0]]
 
     tx = btc.deserialize(btc.mktx(inputs, outputs))
-    offerlist = construct_tx_offerlist(cj_addr, changeaddr, maker_utxos,
+    offerlist = construct_tx_offerlist(cj_addr, cj_change_addr, maker_utxos,
                                        maker_total_value, cj_value, offertype)
 
     return tx, offerlist

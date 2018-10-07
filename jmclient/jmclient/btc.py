@@ -7,8 +7,6 @@ BTC_P2SH_VBYTE = {"mainnet": 0x05, "testnet": 0xc4}
 PODLE_COMMIT_FILE = None
 
 from jmbase.support import get_log
-import binascii, sys, re, hashlib, base64
-from pprint import pformat
 log = get_log()
 
 #Required only for PoDLE calculation:
@@ -68,7 +66,7 @@ except ImportError:
     #Electrum specific code starts here
     import electrum.bitcoin as ebt
     import electrum.transaction as etr
-    from ecdsa.ecdsa import curve_secp256k1, generator_secp256k1, point_is_valid
+    from ecdsa.ecdsa import point_is_valid
     from ecdsa.util import string_to_number, sigdecode_der, sigencode_der
     from ecdsa import VerifyingKey, BadSignatureError, BadDigestError
     from ecdsa.curves import SECP256k1
@@ -193,7 +191,7 @@ except ImportError:
         try:
             verified = ecdsa_pub.verify_digest(sig, txforsig,
                                        sigdecode = sigdecode_der)
-        except BadSignatureError, BadDigestError:
+        except (BadSignatureError, BadDigestError):
             return False
         return True
     

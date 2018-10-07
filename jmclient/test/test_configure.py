@@ -3,9 +3,7 @@ from __future__ import absolute_import
 '''test configure module.'''
 
 import pytest
-from jmclient import (load_program_config, jm_single, get_irc_mchannels,
-                      BTC_P2PK_VBYTE, BTC_P2SH_VBYTE, validate_address,
-                      JsonRpcConnectionError)
+from jmclient import load_program_config, jm_single, get_irc_mchannels
 from jmclient.configure import (get_config_irc_channel, get_p2sh_vbyte,
                                 get_p2pk_vbyte, get_blockchain_interface_instance)
 import os

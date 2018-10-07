@@ -13,14 +13,11 @@ from __future__ import absolute_import, print_function
    --nirc=2 -s test/ygrunner.py
    '''
 from common import make_wallets
-import os
 import pytest
-import sys
-import time
 import random
-from jmclient import (YieldGeneratorBasic, ygmain, load_program_config,
-                      jm_single, sync_wallet, JMClientProtocolFactory,
-                      start_reactor)
+from jmclient import YieldGeneratorBasic, load_program_config, jm_single,\
+    sync_wallet, JMClientProtocolFactory, start_reactor
+
 
 class MaliciousYieldGenerator(YieldGeneratorBasic):
     """Overrides, randomly, some maker functions

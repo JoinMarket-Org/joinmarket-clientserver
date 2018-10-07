@@ -14,11 +14,10 @@ from pprint import pformat
 
 from optparse import OptionParser
 import jmclient.btc as btc
-from jmclient import (
-    load_program_config, jm_single, get_p2pk_vbyte, open_wallet, WalletError,
-    sync_wallet, add_external_commitments, generate_podle, update_commitments,
-    PoDLE, set_commitment_file, get_podle_commitments, get_utxo_info,
-    validate_utxo_data, quit, get_wallet_path)
+from jmclient import load_program_config, jm_single, get_p2pk_vbyte,\
+    open_wallet, sync_wallet, add_external_commitments, update_commitments,\
+    PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
+    get_wallet_path
 
 
 def add_ext_commitments(utxo_datas):

@@ -15,8 +15,8 @@ from twisted.internet import reactor, task, defer
 from .blockchaininterface import BlockchainInterface
 from .configure import get_p2sh_vbyte
 from .support import get_log
-from .electrum_data import (get_default_ports, get_default_servers,
-                            set_electrum_testnet, DEFAULT_PROTO)
+from .electrum_data import get_default_servers, set_electrum_testnet,\
+    DEFAULT_PROTO
 
 log = get_log()
 
@@ -290,19 +290,19 @@ class ElectrumInterface(BlockchainInterface):
         tah[i]['synced'] = True
         #Having updated this specific record, check if the entire batch from start_index
         #has been synchronized
-        if all([tah[i]['synced'] for i in range(start_index, start_index + self.BATCH_SIZE)]):
+        if all([tah[j]['synced'] for j in range(start_index, start_index + self.BATCH_SIZE)]):
             #check if unused goes back as much as gaplimit *and* we are ahead of any
             #existing index_cache from the wallet file; if both true, end, else, continue
             #to next batch
-            if all([tah[i]['used'] is False for i in range(
+            if all([tah[j]['used'] is False for j in range(
                 start_index + self.BATCH_SIZE - wallet.gap_limit,
                 start_index + self.BATCH_SIZE)]):
                 last_used_addr = None
                 #to find last used, note that it may be in the *previous* batch;
                 #may as well just search from the start, since it takes no time.
-                for i in range(start_index + self.BATCH_SIZE):
-                    if tah[i]['used']:
-                        last_used_addr = tah[i]['addr']
+                for j in range(start_index + self.BATCH_SIZE):
+                    if tah[j]['used']:
+                        last_used_addr = tah[j]['addr']
                 if last_used_addr:
                     wallet.set_next_index(
                         mixdepth, forchange,

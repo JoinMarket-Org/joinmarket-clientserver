@@ -1,4 +1,3 @@
-import sys
 import jmbitcoin as btc
 import pytest
 import json

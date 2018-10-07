@@ -217,7 +217,7 @@ class socksocket(socket.socket):
             if authstat[1] != "\x00":
                 # Authentication failed
                 self.close()
-                raise Socks5AuthError, (3, _socks5autherrors[3])
+                raise Socks5AuthError((3, _socks5autherrors[3]))
                 # Authentication succeeded
         else:
             # Reaching here is always bad

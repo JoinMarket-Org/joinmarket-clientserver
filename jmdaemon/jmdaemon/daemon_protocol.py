@@ -17,7 +17,7 @@ from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
-from twisted.python import failure, log
+from twisted.python import log
 import json
 import threading
 import os

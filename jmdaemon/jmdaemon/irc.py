@@ -6,8 +6,6 @@ from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.application.internet import ClientService
 from twisted.internet.ssl import ClientContextFactory
 from twisted.words.protocols import irc
-from twisted.internet.error import (ConnectionLost, ConnectionAborted,
-                                    ConnectionClosed, ConnectionDone)
 from jmdaemon.message_channel import MessageChannel
 from jmbase.support import get_log, chunks
 from txsocksx.client import SOCKS5ClientEndpoint
