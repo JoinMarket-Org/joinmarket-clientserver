@@ -214,8 +214,8 @@ class Maker(object):
             self.offerlist.remove(order[0])
         if len(to_announce) > 0:
             for ann in to_announce:
-                oldorder_s = [order for order in self.offerlist
-                              if order['oid'] == ann['oid']]
+                oldorder_s = [o for o in self.offerlist
+                              if o['oid'] == ann['oid']]
                 if len(oldorder_s) > 0:
                     self.offerlist.remove(oldorder_s[0])
             self.offerlist += to_announce

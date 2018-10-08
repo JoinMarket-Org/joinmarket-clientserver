@@ -32,10 +32,6 @@ if sys.version_info.major == 2:
         256: ''.join([chr(x) for x in range(256)])
     }
 
-    def bin_dbl_sha256(s):
-        bytes_to_hash = from_string_to_bytes(s)
-        return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
-
     def lpad(msg, symbol, length):
         if len(msg) >= length:
             return msg

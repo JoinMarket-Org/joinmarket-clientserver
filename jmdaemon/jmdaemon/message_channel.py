@@ -3,11 +3,9 @@ from __future__ import print_function
 import abc
 import base64
 import threading
-from jmdaemon import (
-    encrypt_encode, decode_decrypt, COMMAND_PREFIX, ORDER_KEYS,
-    NICK_HASH_LENGTH, NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER,
-    nickname, plaintext_commands, encrypted_commands, commitment_broadcast_list,
-    offername_list, public_commands, private_commands)
+from jmdaemon import encrypt_encode, decode_decrypt, COMMAND_PREFIX,\
+    NICK_HASH_LENGTH, NICK_MAX_ENCODED, plaintext_commands,\
+    encrypted_commands, commitment_broadcast_list, offername_list
 from jmbase.support import get_log
 from functools import wraps
 
@@ -156,8 +154,8 @@ class MessageChannelCollection(object):
         may be some issues with intialization.
         """
         if mchannel not in self.mchannels:
-            self.mc_status[mc] = 0
-            self.nicks_seen[mc] = set()
+            self.mc_status[mchannel] = 0
+            self.nicks_seen[mchannel] = set()
         self.mchannels += mchannel
         self.mchannels = list(set(self.mchannels))
 

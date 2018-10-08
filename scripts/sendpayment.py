@@ -12,12 +12,11 @@ import sys
 from twisted.internet import reactor
 import pprint
 
-from jmclient import (
-    Taker, load_program_config, get_schedule, JMClientProtocolFactory,
-    start_reactor, validate_address, jm_single, WalletError, choose_orders,
-    choose_sweep_orders, cheapest_order_choose, weighted_order_choose,
-    sync_wallet, RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,
-    open_test_wallet_maybe, get_wallet_path)
+from jmclient import Taker, load_program_config, get_schedule,\
+    JMClientProtocolFactory, start_reactor, validate_address, jm_single,\
+    cheapest_order_choose, weighted_order_choose, sync_wallet,\
+    RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,\
+    open_test_wallet_maybe, get_wallet_path
 from twisted.python.log import startLogging
 from jmbase.support import get_log
 from cli_options import get_sendpayment_parser

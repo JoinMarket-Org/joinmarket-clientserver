@@ -1,5 +1,4 @@
 from __future__ import absolute_import, print_function
-from jmclient import schedule_to_text, human_readable_schedule_entry
 import logging
 import pprint
 import os
@@ -7,7 +6,8 @@ import time
 import numbers
 from binascii import hexlify, unhexlify
 from .configure import get_log, jm_single, validate_address
-from .schedule import human_readable_schedule_entry, tweak_tumble_schedule
+from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
+    schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee
 from .btc import deserialize, mktx, serialize, txhash
 log = get_log()

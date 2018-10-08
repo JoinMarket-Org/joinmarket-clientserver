@@ -9,11 +9,11 @@ import shutil
 import pytest
 import json
 from base64 import b64encode
-from jmclient import (
-    load_program_config, jm_single, set_commitment_file, get_commitment_file,
-    SegwitLegacyWallet, Taker, VolatileStorage, get_p2sh_vbyte, get_network)
-from taker_test_data import (t_utxos_by_mixdepth, t_selected_utxos, t_orderbook,
-                             t_maker_response, t_chosen_orders, t_dummy_ext)
+from jmclient import load_program_config, jm_single, set_commitment_file,\
+    get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
+    get_network
+from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
+    t_maker_response, t_chosen_orders, t_dummy_ext
 
 
 class DummyWallet(SegwitLegacyWallet):

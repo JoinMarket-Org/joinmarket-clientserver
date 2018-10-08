@@ -2,8 +2,7 @@
 from __future__ import absolute_import, print_function
 
 
-from jmclient import (YieldGenerator, YieldGeneratorBasic, ygmain, get_log,
-                      jm_single, calc_cj_fee)
+from jmclient import YieldGeneratorBasic, ygmain, get_log
 
 """THESE SETTINGS CAN SIMPLY BE EDITED BY HAND IN THIS FILE:
 """

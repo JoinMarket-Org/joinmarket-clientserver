@@ -3,13 +3,15 @@ from __future__ import print_function
 #Proof Of Discrete Logarithm Equivalence
 #For algorithm steps, see https://gist.github.com/AdamISZ/9cbba5e9408d23813ca8
 import os
+import sys
 import hashlib
 import json
 import binascii
+from btc import multiply, add_pubkeys, getG, podle_PublicKey,\
+    podle_PrivateKey, encode, decode, N, podle_PublicKey_class
+
+
 PODLE_COMMIT_FILE = None
-from btc import (multiply, add_pubkeys, getG, podle_PublicKey, podle_PrivateKey,
-                 encode, decode, N,
-                 podle_PublicKey_class, podle_PrivateKey_class)
 
 
 def set_commitment_file(file_loc):

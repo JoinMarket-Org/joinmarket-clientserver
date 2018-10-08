@@ -1,12 +1,11 @@
 #! /usr/bin/env python
 from __future__ import print_function
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol, reactor, task
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
 from twisted.protocols.amp import UnknownRemoteError
 from twisted.protocols import amp
 from twisted.trial import unittest
-from twisted.internet import reactor, task
 
 from jmbase.commands import *
 

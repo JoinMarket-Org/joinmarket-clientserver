@@ -2,21 +2,10 @@
 from __future__ import absolute_import
 '''Tests of joinmarket bots end-to-end (including IRC and bitcoin) '''
 
-import subprocess
-import signal
-import os
-import pytest
 import time
-import threading
-import hashlib
 from twisted.trial import unittest
-from twisted.internet import reactor, task, defer
-import jmbitcoin as btc
-from jmdaemon import (JOINMARKET_NICK_HEADER, NICK_HASH_LENGTH,
-                      NICK_MAX_ENCODED, IRCMessageChannel,
-                      MessageChannelCollection)
-from jmdaemon.message_channel import CJPeerError
-import jmdaemon
+from twisted.internet import reactor, task
+from jmdaemon import IRCMessageChannel, MessageChannelCollection
 #needed for test framework
 from jmclient import (load_program_config, get_irc_mchannels, jm_single)
 
