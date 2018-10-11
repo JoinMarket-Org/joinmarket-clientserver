@@ -185,7 +185,7 @@ def get_tumbler_parser():
 def get_sendpayment_parser():
     parser = OptionParser(
         usage=
-        'usage: %prog [options] [wallet file / fromaccount] [amount] [destaddr]',
+        'usage: %prog [options] [wallet file] [amount] [destaddr]',
         description='Sends a single payment from a given mixing depth of your '
         +
         'wallet to an given address using coinjoin and then switches off. Also sends from bitcoinqt. '

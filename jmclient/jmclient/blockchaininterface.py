@@ -57,6 +57,12 @@ class BlockchainInterface(object):
     def sync_unspent(self, wallet):
         """Finds the unspent transaction outputs belonging to this wallet"""
 
+    def is_address_imported(self, addr):
+        try:
+            return self.rpc('getaccount', [addr]) != ''
+        except JsonRpcError:
+            return len(self.rpc('getaddressinfo', [addr])['labels']) > 0
+
     def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr,
                       wallet_name=None, timeoutfun=None, spentfun=None, txid_flag=True,
                       n=0, c=1, vb=None):
@@ -83,7 +89,7 @@ class BlockchainInterface(object):
             for outs in txd['outs']:
                 addr = btc.script_to_address(outs['script'], vb)
                 try:
-                    if self.rpc('getaccount', [addr]) != '':
+                    if self.is_address_imported(addr):
                         one_addr_imported = True
                         break
                 except JsonRpcError as e:
@@ -350,7 +356,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         Do NOT use for in-run imports, use rpc('importaddress',..) instead.
         """
         log.debug('importing ' + str(len(addr_list)) +
-                  ' addresses into account ' + wallet_name)
+                  ' addresses with label ' + wallet_name)
         for addr in addr_list:
             try:
                 self.rpc('importaddress', [addr, wallet_name, False])
@@ -492,7 +498,15 @@ class BitcoinCoreInterface(BlockchainInterface):
         wallet_name = self.get_wallet_name(wallet)
 
         addresses, saved_indices = self._collect_addresses_init(wallet)
-        imported_addresses = set(self.rpc('getaddressesbyaccount', [wallet_name]))
+        try:
+            imported_addresses = set(self.rpc('getaddressesbyaccount',
+                [wallet_name]))
+        except JsonRpcError:
+            if wallet_name in self.rpc('listlabels', []):
+                imported_addresses = set(self.rpc('getaddressesbylabel',
+                    [wallet_name]).keys())
+            else:
+                imported_addresses = set()
 
         if not addresses.issubset(imported_addresses):
             self.add_watchonly_addresses(addresses - imported_addresses,
@@ -595,7 +609,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         while True:
             new = self.rpc(
                 'listtransactions',
-                [wallet_name, batch_size, iteration * batch_size, True])
+                ["*", batch_size, iteration * batch_size, True])
             for tx in new:
                 yield tx
             if len(new) < batch_size:
@@ -621,10 +635,6 @@ class BitcoinCoreInterface(BlockchainInterface):
 
         unspent_list = self.rpc('listunspent', listunspent_args)
         for u in unspent_list:
-            if 'account' not in u:
-                continue
-            if u['account'] != wallet_name:
-                continue
             if not wallet.is_known_addr(u['address']):
                 continue
             self._add_unspent_utxo(wallet, u)
@@ -660,15 +670,14 @@ class BitcoinCoreInterface(BlockchainInterface):
 
     def outputs_watcher(self, wallet_name, notifyaddr, tx_output_set,
                         unconfirmfun, confirmfun, timeoutfun):
-        """Given a key for the watcher loop (notifyaddr), a wallet name (account),
+        """Given a key for the watcher loop (notifyaddr), a wallet name (label),
         a set of outputs, and unconfirm, confirm and timeout callbacks,
         check to see if a transaction matching that output set has appeared in
         the wallet. Call the callbacks and update the watcher loop state.
         End the loop when the confirmation has been seen (no spent monitoring here).
         """
         wl = self.tx_watcher_loops[notifyaddr]
-        account_name = wallet_name if wallet_name else "*"
-        txlist = self.rpc("listtransactions", [wallet_name, 100, 0, True])
+        txlist = self.rpc("listtransactions", ["*", 100, 0, True])
         for tx in txlist[::-1]:
             #changed syntax in 0.14.0; allow both syntaxes
             try:
