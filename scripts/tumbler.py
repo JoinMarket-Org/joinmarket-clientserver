@@ -35,7 +35,7 @@ def main():
     if wallet.max_mixdepth < max_mix_depth:
         print("Your wallet does not contain the required number of mixdepths: ",
               max_mix_depth)
-        print("Increase using this command: `python wallet-tool.py -m ",
+        print("Increase using this command: `python wallet-tool.py -M ",
               max_mix_depth + 1, " (yourwalletname) changemixdepth")
         print("Then start the tumbler again with the same settings.")
         sys.exit(0)

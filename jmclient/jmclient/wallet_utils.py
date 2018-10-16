@@ -32,7 +32,7 @@ def get_wallettool_parser():
         '(dumpprivkey) Export a single private key, specify an hd wallet path\n'
         '(signmessage) Sign a message with the private key from an address in \n'
         'the wallet. Use with -H and specify an HD wallet path for the address.\n'
-        '(changemixdepth) Use with -m to change the *maximum* number of mixdepths\n'
+        '(changemixdepth) Use with -M to change the *maximum* number of mixdepths\n'
         'in the wallet; you are advised to only increase, not decrease this \n'
         'number from the current value (initially 5).')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
