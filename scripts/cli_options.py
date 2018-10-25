@@ -268,14 +268,6 @@ def get_sendpayment_parser():
                       dest='answeryes',
                       default=False,
                       help='answer yes to everything')
-    parser.add_option(
-        '--rpcwallet',
-        action='store_true',
-        dest='userpcwallet',
-        default=False,
-        help=('Use the Bitcoin Core wallet through json rpc, instead '
-              'of the internal joinmarket wallet. Requires '
-              'blockchain_source=json-rpc'))
     parser.add_option('--fast',
                       action='store_true',
                       dest='fastsync',
