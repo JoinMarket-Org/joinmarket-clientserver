@@ -118,20 +118,36 @@ rpc_user = bitcoin
 rpc_password = password
 rpc_wallet_file =
 
-[MESSAGING]
-host = irc.cyberguerrilla.org, agora.anarplex.net
-channel = joinmarket-pit, joinmarket-pit
-port = 6697, 14716
-usessl = true, true
-socks5 = false, false
-socks5_host = localhost, localhost
-socks5_port = 9050, 9050
+[MESSAGING:server1]
+host = irc.cyberguerrilla.org
+channel = joinmarket-pit
+port = 6697
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
+
 #for tor
-#host = 6dvj6v5imhny3anf.onion, cfyfz6afpgfeirst.onion
+#host = 6dvj6v5imhny3anf.onion
 #onion / i2p have their own ports on CGAN
-#port = 6698, 6667
-#usessl = true, false
-#socks5 = true, true
+#port = 6698
+#usessl = true
+#socks5 = true
+
+[MESSAGING:server2]
+host = agora.anarplex.net
+channel = joinmarket-pit
+port = 14716
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
+
+#for tor
+#host = cfyfz6afpgfeirst.onion
+#port = 6667
+#usessl = false
+#socks5 = true
 
 [LOGGING]
 # Set the log level for the output to the terminal/console
@@ -226,7 +242,39 @@ def set_config(cfg, bcint=None):
     if bcint:
         global_singleton.bc_interface = bcint
 
+
 def get_irc_mchannels():
+    SECTION_NAME = 'MESSAGING'
+    # FIXME: remove in future release
+    if jm_single().config.has_section(SECTION_NAME):
+        log.warning("Old IRC configuration detected. Please adopt your "
+                    "joinmarket.cfg as documented in 'docs/config-irc-"
+                    "update.md'. Support for the old setting will be removed "
+                    "in a future version.")
+        return _get_irc_mchannels_old()
+
+    SECTION_NAME += ':'
+    irc_sections = []
+    for s in jm_single().config.sections():
+        if s.startswith(SECTION_NAME):
+            irc_sections.append(s)
+    assert irc_sections
+
+    fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
+              ("socks5", str), ("socks5_host", str), ("socks5_port", str)]
+
+    configs = []
+    for section in irc_sections:
+        server_data = {}
+        for option, otype in fields:
+            val = jm_single().config.get(section, option)
+            server_data[option] = otype(val)
+        server_data['btcnet'] = get_network()
+        configs.append(server_data)
+    return configs
+
+
+def _get_irc_mchannels_old():
     fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
               ("socks5", str), ("socks5_host", str), ("socks5_port", str)]
     configdata = {}
@@ -320,20 +368,27 @@ def load_program_config(config_path=None, bs=None):
         with open(global_singleton.config_location, "w") as configfile:
             configfile.write(defaultconfig)
 
-    # check for sections
     #These are left as sanity checks but currently impossible
     #since any edits are overlays to the default, these sections/options will
     #always exist.
+    # FIXME: This check is a best-effort attempt. Certain incorrect section
+    # names can pass and so can non-first invalid sections.
     for s in required_options: #pragma: no cover
-        if s not in global_singleton.config.sections():
-            raise Exception(
-                "Config file does not contain the required section: " + s)
-    # then check for specific options
-    for k, v in required_options.iteritems(): #pragma: no cover
-        for o in v:
-            if o not in global_singleton.config.options(k):
+        # check for sections
+        avail = None
+        if not global_singleton.config.has_section(s):
+            for avail in global_singleton.config.sections():
+                if avail.startswith(s):
+                    break
+            else:
                 raise Exception(
-                    "Config file does not contain the required option: " + o)
+                    "Config file does not contain the required section: " + s)
+        # then check for specific options
+        k = avail or s
+        for o in required_options[s]:
+            if not global_singleton.config.has_option(k, o):
+                raise Exception("Config file does not contain the required "
+                                "option '{}' in section '{}'.".format(o, k))
 
     loglevel = global_singleton.config.get("LOGGING", "console_log_level")
     try:
