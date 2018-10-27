@@ -123,7 +123,7 @@ def main():
         wallet = open_test_wallet_maybe(
             wallet_path, wallet_name, max_mix_depth, gap_limit=options.gaplimit)
     else:
-        raise NotImplemented("Using non-joinmarket wallet is not supported.")
+        raise NotImplementedError("Using non-joinmarket wallet is not supported.")
     if jm_single().config.get("BLOCKCHAIN",
         "blockchain_source") == "electrum-server" and options.makercount != 0:
         jm_single().bc_interface.synctype = "with-script"
