@@ -114,14 +114,12 @@ def main():
 
     log.debug('starting sendpayment')
 
-    if not options.userpcwallet:
-        max_mix_depth = max([mixdepth, options.amtmixdepths - 1])
+    max_mix_depth = max([mixdepth, options.amtmixdepths - 1])
 
-        wallet_path = get_wallet_path(wallet_name, None)
-        wallet = open_test_wallet_maybe(
-            wallet_path, wallet_name, max_mix_depth, gap_limit=options.gaplimit)
-    else:
-        raise NotImplementedError("Using non-joinmarket wallet is not supported.")
+    wallet_path = get_wallet_path(wallet_name, None)
+    wallet = open_test_wallet_maybe(
+        wallet_path, wallet_name, max_mix_depth, gap_limit=options.gaplimit)
+
     if jm_single().config.get("BLOCKCHAIN",
         "blockchain_source") == "electrum-server" and options.makercount != 0:
         jm_single().bc_interface.synctype = "with-script"
