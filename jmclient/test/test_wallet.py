@@ -11,6 +11,7 @@ from commontest import binarize_tx
 from jmclient import load_program_config, jm_single, get_log,\
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError
+from test_blockchaininterface import sync_test_wallet
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
@@ -582,6 +583,60 @@ def test_imported_key_removed(setup_wallet):
 
     with pytest.raises(WalletError):
         wallet.get_script_path(path)
+
+
+def test_wallet_mixdepth_simple(setup_wallet):
+    wallet = get_populated_wallet(num=0)
+    mixdepth = wallet.mixdepth
+    assert wallet.max_mixdepth == mixdepth
+
+    wallet.close()
+    storage_data = wallet._storage.file_data
+
+    new_wallet = type(wallet)(VolatileStorage(data=storage_data))
+    assert new_wallet.mixdepth == mixdepth
+    assert new_wallet.max_mixdepth == mixdepth
+
+
+def test_wallet_mixdepth_increase(setup_wallet):
+    wallet = get_populated_wallet(num=0)
+    mixdepth = wallet.mixdepth
+
+    wallet.close()
+    storage_data = wallet._storage.file_data
+
+    new_mixdepth = mixdepth + 2
+    new_wallet = type(wallet)(
+        VolatileStorage(data=storage_data), mixdepth=new_mixdepth)
+    assert new_wallet.mixdepth == new_mixdepth
+    assert new_wallet.max_mixdepth == new_mixdepth
+
+
+def test_wallet_mixdepth_decrease(setup_wallet):
+    wallet = get_populated_wallet(num=1)
+
+    # setup
+    max_mixdepth = wallet.max_mixdepth
+    assert max_mixdepth >= 1, "bad default value for mixdepth for this test"
+    utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(max_mixdepth), 1)
+    assert wallet.get_balance_by_mixdepth()[max_mixdepth] == 10**8
+    wallet.close()
+    storage_data = wallet._storage.file_data
+
+    # actual test
+    new_mixdepth = max_mixdepth - 1
+    new_wallet = type(wallet)(
+        VolatileStorage(data=storage_data), mixdepth=new_mixdepth)
+    assert new_wallet.max_mixdepth == max_mixdepth
+    assert new_wallet.mixdepth == new_mixdepth
+    sync_test_wallet(True, new_wallet)
+
+    assert max_mixdepth not in new_wallet.get_balance_by_mixdepth()
+    assert max_mixdepth not in new_wallet.get_utxos_by_mixdepth()
+
+    # wallet.select_utxos will still return utxos from higher mixdepths
+    # because we explicitly ask for a specific mixdepth
+    assert utxo in new_wallet.select_utxos_(max_mixdepth, 10**7)
 
 
 @pytest.fixture(scope='module')

@@ -169,9 +169,11 @@ class UTXOManager(object):
                             'value': utxos[s['utxo']][1]}
                 for s in selected}
 
-    def get_balance_by_mixdepth(self):
+    def get_balance_by_mixdepth(self, max_mixdepth=float('Inf')):
         balance_dict = collections.defaultdict(int)
         for mixdepth, utxomap in self._utxo.items():
+            if mixdepth > max_mixdepth:
+                continue
             value = sum(x[1] for x in utxomap.values())
             balance_dict[mixdepth] = value
         return balance_dict
@@ -201,7 +203,8 @@ class BaseWallet(object):
 
     _ENGINE = None
 
-    def __init__(self, storage, gap_limit=6, merge_algorithm_name=None):
+    def __init__(self, storage, gap_limit=6, merge_algorithm_name=None,
+                 mixdepth=None):
         # to be defined by inheriting classes
         assert self.TYPE is not None
         assert self._ENGINE is not None
@@ -210,7 +213,10 @@ class BaseWallet(object):
         self.gap_limit = gap_limit
         self._storage = storage
         self._utxos = None
+        # highest mixdepth ever used in wallet, important for synching
         self.max_mixdepth = None
+        # effective maximum mixdepth to be used by joinmarket
+        self.mixdepth = None
         self.network = None
 
         # {script: path}, should always hold mappings for all "known" keys
@@ -223,10 +229,22 @@ class BaseWallet(object):
         assert self.max_mixdepth >= 0
         assert self.network in ('mainnet', 'testnet')
 
+        if mixdepth is not None:
+            assert mixdepth >= 0
+            if self._storage.read_only and mixdepth > self.max_mixdepth:
+                raise Exception("Effective max mixdepth must be at most {}!"
+                                .format(self.max_mixdepth))
+            self.max_mixdepth = max(self.max_mixdepth, mixdepth)
+            self.mixdepth = mixdepth
+        else:
+            self.mixdepth = self.max_mixdepth
+
+        assert self.mixdepth is not None
+
     @property
     @deprecated
     def max_mix_depth(self):
-        return self.max_mixdepth
+        return self.mixdepth
 
     @property
     @deprecated
@@ -241,14 +259,12 @@ class BaseWallet(object):
             raise Exception("Wrong class to initialize wallet of type {}."
                             .format(self.TYPE))
         self.network = self._storage.data[b'network'].decode('ascii')
-        self.max_mixdepth = self._storage.data[b'max_mixdepth']
         self._utxos = UTXOManager(self._storage, self.merge_algorithm)
 
     def save(self):
         """
         Write data to associated storage object and trigger persistent update.
         """
-        self._storage.data[b'max_mixdepth'] = self.max_mixdepth
         self._storage.save()
 
     @classmethod
@@ -277,7 +293,6 @@ class BaseWallet(object):
             timestamp = datetime.now().strftime('%Y/%m/%d %H:%M:%S')
 
         storage.data[b'network'] = network.encode('ascii')
-        storage.data[b'max_mixdepth'] = max_mixdepth
         storage.data[b'created'] = timestamp.encode('ascii')
         storage.data[b'wallet_type'] = cls.TYPE
 
@@ -517,8 +532,12 @@ class BaseWallet(object):
 
     def select_utxos_(self, mixdepth, amount, utxo_filter=None):
         """
+        Select a subset of available UTXOS for a given mixdepth whose value is
+        greater or equal to amount.
+
         args:
-            mixdepth: int, mixdepth to select utxos from
+            mixdepth: int, mixdepth to select utxos from, must be smaller or
+                equal to wallet.max_mixdepth
             amount: int, total minimum amount of all selected utxos
             utxo_filter: list of (txid, index), utxos not to select
 
@@ -545,8 +564,13 @@ class BaseWallet(object):
         self._utxos.reset()
 
     def get_balance_by_mixdepth(self, verbose=True):
+        """
+        Get available funds in each active mixdepth.
+
+        returns: {mixdepth: value}
+        """
         # TODO: verbose
-        return self._utxos.get_balance_by_mixdepth()
+        return self._utxos.get_balance_by_mixdepth(max_mixdepth=self.mixdepth)
 
     @deprecated
     def get_utxos_by_mixdepth(self, verbose=True):
@@ -564,6 +588,8 @@ class BaseWallet(object):
 
     def get_utxos_by_mixdepth_(self):
         """
+        Get all UTXOs for active mixdepths.
+
         returns:
             {mixdepth: {(txid, index):
                 {'script': bytes, 'path': tuple, 'value': int}}}
@@ -572,6 +598,8 @@ class BaseWallet(object):
 
         script_utxos = collections.defaultdict(dict)
         for md, data in mix_utxos.items():
+            if md > self.mixdepth:
+                continue
             for utxo, (path, value) in data.items():
                 script = self.get_script_path(path)
                 script_utxos[md][utxo] = {'script': script,
@@ -771,12 +799,11 @@ class ImportWalletMixin(object):
     _IMPORTED_STORAGE_KEY = b'imported_keys'
     _IMPORTED_ROOT_PATH = b'imported'
 
-    def __init__(self, storage, gap_limit=6, merge_algorithm_name=None):
+    def __init__(self, storage, **kwargs):
         # {mixdepth: [(privkey, type)]}
         self._imported = None
         # path is (_IMPORTED_ROOT_PATH, mixdepth, key_index)
-        super(ImportWalletMixin, self).__init__(storage, gap_limit,
-                                                merge_algorithm_name)
+        super(ImportWalletMixin, self).__init__(storage, **kwargs)
 
     def _load_storage(self):
         super(ImportWalletMixin, self)._load_storage()
@@ -1020,15 +1047,14 @@ class BIP32Wallet(BaseWallet):
     BIP32_INT_ID = 1
     ENTROPY_BYTES = 16
 
-    def __init__(self, storage, gap_limit=6, merge_algorithm_name=None):
+    def __init__(self, storage, **kwargs):
         self._entropy = None
         # {mixdepth: {type: index}} with type being 0/1 for [non]-internal
         self._index_cache = None
         # path is a tuple of BIP32 levels,
         # m is the master key's fingerprint
         # other levels are ints
-        super(BIP32Wallet, self).__init__(storage, gap_limit,
-                                          merge_algorithm_name)
+        super(BIP32Wallet, self).__init__(storage, **kwargs)
         assert self._index_cache is not None
         assert self._verify_entropy(self._entropy)
 
@@ -1060,7 +1086,8 @@ class BIP32Wallet(BaseWallet):
             entropy = get_random_bytes(cls.ENTROPY_BYTES, True)
 
         storage.data[cls._STORAGE_ENTROPY_KEY] = entropy
-        storage.data[cls._STORAGE_INDEX_CACHE] = {}
+        storage.data[cls._STORAGE_INDEX_CACHE] = {
+            _int_to_bytestr(i): {} for i in range(max_mixdepth + 1)}
 
         if write:
             storage.save()
@@ -1074,11 +1101,11 @@ class BIP32Wallet(BaseWallet):
 
         for md, data in self._storage.data[self._STORAGE_INDEX_CACHE].items():
             md = int(md)
-            if md > self.max_mixdepth:
-                continue
             md_map = self._index_cache[md]
             for t, k in data.items():
                 md_map[int(t)] = k
+
+        self.max_mixdepth = max(0, 0, *self._index_cache.keys())
 
     def _populate_script_map(self):
         for md in self._index_cache:
