@@ -6,6 +6,8 @@ import sys, os, subprocess
 (a) daemon - installs jmbase, jmdaemon
 (b) client-only - installs jmbase, jmclient
 (c) client-bitcoin - installs jmbase, jmclient, jmbitcoin
+(d) all - installs jmbase, jmclient, jmbitcoin, jmdaemon
+(e) develop - installs jmbase, jmclient, jmbitcoin, jmdaemon linked to the source directoy
 
 Note that b and c are distinct mainly due to the fact that
 the latter requires the secp256k1 (libsecp256k1 via the secp256k1-py binding),
@@ -18,6 +20,7 @@ All modes require and install twisted.
 def help():
     print("Usage: python setupall.py <mode>\n"
           "Mode is one of:\n"
+          "`--all` - for the full joinmarket package with secp256k1\n"
           "`--daemon` - for joinmarketd\n"
           "`--client-only` - for client not using joinmarket's own bitcoin code\n"
           "`--client-bitcoin` - using joinmarket bitcoin code, installs secp256k1\n"
@@ -32,7 +35,8 @@ curdir = os.getcwd()
 
 mode = sys.argv[1]
 
-packages = {"--daemon": ["jmbase", "jmdaemon"],
+packages = {"--all": ["jmbase", "jmbitcoin", "jmclient", "jmdaemon"],
+            "--daemon": ["jmbase", "jmdaemon"],
             "--client-only": ["jmbase", "jmclient"],
             "--client-bitcoin": ["jmbase", "jmbitcoin", "jmclient"],
             "--develop": ["jmbase", "jmbitcoin", "jmclient", "jmdaemon"]}
