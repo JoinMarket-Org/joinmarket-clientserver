@@ -238,6 +238,7 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
     """
     feekey = lambda x: x[1]
     if not pick:
+        # filter to only the cheapest suitable offer for each maker
         orders_fees = sorted(
             dict((v[0]['counterparty'], v)
                  for v in sorted(orders_fees,
@@ -253,6 +254,7 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
     for i in range(n):
         chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n)
         # remove all orders from that same counterparty
+        # only needed if offers are manually picked
         orders_fees = [o
                        for o in orders_fees
                        if o[0]['counterparty'] != chosen_order['counterparty']]
@@ -310,6 +312,8 @@ def choose_sweep_orders(offers,
     #Filter ignored makers and inappropriate amounts
     offers = [o for o in offers if o['counterparty'] not in ignored_makers]
     offers = [o for o in offers if o['minsize'] < total_input_value]
+    # while we do not know the exact cj value yet, we can approximate a ceiling:
+    offers = [o for o in offers if o['maxsize'] > (total_input_value - total_txfee)]
 
     log.debug('orderlist = \n' + '\n'.join([str(o) for o in offers]))
     orders_fees = [(o, calc_cj_fee(o['ordertype'], o['cjfee'],
@@ -317,7 +321,13 @@ def choose_sweep_orders(offers,
 
     feekey = lambda x: x[1]
     # sort from smallest to biggest cj fee
-    orders_fees = sorted(orders_fees, key=feekey)
+    # filter to only the cheapest suitable offer for each maker
+    orders_fees = sorted(
+        dict((v[0]['counterparty'], v)
+             for v in sorted(orders_fees,
+                             key=feekey,
+                             reverse=True)).values(),
+        key=feekey)
     chosen_orders = []
     while len(chosen_orders) < n:
         for i in range(n - len(chosen_orders)):
