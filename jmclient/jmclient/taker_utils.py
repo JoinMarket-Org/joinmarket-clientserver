@@ -327,6 +327,7 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
             with open(schedulefile, "wb") as f:
                 f.write(schedule_to_text(taker.schedule))
 
+
 def tumbler_filter_orders_callback(orders_fees, cjamount, taker, options):
     """Since the tumbler does not use interactive fee checking,
     we use the -x values from the command line instead.
@@ -337,8 +338,8 @@ def tumbler_filter_orders_callback(orders_fees, cjamount, taker, options):
     log.info('rel/abs average fee = ' + str(rel_cj_fee) + ' / ' + str(
             abs_cj_fee))
 
-    if rel_cj_fee > options['maxcjfee'][
-        0] and abs_cj_fee > options['maxcjfee'][1]:
-        log.info("Rejected fees as too high according to options, will retry.")
+    if rel_cj_fee > taker.max_cj_fee[0] and abs_cj_fee > taker.max_cj_fee[1]:
+        log.info("Rejected fees as too high according to options, will "
+                 "retry.")
         return "retry"
     return True

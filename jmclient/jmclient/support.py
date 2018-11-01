@@ -203,6 +203,11 @@ def weighted_order_choose(orders, n):
     return orders[chosen_order_index]
 
 
+def random_under_max_order_choose(orders, n):
+    # orders are already pre-filtered for max_cj_fee
+    return random.choice(orders)
+
+
 def cheapest_order_choose(orders, n):
     """
     Return the cheapest order from the orders.
@@ -210,8 +215,18 @@ def cheapest_order_choose(orders, n):
     return orders[0]
 
 
+def _get_is_within_max_limits(max_fee_rel, max_fee_abs, cjvalue):
+    def check_max_fee(fee):
+        # only reject if fee is bigger than the relative and absolute limit
+        return not (fee > max_fee_abs and fee > cjvalue * max_fee_rel)
+    return check_max_fee
+
+
 def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
-                  pick=False, allowed_types=["swreloffer", "swabsoffer"]):
+                  pick=False, allowed_types=["swreloffer", "swabsoffer"],
+                  max_cj_fee=(1, float('inf'))):
+    is_within_max_limits = _get_is_within_max_limits(
+        max_cj_fee[0], max_cj_fee[1], cj_amount)
     if ignored_makers is None:
         ignored_makers = []
     #Filter ignored makers and inappropriate amounts
@@ -220,15 +235,18 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
     orders = [o for o in orders if o['maxsize'] > cj_amount]
     #Filter those not using wished-for offertypes
     orders = [o for o in orders if o["ordertype"] in allowed_types]
-    orders_fees = [(
-        o, calc_cj_fee(o['ordertype'], o['cjfee'], cj_amount) - o['txfee'])
-                   for o in orders]
 
-    counterparties = set([o['counterparty'] for o in orders])
+    orders_fees = []
+    for o in orders:
+        fee = calc_cj_fee(o['ordertype'], o['cjfee'], cj_amount) - o['txfee']
+        if is_within_max_limits(fee):
+            orders_fees.append((o, fee))
+
+    counterparties = set(o['counterparty'] for o, f in orders_fees)
     if n > len(counterparties):
         log.warn(('ERROR not enough liquidity in the orderbook n=%d '
                    'suitable-counterparties=%d amount=%d totalorders=%d') %
-                  (n, len(counterparties), cj_amount, len(orders)))
+                  (n, len(counterparties), cj_amount, len(orders_fees)))
         # TODO handle not enough liquidity better, maybe an Exception
         return None, 0
     """
@@ -271,7 +289,8 @@ def choose_sweep_orders(offers,
                         n,
                         chooseOrdersBy,
                         ignored_makers=None,
-                        allowed_types=['swreloffer', 'swabsoffer']):
+                        allowed_types=['swreloffer', 'swabsoffer'],
+                        max_cj_fee=(1, float('inf'))):
     """
     choose an order given that we want to be left with no change
     i.e. sweep an entire group of utxos
@@ -282,6 +301,8 @@ def choose_sweep_orders(offers,
     => 0 = totalin - mytxfee - sum(absfee) - cjamount*(1 + sum(relfee))
     => cjamount = (totalin - mytxfee - sum(absfee)) / (1 + sum(relfee))
     """
+    is_within_max_limits = _get_is_within_max_limits(
+        max_cj_fee[0], max_cj_fee[1], total_input_value)
 
     if ignored_makers is None:
         ignored_makers = []
@@ -326,7 +347,8 @@ def choose_sweep_orders(offers,
         dict((v[0]['counterparty'], v)
              for v in sorted(orders_fees,
                              key=feekey,
-                             reverse=True)).values(),
+                             reverse=True)
+             if is_within_max_limits(v[1])).values(),
         key=feekey)
     chosen_orders = []
     while len(chosen_orders) < n:
@@ -355,4 +377,3 @@ def choose_sweep_orders(offers,
     result = dict([(o['counterparty'], o) for o in chosen_orders])
     log.debug('cj amount = ' + str(cj_amount))
     return result, cj_amount, total_fee
-

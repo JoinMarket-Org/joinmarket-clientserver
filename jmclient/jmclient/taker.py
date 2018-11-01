@@ -14,7 +14,6 @@ from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
 from jmclient.wallet import estimate_tx_fee
 from jmclient.podle import generate_podle, get_podle_commitments, PoDLE
 from .output import generate_podle_error_string
-
 jlog = get_log()
 
 
@@ -29,7 +28,8 @@ class Taker(object):
                  order_chooser=weighted_order_choose,
                  callbacks=None,
                  tdestaddrs=None,
-                 ignored_makers=None):
+                 ignored_makers=None,
+                 max_cj_fee=(1, float('inf'))):
         """Schedule must be a list of tuples: (see sample_schedule_for_testnet
         for explanation of syntax, also schedule.py module in this directory),
         which will be a sequence of joins to do.
@@ -75,6 +75,7 @@ class Taker(object):
         self.wallet = wallet
         self.schedule = schedule
         self.order_chooser = order_chooser
+        self.max_cj_fee = max_cj_fee
 
         #List (which persists between transactions) of makers
         #who have not responded or behaved maliciously at any
@@ -236,7 +237,8 @@ class Taker(object):
                 "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
-                self.ignored_makers, allowed_types=allowed_types)
+                self.ignored_makers, allowed_types=allowed_types,
+                max_cj_fee=self.max_cj_fee)
             if self.orderbook is None:
                 #Failure to get an orderbook means order selection failed
                 #for some reason; no action is taken, we let the stallMonitor
@@ -310,7 +312,8 @@ class Taker(object):
             self.orderbook, self.cjamount, self.total_cj_fee = choose_sweep_orders(
                 self.orderbook, total_value, self.total_txfee,
                 self.n_counterparties, self.order_chooser,
-                self.ignored_makers, allowed_types=allowed_types)
+                self.ignored_makers, allowed_types=allowed_types,
+                max_cj_fee=self.max_cj_fee)
             if not self.orderbook:
                 self.taker_info_callback("ABORT",
                                 "Could not find orders to complete transaction")

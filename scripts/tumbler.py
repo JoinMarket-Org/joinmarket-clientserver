@@ -7,13 +7,13 @@ import os
 import pprint
 from twisted.python.log import startLogging
 from jmclient import Taker, load_program_config, get_schedule,\
-    weighted_order_choose, JMClientProtocolFactory, start_reactor, jm_single,\
-    get_wallet_path, open_test_wallet_maybe, sync_wallet,\
-    get_tumble_schedule, RegtestBitcoinCoreInterface, schedule_to_text,\
-    restart_waiter, get_tumble_log, tumbler_taker_finished_update,\
+    JMClientProtocolFactory, start_reactor, jm_single, get_wallet_path,\
+    open_test_wallet_maybe, sync_wallet, get_tumble_schedule,\
+    RegtestBitcoinCoreInterface, schedule_to_text, restart_waiter,\
+    get_tumble_log, tumbler_taker_finished_update,\
     tumbler_filter_orders_callback
 from jmbase.support import get_log
-from cli_options import get_tumbler_parser
+from cli_options import get_tumbler_parser, get_max_cj_fee_values
 log = get_log()
 logsdir = os.path.join(os.path.dirname(
     jm_single().config_location), "logs")
@@ -22,11 +22,13 @@ logsdir = os.path.join(os.path.dirname(
 def main():
     tumble_log = get_tumble_log(logsdir)
     (options, args) = get_tumbler_parser().parse_args()
+    options_org = options
     options = vars(options)
     if len(args) < 1:
         print('Error: Needs a wallet file')
         sys.exit(0)
     load_program_config()
+
     #Load the wallet
     wallet_name = args[0]
     max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
@@ -37,6 +39,10 @@ def main():
         jm_single().bc_interface.synctype = "with-script"
     while not jm_single().bc_interface.wallet_synced:
         sync_wallet(wallet, fast=options['fastsync'])
+
+    maxcjfee = get_max_cj_fee_values(jm_single().config, options_org)
+    log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} sat"
+             .format(*maxcjfee))
 
     #Parse options and generate schedule
     #Output information to log files
@@ -110,7 +116,8 @@ def main():
     #instantiate Taker with given schedule and run
     taker = Taker(wallet,
                   schedule,
-                  order_chooser=weighted_order_choose,
+                  order_chooser=options['order_choose_fn'],
+                  max_cj_fee=maxcjfee,
                   callbacks=(filter_orders_callback, None, taker_finished),
                   tdestaddrs=destaddrs)
     clientfactory = JMClientProtocolFactory(taker)

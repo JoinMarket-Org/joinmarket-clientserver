@@ -14,12 +14,11 @@ import pprint
 
 from jmclient import Taker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, validate_address, jm_single,\
-    cheapest_order_choose, weighted_order_choose, sync_wallet,\
-    RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,\
+    sync_wallet, RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,\
     open_test_wallet_maybe, get_wallet_path
 from twisted.python.log import startLogging
 from jmbase.support import get_log
-from cli_options import get_sendpayment_parser
+from cli_options import get_sendpayment_parser, get_max_cj_fee_values
 
 log = get_log()
 
@@ -91,16 +90,13 @@ def main():
         jm_single().bc_interface.simulating = True
         jm_single().maker_timeout_sec = 15
 
-    chooseOrdersFunc = None
     if options.pickorders:
         chooseOrdersFunc = pick_order
         if sweeping:
             print('WARNING: You may have to pick offers multiple times')
             print('WARNING: due to manual offer picking while sweeping')
-    elif options.choosecheapest:
-        chooseOrdersFunc = cheapest_order_choose
-    else:  # choose randomly (weighted)
-        chooseOrdersFunc = weighted_order_choose
+    else:
+        chooseOrdersFunc = options.order_choose_fn
 
     # Dynamically estimate a realistic fee if it currently is the default value.
     # At this point we do not know even the number of our own inputs, so
@@ -111,6 +107,11 @@ def main():
         log.debug("Estimated miner/tx fee for each cj participant: " + str(
             options.txfee))
     assert (options.txfee >= 0)
+
+    if options.makercount != 0:
+        maxcjfee = get_max_cj_fee_values(jm_single().config, options)
+        log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
+                 "sat".format(*maxcjfee))
 
     log.debug('starting sendpayment')
 
@@ -222,6 +223,7 @@ def main():
     taker = Taker(wallet,
                   schedule,
                   order_chooser=chooseOrdersFunc,
+                  max_cj_fee=maxcjfee,
                   callbacks=(filter_orders_callback, None, taker_finished))
     clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
