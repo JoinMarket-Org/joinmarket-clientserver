@@ -60,7 +60,6 @@ def get_options():
     options.txcountparams = (18, 3)
     options.minmakercount = 2
     options.makercountrange = (6, 0)
-    options.maxcjfee = (0.01, 10000)
     options.txfee = 5000
     options.addrcount = 3
     options.mintxcount = 1

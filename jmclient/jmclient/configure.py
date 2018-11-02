@@ -163,11 +163,13 @@ confirm_timeout_hours = 6
 [POLICY]
 #Use segwit style wallets and transactions
 segwit = true
+
 # for dust sweeping, try merge_algorithm = gradual
 # for more rapid dust sweeping, try merge_algorithm = greedy
 # for most rapid dust sweeping, try merge_algorithm = greediest
 # but don't forget to bump your miner fees!
 merge_algorithm = default
+
 # the fee estimate is based on a projection of how many satoshis
 # per kB are needed to get in one of the next N blocks, N set here
 # as the value of 'tx_fees'. This estimate is high if you set N=1, 
@@ -178,12 +180,26 @@ merge_algorithm = default
 # example: N=30000 will use 30000 sat/kB as a fee, while N=5
 # will use the estimate from your selected blockchain source
 tx_fees = 3
+
 # For users getting transaction fee estimates over an API,
 # place a sanity check limit on the satoshis-per-kB to be paid.
 # This limit is also applied to users using Core, even though
 # Core has its own sanity check limit, which is currently
 # 1,000,000 satoshis.
 absurd_fee_per_kb = 350000
+
+# Maximum absolute coinjoin fee in satoshi to pay to a single
+# market maker for a transaction. Both the limits given in
+# max_cj_fee_abs and max_cj_fee_rel must be exceeded in order
+# to not consider a certain offer.
+#max_cj_fee_abs = x
+
+# Maximum relative coinjoin fee, in fractions of the coinjoin value
+# e.g. if your coinjoin amount is 2 btc (200000000 satoshi) and
+# max_cj_fee_rel = 0.001 (0.1%), the maximum fee allowed would
+# be 0.002 btc (200000 satoshi)
+#max_cj_fee_rel = x
+
 # the range of confirmations passed to the `listunspent` bitcoind RPC call
 # 1st value is the inclusive minimum, defaults to one confirmation
 # 2nd value is the exclusive maximum, defaults to most-positive-bignum (Google Me!)
@@ -206,8 +222,11 @@ absurd_fee_per_kb = 350000
 # not-self = never broadcast with your own ip
 tx_broadcast = self
 minimum_makers = 2
+
+##############################
 #THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
 #DON'T ALTER THEM UNLESS YOU UNDERSTAND THE IMPLICATIONS.
+##############################
 
 # number of retries allowed for a specific utxo, to prevent DOS/snooping.
 # Lower settings make snooping more expensive, but also prevent honest users
