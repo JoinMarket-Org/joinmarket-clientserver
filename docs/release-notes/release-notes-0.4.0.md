@@ -42,7 +42,34 @@ Notable changes
 
 ### Upgrade of wallet code and wallet file format
 
-INSERT SUMMARY OF FUNCTIONAL CHANGES AND REASONING HERE
+The wallet file has changed from a partially encrypted JSON format to a
+fully encrypted binary format (dubbed JMDAT). This hides some metadata
+previously accessable to anyone having access to the file itself, like
+the number and mixdepths of imported keys, how heavily a wallet has been
+used, or if it is a testnet or mainnet wallet.
+
+Additionally the password hashing algorithm has been upgraded from a
+weak double-iterated SHA-256 hash to Argon2, an algorithm specifically
+developed for hashing passwords. This change makes it much more costly
+to attack a wallet file with an unknown password.
+
+The encryption algorithm itself remains unchanged. It is still
+AES-256-CBC.
+
+Under the hood, the code for storing data on disk has been separated
+from the code working on the data. This abstraction reduces the code
+complexity and allows easier code review/verification.
+
+Other than that, the wallet code has been completely rewitten, with the
+intention of making it more robust, well-structured and universal. With
+the new code it will be much easier to abstract the joinmarket codebase
+away from specific bitcoin address versions (adding segwit support
+required a vast amount of code changes all over the place, in some cases
+causing problems with keeping it compatible with the previously used
+P2PKH addresses) and possibly even from bitcoin itself (however, there
+are no plans to support any other cryptocurrencies than bitcoin). This
+will especially be relevant when eventually adding support for native
+segwit coinjoins (bech32 addresses) in the future.
 
 a0c1d5a add upgrade notes
 
