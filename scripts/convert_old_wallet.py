@@ -17,6 +17,11 @@ class ConvertException(Exception):
     pass
 
 
+def get_max_mixdepth(data):
+    return max(1, len(data.get('index_cache', [1])) - 1,
+               *data.get('imported', {}).keys())
+
+
 def is_encrypted(wallet_data):
     return 'encrypted_seed' in wallet_data or 'encrypted_entropy' in wallet_data
 
@@ -68,7 +73,8 @@ def new_wallet_from_data(data, file_name):
 
     kwdata = {
         'entropy': data['entropy'],
-        'timestamp': data.get('creation_time')
+        'timestamp': data.get('creation_time'),
+        'max_mixdepth': get_max_mixdepth(data)
     }
 
     if 'entropy_ext' in data:
