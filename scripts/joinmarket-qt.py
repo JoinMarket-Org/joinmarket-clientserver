@@ -47,7 +47,7 @@ pyqt4reactor.install()
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 
 #Underlying joinmarket code version (as per setup.py etc.)
-JM_CORE_VERSION = '0.4.0'
+JM_CORE_VERSION = '0.4.1'
 #Version of this Qt script specifically
 JM_GUI_VERSION = '7'
 
