@@ -394,6 +394,9 @@ def load_program_config(config_path=None, bs=None):
     if len(loadedFiles) != 1:
         with open(global_singleton.config_location, "w") as configfile:
             configfile.write(defaultconfig)
+        print("Created a new `joinmarket.cfg`. Please review and adopt the "
+              "settings and restart joinmarket.")
+        exit(1)
 
     #These are left as sanity checks but currently impossible
     #since any edits are overlays to the default, these sections/options will
