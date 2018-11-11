@@ -370,8 +370,16 @@ def donation_address(reusable_donation_pubkey=None): #pragma: no cover
     log.debug('sending coins to ' + sender_address)
     return sender_address, sign_k
 
+
+def remove_unwanted_default_settings(config):
+    for section in config.sections():
+        if section.startswith('MESSAGING:'):
+            config.remove_section(section)
+
+
 def load_program_config(config_path=None, bs=None):
     global_singleton.config.readfp(io.BytesIO(defaultconfig))
+    remove_unwanted_default_settings(global_singleton.config)
     if not config_path:
         config_path = os.getcwd()
     global_singleton.config_location = os.path.join(
@@ -386,6 +394,9 @@ def load_program_config(config_path=None, bs=None):
     if len(loadedFiles) != 1:
         with open(global_singleton.config_location, "w") as configfile:
             configfile.write(defaultconfig)
+        print("Created a new `joinmarket.cfg`. Please review and adopt the "
+              "settings and restart joinmarket.")
+        exit(1)
 
     #These are left as sanity checks but currently impossible
     #since any edits are overlays to the default, these sections/options will
