@@ -84,7 +84,7 @@ venv_setup ()
     else
         reinstall='true'
     fi
-    virtualenv -p python2 "${jm_source}/jmvenv" || return 1
+    virtualenv -p "${python}" "${jm_source}/jmvenv" || return 1
     source "${jm_source}/jmvenv/bin/activate" || return 1
     pip install --upgrade pip
     pip install --upgrade setuptools
@@ -392,18 +392,37 @@ joinmarket_install ()
 
 parse_flags ()
 {
-    for flag in ${@}; do
-        case ${flag} in
+    while :; do
+        case $1 in
             --develop)
                 develop_build='1'
                 ;;
             --no-gpg-validation)
                 no_gpg_validation='1'
                 ;;
-            *)
-                echo "warning.  unknown flag : ${flag}" 1>&2
+            -p|--python)
+                if [[ "$2" ]]; then
+                    python="$2"
+                    shift
+                else
+                    echo 'ERROR: "--python" requires a non-empty option argument.'
+                    return 1
+                fi
                 ;;
+            --python=?*)
+                python="${1#*=}"
+                ;;
+            --python=)
+                echo 'ERROR: "--python" requires a non-empty option argument.'
+                return 1
+                ;;
+            -?*)
+                echo "warning.  unknown flag : $1" 1>&2
+                ;;
+            *)
+                break
         esac
+        shift
     done
 }
 
@@ -471,8 +490,11 @@ main ()
     # flags
     develop_build=''
     no_gpg_validation=''
+    python='python2'
     reinstall='false'
-    parse_flags ${@}
+    if ! parse_flags ${@}; then
+        return 1
+    fi
 
     # os check
     install_os="$( install_get_os )"
