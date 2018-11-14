@@ -33,7 +33,7 @@ def test_b58_valid_addresses():
                 jm_single().config.set("BLOCKCHAIN", "network", "testnet")
             else:
                 jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
-            #if using py.test -s ; sanity check to see what's actually being tested
+            #if using pytest -s ; sanity check to see what's actually being tested
             print('testing this address: ', addr)
             res, message = validate_address(addr)
             assert res == True, "Incorrectly failed to validate address: " + addr + " with message: " + message
