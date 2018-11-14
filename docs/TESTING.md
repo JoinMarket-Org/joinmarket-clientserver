@@ -13,7 +13,7 @@ Install the test requirements (still in your virtualenv as mentioned above):
 
 Running the test suite should be done like:
 
-    python -m py.test --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --nirc=2
+    python -m pytest --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --nirc=2
     
 (you'll first want to copy the regtest_joinmarket.cfg file from the test/ directory to the root directory, this file will need minor edits for your btc configuration).
 
@@ -23,7 +23,7 @@ The file `test/ygrunner.py` provides the ability to spin up a set of yieldgenera
 bots against the local IRC instance with the local regtest blockchain. It can be
 started with
 
-    py.test --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 test/ygrunner.py -s
+    pytest --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 test/ygrunner.py -s
 
 Here the `-s` flag is useful because it prints log output to the console. If you
 keep the logging level at the default `INFO` only a minimum amount will come out, if

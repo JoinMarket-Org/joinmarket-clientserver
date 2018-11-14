@@ -46,7 +46,7 @@ def test_wif_privkeys_invalid():
     for k in invalid_key_list:
         bad_key = k[0]
         for netval in ["mainnet", "testnet"]:
-            #if using py.test -s ; sanity check to see what's actually being tested
+            #if using pytest -s ; sanity check to see what's actually being tested
             print 'testing this key: ' + bad_key
             #should throw exception
             with pytest.raises(Exception) as e_info:

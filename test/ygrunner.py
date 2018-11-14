@@ -7,7 +7,7 @@ from __future__ import absolute_import, print_function
    makes it much easier to handle start up and
    shut down of the environment.
    Run it like:
-   PYTHONPATH=.:$PYTHONPATH py.test \
+   PYTHONPATH=.:$PYTHONPATH pytest \
    --btcroot=/path/to/bitcoin/bin/ \
    --btcpwd=123456abcdef --btcconf=/blah/bitcoin.conf \
    --nirc=2 -s test/ygrunner.py
