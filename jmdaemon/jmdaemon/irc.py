@@ -128,9 +128,10 @@ class IRCMessageChannel(MessageChannel):
         wlog('building irc')
         if self.tx_irc_client:
             raise Exception('irc already built')
+        if self.usessl.lower() == 'true':
+            ctx = ClientContextFactory()
         if self.usessl.lower() == 'true' and not self.socks5.lower() == 'true':
             factory = TxIRCFactory(self)
-            ctx = ClientContextFactory()
             reactor.connectSSL(self.serverport[0], self.serverport[1],
                                factory, ctx)
         elif self.socks5.lower() == 'true':
@@ -139,7 +140,7 @@ class IRCMessageChannel(MessageChannel):
             torEndpoint = TCP4ClientEndpoint(reactor, str(self.socks5_host),
                                              self.socks5_port)
             if self.usessl.lower() == 'true':
-                use_tls = True
+                use_tls = ctx
             else:
                 use_tls = False
             ircEndpoint = TorSocksEndpoint(torEndpoint, self.serverport[0],
