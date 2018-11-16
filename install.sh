@@ -1,18 +1,26 @@
 #!/bin/bash
 
-gpg_verify_key ()
+_gpg ()
 {
-    gpg --keyid-format long <"$1" | grep "$2"
+    gpg --no-default-keyring --keyring "${jm_deps}/keyring.gpg" "$@"
 }
 
 gpg_add_to_keyring ()
 {
-    gpg --dearmor <"$1" >>"${jm_deps}/keyring.gpg"
+    if _gpg --list-keys "$1"; then
+        return 0
+    fi
+    for keyserv in 'pgp.mit.edu' 'keys.gnupg.net'; do
+        if _gpg --keyserver "${keyserv}" --recv-keys "$1"; then
+            return 0
+        fi
+    done
+    return 1
 }
 
 gpg_verify_sig ()
 {
-    gpg --no-default-keyring --keyring "${jm_deps}/keyring.gpg" --verify "$1"
+    _gpg --verify "$1"
 }
 
 sha256_verify ()
@@ -95,7 +103,6 @@ openssl_get ()
 {
     if [[ -z "${no_gpg_validation}" ]]; then
         openssl_files=( "${openssl_lib_tar}" "${openssl_lib_sig}" )
-        curl --retry 5 -L "${openssl_signer_key_url}" -o openssl_signer.key
     else
         openssl_files=( "${openssl_lib_tar}" )
     fi
@@ -129,7 +136,6 @@ openssl_install ()
     openssl_lib_sig="${openssl_lib_tar}.asc"
     openssl_url='https://www.openssl.org/source'
     openssl_signer_key_id='D9C4D26D0E604491'
-    openssl_signer_key_url="https://pgp.mit.edu/pks/lookup?op=get&search=0x${openssl_signer_key_id}"
 
     if check_skip_build "${openssl_version}"; then
         return 0
@@ -142,9 +148,7 @@ openssl_install ()
         return 1
     fi
     if [[ -z "${no_gpg_validation}" ]]; then
-        if gpg_verify_key openssl_signer.key "${openssl_signer_key_id}"; then
-            gpg_add_to_keyring openssl_signer.key
-        else
+        if ! gpg_add_to_keyring "${openssl_signer_key_id}"; then
             return 1
         fi
         if gpg_verify_sig "${openssl_lib_sig}"; then
@@ -315,7 +319,6 @@ libsodium_get ()
 {
     if [[ -z "${no_gpg_validation}" ]]; then
         libsodium_files=( "${sodium_lib_tar}" "${sodium_lib_sig}" )
-        curl --retry 5 -L "${sodium_signer_key_url}" -o libsodium_signer.key
     else
         libsodium_files=( "${sodium_lib_tar}" )
     fi
@@ -342,7 +345,6 @@ libsodium_install ()
     sodium_lib_sig="${sodium_lib_tar}.sig"
     sodium_lib_sha='9c13accb1a9e59ab3affde0e60ef9a2149ed4d6e8f99c93c7a5b97499ee323fd'
     sodium_url='https://download.libsodium.org/libsodium/releases/old'
-    sodium_signer_key_url='https://pgp.mit.edu/pks/lookup?op=get&search=0x210627AABA709FE1'
     sodium_signer_key_id='62F25B592B6F76DA'
 
     if check_skip_build "${sodium_version}"; then
@@ -356,9 +358,7 @@ libsodium_install ()
         return 1
     fi
     if [[ -z "${no_gpg_validation}" ]]; then
-        if gpg_verify_key libsodium_signer.key "${sodium_signer_key_id}"; then
-            gpg_add_to_keyring libsodium_signer.key
-        else
+        if ! gpg_add_to_keyring "${sodium_signer_key_id}"; then
             return 1
         fi
         if gpg_verify_sig "${sodium_lib_sig}"; then
