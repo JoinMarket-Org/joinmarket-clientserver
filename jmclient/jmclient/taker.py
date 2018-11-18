@@ -359,8 +359,8 @@ class Taker(object):
             if None in utxo_data:
                 jlog.warn(('ERROR outputs unconfirmed or already spent. '
                            'utxo_data={}').format(pprint.pformat(utxo_data)))
-                # when internal reviewing of makers is created, add it here to
-                # immediately quit; currently, the timeout thread suffices.
+                jlog.warn('Disregarding this counterparty.')
+                del self.utxos[nick]
                 continue
 
             #Complete maker authorization:
