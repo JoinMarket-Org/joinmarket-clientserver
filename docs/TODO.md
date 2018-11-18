@@ -50,6 +50,8 @@ and described [here](https://github.com/Roasbeef/bips/blob/master/gcs_light_clie
 
 There is no current process for building binaries on Mac or Windows (theoretically the latter is possible but a mess, so I'm not doing it).
 
+* Qt5 support, as Qt4 is being deprecated (see [issue204](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/204)).
+
 ### Alternative implementations
 
 * Build an alternative client implementation in Java or Javascript for example, using some existing Bitcoin library in that language, perhaps using some lite client solution e.g. SPV, and then connecting to the daemon (executable or Python script).
