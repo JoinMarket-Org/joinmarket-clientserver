@@ -1,3 +1,6 @@
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 #Protocol version
 JM_VERSION = 5
 
@@ -16,8 +19,8 @@ offertypes = {"reloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
 
 offername_list = offertypes.keys()
 
-ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
-              'cjfee']
+ORDER_KEYS = [b'counterparty', b'oid', b'ordertype', b'minsize', b'maxsize', b'txfee',
+              b'cjfee']
 
 COMMAND_PREFIX = '!'
 JOINMARKET_NICK_HEADER = 'J'
@@ -33,5 +36,5 @@ commitment_broadcast_list = ["hp2"]
 plaintext_commands += offername_list
 plaintext_commands += commitment_broadcast_list
 public_commands = commitment_broadcast_list + ["orderbook", "cancel"
-                                              ] + offername_list
+                                              ] + list(offername_list)
 private_commands = encrypted_commands + plaintext_commands

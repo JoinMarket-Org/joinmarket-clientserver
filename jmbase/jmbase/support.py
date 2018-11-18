@@ -1,4 +1,6 @@
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 import sys
 
@@ -48,7 +50,7 @@ def set_logging_level(level):
     consoleHandler.setLevel(level)
 
 def chunks(d, n):
-    return [d[x:x + n] for x in xrange(0, len(d), n)]
+    return [d[x:x + n] for x in range(0, len(d), n)]
 
 def get_password(msg): #pragma: no cover
     return getpass(msg)

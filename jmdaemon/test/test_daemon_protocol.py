@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
 '''test daemon-protocol interfacae.'''
 
 from jmdaemon import MessageChannelCollection
