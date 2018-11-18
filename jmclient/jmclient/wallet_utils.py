@@ -674,7 +674,7 @@ def wallet_fetch_history(wallet, options):
                   + ' in, ' + str(len(our_output_scripts)) + ' out')
         balance += delta_balance
         utxo_count += (len(our_output_scripts) - utxos_consumed)
-        index = '% 4d'%(tx_number)
+        index = '%4d'%(tx_number)
         tx_number += 1
         timestamp = datetime.fromtimestamp(rpctx['blocktime']
                 ).strftime("%Y-%m-%d %H:%M")
