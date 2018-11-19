@@ -58,7 +58,7 @@ class PoDLE(object):
             if len(priv) == 66 and priv[-2:] == '01':
                 priv = priv[:-2]
             self.priv = podle_PrivateKey(binascii.unhexlify(priv))
-            self.P = self.priv.pubkey
+            self.P = self.priv.public_key
         if P2:
             self.P2 = podle_PublicKey(binascii.unhexlify(P2))
         else:
@@ -83,7 +83,7 @@ class PoDLE(object):
             raise PoDLEError("Cannot construct commitment, no P2 available")
         if not isinstance(self.P2, podle_PublicKey_class):
             raise PoDLEError("Cannot construct commitment, P2 is not a pubkey")
-        self.commitment = hashlib.sha256(self.P2.serialize()).digest()
+        self.commitment = hashlib.sha256(self.P2.format()).digest()
         return binascii.hexlify(self.commitment)
 
     def generate_podle(self, index=0, k=None):
@@ -119,14 +119,14 @@ class PoDLE(object):
         if not k:
             k = os.urandom(32)
         J = getNUMS(index)
-        KG = podle_PrivateKey(k).pubkey
-        KJ = multiply(k, J.serialize(), False, return_serialized=False)
+        KG = podle_PrivateKey(k).public_key
+        KJ = multiply(k, J.format(), False, return_serialized=False)
         self.P2 = getP2(self.priv, J)
         self.get_commitment()
-        self.e = hashlib.sha256(''.join([x.serialize(
+        self.e = hashlib.sha256(''.join([x.format(
         ) for x in [KG, KJ, self.P, self.P2]])).digest()
         k_int = decode(k, 256)
-        priv_int = decode(self.priv.private_key, 256)
+        priv_int = decode(self.priv.secret, 256)
         e_int = decode(self.e, 256)
         sig_int = (k_int + priv_int * e_int) % N
         self.s = encode(sig_int, 256, minlen=32)
@@ -142,7 +142,7 @@ class PoDLE(object):
             self.get_commitment()
         Phex, P2hex, shex, ehex, commit = [
             binascii.hexlify(x)
-            for x in [self.P.serialize(), self.P2.serialize(), self.s, self.e,
+            for x in [self.P.format(), self.P2.format(), self.s, self.e,
                       self.commitment]
         ]
         return {'used': str(self.used),
@@ -180,17 +180,17 @@ class PoDLE(object):
             return False
         for J in [getNUMS(i) for i in index_range]:
             sig_priv = podle_PrivateKey(self.s)
-            sG = sig_priv.pubkey
-            sJ = multiply(self.s, J.serialize(), False)
+            sG = sig_priv.public_key
+            sJ = multiply(self.s, J.format(), False)
             e_int = decode(self.e, 256)
             minus_e = encode(-e_int % N, 256, minlen=32)
-            minus_e_P = multiply(minus_e, self.P.serialize(), False)
-            minus_e_P2 = multiply(minus_e, self.P2.serialize(), False)
-            KGser = add_pubkeys([sG.serialize(), minus_e_P], False)
+            minus_e_P = multiply(minus_e, self.P.format(), False)
+            minus_e_P2 = multiply(minus_e, self.P2.format(), False)
+            KGser = add_pubkeys([sG.format(), minus_e_P], False)
             KJser = add_pubkeys([sJ, minus_e_P2], False)
             #check 2: e =?= H(K_G || K_J || P || P2)
-            e_check = hashlib.sha256(KGser + KJser + self.P.serialize() +
-                                     self.P2.serialize()).digest()
+            e_check = hashlib.sha256(KGser + KJser + self.P.format() +
+                                     self.P2.format()).digest()
             if e_check == self.e:
                 return True
         #commitment fails for any NUMS in the provided range
@@ -242,7 +242,7 @@ def verify_all_NUMS(write=False):
     """
     nums_points = {}
     for i in range(256):
-        nums_points[i] = binascii.hexlify(getNUMS(i).serialize())
+        nums_points[i] = binascii.hexlify(getNUMS(i).format())
     if write:
         with open("nums_basepoints.txt", "wb") as f:
             from pprint import pformat
@@ -258,9 +258,9 @@ def getP2(priv, nums_pt):
     just the most easy way to manipulate it in the
     library), calculate priv*nums_pt
     """
-    priv_raw = priv.private_key
+    priv_raw = priv.secret
     return multiply(priv_raw,
-                    nums_pt.serialize(),
+                    nums_pt.format(),
                     False,
                     return_serialized=False)
 
