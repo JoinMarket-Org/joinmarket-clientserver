@@ -8,8 +8,7 @@ from twisted.internet.ssl import ClientContextFactory
 from twisted.words.protocols import irc
 from jmdaemon.message_channel import MessageChannel
 from jmbase.support import get_log, chunks
-from txsocksx.client import SOCKS5ClientEndpoint
-from txsocksx.tls import TLSWrapClientEndpoint
+from txtorcon.socks import TorSocksEndpoint
 from jmdaemon.protocol import *
 MAX_PRIVMSG_LEN = 450
 
@@ -129,9 +128,10 @@ class IRCMessageChannel(MessageChannel):
         wlog('building irc')
         if self.tx_irc_client:
             raise Exception('irc already built')
+        if self.usessl.lower() == 'true':
+            ctx = ClientContextFactory()
         if self.usessl.lower() == 'true' and not self.socks5.lower() == 'true':
             factory = TxIRCFactory(self)
-            ctx = ClientContextFactory()
             reactor.connectSSL(self.serverport[0], self.serverport[1],
                                factory, ctx)
         elif self.socks5.lower() == 'true':
@@ -139,16 +139,14 @@ class IRCMessageChannel(MessageChannel):
             #str() casts needed else unicode error
             torEndpoint = TCP4ClientEndpoint(reactor, str(self.socks5_host),
                                              self.socks5_port)
-            ircEndpoint = SOCKS5ClientEndpoint(str(self.serverport[0]),
-                                               self.serverport[1], torEndpoint)
             if self.usessl.lower() == 'true':
-                ctx = ClientContextFactory()
-                tlsEndpoint = TLSWrapClientEndpoint(ctx, ircEndpoint)
-                myRS = ClientService(tlsEndpoint, factory)
-                myRS.startService()
+                use_tls = ctx
             else:
-                myRS = ClientService(ircEndpoint, factory)
-                myRS.startService()
+                use_tls = False
+            ircEndpoint = TorSocksEndpoint(torEndpoint, self.serverport[0],
+                                           self.serverport[1], tls=use_tls)
+            myRS = ClientService(ircEndpoint, factory)
+            myRS.startService()
         else:
             try:
                 factory = TxIRCFactory(self)
