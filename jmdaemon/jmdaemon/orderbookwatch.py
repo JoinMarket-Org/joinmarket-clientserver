@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 import sqlite3
 import sys
@@ -44,7 +46,7 @@ class OrderbookWatch(object):
                 min_version = int(params[0])
                 max_version = int(params[1])
                 alert = msg[msg.index(params[1]) + len(params[1]):].strip()
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 continue
             if min_version < JM_VERSION < max_version:
                 print('=' * 60)

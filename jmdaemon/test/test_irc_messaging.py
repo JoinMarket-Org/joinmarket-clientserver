@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Tests of joinmarket bots end-to-end (including IRC and bitcoin) '''
 
 import time
@@ -41,7 +43,7 @@ def on_order_seen(dummy, counterparty, oid, ordertype, minsize,
     yg_name = counterparty
 
 def on_pubkey(pubkey):
-    print "received pubkey: " + pubkey
+    print("received pubkey: " + pubkey)
 
 def junk_pubmsgs(mc):
     #start a raw IRCMessageChannel instance in a thread;

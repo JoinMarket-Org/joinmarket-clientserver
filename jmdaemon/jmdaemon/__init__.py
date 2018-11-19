@@ -1,7 +1,9 @@
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
 
 import logging
-from protocol import *
+from .protocol import *
 from .enc_wrapper import as_init_encryption, decode_decrypt, \
     encrypt_encode, init_keypair, init_pubkey, get_pubkey, NaclError
 from .irc import IRCMessageChannel
