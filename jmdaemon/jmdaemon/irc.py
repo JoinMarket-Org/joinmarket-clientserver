@@ -1,6 +1,4 @@
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import *
+from __future__ import absolute_import, print_function
 
 #TODO: SSL support (can it be done without back-end openssl?)
 from twisted.internet import reactor, protocol

@@ -1,7 +1,5 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
+from __future__ import print_function
 import abc
 import base64
 import threading
@@ -14,7 +12,7 @@ from functools import wraps
 log = get_log()
 
 
-class CJPeerError(Exception):
+class CJPeerError(StandardError):
     pass
 
 

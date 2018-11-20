@@ -1,7 +1,5 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import *
+from __future__ import absolute_import
 '''test messagechannel management code.'''
 
 import pytest
@@ -78,9 +76,9 @@ def don_error():
 def don_ioauth(nick, utxo_list, auth_pub, cj_addr,
                                        change_addr, btc_sig):
     jlog.debug("onioauth callback")
-    jlog.debug("Args are: " + ",".join([str(x) for x in (nick,
+    jlog.debug("Args are: " + ",".join([str(x) for x in nick,
                                         utxo_list, auth_pub, cj_addr,
-                                        change_addr, btc_sig)]))
+                                        change_addr, btc_sig]))
 
 def don_sig(nick, sig):
     jlog.debug("calledback on-sig")
