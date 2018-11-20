@@ -46,7 +46,7 @@ def json_changebase(obj, changer):
 # Transaction serialization and deserialization
 
 def deserialize(tx):
-    if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
+    if isinstance(tx, (str, unicode)) and re.match('^[0-9a-fA-F]*$', tx):
         #tx = bytes(bytearray.fromhex(tx))
         return json_changebase(
             deserialize(binascii.unhexlify(tx)), lambda x: safe_hexlify(x))

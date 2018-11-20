@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 import abc
 import base64
 import threading
@@ -12,7 +14,7 @@ from functools import wraps
 log = get_log()
 
 
-class CJPeerError(StandardError):
+class CJPeerError(Exception):
     pass
 
 
@@ -223,7 +225,7 @@ class MessageChannelCollection(object):
                 log.debug('error, dont have encryption box object for ' + nick +
                           ', dropping message')
                 return
-            message = encrypt_encode(message, box)
+            message = encrypt_encode(message.encode('ascii'), box)
 
         #Anti-replay measure: append the message channel identifier
         #to the signature; this prevents cross-channel replay but NOT
@@ -901,7 +903,7 @@ class MessageChannel(object):
                     # need to decrypt everything after the command string
                     to_decrypt = ''.join(_chunks[1:])
                     try:
-                        decrypted = decode_decrypt(to_decrypt, box)
+                        decrypted = decode_decrypt(to_decrypt, box).decode('ascii')
                     except Exception as e:
                         log.debug('Error when decrypting, skipping: ' +
                                   repr(e))
