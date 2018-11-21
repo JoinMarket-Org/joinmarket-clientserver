@@ -12,7 +12,7 @@ from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       cheapest_order_choose, weighted_order_choose,
                       rand_norm_array, rand_pow_array, rand_exp_array, select,
                       select_gradual, select_greedy, select_greediest,
-                      get_random_bytes)
+                      get_random_bytes, random_under_max_order_choose)
 from .jsonrpc import JsonRpcError, JsonRpcConnectionError, JsonRpc
 from .old_mnemonic import mn_decode, mn_encode
 from .slowaes import decryptData, encryptData
