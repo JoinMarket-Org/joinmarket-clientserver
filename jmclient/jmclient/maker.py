@@ -10,7 +10,7 @@ import btc
 from jmclient.configure import jm_single
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)
-from jmclient.podle import verify_podle, PoDLE
+from jmclient.podle import verify_podle, PoDLE, PoDLEError
 from twisted.internet import task
 jlog = get_log()
 
@@ -43,13 +43,19 @@ class Maker(object):
         """Receives data on proposed transaction offer from daemon, verifies
         commitment, returns necessary data to send ioauth message (utxos etc)
         """
-        #deserialize the commitment revelation
-        cr_dict = PoDLE.deserialize_revelation(cr)
         #check the validity of the proof of discrete log equivalence
         tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
         def reject(msg):
             jlog.info("Counterparty commitment not accepted, reason: " + msg)
             return (False,)
+
+        # deserialize the commitment revelation
+        try:
+            cr_dict = PoDLE.deserialize_revelation(cr)
+        except PoDLEError as e:
+            reason = repr(e)
+            return reject(reason)
+
         if not verify_podle(str(cr_dict['P']), str(cr_dict['P2']), str(cr_dict['sig']),
                                 str(cr_dict['e']), str(commitment),
                                 index_range=range(tries)):
