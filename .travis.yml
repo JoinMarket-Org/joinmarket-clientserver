@@ -43,7 +43,7 @@ install:
   - mkdir -p "$HOME/downloads"
   - mkdir -p "$TRAVIS_BUILD_DIR/deps/cache/"
   - find "$HOME/downloads" -type f -exec cp -v {} "$TRAVIS_BUILD_DIR/deps/cache/" \;
-  - on_host ./install.sh --develop --no-gpg-validation
+  - on_host ./install.sh --develop
   - on_host find "$TRAVIS_BUILD_DIR/deps/cache/" -type f -exec cp -v {} "$HOME/downloads/" \;
 before_script:
   - on_host source jmvenv/bin/activate
