@@ -1,28 +1,5 @@
 #!/bin/bash
 
-_gpg ()
-{
-    gpg --no-default-keyring --keyring "${jm_deps}/keyring.gpg" "$@"
-}
-
-gpg_add_to_keyring ()
-{
-    if _gpg --list-keys "$1"; then
-        return 0
-    fi
-    for keyserv in 'pgp.mit.edu' 'keys.gnupg.net'; do
-        if _gpg --keyserver "${keyserv}" --recv-keys "$1"; then
-            return 0
-        fi
-    done
-    return 1
-}
-
-gpg_verify_sig ()
-{
-    _gpg --verify "$1"
-}
-
 sha256_verify ()
 {
     if [[ "$(uname)" == "Darwin" ]]; then
@@ -99,16 +76,19 @@ venv_setup ()
     deactivate
 }
 
-openssl_get ()
+dep_get ()
 {
-    if [[ -z "${no_gpg_validation}" ]]; then
-        openssl_files=( "${openssl_lib_tar}" "${openssl_lib_sig}" )
-    else
-        openssl_files=( "${openssl_lib_tar}" )
+    pkg_name="$1" pkg_hash="$2" pkg_url="$3"
+
+    pushd cache
+    if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
+        curl --retry 5 -L -O "${pkg_url}/${pkg_name}"
     fi
-    for file in ${openssl_files[@]}; do
-        curl --retry 5 -L -O "${openssl_url}/${file}"
-    done
+    if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
+        return 1
+    fi
+    tar -xzf "${pkg_name}" -C ../
+    popd
 }
 
 openssl_build ()
@@ -133,33 +113,14 @@ openssl_install ()
     openssl_version='openssl-1.0.2l'
     openssl_lib_tar="${openssl_version}.tar.gz"
     openssl_lib_sha='ce07195b659e75f4e1db43552860070061f156a98bb37b672b101ba6e3ddf30c'
-    openssl_lib_sig="${openssl_lib_tar}.asc"
     openssl_url='https://www.openssl.org/source'
-    openssl_signer_key_id='D9C4D26D0E604491'
 
     if check_skip_build "${openssl_version}"; then
         return 0
     fi
-    pushd cache
-    if ! sha256_verify "${openssl_lib_sha}" "${openssl_lib_tar}"; then
-        openssl_get
-    fi
-    if ! sha256_verify "${openssl_lib_sha}" "${openssl_lib_tar}"; then
+    if ! dep_get "${openssl_lib_tar}" "${openssl_lib_sha}" "${openssl_url}"; then
         return 1
     fi
-    if [[ -z "${no_gpg_validation}" ]]; then
-        if ! gpg_add_to_keyring "${openssl_signer_key_id}"; then
-            return 1
-        fi
-        if gpg_verify_sig "${openssl_lib_sig}"; then
-            tar -xzf "${openssl_lib_tar}" -C ../
-        else
-            return 1
-        fi
-    else
-        tar -xzf "${openssl_lib_tar}" -C ../
-    fi
-    popd
     pushd "${openssl_version}"
     if openssl_build; then
         make install_sw
@@ -228,16 +189,9 @@ libffi_install ()
     if check_skip_build "${libffi_version}"; then
         return 0
     fi
-    pushd cache
-    if ! sha256_verify "${libffi_lib_sha}" "${libffi_lib_tar}"; then
-        curl --retry 5 -L -O "${libffi_url}/${libffi_lib_tar}"
-    fi
-    if sha256_verify "${libffi_lib_sha}" "${libffi_lib_tar}"; then
-        tar -xzf "${libffi_lib_tar}" -C ../
-    else
+    if ! dep_get "${libffi_lib_tar}" "${libffi_lib_sha}" "${libffi_url}"; then
         return 1
     fi
-    popd
     pushd "${libffi_version}"
     if ! libffi_patch_disable_docs; then
         return 1
@@ -270,16 +224,9 @@ secp256k1-py_install ()
     secp256k1_py_url='https://github.com/ludbb/secp256k1-py/archive'
 
     rm -rf "./secp256k1-py-${secp256k1_py_version}"
-    pushd cache
-    if ! sha256_verify "${secp256k1_py_lib_sha}" "${secp256k1_py_lib_tar}"; then
-        curl --retry 5 -L -O "${secp256k1_py_url}/${secp256k1_py_lib_tar}"
-    fi
-    if sha256_verify "${secp256k1_py_lib_sha}" "${secp256k1_py_lib_tar}"; then
-        tar -xzf "${secp256k1_py_lib_tar}" -C ../
-    else
+    if ! dep_get "${secp256k1_py_lib_tar}" "${secp256k1_py_lib_sha}" "${secp256k1_py_url}"; then
         return 1
     fi
-    popd
     pushd "secp256k1-py-${secp256k1_py_version}"
     if ! libsecp256k1-py_build; then
         return 1
@@ -300,31 +247,12 @@ libsecp256k1_install ()
     if check_skip_build "secp256k1-${secp256k1_version}"; then
         return 0
     fi
-    pushd cache
-    if ! sha256_verify "${secp256k1_lib_sha}" "${secp256k1_lib_tar}"; then
-        curl --retry 5 -L -O "${secp256k1_url}/${secp256k1_lib_tar}"
-    fi
-    if sha256_verify "${secp256k1_lib_sha}" "${secp256k1_lib_tar}"; then
-        tar -xzf "${secp256k1_lib_tar}" -C ../
-    else
+    if ! dep_get "${secp256k1_lib_tar}" "${secp256k1_lib_sha}" "${secp256k1_url}"; then
         return 1
     fi
-    popd
     if ! secp256k1-py_install; then
         return 1
     fi
-}
-
-libsodium_get ()
-{
-    if [[ -z "${no_gpg_validation}" ]]; then
-        libsodium_files=( "${sodium_lib_tar}" "${sodium_lib_sig}" )
-    else
-        libsodium_files=( "${sodium_lib_tar}" )
-    fi
-    for file in ${libsodium_files[@]}; do
-        curl --retry 5 -L -O "${sodium_url}/${file}"
-    done
 }
 
 libsodium_build ()
@@ -342,34 +270,15 @@ libsodium_install ()
 {
     sodium_version='libsodium-1.0.13'
     sodium_lib_tar="${sodium_version}.tar.gz"
-    sodium_lib_sig="${sodium_lib_tar}.sig"
     sodium_lib_sha='9c13accb1a9e59ab3affde0e60ef9a2149ed4d6e8f99c93c7a5b97499ee323fd'
     sodium_url='https://download.libsodium.org/libsodium/releases/old'
-    sodium_signer_key_id='62F25B592B6F76DA'
 
     if check_skip_build "${sodium_version}"; then
         return 0
     fi
-    pushd cache
-    if ! sha256_verify "${sodium_lib_sha}" "${sodium_lib_tar}"; then
-        libsodium_get
-    fi
-    if ! sha256_verify "${sodium_lib_sha}" "${sodium_lib_tar}"; then
+    if ! dep_get "${sodium_lib_tar}" "${sodium_lib_sha}" "${sodium_url}"; then
         return 1
     fi
-    if [[ -z "${no_gpg_validation}" ]]; then
-        if ! gpg_add_to_keyring "${sodium_signer_key_id}"; then
-            return 1
-        fi
-        if gpg_verify_sig "${sodium_lib_sig}"; then
-            tar -xzf "${sodium_lib_tar}" -C ../
-        else
-            return 1
-        fi
-    else
-        tar -xzf "${sodium_lib_tar}" -C ../
-    fi
-    popd
     pushd "${sodium_version}"
     if libsodium_build; then
         make install
@@ -396,9 +305,6 @@ parse_flags ()
         case $1 in
             --develop)
                 develop_build='1'
-                ;;
-            --no-gpg-validation)
-                no_gpg_validation='1'
                 ;;
             -p|--python)
                 if [[ "$2" ]]; then
