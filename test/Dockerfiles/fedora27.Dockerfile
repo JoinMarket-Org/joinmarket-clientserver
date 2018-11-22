@@ -32,5 +32,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN ./install.sh --no-gpg-validation
+RUN ./install.sh
 RUN source jmvenv/bin/activate && ./test/run_tests.sh
