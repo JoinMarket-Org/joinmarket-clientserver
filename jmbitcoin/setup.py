@@ -9,5 +9,5 @@ setup(name='joinmarketbitcoin',
       author_email='',
       license='GPL',
       packages=['jmbitcoin'],
-      install_requires=['secp256k1',],
+      install_requires=['future', 'secp256k1',],
       zip_safe=False)

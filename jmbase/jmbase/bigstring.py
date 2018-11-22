@@ -1,3 +1,6 @@
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 try:
     from cStringIO import StringIO
 except ImportError: #pragma: no cover

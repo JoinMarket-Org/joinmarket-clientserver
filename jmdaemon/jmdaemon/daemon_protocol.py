@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
 
 from .message_channel import MessageChannelCollection
 from .orderbookwatch import OrderbookWatch
@@ -292,7 +294,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 	are stored in the active_orders dict keyed by the nick of the Taker.
 	"""
         nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig = [_byteify(
-            x) for x in nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig]
+            x) for x in (nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig)]
         if not self.role == "MAKER":
             return
         if not nick in self.active_orders:
@@ -574,7 +576,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                     ).fetchone()
         if crow is None:
             return
-        counterparty = crow['counterparty']
+        counterparty = crow[b'counterparty']
         #TODO de-hardcode hp2
         log.msg("Sending commitment to: " + str(counterparty))
         self.mcc.prepare_privmsg(counterparty, 'hp2', commit)
