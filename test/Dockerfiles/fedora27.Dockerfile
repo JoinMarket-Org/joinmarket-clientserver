@@ -5,7 +5,7 @@ SHELL ["/bin/bash", "-c"]
 RUN dnf -y groups install 'Development tools'
 RUN dnf -y install \
     autoconf libtool pkgconfig \
-    python-devel python-pip python2-virtualenv
+    python-devel python-pip python2-virtualenv gmp-devel
 
 # needed for build time
 # https://stackoverflow.com/questions/34624428/g-error-usr-lib-rpm-redhat-redhat-hardened-cc1-no-such-file-or-directory

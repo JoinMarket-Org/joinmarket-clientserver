@@ -14,7 +14,7 @@ sha256_verify ()
 deps_install ()
 {
     if [[ ${install_os} == 'debian' ]]; then
-        if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool"; then
+        if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool libgmp-dev"; then
             return 0
         else
             return 1
@@ -204,7 +204,7 @@ libffi_install ()
     popd
 }
 
-libsecp256k1-py_build ()
+coincurve_build ()
 {
     if [[ -d "${jm_deps}/secp256k1-${secp256k1_version}" ]]; then
         unlink ./libsecp256k1
@@ -216,19 +216,19 @@ libsecp256k1-py_build ()
     return "$?"
 }
 
-secp256k1-py_install ()
+coincurve_install ()
 {
-    secp256k1_py_version='0.13.2.4'
-    secp256k1_py_lib_tar="${secp256k1_py_version}.tar.gz"
-    secp256k1_py_lib_sha='f7920b1b887fe6745c49aebea40cefe867adddf11eb2c164624f1f2729f74657'
-    secp256k1_py_url='https://github.com/ludbb/secp256k1-py/archive'
+    coincurve_version='9.0.0'
+    coincurve_lib_tar="${coincurve_version}.tar.gz"
+    coincurve_lib_sha='81561e954b4a978231e6611ae6153740bfbaebb214caff7a7b4e71fe9affbe09'
+    coincurve_url='https://github.com/ofek/coincurve/archive'
 
-    rm -rf "./secp256k1-py-${secp256k1_py_version}"
-    if ! dep_get "${secp256k1_py_lib_tar}" "${secp256k1_py_lib_sha}" "${secp256k1_py_url}"; then
+    rm -rf "./coincurve-${coincurve_version}"
+    if ! dep_get "${coincurve_lib_tar}" "${coincurve_lib_sha}" "${coincurve_url}"; then
         return 1
     fi
-    pushd "secp256k1-py-${secp256k1_py_version}"
-    if ! libsecp256k1-py_build; then
+    pushd "coincurve-${coincurve_version}"
+    if ! coincurve_build; then
         return 1
     fi
     popd
@@ -250,7 +250,7 @@ libsecp256k1_install ()
     if ! dep_get "${secp256k1_lib_tar}" "${secp256k1_lib_sha}" "${secp256k1_url}"; then
         return 1
     fi
-    if ! secp256k1-py_install; then
+    if ! coincurve_install; then
         return 1
     fi
 }

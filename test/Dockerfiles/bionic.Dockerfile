@@ -5,7 +5,7 @@ SHELL ["/bin/bash", "-c"]
 RUN apt-get update
 RUN apt-get install -y build-essential
 RUN apt-get install -y \
-    automake pkg-config libtool
+    automake pkg-config libtool libgmp-dev
 RUN apt-get install -y \
     python-dev python-pip python-virtualenv python-qt4 python-sip
 

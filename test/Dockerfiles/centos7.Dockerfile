@@ -6,7 +6,7 @@ RUN yum -y groups install 'Development tools'
 RUN yum -y install epel-release && \
     yum -y update
 RUN yum -y install \
-    python-devel python2-pip python-virtualenv
+    python-devel python2-pip python-virtualenv gmp-devel
 
 RUN useradd --home-dir /home/chaum --create-home --shell /bin/bash --skel /etc/skel/ chaum
 ARG core_version

@@ -5,14 +5,10 @@ import hashlib
 import re
 import sys
 import base64
-import secp256k1
+import coincurve as secp256k1
 
 #Required only for PoDLE calculation:
 N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
-#Global context for secp256k1 operations (helps with performance)
-ctx = secp256k1.lib.secp256k1_context_create(secp256k1.ALL_FLAGS)
-#required for point addition
-dummy_pub = secp256k1.PublicKey(ctx=ctx)
 
 #Standard prefix for Bitcoin message signing.
 BITCOIN_MESSAGE_MAGIC = '\x18' + 'Bitcoin Signed Message:\n'
@@ -103,7 +99,7 @@ def getG(compressed=True):
     representation of secp256k1 G
     """
     priv = "\x00"*31 + "\x01"
-    G = secp256k1.PrivateKey(priv, ctx=ctx).pubkey.serialize(compressed)
+    G = secp256k1.PrivateKey(priv).public_key.format(compressed)
     return G
 
 podle_PublicKey_class = secp256k1.PublicKey
@@ -112,12 +108,12 @@ podle_PrivateKey_class = secp256k1.PrivateKey
 def podle_PublicKey(P):
     """Returns a PublicKey object from a binary string
     """
-    return secp256k1.PublicKey(P, raw=True, ctx=ctx)
+    return secp256k1.PublicKey(P)
 
 def podle_PrivateKey(priv):
     """Returns a PrivateKey object from a binary string
     """
-    return secp256k1.PrivateKey(priv, ctx=ctx)
+    return secp256k1.PrivateKey(priv)
 
 
 def privkey_to_address(priv, from_hex=True, magicbyte=0):
@@ -290,8 +286,8 @@ def privkey_to_pubkey_inner(priv, usehex):
     and return compressed/uncompressed public key as appropriate.'''
     compressed, priv = read_privkey(priv)
     #secp256k1 checks for validity of key value.
-    newpriv = secp256k1.PrivateKey(privkey=priv, ctx=ctx)
-    return newpriv.pubkey.serialize(compressed=compressed)
+    newpriv = secp256k1.PrivateKey(secret=priv)
+    return newpriv.public_key.format(compressed)
 
 def privkey_to_pubkey(priv, usehex=True):
     '''To avoid changing the interface from the legacy system,
@@ -313,25 +309,20 @@ def multiply(s, pub, usehex, rawpub=True, return_serialized=True):
     of the scalar s.
     ('raw' options passed in)
     '''
-    newpub = secp256k1.PublicKey(pub, raw=rawpub, ctx=ctx)
+    newpub = secp256k1.PublicKey(pub)
     #see note to "tweak_mul" function in podle.py
-    res = secp256k1._tweak_public(newpub,
-                                   secp256k1.lib.secp256k1_ec_pubkey_tweak_mul,
-                                   s)
+    res = newpub.multiply(s)
     if not return_serialized:
         return res
-    return res.serialize()
+    return res.format()
 
 @hexbin
 def add_pubkeys(pubkeys, usehex):
     '''Input a list of binary compressed pubkeys
     and return their sum as a binary compressed pubkey.'''
-    r = secp256k1.PublicKey(ctx=ctx)  #dummy holding object
-    pubkey_list = [secp256k1.PublicKey(x,
-                                       raw=True,
-                                       ctx=ctx).public_key for x in pubkeys]
-    r.combine(pubkey_list)
-    return r.serialize()
+    pubkey_list = [secp256k1.PublicKey(x) for x in pubkeys]
+    r = secp256k1.PublicKey.combine_keys(pubkey_list)
+    return r.format()
 
 @hexbin
 def add_privkeys(priv1, priv2, usehex):
@@ -345,8 +336,8 @@ def add_privkeys(priv1, priv2, usehex):
     else:
         compressed = y[0]
     newpriv1, newpriv2 = (y[1], z[1])
-    p1 = secp256k1.PrivateKey(newpriv1, raw=True, ctx=ctx)
-    res = p1.tweak_add(newpriv2)
+    p1 = secp256k1.PrivateKey(newpriv1)
+    res = p1.add(newpriv2).secret
     if compressed:
         res += '\x01'
     return res
@@ -376,13 +367,12 @@ def ecdsa_raw_sign(msg,
         raise Exception("Invalid hash input to ECDSA raw sign.")
     if rawpriv:
         compressed, p = read_privkey(priv)
-        newpriv = secp256k1.PrivateKey(p, raw=True, ctx=ctx)
+        newpriv = secp256k1.PrivateKey(p)
     else:
-        newpriv = secp256k1.PrivateKey(priv, raw=False, ctx=ctx)
+        newpriv = secp256k1.PrivateKey.from_hex(priv)
     if formsg:
-        sig = newpriv.ecdsa_sign_recoverable(msg, raw=rawmsg)
-        s, rid = newpriv.ecdsa_recoverable_serialize(sig)
-        return chr(31+rid) + s
+        sig = newpriv.sign_recoverable(msg)
+        return sig
     #Donations, thus custom nonce, currently disabled, hence not covered.
     elif usenonce: #pragma: no cover
         raise NotImplementedError
@@ -396,8 +386,11 @@ def ecdsa_raw_sign(msg,
     else:
         #partial fix for secp256k1-transient not including customnonce;
         #partial because donations will crash on windows in the "if".
-        sig = newpriv.ecdsa_sign(msg, raw=rawmsg)
-    return newpriv.ecdsa_serialize(sig)
+        if rawmsg:
+            sig = newpriv.sign(msg, hasher=None)
+        else:
+            sig = newpriv.sign(msg)
+    return sig
 
 @hexbin
 def ecdsa_raw_verify(msg, pub, sig, usehex, rawmsg=False):
@@ -415,9 +408,11 @@ def ecdsa_raw_verify(msg, pub, sig, usehex, rawmsg=False):
     try:
         if rawmsg:
             assert len(msg) == 32
-        newpub = secp256k1.PublicKey(pubkey=pub, raw=True, ctx=ctx)
-        sigobj = newpub.ecdsa_deserialize(sig)
-        retval = newpub.ecdsa_verify(msg, sigobj, raw=rawmsg)
+        newpub = secp256k1.PublicKey(pub)
+        if rawmsg:
+            retval = newpub.verify(sig, msg, hasher=None)
+        else:
+            retval = newpub.verify(sig, msg)
     except:
         return False
     return retval
