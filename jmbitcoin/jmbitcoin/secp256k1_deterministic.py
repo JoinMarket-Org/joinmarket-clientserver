@@ -1,6 +1,10 @@
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
 from jmbitcoin.secp256k1_main import *
 import hmac
 import hashlib
+import struct
 
 # Below code ASSUMES binary inputs and compressed pubkeys
 MAINNET_PRIVATE = b'\x04\x88\xAD\xE4'
@@ -32,29 +36,30 @@ def raw_bip32_ckd(rawtuple, i):
                      hashlib.sha512).digest()
 
     if vbytes in PRIVATE:
-        newkey = add_privkeys(I[:32] + B'\x01', priv, False)
+        newkey = add_privkeys(I[:32] + b'\x01', priv, False)
         fingerprint = bin_hash160(privtopub(key, False))[:4]
     if vbytes in PUBLIC:
-        newkey = add_pubkeys([privtopub(I[:32] + '\x01', False), key], False)
+        newkey = add_pubkeys([privtopub(I[:32] + b'\x01', False), key], False)
         fingerprint = bin_hash160(key)[:4]
 
     return (vbytes, depth + 1, fingerprint, i, I[32:], newkey)
 
 def bip32_serialize(rawtuple):
     vbytes, depth, fingerprint, i, chaincode, key = rawtuple
-    i = encode(i, 256, 4)
-    chaincode = encode(hash_to_int(chaincode), 256, 32)
+    if isinstance(i, int):
+        i = struct.pack(b'>L', i)
+    chaincode = chaincode
     keydata = b'\x00' + key[:-1] if vbytes in PRIVATE else key
     bindata = vbytes + from_int_to_byte(
         depth % 256) + fingerprint + i + chaincode + keydata
-    return changebase(bindata + bin_dbl_sha256(bindata)[:4], 256, 58)
+    return b58encode(bindata + bin_dbl_sha256(bindata)[:4])
 
 def bip32_deserialize(data):
-    dbin = changebase(data, 58, 256)
+    dbin = b58decode(data)
     if bin_dbl_sha256(dbin[:-4])[:4] != dbin[-4:]:
         raise Exception("Invalid checksum")
     vbytes = dbin[0:4]
-    depth = from_byte_to_int(dbin[4])
+    depth = dbin[4]
     fingerprint = dbin[5:9]
     i = decode(dbin[9:13], 256)
     chaincode = dbin[13:45]

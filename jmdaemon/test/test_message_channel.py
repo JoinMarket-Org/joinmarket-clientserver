@@ -27,7 +27,7 @@ def make_valid_nick(i=0):
     nick_priv = hashlib.sha256(chr(i)*16).hexdigest() + '01'
     nick_pubkey = bitcoin.privtopub(nick_priv)
     nick_pkh_raw = hashlib.sha256(nick_pubkey).digest()[:NICK_HASH_LENGTH]
-    nick_pkh = bitcoin.changebase(nick_pkh_raw, 256, 58)
+    nick_pkh = bitcoin.b58encode(nick_pkh_raw)
     #right pad to maximum possible; b58 is not fixed length.
     #Use 'O' as one of the 4 not included chars in base58.
     nick_pkh += 'O' * (NICK_MAX_ENCODED - len(nick_pkh))

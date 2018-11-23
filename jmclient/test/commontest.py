@@ -149,7 +149,6 @@ def make_sign_and_push(ins_full,
     binarize_tx(de_tx)
     de_tx = wallet.sign_tx(de_tx, scripts, hashcode=hashcode)
     #pushtx returns False on any error
-    print(de_tx)
     tx = binascii.hexlify(btc.serialize(de_tx))
     push_succeed = jm_single().bc_interface.pushtx(tx)
     if push_succeed:

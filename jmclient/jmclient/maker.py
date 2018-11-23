@@ -7,6 +7,7 @@ import sys
 from binascii import unhexlify
 
 import btc
+from btc import SerializationError, SerializationTruncationError
 from jmclient.configure import jm_single
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)
@@ -110,7 +111,7 @@ class Maker(object):
         """
         try:
             tx = btc.deserialize(txhex)
-        except IndexError as e:
+        except (IndexError, SerializationError, SerializationTruncationError) as e:
             return (False, 'malformed txhex. ' + repr(e))
         jlog.info('obtained tx\n' + pprint.pformat(tx))
         goodtx, errmsg = self.verify_unsigned_tx(tx, offerinfo)

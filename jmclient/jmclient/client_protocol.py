@@ -62,7 +62,7 @@ class JMClientProtocol(amp.AMP):
         self.nick_pubkey = btc.privtopub(self.nick_priv)
         self.nick_pkh_raw = hashlib.sha256(self.nick_pubkey).digest()[
                     :self.nick_hashlen]
-        self.nick_pkh = btc.changebase(self.nick_pkh_raw, 256, 58)
+        self.nick_pkh = btc.b58encode(self.nick_pkh_raw)
         #right pad to maximum possible; b58 is not fixed length.
         #Use 'O' as one of the 4 not included chars in base58.
         self.nick_pkh += 'O' * (self.nick_maxencoded - len(self.nick_pkh))
@@ -111,9 +111,9 @@ class JMClientProtocol(amp.AMP):
         nick_stripped = nick[2:2 + max_encoded]
         #strip right padding
         nick_unpadded = ''.join([x for x in nick_stripped if x != 'O'])
-        if not nick_unpadded == btc.changebase(nick_pkh_raw, 256, 58):
+        if not nick_unpadded == btc.b58encode(nick_pkh_raw):
             jlog.debug("Nick hash check failed, expected: " + str(nick_unpadded)
-                       + ", got: " + str(btc.changebase(nick_pkh_raw, 256, 58)))
+                       + ", got: " + str(btc.b58encode(nick_pkh_raw)))
             verif_result = False
         d = self.callRemote(commands.JMMsgSignatureVerify,
                             verif_result=verif_result,

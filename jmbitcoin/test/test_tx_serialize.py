@@ -1,3 +1,6 @@
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 import jmbitcoin as btc
 import pytest
 import json
@@ -228,7 +231,7 @@ def test_serialization_roundtrip2():
         #ignore comment entries
         if len(j) < 2:
             continue
-        print j
+        print(j)
         deserialized = btc.deserialize(str(j[0]))
-        print deserialized
+        print(deserialized)
         assert j[0] == btc.serialize(deserialized)

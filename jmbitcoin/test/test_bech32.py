@@ -1,5 +1,7 @@
 #!/usr/bin/python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 # Copyright (c) 2017 Pieter Wuille
 #
@@ -24,20 +26,9 @@ from __future__ import print_function
 
 """Reference tests for segwit adresses"""
 
-import sys
 import binascii
 import unittest
 import jmbitcoin as btc
-
-def segwit_scriptpubkey(witver, witprog):
-    """Construct a Segwit scriptPubKey for a given witness program."""
-    if sys.version_info >= (3, 0):
-        x = bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
-    else:
-        x = chr(witver + 0x50) if witver else '\x00'
-        x += chr(len(witprog))
-        x += bytearray(witprog)
-    return x
 
 VALID_CHECKSUM = [
     "A12UEL5L",
@@ -120,7 +111,7 @@ class TestSegwitAddress(unittest.TestCase):
                 hrp = "tb"
                 witver, witprog = btc.bech32addr_decode(hrp, address)
             self.assertIsNotNone(witver)
-            scriptpubkey = segwit_scriptpubkey(witver, witprog)
+            scriptpubkey = btc.segwit_scriptpubkey(witver, witprog)
             self.assertEqual(scriptpubkey, binascii.unhexlify(hexscript))
             addr = btc.bech32addr_encode(hrp, witver, witprog)
             self.assertEqual(address.lower(), addr)

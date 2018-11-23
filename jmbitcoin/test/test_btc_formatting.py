@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Test bitcoin module data handling'''
 
 import jmbitcoin as btc
@@ -15,15 +17,6 @@ def test_bad_code_string():
     for i in [1,9,257,-3,"256"]:
         with pytest.raises(ValueError) as e_info:
             btc.get_code_string(i)
-
-@pytest.mark.parametrize(
-    "st, frm, to, minlen, res",
-    [
-        ("0101aa", 16, 16, 12, "0000000101aa"),
-    ])
-def test_changebase(st, frm, to, minlen, res):
-    assert btc.changebase(st, frm, to, minlen) == res
-
 
 #Tests of compactsize encoding, see:
 #https://bitcoin.org/en/developer-reference#compactsize-unsigned-integers

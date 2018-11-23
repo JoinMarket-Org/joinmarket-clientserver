@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Test ECDSA signing and other key operations, including legacy message
 signature conversion.'''
 
@@ -16,7 +18,7 @@ def test_valid_sigs(setup_ecc):
         msg = v['msg']
         sig = v['sig']
         priv = v['privkey']
-        assert sig == btc.ecdsa_raw_sign(msg, priv, True, rawmsg=True)+'01'
+        assert btc.from_string_to_bytes(sig) == btc.ecdsa_raw_sign(msg, priv, True, rawmsg=True)+b'01'
         #check that the signature verifies against the key(pair)
         pubkey = btc.privtopub(priv)
         assert btc.ecdsa_raw_verify(msg, pubkey, sig[:-2], True, rawmsg=True)
@@ -24,8 +26,8 @@ def test_valid_sigs(setup_ecc):
         for i in [0,1,2,4,7,25,55]:
             #corrupt one byte
             binsig = binascii.unhexlify(sig)
-            checksig = binascii.hexlify(binsig[:i] + chr(
-                (ord(binsig[i])+1) %256) + binsig[i+1:-1])
+            checksig = binascii.hexlify(binsig[:i] + btc.from_string_to_bytes(chr(
+                (ord(binsig[i:i+1])+1) %256)) + binsig[i+1:-1])
             
             #this kind of corruption will sometimes lead to an assert
             #failure (if the DER format is corrupted) and sometimes lead
@@ -35,6 +37,7 @@ def test_valid_sigs(setup_ecc):
             except:
                 continue
             assert res==False
+
 
 @pytest.fixture(scope='module')
 def setup_ecc():
