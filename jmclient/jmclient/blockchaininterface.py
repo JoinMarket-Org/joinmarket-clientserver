@@ -837,9 +837,13 @@ class BitcoinCoreInterface(BlockchainInterface):
             if ret is None:
                 result.append(None)
             else:
+                if ret['scriptPubKey'].get('addresses'):
+                    address = ret['scriptPubKey']['addresses'][0]
+                else:
+                    address = None
                 result_dict = {'value': int(Decimal(str(ret['value'])) *
                                             Decimal('1e8')),
-                               'address': ret['scriptPubKey']['addresses'][0],
+                               'address': address,
                                'script': ret['scriptPubKey']['hex']}
                 if includeconf:
                     result_dict['confirms'] = int(ret['confirmations'])
