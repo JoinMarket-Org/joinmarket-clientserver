@@ -8,6 +8,8 @@ Used for AMP asynchronous messages.
 """
 from twisted.protocols.amp import Boolean, Command, Integer, Unicode
 from .bigstring import BigUnicode
+from .support import log_exception
+
 
 class DaemonNotReady(Exception):
     pass
@@ -15,6 +17,42 @@ class DaemonNotReady(Exception):
 class JMCommand(Command):
     #a default response type
     response = [(b'accepted', Boolean())]
+
+    @classmethod
+    def responder(cls, fn=None, **kwargs):
+        """
+        Wraps the original responder to catch all exceptions that can happen
+        to prevent crashing the application.
+
+        Unless specified otherwise this will send {'accepted': True} to the
+        daemon in case of a caught exception.
+
+        This should probably usually done using some twisted magic, but I
+        couldn't find any that works (easily) with amp.Command
+
+        :param fn: the function/method that is usually passed to this twisted
+            method
+        :param err_response: a custom response if an exception is caught
+            instead of the default one {'accepted': True}
+        :return: see super()
+
+        example for using this with err_response:
+        @commands.JMCommand.responder(err_response={'accepted': False})
+        """
+        responder = super().responder
+        if 'err_response' in kwargs:
+            res = kwargs['err_response']
+            def wrapper(fn):
+                return responder(log_exception(fn, response=res))
+            return wrapper
+        else:
+            assert fn is not None
+            # sending False would indicate a critical violation between
+            # jmclient and jmdaemon, that's usually not what we want in case
+            # external data triggers a crash inside joinmarket
+            res = {'accepted': True}
+            return responder(log_exception(fn, response=res))
+
 
 """COMMANDS FROM CLIENT TO DAEMON
 =================================

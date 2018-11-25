@@ -7,7 +7,9 @@ import sys
 
 import logging
 import pprint
+import traceback
 from getpass import getpass
+from functools import wraps
 
 logFormatter = logging.Formatter(
     "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
@@ -76,3 +78,16 @@ def debug_dump_object(obj, skip_fields=None):
             log.debug(pprint.pformat(v))
         else:
             log.debug(str(v))
+
+
+def log_exception(f, response=None):
+    @wraps(f)
+    def wrapper(*a, **kw):
+        try:
+            return f(*a, **kw)
+        except Exception:
+            log.critical("Unhandled exception in {}".format(f.__name__))
+            traceback.print_exc()
+            return response
+
+    return wrapper
