@@ -7,7 +7,7 @@ import random
 from binascii import hexlify, unhexlify
 
 import btc
-from jmclient.configure import get_p2sh_vbyte, jm_single
+from jmclient.configure import get_p2sh_vbyte, jm_single, validate_address
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
@@ -344,6 +344,13 @@ class Taker(object):
                 jlog.debug(
                 "Counterparty encryption verification failed, aborting: " + nick)
                 #This counterparty must be rejected
+                rejected_counterparties.append(nick)
+
+            if not validate_address(cj_addr)[0] or not validate_address(change_addr)[0]:
+                jlog.warn("Counterparty provided invalid address: {}".format(
+                    (cj_addr, change_addr)))
+                # Interpreted as malicious
+                self.add_ignored_makers([nick])
                 rejected_counterparties.append(nick)
 
         for rc in rejected_counterparties:
