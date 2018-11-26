@@ -11,13 +11,21 @@ Install the test requirements (still in your virtualenv as mentioned above):
 
     pip install -r requirements-dev.txt
 
-Running the test suite should be done like:
+Running the test suite should be done something like (advisable to wipe ~/.bitcoin/regtest first):
 
-    python -m pytest --cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html --btcpwd=123456abcdef --nirc=2
+    pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=whatever --nirc=2 -k "not configure" --ignore test/test_full_coinjoin.py -p no:warnings
     
 (you'll first want to copy the regtest_joinmarket.cfg file from the test/ directory to the root directory, this file will need minor edits for your btc configuration).
 
 ### Running tests of sendpayment and tumbler (including with malicious makers)
+
+(As well as the below, there is a rudimentary "single, automatic, end-to-end coinjoin test" in the file test/test_full_coinjoin.py. Recommended to run it
+with -s to see log output; what's "rudimentary" here is that errors may simply result in the process hanging, so you'll want to investigate in that case.
+Use command line:
+
+    pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=whatever --nirc=2 test/test_full_coinjoin.py -s
+
+)
 
 The file `test/ygrunner.py` provides the ability to spin up a set of yieldgenerator
 bots against the local IRC instance with the local regtest blockchain. It can be
