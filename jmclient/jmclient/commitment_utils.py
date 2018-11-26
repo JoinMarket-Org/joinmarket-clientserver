@@ -56,7 +56,7 @@ def validate_utxo_data(utxo_datas, retrieve=False, segwit=False):
             return False
         if res[0]['address'] != addr:
             print("privkey corresponds to the wrong address for utxo: " + str(u))
-            print("blockchain returned address: " + res[0]['address'])
+            print("blockchain returned address: {}".format(res[0]['address']))
             print("your privkey gave this address: " + addr)
             return False
         if retrieve:
