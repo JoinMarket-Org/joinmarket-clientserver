@@ -104,7 +104,14 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
                            mean_amt=mean_amt)
     #the sendpayment bot uses the last wallet in the list
     wallet = wallets[num_ygs]['wallet']
-    print("Seed : " + wallets[num_ygs]['seed'])
+    print("\n\nTaker wallet seed : " + wallets[num_ygs]['seed'])
+    # for manual audit if necessary, show the maker's wallet seeds
+    # also (note this audit should be automated in future, see
+    # test_full_coinjoin.py in this directory)
+    print("\n\nMaker wallet seeds: ")
+    for i in range(num_ygs):
+        print("Maker seed: " + wallets[i]['seed'])
+    print("\n")
     #useful to see the utxos on screen sometimes
     sync_wallet(wallet, fast=True)
     print(wallet.get_utxos_by_mixdepth())
