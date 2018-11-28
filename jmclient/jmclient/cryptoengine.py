@@ -3,6 +3,7 @@ from __future__ import print_function, absolute_import, division, unicode_litera
 
 from binascii import hexlify, unhexlify
 from collections import OrderedDict
+import struct
 
 
 from . import btc
@@ -12,7 +13,7 @@ from .configure import get_network
 TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH = range(3)
 NET_MAINNET, NET_TESTNET = range(2)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET}
-WIF_PREFIX_MAP = {'mainnet': 0x80, 'testnet': 0xef}
+WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef'}
 BIP44_COIN_MAP = {'mainnet': 2**31, 'testnet': 2**31 + 1}
 
 
@@ -123,11 +124,11 @@ class BTCEngine(object):
     @classmethod
     def wif_to_privkey(cls, wif):
         raw = btc.b58check_to_bin(wif)
-        vbyte = btc.get_version_byte(wif)
+        vbyte = struct.unpack('B', btc.get_version_byte(wif))[0]
 
-        if (btc.BTC_P2PK_VBYTE[get_network()] + cls.WIF_PREFIX) & 0xff == vbyte:
+        if (struct.unpack('B', btc.BTC_P2PK_VBYTE[get_network()])[0] + struct.unpack('B', cls.WIF_PREFIX)[0]) & 0xff == vbyte:
             key_type = TYPE_P2PKH
-        elif (btc.BTC_P2SH_VBYTE[get_network()] + cls.WIF_PREFIX) & 0xff == vbyte:
+        elif (struct.unpack('B', btc.BTC_P2SH_VBYTE[get_network()])[0] + struct.unpack('B', cls.WIF_PREFIX)[0]) & 0xff == vbyte:
             key_type = TYPE_P2SH_P2WPKH
         else:
             key_type = None

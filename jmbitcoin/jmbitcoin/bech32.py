@@ -19,7 +19,9 @@
 # THE SOFTWARE.
 
 """Reference implementation for Bech32 and segwit addresses."""
-
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 

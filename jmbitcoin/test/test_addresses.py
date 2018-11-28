@@ -1,3 +1,6 @@
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 import jmbitcoin as btc
 import json
 import pytest
@@ -7,14 +10,13 @@ testdir = os.path.dirname(os.path.realpath(__file__))
 def validate_address(addr, nettype):
     """A mock of jmclient.validate_address
     """
-    BTC_P2PK_VBYTE = {"mainnet": 0x00, "testnet": 0x6f}
-    BTC_P2SH_VBYTE = {"mainnet": 0x05, "testnet": 0xc4}    
+    BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f'}
+    BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4'}    
     try:
         ver = btc.get_version_byte(addr)
-    except AssertionError:
+    except AssertionError as e:
         return False, 'Checksum wrong. Typo in address?'
     except Exception as e:
-        print repr(e)
         return False, "Invalid bitcoin address"
     if ver not in [BTC_P2PK_VBYTE[nettype], BTC_P2SH_VBYTE[nettype]]:
         return False, 'Wrong address version. Testnet/mainnet confused?'
@@ -52,7 +54,6 @@ def test_b58_valid_addresses():
             else:
                 net = "mainnet"
             #if using pytest -s ; sanity check to see what's actually being tested
-            print 'testing this address: ' + addr
             res, message = validate_address(addr, net)
             assert res == True, "Incorrectly failed to validate address: " + addr + " with message: " + message
 

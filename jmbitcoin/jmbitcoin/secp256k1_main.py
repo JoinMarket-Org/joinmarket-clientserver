@@ -1,96 +1,221 @@
 #!/usr/bin/python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import bytes_to_native_str
 import binascii
 import hashlib
-import re
 import sys
 import base64
+import struct
 import coincurve as secp256k1
 
 #Required only for PoDLE calculation:
 N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
 
 #Standard prefix for Bitcoin message signing.
-BITCOIN_MESSAGE_MAGIC = '\x18' + 'Bitcoin Signed Message:\n'
+BITCOIN_MESSAGE_MAGIC = b'\x18' + b'Bitcoin Signed Message:\n'
 
-if sys.version_info.major == 2:
-    string_types = (str, unicode)
-    string_or_bytes_types = string_types
-    int_types = (int, float, long)
+string_types = (str)
+string_or_bytes_types = (str, bytes)
+int_types = (int, float)
 
-    # Base switching
-    code_strings = {
-        2: '01',
-        10: '0123456789',
-        16: '0123456789abcdef',
-        32: 'abcdefghijklmnopqrstuvwxyz234567',
-        58: '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
-        256: ''.join([chr(x) for x in range(256)])
-    }
+# Base switching
+code_strings = {
+    2: '01',
+    10: '0123456789',
+    16: '0123456789abcdef',
+    32: 'abcdefghijklmnopqrstuvwxyz234567',
+    58: '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
+    256: ''.join([chr(x) for x in range(256)])
+}
 
-    def lpad(msg, symbol, length):
-        if len(msg) >= length:
-            return msg
-        return symbol * (length - len(msg)) + msg
+def lpad(msg, symbol, length):
+    if len(msg) >= length:
+        return msg
+    return symbol * (length - len(msg)) + msg
 
-    def get_code_string(base):
-        if base in code_strings:
-            return code_strings[base]
+def get_code_string(base):
+    if base in code_strings:
+        return code_strings[base]
+    else:
+        raise ValueError("Invalid base!")
+
+def bin_to_b58check(inp, magicbyte=b'\x00'):
+    if not isinstance(magicbyte, int):
+        magicbyte = struct.unpack(b'B', magicbyte)[0]
+    assert(0 <= magicbyte <= 0xff)
+    if magicbyte == 0:
+        inp_fmtd = struct.pack(b'B', magicbyte) + inp
+    while magicbyte > 0:
+        inp_fmtd = struct.pack(b'B', magicbyte % 256) + inp
+        magicbyte //= 256
+    checksum = bin_dbl_sha256(inp_fmtd)[:4]
+    return b58encode(inp_fmtd + checksum)
+
+def bytes_to_hex_string(b):
+    return b.encode('hex')
+
+def safe_from_hex(s):
+    return s.decode('hex')
+
+def from_int_to_byte(a):
+    return struct.pack(b'B', a)
+
+def from_byte_to_int(a):
+    return struct.unpack(b'B', a)[0]
+
+def from_string_to_bytes(a):
+    return a if isinstance(a, bytes) else bytes(a, 'utf-8')
+
+def safe_hexlify(a):
+    return str(binascii.hexlify(a), 'utf-8')
+
+class SerializationError(Exception):
+    """Base class for serialization errors"""
+
+
+class SerializationTruncationError(SerializationError):
+    """Serialized data was truncated
+    Thrown by deserialize() and stream_deserialize()
+    """
+
+def ser_read(f, n):
+    """Read from a stream safely
+    Raises SerializationError and SerializationTruncationError appropriately.
+    Use this instead of f.read() in your classes stream_(de)serialization()
+    functions.
+    """
+    MAX_SIZE = 0x02000000
+    if n > MAX_SIZE:
+        raise SerializationError('Asked to read 0x%x bytes; MAX_SIZE exceeded' % n)
+    r = f.read(n)
+    if len(r) < n:
+        raise SerializationTruncationError('Asked to read %i bytes, but only got %i' % (n, len(r)))
+    return r
+
+B58_DIGITS = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+class Base58Error(Exception):
+    pass
+
+class InvalidBase58Error(Base58Error):
+    """Raised on generic invalid base58 data, such as bad characters.
+    Checksum failures raise Base58ChecksumError specifically.
+    """
+    pass
+
+def b58encode(b):
+    """Encode bytes to a base58-encoded string"""
+
+    # Convert big-endian bytes to integer
+    n = int('0x0' + binascii.hexlify(b).decode('utf8'), 16)
+
+    # Divide that integer into bas58
+    res = []
+    while n > 0:
+        n, r = divmod(n, 58)
+        res.append(B58_DIGITS[r])
+    res = ''.join(res[::-1])
+
+    # Encode leading zeros as base58 zeros
+    czero = b'\x00'
+    if sys.version > '3':
+        # In Python3 indexing a bytes returns numbers, not characters.
+        czero = 0
+    pad = 0
+    for c in b:
+        if c == czero:
+            pad += 1
         else:
-            raise ValueError("Invalid base!")
+            break
+    return B58_DIGITS[0] * pad + res
 
-    def changebase(string, frm, to, minlen=0):
-        if frm == to:
-            return lpad(string, get_code_string(frm)[0], minlen)
-        return encode(decode(string, frm), to, minlen)
+def b58decode(s):
+    """Decode a base58-encoding string, returning bytes"""
+    if not s:
+        return b''
 
-    def bin_to_b58check(inp, magicbyte=0):
-        inp_fmtd = chr(int(magicbyte)) + inp
-        leadingzbytes = len(re.match('^\x00*', inp_fmtd).group(0))
-        checksum = bin_dbl_sha256(inp_fmtd)[:4]
-        return '1' * leadingzbytes + changebase(inp_fmtd + checksum, 256, 58)
+    # Convert the string to an integer
+    n = 0
+    for c in s:
+        n *= 58
+        if c not in B58_DIGITS:
+            raise InvalidBase58Error('Character %r is not a valid base58 character' % c)
+        digit = B58_DIGITS.index(c)
+        n += digit
 
-    def bytes_to_hex_string(b):
-        return b.encode('hex')
+    # Convert the integer to bytes
+    h = '%x' % n
+    if len(h) % 2:
+        h = '0' + h
+    res = bytes(binascii.unhexlify(h.encode('utf8')))
 
-    def safe_from_hex(s):
-        return s.decode('hex')
+    # Add padding back.
+    pad = 0
+    for c in s[:-1]:
+        if c == B58_DIGITS[0]: pad += 1
+        else: break
+    return b'\x00' * pad + res
 
-    def from_int_to_byte(a):
-        return chr(a)
+def uint256encode(s):
+    """Convert bytes to uint256"""
+    r = 0
+    t = struct.unpack(b"<IIIIIIII", s[:32])
+    for i in range(8):
+        r += t[i] << (i * 32)
+    return r
 
-    def from_byte_to_int(a):
-        return ord(a)
+def uint256decode(u):
+    r = b""
+    for i in range(8):
+        r += struct.pack(b'<I', u >> (i * 32) & 0xffffffff)
+    return r
 
-    def from_string_to_bytes(a):
-        return a
+def encode(val, base, minlen=0):
+    base, minlen = int(base), int(minlen)
+    code_string = get_code_string(base)
+    result_bytes = bytes()
+    while val > 0:
+        curcode = code_string[val % base]
+        result_bytes = bytes([ord(curcode)]) + result_bytes
+        val //= base
 
-    def safe_hexlify(a):
-        return binascii.hexlify(a)
+    pad_size = minlen - len(result_bytes)
 
-    def encode(val, base, minlen=0):
-        base, minlen = int(base), int(minlen)
-        code_string = get_code_string(base)
-        result = ""
-        while val > 0:
-            result = code_string[val % base] + result
-            val //= base
-        return code_string[0] * max(minlen - len(result), 0) + result
+    padding_element = b'\x00' if base == 256 else b'1' \
+        if base == 58 else b'0'
+    if (pad_size > 0):
+        result_bytes = padding_element*pad_size + result_bytes
 
-    def decode(string, base):
-        base = int(base)
-        code_string = get_code_string(base)
-        result = 0
-        if base == 16:
-            string = string.lower()
-        while len(string) > 0:
-            result *= base
-            result += code_string.find(string[0])
-            string = string[1:]
-        return result
+    result_string = ''.join([chr(y) for y in result_bytes])
+    result = result_bytes if base == 256 else result_string
 
-else:
-    raise NotImplementedError("Only Python2 currently supported by btc interface") #pragma: no cover
+    return result
+
+def decode(string, base):
+    if base == 256 and isinstance(string, str):
+        string = bytes(bytearray.fromhex(string))
+    base = int(base)
+    code_string = get_code_string(base)
+    result = 0
+    if base == 256:
+        def extract(d, cs):
+            if isinstance(d, int):
+                return d
+            else:
+                return struct.unpack(b'B', d)[0]
+    else:
+        def extract(d, cs):
+            return cs.find(d if isinstance(d, str) else chr(d))
+
+    if base == 16:
+        string = string.lower()
+    while len(string) > 0:
+        result *= base
+        result += extract(string[0], code_string)
+        string = string[1:]
+    return result
 
 """PoDLE related primitives
 """
@@ -98,7 +223,7 @@ def getG(compressed=True):
     """Returns the public key binary
     representation of secp256k1 G
     """
-    priv = "\x00"*31 + "\x01"
+    priv = b"\x00"*31 + b"\x01"
     G = secp256k1.PrivateKey(priv).public_key.format(compressed)
     return G
 
@@ -137,12 +262,11 @@ def bin_sha256(string):
 def sha256(string):
     return bytes_to_hex_string(bin_sha256(string))
 
-def bin_dbl_sha256(s):
-    bytes_to_hash = from_string_to_bytes(s)
+def bin_dbl_sha256(bytes_to_hash):
     return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
 
 def dbl_sha256(string):
-    return safe_hexlify(bin_dbl_sha256(string))
+    return hashlib.sha256(hashlib.sha256(string).digest()).hexdigest()
 
 def hash_to_int(x):
     if len(x) in [40, 64]:
@@ -150,11 +274,14 @@ def hash_to_int(x):
     return decode(x, 256)
 
 def num_to_var_int(x):
-    x = int(x)
+    if not isinstance(x, int):
+        if len(x) == 0:
+            return b'\x00'
+        x = struct.unpack(b'B', x)[0]
     if x < 253: return from_int_to_byte(x)
-    elif x < 65536: return from_int_to_byte(253) + encode(x, 256, 2)[::-1]
-    elif x < 4294967296: return from_int_to_byte(254) + encode(x, 256, 4)[::-1]
-    else: return from_int_to_byte(255) + encode(x, 256, 8)[::-1]
+    elif x < 65536: return from_int_to_byte(253) + struct.pack(b'<H', x)
+    elif x < 4294967296: return from_int_to_byte(254) + struct.pack(b'<I', x)
+    else: return from_int_to_byte(255) + struct.pack(b'<Q', x)
 
 def message_sig_hash(message):
     """Used for construction of signatures of
@@ -166,22 +293,20 @@ def message_sig_hash(message):
 
 # Encodings
 def b58check_to_bin(inp):
-    leadingzbytes = len(re.match('^1*', inp).group(0))
-    data = b'\x00' * leadingzbytes + changebase(inp, 58, 256)
+    data = b58decode(inp)
     assert bin_dbl_sha256(data[:-4])[:4] == data[-4:]
     return data[1:-4]
 
 def get_version_byte(inp):
-    leadingzbytes = len(re.match('^1*', inp).group(0))
-    data = b'\x00' * leadingzbytes + changebase(inp, 58, 256)
+    data = b58decode(inp)
     assert bin_dbl_sha256(data[:-4])[:4] == data[-4:]
-    return ord(data[0])
+    return data[:1]
 
-def hex_to_b58check(inp, magicbyte=0):
+def hex_to_b58check(inp, magicbyte=b'\x00'):
     return bin_to_b58check(binascii.unhexlify(inp), magicbyte)
 
 def b58check_to_hex(inp):
-    return safe_hexlify(b58check_to_bin(inp))
+    return binascii.hexlify(b58check_to_bin(inp))
 
 def pubkey_to_address(pubkey, magicbyte=0):
     if len(pubkey) in [66, 130]:
@@ -191,9 +316,11 @@ def pubkey_to_address(pubkey, magicbyte=0):
 
 pubtoaddr = pubkey_to_address
 
-def wif_compressed_privkey(priv, vbyte=0):
+def wif_compressed_privkey(priv, vbyte=b'\x00'):
     """Convert privkey in hex compressed to WIF compressed
     """
+    if not isinstance(vbyte, int):
+        vbyte = struct.unpack(b'B', vbyte)[0]
     if len(priv) != 66:
         raise Exception("Wrong length of compressed private key")
     if priv[-2:] != '01':
@@ -201,20 +328,22 @@ def wif_compressed_privkey(priv, vbyte=0):
     return bin_to_b58check(binascii.unhexlify(priv), 128 + int(vbyte))
 
 
-def from_wif_privkey(wif_priv, compressed=True, vbyte=0):
+def from_wif_privkey(wif_priv, compressed=True, vbyte=b'\x00'):
     """Convert WIF compressed privkey to hex compressed.
     Caller specifies the network version byte (0 for mainnet, 0x6f
     for testnet) that the key should correspond to; if there is
     a mismatch an error is thrown. WIF encoding uses 128+ this number.
     """
+    if isinstance(vbyte, int):
+        vbyte = struct.pack(b'B', vbyte)
     bin_key = b58check_to_bin(wif_priv)
     claimed_version_byte = get_version_byte(wif_priv)
-    if not 128+vbyte == claimed_version_byte:
+    if not from_int_to_byte(128+from_byte_to_int(vbyte)) == claimed_version_byte:
         raise Exception(
             "WIF key version byte is wrong network (mainnet/testnet?)")
     if compressed and not len(bin_key) == 33:
         raise Exception("Compressed private key is not 33 bytes")
-    if compressed and not bin_key[-1] == '\x01':
+    if compressed and not bin_key[-1:] == b'\x01':
         raise Exception("Private key has incorrect compression byte")
     return safe_hexlify(bin_key)
 
@@ -252,9 +381,9 @@ def hexbin(func):
             newargs = []
             for arg in args[:-1]:
                 if isinstance(arg, (list, tuple)):
-                    newargs += [[x.decode('hex') for x in arg]]
+                    newargs += [[binascii.unhexlify(x) for x in arg]]
                 else:
-                    newargs += [arg.decode('hex')]
+                    newargs += [binascii.unhexlify(arg)]
             newargs += [False]
             returnval = func(*newargs, **kwargs)
             if isinstance(returnval, bool):
@@ -268,7 +397,7 @@ def hexbin(func):
 
 def read_privkey(priv):
     if len(priv) == 33:
-        if priv[-1] == '\x01':
+        if priv[-1:] == b'\x01':
             compressed = True
         else:
             raise Exception("Invalid private key")
@@ -286,7 +415,7 @@ def privkey_to_pubkey_inner(priv, usehex):
     and return compressed/uncompressed public key as appropriate.'''
     compressed, priv = read_privkey(priv)
     #secp256k1 checks for validity of key value.
-    newpriv = secp256k1.PrivateKey(secret=priv)
+    newpriv = secp256k1.PrivateKey(secret=bytes_to_native_str(priv))
     return newpriv.public_key.format(compressed)
 
 def privkey_to_pubkey(priv, usehex=True):
@@ -311,7 +440,7 @@ def multiply(s, pub, usehex, rawpub=True, return_serialized=True):
     '''
     newpub = secp256k1.PublicKey(pub)
     #see note to "tweak_mul" function in podle.py
-    res = newpub.multiply(s)
+    res = newpub.multiply(bytes_to_native_str(s))
     if not return_serialized:
         return res
     return res.format()
@@ -339,7 +468,7 @@ def add_privkeys(priv1, priv2, usehex):
     p1 = secp256k1.PrivateKey(newpriv1)
     res = p1.add(newpriv2).secret
     if compressed:
-        res += '\x01'
+        res += b'\x01'
     return res
 
 @hexbin

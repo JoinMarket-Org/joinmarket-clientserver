@@ -1,4 +1,7 @@
 #!/usr/bin/python
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 import json, re
 import random
 import time

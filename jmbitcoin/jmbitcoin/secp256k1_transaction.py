@@ -1,87 +1,61 @@
 #!/usr/bin/python
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
+from past.builtins import basestring
+from io import BytesIO
 import binascii
 import copy
 import re
-import sys
+import os
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.bech32 import *
-from _functools import reduce
-
-is_python2 = sys.version_info.major == 2
-
-### Hex to bin converter and vice versa for objects
-def json_is_base(obj, base):
-    if not is_python2 and isinstance(obj, bytes): #pragma: no cover
-        return False
-
-    alpha = get_code_string(base)
-    if isinstance(obj, string_types):
-        for i in range(len(obj)):
-            if alpha.find(obj[i]) == -1:
-                return False
-        return True
-    elif isinstance(obj, int_types) or obj is None:
-        return True
-    elif isinstance(obj, list):
-        for i in range(len(obj)):
-            if not json_is_base(obj[i], base):
-                return False
-        return True
-    else:
-        for x in obj:
-            if not json_is_base(obj[x], base):
-                return False
-        return True
-
-
-def json_changebase(obj, changer):
-    if isinstance(obj, string_or_bytes_types):
-        return changer(obj)
-    elif isinstance(obj, int_types) or obj is None:
-        return obj
-    elif isinstance(obj, list):
-        return [json_changebase(x, changer) for x in obj]
-    return dict((x, json_changebase(obj[x], changer)) for x in obj)
 
 # Transaction serialization and deserialization
 
-def deserialize(tx):
-    if isinstance(tx, (str, unicode)) and re.match('^[0-9a-fA-F]*$', tx):
-        #tx = bytes(bytearray.fromhex(tx))
-        return json_changebase(
-            deserialize(binascii.unhexlify(tx)), lambda x: safe_hexlify(x))
-    # http://stackoverflow.com/questions/4851463/python-closure-write-to-variable-in-parent-scope
-    # Python's scoping rules are demented, requiring me to make pos an object
-    # so that it is call-by-reference
-    pos = [0]
+def deserialize(txinp):
+    if isinstance(txinp, basestring) and re.match('^[0-9a-fA-F]*$', txinp):
+        tx = BytesIO(binascii.unhexlify(txinp))
+        hexout = True
+    else:
+        tx = BytesIO(txinp)
+        hexout = False
 
-    #TODO: these are disgustingly ignorant of overrun errors!
+    def hex_string(scriptbytes, hexout):
+        if hexout:
+            return binascii.hexlify(scriptbytes)
+        else:
+            return scriptbytes
+
     def read_as_int(bytez):
-        pos[0] += bytez
-        return decode(tx[pos[0] - bytez:pos[0]][::-1], 256)
+        if bytez == 2:
+            return struct.unpack(b'<H', ser_read(tx, 2))[0]
+        elif bytez == 4:
+            return struct.unpack(b'<I', ser_read(tx, 4))[0]
+        elif bytez == 1:
+            return struct.unpack(b'B', ser_read(tx, 1))[0]
+        elif bytez == 8:
+            return struct.unpack(b'<Q', ser_read(tx, 8))[0]
+        else:
+            raise SerializationError('Asked to read unsupported %x bytes; bytez can only be 1, 2, 4 or 8' % bytez)
 
     def read_var_int():
-        pos[0] += 1
-
-        val = from_byte_to_int(tx[pos[0] - 1])
+        val = from_byte_to_int(ser_read(tx, 1))
         if val < 253:
             return val
         return read_as_int(pow(2, val - 252))
 
-    def read_bytes(bytez):
-        pos[0] += bytez
-        return tx[pos[0] - bytez:pos[0]]
-
     def read_var_string():
         size = read_var_int()
-        return read_bytes(size)
+        return ser_read(tx, size)
 
     def read_flag_byte(val):
-        flag = read_bytes(1)
+        last = tx.tell()
+        flag = ser_read(tx, 1)
         if from_byte_to_int(flag)==val:
             return True
         else:
-            pos[0] -= 1
+            tx.seek(last)
             return False
 
     obj = {"ins": [], "outs": []}
@@ -98,18 +72,18 @@ def deserialize(tx):
     for i in range(ins):
         obj["ins"].append({
             "outpoint": {
-                "hash": read_bytes(32)[::-1],
+                "hash": hex_string(ser_read(tx, 32)[::-1], hexout),
                 "index": read_as_int(4)
             },
             #TODO this will probably crap out on null for segwit
-            "script": read_var_string(),
+            "script": hex_string(read_var_string(), hexout),
             "sequence": read_as_int(4)
         })
     outs = read_var_int()
     for i in range(outs):
         obj["outs"].append({
             "value": read_as_int(8),
-            "script": read_var_string()
+            "script": hex_string(read_var_string(), hexout)
         })
     #segwit flag is only set if at least one txinwitness exists,
     #in other words it would have to be at least partially signed;
@@ -127,52 +101,98 @@ def deserialize(tx):
             num_items = read_var_int()
             items = []
             for ni in range(num_items):
-                items.append(read_var_string())
+                items.append(hex_string(read_var_string(), hexout))
             obj["ins"][i]["txinwitness"] = items
 
     obj["locktime"] = read_as_int(4)
     return obj
 
-def serialize(txobj):
-    o = []
-    if json_is_base(txobj, 16):
-        json_changedbase = json_changebase(txobj,
-                                           lambda x: binascii.unhexlify(x))
-        hexlified = safe_hexlify(serialize(json_changedbase))
-        return hexlified
-    o.append(encode(txobj["version"], 256, 4)[::-1])
+def serialize(tx):
+    """Assumes a deserialized transaction in which all
+    dictionary values are decoded hex strings or numbers.
+    Rationale: mixing raw bytes/hex/strings in dict objects causes
+    complexity; since the dict tx object has to be inspected
+    in this function, avoid complicated logic elsewhere by making
+    all conversions to raw byte strings happen here.
+    Table of dictionary keys and type for the value:
+    ================================================
+    version: int
+    ins: list
+    ins[0]["outpoint"]["hash"]: hex encoded string
+    ins[0]["outpoint"]["index"]: int
+    ins[0]["script"]: hex encoded string
+    ins[0]["sequence"]: int
+    ins[0]["txinwitness"]: list (optional, may not exist)
+    ins[0]["txinwitness"][0]: hex encoded string
+    outs: list
+    outs[0]["script"]: hex encoded string
+    outs[0]["value"]: int
+    locktime: int
+    =================================================
+    Returned serialized transaction is a byte string.
+    """
+    #Because we are manipulating the dict in-place, need
+    #to work on a copy
+    txobj = copy.deepcopy(tx)
+    o = BytesIO()
+    hexout = False
+    o.write(struct.pack(b'<I', txobj["version"]))
     segwit = False
-    if any("txinwitness" in x.keys() for x in txobj["ins"]):
+    if any("txinwitness" in x for x in txobj["ins"]):
         segwit = True
     if segwit:
         #append marker and flag
-        o.append('\x00')
-        o.append('\x01')
-    o.append(num_to_var_int(len(txobj["ins"])))
+        o.write(b'\x00')
+        o.write(b'\x01')
+    o.write(num_to_var_int(len(txobj["ins"])))
     for inp in txobj["ins"]:
-        o.append(inp["outpoint"]["hash"][::-1])
-        o.append(encode(inp["outpoint"]["index"], 256, 4)[::-1])
-        o.append(num_to_var_int(len(inp["script"])) + (inp["script"] if inp[
-            "script"] or is_python2 else bytes()))
-        o.append(encode(inp["sequence"], 256, 4)[::-1])
-    o.append(num_to_var_int(len(txobj["outs"])))
+        if len(inp["outpoint"]["hash"]) == 64:
+            o.write(binascii.unhexlify(inp["outpoint"]["hash"])[::-1])
+            hexout = True
+        elif len(inp["outpoint"]["hash"]) == 32:
+            o.write(inp["outpoint"]["hash"][::-1])
+        else:
+            raise SerializationError('Hash has unsupported length: %x bytes; must be 64 or 32 bytes' % len(inp["outpoint"]["hash"]))
+        o.write(struct.pack(b'<I', inp["outpoint"]["index"]))
+        if len(inp["script"]) == 0:
+            o.write(b'\x00')
+        elif isinstance(inp["script"], basestring) and re.match('^[0-9a-fA-F]*$', inp["script"]):
+            o.write(num_to_var_int(len(binascii.unhexlify(inp["script"]))))
+            o.write(binascii.unhexlify(inp["script"]))
+        else:
+            o.write(num_to_var_int(len(inp["script"])))
+            o.write(inp["script"])
+        o.write(struct.pack(b'<I', inp["sequence"]))
+    o.write(num_to_var_int(len(txobj["outs"])))
     for out in txobj["outs"]:
-        o.append(encode(out["value"], 256, 8)[::-1])
-        o.append(num_to_var_int(len(out["script"])) + out["script"])
+        o.write(struct.pack(b'<Q', out["value"]))
+        if len(out["script"]) == 0:
+            o.write(b'\x00')
+        elif isinstance(out["script"], basestring) and re.match('^[0-9a-fA-F]*$', out["script"]):
+            o.write(num_to_var_int(len(binascii.unhexlify(out["script"]))))
+            o.write(binascii.unhexlify(out["script"]))
+        else:
+            o.write(num_to_var_int(len(out["script"])))
+            o.write(out["script"])
     if segwit:
         #number of witnesses is not explicitly encoded;
         #it's implied by txin length
         for inp in txobj["ins"]:
-            if "txinwitness" not in inp.keys():
-                o.append('\x00')
+            if "txinwitness" not in inp:
+                o.write(b'\x00')
                 continue
             items = inp["txinwitness"]
-            o.append(num_to_var_int(len(items)))
+            o.write(num_to_var_int(len(items)))
             for item in items:
-                o.append(num_to_var_int(len(item)) + item)
-    o.append(encode(txobj["locktime"], 256, 4)[::-1])
+                if isinstance(item, basestring) and re.match('^[0-9a-fA-F]*$', item):
+                    item = binascii.unhexlify(item)
+                o.write(num_to_var_int(len(item)) + item)
+    o.write(struct.pack(b'<I', txobj["locktime"]))
 
-    return ''.join(o) if is_python2 else reduce(lambda x, y: x + y, o, bytes())
+    if hexout:
+        return binascii.hexlify(o.getvalue())
+    else:
+        return o.getvalue()
 
 # Hashing transactions for signing
 
@@ -192,54 +212,61 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL,
     #    return serialize(segwit_signature_form(deserialize(txobj), i, script,
     #                                           amount, hashcode))
     script = decoder_func(script)
-    nVersion = encode(txobj["version"], 256, 4)[::-1]
+    nVersion = struct.pack(b'<I', txobj["version"])
+    if not isinstance(hashcode, int):
+        hashcode = struct.unpack(b'B', hashcode)[0]
     #create hashPrevouts
     if hashcode & SIGHASH_ANYONECANPAY:
-        hashPrevouts = "\x00"*32
+        hashPrevouts = b"\x00"*32
     else:
-        pi = ""
+        pi = b""
         for inp in txobj["ins"]:
             pi += decoder_func(inp["outpoint"]["hash"])[::-1]
-            pi += encode(inp["outpoint"]["index"], 256, 4)[::-1]
+            pi += struct.pack(b'<I', inp["outpoint"]["index"])
         hashPrevouts = bin_dbl_sha256(pi)
     #create hashSequence
     if not hashcode & SIGHASH_ANYONECANPAY and not (
         hashcode & 0x1f == SIGHASH_SINGLE) and not (hashcode & 0x1f == SIGHASH_NONE):
-        pi = ""
+        pi = b""
         for inp in txobj["ins"]:
-            pi += encode(inp["sequence"], 256, 4)[::-1]
+            pi += struct.pack(b'<I', inp["sequence"])
         hashSequence = bin_dbl_sha256(pi)
     else:
-        hashSequence = "\x00"*32
+        hashSequence = b"\x00"*32
     #add this input's outpoint
     thisOut = decoder_func(txobj["ins"][i]["outpoint"]["hash"])[::-1]
-    thisOut += encode(txobj["ins"][i]["outpoint"]["index"], 256, 4)[::-1]
+    thisOut += struct.pack(b'<I', txobj["ins"][i]["outpoint"]["index"])
     scriptCode = num_to_var_int(len(script)) + script
-    amt = encode(amount, 256, 8)[::-1]
-    thisSeq = encode(txobj["ins"][i]["sequence"], 256, 4)[::-1]
+    amt = struct.pack(b'<Q', amount)
+    thisSeq = struct.pack(b'<I', txobj["ins"][i]["sequence"])
     #create hashOutputs
     if not (hashcode & 0x1f == SIGHASH_SINGLE) and not (hashcode & 0x1f == SIGHASH_NONE):
-        pi = ""
+        pi = b""
         for out in txobj["outs"]:
-            pi += encode(out["value"], 256, 8)[::-1]
+            pi += struct.pack(b'<Q', out["value"])
             pi += (num_to_var_int(len(decoder_func(out["script"]))) + \
                    decoder_func(out["script"]))
         hashOutputs = bin_dbl_sha256(pi)
     elif hashcode & 0x1f == SIGHASH_SINGLE and i < len(txobj['outs']):
-        pi = encode(txobj["outs"][i]["value"], 256, 8)[::-1]
+        pi = struct.pack(b'<Q', txobj["outs"][i]["value"])
         pi += (num_to_var_int(len(decoder_func(txobj["outs"][i]["script"]))) +
                decoder_func(txobj["outs"][i]["script"]))
         hashOutputs = bin_dbl_sha256(pi)
     else:
-        hashOutputs = "\x00"*32
-    nLockTime = encode(txobj["locktime"], 256, 4)[::-1]
+        hashOutputs = b"\x00"*32
+    nLockTime = struct.pack(b'<I', txobj["locktime"])
     return nVersion + hashPrevouts + hashSequence + thisOut + scriptCode + amt + \
            thisSeq + hashOutputs + nLockTime
 
 def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
-    i, hashcode = int(i), int(hashcode)
-    if isinstance(tx, string_or_bytes_types):
-        return serialize(signature_form(deserialize(tx), i, script, hashcode))
+    if not isinstance(hashcode, int):
+        hashcode = struct.unpack(b'B', hashcode)[0]
+    if isinstance(tx, basestring) and re.match('^[0-9a-fA-F]*$', tx):
+        tx = deserialize(tx)
+    elif isinstance(tx, basestring):
+        tx = deserialize(binascii.hexlify(tx))
+    if isinstance(script, basestring) and not re.match('^[0-9a-fA-F]*$', script):
+        script = binascii.hexlify(script)
     newtx = copy.deepcopy(tx)
     for inp in newtx["ins"]:
         #If tx is passed in in segwit form, it must be switched to non-segwit.
@@ -288,16 +315,19 @@ def txhash(tx, hashcode=None, check_sw=True):
     If check_sw is True it checks the serialized format for
     segwit flag bytes, and produces the correct form for txid (not wtxid).
     """
-    if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
-        tx = changebase(tx, 16, 256)
+    if not isinstance(tx, basestring):
+        tx = serialize(tx)
+    if isinstance(tx, basestring) and re.match('^[0-9a-fA-F]*$', tx):
+        tx = binascii.unhexlify(tx)
     if check_sw and from_byte_to_int(tx[4]) == 0:
         if not from_byte_to_int(tx[5]) == 1:
             #This invalid, but a raise is a DOS vector in some contexts.
             return None
         return segwit_txid(tx, hashcode)
     if hashcode:
-        return dbl_sha256(from_string_to_bytes(tx) + encode(
-            int(hashcode), 256, 4)[::-1])
+        if not isinstance(hashcode, int):
+            hashcode = struct.unpack(b'B', hashcode)[0]
+        return dbl_sha256(from_string_to_bytes(tx) + struct.pack(b'<I', hashcode))
     else:
         return safe_hexlify(bin_dbl_sha256(tx)[::-1])
 
@@ -337,12 +367,7 @@ def mk_scripthash_script(addr):
 
 def segwit_scriptpubkey(witver, witprog):
     """Construct a Segwit scriptPubKey for a given witness program."""
-    if sys.version_info >= (3, 0):
-        x = bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
-    else:
-        x = chr(witver + 0x50) if witver else '\x00'
-        x += chr(len(witprog))
-        x += bytearray(witprog)
+    x = bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
     return x
 
 def mk_native_segwit_script(addr):
@@ -412,31 +437,53 @@ def p2sh_scriptaddr(script, magicbyte=5):
 scriptaddr = p2sh_scriptaddr
 
 
-def deserialize_script(script):
-    if isinstance(script, str) and re.match('^[0-9a-fA-F]*$', script):
-        return json_changebase(
-            deserialize_script(binascii.unhexlify(script)),
-            lambda x: safe_hexlify(x))
-    out, pos = [], 0
-    while pos < len(script):
-        code = from_byte_to_int(script[pos])
+def deserialize_script(scriptinp):
+    """Note that this is not used internally, in
+    the jmbitcoin package, to deserialize() transactions;
+    its function is only to allow parsing of scripts by
+    external callers. Thus, it returns in the format used
+    outside the package: a deserialized script is a list of
+    entries which can be any of:
+    None
+    integer
+    hex string
+    """
+    def hex_string(scriptbytes, hexout):
+        if hexout:
+            return binascii.hexlify(scriptbytes)
+        else:
+            return scriptbytes
+
+    if isinstance(scriptinp, basestring) and re.match('^[0-9a-fA-F]*$', scriptinp):
+        script = BytesIO(binascii.unhexlify(scriptinp))
+        hexout = True
+    else:
+        script = BytesIO(scriptinp)
+        hexout = False
+    script.seek(0, os.SEEK_END)
+    length = script.tell()
+    script.seek(0, os.SEEK_SET)
+    out = []
+    while script.tell() < length:
+        code = from_byte_to_int(ser_read(script, 1))
         if code == 0:
             out.append(None)
-            pos += 1
         elif code <= 75:
-            out.append(script[pos + 1:pos + 1 + code])
-            pos += 1 + code
+            out.append(hex_string(ser_read(script, code), hexout))
         elif code <= 78:
-            szsz = pow(2, code - 76)
-            sz = decode(script[pos + szsz:pos:-1], 256)
-            out.append(script[pos + 1 + szsz:pos + 1 + szsz + sz])
-            pos += 1 + szsz + sz
+            if code == 78:
+                sz = struct.unpack(b'<I', ser_read(script, 4))[0]
+            elif code == 77:
+                sz = struct.unpack(b'<H', ser_read(script, 2))[0]
+            elif code == 76:
+                sz = struct.unpack(b'<B', ser_read(script, 1))[0]
+            else:
+                sz = code
+            out.append(hex_string(ser_read(script, sz), hexout))
         elif code <= 96:
             out.append(code - 80)
-            pos += 1
         else:
             out.append(code)
-            pos += 1
     return out
 
 
@@ -449,45 +496,28 @@ def serialize_script_unit(unit):
     elif unit is None:
         return b'\x00'
     else:
+        if isinstance(unit, basestring) and re.match('^[0-9a-fA-F]*$', unit):
+            unit = binascii.unhexlify(unit)
         if len(unit) <= 75:
             return from_int_to_byte(len(unit)) + unit
         elif len(unit) < 256:
-            return from_int_to_byte(76) + from_int_to_byte(len(unit)) + unit
+            return from_int_to_byte(76) + struct.pack(b'<B', len(unit)) + unit
         elif len(unit) < 65536:
-            return from_int_to_byte(77) + encode(len(unit), 256, 2)[::-1] + unit
+            return from_int_to_byte(77) + struct.pack(b'<H', len(unit)) + unit
         else:
-            return from_int_to_byte(78) + encode(len(unit), 256, 4)[::-1] + unit
+            return from_int_to_byte(78) + struct.pack(b'<I', len(unit)) + unit
 
 
-if is_python2:
-
-    def serialize_script(script):
-        #bugfix: if *every* item in the script is of type int,
-        #for example a script of OP_TRUE, or None,
-        #then the previous version would always report json_is_base as True,
-        #resulting in an infinite loop (look who's demented now).
-        #There is no easy solution without being less flexible;
-        #here we default to returning a hex serialization in cases where
-        #there are no strings to use as flags.
-        if all([(isinstance(x, int) or x is None) for x in script]):
-            #no indication given whether output should be hex or binary, so..?
-            return binascii.hexlify(''.join(map(serialize_script_unit, script)))
-        if json_is_base(script, 16):
-            return binascii.hexlify(serialize_script(json_changebase(
-                script, lambda x: binascii.unhexlify(x))))
-        return ''.join(map(serialize_script_unit, script))
-
-else: #pragma: no cover
-
-    def serialize_script(script):
-        #TODO Python 3 bugfix as above needed
-        if json_is_base(script, 16):
-            return safe_hexlify(serialize_script(json_changebase(
-                script, lambda x: binascii.unhexlify(x))))
-
-        result = bytes()
-        for b in map(serialize_script_unit, script):
-            result += b if isinstance(b, bytes) else bytes(b, 'utf-8')
+def serialize_script(script):
+    result = b''
+    hexout = True
+    for b in script:
+        if isinstance(b, basestring) and not re.match('^[0-9a-fA-F]*$', b):
+            hexout = False
+        result += serialize_script_unit(b)
+    if hexout:
+        return binascii.hexlify(result)
+    else:
         return result
 
 
@@ -508,18 +538,18 @@ def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
     if re.match('^[0-9a-fA-F]*$', script):
         script = binascii.unhexlify(script)
     if not re.match('^[0-9a-fA-F]*$', sig):
-        sig = safe_hexlify(sig)
+        sig = binascii.hexlify(sig)
     if not re.match('^[0-9a-fA-F]*$', pub):
-        pub = safe_hexlify(pub)
+        pub = binascii.hexlify(pub)
     if witness:
         if not re.match('^[0-9a-fA-F]*$', witness):
             witness = safe_hexlify(witness)
-    hashcode = decode(sig[-2:], 16)
+    hashcode = binascii.unhexlify(sig[-2:])
     if witness and amount:
         #TODO assumes p2sh wrapped segwit input; OK for JM wallets
-        scriptCode = "76a914"+hash160(binascii.unhexlify(pub))+"88ac"
-        modtx = segwit_signature_form(deserialize(binascii.hexlify(tx)), int(i),
-                                      scriptCode, amount, hashcode)
+        scriptCode = binascii.unhexlify("76a914"+hash160(binascii.unhexlify(pub))+"88ac")
+        modtx = segwit_signature_form(deserialize(tx), int(i),
+                                      scriptCode, amount, hashcode, decoder_func=lambda x: x)
     else:
         modtx = signature_form(tx, int(i), script, hashcode)
     return ecdsa_tx_verify(modtx, sig, pub, hashcode)
@@ -527,9 +557,11 @@ def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
 
 def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
     i = int(i)
-    if (not is_python2 and isinstance(re, bytes)) or not re.match(
-            '^[0-9a-fA-F]*$', tx):
-        return binascii.unhexlify(sign(safe_hexlify(tx), i, priv))
+    if isinstance(tx, basestring) and re.match('^[0-9a-fA-F]*$', tx):
+        tx = binascii.unhexlify(tx)
+        hexout = True
+    else:
+        hexout = False
     if len(priv) <= 33:
         priv = safe_hexlify(priv)
     if amount:
@@ -541,7 +573,13 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
     sig = ecdsa_tx_sign(signing_tx, priv, hashcode, usenonce=usenonce)
     txobj = deserialize(tx)
     txobj["ins"][i]["script"] = serialize_script([sig, pub])
-    return serialize(txobj)
+    serobj = serialize(txobj)
+    if hexout and isinstance(serobj, basestring) and not re.match('^[0-9a-fA-F]*$', serobj):
+        return binascii.hexlify(serobj)
+    elif not hexout and re.match('^[0-9a-fA-F]*$', serobj):
+        return binascii.unhexlify(serobj)
+    else:
+        return serobj
 
 def p2sh_p2wpkh_sign(tx, i, priv, amount, hashcode=SIGHASH_ALL, usenonce=None):
     """Given a serialized transaction, index, private key in hex,
@@ -612,7 +650,6 @@ def mktx(*args):
                 (ins if is_inp(a) else outs).append(a)
         else:
             (ins if is_inp(arg) else outs).append(arg)
-
     txobj = {"locktime": 0, "version": 1, "ins": [], "outs": []}
     for i in ins:
         if isinstance(i, dict) and "outpoint" in i:
@@ -627,7 +664,7 @@ def mktx(*args):
                 "sequence": 4294967295
             })
     for o in outs:
-        if isinstance(o, string_or_bytes_types):
+        if isinstance(o, basestring):
             addr = o[:o.find(':')]
             val = int(o[o.find(':') + 1:])
             o = {}
@@ -646,6 +683,5 @@ def mktx(*args):
             raise Exception("Could not find 'address' or 'script' in output.")
         outobj["value"] = o["value"]
         txobj["outs"].append(outobj)
-
     return serialize(txobj)
 

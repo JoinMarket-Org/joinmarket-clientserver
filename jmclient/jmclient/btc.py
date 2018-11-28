@@ -2,8 +2,8 @@
 different codebase than joinmarket's own.
 """
 #Protocol constants
-BTC_P2PK_VBYTE = {"mainnet": 0x00, "testnet": 0x6f}
-BTC_P2SH_VBYTE = {"mainnet": 0x05, "testnet": 0xc4}
+BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f'}
+BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4'}
 PODLE_COMMIT_FILE = None
 
 from jmbase.support import get_log
@@ -138,22 +138,11 @@ except ImportError:
     
     def b58check_to_bin(addr, version=False):
         """optionally include the version byte for get_version_byte.
-        Note that jmbitcoin does not need this flag, because it
-        uses the changebase() function, which here has been restricted.
         """
         if not version:
             return ebt.DecodeBase58Check(addr)[1:]
         else:
             return ebt.DecodeBase58Check(addr)
-    
-    def changebase(inp, frm=256, to=58):
-        """Implementation of base58 (*not* b58check) conversion
-        only. Used in message channel verifiable nick construction.
-        Explicitly disabling any other conversion for now.
-        """
-        if not (frm==256 and to==58):
-            raise NotImplementedError
-        return ebt.base_encode(inp, 58)
 
     def address_to_script(addr):
         return etr.Transaction.pay_script(ebt.TYPE_ADDRESS, addr)
