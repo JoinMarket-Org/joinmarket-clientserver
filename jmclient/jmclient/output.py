@@ -1,3 +1,6 @@
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 from binascii import hexlify
 
 
@@ -11,7 +14,7 @@ def fmt_utxos(utxos, wallet, prefix=''):
 
 
 def fmt_utxo(utxo):
-    return '{}:{}'.format(hexlify(utxo[0]), utxo[1])
+    return '{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])
 
 
 def fmt_tx_data(tx_data, wallet):

@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''test schedule module.'''
 
 import pytest
@@ -42,7 +44,7 @@ def test_get_schedule():
         if os.path.exists(tsf):
             os.remove(tsf)
         with open(tsf, "wb") as f:
-            f.write(s)
+            f.write(s.encode('utf-8'))
         result = get_schedule(tsf)
         if s== valids:
             assert result[0]

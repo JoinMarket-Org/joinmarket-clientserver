@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 #Proof Of Discrete Logarithm Equivalence
 #For algorithm steps, see https://gist.github.com/AdamISZ/9cbba5e9408d23813ca8
 import os
@@ -7,7 +9,8 @@ import sys
 import hashlib
 import json
 import binascii
-from btc import multiply, add_pubkeys, getG, podle_PublicKey,\
+import struct
+from .btc import multiply, add_pubkeys, getG, podle_PublicKey,\
     podle_PrivateKey, encode, decode, N, podle_PublicKey_class
 
 
@@ -84,7 +87,7 @@ class PoDLE(object):
         if not isinstance(self.P2, podle_PublicKey_class):
             raise PoDLEError("Cannot construct commitment, P2 is not a pubkey")
         self.commitment = hashlib.sha256(self.P2.format()).digest()
-        return binascii.hexlify(self.commitment)
+        return binascii.hexlify(self.commitment).decode('ascii')
 
     def generate_podle(self, index=0, k=None):
         """Given a raw private key, in hex format,
@@ -123,7 +126,7 @@ class PoDLE(object):
         KJ = multiply(k, J.format(), False, return_serialized=False)
         self.P2 = getP2(self.priv, J)
         self.get_commitment()
-        self.e = hashlib.sha256(''.join([x.format(
+        self.e = hashlib.sha256(b''.join([x.format(
         ) for x in [KG, KJ, self.P, self.P2]])).digest()
         k_int = decode(k, 256)
         priv_int = decode(self.priv.secret, 256)
@@ -141,7 +144,7 @@ class PoDLE(object):
         if not self.commitment:
             self.get_commitment()
         Phex, P2hex, shex, ehex, commit = [
-            binascii.hexlify(x)
+            binascii.hexlify(x).decode('ascii')
             for x in [self.P.format(), self.P2.format(), self.s, self.e,
                       self.commitment]
         ]
@@ -217,14 +220,14 @@ def getNUMS(index=0):
     assert index in range(256)
     nums_point = None
     for G in [getG(True), getG(False)]:
-        seed = G + chr(index)
+        seed = G + struct.pack(b'B', index)
         for counter in range(256):
-            seed_c = seed + chr(counter)
+            seed_c = seed + struct.pack(b'B', counter)
             hashed_seed = hashlib.sha256(seed_c).digest()
             #Every x-coord on the curve has two y-values, encoded
             #in compressed form with 02/03 parity byte. We just
             #choose the former.
-            claimed_point = "\x02" + hashed_seed
+            claimed_point = b"\x02" + hashed_seed
             try:
                 nums_point = podle_PublicKey(claimed_point)
                 return nums_point
@@ -242,11 +245,11 @@ def verify_all_NUMS(write=False):
     """
     nums_points = {}
     for i in range(256):
-        nums_points[i] = binascii.hexlify(getNUMS(i).format())
+        nums_points[i] = binascii.hexlify(getNUMS(i).format()).decode('ascii')
     if write:
         with open("nums_basepoints.txt", "wb") as f:
             from pprint import pformat
-            f.write(pformat(nums_points))
+            f.write(pformat(nums_points).encode('utf-8'))
     assert nums_points == precomp_NUMS, "Precomputed NUMS points are not valid!"
 
 
@@ -279,7 +282,7 @@ def get_podle_commitments():
     if not os.path.isfile(PODLE_COMMIT_FILE):
         return ([], {})
     with open(PODLE_COMMIT_FILE, "rb") as f:
-        c = json.loads(f.read())
+        c = json.loads(f.read().decode('utf-8'))
     if 'used' not in c.keys() or 'external' not in c.keys():
         raise PoDLEError("Incorrectly formatted file: " + PODLE_COMMIT_FILE)
     return (c['used'], c['external'])
@@ -306,7 +309,7 @@ def update_commitments(commitment=None,
     if os.path.isfile(PODLE_COMMIT_FILE):
         with open(PODLE_COMMIT_FILE, "rb") as f:
             try:
-                c = json.loads(f.read())
+                c = json.loads(f.read().decode('utf-8'))
             except ValueError: #pragma: no cover
                 #Exit conditions cannot be included in tests.
                 print("the file: " + PODLE_COMMIT_FILE + " is not valid json.")
@@ -335,7 +338,7 @@ def update_commitments(commitment=None,
     to_write['used'] = commitments
     to_write['external'] = external
     with open(PODLE_COMMIT_FILE, "wb") as f:
-        f.write(json.dumps(to_write, indent=4))
+        f.write(json.dumps(to_write, indent=4).encode('utf-8'))
 
 def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
     used_commitments, external_commitments = get_podle_commitments()

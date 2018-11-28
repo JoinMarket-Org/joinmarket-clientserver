@@ -16,19 +16,31 @@ matrix:
              - python-qt4 python-sip
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=xenial
+      env: DOCKER_IMG_JM=xenial-py2
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=bionic
+      env: DOCKER_IMG_JM=xenial-py3
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=stretch
+      env: DOCKER_IMG_JM=bionic-py2
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=centos7
+      env: DOCKER_IMG_JM=bionic-py3
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=fedora27
+      env: DOCKER_IMG_JM=stretch-py2
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=stretch-py3
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=centos7-py2
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=fedora27-py2
+    - os: linux
+      services: docker
+      env: DOCKER_IMG_JM=fedora27-py3
 before_install:
   - do_on(){ if [ "$TRAVIS_OS_NAME" = "$1" ]; then shift; $@ ; fi; }
   - on_host(){ if [ -z "$DOCKER_IMG_JM" ]; then $@ ; fi; }

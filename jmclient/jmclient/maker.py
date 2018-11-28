@@ -1,13 +1,15 @@
 #! /usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 import base64
 import pprint
 import sys
 from binascii import unhexlify
 
-import btc
-from btc import SerializationError, SerializationTruncationError
+from . import btc
+from .btc import SerializationError, SerializationTruncationError
 from jmclient.configure import jm_single
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)
@@ -97,7 +99,7 @@ class Maker(object):
         # Need to choose an input utxo pubkey to sign with
         # (no longer using the coinjoin pubkey from 0.2.0)
         # Just choose the first utxo in self.utxos and retrieve key from wallet.
-        auth_address = utxos[utxos.keys()[0]]['address']
+        auth_address = utxos[list(utxos.keys())[0]]['address']
         auth_key = self.wallet.get_key_from_addr(auth_address)
         auth_pub = btc.privtopub(auth_key)
         btc_sig = btc.ecdsa_sign(kphex, auth_key)
@@ -140,7 +142,7 @@ class Maker(object):
                 #also, the items in witness are not serialize_script-ed.
                 sigmsg = b''.join(btc.serialize_script_unit(x)
                                   for x in txs['ins'][index]['txinwitness']) + sigmsg
-            sigs.append(base64.b64encode(sigmsg))
+            sigs.append(base64.b64encode(sigmsg).decode('ascii'))
         return (True, sigs)
 
     def verify_unsigned_tx(self, txd, offerinfo):

@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division,
 from builtins import *
 
 from .support import (get_log, chunks, debug_silence, debug_dump_object,
-                      joinmarket_alert, core_alert, get_password, _byteify,
+                      joinmarket_alert, core_alert, get_password,
                       set_logging_level)
-from commands import *
+from .commands import *
 

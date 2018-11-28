@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Test creation of segwit transactions.'''
 
 import binascii
@@ -20,7 +22,7 @@ def test_segwit_valid_txs(setup_segwit):
         if len(j) < 2:
             continue
         deserialized_tx = btc.deserialize(str(j[1]))
-        print pformat(deserialized_tx)
+        print(pformat(deserialized_tx))
         assert btc.serialize(deserialized_tx) == str(j[1])
         #TODO use bcinterface to decoderawtransaction
         #and compare the json values
@@ -93,7 +95,7 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     # FIXME: encoding mess, mktx should accept binary input formats
     tx_ins = []
     for i, (txid, data) in sorted(all_ins.items(), key=lambda x: x[0]):
-        tx_ins.append('{}:{}'.format(binascii.hexlify(txid[0]), txid[1]))
+        tx_ins.append('{}:{}'.format(binascii.hexlify(txid[0]).decode('ascii'), txid[1]))
 
     # create outputs
     FEE = 50000
@@ -104,9 +106,9 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     change_amt = total_amt_in_sat - amount - FEE
 
     tx_outs = [
-        {'script': binascii.hexlify(cj_script),
+        {'script': binascii.hexlify(cj_script).decode('ascii'),
          'value': amount},
-        {'script': binascii.hexlify(change_script),
+        {'script': binascii.hexlify(change_script).decode('ascii'),
          'value': change_amt}]
     tx = btc.deserialize(btc.mktx(tx_ins, tx_outs))
     binarize_tx(tx)
@@ -133,7 +135,7 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     print(tx)
 
     # push and verify
-    txid = jm_single().bc_interface.pushtx(binascii.hexlify(btc.serialize(tx)))
+    txid = jm_single().bc_interface.pushtx(binascii.hexlify(btc.serialize(tx)).decode('ascii'))
     assert txid
 
     balances = jm_single().bc_interface.get_received_by_addr(

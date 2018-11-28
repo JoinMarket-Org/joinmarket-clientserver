@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 from commontest import DummyBlockchainInterface
 import jmbitcoin as bitcoin
 import binascii
@@ -8,6 +11,7 @@ import copy
 import shutil
 import pytest
 import json
+import struct
 from base64 import b64encode
 from jmclient import load_program_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
@@ -84,7 +88,7 @@ class DummyWallet(SegwitLegacyWallet):
 
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
-        privs = [x*32 + "\x01" for x in [chr(y) for y in range(1,6)]]
+        privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,6)]]
         addrs = {}
         """
         mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ
@@ -95,9 +99,9 @@ class DummyWallet(SegwitLegacyWallet):
         """
         for p in privs:
             addrs[p] = bitcoin.privkey_to_address(p, False, magicbyte=0x6f)
-        for p, a in addrs.iteritems():
+        for p, a in iteritems(addrs):
             if a == addr:
-                return binascii.hexlify(p)
+                return binascii.hexlify(p).decode('ascii')
         raise ValueError("No such keypair")
 
     def _is_my_bip32_path(self, path):
@@ -154,7 +158,7 @@ def test_make_commitment(createcmtdata, failquery, external):
         os.remove('dummyext')
     old_commitment_file = get_commitment_file()
     with open('dummyext', 'wb') as f:
-        f.write(json.dumps(t_dummy_ext, indent=4))
+        f.write(json.dumps(t_dummy_ext, indent=4).encode('utf-8'))
     if external:
         set_commitment_file('dummyext')
     old_taker_utxo_age = jm_single().config.get("POLICY", "taker_utxo_age")
@@ -301,7 +305,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         return clean_up()        
     if schedule[0][1] == 199599800:
         #need to force negative fees to make this feasible
-        for k, v in taker.orderbook.iteritems():
+        for k, v in iteritems(taker.orderbook):
             v['cjfee'] = '-0.002'
         #            change_amount = (total_input - self.cjamount -
         #                     self.orderbook[nick]['txfee'] + real_cjfee)
@@ -320,7 +324,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         #TODO note this test is not adequate, because the code is not;
         #the code does not *DO* anything if a condition is unexpected.
         taker.input_utxos = copy.deepcopy(t_utxos_by_mixdepth)[0]
-        for k,v in taker.input_utxos.iteritems():
+        for k,v in iteritems(taker.input_utxos):
             v["value"] = int(0.999805228 * v["value"])
         res = taker.receive_utxos(maker_response)
         assert res[0]
@@ -389,7 +393,7 @@ def test_on_sig(createcmtdata, dummyaddr, schedule):
     #return the right values in query_utxo_set
     
     #create 2 privkey + utxos that are to be ours
-    privs = [x*32 + "\x01" for x in [chr(y) for y in range(1,6)]]
+    privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,6)]]
     utxos = [str(x)*64+":1" for x in range(5)]
     fake_query_results = [{'value': 200000000,
                            'utxo': utxos[x],
@@ -426,12 +430,12 @@ def test_on_sig(createcmtdata, dummyaddr, schedule):
     taker.my_cj_addr = dummyaddr
     #make signatures for the last 3 fake utxos, considered as "not ours":
     tx3 = bitcoin.sign(tx, 2, privs[2])
-    sig3 = b64encode(bitcoin.deserialize(tx3)['ins'][2]['script'].decode('hex'))
+    sig3 = b64encode(binascii.unhexlify(bitcoin.deserialize(tx3)['ins'][2]['script']))
     taker.on_sig("cp1", sig3)
     #try sending the same sig again; should be ignored
     taker.on_sig("cp1", sig3)
     tx4 = bitcoin.sign(tx, 3, privs[3])
-    sig4 = b64encode(bitcoin.deserialize(tx4)['ins'][3]['script'].decode('hex'))
+    sig4 = b64encode(binascii.unhexlify(bitcoin.deserialize(tx4)['ins'][3]['script']))
     #try sending junk instead of cp2's correct sig
     taker.on_sig("cp2", str("junk"))
     taker.on_sig("cp2", sig4)
@@ -440,7 +444,7 @@ def test_on_sig(createcmtdata, dummyaddr, schedule):
     #signing, try with an injected failure of query utxo set, which should
     #prevent this signature being accepted.
     dbci.setQUSFail(True)
-    sig5 = b64encode(bitcoin.deserialize(tx5)['ins'][4]['script'].decode('hex'))
+    sig5 = b64encode(binascii.unhexlify(bitcoin.deserialize(tx5)['ins'][4]['script']))
     taker.on_sig("cp3", sig5)
     #allow it to succeed, and try again
     dbci.setQUSFail(False)

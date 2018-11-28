@@ -6,6 +6,8 @@
 blockchain.cache
 env
 htmlcov/
+joinmarket.cfg
+joinmarket.cfg.bak
 scripts/joinmarket.cfg
 scripts/cmttools/commitments.json
 scripts/blacklist
@@ -13,6 +15,7 @@ alicekey
 alicepubkey
 bobkey
 commitments_debug.txt
+dummyext
 deps/
 jmvenv/
 logs/

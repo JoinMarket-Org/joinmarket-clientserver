@@ -1,4 +1,7 @@
-from __future__ import print_function, absolute_import, division, unicode_literals
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import native
 
 import os
 import shutil
@@ -244,7 +247,7 @@ class Storage(object):
 
     def _encrypt(self, data, iv):
         encrypter = pyaes.Encrypter(
-                pyaes.AESModeOfOperationCBC(self._hash.hash, iv=iv))
+                pyaes.AESModeOfOperationCBC(self._hash.hash, iv=native(iv)))
         enc_data = encrypter.feed(self.MAGIC_DETECT_ENC + data)
         enc_data += encrypter.feed()
 
@@ -252,7 +255,7 @@ class Storage(object):
 
     def _decrypt(self, data, iv):
         decrypter = pyaes.Decrypter(
-                pyaes.AESModeOfOperationCBC(self._hash.hash, iv=iv))
+                pyaes.AESModeOfOperationCBC(self._hash.hash, iv=native(iv)))
         try:
             dec_data = decrypter.feed(data)
             dec_data += decrypter.feed()

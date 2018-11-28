@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 #
 # Electrum - lightweight Bitcoin client
 # Copyright (C) 2011 thomasv@gitorious
@@ -244,19 +247,19 @@ n = 1626
 def mn_encode(message):
     assert len(message) % 8 == 0
     out = []
-    for i in range(len(message) / 8):
+    for i in range(len(message) // 8):
         word = message[8 * i:8 * i + 8]
         x = int(word, 16)
         w1 = (x % n)
-        w2 = ((x / n) + w1) % n
-        w3 = ((x / n / n) + w2) % n
+        w2 = ((x // n) + w1) % n
+        w3 = ((x // n // n) + w2) % n
         out += [words[w1], words[w2], words[w3]]
     return out
 
 
 def mn_decode(wlist):
     out = ''
-    for i in range(len(wlist) / 3):
+    for i in range(len(wlist) // 3):
         word1, word2, word3 = wlist[3 * i:3 * i + 3]
         w1 = words.index(word1)
         w2 = (words.index(word2)) % n

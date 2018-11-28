@@ -14,6 +14,13 @@ from jmbase.support import get_log, joinmarket_alert, DUST_THRESHOLD
 log = get_log()
 
 
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
+
 class JMTakerError(Exception):
     pass
 
@@ -30,11 +37,15 @@ class OrderbookWatch(object):
 
         self.dblock = threading.Lock()
         con = sqlite3.connect(":memory:", check_same_thread=False)
-        con.row_factory = sqlite3.Row
+        con.row_factory = dict_factory
         self.db = con.cursor()
-        self.db.execute("CREATE TABLE orderbook(counterparty TEXT, "
-                        "oid INTEGER, ordertype TEXT, minsize INTEGER, "
-                        "maxsize INTEGER, txfee INTEGER, cjfee TEXT);")
+        try:
+            self.dblock.acquire(True)
+            self.db.execute("CREATE TABLE orderbook(counterparty TEXT, "
+                            "oid INTEGER, ordertype TEXT, minsize INTEGER, "
+                            "maxsize INTEGER, txfee INTEGER, cjfee TEXT);")
+        finally:
+            self.dblock.release()
 
     @staticmethod
     def on_set_topic(newtopic):
@@ -59,7 +70,11 @@ class OrderbookWatch(object):
                       txfee, cjfee):
         try:
             self.dblock.acquire(True)
-            if int(oid) < 0 or int(oid) > sys.maxint:
+            if sys.version_info >= (3,0):
+                maxint = sys.maxsize
+            else:
+                maxint = sys.maxint
+            if int(oid) < 0 or int(oid) > maxint:
                 log.debug("Got invalid order ID: " + oid + " from " +
                           counterparty)
                 return
@@ -114,16 +129,25 @@ class OrderbookWatch(object):
             self.dblock.release()
 
     def on_order_cancel(self, counterparty, oid):
-        with self.dblock:
+        try:
+            self.dblock.acquire(True)
             self.db.execute(
                 ("DELETE FROM orderbook WHERE "
                  "counterparty=? AND oid=?;"), (counterparty, oid))
+        finally:
+            self.dblock.release()
 
     def on_nick_leave(self, nick):
-        with self.dblock:
+        try:
+            self.dblock.acquire(True)
             self.db.execute('DELETE FROM orderbook WHERE counterparty=?;',
                             (nick,))
+        finally:
+            self.dblock.release()
 
     def on_disconnect(self):
-        with self.dblock:
+        try:
+            self.dblock.acquire(True)
             self.db.execute('DELETE FROM orderbook;')
+        finally:
+            self.dblock.release()

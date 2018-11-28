@@ -7,7 +7,7 @@ messaging protocol (*not* Joinmarket p2p protocol).
 Used for AMP asynchronous messages.
 """
 from twisted.protocols.amp import Boolean, Command, Integer, Unicode
-from .bigstring import BigString
+from .bigstring import BigUnicode
 
 class DaemonNotReady(Exception):
     pass
@@ -185,7 +185,7 @@ class JMOffers(JMCommand):
     """Return the entire contents of the
     orderbook to TAKER, as a json-ified dict.
     """
-    arguments = [(b'orderbook', BigString())]
+    arguments = [(b'orderbook', BigUnicode())]
 
 class JMFillResponse(JMCommand):
     """Returns ioauth data from MAKER if successful.

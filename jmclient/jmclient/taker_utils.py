@@ -1,4 +1,7 @@
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 import logging
 import pprint
 import os
@@ -53,7 +56,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
             log.error(
                 "There are no utxos in mixdepth: " + str(mixdepth) + ", quitting.")
             return
-        total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
+        total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
         fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype)
         outs = [{"address": destaddr, "value": total_inputs_val - fee_est}]
     else:
@@ -64,7 +67,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
             fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype)
         else:
             fee_est = initial_fee_est
-        total_inputs_val = sum([va['value'] for u, va in utxos.iteritems()])
+        total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
         changeval = total_inputs_val - fee_est - amount
         outs = [{"value": amount, "address": destaddr}]
         change_addr = wallet.get_internal_addr(mixdepth)
@@ -75,7 +78,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     log.info("Using a fee of : " + str(fee_est) + " satoshis.")
     if amount != 0:
         log.info("Using a change value of: " + str(changeval) + " satoshis.")
-    tx = sign_tx(wallet, mktx(utxos.keys(), outs), utxos)
+    tx = sign_tx(wallet, mktx(list(utxos.keys()), outs), utxos)
     txsigned = deserialize(tx)
     log.info("Got signed transaction:\n")
     log.info(tx + "\n")
@@ -84,7 +87,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     log.info("Sends: " + str(actual_amount) + " satoshis to address: " + destaddr)
     if not answeryes:
         if not accept_callback:
-            if raw_input('Would you like to push to the network? (y/n):')[0] != 'y':
+            if input('Would you like to push to the network? (y/n):')[0] != 'y':
                 log.info("You chose not to broadcast the transaction, quitting.")
                 return False
         else:
@@ -112,7 +115,7 @@ def sign_tx(wallet, tx, utxos):
     # FIXME: ugly hack
     tx_bin = deserialize(unhexlify(serialize(stx)))
     wallet.sign_tx(tx_bin, our_inputs)
-    return hexlify(serialize(tx_bin))
+    return hexlify(serialize(tx_bin)).decode('ascii')
 
 
 def import_new_addresses(wallet, addr_list):
@@ -239,7 +242,7 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
                 print(' for example click the button that gives a new deposit address')
                 print('\n'.join(['=' * 60] * 1))
                 while True:
-                    destaddr = raw_input('insert new address: ')
+                    destaddr = input('insert new address: ')
                     addr_valid, errormsg = validate_address(destaddr)
                     if addr_valid:
                         break

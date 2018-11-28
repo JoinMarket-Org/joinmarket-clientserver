@@ -1,4 +1,6 @@
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 # Copyright (C) 2013,2015 by Daniel Kraft <d@domob.eu>
 # Copyright (C) 2014 by phelix / blockchained.com
 #
@@ -23,8 +25,9 @@ from __future__ import absolute_import, print_function
 import errno
 import socket
 import base64
-import httplib
+import http.client
 import json
+from decimal import Decimal
 from jmclient import get_log
 
 jlog = get_log()
@@ -56,8 +59,8 @@ class JsonRpc(object):
 
     def __init__(self, host, port, user, password, wallet_file=""):
         self.host = host
-        self.port = port
-        self.conn = httplib.HTTPConnection(self.host, self.port)
+        self.port = int(port)
+        self.conn = http.client.HTTPConnection(self.host, self.port)
         self.authstr = "%s:%s" % (user, password)
         if len(wallet_file) > 0:
             self.url = "/wallet/" + wallet_file
@@ -76,7 +79,7 @@ class JsonRpc(object):
         headers = {"User-Agent": "joinmarket",
                    "Content-Type": "application/json",
                    "Accept": "application/json"}
-        headers["Authorization"] = "Basic %s" % base64.b64encode(self.authstr)
+        headers["Authorization"] = b"Basic %s" % base64.b64encode(self.authstr.encode('utf-8'))
 
         body = json.dumps(obj)
 
@@ -97,20 +100,26 @@ class JsonRpc(object):
 
                 data = response.read()
 
-                return json.loads(data)
+                return json.loads(data.decode('utf-8'), parse_float=Decimal)
 
             except JsonRpcConnectionError as exc:
                 raise exc
-            except httplib.BadStatusLine:
+            except http.client.BadStatusLine:
                 return "CONNFAILURE"
             except socket.error as e:
-                if e.errno != errno.ECONNRESET:
+                if e.errno == errno.ECONNRESET:
+                    jlog.warn('Connection was reset, attempting reconnect.')
+                    self.conn.close()
+                    self.conn.connect()
+                    continue
+                elif e.errno == errno.EPIPE:
+                    jlog.warn('Connection had broken pipe, attempting reconnect.')
+                    self.conn.close()
+                    self.conn.connect()
+                    continue
+                else:
                     jlog.error('Unhandled connection error ' + str(e))
                     raise e
-                jlog.warn('Connection was reset, attempting reconnect.')
-                self.conn.close()
-                self.conn.connect()
-                continue
             except Exception as exc:
                 raise JsonRpcConnectionError("JSON-RPC connection failed. Err:" +
                                              repr(exc))
@@ -136,7 +145,7 @@ class JsonRpc(object):
                 response_received = True
                 break
             #Failure means keepalive timed out, just make a new one
-            self.conn = httplib.HTTPConnection(self.host, self.port)
+            self.conn = http.client.HTTPConnection(self.host, self.port)
         if not response_received:
             raise JsonRpcConnectionError("Unable to connect over RPC")
         if response["id"] != currentId:

@@ -1,4 +1,6 @@
-from __future__ import print_function, absolute_import, division, unicode_literals
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Wallet functionality tests.'''
 
 import os
@@ -64,14 +66,14 @@ def get_bip39_vectors():
 def test_bip39_seeds(monkeypatch, setup_wallet, entropy, mnemonic, key, xpriv):
     jm_single().config.set('BLOCKCHAIN', 'network', 'mainnet')
     created_entropy = SegwitLegacyWallet.entropy_from_mnemonic(mnemonic)
-    assert entropy == hexlify(created_entropy)
+    assert entropy == hexlify(created_entropy).decode('ascii')
     storage = VolatileStorage()
     SegwitLegacyWallet.initialize(
         storage, get_network(), entropy=created_entropy,
         entropy_extension=b'TREZOR', max_mixdepth=4)
     wallet = SegwitLegacyWallet(storage)
     assert (mnemonic, b'TREZOR') == wallet.get_mnemonic_words()
-    assert key == hexlify(wallet._create_master_key())
+    assert key == hexlify(wallet._create_master_key()).decode('ascii')
 
     # need to monkeypatch this, else we'll default to the BIP-49 path
     monkeypatch.setattr(SegwitLegacyWallet, '_get_bip32_base_path',
@@ -93,7 +95,7 @@ def test_bip49_seed(monkeypatch, setup_wallet):
     wallet = SegwitLegacyWallet(storage)
     assert (mnemonic, None) == wallet.get_mnemonic_words()
     assert account0_xpriv == wallet.get_bip32_priv_export(0)
-    assert addr0_script_hash == hexlify(wallet.get_external_script(0)[2:-1])
+    assert addr0_script_hash == hexlify(wallet.get_external_script(0)[2:-1]).decode('ascii')
 
     # FIXME: is this desired behaviour? BIP49 wallet will not return xpriv for
     # the root key but only for key after base path
@@ -298,13 +300,13 @@ def test_signing_imported(setup_wallet, wif, keytype, type_check):
     MIXDEPTH = 0
     path = wallet.import_private_key(MIXDEPTH, wif, keytype)
     utxo = fund_wallet_addr(wallet, wallet.get_addr_path(path))
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]), utxo[1])],
+    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])],
                                   ['00'*17 + ':' + str(10**8 - 9000)]))
     binarize_tx(tx)
     script = wallet.get_script_path(path)
     wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)
-    txout = jm_single().bc_interface.pushtx(hexlify(btc.serialize(tx)))
+    txout = jm_single().bc_interface.pushtx(hexlify(btc.serialize(tx)).decode('ascii'))
     assert txout
 
 
@@ -318,13 +320,13 @@ def test_signing_simple(setup_wallet, wallet_cls, type_check):
     wallet_cls.initialize(storage, get_network())
     wallet = wallet_cls(storage)
     utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(0))
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]), utxo[1])],
+    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])],
                                   ['00'*17 + ':' + str(10**8 - 9000)]))
     binarize_tx(tx)
     script = wallet.get_script(0, 1, 0)
     wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)
-    txout = jm_single().bc_interface.pushtx(hexlify(btc.serialize(tx)))
+    txout = jm_single().bc_interface.pushtx(hexlify(btc.serialize(tx)).decode('ascii'))
     assert txout
 
 
@@ -381,7 +383,7 @@ def test_add_new_utxos(setup_wallet):
     tx_scripts.append(b'\x22'*17)
 
     tx = btc.deserialize(btc.mktx(
-        ['0'*64 + ':2'], [{'script': hexlify(s), 'value': 10**8}
+        ['0'*64 + ':2'], [{'script': hexlify(s).decode('ascii'), 'value': 10**8}
                           for s in tx_scripts]))
     binarize_tx(tx)
     txid = b'\x01' * 32
@@ -417,7 +419,7 @@ def test_remove_old_utxos(setup_wallet):
     tx_inputs.append((b'\x12'*32, 6))
 
     tx = btc.deserialize(btc.mktx(
-        ['{}:{}'.format(hexlify(txid), i) for txid, i in tx_inputs],
+        ['{}:{}'.format(hexlify(txid).decode('ascii'), i) for txid, i in tx_inputs],
         ['0' * 36 + ':' + str(3 * 10**8 - 1000)]))
     binarize_tx(tx)
 

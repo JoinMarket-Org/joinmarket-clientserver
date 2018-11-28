@@ -38,7 +38,7 @@ def get_pubkey(kp, as_hex=False):
     optionally in hex."""
     if not isinstance(kp, public.SecretKey):
         raise NaclError("Object is not a nacl keypair")
-    return kp.hex_pk() if as_hex else kp.pk
+    return kp.hex_pk().decode('ascii') if as_hex else kp.pk
 
 
 def init_pubkey(hexpk, fname=None):
@@ -48,7 +48,7 @@ def init_pubkey(hexpk, fname=None):
     """
     try:
         bin_pk = binascii.unhexlify(hexpk)
-    except TypeError:
+    except (TypeError, binascii.Error):
         raise NaclError("Invalid hex")
     if not len(bin_pk) == 32:
         raise NaclError("Public key must be 32 bytes")
@@ -91,7 +91,7 @@ Notes:
 # encoding for passing over the wire
 def encrypt_encode(msg, box):
     encrypted = box.encrypt(msg)
-    return base64.b64encode(encrypted)
+    return base64.b64encode(encrypted).decode('ascii')
 
 
 def decode_decrypt(msg, box):

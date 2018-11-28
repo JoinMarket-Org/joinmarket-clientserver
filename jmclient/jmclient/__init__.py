@@ -1,4 +1,6 @@
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
 
 import logging
 
@@ -6,7 +8,7 @@ import logging
 #other implementations (like wallet plugins)
 #can optionally include their own, which must
 #be implemented as an interface in btc.py
-from btc import *
+from .btc import *
 
 from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       cheapest_order_choose, weighted_order_choose,
@@ -17,7 +19,7 @@ from .jsonrpc import JsonRpcError, JsonRpcConnectionError, JsonRpc
 from .old_mnemonic import mn_decode, mn_encode
 from .slowaes import decryptData, encryptData
 from .taker import Taker
-from .wallet import (estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
+from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
                      SegwitLegacyWallet, UTXOManager, WALLET_IMPLEMENTATIONS)
 from .storage import (Argon2Hash, Storage, StorageError,

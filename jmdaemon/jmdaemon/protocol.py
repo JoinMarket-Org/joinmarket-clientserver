@@ -17,10 +17,10 @@ offertypes = {"reloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
               "swabsoffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
                            (int, "txfee"), (int, "cjfee")]}
 
-offername_list = offertypes.keys()
+offername_list = list(offertypes.keys())
 
-ORDER_KEYS = [b'counterparty', b'oid', b'ordertype', b'minsize', b'maxsize', b'txfee',
-              b'cjfee']
+ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
+              'cjfee']
 
 COMMAND_PREFIX = '!'
 JOINMARKET_NICK_HEADER = 'J'
@@ -36,5 +36,5 @@ commitment_broadcast_list = ["hp2"]
 plaintext_commands += offername_list
 plaintext_commands += commitment_broadcast_list
 public_commands = commitment_broadcast_list + ["orderbook", "cancel"
-                                              ] + list(offername_list)
+                                              ] + offername_list
 private_commands = encrypted_commands + plaintext_commands

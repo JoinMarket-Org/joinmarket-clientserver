@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
+from future.utils import iteritems
 
 '''
 Joinmarket GUI using PyQt for doing coinjoins.
@@ -707,7 +710,7 @@ class SpendTab(QWidget):
         mbinfo.append(" ")
         mbinfo.append("Counterparties chosen:")
         mbinfo.append('Name,     Order id, Coinjoin fee (sat.)')
-        for k, o in offers.iteritems():
+        for k, o in iteritems(offers):
             if o['ordertype'] in ['swreloffer', 'reloffer']:
                 display_fee = int(self.taker.cjamount *
                                   float(o['cjfee'])) - int(o['txfee'])
@@ -1256,7 +1259,7 @@ class JMMainWindow(QMainWindow):
                                        mbtype='crit')
                         return
                     transaction.writerow(["%34s" % addr, pk])
-        except (IOError, os.error), reason:
+        except (IOError, os.error) as reason:
             export_error_label = "JoinmarketQt was unable to produce a private key-export."
             JMQtMessageBox(None,
                            export_error_label + "\n" + str(reason),

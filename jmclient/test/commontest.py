@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Some helper functions for testing'''
 
 import os
@@ -131,7 +133,7 @@ def make_sign_and_push(ins_full,
     from wallets
     """
     total = sum(x['value'] for x in ins_full.values())
-    ins = ins_full.keys()
+    ins = list(ins_full.keys())
     #random output address and change addr
     output_addr = wallet.get_new_addr(1, 1) if not output_addr else output_addr
     change_addr = wallet.get_new_addr(1, 0) if not change_addr else change_addr
@@ -149,7 +151,7 @@ def make_sign_and_push(ins_full,
     binarize_tx(de_tx)
     de_tx = wallet.sign_tx(de_tx, scripts, hashcode=hashcode)
     #pushtx returns False on any error
-    tx = binascii.hexlify(btc.serialize(de_tx))
+    tx = binascii.hexlify(btc.serialize(de_tx)).decode('ascii')
     push_succeed = jm_single().bc_interface.pushtx(tx)
     if push_succeed:
         return btc.txhash(tx)
@@ -178,7 +180,7 @@ def make_wallets(n,
     if len(wallet_structures) != n:
         raise Exception("Number of wallets doesn't match wallet structures")
     if not fixed_seeds:
-        seeds = chunks(binascii.hexlify(os.urandom(BIP32Wallet.ENTROPY_BYTES * n)),
+        seeds = chunks(binascii.hexlify(os.urandom(BIP32Wallet.ENTROPY_BYTES * n)).decode('ascii'),
                        BIP32Wallet.ENTROPY_BYTES * 2)
     else:
         seeds = fixed_seeds

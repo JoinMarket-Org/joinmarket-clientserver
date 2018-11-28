@@ -2,8 +2,10 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
+from future.utils import iteritems
 import abc
 import base64
+import binascii
 import threading
 from jmdaemon import encrypt_encode, decode_decrypt, COMMAND_PREFIX,\
     NICK_HASH_LENGTH, NICK_MAX_ENCODED, plaintext_commands,\
@@ -320,7 +322,7 @@ class MessageChannelCollection(object):
         """
         for mc in self.available_channels():
             filtered_nick_order_dict = {k: v
-                                        for k, v in nick_order_dict.iteritems()
+                                        for k, v in iteritems(nick_order_dict)
                                         if mc == self.active_channels[k]}
             mc.fill_orders(filtered_nick_order_dict, cj_amount, taker_pubkey,
                            commitment)
@@ -336,7 +338,7 @@ class MessageChannelCollection(object):
         #TODO supporting sending to arbitrary nicks
         #adds quite a bit of complexity, not supported
         #initially; will fail if nick is not part of TX
-        txb64 = base64.b64encode(txhex.decode('hex'))
+        txb64 = base64.b64encode(binascii.unhexlify(txhex)).decode('ascii')
         self.prepare_privmsg(nick, "push", txb64)
 
     def send_tx(self, nick_list, txhex):
@@ -356,11 +358,11 @@ class MessageChannelCollection(object):
                 tx_nick_sets[self.active_channels[nick]] = [nick]
             else:
                 tx_nick_sets[self.active_channels[nick]].append(nick)
-        for mc, nl in tx_nick_sets.iteritems():
+        for mc, nl in iteritems(tx_nick_sets):
             self.prepare_send_tx(mc, nl, txhex)
 
     def prepare_send_tx(self, mc, nick_list, txhex):
-        txb64 = base64.b64encode(txhex.decode('hex'))
+        txb64 = base64.b64encode(binascii.unhexlify(txhex)).decode('ascii')
         for nick in nick_list:
             self.prepare_privmsg(nick, "tx", txb64, mc=mc)
 
@@ -790,7 +792,7 @@ class MessageChannel(object):
 
     # Taker callbacks
     def fill_orders(self, nick_order_dict, cj_amount, taker_pubkey, commitment):
-        for c, order in nick_order_dict.iteritems():
+        for c, order in iteritems(nick_order_dict):
             msg = str(order['oid']) + ' ' + str(cj_amount) + ' ' + taker_pubkey
             msg += ' ' + commitment
             self.privmsg(c, 'fill', msg)
@@ -798,7 +800,7 @@ class MessageChannel(object):
     def push_tx(self, nick, txhex):
         #Note: not currently used; will require prepare_privmsg call so
         #not in this class (see send_error)
-        txb64 = base64.b64encode(txhex.decode('hex'))
+        txb64 = base64.b64encode(binascii.unhexlify(txhex)).decode('ascii')
         self.privmsg(nick, 'push', txb64)
 
     def send_error(self, nick, errormsg):
@@ -968,7 +970,7 @@ class MessageChannel(object):
                 elif _chunks[0] == 'tx':
                     b64tx = _chunks[1]
                     try:
-                        txhex = base64.b64decode(b64tx).encode('hex')
+                        txhex = binascii.hexlify(base64.b64decode(b64tx)).decode('ascii')
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
                         return
@@ -977,7 +979,7 @@ class MessageChannel(object):
                 elif _chunks[0] == 'push':
                     b64tx = _chunks[1]
                     try:
-                        txhex = base64.b64decode(b64tx).encode('hex')
+                        txhex = binascii.hexlify(base64.b64decode(b64tx)).decode('ascii')
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
                         return

@@ -15,6 +15,7 @@ from msgdata import *
 import time
 import hashlib
 import base64
+import struct
 import traceback
 import threading
 import jmbitcoin as bitcoin
@@ -24,9 +25,9 @@ from dummy_mc import DummyMessageChannel
 jlog = get_log()
 
 def make_valid_nick(i=0):
-    nick_priv = hashlib.sha256(chr(i)*16).hexdigest() + '01'
+    nick_priv = hashlib.sha256(struct.pack(b'B', i)*16).hexdigest() + '01'
     nick_pubkey = bitcoin.privtopub(nick_priv)
-    nick_pkh_raw = hashlib.sha256(nick_pubkey).digest()[:NICK_HASH_LENGTH]
+    nick_pkh_raw = hashlib.sha256(nick_pubkey.encode('ascii')).digest()[:NICK_HASH_LENGTH]
     nick_pkh = bitcoin.b58encode(nick_pkh_raw)
     #right pad to maximum possible; b58 is not fixed length.
     #Use 'O' as one of the 4 not included chars in base58.
@@ -271,8 +272,8 @@ def test_setup_mc():
     dmcs[0].on_privmsg(cps[2], "!reloffer sig1 sig2")
     #Simulating receipt of encrypted messages:
     #ioauth
-    dummy_on_ioauth_msg = "deadbeef:0,deadbeef:1 XauthpubX XcjaddrX XchangeaddrX XbtcsigX"
-    b64dummyioauth = base64.b64encode(dummy_on_ioauth_msg)
+    dummy_on_ioauth_msg = b"deadbeef:0,deadbeef:1 XauthpubX XcjaddrX XchangeaddrX XbtcsigX"
+    b64dummyioauth = base64.b64encode(dummy_on_ioauth_msg).decode('ascii')
     dmcs[0].on_privmsg(cps[3], "!ioauth " + b64dummyioauth + " sig1 sig2")
     #Try with a garbage b64 (but decodable); should throw index error at least
     dmcs[0].on_privmsg(cps[3], "!ioauth _*_ sig1 sig2")
@@ -282,23 +283,23 @@ def test_setup_mc():
     b64dummyioauth = "999"
     dmcs[0].on_privmsg(cps[3], "!ioauth " + b64dummyioauth + " sig1 sig2")
     #sig
-    dummy_on_sig_msg = "dummysig"
-    b64dummysig = base64.b64encode(dummy_on_sig_msg)
+    dummy_on_sig_msg = b"dummysig"
+    b64dummysig = base64.b64encode(dummy_on_sig_msg).decode('ascii')
     dmcs[0].on_privmsg(cps[3], "!sig " + b64dummysig + " sig1 sig2")
     #auth
-    dummy_auth_msg = "dummyauth"
-    b64dummyauth = base64.b64encode(dummy_auth_msg)
+    dummy_auth_msg = b"dummyauth"
+    b64dummyauth = base64.b64encode(dummy_auth_msg).decode('ascii')
     dmcs[0].on_privmsg(cps[2], "!auth " + b64dummyauth + " sig1 sig2")
     #invalid auth (only no message is invalid)
-    dmcs[0].on_privmsg(cps[3], "!auth " +base64.b64encode("") + " sig1 sig2")
+    dmcs[0].on_privmsg(cps[3], "!auth " +base64.b64encode(b"").decode('ascii') + " sig1 sig2")
     #tx
     #valid
-    dummy_tx = "deadbeefdeadbeef"
+    dummy_tx = b"deadbeefdeadbeef"
     b64dummytx = base64.b64encode(dummy_tx)
-    b642dummytx = base64.b64encode(b64dummytx)
+    b642dummytx = base64.b64encode(b64dummytx).decode('ascii')
     dmcs[0].on_privmsg(cps[2], "!tx " + b642dummytx + " sig1 sig2")
-    badbase64tx = "999"
-    badbase64tx2 = base64.b64encode(badbase64tx)
+    badbase64tx = b"999"
+    badbase64tx2 = base64.b64encode(badbase64tx).decode('ascii')
     #invalid txhex; here the first round will work (msg decryption), second shouldn't
     dmcs[0].on_privmsg(cps[2], "!tx " + badbase64tx2 + " sig1 sig2")
     #push

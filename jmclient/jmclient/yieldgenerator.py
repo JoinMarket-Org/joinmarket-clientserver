@@ -1,5 +1,8 @@
 #! /usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 
 import datetime
 import os
@@ -79,7 +82,7 @@ class YieldGeneratorBasic(YieldGenerator):
 
     def create_my_orders(self):
         mix_balance = self.wallet.get_balance_by_mixdepth(verbose=False)
-        if len([b for m, b in mix_balance.iteritems() if b > 0]) == 0:
+        if len([b for m, b in iteritems(mix_balance) if b > 0]) == 0:
             jlog.error('do not have any coins left')
             return []
 
@@ -118,7 +121,7 @@ class YieldGeneratorBasic(YieldGenerator):
         max_mix = max(mix_balance, key=mix_balance.get)
 
         filtered_mix_balance = [m
-                                for m in mix_balance.iteritems()
+                                for m in iteritems(mix_balance)
                                 if m[1] >= total_amount]
         if not filtered_mix_balance:
             return None, None, None

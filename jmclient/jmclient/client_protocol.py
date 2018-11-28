@@ -1,5 +1,8 @@
 #! /usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 from twisted.internet import protocol, reactor, task
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
@@ -17,8 +20,7 @@ import sys
 from jmclient import (jm_single, get_irc_mchannels, get_log, get_p2sh_vbyte,
                       RegtestBitcoinCoreInterface)
 from .output import fmt_tx_data
-from jmbase import _byteify
-import btc
+from . import btc
 
 jlog = get_log()
 
@@ -60,7 +62,7 @@ class JMClientProtocol(amp.AMP):
 
     def set_nick(self):
         self.nick_pubkey = btc.privtopub(self.nick_priv)
-        self.nick_pkh_raw = hashlib.sha256(self.nick_pubkey).digest()[
+        self.nick_pkh_raw = btc.bin_sha256(self.nick_pubkey)[
                     :self.nick_hashlen]
         self.nick_pkh = btc.b58encode(self.nick_pkh_raw)
         #right pad to maximum possible; b58 is not fixed length.
@@ -107,7 +109,7 @@ class JMClientProtocol(amp.AMP):
             jlog.debug("nick signature verification failed, ignoring.")
             verif_result = False
         #check that nick matches hash of pubkey
-        nick_pkh_raw = hashlib.sha256(pubkey).digest()[:hashlen]
+        nick_pkh_raw = btc.bin_sha256(pubkey)[:hashlen]
         nick_stripped = nick[2:2 + max_encoded]
         #strip right padding
         nick_unpadded = ''.join([x for x in nick_stripped if x != 'O'])
@@ -206,7 +208,7 @@ class JMMakerClientProtocol(JMClientProtocol):
 
     @commands.JMTXReceived.responder
     def on_JM_TX_RECEIVED(self, nick, txhex, offer):
-        offer = _byteify(json.loads(offer))
+        offer = json.loads(offer)
         retval = self.client.on_tx_received(nick, txhex, offer)
         if not retval[0]:
             jlog.info("Maker refuses to continue on receipt of tx")
@@ -230,7 +232,7 @@ class JMMakerClientProtocol(JMClientProtocol):
     def unconfirm_callback(self, txd, txid):
         #find the offer for this tx
         offerinfo = None
-        for k,v in self.finalized_offers.iteritems():
+        for k,v in iteritems(self.finalized_offers):
             #Tx considered defined by its output set
             if v["txd"]["outs"] == txd["outs"]:
                 offerinfo = v
@@ -254,7 +256,7 @@ class JMMakerClientProtocol(JMClientProtocol):
     def confirm_callback(self, txd, txid, confirmations):
         #find the offer for this tx
         offerinfo = None
-        for k,v in self.finalized_offers.iteritems():
+        for k,v in iteritems(self.finalized_offers):
             #Tx considered defined by its output set
             if v["txd"]["outs"] == txd["outs"]:
                 offerinfo = v

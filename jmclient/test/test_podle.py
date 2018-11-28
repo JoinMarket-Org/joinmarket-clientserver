@@ -1,9 +1,12 @@
 #! /usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Tests of Proof of discrete log equivalence commitments.'''
 import os
 import jmbitcoin as bitcoin
 import binascii
+import struct
 import json
 import pytest
 import copy
@@ -46,7 +49,7 @@ def generate_single_podle_sig(priv, i):
     library 'generate_podle' which intelligently searches and updates commitments.
     """
     dummy_utxo = bitcoin.sha256(priv) + ":3"
-    podle = PoDLE(dummy_utxo, binascii.hexlify(priv))
+    podle = PoDLE(dummy_utxo, binascii.hexlify(priv).decode('ascii'))
     r = podle.generate_podle(i)
     return (r['P'], r['P2'], r['sig'],
             r['e'], r['commit'])
@@ -112,9 +115,9 @@ def test_external_commitments(setup_podle):
     known_utxos = []
     tries = 3
     for i in range(1, 6):
-        u = binascii.hexlify(chr(i)*32)
+        u = binascii.hexlify(struct.pack(b'B', i)*32).decode('ascii')
         known_utxos.append(u)
-        priv = chr(i)*32+"\x01"
+        priv = struct.pack(b'B', i)*32+b"\x01"
         ecs[u] = {}
         ecs[u]['reveal']={}
         for j in range(tries):
@@ -130,20 +133,20 @@ def test_external_commitments(setup_podle):
     #this should find the remaining one utxo and return from it
     assert generate_podle([], max_tries=tries, allow_external=known_utxos)
     #test commitment removal
-    to_remove = ecs[binascii.hexlify(chr(3)*32)]
-    update_commitments(external_to_remove={binascii.hexlify(chr(3)*32):to_remove})
+    to_remove = ecs[binascii.hexlify(struct.pack(b'B', 3)*32).decode('ascii')]
+    update_commitments(external_to_remove={binascii.hexlify(struct.pack(b'B', 3)*32).decode('ascii'):to_remove})
     #test that an incorrectly formatted file raises
     with open(get_commitment_file(), "rb") as f:
-        validjson = json.loads(f.read())
+        validjson = json.loads(f.read().decode('utf-8'))
     corruptjson = copy.deepcopy(validjson)
     del corruptjson['used']
     with open(get_commitment_file(), "wb") as f:
-        f.write(json.dumps(corruptjson, indent=4))
+        f.write(json.dumps(corruptjson, indent=4).encode('utf-8'))
     with pytest.raises(PoDLEError) as e_info:
         get_podle_commitments()
     #clean up
     with open(get_commitment_file(), "wb") as f:
-        f.write(json.dumps(validjson, indent=4))
+        f.write(json.dumps(validjson, indent=4).encode('utf-8'))
 
 
 

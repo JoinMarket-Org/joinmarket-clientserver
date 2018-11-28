@@ -1,6 +1,7 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
+from future.utils import iteritems
 
 import sys
 
@@ -53,13 +54,16 @@ def chunks(d, n):
     return [d[x:x + n] for x in range(0, len(d), n)]
 
 def get_password(msg): #pragma: no cover
-    return getpass(msg)
+    password = getpass(msg)
+    if not isinstance(password, bytes):
+        password = password.encode('utf-8')
+    return password
 
 def debug_dump_object(obj, skip_fields=None):
     if skip_fields is None:
         skip_fields = []
     log.debug('Class debug dump, name:' + obj.__class__.__name__)
-    for k, v in obj.__dict__.iteritems():
+    for k, v in iteritems(obj.__dict__):
         if k in skip_fields:
             continue
         if k == 'password' or k == 'given_password':
@@ -72,20 +76,3 @@ def debug_dump_object(obj, skip_fields=None):
             log.debug(pprint.pformat(v))
         else:
             log.debug(str(v))
-
-def _byteify(data, ignore_dicts = False):
-    # if this is a unicode string, return its string representation
-    if isinstance(data, unicode):
-        return data.encode('utf-8')
-    # if this is a list of values, return list of byteified values
-    if isinstance(data, list):
-        return [ _byteify(item, ignore_dicts=True) for item in data ]
-    # if this is a dictionary, return dictionary of byteified keys and values
-    # but only if we haven't already byteified it
-    if isinstance(data, dict) and not ignore_dicts:
-        return {
-            _byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True)
-            for key, value in data.iteritems()
-        }
-    # if it's anything else, return it in its original form
-    return data

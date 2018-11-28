@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 import copy
 from jmclient import (validate_address, rand_exp_array,
                       rand_norm_array, rand_pow_array, jm_single)
@@ -20,6 +22,7 @@ def get_schedule(filename):
         schedule = []
         schedule_lines = f.readlines()
         for sl in schedule_lines:
+            sl = sl.decode('utf-8')
             if sl.startswith("#"):
                 continue
             try:
@@ -213,4 +216,4 @@ def human_readable_schedule_entry(se, amt=None, destn=None):
     return ", ".join(hrs)
 
 def schedule_to_text(schedule):
-    return "\n".join([",".join([str(y) for y in x]) for x in schedule])
+    return "\n".join([",".join([str(y) for y in x]) for x in schedule]).encode('utf-8')

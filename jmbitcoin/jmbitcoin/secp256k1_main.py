@@ -2,7 +2,7 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
-from future.utils import bytes_to_native_str
+from future.utils import native_bytes, bytes_to_native_str
 import binascii
 import hashlib
 import sys
@@ -53,11 +53,8 @@ def bin_to_b58check(inp, magicbyte=b'\x00'):
     checksum = bin_dbl_sha256(inp_fmtd)[:4]
     return b58encode(inp_fmtd + checksum)
 
-def bytes_to_hex_string(b):
-    return b.encode('hex')
-
 def safe_from_hex(s):
-    return s.decode('hex')
+    return binascii.unhexlify(s)
 
 def from_int_to_byte(a):
     return struct.pack(b'B', a)
@@ -69,7 +66,7 @@ def from_string_to_bytes(a):
     return a if isinstance(a, bytes) else bytes(a, 'utf-8')
 
 def safe_hexlify(a):
-    return str(binascii.hexlify(a), 'utf-8')
+    return binascii.hexlify(a).decode('ascii')
 
 class SerializationError(Exception):
     """Base class for serialization errors"""
@@ -109,7 +106,7 @@ def b58encode(b):
     """Encode bytes to a base58-encoded string"""
 
     # Convert big-endian bytes to integer
-    n = int('0x0' + binascii.hexlify(b).decode('utf8'), 16)
+    n = int('0x0' + binascii.hexlify(b).decode('ascii'), 16)
 
     # Divide that integer into bas58
     res = []
@@ -120,7 +117,7 @@ def b58encode(b):
 
     # Encode leading zeros as base58 zeros
     czero = b'\x00'
-    if sys.version > '3':
+    if sys.version_info >= (3,0):
         # In Python3 indexing a bytes returns numbers, not characters.
         czero = 0
     pad = 0
@@ -252,6 +249,8 @@ def bin_hash160(string):
     return hashlib.new('ripemd160', intermed).digest()
 
 def hash160(string):
+    if not isinstance(string, bytes):
+        string = string.encode('utf-8')
     return safe_hexlify(bin_hash160(string))
 
 def bin_sha256(string):
@@ -260,9 +259,11 @@ def bin_sha256(string):
     return hashlib.sha256(binary_data).digest()
 
 def sha256(string):
-    return bytes_to_hex_string(bin_sha256(string))
+    return safe_hexlify(bin_sha256(string))
 
 def bin_dbl_sha256(bytes_to_hash):
+    if not isinstance(bytes_to_hash, bytes):
+        bytes_to_hash = bytes_to_hash.encode('utf-8')
     return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
 
 def dbl_sha256(string):
@@ -306,7 +307,7 @@ def hex_to_b58check(inp, magicbyte=b'\x00'):
     return bin_to_b58check(binascii.unhexlify(inp), magicbyte)
 
 def b58check_to_hex(inp):
-    return binascii.hexlify(b58check_to_bin(inp))
+    return binascii.hexlify(b58check_to_bin(inp)).decode('ascii')
 
 def pubkey_to_address(pubkey, magicbyte=0):
     if len(pubkey) in [66, 130]:
@@ -351,20 +352,20 @@ def ecdsa_sign(msg, priv, formsg=False, usehex=True):
     hashed_msg = message_sig_hash(msg)
     if usehex:
         #arguments to raw sign must be consistently hex or bin
-        hashed_msg = binascii.hexlify(hashed_msg)
+        hashed_msg = binascii.hexlify(hashed_msg).decode('ascii')
     sig = ecdsa_raw_sign(hashed_msg, priv, usehex, rawmsg=True, formsg=formsg)
     #note those functions only handles binary, not hex
     if usehex:
         sig = binascii.unhexlify(sig)
-    return base64.b64encode(sig)
+    return base64.b64encode(sig).decode('ascii')
 
 def ecdsa_verify(msg, sig, pub, usehex=True):
     hashed_msg = message_sig_hash(msg)
     sig = base64.b64decode(sig)
     if usehex:
         #arguments to raw_verify must be consistently hex or bin
-        hashed_msg = binascii.hexlify(hashed_msg)
-        sig = binascii.hexlify(sig)
+        hashed_msg = binascii.hexlify(hashed_msg).decode('ascii')
+        sig = binascii.hexlify(sig).decode('ascii')
     return ecdsa_raw_verify(hashed_msg, pub, sig, usehex, rawmsg=True)
 
 #Use secp256k1 to handle all EC and ECDSA operations.
@@ -389,7 +390,7 @@ def hexbin(func):
             if isinstance(returnval, bool):
                 return returnval
             else:
-                return binascii.hexlify(returnval)
+                return binascii.hexlify(returnval).decode('ascii')
         else:
             return func(*args, **kwargs)
 
@@ -415,7 +416,10 @@ def privkey_to_pubkey_inner(priv, usehex):
     and return compressed/uncompressed public key as appropriate.'''
     compressed, priv = read_privkey(priv)
     #secp256k1 checks for validity of key value.
-    newpriv = secp256k1.PrivateKey(secret=bytes_to_native_str(priv))
+    if sys.version_info >= (3,0):
+        newpriv = secp256k1.PrivateKey(secret=native_bytes(priv))
+    else:
+        newpriv = secp256k1.PrivateKey(secret=bytes_to_native_str(priv))
     return newpriv.public_key.format(compressed)
 
 def privkey_to_pubkey(priv, usehex=True):
@@ -440,7 +444,10 @@ def multiply(s, pub, usehex, rawpub=True, return_serialized=True):
     '''
     newpub = secp256k1.PublicKey(pub)
     #see note to "tweak_mul" function in podle.py
-    res = newpub.multiply(bytes_to_native_str(s))
+    if sys.version_info >= (3,0):
+        res = newpub.multiply(native_bytes(s))
+    else:
+        res = newpub.multiply(bytes_to_native_str(s))
     if not return_serialized:
         return res
     return res.format()

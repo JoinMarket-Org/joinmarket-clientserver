@@ -14,10 +14,18 @@ sha256_verify ()
 deps_install ()
 {
     if [[ ${install_os} == 'debian' ]]; then
-        if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool libgmp-dev"; then
-            return 0
+        if is_python3; then
+            if deb_deps_install "python-virtualenv curl python3-dev python3-pip build-essential automake pkg-config libtool libgmp-dev"; then
+                return 0
+            else
+                return 1
+            fi
         else
-            return 1
+            if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool libgmp-dev"; then
+                return 0
+            else
+                return 1
+            fi
         fi
     else
         echo "OS can not be determined. Trying to build."
@@ -360,6 +368,18 @@ os_is_deb ()
     ( which apt-get && which dpkg-query ) 2>/dev/null 1>&2
 }
 
+is_python3 ()
+{
+    if [[ ${python} == 'python3' ]]; then
+        return 0
+    fi
+    if eval "${python} -c 'import sys; sys.exit(0) if sys.version_info >= (3,0) else sys.exit(1)'"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 install_get_os ()
 {
     if os_is_deb; then
@@ -372,8 +392,14 @@ install_get_os ()
 qt_deps_install ()
 {
     if [[ ${install_os} == 'debian' ]]; then
-        if deb_deps_install "python-qt4 python-sip"; then
-            return 0;
+        if is_python3; then
+            if deb_deps_install "python3-pyqt4 python3-sip"; then
+                return 0;
+            fi
+        else
+            if deb_deps_install "python-qt4 python-sip"; then
+                return 0;
+            fi
         fi
     else
         return 1

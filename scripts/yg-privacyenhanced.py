@@ -1,5 +1,8 @@
 #! /usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 
 import random
 
@@ -44,7 +47,7 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
             f = self.cjfee_r
         elif ordertype == 'swabsoffer':
             f = str(self.txfee + self.cjfee_a)
-        mix_balance = dict([(m, b) for m, b in mix_balance.iteritems()
+        mix_balance = dict([(m, b) for m, b in iteritems(mix_balance)
                             if b > self.minsize])
         if len(mix_balance) == 0:
             jlog.error('You do not have the minimum required amount of coins'
