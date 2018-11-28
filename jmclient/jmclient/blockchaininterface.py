@@ -829,11 +829,31 @@ class BitcoinCoreInterface(BlockchainInterface):
         return True
 
     def query_utxo_set(self, txout, includeconf=False, includeunconf=False):
+        """If txout is either (a) a single string in hex encoded txid:n form,
+        or a list of the same, returns, as a list for each txout item,
+        the result of gettxout from the bitcoind rpc for those utxs;
+        if any utxo is invalid, None is returned.
+        includeconf: if this is True, the current number of confirmations
+        of the prescribed utxo is included in the returned result dict.
+        includeunconf: if True, utxos which currently have zero confirmations
+        are included in the result set.
+        If the utxo is of a non-standard type such that there is no address,
+        the address field in the dict is None.
+        """
         if not isinstance(txout, list):
             txout = [txout]
         result = []
         for txo in txout:
-            ret = self.rpc('gettxout', [txo[:64], int(txo[65:]), includeunconf])
+            if len(txo) < 66:
+                result.append(None)
+                continue
+            try:
+                txo_idx = int(txo[65:])
+            except ValueError:
+                log.warn("Invalid utxo format, ignoring: {}".format(txo))
+                result.append(None)
+                continue
+            ret = self.rpc('gettxout', [txo[:64], txo_idx, includeunconf])
             if ret is None:
                 result.append(None)
             else:
