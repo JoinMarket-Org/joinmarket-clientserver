@@ -66,8 +66,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, n_counterparties):
-        show_receipt("JMSETUP", role,n_counterparties)
+    def on_JM_SETUP(self, role, initdata):
+        show_receipt("JMSETUP", role, initdata)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -157,7 +157,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            n_counterparties=4) #TODO this number should be set
+                            initdata="none")
         self.defaultCallbacks(d)
         return {'accepted': True}
 
