@@ -43,7 +43,7 @@ class BigString(amp.Argument):
             nextChunk = value.read(CHUNK_MAX)
             if not nextChunk:
                 break
-            strings["%s.%d" % (name, counter)] = nextChunk
+            strings["{}.{}".format(name, counter).encode('ascii')] = nextChunk
             counter += 1
 
     def fromvalue(self, value):
