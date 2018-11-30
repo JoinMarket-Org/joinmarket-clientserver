@@ -204,15 +204,41 @@ libffi_install ()
     popd
 }
 
+coincurve_patch_ignore_sys_libsecp ()
+{
+    cat <<'EOF' > setup_support.py.patch
+74c74,77
+<         ffi.dlopen("secp256k1")
+---
+>         if "COINCURVE_IGNORE_SYSTEM_LIB" in os.environ:
+>             return False
+>         else:
+>             ffi.dlopen("secp256k1")
+EOF
+    cat <<'EOF' > setup.py.patch
+216,218c216
+<             self.library_dirs.append(
+<                 os.path.join(_build_clib.build_clib, 'lib'),
+<             )
+---
+>             self.library_dirs.insert(0, os.path.join(_build_clib.build_clib, 'lib'))
+EOF
+    patch setup.py setup.py.patch && \
+    patch setup_support.py setup_support.py.patch
+}
+
 coincurve_build ()
 {
+    if ! coincurve_patch_ignore_sys_libsecp; then
+        return 1
+    fi
     if [[ -d "${jm_deps}/secp256k1-${secp256k1_version}" ]]; then
         unlink ./libsecp256k1
-        ln -sf "${jm_source}/deps/secp256k1-${secp256k1_version}"/ ./libsecp256k1
+        ln -sf "${jm_source}/deps/secp256k1-${secp256k1_version}" ./libsecp256k1
     else
         return 1
     fi
-    python setup.py install
+    COINCURVE_IGNORE_SYSTEM_LIB="1" python setup.py install
     return "$?"
 }
 
@@ -236,12 +262,9 @@ coincurve_install ()
 
 libsecp256k1_install ()
 {
-    # https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/177
-    # https://github.com/bitcoin-core/secp256k1/commit/d33352151699bd7598b868369dace092f7855740
-
-    secp256k1_version='d33352151699bd7598b868369dace092f7855740'
+    secp256k1_version='1e6f1f5ad5e7f1e3ef79313ec02023902bf8175c'
     secp256k1_lib_tar="${secp256k1_version}.tar.gz"
-    secp256k1_lib_sha='77fd87ae53830b40a2c38490cbe7b689af71db1b55362abdec1496c45ef329b0'
+    secp256k1_lib_sha='d4bc033398d4db43077ceb3aa50bb2f7700bdf3fc6eb95b8c799ff6f657a804a'
     secp256k1_url='https://github.com/bitcoin-core/secp256k1/archive'
 
     if check_skip_build "secp256k1-${secp256k1_version}"; then
