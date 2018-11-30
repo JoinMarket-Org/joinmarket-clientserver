@@ -11,6 +11,7 @@ from jmdaemon.protocol import NICK_HASH_LENGTH, NICK_MAX_ENCODED, JM_VERSION,\
     JOINMARKET_NICK_HEADER
 from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels)
 from twisted.python.log import msg as tmsg
+from twisted.python.log import startLogging
 from twisted.internet import protocol, reactor, task
 from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
@@ -22,6 +23,7 @@ from jmbase.commands import *
 from msgdata import *
 import json
 import base64
+import sys
 from dummy_mc import DummyMessageChannel
 test_completed = False
 end_early = False
@@ -84,7 +86,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            n_counterparties=4) #TODO this number should be set
+                            initdata="none")
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -262,7 +264,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
-        for n in nick_list:
+        for n in json.loads(nick_list):
             reactor.callLater(1, self.on_sig, n, "dummytxsig")
         return super(JMDaemonTestServerProtocol, self).on_JM_MAKE_TX(nick_list,
                                                                      txhex)
@@ -289,6 +291,7 @@ class JMDaemonTest2ServerProtocolFactory(ServerFactory):
 class TrialTestJMDaemonProto(unittest.TestCase):
 
     def setUp(self):
+        startLogging(sys.stdout)
         load_program_config()
         jm_single().maker_timeout_sec = 1
         self.port = reactor.listenTCP(28184, JMDaemonTestServerProtocolFactory())
