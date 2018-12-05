@@ -197,9 +197,10 @@ def test_auth_pub_not_found(createcmtdata):
              "498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3:0",
              "3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c:1"]
     fake_query_results = [{'value': 200000000,
-                            'address': "blah",
-                            'utxo': utxos[i],
-                            'confirms': 20} for i in range(3)]
+                           'address': "mrKTGvFfYUEqk52qPKUroumZJcpjHLQ6pn",
+                           'script': '76a914767c956efe6092a775fea39a06d1cac9aae956d788ac',
+                           'utxo': utxos[i],
+                           'confirms': 20} for i in range(3)]
     jm_single().bc_interface.insert_fake_query_results(fake_query_results)
     res = taker.receive_utxos(maker_response)
     assert not res[0]
@@ -418,9 +419,13 @@ def test_on_sig(createcmtdata, dummyaddr, schedule):
     #my inputs are the first 2 utxos
     taker.input_utxos = {utxos[0]:
                         {'address': bitcoin.privkey_to_address(privs[0], False, magicbyte=0x6f),
+                         'script': bitcoin.mk_pubkey_script(
+                            bitcoin.privkey_to_address(privs[0], False, magicbyte=0x6f)),
                          'value': 200000000},
                         utxos[1]:
                         {'address': bitcoin.privkey_to_address(privs[1], False, magicbyte=0x6f),
+                         'script': bitcoin.mk_pubkey_script(
+                            bitcoin.privkey_to_address(privs[1], False, magicbyte=0x6f)),
                          'value': 200000000}}    
     taker.utxos = {None: utxos[:2], "cp1": [utxos[2]], "cp2": [utxos[3]], "cp3":[utxos[4]]}
     for i in range(2):

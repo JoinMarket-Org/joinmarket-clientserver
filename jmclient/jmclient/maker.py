@@ -15,6 +15,8 @@ from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)
 from jmclient.podle import verify_podle, PoDLE, PoDLEError
 from twisted.internet import task
+from .cryptoengine import EngineError
+
 jlog = get_log()
 
 class Maker(object):
@@ -81,10 +83,11 @@ class Maker(object):
             reason = "commitment utxo too small: " + str(res[0]['value'])
             return reject(reason)
 
-        # FIXME: This only works if taker's commitment address is of same type
-        # as our wallet.
-        if res[0]['address'] != \
-                self.wallet.pubkey_to_addr(unhexlify(cr_dict['P'])):
+        try:
+            if not self.wallet.pubkey_has_script(
+                    unhexlify(cr_dict['P']), unhexlify(res[0]['script'])):
+                raise EngineError()
+        except EngineError:
             reason = "Invalid podle pubkey: " + str(cr_dict['P'])
             return reject(reason)
 
