@@ -8,8 +8,9 @@ import os.path
 from hashlib import sha256
 from binascii import hexlify, unhexlify
 from collections import defaultdict
+from pyaes import AESModeOfOperationCBC, Decrypter
 
-from jmclient import Storage, decryptData, load_program_config
+from jmclient import Storage, load_program_config
 from jmclient.wallet_utils import get_password, get_wallet_cls,\
     cli_get_wallet_passphrase_check, get_wallet_path
 from jmbitcoin import wif_compressed_privkey
@@ -32,8 +33,15 @@ def double_sha256(plaintext):
     return sha256(sha256(plaintext).digest()).digest()
 
 
+def decrypt_data(key, data):
+    decrypter = Decrypter(AESModeOfOperationCBC(key, iv=data[:16]))
+    plain = decrypter.feed(data[16:])
+    plain += decrypter.feed()
+    return plain
+
+
 def decrypt_entropy_extension(enc_data, key):
-    data = decryptData(key, unhexlify(enc_data))
+    data = decrypt_data(key, unhexlify(enc_data))
     if data[-9] != b'\xff':
         raise ConvertException("Wrong password.")
     chunks = data.split(b'\xff')
@@ -49,7 +57,7 @@ def decrypt_wallet_data(data, password):
     enc_entropy_ext = data.get('encrypted_mnemonic_extension')
     enc_imported = data.get('imported_keys')
 
-    entropy = decryptData(key, unhexlify(enc_entropy))
+    entropy = decrypt_data(key, unhexlify(enc_entropy))
     data['entropy'] = entropy
     if enc_entropy_ext:
         data['entropy_ext'] = decrypt_entropy_extension(enc_entropy_ext, key)
@@ -59,7 +67,7 @@ def decrypt_wallet_data(data, password):
         for e in enc_imported:
             md = int(e['mixdepth'])
             imported_enc_key = unhexlify(e['encrypted_privkey'])
-            imported_key = decryptData(key, imported_enc_key)
+            imported_key = decrypt_data(key, imported_enc_key)
             imported_keys[md].append(imported_key)
         data['imported'] = imported_keys
 

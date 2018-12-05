@@ -2,7 +2,6 @@
 [run]
 omit =
  jmclient/jmclient/jsonrpc.py
- jmclient/jmclient/slowaes.py
  jmclient/jmclient/electruminterface.py
  jmclient/jmclient/btc.py
  jmclient/test/*
