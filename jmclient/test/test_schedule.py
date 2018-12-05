@@ -117,7 +117,7 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
         #sanity check, typical parameters
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (4,1), 4, 6, (6,1)),
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (4,1), 7, 6, (6,1)),
     ])
 def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
                       makercountrange):
