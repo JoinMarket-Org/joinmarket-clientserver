@@ -1,4 +1,7 @@
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 import json
 import os
 import sys
@@ -12,7 +15,7 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     VolatileStorage, StoragePasswordError,
     is_segwit_mode, SegwitLegacyWallet, LegacyWallet)
 from jmbase.support import get_password
-from cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH
+from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH
 import jmclient.btc as btc
 
 
@@ -326,7 +329,7 @@ def wallet_showutxos(wallet, showprivkey):
                 unsp[u]['privkey'] = wallet.get_wif_path(av['path'])
 
     used_commitments, external_commitments = podle.get_podle_commitments()
-    for u, ec in external_commitments.iteritems():
+    for u, ec in iteritems(external_commitments):
         tries = podle.get_podle_tries(utxo=u, max_tries=max_tries,
                                           external=True)
         tries_remaining = max(0, max_tries - tries)
@@ -342,7 +345,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
     else return the WalletView object.
     """
     acctlist = []
-    for m in xrange(wallet.mixdepth + 1):
+    for m in range(wallet.mixdepth + 1):
         branchlist = []
         for forchange in [0, 1]:
             entrylist = []
@@ -353,7 +356,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
                 xpub_key = ""
 
             unused_index = wallet.get_next_unused_index(m, forchange)
-            for k in xrange(unused_index + gaplimit):
+            for k in range(unused_index + gaplimit):
                 path = wallet.get_path(m, forchange, k)
                 addr = wallet.get_addr_path(path)
                 balance = 0
@@ -398,7 +401,7 @@ def cli_get_wallet_passphrase_check():
     return password
 
 def cli_get_wallet_file_name():
-    return raw_input('Input wallet file name (default: wallet.jmdat): ')
+    return input('Input wallet file name (default: wallet.jmdat): ')
 
 def cli_display_user_words(words, mnemonic_extension):
     text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
@@ -407,20 +410,20 @@ def cli_display_user_words(words, mnemonic_extension):
     print(text)
 
 def cli_user_mnemonic_entry():
-    mnemonic_phrase = raw_input("Input mnemonic recovery phrase: ")
-    mnemonic_extension = raw_input("Input mnemonic extension, leave blank if there isnt one: ")
+    mnemonic_phrase = input("Input mnemonic recovery phrase: ")
+    mnemonic_extension = input("Input mnemonic extension, leave blank if there isnt one: ")
     if len(mnemonic_extension.strip()) == 0:
         mnemonic_extension = None
     return (mnemonic_phrase, mnemonic_extension)
 
 def cli_get_mnemonic_extension():
-    uin = raw_input("Would you like to use a two-factor mnemonic recovery "
+    uin = input("Would you like to use a two-factor mnemonic recovery "
                     "phrase? write 'n' if you don't know what this is (y/n): ")
     if len(uin) == 0 or uin[0] != 'y':
         print("Not using mnemonic extension")
         return None #no mnemonic extension
     print("Note: This will be stored in a reversible way. Do not reuse!")
-    return raw_input("Enter mnemonic extension: ")
+    return input("Enter mnemonic extension: ")
 
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
@@ -483,7 +486,7 @@ def wallet_generate_recover(method, walletspath,
 
     entropy = None
     if method == 'recover':
-        seed = raw_input("Input 12 word recovery seed: ")
+        seed = input("Input 12 word recovery seed: ")
         try:
             entropy = LegacyWallet.entropy_from_mnemonic(seed)
         except WalletError as e:
@@ -510,10 +513,17 @@ def wallet_generate_recover(method, walletspath,
     return True
 
 
+def dict_factory(cursor, row):
+    d = {}
+    for idx, col in enumerate(cursor.description):
+        d[col[0]] = row[idx]
+    return d
+
+
 def wallet_fetch_history(wallet, options):
     # sort txes in a db because python can be really bad with large lists
     con = sqlite3.connect(":memory:")
-    con.row_factory = sqlite3.Row
+    con.row_factory = dict_factory
     tx_db = con.cursor()
     tx_db.execute("CREATE TABLE transactions(txid TEXT, "
             "blockhash TEXT, blocktime INTEGER);")
@@ -665,7 +675,7 @@ def wallet_fetch_history(wallet, options):
             amount = cj_amount
             delta_balance = out_value - our_input_value
             mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
-            cj_script = list(set([a for a, v in output_script_values.iteritems()
+            cj_script = list(set([a for a, v in iteritems(output_script_values)
                 if v == cj_amount]).intersection(our_output_scripts))[0]
             mixdepth_dst = wallet.get_script_mixdepth(cj_script)
         else:
@@ -781,7 +791,7 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
     print("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
           "non-intuitive behaviour and loss of funds.\n  Recommended instead "
           "is to use the \'sweep\' feature of sendpayment.py.")
-    privkeys = raw_input("Enter private key(s) to import: ")
+    privkeys = input("Enter private key(s) to import: ")
     privkeys = privkeys.split(',') if ',' in privkeys else privkeys.split()
     imported_addr = []
     import_failed = 0

@@ -1,4 +1,6 @@
-from __future__ import print_function, absolute_import, division, unicode_literals
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 
 from binascii import hexlify, unhexlify
@@ -30,12 +32,12 @@ P2WPKH_PRE = b'\x00\x14'
 def _pubkey_to_script(pubkey, script_pre, script_post=b''):
     # sanity check for public key
     # see https://github.com/bitcoin/bitcoin/blob/master/src/pubkey.h
-    if not ((len(pubkey) == 33 and pubkey[0] in (b'\x02', b'\x03')) or
-            (len(pubkey) == 65 and pubkey[0] in (b'\x04', b'\x06', b'\x07'))):
+    if not ((len(pubkey) == 33 and pubkey[:1] in (b'\x02', b'\x03')) or
+            (len(pubkey) == 65 and pubkey[:1] in (b'\x04', b'\x06', b'\x07'))):
         raise Exception("Invalid public key!")
     h = btc.bin_hash160(pubkey)
     assert len(h) == 0x14
-    assert script_pre[-1] == b'\x14'
+    assert script_pre[-1:] == b'\x14'
     return script_pre + h + script_post
 
 
@@ -229,7 +231,7 @@ class BTC_P2PKH(BTCEngine):
         signing_tx = btc.serialize(btc.signature_form(tx, index, script,
                                                       hashcode=hashcode))
         # FIXME: encoding mess
-        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey),
+        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey).decode('ascii'),
                                           **kwargs))
 
         tx['ins'][index]['script'] = btc.serialize_script([sig, pubkey])
@@ -262,7 +264,7 @@ class BTC_P2SH_P2WPKH(BTCEngine):
                                                hashcode=hashcode,
                                                decoder_func=lambda x: x)
         # FIXME: encoding mess
-        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey),
+        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey).decode('ascii'),
                                           hashcode=hashcode, **kwargs))
 
         assert len(wpkscript) == 0x16

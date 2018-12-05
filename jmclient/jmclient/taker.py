@@ -1,12 +1,15 @@
 #! /usr/bin/env python
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 
 import base64
 import pprint
 import random
 from binascii import hexlify, unhexlify
 
-import btc
+from . import btc
 from jmclient.configure import get_p2sh_vbyte, jm_single, validate_address
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
@@ -216,7 +219,7 @@ class Taker(object):
 
         #Initialization has been successful. We must set the nonrespondants
         #now to keep track of what changed when we receive the utxo data
-        self.nonrespondants = self.orderbook.keys()
+        self.nonrespondants = list(self.orderbook.keys())
 
         return (True, self.cjamount, commitment, revelation, self.orderbook)
 
@@ -324,7 +327,7 @@ class Taker(object):
                                                    self.cjamount):
                     return False
 
-        self.utxos = {None: self.input_utxos.keys()}
+        self.utxos = {None: list(self.input_utxos.keys())}
         return True
 
     def receive_utxos(self, ioauth_data):
@@ -338,7 +341,7 @@ class Taker(object):
         #Temporary list used to aggregate all ioauth data that must be removed
         rejected_counterparties = []
         #Need to authorize against the btc pubkey first.
-        for nick, nickdata in ioauth_data.iteritems():
+        for nick, nickdata in iteritems(ioauth_data):
             utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
             if not self.auth_counterparty(btc_sig, auth_pub, maker_pk):
                 jlog.debug(
@@ -358,7 +361,7 @@ class Taker(object):
 
         self.maker_utxo_data = {}
 
-        for nick, nickdata in ioauth_data.iteritems():
+        for nick, nickdata in iteritems(ioauth_data):
             utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
             self.utxos[nick] = utxo_list
             utxo_data = jm_single().bc_interface.query_utxo_set(self.utxos[
@@ -422,7 +425,7 @@ class Taker(object):
         #Apply business logic of how many counterparties are enough; note that
         #this must occur after the above ioauth data processing, since we only now
         #know for sure that the data meets all business-logic requirements.
-        if len(self.maker_utxo_data.keys()) < jm_single().config.getint(
+        if len(self.maker_utxo_data) < jm_single().config.getint(
                 "POLICY", "minimum_makers"):
             self.taker_info_callback("INFO", "Not enough counterparties, aborting.")
             return (False,
@@ -434,7 +437,7 @@ class Taker(object):
         #used to track return of signatures for phase 2
         self.nonrespondants = list(self.maker_utxo_data.keys())
 
-        my_total_in = sum([va['value'] for u, va in self.input_utxos.iteritems()
+        my_total_in = sum([va['value'] for u, va in iteritems(self.input_utxos)
                           ])
         if self.my_change_addr:
             #Estimate fee per choice of next/3/6 blocks targetting.
@@ -494,7 +497,7 @@ class Taker(object):
             # placeholders required
             ins['script'] = 'deadbeef'
         self.taker_info_callback("INFO", "Built tx, sending to counterparties.")
-        return (True, self.maker_utxo_data.keys(), tx)
+        return (True, list(self.maker_utxo_data.keys()), tx)
 
     def auth_counterparty(self, btc_sig, auth_pub, maker_pk):
         """Validate the counterpartys claim to own the btc
@@ -522,7 +525,7 @@ class Taker(object):
             jlog.debug(('add_signature => nick={} '
                        'not in nonrespondants {}').format(nick, self.nonrespondants))
             return
-        sig = base64.b64decode(sigb64).encode('hex')
+        sig = hexlify(base64.b64decode(sigb64)).decode('ascii')
         inserted_sig = False
         txhex = btc.serialize(self.latest_tx)
 
@@ -541,7 +544,7 @@ class Taker(object):
             1] for x in utxo.values()])
 
         # insert signatures
-        for i, u in utxo.iteritems():
+        for i, u in iteritems(utxo):
             if utxo_data[i] is None:
                 continue
             #Check if the sender serialize_scripted the witness
@@ -643,10 +646,10 @@ class Taker(object):
             #also returns lists "too_old" and "too_small" for any
             #utxos that did not satisfy the criteria for debugging.
             priv_utxo_pairs = []
-            new_utxos, too_old, too_small = filter_by_coin_age_amt(utxos.keys(),
+            new_utxos, too_old, too_small = filter_by_coin_age_amt(list(utxos.keys()),
                                                                    age, amt)
             new_utxos_dict = {k: v for k, v in utxos.items() if k in new_utxos}
-            for k, v in new_utxos_dict.iteritems():
+            for k, v in iteritems(new_utxos_dict):
                 addr = v['address']
                 priv = self.wallet.get_key_from_addr(addr)
                 if priv:  #can be null from create-unsigned
@@ -684,9 +687,9 @@ class Taker(object):
             #Pre-filter the set of external commitments that work for this
             #transaction according to its size and age.
             dummy, extdict = get_podle_commitments()
-            if len(extdict.keys()) > 0:
+            if len(extdict) > 0:
                 ext_valid, ext_to, ext_ts = filter_by_coin_age_amt(
-                    extdict.keys(), age, amt)
+                    list(extdict.keys()), age, amt)
             else:
                 ext_valid = None
             podle_data = generate_podle(priv_utxo_pairs, tries, ext_valid)
@@ -706,10 +709,10 @@ class Taker(object):
                         jm_single().config.get("POLICY", "taker_utxo_amtpercent"))
 
             with open("commitments_debug.txt", "wb") as f:
-                errmsgfileheader = ("THIS IS A TEMPORARY FILE FOR DEBUGGING; "
-                        "IT CAN BE SAFELY DELETED ANY TIME.\n")
-                errmsgfileheader += ("***\n")
-                f.write(errmsgfileheader + errmsg)
+                errmsgfileheader = (b"THIS IS A TEMPORARY FILE FOR DEBUGGING; "
+                        b"IT CAN BE SAFELY DELETED ANY TIME.\n")
+                errmsgfileheader += (b"***\n")
+                f.write(errmsgfileheader + errmsg.encode('utf-8'))
 
             return (None, (priv_utxo_pairs, to, ts), errmsgheader + errmsg)
 
@@ -735,7 +738,7 @@ class Taker(object):
         tx_bin = btc.deserialize(unhexlify(btc.serialize(self.latest_tx)))
         self.wallet.sign_tx(tx_bin, our_inputs)
 
-        self.latest_tx = btc.deserialize(hexlify(btc.serialize(tx_bin)))
+        self.latest_tx = btc.deserialize(hexlify(btc.serialize(tx_bin)).decode('ascii'))
 
 
     def push(self):

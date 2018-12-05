@@ -1,7 +1,11 @@
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
+from future.utils import iteritems
+from past.builtins import cmp
+from functools import cmp_to_key
 
-import BaseHTTPServer
-import SimpleHTTPServer
+import http.server
 import base64
 import io
 import json
@@ -10,7 +14,7 @@ import time
 import hashlib
 import os
 import sys
-import urllib2
+from future.moves.urllib.parse import parse_qs
 from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
@@ -35,8 +39,8 @@ from jmdaemon.protocol import *
 log = get_log()
 
 #Initial state: allow only SW offer types
-swoffers = filter(lambda x: x[0:2] == 'sw', offername_list)
-pkoffers = filter(lambda x: x[0:2] != 'sw', offername_list)
+swoffers = list(filter(lambda x: x[0:2] == 'sw', offername_list))
+pkoffers = list(filter(lambda x: x[0:2] != 'sw', offername_list))
 filtered_offername_list = swoffers
 
 shutdownform = '<form action="shutdown" method="post"><input type="submit" value="Shutdown" /></form>'
@@ -53,73 +57,10 @@ def calc_depth_data(db, value):
     pass
 
 
-def create_depth_chart(db, cj_amount, args=None):
-    if args is None:
-        args = {}
-    rows = db.execute('SELECT * FROM orderbook;').fetchall()
-    sqlorders = [o for o in rows if o["ordertype"] in filtered_offername_list]
-    orderfees = sorted([calc_cj_fee(o['ordertype'], o['cjfee'], cj_amount) / 1e8
-                        for o in sqlorders
-                        if o['minsize'] <= cj_amount <= o[
-                            'maxsize']])
-
-    if len(orderfees) == 0:
-        return 'No orders at amount ' + str(cj_amount / 1e8)
-    fig = plt.figure()
-    scale = args.get("scale")
-    if (scale is not None) and (scale[0] == "log"):
-        orderfees = [float(fee) for fee in orderfees]
-        if orderfees[0] > 0:
-            ratio = orderfees[-1] / orderfees[0]
-            step = ratio ** 0.0333  # 1/30
-            bins = [orderfees[0] * (step ** i) for i in range(30)]
-        else:
-            ratio = orderfees[-1] / 1e-8  # single satoshi placeholder
-            step = ratio ** 0.0333  # 1/30
-            bins = [1e-8 * (step ** i) for i in range(30)]
-            bins[0] = orderfees[0]  # replace placeholder
-        plt.xscale('log')
-    else:
-        bins = 30
-    if len(orderfees) == 1:  # these days we have liquidity, but just in case...
-        plt.hist(orderfees, bins, rwidth=0.8, range=(0, orderfees[0] * 2))
-    else:
-        plt.hist(orderfees, bins, rwidth=0.8)
-    plt.grid()
-    plt.title('CoinJoin Orderbook Depth Chart for amount=' + str(cj_amount /
-                                                                 1e8) + 'btc')
-    plt.xlabel('CoinJoin Fee / btc')
-    plt.ylabel('Frequency')
-    return get_graph_html(fig)
-
-
-def create_size_histogram(db, args):
-    rows = db.execute('SELECT maxsize, ordertype FROM orderbook;').fetchall()
-    rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
-    ordersizes = sorted([r['maxsize'] / 1e8 for r in rows])
-
-    fig = plt.figure()
-    scale = args.get("scale")
-    if (scale is not None) and (scale[0] == "log"):
-        ratio = ordersizes[-1] / ordersizes[0]
-        step = ratio ** 0.0333  # 1/30
-        bins = [ordersizes[0] * (step ** i) for i in range(30)]
-    else:
-        bins = 30
-    plt.hist(ordersizes, bins, histtype='bar', rwidth=0.8)
-    if bins is not 30:
-        fig.axes[0].set_xscale('log')
-    plt.grid()
-    plt.xlabel('Order sizes / btc')
-    plt.ylabel('Frequency')
-    return get_graph_html(fig) + ("<br/><a href='?scale=log'>log scale</a>" if
-                                  bins == 30 else "<br/><a href='?'>linear</a>")
-
-
 def get_graph_html(fig):
     imbuf = io.BytesIO()
     fig.savefig(imbuf, format='png')
-    b64 = base64.b64encode(imbuf.getvalue())
+    b64 = base64.b64encode(imbuf.getvalue()).decode('utf-8')
     return '<img src="data:image/png;base64,' + b64 + '" />'
 
 
@@ -149,36 +90,6 @@ def satoshi_to_unit(sat, order, btc_unit, rel_unit):
 
 def order_str(s, order, btc_unit, rel_unit):
     return str(s)
-
-
-def create_orderbook_table(db, btc_unit, rel_unit):
-    result = ''
-    rows = db.execute('SELECT * FROM orderbook;').fetchall()
-    if not rows:
-        return 0, result
-    #print("len rows before filter: " + str(len(rows)))
-    rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
-    order_keys_display = (('ordertype', ordertype_display),
-                          ('counterparty', do_nothing), ('oid', order_str),
-                          ('cjfee', cjfee_display), ('txfee', satoshi_to_unit),
-                          ('minsize', satoshi_to_unit),
-                          ('maxsize', satoshi_to_unit))
-
-    # somewhat complex sorting to sort by cjfee but with swabsoffers on top
-
-    def orderby_cmp(x, y):
-        if x['ordertype'] == y['ordertype']:
-            return cmp(Decimal(x['cjfee']), Decimal(y['cjfee']))
-        return cmp(offername_list.index(x['ordertype']),
-                   offername_list.index(y['ordertype']))
-
-    for o in sorted(rows, cmp=orderby_cmp):
-        result += ' <tr>\n'
-        for key, displayer in order_keys_display:
-            result += '  <td>' + displayer(o[key], o, btc_unit,
-                                           rel_unit) + '</td>\n'
-        result += ' </tr>\n'
-    return len(rows), result
 
 
 def create_table_heading(btc_unit, rel_unit):
@@ -214,15 +125,19 @@ def create_choose_units_form(selected_btc, selected_rel):
     return choose_units_form
 
 
-class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
     def __init__(self, request, client_address, base_server):
         self.taker = base_server.taker
         self.base_server = base_server
-        SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(
+        http.server.SimpleHTTPRequestHandler.__init__(
                 self, request, client_address, base_server)
 
     def create_orderbook_obj(self):
-        rows = self.taker.db.execute('SELECT * FROM orderbook;').fetchall()
+        try:
+            self.taker.dblock.acquire(True)
+            rows = self.taker.db.execute('SELECT * FROM orderbook;').fetchall()
+        finally:
+            self.taker.dblock.release()
         if not rows:
             return []
 
@@ -235,18 +150,124 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
             result.append(o)
         return result
 
+    def create_depth_chart(self, cj_amount, args=None):
+        if args is None:
+            args = {}
+        try:
+            self.taker.dblock.acquire(True)
+            rows = self.taker.db.execute('SELECT * FROM orderbook;').fetchall()
+        finally:
+            self.taker.dblock.release()
+        sqlorders = [o for o in rows if o["ordertype"] in filtered_offername_list]
+        orderfees = sorted([calc_cj_fee(o['ordertype'], o['cjfee'], cj_amount) / 1e8
+                            for o in sqlorders
+                            if o['minsize'] <= cj_amount <= o[
+                                'maxsize']])
+
+        if len(orderfees) == 0:
+            return 'No orders at amount ' + str(cj_amount / 1e8)
+        fig = plt.figure()
+        scale = args.get("scale")
+        if (scale is not None) and (scale[0] == "log"):
+            orderfees = [float(fee) for fee in orderfees]
+            if orderfees[0] > 0:
+                ratio = orderfees[-1] / orderfees[0]
+                step = ratio ** 0.0333  # 1/30
+                bins = [orderfees[0] * (step ** i) for i in range(30)]
+            else:
+                ratio = orderfees[-1] / 1e-8  # single satoshi placeholder
+                step = ratio ** 0.0333  # 1/30
+                bins = [1e-8 * (step ** i) for i in range(30)]
+                bins[0] = orderfees[0]  # replace placeholder
+            plt.xscale('log')
+        else:
+            bins = 30
+        if len(orderfees) == 1:  # these days we have liquidity, but just in case...
+            plt.hist(orderfees, bins, rwidth=0.8, range=(0, orderfees[0] * 2))
+        else:
+            plt.hist(orderfees, bins, rwidth=0.8)
+        plt.grid()
+        plt.title('CoinJoin Orderbook Depth Chart for amount=' + str(cj_amount /
+                                                                     1e8) + 'btc')
+        plt.xlabel('CoinJoin Fee / btc')
+        plt.ylabel('Frequency')
+        return get_graph_html(fig)
+
+    def create_size_histogram(self, args):
+        try:
+            self.taker.dblock.acquire(True)
+            rows = self.taker.db.execute('SELECT maxsize, ordertype FROM orderbook;').fetchall()
+        finally:
+            self.taker.dblock.release()
+        rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
+        ordersizes = sorted([r['maxsize'] / 1e8 for r in rows])
+
+        fig = plt.figure()
+        scale = args.get("scale")
+        if (scale is not None) and (scale[0] == "log"):
+            ratio = ordersizes[-1] / ordersizes[0]
+            step = ratio ** 0.0333  # 1/30
+            bins = [ordersizes[0] * (step ** i) for i in range(30)]
+        else:
+            bins = 30
+        plt.hist(ordersizes, bins, histtype='bar', rwidth=0.8)
+        if bins is not 30:
+            fig.axes[0].set_xscale('log')
+        plt.grid()
+        plt.xlabel('Order sizes / btc')
+        plt.ylabel('Frequency')
+        return get_graph_html(fig) + ("<br/><a href='?scale=log'>log scale</a>" if
+                                      bins == 30 else "<br/><a href='?'>linear</a>")
+
+    def create_orderbook_table(self, btc_unit, rel_unit):
+        result = ''
+        try:
+            self.taker.dblock.acquire(True)
+            rows = self.taker.db.execute('SELECT * FROM orderbook;').fetchall()
+        finally:
+            self.taker.dblock.release()
+        if not rows:
+            return 0, result
+        #print("len rows before filter: " + str(len(rows)))
+        rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
+        order_keys_display = (('ordertype', ordertype_display),
+                              ('counterparty', do_nothing), ('oid', order_str),
+                              ('cjfee', cjfee_display), ('txfee', satoshi_to_unit),
+                              ('minsize', satoshi_to_unit),
+                              ('maxsize', satoshi_to_unit))
+
+        # somewhat complex sorting to sort by cjfee but with swabsoffers on top
+
+        def orderby_cmp(x, y):
+            if x['ordertype'] == y['ordertype']:
+                return cmp(Decimal(x['cjfee']), Decimal(y['cjfee']))
+            return cmp(offername_list.index(x['ordertype']),
+                       offername_list.index(y['ordertype']))
+
+        for o in sorted(rows, key=cmp_to_key(orderby_cmp)):
+            result += ' <tr>\n'
+            for key, displayer in order_keys_display:
+                result += '  <td>' + displayer(o[key], o, btc_unit,
+                                               rel_unit) + '</td>\n'
+            result += ' </tr>\n'
+        return len(rows), result
+
     def get_counterparty_count(self):
-        counterparties = self.taker.db.execute(
-            'SELECT DISTINCT counterparty FROM orderbook WHERE ordertype=? OR ordertype=?;',
-            filtered_offername_list).fetchall()
+        try:
+            self.taker.dblock.acquire(True)
+            counterparties = self.taker.db.execute(
+                'SELECT DISTINCT counterparty FROM orderbook WHERE ordertype=? OR ordertype=?;',
+                filtered_offername_list).fetchall()
+        finally:
+            self.taker.dblock.release()
         return str(len(counterparties))
 
     def do_GET(self):
-        # SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
+        # http.server.SimpleHTTPRequestHandler.do_GET(self)
         # print 'httpd received ' + self.path + ' request'
         self.path, query = self.path.split('?', 1) if '?' in self.path else (
             self.path, '')
-        args = urllib2.urlparse.parse_qs(query)
+        args = parse_qs(query)
         pages = ['/', '/ordersize', '/depth', '/orderbook.json']
         if self.path not in pages:
             return
@@ -266,8 +287,8 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 btc_unit = sorted_units[0]
             if rel_unit not in sorted_rel_units:
                 rel_unit = sorted_rel_units[0]
-            ordercount, ordertable = create_orderbook_table(
-                    self.taker.db, btc_unit, rel_unit)
+            ordercount, ordertable = self.create_orderbook_table(
+                    btc_unit, rel_unit)
             choose_units_form = create_choose_units_form(btc_unit, rel_unit)
             table_heading = create_table_heading(btc_unit, rel_unit)
             replacements = {
@@ -285,13 +306,13 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 'PAGETITLE': 'JoinMarket Browser Interface',
                 'MAINHEADING': 'Order Sizes',
                 'SECONDHEADING': 'Order Size Histogram' + alert_msg,
-                'MAINBODY': create_size_histogram(self.taker.db, args)
+                'MAINBODY': self.create_size_histogram(args)
             }
         elif self.path.startswith('/depth'):
             # if self.path[6] == '?':
             #	quantity =
             cj_amounts = [10 ** cja for cja in range(4, 12, 1)]
-            mainbody = [create_depth_chart(self.taker.db, cja, args) \
+            mainbody = [self.create_depth_chart(cja, args) \
                         for cja in cj_amounts] + \
                        ["<br/><a href='?'>linear</a>" if args.get("scale") \
                             else "<br/><a href='?scale=log'>log scale</a>"]
@@ -305,7 +326,7 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
             replacements = {}
             orderbook_fmt = json.dumps(self.create_orderbook_obj())
         orderbook_page = orderbook_fmt
-        for key, rep in replacements.iteritems():
+        for key, rep in iteritems(replacements):
             orderbook_page = orderbook_page.replace(key, rep)
         self.send_response(200)
         if self.path.endswith('.json'):
@@ -314,7 +335,7 @@ class OrderbookPageRequestHeader(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.send_header('Content-Type', 'text/html')
         self.send_header('Content-Length', len(orderbook_page))
         self.end_headers()
-        self.wfile.write(orderbook_page)
+        self.wfile.write(orderbook_page.encode('utf-8'))
 
     def do_POST(self):
         global filtered_offername_list
@@ -351,7 +372,7 @@ class HTTPDThread(threading.Thread):
 
     def run(self):
         # hostport = ('localhost', 62601)
-        httpd = BaseHTTPServer.HTTPServer(self.hostport,
+        httpd = http.server.HTTPServer(self.hostport,
                                           OrderbookPageRequestHeader)
         httpd.taker = self.taker
         print('\nstarted http server, visit http://{0}:{1}/\n'.format(

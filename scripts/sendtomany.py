@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 """A simple command line tool to create a bunch
 of utxos from one (thus giving more potential commitments
 for a Joinmarket user, although of course it may be useful
@@ -93,7 +95,7 @@ def main():
     if len(args) < 2:
         quit(parser, 'Invalid syntax')
     u = args[0]
-    priv = raw_input(
+    priv = input(
         'input private key for ' + u + ', in WIF compressed format : ')
     u, priv = get_utxo_info(','.join([u, priv]))
     if not u:
@@ -109,7 +111,7 @@ def main():
     log.debug("Got signed transaction:\n" + txsigned)
     log.debug("Deserialized:")
     log.debug(pformat(btc.deserialize(txsigned)))
-    if raw_input('Would you like to push to the network? (y/n):')[0] != 'y':
+    if input('Would you like to push to the network? (y/n):')[0] != 'y':
         log.info("You chose not to broadcast the transaction, quitting.")
         return
     jm_single().bc_interface.pushtx(txsigned)

@@ -1,19 +1,19 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Wallet functionality tests.'''
 
-import sys
 import os
 import time
 import binascii
-from mnemonic import Mnemonic
 from commontest import create_wallet_for_sync, make_sign_and_push
 import json
 
 import pytest
 from jmclient import (
     load_program_config, jm_single, sync_wallet, get_log,
-    estimate_tx_fee, BitcoinCoreInterface)
+    estimate_tx_fee, BitcoinCoreInterface, Mnemonic)
 from taker_test_data import t_raw_signed_tx
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
@@ -94,9 +94,7 @@ def check_bip39_case(vectors, language="english"):
     mnemo = Mnemonic(language)
     for v in vectors:
         code = mnemo.to_mnemonic(binascii.unhexlify(v[0]))
-        seed = binascii.hexlify(Mnemonic.to_seed(code, passphrase=v[4]))
-        if sys.version >= '3':
-            seed = seed.decode('utf8')
+        seed = binascii.hexlify(Mnemonic.to_seed(code, passphrase=v[4])).decode('ascii')
         print('checking this phrase: ' + v[1])
         assert mnemo.check(v[1])
         assert v[1] == code

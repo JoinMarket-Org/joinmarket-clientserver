@@ -1,4 +1,6 @@
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 import abc
 import ast
@@ -10,7 +12,7 @@ from copy import deepcopy
 from decimal import Decimal
 from twisted.internet import reactor, task
 
-import btc
+from . import btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import get_p2pk_vbyte, jm_single
@@ -345,8 +347,6 @@ class BitcoinCoreInterface(BlockchainInterface):
                           'gettransaction', 'getrawtransaction', 'gettxout']:
             log.debug('rpc: ' + method + " " + str(args))
         res = self.jsonRpc.call(method, args)
-        if isinstance(res, unicode):
-            res = str(res)
         return res
 
     def import_addresses(self, addr_list, wallet_name):
@@ -990,6 +990,6 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
         for address in addresses:
             #self.rpc('importaddress', [address, 'watchonly'])
             res.append({'address': address,
-                        'balance': int(round(Decimal(1e8) * Decimal(self.rpc(
-                            'getreceivedbyaddress', [address, 0]))))})
+                        'balance': int(Decimal(1e8) * self.rpc(
+                            'getreceivedbyaddress', [address, 0]))})
         return {'data': res}

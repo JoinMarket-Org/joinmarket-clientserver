@@ -1,4 +1,6 @@
-from __future__ import print_function, absolute_import, division, unicode_literals
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 from jmclient.wallet import UTXOManager
 from test_storage import MockStorage
@@ -32,9 +34,9 @@ def test_utxomanager_persist(setup_env_nodeps):
 
     um = UTXOManager(storage, select)
 
-    assert um.have_utxo(txid, index) is mixdepth
-    assert um.have_utxo(txid, index+1) is mixdepth + 1
-    assert um.have_utxo(txid, index+2) is False
+    assert um.have_utxo(txid, index) == mixdepth
+    assert um.have_utxo(txid, index+1) == mixdepth + 1
+    assert um.have_utxo(txid, index+2) == False
 
     utxos = um.get_utxos_by_mixdepth()
     assert len(utxos[mixdepth]) == 1
@@ -46,15 +48,15 @@ def test_utxomanager_persist(setup_env_nodeps):
     assert balances[mixdepth+1] == value
 
     um.remove_utxo(txid, index, mixdepth)
-    assert um.have_utxo(txid, index) is False
+    assert um.have_utxo(txid, index) == False
 
     um.save()
     del um
 
     um = UTXOManager(storage, select)
 
-    assert um.have_utxo(txid, index) is False
-    assert um.have_utxo(txid, index+1) is mixdepth + 1
+    assert um.have_utxo(txid, index) == False
+    assert um.have_utxo(txid, index+1) == mixdepth + 1
 
     utxos = um.get_utxos_by_mixdepth()
     assert len(utxos[mixdepth]) == 0

@@ -30,7 +30,7 @@ def test_wif_privkeys_invalid():
     
     for priv in bad_privs:
         with pytest.raises(Exception) as e_info:
-            fake_wif = btc.wif_compressed_privkey(binascii.hexlify(priv))
+            fake_wif = btc.wif_compressed_privkey(binascii.hexlify(priv).decode('ascii'))
 
     #Create a wif with wrong length
     bad_wif1 = btc.bin_to_b58check(b'\x01\x02'*34, b'\x80')

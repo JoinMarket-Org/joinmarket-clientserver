@@ -1,10 +1,13 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 '''Test of unusual transaction types creation and push to
 network to check validity.'''
 
 import time
 import binascii
+import struct
 from commontest import make_wallets, make_sign_and_push
 
 import jmbitcoin as bitcoin
@@ -59,7 +62,7 @@ def test_mktx(setup_tx_creation):
     """Testing exceptional conditions; not guaranteed
     to create valid tx objects"""
     #outpoint structure must be {"outpoint":{"hash":hash, "index": num}}
-    ins = [{'outpoint': {"hash":x*32, "index":0},
+    ins = [{'outpoint': {"hash":x*64, "index":0},
             "script": "", "sequence": 4294967295} for x in ["a", "b", "c"]]
     pub = vpubs[0]
     addr = bitcoin.pubkey_to_address(pub, magicbyte=get_p2pk_vbyte())
@@ -75,7 +78,7 @@ def test_mktx(setup_tx_creation):
 def test_bintxhash(setup_tx_creation):
     tx = "abcdef1234"
     x = bitcoin.bin_txhash(tx)
-    assert binascii.hexlify(x) == "121480fc2cccd5103434a9c88b037e08ef6c4f9f95dfb85b56f7043a344613fe"
+    assert binascii.hexlify(x).decode('ascii') == "121480fc2cccd5103434a9c88b037e08ef6c4f9f95dfb85b56f7043a344613fe"
 
 def test_all_same_priv(setup_tx_creation):
     #recipient
@@ -88,7 +91,7 @@ def test_all_same_priv(setup_tx_creation):
     sync_wallet(wallet, fast=True)
     insfull = wallet.select_utxos(0, 110000000)
     outs = [{"address": addr, "value": 1000000}]
-    ins = insfull.keys()
+    ins = list(insfull.keys())
     tx = bitcoin.mktx(ins, outs)
     tx = bitcoin.signall(tx, wallet.get_key_from_addr(addrinwallet))
 
@@ -107,11 +110,11 @@ def test_verify_tx_input(setup_tx_creation, signall, mktxlist):
     print(insfull)    
     if not mktxlist:
         outs = [{"address": addr, "value": 1000000}]
-        ins = insfull.keys()
+        ins = list(insfull.keys())
         tx = bitcoin.mktx(ins, outs)
     else:
         out1 = addr+":1000000"
-        ins0, ins1 = insfull.keys()
+        ins0, ins1 = list(insfull.keys())
         print("INS0 is: " + str(ins0))
         print("INS1 is: " + str(ins1))
         tx = bitcoin.mktx(ins0, ins1, out1)
@@ -134,7 +137,7 @@ def test_verify_tx_input(setup_tx_creation, signall, mktxlist):
                 tx = binascii.unhexlify(tx)
             tx = bitcoin.sign(tx, index, priv)
             if index % 2:
-                tx = binascii.hexlify(tx)
+                tx = binascii.hexlify(tx).decode('ascii')
     desertx2 = bitcoin.deserialize(tx)
     print(desertx2)
     sig, pub = bitcoin.deserialize_script(desertx2['ins'][0]['script'])
@@ -169,7 +172,7 @@ def test_create_sighash_txs(setup_tx_creation):
         sync_wallet(wallet, fast=True)
         amount = 350000000
         ins_full = wallet.select_utxos(0, amount)
-        print "using hashcode: " + str(sighash)
+        print("using hashcode: " + str(sighash))
         txid = make_sign_and_push(ins_full, wallet, amount, hashcode=sighash)
         assert txid
 
@@ -180,8 +183,8 @@ def test_create_sighash_txs(setup_tx_creation):
 
 def test_spend_p2sh_utxos(setup_tx_creation):
     #make a multisig address from 3 privs
-    privs = [chr(x) * 32 + '\x01' for x in range(1, 4)]
-    pubs = [bitcoin.privkey_to_pubkey(binascii.hexlify(priv)) for priv in privs]
+    privs = [struct.pack(b'B', x) * 32 + b'\x01' for x in range(1, 4)]
+    pubs = [bitcoin.privkey_to_pubkey(binascii.hexlify(priv).decode('ascii')) for priv in privs]
     script = bitcoin.mk_multisig_script(pubs, 2)
     msig_addr = bitcoin.scriptaddr(script, magicbyte=196)
     #pay into it
@@ -203,7 +206,7 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     tx = bitcoin.mktx(ins, outs)
     sigs = []
     for priv in privs[:2]:
-        sigs.append(bitcoin.multisign(tx, 0, script, binascii.hexlify(priv)))
+        sigs.append(bitcoin.multisign(tx, 0, script, binascii.hexlify(priv).decode('ascii')))
     tx = bitcoin.apply_multisignatures(tx, 0, script, sigs)
     txid = jm_single().bc_interface.pushtx(tx)
     assert txid

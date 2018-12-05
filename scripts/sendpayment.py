@@ -1,5 +1,7 @@
 #! /usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 """
 A sample implementation of a single coinjoin script,
@@ -34,7 +36,7 @@ def pick_order(orders, n): #pragma: no cover
         return orders[0]
     while pickedOrderIndex == -1:
         try:
-            pickedOrderIndex = int(raw_input('Pick an order between 0 and ' +
+            pickedOrderIndex = int(input('Pick an order between 0 and ' +
                                              str(i) + ': '))
         except ValueError:
             pickedOrderIndex = -1
@@ -153,7 +155,7 @@ def main():
             log.info('WARNING   ' * 6)
             log.info('\n'.join(['=' * 60] * 3))
         if not options.answeryes:
-            if raw_input('send with these orders? (y/n):')[0] != 'y':
+            if input('send with these orders? (y/n):')[0] != 'y':
                 return False
         return True
 

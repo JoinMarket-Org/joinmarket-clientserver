@@ -1,6 +1,9 @@
 """Module to support bitcoin operations using a
 different codebase than joinmarket's own.
 """
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import *
 #Protocol constants
 BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f'}
 BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4'}
@@ -158,7 +161,7 @@ except ImportError:
         return ebt.sha256(ebt.sha256(x))
     
     def dbl_sha256(x):
-        return binascii.hexlify(bin_dbl_sha256(x))
+        return binascii.hexlify(bin_dbl_sha256(x)).decode('ascii')
     
     def verify_tx_input(tx, i, script, sig, pub):
         pub, sig, script = (binascii.unhexlify(x) for x in [pub, sig, script])
@@ -242,7 +245,7 @@ except ImportError:
         for inp in txobj["ins"]:
             binhash = binascii.unhexlify(inp["outpoint"]["hash"])
             binhash = binhash[::-1]
-            o.append(binascii.hexlify(binhash))
+            o.append(binascii.hexlify(binhash).decode('ascii'))
             o.append(ebt.int_to_hex(inp["outpoint"]["index"], 4))
             o.append(ebt.var_int(len(inp["script"])/2) + inp["script"])
             o.append(ebt.int_to_hex(inp["sequence"], 4))
@@ -321,7 +324,7 @@ except ImportError:
     
     def from_wif_privkey(privkey, vbyte=0):
         #converts a WIF compressed privkey to a hex private key
-        return binascii.hexlify(ebt.ASecretToSecret(privkey))
+        return binascii.hexlify(ebt.ASecretToSecret(privkey)).decode('ascii')
     
     def txhash(txhex):
         t = etr.Transaction(txhex)

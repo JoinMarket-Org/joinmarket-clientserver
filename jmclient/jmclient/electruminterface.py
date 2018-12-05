@@ -1,6 +1,10 @@
-import btc
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
+from . import btc
 import json
-import Queue
+import queue as Queue
 import os
 import pprint
 import random
@@ -330,7 +334,7 @@ class ElectrumInterface(BlockchainInterface):
         for m in range(wallet.max_mixdepth):
             for fc in [0, 1]:
                 branch_list = []
-                for k, v in self.temp_addr_history[m][fc].iteritems():
+                for k, v in iteritems(self.temp_addr_history[m][fc]):
                     if k == "finished":
                         continue
                     if v["used"]:

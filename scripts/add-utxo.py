@@ -1,5 +1,8 @@
 #! /usr/bin/env python
-from __future__ import absolute_import
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from future.utils import iteritems
 """A very simple command line tool to import utxos to be used
 as commitments into joinmarket's commitments.json file, allowing
 users to retry transactions more often without getting banned by
@@ -156,18 +159,18 @@ def main():
     if options.delete_ext:
         other = options.in_file or options.in_json or options.loadwallet
         if len(args) > 0 or other:
-            if raw_input("You have chosen to delete commitments, other arguments "
+            if input("You have chosen to delete commitments, other arguments "
                          "will be ignored; continue? (y/n)") != 'y':
-                print "Quitting"
+                print("Quitting")
                 sys.exit(0)
         c, e = get_podle_commitments()
-        print pformat(e)
-        if raw_input(
+        print(pformat(e))
+        if input(
             "You will remove the above commitments; are you sure? (y/n): ") != 'y':
-            print "Quitting"
+            print("Quitting")
             sys.exit(0)
         update_commitments(external_to_remove=e)
-        print "Commitments deleted."
+        print("Commitments deleted.")
         sys.exit(0)
 
     #Three options (-w, -r, -R) for loading utxo and privkey pairs from a wallet,
@@ -180,7 +183,7 @@ def main():
 
         for md, utxos in wallet.get_utxos_by_mixdepth_().items():
             for (txid, index), utxo in utxos.items():
-                txhex = binascii.hexlify(txid) + ':' + str(index)
+                txhex = binascii.hexlify(txid).decode('ascii') + ':' + str(index)
                 wif = wallet.get_wif_path(utxo['path'])
                 utxo_data.append((txhex, wif))
 
@@ -196,19 +199,19 @@ def main():
                 utxo_data.append((u, priv))
     elif options.in_json:
         if not os.path.isfile(options.in_json):
-            print "File: " + options.in_json + " not found."
+            print("File: " + options.in_json + " not found.")
             sys.exit(0)
         with open(options.in_json, "rb") as f:
             try:
                 utxo_json = json.loads(f.read())
             except:
-                print "Failed to read json from " + options.in_json
+                print("Failed to read json from " + options.in_json)
                 sys.exit(0)
-        for u, pva in utxo_json.iteritems():
+        for u, pva in iteritems(utxo_json):
             utxo_data.append((u, pva['privkey']))
     elif len(args) == 1:
         u = args[0]
-        priv = raw_input(
+        priv = input(
             'input private key for ' + u + ', in WIF compressed format : ')
         u, priv = get_utxo_info(','.join([u, priv]))
         if not u:

@@ -1,6 +1,8 @@
-from __future__ import print_function, absolute_import, division, unicode_literals
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
-from ConfigParser import NoOptionError
+from configparser import NoOptionError
 import warnings
 import functools
 import collections
@@ -8,7 +10,7 @@ import numbers
 from binascii import hexlify, unhexlify
 from datetime import datetime
 from copy import deepcopy
-from mnemonic import Mnemonic
+from mnemonic import Mnemonic as MnemonicParent
 from hashlib import sha256
 from itertools import chain
 from decimal import Decimal
@@ -56,6 +58,12 @@ def _int_to_bytestr(i):
 
 class WalletError(Exception):
     pass
+
+
+class Mnemonic(MnemonicParent):
+    @classmethod
+    def detect_language(cls, code):
+        return "english"
 
 
 def estimate_tx_fee(ins, outs, txtype='p2pkh'):
@@ -337,7 +345,7 @@ class BaseWallet(object):
         script = self._ENGINE.address_to_script(addr)
         path = self.script_to_path(script)
         privkey = self._get_priv_from_path(path)[0]
-        return hexlify(privkey)
+        return hexlify(privkey).decode('ascii')
 
     def get_external_addr(self, mixdepth):
         """
@@ -439,7 +447,7 @@ class BaseWallet(object):
         removed_utxos = {}
         for (txid, index), val in ret.items():
             val['address'] = self.get_addr_path(val['path'])
-            removed_utxos[hexlify(txid) + ':' + str(index)] = val
+            removed_utxos[hexlify(txid).decode('ascii') + ':' + str(index)] = val
         return removed_utxos
 
     def remove_old_utxos_(self, tx):
@@ -526,7 +534,7 @@ class BaseWallet(object):
         ret_conv = {}
         for utxo, data in ret.items():
             addr = self.get_addr_path(data['path'])
-            utxo_txt = hexlify(utxo[0]) + ':' + str(utxo[1])
+            utxo_txt = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
             ret_conv[utxo_txt] = {'address': addr, 'value': data['value']}
         return ret_conv
 
@@ -580,7 +588,7 @@ class BaseWallet(object):
         utxos_conv = collections.defaultdict(dict)
         for md, utxos in ret.items():
             for utxo, data in utxos.items():
-                utxo_str = hexlify(utxo[0]) + ':' + str(utxo[1])
+                utxo_str = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
                 addr = self.get_addr_path(data['path'])
                 data['address'] = addr
                 utxos_conv[md][utxo_str] = data
@@ -1060,6 +1068,7 @@ class BIP32Wallet(BaseWallet):
 
         _master_entropy = self._create_master_key()
         assert _master_entropy
+        assert isinstance(_master_entropy, bytes)
         self._master_key = self._derive_bip32_master_key(_master_entropy)
 
         # used to verify paths for sanity checking and for wallet id creation
@@ -1258,7 +1267,7 @@ class BIP32Wallet(BaseWallet):
         int_type = self._get_internal_type(internal)
         path = self.get_path(mixdepth, int_type, index)
         priv = self._ENGINE.derive_bip32_privkey(self._master_key, path)
-        return hexlify(priv)
+        return hexlify(priv).decode('ascii')
 
     def get_bip32_priv_export(self, mixdepth=None, internal=None):
         path = self._get_bip32_export_path(mixdepth, internal)
@@ -1304,7 +1313,7 @@ class BIP32Wallet(BaseWallet):
         return self._index_cache[mixdepth][int_type]
 
     def get_mnemonic_words(self):
-        return ' '.join(mn_encode(hexlify(self._entropy))), None
+        return ' '.join(mn_encode(hexlify(self._entropy).decode('ascii'))), None
 
     @classmethod
     def entropy_from_mnemonic(cls, seed):
@@ -1315,7 +1324,7 @@ class BIP32Wallet(BaseWallet):
         return unhexlify(mn_decode(words))
 
     def get_wallet_id(self):
-        return hexlify(self._key_ident)
+        return hexlify(self._key_ident).decode('ascii')
 
     def set_next_index(self, mixdepth, internal, index, force=False):
         int_type = self._get_internal_type(internal)
@@ -1334,7 +1343,7 @@ class LegacyWallet(ImportWalletMixin, BIP32Wallet):
     _ENGINE = BTC_P2PKH
 
     def _create_master_key(self):
-        return hexlify(self._entropy).encode('ascii')
+        return hexlify(self._entropy)
 
     def _get_bip32_base_path(self):
         return self._key_ident, 0

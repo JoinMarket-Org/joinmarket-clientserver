@@ -78,7 +78,7 @@ class IRCMessageChannel(MessageChannel):
                  daemon=None):
         MessageChannel.__init__(self, daemon=daemon)
         self.give_up = True
-        self.serverport = (configdata['host'], configdata['port'])
+        self.serverport = (configdata['host'], int(configdata['port']))
         #default hostid for use with miniircd which doesnt send NETWORK
         self.hostid = configdata['host'] + str(configdata['port'])
         self.socks5 = configdata["socks5"]
@@ -152,7 +152,7 @@ class IRCMessageChannel(MessageChannel):
         else:
             try:
                 factory = TxIRCFactory(self)
-                wlog('build_irc: ', self.serverport[0], self.serverport[1],
+                wlog('build_irc: ', self.serverport[0], str(self.serverport[1]),
                      self.channel)
                 self.tcp_connector = reactor.connectTCP(
                         self.serverport[0], self.serverport[1], factory)
@@ -198,7 +198,7 @@ class txIRC_Client(irc.IRCClient, object):
     def send(self, send_to, msg):
         # todo: use proper twisted IRC support (encoding + sendCommand)
         omsg = 'PRIVMSG %s :' % (send_to,) + msg
-        self.sendLine(omsg.encode('ascii'))
+        self.sendLine(omsg)
 
     def _pubmsg(self, message):
         self.send(self.channel, message)

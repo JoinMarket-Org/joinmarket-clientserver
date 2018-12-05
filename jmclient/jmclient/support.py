@@ -1,4 +1,7 @@
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
+from functools import reduce
 
 import random
 from jmbase.support import get_log
@@ -25,7 +28,7 @@ def get_random_bytes(num_bytes, cryptographically_secure=False):
         generator = random.SystemRandom()
     else:
         generator = random
-    return bytes(bytearray((generator.randrange(256) for b in xrange(num_bytes))))
+    return bytes(bytearray((generator.randrange(256) for b in range(num_bytes))))
 
 
 def rand_norm_array(mu, sigma, n):
@@ -43,7 +46,7 @@ def rand_pow_array(power, n):
     # for basis of formula, see: http://mathworld.wolfram.com/RandomNumber.html
     return [y**(1.0 / power)
             for y in [x * 0.0001 for x in random.sample(
-                xrange(10000), n)]]
+                range(10000), n)]]
 
 
 def rand_weighted_choice(n, p_arr):
@@ -58,7 +61,7 @@ def rand_weighted_choice(n, p_arr):
         raise ValueError("Sum of probabilities must be 1")
     if len(p_arr) != n:
         raise ValueError("Need: " + str(n) + " probabilities.")
-    cum_pr = [sum(p_arr[:i + 1]) for i in xrange(len(p_arr))]
+    cum_pr = [sum(p_arr[:i + 1]) for i in range(len(p_arr))]
     r = random.random()
     return sorted(cum_pr + [r]).index(r)
 

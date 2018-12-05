@@ -1,8 +1,10 @@
 #! /usr/bin/env python
-from __future__ import absolute_import, print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 import random
 from optparse import OptionParser, OptionValueError
-from ConfigParser import NoOptionError
+from configparser import NoOptionError
 
 import jmclient.support
 
@@ -58,7 +60,7 @@ def add_common_options(parser):
     parser.add_option(
         '--order-choose-algorithm',
         action='callback',
-        type=str,
+        type='string',
         default=jmclient.support.random_under_max_order_choose,
         callback=get_order_choose_algorithm,
         help="Set the algorithm to use for selecting orders from the order book.\n"
@@ -113,7 +115,7 @@ def get_max_cj_fee_values(config, parser_options):
         except NoOptionError:
             pass
 
-    if len(filter(lambda x: x is None, fee_values)):
+    if any(x is None for x in fee_values):
         fee_values = prompt_user_for_cj_fee(*fee_values)
 
     return tuple(map(lambda j: fee_types[j](fee_values[j]),
@@ -138,7 +140,7 @@ counterparties are selected."""
 
     def prompt_user_value(m, val, check):
         while True:
-            data = raw_input(m)
+            data = input(m)
             if data == 'y':
                 return val
             try:
@@ -223,7 +225,7 @@ def get_tumbler_parser():
               'logs directory, with name TUMBLE.schedule or what is set in the '
               'schedulefile option.'))
     parser.add_option('--schedulefile',
-            type='str',
+            type='string',
             dest='schedulefile',
             default='TUMBLE.schedule',
             help=('Name of schedule file for tumbler, useful for restart, default '
@@ -372,7 +374,7 @@ def get_sendpayment_parser():
         default=random.randint(4, 6))
     parser.add_option('-S',
                       '--schedule-file',
-                      type='str',
+                      type='string',
                       dest='schedule',
                       help='schedule file name; see file "sample-schedule-for-testnet" for explanation and example',
                       default='')

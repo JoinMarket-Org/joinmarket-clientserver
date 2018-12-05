@@ -57,7 +57,7 @@ def test_ecdsa_raw_sign():
     #build non-raw priv object as input
     privraw = "aa"*32
     msghash = b"\xbb"*32
-    sig = binascii.hexlify(btc.ecdsa_raw_sign(msghash, privraw, False, rawpriv=False, rawmsg=True))
+    sig = binascii.hexlify(btc.ecdsa_raw_sign(msghash, privraw, False, rawpriv=False, rawmsg=True)).decode('ascii')
     assert sig == "3045022100b81960b4969b423199dea555f562a66b7f49dea5836a0168361f1a5f8a3c8298022003eea7d7ee4462e3e9d6d59220f950564caeb77f7b1cdb42af3c83b013ff3b2f"
 
 

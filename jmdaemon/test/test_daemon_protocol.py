@@ -2,6 +2,7 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import *
+from future.utils import iteritems
 '''test daemon-protocol interfacae.'''
 
 from jmdaemon import MessageChannelCollection
@@ -11,6 +12,7 @@ from jmdaemon.protocol import NICK_HASH_LENGTH, NICK_MAX_ENCODED, JM_VERSION,\
     JOINMARKET_NICK_HEADER
 from jmclient import (load_program_config, get_log, jm_single, get_irc_mchannels)
 from twisted.python.log import msg as tmsg
+from twisted.python.log import startLogging
 from twisted.internet import protocol, reactor, task
 from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
@@ -22,6 +24,7 @@ from jmbase.commands import *
 from msgdata import *
 import json
 import base64
+import sys
 from dummy_mc import DummyMessageChannel
 test_completed = False
 end_early = False
@@ -84,7 +87,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            n_counterparties=4) #TODO this number should be set
+                            initdata="none")
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -103,7 +106,7 @@ class JMTestClientProtocol(JMBaseProtocol):
     
     def maketx(self, ioauth_data):
         ioauth_data = json.loads(ioauth_data)
-        nl = ioauth_data.keys()
+        nl = list(ioauth_data.keys())
         d = self.callRemote(JMMakeTx,
                             nick_list= json.dumps(nl),
                             txhex="deadbeef")
@@ -115,8 +118,8 @@ class JMTestClientProtocol(JMBaseProtocol):
             return {'accepted': True}
         jlog.debug("JMOFFERS" + str(orderbook))
         #Trigger receipt of verified privmsgs, including unverified
-        nick = str(t_chosen_orders.keys()[0])
-        b64tx = base64.b64encode("deadbeef")
+        nick = str(list(t_chosen_orders.keys())[0])
+        b64tx = base64.b64encode(b"deadbeef").decode('ascii')
         d1 = self.callRemote(JMMsgSignatureVerify,
                             verif_result=True,
                             nick=nick,
@@ -244,16 +247,16 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         dummypub = "073732a7ca60470f709f23c602b2b8a6b1ba62ee8f3f83a61e5484ab5cbf9c3d"
         #trigger invalid on_pubkey conditions
         reactor.callLater(1, self.on_pubkey, "notrealcp", dummypub)
-        reactor.callLater(2, self.on_pubkey, tmpfo.keys()[0], dummypub + "deadbeef")
+        reactor.callLater(2, self.on_pubkey, list(tmpfo.keys())[0], dummypub + "deadbeef")
         #trigger invalid on_ioauth condition
         reactor.callLater(2, self.on_ioauth, "notrealcp", 1, 2, 3, 4, 5)
         #trigger msg sig verify request operation for a dummy message
         #currently a pass-through
         reactor.callLater(1, self.request_signature_verify, "1",
                           "!push abcd abc def", "3", "4",
-                          str(tmpfo.keys()[0]), 6, 7, self.mcc.mchannels[0].hostid)         
+                          str(list(tmpfo.keys())[0]), 6, 7, self.mcc.mchannels[0].hostid)
         #send "valid" onpubkey, onioauth messages
-        for k, v in tmpfo.iteritems():
+        for k, v in iteritems(tmpfo):
             reactor.callLater(1, self.on_pubkey, k, dummypub)
             reactor.callLater(2, self.on_ioauth, k, ['a', 'b'], "auth_pub",
                               "cj_addr", "change_addr", "btc_sig")
@@ -262,7 +265,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
-        for n in nick_list:
+        for n in json.loads(nick_list):
             reactor.callLater(1, self.on_sig, n, "dummytxsig")
         return super(JMDaemonTestServerProtocol, self).on_JM_MAKE_TX(nick_list,
                                                                      txhex)
@@ -289,6 +292,7 @@ class JMDaemonTest2ServerProtocolFactory(ServerFactory):
 class TrialTestJMDaemonProto(unittest.TestCase):
 
     def setUp(self):
+        startLogging(sys.stdout)
         load_program_config()
         jm_single().maker_timeout_sec = 1
         self.port = reactor.listenTCP(28184, JMDaemonTestServerProtocolFactory())

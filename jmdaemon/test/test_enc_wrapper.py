@@ -16,10 +16,10 @@ from jmdaemon import (init_keypair, get_pubkey, init_pubkey, as_init_encryption,
                              # short ascii
                              (b"Attack at dawn", b"Not tonight Josephine!", 5),
                              # long base64 encoded
-                             (base64.b64encode(''.join(random.choice(
-                                 string.ascii_letters) for _ in range(5000))),
-                              base64.b64encode(''.join(random.choice(
-                                  string.ascii_letters) for _ in range(5000))),
+                             (base64.b64encode(b''.join(random.choice(
+                                 string.ascii_letters).encode('ascii') for _ in range(5000))),
+                              base64.b64encode(b''.join(random.choice(
+                                  string.ascii_letters).encode('ascii') for _ in range(5000))),
                               5,),
                              # large number of messages on the same connection
                              (b'rand', b'rand', 40000),

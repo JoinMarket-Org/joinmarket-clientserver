@@ -1,5 +1,7 @@
-#!/usr/bin/env python2
-
+#!/usr/bin/env python
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 import argparse
 import json
 import os.path
@@ -35,7 +37,7 @@ def decrypt_entropy_extension(enc_data, key):
     if data[-9] != b'\xff':
         raise ConvertException("Wrong password.")
     chunks = data.split(b'\xff')
-    if len(chunks) < 3 or data[-8:] != hexlify(double_sha256(chunks[1])[:4]):
+    if len(chunks) < 3 or data[-8:] != hexlify(double_sha256(chunks[1]).decode('ascii')[:4]):
         raise ConvertException("Wrong password.")
     return chunks[1]
 
@@ -92,7 +94,7 @@ def new_wallet_from_data(data, file_name):
         for md in data['imported']:
             for privkey in data['imported'][md]:
                 privkey += b'\x01'
-                wif = wif_compressed_privkey(hexlify(privkey))
+                wif = wif_compressed_privkey(hexlify(privkey).decode('ascii'))
                 wallet.import_private_key(md, wif)
 
     wallet.save()

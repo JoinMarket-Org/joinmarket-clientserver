@@ -1,4 +1,6 @@
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 import io
 import logging
@@ -6,9 +8,9 @@ import threading
 import os
 import binascii
 
-from ConfigParser import SafeConfigParser, NoOptionError
+from configparser import ConfigParser, NoOptionError
 
-import btc
+from . import btc
 from jmclient.jsonrpc import JsonRpc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
                             set_logging_level)
@@ -33,7 +35,7 @@ class AttributeDict(object):
 
     def add_entries(self, **entries):
         for key, value in entries.items():
-            if type(value) is dict:
+            if isinstance(value, dict):
                 self.__dict__[key] = AttributeDict(**value)
             else:
                 self.__dict__[key] = value
@@ -73,7 +75,7 @@ global_singleton.blacklist_file_lock = threading.Lock()
 global_singleton.core_alert = core_alert
 global_singleton.joinmarket_alert = joinmarket_alert
 global_singleton.debug_silence = debug_silence
-global_singleton.config = SafeConfigParser()
+global_singleton.config = ConfigParser(strict=False)
 #This is reset to a full path after load_program_config call
 global_singleton.config_location = 'joinmarket.cfg'
 #as above
@@ -362,7 +364,7 @@ def donation_address(reusable_donation_pubkey=None): #pragma: no cover
     if not reusable_donation_pubkey:
         reusable_donation_pubkey = ('02be838257fbfddabaea03afbb9f16e852'
                                     '9dfe2de921260a5c46036d97b5eacf2a')
-    sign_k = binascii.hexlify(os.urandom(32))
+    sign_k = binascii.hexlify(os.urandom(32)).decode('ascii')
     c = btc.sha256(btc.multiply(sign_k, reusable_donation_pubkey, True))
     sender_pubkey = btc.add_pubkeys(
         [reusable_donation_pubkey, btc.privtopub(c + '01', True)], True)
@@ -378,7 +380,7 @@ def remove_unwanted_default_settings(config):
 
 
 def load_program_config(config_path=None, bs=None):
-    global_singleton.config.readfp(io.BytesIO(defaultconfig))
+    global_singleton.config.readfp(io.StringIO(defaultconfig))
     remove_unwanted_default_settings(global_singleton.config)
     if not config_path:
         config_path = os.getcwd()

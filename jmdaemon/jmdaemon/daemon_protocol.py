@@ -2,6 +2,7 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import *
+from future.utils import iteritems
 
 from .message_channel import MessageChannelCollection
 from .orderbookwatch import OrderbookWatch
@@ -13,7 +14,6 @@ from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
 from .irc import IRCMessageChannel
 
 from jmbase.commands import *
-from jmbase import _byteify
 from twisted.protocols import amp
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ServerFactory
@@ -72,7 +72,7 @@ def check_utxo_blacklist(commitment, persist=False):
     fname = "commitmentlist"
     if os.path.isfile(fname):
         with open(fname, "rb") as f:
-            blacklisted_commitments = [x.strip() for x in f.readlines()]
+            blacklisted_commitments = [x.decode('ascii').strip() for x in f.readlines()]
     else:
         blacklisted_commitments = []
     if commitment in blacklisted_commitments:
@@ -80,7 +80,7 @@ def check_utxo_blacklist(commitment, persist=False):
     elif persist:
         blacklisted_commitments += [commitment]
         with open(fname, "wb") as f:
-            f.write('\n'.join(blacklisted_commitments))
+            f.write('\n'.join(blacklisted_commitments).encode('ascii'))
             f.flush()
     #If the commitment is new and we are *not* persisting, nothing to do
     #(we only add it to the list on sending io_auth, which represents actual
@@ -242,9 +242,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         #Reset utxo data to null for this new transaction
         self.ioauth_data = {}
         self.active_orders = json.loads(filled_offers)
-        for nick, offer_dict in self.active_orders.iteritems():
-            offer_fill_msg = " ".join([str(offer_dict["oid"]), str(amount), str(
-                self.kp.hex_pk()), str(commitment)])
+        for nick, offer_dict in iteritems(self.active_orders):
+            offer_fill_msg = " ".join([str(offer_dict["oid"]), str(amount),
+                self.kp.hex_pk().decode('ascii'), str(commitment)])
             self.mcc.prepare_privmsg(nick, "fill", offer_fill_msg)
         reactor.callLater(self.maker_timeout_sec, self.completeStage1)
         self.jm_state = 2
@@ -293,8 +293,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 	channel based on data from Maker. Relevant data (utxos, addresses)
 	are stored in the active_orders dict keyed by the nick of the Taker.
 	"""
-        nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig = [_byteify(
-            x) for x in (nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig)]
         if not self.role == "MAKER":
             return
         if not nick in self.active_orders:
@@ -324,7 +322,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 	broadcast one by one. TODO: could shorten this,
 	have more than one sig per message.
 	"""
-        sigs = _byteify(json.loads(sigs))
+        sigs = json.loads(sigs)
         for sig in sigs:
             self.mcc.prepare_privmsg(nick, "sig", sig)
         return {"accepted": True}
@@ -395,7 +393,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                                         "offer": offer,
                                         "amount": amount,
                                         "commit": scommit}
-        self.mcc.prepare_privmsg(nick, "pubkey", kp.hex_pk())
+        self.mcc.prepare_privmsg(nick, "pubkey", kp.hex_pk().decode('ascii'))
 
     @maker_only
     def on_seen_auth(self, nick, commitment_revelation):
@@ -414,7 +412,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                             commitment=ao["commit"],
                             revelation=json.dumps(commitment_revelation),
                             amount=ao["amount"],
-                            kphex=ao["kp"].hex_pk())
+                            kphex=ao["kp"].hex_pk().decode('ascii'))
         self.defaultCallbacks(d)
 
     @maker_only
@@ -576,7 +574,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                     ).fetchone()
         if crow is None:
             return
-        counterparty = crow[b'counterparty']
+        counterparty = crow['counterparty']
         #TODO de-hardcode hp2
         log.msg("Sending commitment to: " + str(counterparty))
         self.mcc.prepare_privmsg(counterparty, 'hp2', commit)

@@ -18,7 +18,7 @@ def test_valid_sigs(setup_ecc):
         msg = v['msg']
         sig = v['sig']
         priv = v['privkey']
-        assert btc.from_string_to_bytes(sig) == btc.ecdsa_raw_sign(msg, priv, True, rawmsg=True)+b'01'
+        assert sig == btc.ecdsa_raw_sign(msg, priv, True, rawmsg=True)+'01'
         #check that the signature verifies against the key(pair)
         pubkey = btc.privtopub(priv)
         assert btc.ecdsa_raw_verify(msg, pubkey, sig[:-2], True, rawmsg=True)
@@ -27,7 +27,7 @@ def test_valid_sigs(setup_ecc):
             #corrupt one byte
             binsig = binascii.unhexlify(sig)
             checksig = binascii.hexlify(binsig[:i] + btc.from_string_to_bytes(chr(
-                (ord(binsig[i:i+1])+1) %256)) + binsig[i+1:-1])
+                (ord(binsig[i:i+1])+1) %256)) + binsig[i+1:-1]).decode('ascii')
             
             #this kind of corruption will sometimes lead to an assert
             #failure (if the DER format is corrupted) and sometimes lead

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
+from __future__ import (absolute_import, division,
+                        print_function, unicode_literals)
+from builtins import * # noqa: F401
 
 from jmclient import Maker, btc, get_p2sh_vbyte, get_p2pk_vbyte, \
     load_program_config, jm_single
@@ -46,7 +48,7 @@ def construct_tx_offerlist(cjaddr, changeaddr, maker_utxos, maker_utxos_value,
 
 def create_tx_inputs(count=1):
     inp = []
-    for i in xrange(count):
+    for i in range(count):
         inp.append({'outpoint': {'hash': '0'*64, 'index': i},
                     'script': '',
                     'sequence': 4294967295})
@@ -71,9 +73,9 @@ def address_p2sh_generator():
 def get_address_generator(script_pre, script_post, vbyte):
     counter = 0
     while True:
-        script = script_pre + struct.pack('=LQQ', 0, 0, counter) + script_post
+        script = script_pre + struct.pack(b'=LQQ', 0, 0, counter) + script_post
         addr = btc.script_to_address(script, vbyte)
-        yield addr, binascii.hexlify(script)
+        yield addr, binascii.hexlify(script).decode('ascii')
         counter += 1
 
 
@@ -120,21 +122,21 @@ def test_verify_unsigned_tx_sw_valid(setup_env_nodeps):
 
     # test standard cj
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2sh_gen)[1] for s in xrange(4)], cj_script, cj_change_script)
+        [next(p2sh_gen)[1] for s in range(4)], cj_script, cj_change_script)
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "standard sw cj"
 
     # test cj with mixed outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        list(chain((next(p2sh_gen)[1] for s in xrange(3)),
-                   (next(p2pkh_gen)[1] for s in xrange(1)))),
+        list(chain((next(p2sh_gen)[1] for s in range(3)),
+                   (next(p2pkh_gen)[1] for s in range(1)))),
         cj_script, cj_change_script)
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "sw cj with p2pkh output"
 
     # test cj with only p2pkh outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2pkh_gen)[1] for s in xrange(4)], cj_script, cj_change_script)
+        [next(p2pkh_gen)[1] for s in range(4)], cj_script, cj_change_script)
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "sw cj with only p2pkh outputs"
 
@@ -153,21 +155,21 @@ def test_verify_unsigned_tx_nonsw_valid(setup_env_nodeps):
 
     # test standard cj
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2pkh_gen)[1] for s in xrange(4)], cj_script, cj_change_script, 'reloffer')
+        [next(p2pkh_gen)[1] for s in range(4)], cj_script, cj_change_script, 'reloffer')
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "standard nonsw cj"
 
     # test cj with mixed outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        list(chain((next(p2sh_gen)[1] for s in xrange(1)),
-                   (next(p2pkh_gen)[1] for s in xrange(3)))),
+        list(chain((next(p2sh_gen)[1] for s in range(1)),
+                   (next(p2pkh_gen)[1] for s in range(3)))),
         cj_script, cj_change_script, 'reloffer')
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "nonsw cj with p2sh output"
 
     # test cj with only p2sh outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2sh_gen)[1] for s in xrange(4)], cj_script, cj_change_script, 'reloffer')
+        [next(p2sh_gen)[1] for s in range(4)], cj_script, cj_change_script, 'reloffer')
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "nonsw cj with only p2sh outputs"
 
