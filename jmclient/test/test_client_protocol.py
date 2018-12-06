@@ -315,7 +315,7 @@ class TestMakerClientProtocol(unittest.TestCase):
 
     def callClient(self, jmcmd, response_cb=None, error_cb=None, **kwargs):
         box = jmcmd.makeArguments(kwargs, self.client)
-        box[b'_command'] = jmcmd.__name__
+        box[b'_command'] = jmcmd.__name__.encode('utf-8')
         d = self.client.dispatchCommand(box)
         d.addCallback(response_cb or self.get_response_cb(jmcmd))
         if error_cb:
