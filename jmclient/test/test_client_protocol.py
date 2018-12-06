@@ -5,15 +5,17 @@ from builtins import *
 '''test client-protocol interfacae.'''
 
 from jmclient import load_program_config, Taker, get_log,\
-    JMClientProtocolFactory, jm_single
+    JMClientProtocolFactory, jm_single, Maker
 from jmclient.client_protocol import JMTakerClientProtocol
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor, task
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
 from twisted.protocols.amp import UnknownRemoteError
 from twisted.protocols import amp
 from twisted.trial import unittest
+from twisted.test import proto_helpers
 from jmbase.commands import *
 from taker_test_data import t_raw_signed_tx
 import json
@@ -28,8 +30,10 @@ clientfactory = None
 runno = 0
 jlog = get_log()
 
+
 def dummy_taker_finished(res, fromtx, waittime=0.0):
     pass
+
 
 class DummyTaker(Taker):
 
@@ -74,18 +78,62 @@ class DummyTaker(Taker):
         return None
 
 
+class DummyWallet(object):
+    def get_wallet_id(self):
+        return 'aaaa'
+
+
+class DummyMaker(Maker):
+    def __init__(self):
+        self.aborted = False
+        self.wallet = DummyWallet()
+
+    def try_to_create_my_orders(self):
+        pass
+
+    def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
+        # success, utxos, auth_pub, cj_addr, change_addr, btc_sig
+        return True, [], '', '', '', ''
+
+    def on_tx_received(self, nick, txhex, offerinfo):
+        # success, sigs
+        return True, []
+
+    def verify_unsigned_tx(self, txd, offerinfo):
+        # success, errormsg
+        return True, None
+
+    def modify_orders(self, to_cancel, to_announce):
+        pass
+
+    def import_new_addresses(self, addr_list):
+        pass
+
+    def create_my_orders(self):
+        return []
+
+    def oid_to_order(self, cjorder, oid, amount):
+        # utxos, cj_addr, change_addr
+        return [], '', ''
+
+    def on_tx_unconfirmed(self, cjorder, txid, removed_utxos):
+        return [], []
+
+    def on_tx_confirmed(self, cjorder, confirmations, txid):
+        return [], []
+
+
 class JMBaseProtocol(amp.AMP):
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop()
+            raise Exception("unexpected client response")
 
     def defaultErrback(self, failure):
         failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone,
                      ConnectionLost, UnknownRemoteError)
-        reactor.stop()
 
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
@@ -205,6 +253,7 @@ class DummyClientProtocolFactory(JMClientProtocolFactory):
     def buildProtocol(self, addr):
         return JMTakerClientProtocol(self, self.client, nick_priv="aa"*32)
 
+
 class TrialTestJMClientProto(unittest.TestCase):
 
     def setUp(self):
@@ -238,9 +287,103 @@ class TrialTestJMClientProto(unittest.TestCase):
                                                 clientfactories[0])
                 self.addCleanup(clientconn.disconnect)
 
+    def tearDown(self):
+        for dc in reactor.getDelayedCalls():
+            dc.cancel()
+
     def test_waiter(self):
         print("test_main()")
         return task.deferLater(reactor, 3, self._called_by_deffered)
 
     def _called_by_deffered(self):
         pass
+
+
+class TestMakerClientProtocol(unittest.TestCase):
+    """
+    very basic test case for JMMakerClientProtocol
+
+    This test does not do much useful things right now, other than making sure
+    no exceptions are fired. Most argument data is not crafted carefully and
+    may lead to failing tests if anything changes.
+    """
+    def get_response_cb(self, cmd):
+        def response_cb(response):
+            parsed = cmd.parseResponse(response, self.client)
+            assert parsed['accepted'] is True
+        return response_cb
+
+    def callClient(self, jmcmd, response_cb=None, error_cb=None, **kwargs):
+        box = jmcmd.makeArguments(kwargs, self.client)
+        box[b'_command'] = jmcmd.__name__
+        d = self.client.dispatchCommand(box)
+        d.addCallback(response_cb or self.get_response_cb(jmcmd))
+        if error_cb:
+            d.addErrback(error_cb)
+        return d
+
+    def setUp(self):
+        load_program_config()
+        factory = JMClientProtocolFactory(DummyMaker(), proto_type='MAKER')
+        self.client = factory.buildProtocol(None)
+        self.tr = proto_helpers.StringTransport()
+        self.client.makeConnection(self.tr)
+
+    def tearDown(self):
+        for dc in reactor.getDelayedCalls():
+            dc.cancel()
+
+    def init_client(self):
+        return self.callClient(
+            JMInitProto, nick_hash_length=1, nick_max_encoded=2,
+            joinmarket_nick_header='J', joinmarket_version=5)
+
+    @inlineCallbacks
+    def test_JMInitProto(self):
+        yield self.init_client()
+
+    @inlineCallbacks
+    def test_JMRequestMsgSig(self):
+        yield self.init_client()
+        yield self.callClient(
+            JMRequestMsgSig, nick='dummynickforsign', cmd='command1',
+            msg='msgforsign', msg_to_be_signed='fullmsgforsign',
+            hostid='hostid1')
+
+    @inlineCallbacks
+    def test_JMRequestMsgSigVerify(self):
+        fullmsg = 'fullmsgforverify'
+        priv = 'aa'*32 + '01'
+        pub = bitcoin.privkey_to_pubkey(priv)
+        sig = bitcoin.ecdsa_sign(fullmsg, priv)
+        yield self.init_client()
+        yield self.callClient(
+            JMRequestMsgSigVerify, msg='msgforverify', fullmsg=fullmsg,
+            sig=sig, pubkey=pub, nick='dummynickforverify', hashlen=4,
+            max_encoded=5, hostid='hostid2')
+
+    @inlineCallbacks
+    def test_JMUp(self):
+        yield self.init_client()
+        yield self.callClient(JMUp)
+
+    @inlineCallbacks
+    def test_JMSetupDone(self):
+        yield self.init_client()
+        yield self.callClient(JMSetupDone)
+
+
+    @inlineCallbacks
+    def test_JMAuthReceived(self):
+        yield self.init_client()
+        yield self.callClient(
+            JMAuthReceived, nick='testnick', offer='{}',
+            commitment='testcommitment', revelation='{}', amount=100000,
+            kphex='testkphex')
+
+    @inlineCallbacks
+    def test_JMTXReceived(self):
+        yield self.init_client()
+        yield self.callClient(
+            JMTXReceived, nick='testnick', txhex=t_raw_signed_tx,
+            offer='{"cjaddr":"2MwfecDHsQTm4Gg3RekQdpqAMR15BJrjfRF"}')

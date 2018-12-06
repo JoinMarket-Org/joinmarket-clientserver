@@ -44,31 +44,6 @@ class YieldGenerator(Maker):
         self.income_statement.write(','.join(data) + '\n')
         self.income_statement.close()
 
-    @abc.abstractmethod
-    def create_my_orders(self):
-        """Must generate a set of orders to be displayed
-        according to the contents of the wallet + some algo.
-        (Note: should be called "create_my_offers")
-        """
-
-    @abc.abstractmethod
-    def oid_to_order(self, cjorder, oid, amount):
-        """Must convert an order with an offer/order id
-        into a set of utxos to fill the order.
-        Also provides the output addresses for the Taker.
-        """
-
-    @abc.abstractmethod
-    def on_tx_unconfirmed(self, cjorder, txid, removed_utxos):
-        """Performs action on receipt of transaction into the
-        mempool in the blockchain instance (e.g. announcing orders)
-        """
-
-    @abc.abstractmethod
-    def on_tx_confirmed(self, cjorder, confirmations, txid):
-        """Performs actions on receipt of 1st confirmation of
-        a transaction into a block (e.g. announce orders)
-        """
 
 class YieldGeneratorBasic(YieldGenerator):
     """A simplest possible instantiation of a yieldgenerator.
