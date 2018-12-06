@@ -17,7 +17,6 @@ from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       get_random_bytes, random_under_max_order_choose)
 from .jsonrpc import JsonRpcError, JsonRpcConnectionError, JsonRpc
 from .old_mnemonic import mn_decode, mn_encode
-from .slowaes import decryptData, encryptData
 from .taker import Taker
 from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
