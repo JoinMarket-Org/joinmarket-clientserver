@@ -24,13 +24,15 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 '''
 
 import sys, datetime, os, logging
-import platform, csv, threading, time
+import platform, json, threading, time
 
 
 from decimal import Decimal
+from PySide2 import QtCore
 
-from PyQt4 import QtCore
-from PyQt4.QtGui import *
+from PySide2.QtGui import *
+
+from PySide2.QtWidgets import *
 
 if platform.system() == 'Windows':
     MONOSPACE_FONT = 'Lucida Console'
@@ -41,11 +43,19 @@ else:
 
 import jmbitcoin as btc
 
+# This is required to change the decimal separator
+# to '.' regardless of the locale; TODO don't require
+# this, but will require other edits for parsing amounts.
+curL = QtCore.QLocale("en_US")
+QtCore.QLocale.setDefault(curL)
+
 app = QApplication(sys.argv)
 if 'twisted.internet.reactor' in sys.modules:
     del sys.modules['twisted.internet.reactor']
-from qtreactor import pyqt4reactor
-pyqt4reactor.install()
+
+import qt5reactor
+qt5reactor.install()
+
 #General Joinmarket donation address; TODO
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 
@@ -133,7 +143,8 @@ def getSettingsWidgets():
         if x[2] == int:
             qle.setValidator(QIntValidator(*x[4]))
         if x[2] == float:
-            qle.setValidator(QDoubleValidator(*x[4]))
+            qdv = QDoubleValidator(*x[4])
+            qle.setValidator(qdv)
         results.append((ql, qle))
     return results
 
@@ -152,7 +163,7 @@ class HelpLabel(QLabel):
         self.setStyleSheet(BLUE_FG)
 
     def mouseReleaseEvent(self, x):
-        QMessageBox.information(w, self.wtitle, self.help_text, 'OK')
+        QMessageBox.information(w, self.wtitle, self.help_text)
 
     def enterEvent(self, event):
         self.font.setUnderline(True)
@@ -343,14 +354,14 @@ class SpendTab(QWidget):
                                                'Choose Schedule File',
                                                directory=current_path)
         #TODO validate the schedule
-        log.debug('Looking for schedule in: ' + firstarg)
+        log.debug('Looking for schedule in: ' + str(firstarg))
         if not firstarg:
             return
         #extract raw text before processing
-        with open(firstarg, 'rb') as f:
+        with open(firstarg[0], 'rb') as f:
             rawsched = f.read()
 
-        res, schedule = get_schedule(firstarg)
+        res, schedule = get_schedule(firstarg[0])
         if not res:
             JMQtMessageBox(self, "Not a valid JM schedule file", mbtype='crit',
                            title='Error')
@@ -370,7 +381,7 @@ class SpendTab(QWidget):
 
     def updateSchedView(self):
         self.sch_label2.setText(self.spendstate.schedule_name)
-        self.sched_view.setText(schedule_to_text(self.spendstate.loaded_schedule))
+        self.sched_view.setText(schedule_to_text(self.spendstate.loaded_schedule).decode('utf-8'))
 
     def getDonateLayout(self):
         donateLayout = QHBoxLayout()
@@ -601,7 +612,7 @@ class SpendTab(QWidget):
             return
         destaddr = str(self.widgets[0][1].text())
         #convert from bitcoins (enforced by QDoubleValidator) to satoshis
-        btc_amount_str = str(self.widgets[3][1].text())
+        btc_amount_str = self.widgets[3][1].text()
         amount = int(Decimal(btc_amount_str) * Decimal('1e8'))
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
@@ -825,10 +836,10 @@ class SpendTab(QWidget):
     def persistTxToHistory(self, addr, amt, txid):
         #persist the transaction to history
         with open(jm_single().config.get("GUI", "history_file"), 'ab') as f:
-            f.write(','.join([addr, satoshis_to_amt_str(amt), txid,
+            f.write((','.join([addr, satoshis_to_amt_str(amt), txid,
                               datetime.datetime.now(
-                                  ).strftime("%Y/%m/%d %H:%M:%S")]))
-            f.write('\n')  #TODO: Windows
+                                  ).strftime("%Y/%m/%d %H:%M:%S")])).encode('utf-8'))
+            f.write(b'\n')  #TODO: Windows
         #update the TxHistory tab
         txhist = w.centralWidget().widget(3)
         txhist.updateTxInfo()
@@ -897,7 +908,7 @@ class SpendTab(QWidget):
                 "Mixdepth must be chosen.",
                 "Amount, in bitcoins, must be provided."]
         for i in range(1, 4):
-            if self.widgets[i][1].text().size() == 0:
+            if len(self.widgets[i][1].text()) == 0:
                 JMQtMessageBox(self, errs[i - 1], mbtype='warn', title="Error")
                 return False
         if not w.wallet:
@@ -917,12 +928,12 @@ class TxHistoryTab(QWidget):
     def initUI(self):
         self.tHTW = MyTreeWidget(self, self.create_menu, self.getHeaders())
         self.tHTW.setSelectionMode(QAbstractItemView.ExtendedSelection)
-        self.tHTW.header().setResizeMode(QHeaderView.Interactive)
+        self.tHTW.header().setSectionResizeMode(QHeaderView.Interactive)
         self.tHTW.header().setStretchLastSection(False)
         self.tHTW.on_update = self.updateTxInfo
         vbox = QVBoxLayout()
         self.setLayout(vbox)
-        vbox.setMargin(0)
+        vbox.setContentsMargins(0,0,0,0)
         vbox.setSpacing(0)
         vbox.addWidget(self.tHTW)
         self.updateTxInfo()
@@ -952,7 +963,7 @@ class TxHistoryTab(QWidget):
         with open(hf, 'rb') as f:
             txlines = f.readlines()
             for tl in txlines:
-                txhist.append(tl.strip().split(','))
+                txhist.append(tl.decode('utf-8').strip().split(','))
                 if not len(txhist[-1]) == 4:
                     JMQtMessageBox(self,
                                    "Incorrectedly formatted file " + hf,
@@ -1005,15 +1016,13 @@ class JMWalletTab(QWidget):
         self.history = v
         vbox = QVBoxLayout()
         self.setLayout(vbox)
-        vbox.setMargin(0)
+        vbox.setContentsMargins(0,0,0,0)
         vbox.setSpacing(0)
         vbox.addWidget(self.label1)
         vbox.addWidget(v)
         buttons = QWidget()
         vbox.addWidget(buttons)
         self.updateWalletInfo()
-        #vBoxLayout.addWidget(self.label2)
-        #vBoxLayout.addWidget(self.table)
         self.show()
 
     def getHeaders(self):
@@ -1090,6 +1099,9 @@ class JMWalletTab(QWidget):
 
 class JMMainWindow(QMainWindow):
 
+    computing_privkeys_signal = QtCore.Signal()
+    show_privkeys_signal = QtCore.Signal()
+
     def __init__(self, reactor):
         super(JMMainWindow, self).__init__()
         self.wallet = None
@@ -1127,9 +1139,9 @@ class JMMainWindow(QMainWindow):
         aboutAction = QAction('About Joinmarket', self)
         aboutAction.triggered.connect(self.showAboutDialog)
         exportPrivAction = QAction('&Export keys', self)
-        exportPrivAction.setStatusTip('Export all private keys to a csv file')
-        exportPrivAction.triggered.connect(self.exportPrivkeysCsv)
-        menubar = QMenuBar()
+        exportPrivAction.setStatusTip('Export all private keys to a  file')
+        exportPrivAction.triggered.connect(self.exportPrivkeysJson)
+        menubar = self.menuBar()
 
         walletMenu = menubar.addMenu('&Wallet')
         walletMenu.addAction(loadAction)
@@ -1140,7 +1152,6 @@ class JMMainWindow(QMainWindow):
         aboutMenu = menubar.addMenu('&About')
         aboutMenu.addAction(aboutAction)
 
-        self.setMenuBar(menubar)
         self.show()
 
     def showAboutDialog(self):
@@ -1171,7 +1182,7 @@ class JMMainWindow(QMainWindow):
         lyt.addWidget(btnbox)
         msgbox.exec_()
 
-    def exportPrivkeysCsv(self):
+    def exportPrivkeysJson(self):
         if not self.wallet:
             JMQtMessageBox(self,
                            "No wallet loaded.",
@@ -1220,8 +1231,8 @@ class JMMainWindow(QMainWindow):
                 private_keys[addr] = btc.wif_compressed_privkey(
                     priv,
                     vbyte=get_p2pk_vbyte())
-                d.emit(QtCore.SIGNAL('computing_privkeys'))
-            d.emit(QtCore.SIGNAL('show_privkeys'))
+                self.computing_privkeys_signal.emit()
+            self.show_privkeys_signal.emit()
 
         def show_privkeys():
             s = "\n".join(map(lambda x: x[0] + "\t" + x[1], private_keys.items(
@@ -1229,10 +1240,9 @@ class JMMainWindow(QMainWindow):
             e.setText(s)
             b.setEnabled(True)
 
-        d.connect(
-            d, QtCore.SIGNAL('computing_privkeys'),
-            lambda: e.setText("Please wait... %d/%d" % (len(private_keys), len(addresses))))
-        d.connect(d, QtCore.SIGNAL('show_privkeys'), show_privkeys)
+        self.computing_privkeys_signal.connect(lambda: e.setText(
+            "Please wait... %d/%d" % (len(private_keys), len(addresses))))
+        self.show_privkeys_signal.connect(show_privkeys)
 
         threading.Thread(target=privkeys_thread).start()
         if not d.exec_():
@@ -1241,13 +1251,13 @@ class JMMainWindow(QMainWindow):
         privkeys_fn_base = 'joinmarket-private-keys'
         i = 0
         privkeys_fn = privkeys_fn_base
-        while os.path.isfile(privkeys_fn + '.csv'):
+        # Updated to use json format, simply because L1354 writer
+        # has some extremely weird behaviour cross Py2/Py3
+        while os.path.isfile(privkeys_fn + '.json'):
             i += 1
             privkeys_fn = privkeys_fn_base + str(i)
         try:
-            with open(privkeys_fn + '.csv', "w") as f:
-                transaction = csv.writer(f)
-                transaction.writerow(["address", "private_key"])
+            with open(privkeys_fn + '.json', "wb") as f:
                 for addr, pk in private_keys.items():
                     #sanity check
                     if not addr == btc.pubkey_to_p2sh_p2wpkh_address(
@@ -1258,20 +1268,20 @@ class JMMainWindow(QMainWindow):
                                        " critical error in key parsing.",
                                        mbtype='crit')
                         return
-                    transaction.writerow(["%34s" % addr, pk])
+                f.write(json.dumps(private_keys, indent=4).encode('utf-8'))
         except (IOError, os.error) as reason:
             export_error_label = "JoinmarketQt was unable to produce a private key-export."
             JMQtMessageBox(None,
                            export_error_label + "\n" + str(reason),
                            mbtype='crit',
-                           title="Unable to create csv")
+                           title="Unable to create json file")
 
-        except Exception as e:
-            JMQtMessageBox(self, str(e), mbtype='crit', title="Error")
+        except Exception as er:
+            JMQtMessageBox(self, str(er), mbtype='crit', title="Error")
             return
 
         JMQtMessageBox(self,
-                       "Private keys exported to: " + privkeys_fn + '.csv',
+                       "Private keys exported to: " + privkeys_fn + '.json',
                        title="Success")
 
     def seedEntry(self):
@@ -1287,7 +1297,7 @@ class JMMainWindow(QMainWindow):
         pp_field = QLineEdit()
         pp_field.setEnabled(False)
         use_pp = QCheckBox('Input Mnemonic Extension', self)
-        use_pp.setCheckState(False)
+        use_pp.setCheckState(QtCore.Qt.CheckState(False))
         use_pp.stateChanged.connect(lambda state: pp_field.setEnabled(state
             == QtCore.Qt.Checked))
         pp_hbox.addWidget(use_pp)
@@ -1307,8 +1317,8 @@ class JMMainWindow(QMainWindow):
             return None, None
         mn_extension = None
         if use_pp.checkState() == QtCore.Qt.Checked:
-            mn_extension = str(pp_field.text())
-        return str(message_e.toPlainText()), mn_extension
+            mn_extension = pp_field.text()
+        return message_e.toPlainText(), mn_extension
 
     def restartForScan(self, msg):
         JMQtMessageBox(self, msg, mbtype='info',
@@ -1341,7 +1351,7 @@ class JMMainWindow(QMainWindow):
                                                    directory=current_path,
                                                    options=QFileDialog.DontUseNativeDialog)
             #TODO validate the file looks vaguely like a wallet file
-            log.debug('Looking for wallet in: ' + firstarg)
+            log.debug('Looking for wallet in: ' + str(firstarg))
             if not firstarg:
                 return
             decrypted = False
@@ -1353,13 +1363,13 @@ class JMMainWindow(QMainWindow):
                 if not ok:
                     return
                 pwd = str(text).strip()
-                decrypted = self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
+                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd, restart_cb)
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
                                                         'Load Testnet wallet',
                                                         'Enter a testnet seed:',
-                                                        mode=QLineEdit.Normal)
+                                                        QLineEdit.Normal)
                 if not ok:
                     return
             firstarg = str(testnet_seed)
@@ -1372,7 +1382,7 @@ class JMMainWindow(QMainWindow):
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
                 self.wallet = open_test_wallet_maybe(wallet_path, str(firstarg),
-                        None, ask_for_password=False, password=pwd,
+                        None, ask_for_password=False, password=pwd.encode('utf-8'),
                         gap_limit=jm_single().config.getint("GUI", "gaplimit"))
             except Exception as e:
                 JMQtMessageBox(self,
@@ -1438,7 +1448,7 @@ class JMMainWindow(QMainWindow):
             seed = self.getTestnetSeed()
             self.selectWallet(testnet_seed=seed)
         else:
-            self.initWallet()
+            self.initWallet(restart_cb=self.restartForScan)
 
     def getTestnetSeed(self):
         text, ok = QInputDialog.getText(
@@ -1463,7 +1473,7 @@ class JMMainWindow(QMainWindow):
                 continue
             break
         self.textpassword = str(pd.new_pw.text())
-        return self.textpassword
+        return self.textpassword.encode('utf-8')
 
     def getWalletFileName(self):
         walletname, ok = QInputDialog.getText(self, 'Choose wallet name',
