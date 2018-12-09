@@ -87,6 +87,7 @@ class DummyMaker(Maker):
     def __init__(self):
         self.aborted = False
         self.wallet = DummyWallet()
+        self.offerlist = self.create_my_orders()
 
     def try_to_create_my_orders(self):
         pass
@@ -110,7 +111,14 @@ class DummyMaker(Maker):
         pass
 
     def create_my_orders(self):
-        return []
+        return [{
+            'cjfee': '0',
+            'maxsize': 100000000,
+            'minsize': 75000,
+            'oid': 0,
+            'ordertype': 'swreloffer',
+            'txfee': 0
+        }]
 
     def oid_to_order(self, cjorder, oid, amount):
         # utxos, cj_addr, change_addr
