@@ -4,7 +4,6 @@ from builtins import * # noqa: F401
 
 import io
 import logging
-import threading
 import os
 import binascii
 
@@ -69,9 +68,7 @@ global_singleton.BITCOIN_DUST_THRESHOLD = 2730
 global_singleton.DUST_THRESHOLD = 10 * global_singleton.BITCOIN_DUST_THRESHOLD
 global_singleton.bc_interface = None
 global_singleton.maker_timeout_sec = 60
-global_singleton.debug_file_lock = threading.Lock()
 global_singleton.debug_file_handle = None
-global_singleton.blacklist_file_lock = threading.Lock()
 global_singleton.core_alert = core_alert
 global_singleton.joinmarket_alert = joinmarket_alert
 global_singleton.debug_silence = debug_silence
