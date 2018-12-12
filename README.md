@@ -13,10 +13,12 @@ For doing coinjoins (Taker side), you can also run without Bitcoin Core, connect
 
 Once you've downloaded this repo, either as a zip file, and extracted it, or via `git clone`:
 
-    ./install.sh
+    ./install.sh -p python3
     (follow instructions on screen; provide sudo password when prompted)
     source jmvenv/bin/activate
     cd scripts
+
+(You can omit `-p python3` if you want to use Python2)
 
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 
@@ -37,36 +39,19 @@ If you are not new to Joinmarket, the notes in the [scripts readme](scripts/READ
 ### Joinmarket-Qt
 
 Provides single join and multi-join/tumbler functionality (i.e. "Taker") only, in a GUI.
+NOTE: This is currently **only available for Python3**, not Python2 (due to bugs in the PySide2 Python2 implementation).
+It's possible but unlikely that the Python2 version will be fixed, but in any case Python2 will be deprecated at some point.
 
-Binaries that are built and signed will be in the Releases page.  
-To run the script `joinmarket-qt.py` from the command line, both the `PyQt4` and `sip` libraries are needed as dependencies. To make these two libraries available to Joinmarket, it's best to create symbolic links (symlinks) for them in the virtualenv directory `jmvenv`.  
-For Debian and Ubuntu users, the install script attempts to install `python-qt4` and `python-sip` from the repositories, and then creates appropriate symlinks for them in the `jmvenv` directory.  
-The steps to manually set up the Qt dependencies on Ubuntu\Debian are
+If binaries are built, they will be gpg signed and announced on the Releases page.
 
-1. first activate the Joinmarket virtualenv
-    ```
-    source ./jmvenv/bin/activate
-    ```
-2. Install the required dependencies
-    ```
-    sudo apt-get install python-qt4 python-sip
-    ```
-3. Locate the installed files
-    ```
-    dpkg-query -L python-qt4 | grep -m1 "/PyQt4$"
-    dpkg-query -L python-sip | grep -m1 "sip.*\.so"
-    ```
-4. Create symlinks to each of the paths returned by the two previous commands in the virtualenv directory
-    ```
-    ln -sf -t "${VIRTUAL_ENV}/lib/python2.7/site-packages/" <python-qt4 path> <python-sip path>
-    ```
+To run the script `joinmarket-qt.py` from the command line, you need to install two more packages: use these 2 commands:
 
-The last two commands can be combined as :
 ```
-ln -sf -t "${VIRTUAL_ENV}/lib/python2.7/site-packages/" "$(dpkg-query -L python-qt4 | grep -m1 "/PyQt4$")" "$(dpkg-query -L python-sip | grep -m1 "sip.*\.so")"
+pip install PySide2
+pip install git+git://github.com/sunu/qt5reactor.git@58410aaead2185e9917ae9cac9c50fe7b70e4a60
 ```
-
-Finally, the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work. There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
+After this, the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work.
+There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
 
 ### Notes on architectural changes (can be ignored)
 
