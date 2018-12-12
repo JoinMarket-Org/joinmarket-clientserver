@@ -20,11 +20,11 @@ Qt files for the wizard for initiating a tumbler run.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-import sys, math, re, logging, Queue
-from collections import namedtuple
+import math, re, logging
+from PySide2 import QtCore
+from PySide2.QtGui import *
+from PySide2.QtWidgets import *
 
-from PyQt4 import QtCore
-from PyQt4.QtGui import *
 
 from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
@@ -193,45 +193,6 @@ def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
         else:
             mbtypes[mbtype](obj, title, msg)
 
-class TaskThread(QtCore.QThread):
-    '''Thread that runs background tasks.  Callbacks are guaranteed
-    to happen in the context of its parent.'''
-
-    Task = namedtuple("Task", "task cb_success cb_done cb_error")
-    doneSig = QtCore.pyqtSignal(object, object, object)
-
-    def __init__(self, parent, on_error=None):
-        super(TaskThread, self).__init__(parent)
-        self.on_error = on_error
-        self.tasks = Queue.Queue()
-        self.doneSig.connect(self.on_done)
-        self.start()
-
-    def add(self, task, on_success=None, on_done=None, on_error=None):
-        on_error = on_error or self.on_error
-        self.tasks.put(TaskThread.Task(task, on_success, on_done, on_error))
-
-    def run(self):
-        while True:
-            task = self.tasks.get()
-            if not task:
-                break
-            try:
-                result = task.task()
-                self.doneSig.emit(result, task.cb_done, task.cb_success)
-            except BaseException:
-                self.doneSig.emit(sys.exc_info(), task.cb_done, task.cb_error)
-
-    def on_done(self, result, cb_done, cb):
-        # This runs in the parent's thread.
-        if cb_done:
-            cb_done()
-        if cb:
-            cb(result)
-
-    def stop(self):
-        self.tasks.put(None)
-
 class QtHandler(logging.Handler):
 
     def __init__(self):
@@ -245,7 +206,7 @@ class QtHandler(logging.Handler):
 class XStream(QtCore.QObject):
     _stdout = None
     _stderr = None
-    messageWritten = QtCore.pyqtSignal(str)
+    messageWritten = QtCore.Signal(str)
 
     def flush(self):
         pass
@@ -255,20 +216,22 @@ class XStream(QtCore.QObject):
 
     def write(self, msg):
         if (not self.signalsBlocked()):
-            self.messageWritten.emit(unicode(msg))
+            self.messageWritten.emit(msg)
 
     @staticmethod
     def stdout():
         if (not XStream._stdout):
             XStream._stdout = XStream()
-            sys.stdout = XStream._stdout
+            # temporarily removed, seems not needed
+            #sys.stdout = XStream._stdout
         return XStream._stdout
 
     @staticmethod
     def stderr():
         if (not XStream._stderr):
             XStream._stderr = XStream()
-            sys.stderr = XStream._stderr
+            # temporarily removed, seems not needed
+            #sys.stderr = XStream._stderr
         return XStream._stderr
 
 
@@ -326,7 +289,6 @@ def check_password_strength(password):
     :param password: password entered by user in New Password
     :return: password strength Weak or Medium or Strong
     '''
-    password = unicode(password)
     n = math.log(len(set(password)))
     num = re.search("[0-9]", password) is not None and re.match(
         "^[0-9]*$", password) is None
@@ -361,9 +323,9 @@ def update_password_strength(pw_strength_label, password):
 def make_password_dialog(self, msg, new_pass=True):
 
     self.new_pw = QLineEdit()
-    self.new_pw.setEchoMode(2)
+    self.new_pw.setEchoMode(QLineEdit.EchoMode(2))
     self.conf_pw = QLineEdit()
-    self.conf_pw.setEchoMode(2)
+    self.conf_pw.setEchoMode(QLineEdit.EchoMode(2))
 
     vbox = QVBoxLayout()
     label = QLabel(msg)
@@ -450,7 +412,7 @@ class MyTreeWidget(QTreeWidget):
         self.header().setStretchLastSection(False)
         for col in range(len(headers)):
             #note, a single stretch column is currently not used.
-            self.header().setResizeMode(col, QHeaderView.Interactive)
+            self.header().setSectionResizeMode(col, QHeaderView.Interactive)
 
     def editItem(self, item, column):
         if column in self.editable_columns:
@@ -514,7 +476,7 @@ class MyTreeWidget(QTreeWidget):
 
     def on_edited(self, item, column, prior):
         '''Called only when the text actually changes'''
-        key = str(item.data(0, Qt.UserRole).toString())
+        key = str(item.data(0, Qt.UserRole))
         text = unicode(item.text(column))
         self.parent.wallet.set_label(key, text)
         if text:
@@ -625,7 +587,7 @@ class SchDynamicPage2(QWizardPage):
 
     def initializePage(self):
         addrLEs = []
-        requested_mixdepths = int(self.field("mixdepthcount").toString())
+        requested_mixdepths = int(self.field("mixdepthcount"))
         #for testing
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
             testaddrs = ["mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS",
@@ -753,7 +715,7 @@ class ScheduleWizard(QWizard):
     def get_name(self):
         #TODO de-hardcode generated name
         return "TUMBLE.schedule"
-        #return self.field("schedfilename").toString()
+
 
     def get_destaddrs(self):
         return self.destaddrs
@@ -761,7 +723,7 @@ class ScheduleWizard(QWizard):
     def get_schedule(self):
         self.destaddrs = []
         for i in range(self.page(2).required_addresses):
-            daddrstring = str(self.field("destaddr"+str(i)).toString())
+            daddrstring = str(self.field("destaddr"+str(i)))
             if validate_address(daddrstring)[0]:
                 self.destaddrs.append(daddrstring)
             elif daddrstring != "":
@@ -769,22 +731,22 @@ class ScheduleWizard(QWizard):
                                title='Error')
                 return None
         self.opts = {}
-        self.opts['mixdepthsrc'] = int(self.field("mixdepthsrc").toString())
-        self.opts['mixdepthcount'] = int(self.field("mixdepthcount").toString())
+        self.opts['mixdepthsrc'] = int(self.field("mixdepthsrc"))
+        self.opts['mixdepthcount'] = int(self.field("mixdepthcount"))
         self.opts['txfee'] = -1
         self.opts['addrcount'] = len(self.destaddrs)
-        self.opts['makercountrange'] = (int(self.field("makercount").toString()),
-                                    float(self.field("makercountsdev").toString()))
-        self.opts['minmakercount'] = int(self.field("minmakercount").toString())
-        self.opts['txcountparams'] = (int(self.field("txcountparams").toString()),
-                                    float(self.field("txcountsdev").toString()))
-        self.opts['mintxcount'] = int(self.field("mintxcount").toString())
-        self.opts['amountpower'] = float(self.field("amountpower").toString())
-        self.opts['timelambda'] = float(self.field("timelambda").toString())
-        self.opts['waittime'] = float(self.field("waittime").toString())
-        self.opts['mincjamount'] = int(self.field("mincjamount").toString())
-        relfeeval = float(self.field("maxrelfee").toString())
-        absfeeval = int(self.field("maxabsfee").toString())
+        self.opts['makercountrange'] = (int(self.field("makercount")),
+                                    float(self.field("makercountsdev")))
+        self.opts['minmakercount'] = int(self.field("minmakercount"))
+        self.opts['txcountparams'] = (int(self.field("txcountparams")),
+                                    float(self.field("txcountsdev")))
+        self.opts['mintxcount'] = int(self.field("mintxcount"))
+        self.opts['amountpower'] = float(self.field("amountpower"))
+        self.opts['timelambda'] = float(self.field("timelambda"))
+        self.opts['waittime'] = float(self.field("waittime"))
+        self.opts['mincjamount'] = int(self.field("mincjamount"))
+        relfeeval = float(self.field("maxrelfee"))
+        absfeeval = int(self.field("maxabsfee"))
         self.opts['maxcjfee'] = (relfeeval, absfeeval)
         #needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
@@ -798,10 +760,10 @@ class TumbleRestartWizard(QWizard):
 
     def getOptions(self):
         self.opts = {}
-        self.opts['amountpower'] = float(self.field("amountpower").toString())
-        self.opts['mincjamount'] = int(self.field("mincjamount").toString())
-        relfeeval = float(self.field("maxrelfee").toString())
-        absfeeval = int(self.field("maxabsfee").toString())
+        self.opts['amountpower'] = float(self.field("amountpower"))
+        self.opts['mincjamount'] = int(self.field("mincjamount"))
+        relfeeval = float(self.field("maxrelfee"))
+        absfeeval = int(self.field("maxabsfee"))
         self.opts['maxcjfee'] = (relfeeval, absfeeval)
         #needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
