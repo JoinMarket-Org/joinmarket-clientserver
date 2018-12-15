@@ -19,11 +19,20 @@ log = get_log()
 def wlog(*x):
     """Simplifier to add lists to the debug log
     """
+    def conv(s):
+        # note: this only works because of the future package
+        if isinstance(s, str):
+            return s
+        elif isinstance(s, bytes):
+            return s.decode('utf-8', errors='ignore')
+        else:
+            return str(s)
+
     if x[0] == "WARNING":
-        msg = " ".join([str(a) for a in x[1:]])
+        msg = " ".join([conv(a) for a in x[1:]])
         log.warn(msg)
     else:
-        msg = " ".join([str(a) for a in x])
+        msg = " ".join([conv(a) for a in x])
         log.debug(msg)
 
 def get_irc_text(line):
