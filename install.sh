@@ -353,6 +353,9 @@ parse_flags ()
                 echo 'ERROR: "--python" requires a non-empty option argument.'
                 return 1
                 ;;
+            --with-qt)
+                with_qt='1'
+                ;;
             -?*)
                 echo "warning.  unknown flag : $1" 1>&2
                 ;;
@@ -361,6 +364,19 @@ parse_flags ()
         esac
         shift
     done
+
+    if [[ ${with_qt} == 1 ]] && [[ ${python} == python2 ]]; then
+        echo "ERROR: Joinmarket-Qt is currently only available for Python 3
+                     Use the flag '--python=python3' to enable a python3 install."
+        return 1
+    elif [[ ${with_qt} != 1 ]] && [[ ${python} == python3 ]]; then
+        read -p "
+        INFO: Joinmarket-Qt for GUI Taker and Tumbler modes is available.
+        Install Qt dependencies (~160mb) ? [y|n] : "
+        if [[ ${REPLY} =~ y|Y ]]; then
+            with_qt='1'
+        fi
+    fi
 }
 
 os_is_deb ()
@@ -391,45 +407,11 @@ install_get_os ()
 
 qt_deps_install ()
 {
-    if [[ ${install_os} == 'debian' ]]; then
-        if is_python3; then
-            if deb_deps_install "python3-pyqt4 python3-sip"; then
-                return 0;
-            fi
-        else
-            if deb_deps_install "python-qt4 python-sip"; then
-                return 0;
-            fi
-        fi
-    else
-        return 1
-    fi
-}
+    pip install \
+        PySide2 \
+        https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip
 
-qt_deps_link ()
-{
-    if [[ ${install_os} == 'debian' ]]; then
-        if deb_qt_deps_link; then
-            return 0
-        else
-            return 1
-        fi
-    else
-        return 1
-    fi
-}
-
-deb_qt_deps_link ()
-{
-    pyqt4dir="$( dpkg-query -L python-qt4 | grep -m1 "/PyQt4$" )"
-    sip_so="$( dpkg-query -L python-sip | grep -m1 "sip.*\.so" )"
-
-    if [[ -r "${pyqt4dir}" ]] && [[ -r ${sip_so} ]]; then
-        ln -sf -t "${VIRTUAL_ENV}/lib/python2.7/site-packages/" "${sip_so}" "${pyqt4dir}"
-        return 0
-    else
-        return 1
-    fi
+    return "$?"
 }
 
 main ()
@@ -446,6 +428,7 @@ main ()
     develop_build=''
     no_gpg_validation=''
     python='python2'
+    with_qt=''
     reinstall='false'
     if ! parse_flags ${@}; then
         return 1
@@ -488,18 +471,9 @@ main ()
         deactivate
         return 1
     fi
-    if [[ ${install_os} != 'unknown' ]] && ! qt_deps_link; then
-        read -p "
-        Install Joinmarket-Qt? (may require additional dependencies)
-        (y/n)  "
-        if [[ ${REPLY} =~ y|Y ]]; then
-            if qt_deps_install; then
-                if ! qt_deps_link; then
-                    echo "Qt dependencies installed but could not be found."
-                fi
-            else
-                echo "Qt dependencies could not be installed. Joinmarket-Qt might not work."
-            fi
+    if [[ ${with_qt} == 1 ]]; then
+        if ! qt_deps_install; then
+            echo "Qt dependencies could not be installed. Joinmarket-Qt might not work."
         fi
     fi
     deactivate
