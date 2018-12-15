@@ -5,9 +5,9 @@ The Issues list is for specific bugs or feature requests.
 
 * PEP8 compliance.
 * Details which may or may not be included in PEP8 might be, consistent variable naming conventions, and use of single/double quotes.
-* Porting to Python 3.
+* ~~Porting to Python 3~~. This is done in that we are now Py2 and Py3 compatible as of 0.5.0; but we may deprecate Py2 soon.
 
-A note on the above - took a look at it last December, but had problems in particular with some twisted elements, specifically `txsocksx`
+~~A note on the above - took a look at it last December, but had problems in particular with some twisted elements, specifically `txsocksx`~~ Done as of 0.4.2, now switched to txtorcon.
 
 * Twisted related: there are cases where much better use of deferreds should be possible.
 
@@ -38,7 +38,8 @@ concern (there is already no bitcoin security concern even without it).
 * We should look into lite-client modes, in particular client-side filtering as used by Neutrino and others,
 and described [here](https://github.com/Roasbeef/bips/blob/master/gcs_light_client.mediawiki}.
 
-* ~~Re-work the existing electrum code so it works reliably and with some decent performance (easier short term goal).~~ (Done)
+* Re-work the existing electrum code so it works reliably and with some decent performance (easier short term goal).
+This was previously marked 'done' but is now very much "un-done" since the code has not been updated and doesn't work; it's debatable what should be done, if anything, about it. It's certainly useful to have Electrum for testing/testnet.
 
 ### Joinmarket protocol
 
@@ -50,7 +51,7 @@ and described [here](https://github.com/Roasbeef/bips/blob/master/gcs_light_clie
 
 There is no current process for building binaries on Mac or Windows (theoretically the latter is possible but a mess, so I'm not doing it).
 
-* Qt5 support, as Qt4 is being deprecated (see [issue204](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/204)).
+* ~~Qt5 support, as Qt4 is being deprecated (see [issue204](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/204)).~~ Done as of 0.5.0.
 
 ### Alternative implementations
 
@@ -58,6 +59,6 @@ There is no current process for building binaries on Mac or Windows (theoretical
 
 ### Bitcoin
 
-* Several related concepts here: 1/ switching to Peter Todd's python-bitcoinlib, but want good backend i.e. libsecp256k1 binding.
+* ~~Several related concepts here: 1/ switching to Peter Todd's python-bitcoinlib, but want good backend i.e. libsecp256k1 binding.
 2/ coincurve of Ofek looks like a better (and better-maintained) option than secp256k1-py, so ideally put that behind python-bitcoinlib.
-3/ Also doing all this without Python3 usage doesn't seem to make much sense.
+3/ Also doing all this without Python3 usage doesn't seem to make much sense.~~ The story is probably not over yet, but we now use coincurve and have made some alterations to use the same logic as the now un-maintained python-bitcoinlib. There will be more changes to Bitcoin including better segwit support. There is still much to do here but it'll probably be patchwork changes rather than a further complete rewrite.

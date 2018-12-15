@@ -2,14 +2,20 @@
 
 Joinmarket refactored to separate client and backend operations
 
-**The [latest release](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases) uses segwit wallets by default,
-you are strongly recommended not to change this, but you can use a non-segwit wallet by setting `segwit = false` in joinmarket.cfg.**
+Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin Core as backend (version 0.16.3, 0.17.0 or later).
+
+### Wallet features
+
+* Segwit addresses in the backward compatible form (start with `3`)
+* Multiple "mixdepths" or pockets (by default 5) for better coin isolation
+* Ability to spend directly, or with coinjoin; export private keys; BIP49 compatible seed (Trezor, Samourai etc.) and mnemonic extension option
+* Fine-grained control over bitcoin transaction fees
+* Can run sequence of coinjoins in automated form, either auto-generated (see `tumbler.py`) or self-generated sequence.
+* Can specify exact amount of coinjoin (figures from 0.01 to 30.0 btc and higher are practical), can choose time and number of counterparties
+* Can run passively to receive small payouts for taking part in coinjoins (see "Maker" and "yield-generator" in docs)
+* GUI to support Taker role, including tumbler/automated coinjoin sequence.
 
 ### Quickstart
-
-**For good quality privacy, performance and reliability, Bitcoin Core is required for Makers (yield generators), and recommended for takers (doing coinjoins). Use version 0.15+ ideally; 0.13.1+ required.**
-
-For doing coinjoins (Taker side), you can also run without Bitcoin Core, connecting to Electrum servers.
 
 Once you've downloaded this repo, either as a zip file, and extracted it, or via `git clone`:
 
@@ -18,15 +24,12 @@ Once you've downloaded this repo, either as a zip file, and extracted it, or via
     source jmvenv/bin/activate
     cd scripts
 
-(You can omit `-p python3` if you want to use Python2)
+(You can omit `-p python3` if you want to use Python2. You can also add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
 
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 
 Alternative to this "quickstart" (including for MacOS): follow the [install guide](docs/INSTALL.md).
 
-### Upgrade for segwit
-
-See the [segwit upgrade guide](docs/SEGWIT-UPGRADE.md) if you need to update your wallet.
 
 ### Usage
 
@@ -34,7 +37,7 @@ If you are new, follow and read the links in the [usage guide](docs/USAGE.md).
 
 If you are running Joinmarket-Qt, you can instead use the [walkthrough](docs/JOINMARKET-QT-GUIDE.md) to start.
 
-If you are not new to Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
+If you used the old version of Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
 
 ### Joinmarket-Qt
 
