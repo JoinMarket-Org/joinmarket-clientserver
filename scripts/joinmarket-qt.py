@@ -1382,7 +1382,7 @@ class JMMainWindow(QMainWindow):
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
                 self.wallet = open_test_wallet_maybe(wallet_path, str(firstarg),
-                        None, ask_for_password=False, password=pwd.encode('utf-8'),
+                        None, ask_for_password=False, password=pwd.encode('utf-8') if pwd else None,
                         gap_limit=jm_single().config.getint("GUI", "gaplimit"))
             except Exception as e:
                 JMQtMessageBox(self,
@@ -1452,7 +1452,7 @@ class JMMainWindow(QMainWindow):
 
     def getTestnetSeed(self):
         text, ok = QInputDialog.getText(
-            self, 'Testnet seed', 'Enter a string as seed (can be anything):')
+            self, 'Testnet seed', 'Enter a 32 char hex string as seed:')
         if not ok or not text:
             JMQtMessageBox(self,
                            "No seed entered, aborting",
