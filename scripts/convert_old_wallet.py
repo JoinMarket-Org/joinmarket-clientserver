@@ -51,7 +51,7 @@ def decrypt_entropy_extension(enc_data, key):
 
 
 def decrypt_wallet_data(data, password):
-    key = double_sha256(password.encode('utf-8'))
+    key = double_sha256(password)
 
     enc_entropy = data.get('encrypted_seed') or data.get('encrypted_entropy')
     enc_entropy_ext = data.get('encrypted_mnemonic_extension')
