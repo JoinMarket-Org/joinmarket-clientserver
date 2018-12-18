@@ -14,7 +14,7 @@ from jmbitcoin.bech32 import *
 # Transaction serialization and deserialization
 
 def deserialize(txinp):
-    if isinstance(txinp, basestring) and not isinstance(txinp, bytes) and re.match('^[0-9a-fA-F]*$', txinp):
+    if isinstance(txinp, basestring) and not isinstance(txinp, bytes):
         tx = BytesIO(binascii.unhexlify(txinp))
         hexout = True
     else:
@@ -156,7 +156,7 @@ def serialize(tx):
         o.write(struct.pack(b'<I', inp["outpoint"]["index"]))
         if len(inp["script"]) == 0:
             o.write(b'\x00')
-        elif isinstance(inp["script"], basestring) and not isinstance(inp["script"], bytes) and re.match('^[0-9a-fA-F]*$', inp["script"]):
+        elif isinstance(inp["script"], basestring) and not isinstance(inp["script"], bytes):
             o.write(num_to_var_int(len(binascii.unhexlify(inp["script"]))))
             o.write(binascii.unhexlify(inp["script"]))
         else:
@@ -168,7 +168,7 @@ def serialize(tx):
         o.write(struct.pack(b'<Q', out["value"]))
         if len(out["script"]) == 0:
             o.write(b'\x00')
-        elif isinstance(out["script"], basestring) and not isinstance(out["script"], bytes) and re.match('^[0-9a-fA-F]*$', out["script"]):
+        elif isinstance(out["script"], basestring) and not isinstance(out["script"], bytes):
             o.write(num_to_var_int(len(binascii.unhexlify(out["script"]))))
             o.write(binascii.unhexlify(out["script"]))
         else:
@@ -184,7 +184,7 @@ def serialize(tx):
             items = inp["txinwitness"]
             o.write(num_to_var_int(len(items)))
             for item in items:
-                if isinstance(item, basestring) and not isinstance(item, bytes) and re.match('^[0-9a-fA-F]*$', item):
+                if isinstance(item, basestring) and not isinstance(item, bytes):
                     item = binascii.unhexlify(item)
                 o.write(num_to_var_int(len(item)) + item)
     o.write(struct.pack(b'<I', txobj["locktime"]))
@@ -261,11 +261,11 @@ def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL,
 def signature_form(tx, i, script, hashcode=SIGHASH_ALL):
     if not isinstance(hashcode, int):
         hashcode = struct.unpack(b'B', hashcode)[0]
-    if isinstance(tx, basestring) and not isinstance(tx, bytes) and re.match('^[0-9a-fA-F]*$', tx):
+    if isinstance(tx, basestring) and not isinstance(tx, bytes):
         tx = deserialize(tx)
     elif isinstance(tx, basestring):
         tx = deserialize(binascii.hexlify(tx).decode('ascii'))
-    if isinstance(script, basestring) and isinstance(script, bytes) and not re.match(b'^[0-9a-fA-F]*$', script):
+    if isinstance(script, basestring) and isinstance(script, bytes):
         script = binascii.hexlify(script).decode('ascii')
     newtx = copy.deepcopy(tx)
     for inp in newtx["ins"]:
@@ -317,7 +317,7 @@ def txhash(tx, hashcode=None, check_sw=True):
     """
     if not isinstance(tx, basestring):
         tx = serialize(tx)
-    if isinstance(tx, basestring) and not isinstance(tx, bytes) and re.match('^[0-9a-fA-F]*$', tx):
+    if isinstance(tx, basestring) and not isinstance(tx, bytes):
         tx = binascii.unhexlify(tx)
     if check_sw and from_byte_to_int(tx[4:5]) == 0:
         if not from_byte_to_int(tx[5:6]) == 1:
@@ -400,7 +400,7 @@ def is_segwit_native_script(script):
     return False
 
 def script_to_address(script, vbyte=0, witver=0):
-    if not isinstance(script, bytes) and re.match('^[0-9a-fA-F]*$', script):
+    if not isinstance(script, bytes):
         script = binascii.unhexlify(script)
     if is_segwit_native_script(script):
         #hrp interpreted from the vbyte entry, TODO this should be cleaner.
@@ -418,18 +418,18 @@ def script_to_address(script, vbyte=0, witver=0):
         return bin_to_b58check(script[2:-1], vbyte)
 
 def pubkey_to_p2sh_p2wpkh_script(pub):
-    if not isinstance(pub, bytes) and re.match('^[0-9a-fA-F]*$', pub):
+    if not isinstance(pub, bytes):
         pub = binascii.unhexlify(pub)
     return "0014" + hash160(pub)
 
 def pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=5):
-    if not isinstance(pub, bytes) and re.match('^[0-9a-fA-F]*$', pub):
+    if not isinstance(pub, bytes):
         pub = binascii.unhexlify(pub)
     script = pubkey_to_p2sh_p2wpkh_script(pub)
     return p2sh_scriptaddr(script, magicbyte=magicbyte)
 
 def p2sh_scriptaddr(script, magicbyte=5):
-    if not isinstance(script, bytes) and re.match('^[0-9a-fA-F]*$', script):
+    if not isinstance(script, bytes):
         script = binascii.unhexlify(script)
     return hex_to_b58check(hash160(script), magicbyte)
 
@@ -454,7 +454,7 @@ def deserialize_script(scriptinp):
         else:
             return scriptbytes
 
-    if isinstance(scriptinp, basestring) and re.match('^[0-9a-fA-F]*$', scriptinp):
+    if isinstance(scriptinp, basestring):
         script = BytesIO(binascii.unhexlify(scriptinp))
         hexout = True
     else:
@@ -496,7 +496,7 @@ def serialize_script_unit(unit):
     elif unit is None:
         return b'\x00'
     else:
-        if isinstance(unit, basestring) and not isinstance(unit, bytes) and re.match('^[0-9a-fA-F]*$', unit):
+        if isinstance(unit, basestring) and not isinstance(unit, bytes):
             unit = binascii.unhexlify(unit)
         if len(unit) <= 75:
             return from_int_to_byte(len(unit)) + unit
@@ -512,7 +512,7 @@ def serialize_script(script):
     result = b''
     hexout = True
     for b in script:
-        if isinstance(b, basestring) and isinstance(b, bytes) and not re.match(b'^[0-9a-fA-F]*$', b):
+        if isinstance(b, basestring) and isinstance(b, bytes):
             hexout = False
         result += serialize_script_unit(b)
     if hexout:
@@ -533,16 +533,16 @@ def mk_multisig_script(*args):  # [pubs],k or pub1,pub2...pub[n],k
 
 
 def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
-    if not isinstance(tx, bytes) and re.match('^[0-9a-fA-F]*$', tx):
+    if not isinstance(tx, bytes):
         tx = binascii.unhexlify(tx)
-    if not isinstance(script, bytes) and re.match('^[0-9a-fA-F]*$', script):
+    if not isinstance(script, bytes):
         script = binascii.unhexlify(script)
-    if isinstance(sig, bytes) and not re.match(b'^[0-9a-fA-F]*$', sig):
+    if isinstance(sig, bytes):
         sig = binascii.hexlify(sig).decode('ascii')
-    if isinstance(pub, bytes) and not re.match(b'^[0-9a-fA-F]*$', pub):
+    if isinstance(pub, bytes):
         pub = binascii.hexlify(pub).decode('ascii')
     if witness:
-        if isinstance(witness, bytes) and not re.match(b'^[0-9a-fA-F]*$', witness):
+        if isinstance(witness, bytes):
             witness = safe_hexlify(witness)
     hashcode = binascii.unhexlify(sig[-2:])
     if witness and amount:
@@ -557,7 +557,7 @@ def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
 
 def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
     i = int(i)
-    if isinstance(tx, basestring) and not isinstance(tx, bytes) and re.match('^[0-9a-fA-F]*$', tx):
+    if isinstance(tx, basestring) and not isinstance(tx, bytes):
         tx = binascii.unhexlify(tx)
         hexout = True
     else:
@@ -574,9 +574,9 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
     txobj = deserialize(tx)
     txobj["ins"][i]["script"] = serialize_script([sig, pub])
     serobj = serialize(txobj)
-    if hexout and isinstance(serobj, basestring) and isinstance(serobj, bytes) and not re.match(b'^[0-9a-fA-F]*$', serobj):
+    if hexout and isinstance(serobj, basestring) and isinstance(serobj, bytes):
         return binascii.hexlify(serobj).decode('ascii')
-    elif not hexout and not isinstance(serobj, bytes) and re.match('^[0-9a-fA-F]*$', serobj):
+    elif not hexout and not isinstance(serobj, bytes):
         return binascii.unhexlify(serobj)
     else:
         return serobj
@@ -612,9 +612,9 @@ def signall(tx, priv):
 
 
 def multisign(tx, i, script, pk, hashcode=SIGHASH_ALL):
-    if re.match('^[0-9a-fA-F]*$', tx):
+    if isinstance(tx, str):
         tx = binascii.unhexlify(tx)
-    if re.match('^[0-9a-fA-F]*$', script):
+    if isinstance(script, str):
         script = binascii.unhexlify(script)
     modtx = signature_form(tx, i, script, hashcode)
     return ecdsa_tx_sign(modtx, pk, hashcode)
@@ -625,10 +625,10 @@ def apply_multisignatures(*args):
     tx, i, script = args[0], int(args[1]), args[2]
     sigs = args[3] if isinstance(args[3], list) else list(args[3:])
 
-    if isinstance(script, str) and re.match('^[0-9a-fA-F]*$', script):
+    if isinstance(script, str):
         script = binascii.unhexlify(script)
     sigs = [binascii.unhexlify(x) if x[:2] == '30' else x for x in sigs]
-    if isinstance(tx, str) and re.match('^[0-9a-fA-F]*$', tx):
+    if isinstance(tx, str):
         return safe_hexlify(apply_multisignatures(
             binascii.unhexlify(tx), i, script, sigs))
 
@@ -664,7 +664,7 @@ def mktx(*args):
                 "sequence": 4294967295
             })
     for o in outs:
-        if isinstance(o, basestring) and not isinstance(o, bytes):
+        if isinstance(o, str):
             addr = o[:o.find(':')]
             val = int(o[o.find(':') + 1:])
             o = {}
