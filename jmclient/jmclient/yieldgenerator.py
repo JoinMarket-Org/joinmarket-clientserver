@@ -10,7 +10,8 @@ import time
 import abc
 from twisted.python.log import startLogging
 from optparse import OptionParser
-from jmclient import Maker, jm_single, load_program_config, get_log,\
+from jmbase import get_log
+from jmclient import Maker, jm_single, load_program_config, \
     sync_wallet, JMClientProtocolFactory, start_reactor, calc_cj_fee
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
 

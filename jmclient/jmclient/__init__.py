@@ -4,12 +4,6 @@ from builtins import *
 
 import logging
 
-#Full joinmarket uses its own bitcoin module;
-#other implementations (like wallet plugins)
-#can optionally include their own, which must
-#be implemented as an interface in btc.py
-from .btc import *
-
 from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       cheapest_order_choose, weighted_order_choose,
                       rand_norm_array, rand_pow_array, rand_exp_array, select,

@@ -2,7 +2,7 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
 from future.utils import iteritems
-from . import btc
+import jmbitcoin as btc
 import json
 import queue as Queue
 import os
@@ -18,7 +18,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor, task, defer
 from .blockchaininterface import BlockchainInterface
 from .configure import get_p2sh_vbyte
-from .support import get_log
+from jmbase import get_log
 from .electrum_data import get_default_servers, set_electrum_testnet,\
     DEFAULT_PROTO
 

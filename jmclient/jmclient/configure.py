@@ -9,7 +9,7 @@ import binascii
 
 from configparser import ConfigParser, NoOptionError
 
-from . import btc
+import jmbitcoin as btc
 from jmclient.jsonrpc import JsonRpc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
                             set_logging_level)

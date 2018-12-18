@@ -17,10 +17,11 @@ import json
 import hashlib
 import os
 import sys
-from jmclient import (jm_single, get_irc_mchannels, get_log, get_p2sh_vbyte,
+from jmbase import get_log
+from jmclient import (jm_single, get_irc_mchannels, get_p2sh_vbyte,
                       RegtestBitcoinCoreInterface)
 from .output import fmt_tx_data
-from . import btc
+import jmbitcoin as btc
 
 jlog = get_log()
 

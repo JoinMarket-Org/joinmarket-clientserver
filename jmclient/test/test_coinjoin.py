@@ -11,7 +11,8 @@ import sys
 import pytest
 from twisted.internet import reactor
 
-from jmclient import load_program_config, jm_single, get_log,\
+from jmbase import get_log
+from jmclient import load_program_config, jm_single, \
     YieldGeneratorBasic, Taker, sync_wallet, LegacyWallet, SegwitLegacyWallet
 from jmclient.podle import set_commitment_file
 from commontest import make_wallets, binarize_tx

@@ -23,7 +23,8 @@ from .support import select_gradual, select_greedy, select_greediest, \
 from .cryptoengine import BTC_P2PKH, BTC_P2SH_P2WPKH, TYPE_P2PKH, \
     TYPE_P2SH_P2WPKH
 from .support import get_random_bytes
-from . import mn_encode, mn_decode, btc
+from . import mn_encode, mn_decode
+import jmbitcoin as btc
 
 
 """

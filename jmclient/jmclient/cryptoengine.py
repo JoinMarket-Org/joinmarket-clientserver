@@ -7,8 +7,7 @@ from binascii import hexlify, unhexlify
 from collections import OrderedDict
 import struct
 
-
-from . import btc
+import jmbitcoin as btc
 from .configure import get_network
 
 

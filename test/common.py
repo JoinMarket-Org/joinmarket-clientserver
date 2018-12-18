@@ -13,8 +13,9 @@ from decimal import Decimal
 data_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.insert(0, os.path.join(data_dir))
 
+from jmbase import get_log
 from jmclient import open_test_wallet_maybe, BIP32Wallet, SegwitLegacyWallet, \
-    get_log, estimate_tx_fee, jm_single
+    estimate_tx_fee, jm_single
 import jmbitcoin as btc
 from jmbase import chunks
 

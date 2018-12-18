@@ -28,7 +28,7 @@ import base64
 import http.client
 import json
 from decimal import Decimal
-from jmclient import get_log
+from jmbase import get_log
 
 jlog = get_log()
 

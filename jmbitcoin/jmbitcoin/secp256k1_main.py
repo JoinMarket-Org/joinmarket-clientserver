@@ -13,6 +13,9 @@ import coincurve as secp256k1
 #Required only for PoDLE calculation:
 N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
 
+BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f'}
+BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4'}
+
 #Standard prefix for Bitcoin message signing.
 BITCOIN_MESSAGE_MAGIC = b'\x18' + b'Bitcoin Signed Message:\n'
 

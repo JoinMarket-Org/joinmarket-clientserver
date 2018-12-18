@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division,
 from builtins import * # noqa: F401
 
 import sys
-import jmclient.btc as btc
+import jmbitcoin as btc
 from jmclient import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
 
 def quit(parser, errmsg): #pragma: no cover

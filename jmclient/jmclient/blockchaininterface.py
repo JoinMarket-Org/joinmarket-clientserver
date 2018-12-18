@@ -12,7 +12,7 @@ from copy import deepcopy
 from decimal import Decimal
 from twisted.internet import reactor, task
 
-from . import btc
+import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import get_p2pk_vbyte, jm_single

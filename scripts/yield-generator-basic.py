@@ -3,8 +3,8 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
 
-
-from jmclient import YieldGeneratorBasic, ygmain, get_log
+from jmbase import get_log
+from jmclient import YieldGeneratorBasic, ygmain
 
 """THESE SETTINGS CAN SIMPLY BE EDITED BY HAND IN THIS FILE:
 """

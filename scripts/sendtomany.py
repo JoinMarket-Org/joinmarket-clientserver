@@ -10,9 +10,10 @@ for other reasons).
 
 from pprint import pformat
 from optparse import OptionParser
-import jmclient.btc as btc
+import jmbitcoin as btc
+from jmbase import get_log
 from jmclient import load_program_config, estimate_tx_fee, jm_single,\
-    get_p2pk_vbyte, validate_address, get_log, get_utxo_info,\
+    get_p2pk_vbyte, validate_address, get_utxo_info,\
     validate_utxo_data, quit
 
 

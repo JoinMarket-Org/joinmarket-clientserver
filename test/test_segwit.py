@@ -10,7 +10,8 @@ from common import make_wallets
 from pprint import pformat
 import jmbitcoin as btc
 import pytest
-from jmclient import load_program_config, jm_single, get_log, LegacyWallet
+from jmbase import get_log
+from jmclient import load_program_config, jm_single, LegacyWallet
 log = get_log()
 
 

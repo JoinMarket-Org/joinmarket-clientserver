@@ -9,8 +9,9 @@ import sys
 import abc
 from binascii import unhexlify
 
-from . import btc
-from .btc import SerializationError, SerializationTruncationError
+
+from jmbitcoin import SerializationError, SerializationTruncationError
+import jmbitcoin as btc
 from jmclient.configure import jm_single
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee)

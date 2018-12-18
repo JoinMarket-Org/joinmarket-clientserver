@@ -10,7 +10,8 @@ import struct
 import json
 import pytest
 import copy
-from jmclient import load_program_config, get_log, jm_single, generate_podle,\
+from jmbase import get_log
+from jmclient import load_program_config, jm_single, generate_podle,\
     generate_podle_error_string, get_commitment_file, PoDLE,\
     get_podle_commitments, add_external_commitments, update_commitments
 from jmclient.podle import verify_all_NUMS, verify_podle, PoDLEError
