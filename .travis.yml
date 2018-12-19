@@ -13,7 +13,6 @@ matrix:
              key_url: 'http://keyserver.ubuntu.com:11371/pks/lookup?op=get&search=0xD46F45428842CE5E'
            packages:
              - bitcoind
-             - python-qt4 python-sip
     - os: linux
       services: docker
       env: DOCKER_IMG_JM=xenial-py2
@@ -55,7 +54,7 @@ install:
   - mkdir -p "$HOME/downloads"
   - mkdir -p "$TRAVIS_BUILD_DIR/deps/cache/"
   - find "$HOME/downloads" -type f -exec cp -v {} "$TRAVIS_BUILD_DIR/deps/cache/" \;
-  - on_host ./install.sh --develop
+  - on_host ./install.sh --develop --python=python3 --with-qt
   - on_host find "$TRAVIS_BUILD_DIR/deps/cache/" -type f -exec cp -v {} "$HOME/downloads/" \;
 before_script:
   - on_host source jmvenv/bin/activate

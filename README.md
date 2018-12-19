@@ -26,6 +26,12 @@ Once you've downloaded this repo, either as a zip file, and extracted it, or via
 
 (You can omit `-p python3` if you want to use Python2. You can also add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
 
+For the Qt GUI, pass the `--with-qt` flag to `install.sh` as well :
+
+    ./install.sh -p python3 --with-qt
+
+Do note, Python 2 is incompatible with the Qt GUI.
+
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 
 Alternative to this "quickstart" (including for MacOS): follow the [install guide](docs/INSTALL.md).
@@ -47,11 +53,11 @@ It's possible but unlikely that the Python2 version will be fixed, but in any ca
 
 If binaries are built, they will be gpg signed and announced on the Releases page.
 
-To run the script `joinmarket-qt.py` from the command line, you need to install two more packages: use these 2 commands:
+If you haven't used the `--with-qt` flag during installation with `install.sh`, then to run the script `joinmarket-qt.py` from the command line you will need to install two more packages.  Use these 2 commands while the `jmvenv` virtual environment is activated:
 
 ```
 pip install PySide2
-pip install git+git://github.com/sunu/qt5reactor.git@58410aaead2185e9917ae9cac9c50fe7b70e4a60
+pip install https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip
 ```
 After this, the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work.
 There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
