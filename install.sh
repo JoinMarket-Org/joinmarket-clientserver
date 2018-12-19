@@ -365,11 +365,11 @@ parse_flags ()
         shift
     done
 
-    if [[ ${with_qt} == 1 ]] && [[ ${python} == python2 ]]; then
+    if [[ ${with_qt} == 1 ]] && [[ ${python} == python2* ]]; then
         echo "ERROR: Joinmarket-Qt is currently only available for Python 3
                      Use the flag '--python=python3' to enable a python3 install."
         return 1
-    elif [[ ${with_qt} != 1 ]] && [[ ${python} == python3 ]]; then
+    elif [[ ${with_qt} != 1 ]] && [[ ${python} == python3* ]]; then
         read -p "
         INFO: Joinmarket-Qt for GUI Taker and Tumbler modes is available.
         Install Qt dependencies (~160mb) ? [y|n] : "
