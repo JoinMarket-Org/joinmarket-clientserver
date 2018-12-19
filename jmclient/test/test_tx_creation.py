@@ -41,11 +41,7 @@ def test_create_p2sh_output_tx(setup_tx_creation, nw, wallet_structures,
         wallet = w['wallet']
         ins_full = wallet.select_utxos(0, amount)
         script = bitcoin.mk_multisig_script(pubs, k)
-        #try the alternative argument passing
-        pubs.append(k)
-        script2 = bitcoin.mk_multisig_script(*pubs)
-        assert script2 == script
-        output_addr = bitcoin.scriptaddr(script, magicbyte=196)
+        output_addr = bitcoin.script_to_address(script, vbyte=196)
         txid = make_sign_and_push(ins_full,
                                   wallet,
                                   amount,
@@ -97,28 +93,21 @@ def test_all_same_priv(setup_tx_creation):
     tx = bitcoin.signall(tx, wallet.get_key_from_addr(addrinwallet))
 
 @pytest.mark.parametrize(
-    "signall, mktxlist",
+    "signall",
     [
-        (True, False),
-        (False, True),
+        (True,),
+        (False,),
     ])
-def test_verify_tx_input(setup_tx_creation, signall, mktxlist):
+def test_verify_tx_input(setup_tx_creation, signall):
     priv = "aa"*32 + "01"
     addr = bitcoin.privkey_to_address(priv, magicbyte=get_p2pk_vbyte())
     wallet = make_wallets(1, [[2,0,0,0,0]], 1)[0]['wallet']
     sync_wallet(wallet, fast=True)
     insfull = wallet.select_utxos(0, 110000000)
-    print(insfull)    
-    if not mktxlist:
-        outs = [{"address": addr, "value": 1000000}]
-        ins = list(insfull.keys())
-        tx = bitcoin.mktx(ins, outs)
-    else:
-        out1 = addr+":1000000"
-        ins0, ins1 = list(insfull.keys())
-        print("INS0 is: " + str(ins0))
-        print("INS1 is: " + str(ins1))
-        tx = bitcoin.mktx(ins0, ins1, out1)
+    print(insfull)
+    outs = [{"address": addr, "value": 1000000}]
+    ins = list(insfull.keys())
+    tx = bitcoin.mktx(ins, outs)
     desertx = bitcoin.deserialize(tx)
     print(desertx)
     if signall:
@@ -134,11 +123,7 @@ def test_verify_tx_input(setup_tx_creation, signall, mktxlist):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
             ad = insfull[utxo]['address']
             priv = wallet.get_key_from_addr(ad)
-            if index % 2:
-                tx = binascii.unhexlify(tx)
             tx = bitcoin.sign(tx, index, priv)
-            if index % 2:
-                tx = binascii.hexlify(tx).decode('ascii')
     desertx2 = bitcoin.deserialize(tx)
     print(desertx2)
     sig, pub = bitcoin.deserialize_script(desertx2['ins'][0]['script'])
@@ -187,7 +172,7 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     privs = [struct.pack(b'B', x) * 32 + b'\x01' for x in range(1, 4)]
     pubs = [bitcoin.privkey_to_pubkey(binascii.hexlify(priv).decode('ascii')) for priv in privs]
     script = bitcoin.mk_multisig_script(pubs, 2)
-    msig_addr = bitcoin.scriptaddr(script, magicbyte=196)
+    msig_addr = bitcoin.p2sh_scriptaddr(script, magicbyte=196)
     #pay into it
     wallet = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
     sync_wallet(wallet, fast=True)
@@ -209,6 +194,89 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     for priv in privs[:2]:
         sigs.append(bitcoin.multisign(tx, 0, script, binascii.hexlify(priv).decode('ascii')))
     tx = bitcoin.apply_multisignatures(tx, 0, script, sigs)
+    txid = jm_single().bc_interface.pushtx(tx)
+    assert txid
+
+def test_spend_p2wpkh(setup_tx_creation):
+    #make 3 p2wpkh outputs from 3 privs
+    privs = [struct.pack(b'B', x) * 32 + b'\x01' for x in range(1, 4)]
+    pubs = [bitcoin.privkey_to_pubkey(
+        binascii.hexlify(priv).decode('ascii')) for priv in privs]
+    scriptPubKeys = [bitcoin.pubkey_to_p2wpkh_script(pub) for pub in pubs]
+    addresses = [bitcoin.pubkey_to_p2wpkh_address(pub) for pub in pubs]
+    #pay into it
+    wallet = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
+    sync_wallet(wallet, fast=True)
+    amount = 35000000
+    p2wpkh_ins = []
+    for addr in addresses:
+        ins_full = wallet.select_utxos(0, amount)
+        txid = make_sign_and_push(ins_full, wallet, amount, output_addr=addr)
+        assert txid
+        p2wpkh_ins.append(txid + ":0")
+        #wait for mining
+        time.sleep(1)
+    #random output address
+    output_addr = wallet.get_new_addr(1, 1)
+    amount2 = amount*3 - 50000
+    outs = [{'value': amount2, 'address': output_addr}]
+    tx = bitcoin.mktx(p2wpkh_ins, outs)
+    sigs = []
+    for i, priv in enumerate(privs):
+        # sign each of 3 inputs
+        tx = bitcoin.p2wpkh_sign(tx, i, binascii.hexlify(priv),
+                                 amount, native=True)
+        # check that verify_tx_input correctly validates;
+        # to do this, we need to extract the signature and get the scriptCode
+        # of this pubkey
+        scriptCode = bitcoin.pubkey_to_p2pkh_script(pubs[i])
+        witness = bitcoin.deserialize(tx)['ins'][i]['txinwitness']
+        assert len(witness) == 2
+        assert witness[1] == pubs[i]
+        sig = witness[0]
+        assert bitcoin.verify_tx_input(tx, i, scriptPubKeys[i], sig,
+                        pubs[i], scriptCode=scriptCode, amount=amount)
+    txid = jm_single().bc_interface.pushtx(tx)
+    assert txid
+
+
+def test_spend_p2wsh(setup_tx_creation):
+    #make 2 x 2 of 2multisig outputs; will need 4 privs
+    privs = [struct.pack(b'B', x) * 32 + b'\x01' for x in range(1, 5)]
+    privs = [binascii.hexlify(priv).decode('ascii') for priv in privs]
+    pubs = [bitcoin.privkey_to_pubkey(priv) for priv in privs]
+    redeemScripts = [bitcoin.mk_multisig_script(pubs[i:i+2], 2) for i in [0, 2]]
+    scriptPubKeys = [bitcoin.pubkeys_to_p2wsh_script(pubs[i:i+2]) for i in [0, 2]]
+    addresses = [bitcoin.pubkeys_to_p2wsh_address(pubs[i:i+2]) for i in [0, 2]]
+    #pay into it
+    wallet = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
+    sync_wallet(wallet, fast=True)
+    amount = 35000000
+    p2wsh_ins = []
+    for addr in addresses:
+        ins_full = wallet.select_utxos(0, amount)
+        txid = make_sign_and_push(ins_full, wallet, amount, output_addr=addr)
+        assert txid
+        p2wsh_ins.append(txid + ":0")
+        #wait for mining
+        time.sleep(1)
+    #random output address and change addr
+    output_addr = wallet.get_new_addr(1, 1)
+    amount2 = amount*2 - 50000
+    outs = [{'value': amount2, 'address': output_addr}]
+    tx = bitcoin.mktx(p2wsh_ins, outs)
+    sigs = []
+    for i in range(2):
+        sigs = []
+        for priv in privs[i*2:i*2+2]:
+            # sign input j with each of 2 keys
+            sig = bitcoin.multisign(tx, i, redeemScripts[i], priv, amount=amount)
+            sigs.append(sig)
+            # check that verify_tx_input correctly validates;
+            assert bitcoin.verify_tx_input(tx, i, scriptPubKeys[i], sig,
+                                           bitcoin.privkey_to_pubkey(priv),
+                                           scriptCode=redeemScripts[i], amount=amount)
+        tx = bitcoin.apply_p2wsh_multisignatures(tx, i, redeemScripts[i], sigs)
     txid = jm_single().bc_interface.pushtx(tx)
     assert txid
 

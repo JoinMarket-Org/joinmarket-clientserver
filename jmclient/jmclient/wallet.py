@@ -20,7 +20,8 @@ from numbers import Integral
 from .configure import jm_single
 from .support import select_gradual, select_greedy, select_greediest, \
     select
-from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, ENGINES
+from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
+    TYPE_P2WPKH, ENGINES
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
@@ -325,13 +326,14 @@ class BaseWallet(object):
             scripts: {input_index: (output_script, amount)}
             kwargs: additional arguments for engine.sign_transaction
         returns:
-            input transaction dict with added signatures
+            input transaction dict with added signatures, hex-encoded.
         """
         for index, (script, amount) in scripts.items():
             assert amount > 0
             path = self.script_to_path(script)
             privkey, engine = self._get_priv_from_path(path)
-            engine.sign_transaction(tx, index, privkey, amount, **kwargs)
+            tx = btc.deserialize(engine.sign_transaction(tx, index, privkey,
+                                                         amount, **kwargs))
         return tx
 
     @deprecated
@@ -372,6 +374,10 @@ class BaseWallet(object):
         return cls._ENGINE.address_to_script(addr)
 
     @classmethod
+    def pubkey_to_script(cls, pubkey):
+        return cls._ENGINE.pubkey_to_script(pubkey)
+
+    @classmethod
     def pubkey_to_addr(cls, pubkey):
         return cls._ENGINE.pubkey_to_address(pubkey)
 
@@ -380,6 +386,19 @@ class BaseWallet(object):
         path = self.script_to_path(script)
         engine = self._get_priv_from_path(path)[1]
         return engine.script_to_address(script)
+
+    def get_script_code(self, script):
+        """
+        For segwit wallets, gets the value of the scriptCode
+        parameter required (see BIP143) for sighashing; this is
+        required for protocols (like Joinmarket) where signature
+        verification materials must be communicated between wallets.
+        For non-segwit wallets, raises EngineError.
+        """
+        path = self.script_to_path(script)
+        priv, engine = self._get_priv_from_path(path)
+        pub = engine.privkey_to_pubkey(priv)
+        return engine.pubkey_to_script_code(pub)
 
     @classmethod
     def pubkey_has_address(cls, pubkey, addr):
@@ -1354,12 +1373,16 @@ class LegacyWallet(ImportWalletMixin, BIP32Wallet):
         return self._key_ident, 0
 
 
-class BIP49Wallet(BIP32Wallet):
-    _BIP49_PURPOSE = 2**31 + 49
-    _ENGINE = ENGINES[TYPE_P2SH_P2WPKH]
+
+class BIP32PurposedWallet(BIP32Wallet):
+    """ A class to encapsulate cases like
+    BIP44, 49 and 84, all of which are derivatives
+    of BIP32, and use specific purpose
+    fields to flag different wallet types.
+    """
 
     def _get_bip32_base_path(self):
-        return self._key_ident, self._BIP49_PURPOSE,\
+        return self._key_ident, self._PURPOSE,\
                self._ENGINE.BIP44_COIN_TYPE
 
     @classmethod
@@ -1373,12 +1396,22 @@ class BIP49Wallet(BIP32Wallet):
 
         return path[len(self._get_bip32_base_path())] - 2**31
 
+class BIP49Wallet(BIP32PurposedWallet):
+    _PURPOSE = 2**31 + 49
+    _ENGINE = ENGINES[TYPE_P2SH_P2WPKH]
+
+class BIP84Wallet(BIP32PurposedWallet):
+    _PURPOSE = 2**31 + 84
+    _ENGINE = ENGINES[TYPE_P2WPKH]
 
 class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, BIP49Wallet):
     TYPE = TYPE_P2SH_P2WPKH
 
+class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, BIP84Wallet):
+    TYPE = TYPE_P2WPKH
 
 WALLET_IMPLEMENTATIONS = {
     LegacyWallet.TYPE: LegacyWallet,
-    SegwitLegacyWallet.TYPE: SegwitLegacyWallet
+    SegwitLegacyWallet.TYPE: SegwitLegacyWallet,
+    SegwitWallet.TYPE: SegwitWallet
 }

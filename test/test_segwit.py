@@ -112,7 +112,6 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
         {'script': binascii.hexlify(change_script).decode('ascii'),
          'value': change_amt}]
     tx = btc.deserialize(btc.mktx(tx_ins, tx_outs))
-    binarize_tx(tx)
 
     # import new addresses to bitcoind
     jm_single().bc_interface.import_addresses(
@@ -125,18 +124,18 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     for nsw_in_index in o_ins:
         inp = nsw_ins[nsw_in_index][1]
         scripts[nsw_in_index] = (inp['script'], inp['value'])
-    nsw_wallet.sign_tx(tx, scripts)
+    tx = nsw_wallet.sign_tx(tx, scripts)
 
     scripts = {}
     for sw_in_index in segwit_ins:
         inp = sw_ins[sw_in_index][1]
         scripts[sw_in_index] = (inp['script'], inp['value'])
-    sw_wallet.sign_tx(tx, scripts)
+    tx = sw_wallet.sign_tx(tx, scripts)
 
     print(tx)
 
     # push and verify
-    txid = jm_single().bc_interface.pushtx(binascii.hexlify(btc.serialize(tx)).decode('ascii'))
+    txid = jm_single().bc_interface.pushtx(btc.serialize(tx))
     assert txid
 
     balances = jm_single().bc_interface.get_received_by_addr(

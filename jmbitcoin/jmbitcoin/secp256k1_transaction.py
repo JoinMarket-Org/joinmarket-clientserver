@@ -8,8 +8,14 @@ import binascii
 import copy
 import re
 import os
+import struct
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.bech32 import *
+
+P2PKH_PRE, P2PKH_POST = b'\x76\xa9\x14', b'\x88\xac'
+P2SH_P2WPKH_PRE, P2SH_P2WPKH_POST = b'\xa9\x14', b'\x87'
+P2WPKH_PRE = b'\x00\x14'
+P2WSH_PRE = b'\x00\x16'
 
 # Transaction serialization and deserialization
 
@@ -108,12 +114,11 @@ def deserialize(txinp):
     return obj
 
 def serialize(tx):
-    """Assumes a deserialized transaction in which all
-    dictionary values are decoded hex strings or numbers.
-    Rationale: mixing raw bytes/hex/strings in dict objects causes
-    complexity; since the dict tx object has to be inspected
-    in this function, avoid complicated logic elsewhere by making
-    all conversions to raw byte strings happen here.
+    """ Accepts a dict in which the "outpoint","hash"
+    "script" and "txinwitness" entries can be in binary
+    or hex. If any "hash" field is in hex, the serialized
+    output is in hex, otherwise the serialization output
+    is in binary. Below table assumes all hex.
     Table of dictionary keys and type for the value:
     ================================================
     version: int
@@ -129,7 +134,9 @@ def serialize(tx):
     outs[0]["value"]: int
     locktime: int
     =================================================
-    Returned serialized transaction is a byte string.
+    Returned serialized transaction is a byte string,
+    or a hex encoded string, according to the above
+    hash check.
     """
     #Because we are manipulating the dict in-place, need
     #to work on a copy
@@ -184,6 +191,9 @@ def serialize(tx):
             items = inp["txinwitness"]
             o.write(num_to_var_int(len(items)))
             for item in items:
+                if item is None:
+                    o.write(b'\x00')
+                    continue
                 if isinstance(item, basestring) and not isinstance(item, bytes):
                     item = binascii.unhexlify(item)
                 o.write(num_to_var_int(len(item)) + item)
@@ -203,7 +213,7 @@ SIGHASH_ANYONECANPAY = 0x80
 
 def segwit_signature_form(txobj, i, script, amount, hashcode=SIGHASH_ALL,
                           decoder_func=binascii.unhexlify):
-    """Given a deserialized transaction txobj, an input index i,
+    """ Given a deserialized transaction txobj, an input index i,
     which spends from a witness,
     a script for redemption and an amount in satoshis, prepare
     the version of the transaction to be hashed and signed.
@@ -310,8 +320,11 @@ def segwit_txid(tx, hashcode=None):
     return txhash(reserialized_tx, hashcode)
 
 def txhash(tx, hashcode=None, check_sw=True):
-    """Creates the appropriate sha256 hash as required
+    """ Creates the appropriate sha256 hash as required
     either for signing or calculating txids.
+    The hashcode argument is used to distinguish the case
+    where we are hashing for signing (sighashing); by default
+    it is None, and this indicates we are calculating a txid.
     If check_sw is True it checks the serialized format for
     segwit flag bytes, and produces the correct form for txid (not wtxid).
     """
@@ -356,9 +369,7 @@ def ecdsa_tx_verify(tx, sig, pub, hashcode=SIGHASH_ALL):
 
 # Scripts
 
-
 def mk_pubkey_script(addr):
-    # Keep the auxiliary functions around for altcoins' sake
     return '76a914' + b58check_to_hex(addr) + '88ac'
 
 
@@ -366,20 +377,36 @@ def mk_scripthash_script(addr):
     return 'a914' + b58check_to_hex(addr) + '87'
 
 def segwit_scriptpubkey(witver, witprog):
-    """Construct a Segwit scriptPubKey for a given witness program."""
-    x = bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
-    return x
+    """ Construct a Segwit scriptPubKey for a given witness program.
+    """
+    return bytes([witver + 0x50 if witver else 0, len(witprog)] + witprog)
 
-def mk_native_segwit_script(addr):
-    hrp = addr[:2]
+def mk_native_segwit_script(hrp, addr):
+    """ Returns scriptPubKey as hex encoded string,
+    given a valid bech32 address and human-readable-part,
+    else throws an Exception if the arguments do not
+    match this pattern.
+    """
     ver, prog =  bech32addr_decode(hrp, addr)
+    if ver is None:
+        # This error cannot occur if this function is
+        # called from `address_to_script`
+        raise Exception("Invalid native segwit script")
     scriptpubkey = segwit_scriptpubkey(ver, prog)
     return binascii.hexlify(scriptpubkey).decode('ascii')
+
 # Address representation to output script
 
 def address_to_script(addr):
-    if addr[:2] in ['bc', 'tb']:
-        return mk_native_segwit_script(addr)
+    """ Returns scriptPubKey as a hex-encoded string for
+    a given Bitcoin address.
+    """
+    x = bech32_decode(addr)
+    # Any failure (because it's not a bech32 address)
+    # returns (None, None)
+    if x[0] and x[1]:
+        return mk_native_segwit_script(x[0], addr)
+
     if addr[0] == '3' or addr[0] == '2':
         return mk_scripthash_script(addr)
     else:
@@ -388,57 +415,145 @@ def address_to_script(addr):
 # Output script to address representation
 
 def is_p2pkh_script(script):
-    if script[:3] == b'\x76\xa9\x14' and script[-2:] == b'\x88\xac' and len(
+    """ Given a script as bytes, returns True if the script
+    matches the pay-to-pubkey-hash pattern (using opcodes),
+    otherwise returns False.
+    """
+    if not isinstance(script, bytes):
+        script = binascii.unhexlify(script)
+    if script[:3] == P2PKH_PRE and script[-2:] == P2PKH_POST and len(
             script) == 25:
         return True
     return False
 
 def is_segwit_native_script(script):
-    """Is scriptPubkey of form P2WPKH or P2WSH"""
-    if script[:2] in [b'\x00\x14', b'\x00\x20']:
+    """Is script, as bytes, of form P2WPKH or P2WSH;
+    see BIP141 for definitions of 2 current valid scripts.
+    """
+    if not isinstance(script, bytes):
+        script = binascii.unhexlify(script)
+
+    if (script[:2] == P2WPKH_PRE and len(script) == 22) or (
+        script[:2] == P2WSH_PRE and len(script) == 34):
         return True
     return False
 
 def script_to_address(script, vbyte=0, witver=0):
+    """ Given a hex or bytes script, and optionally a version byte
+    (for P2SH) and/or a witness version (for native segwit witness
+    programs), convert to a valid address (either bech32 or Base58CE).
+    An important tacit assumption: anything which does not match
+    the parsing rules of native segwit, or pay-to-pubkey-hash, is
+    assumed to be p2sh.
+    Note also that this translates scriptPubKeys to addresses, not
+    redeemscripts to p2sh addresses; for that, use p2sh_scriptaddr.
+    """
     if not isinstance(script, bytes):
         script = binascii.unhexlify(script)
     if is_segwit_native_script(script):
-        #hrp interpreted from the vbyte entry, TODO this should be cleaner.
+        #hrp interpreted from the vbyte entry, TODO: better way?
         if vbyte in [0, 5]:
             hrp = 'bc'
+        elif vbyte == 100:
+            hrp = 'bcrt'
         else:
             hrp = 'tb'
         return bech32addr_encode(hrp=hrp, witver=witver,
-                                 witprog=[ord(x) for x in script[2:]])
+        witprog=struct.unpack('{}B'.format(len(script[2:])).encode(
+            'ascii'), script[2:]))
     if is_p2pkh_script(script):
-        return bin_to_b58check(script[3:-2], vbyte)  # pubkey hash addresses
+        return bin_to_b58check(script[3:-2], vbyte)
     else:
         # BIP0016 scripthash addresses: requires explicit vbyte set
         if vbyte == 0: raise Exception("Invalid version byte for P2SH")
         return bin_to_b58check(script[2:-1], vbyte)
 
-def pubkey_to_p2sh_p2wpkh_script(pub):
-    if not isinstance(pub, bytes):
-        pub = binascii.unhexlify(pub)
-    return "0014" + hash160(pub)
-
-def pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=5):
-    if not isinstance(pub, bytes):
-        pub = binascii.unhexlify(pub)
-    script = pubkey_to_p2sh_p2wpkh_script(pub)
-    return p2sh_scriptaddr(script, magicbyte=magicbyte)
+def pubkey_to_script(pubkey, script_pre, script_post=b'',
+                     require_compressed=False):
+    """ Generic conversion from a binary pubkey serialization
+    to a corresponding binary scriptPubKey for the pubkeyhash case.
+    """
+    if not is_valid_pubkey(pubkey, False,
+                           require_compressed=require_compressed):
+        raise Exception("Invalid pubkey.")
+    h = bin_hash160(pubkey)
+    assert len(h) == 0x14
+    assert script_pre[-1:] == b'\x14'
+    return script_pre + h + script_post
 
 def p2sh_scriptaddr(script, magicbyte=5):
     if not isinstance(script, bytes):
         script = binascii.unhexlify(script)
     return hex_to_b58check(hash160(script), magicbyte)
 
+def pubkey_to_p2pkh_script(pub, require_compressed=False):
+    """ Construct a pay-to-pubkey-hash scriptPubKey
+    given a single pubkey. Script returned in binary.
+    The require compressed flag may be used to disallow
+    uncompressed keys, e.g. in constructing a segwit
+    scriptCode field.
+    """
+    if not isinstance(pub, bytes):
+        pub = binascii.unhexlify(pub)
+    return pubkey_to_script(pub, P2PKH_PRE, P2PKH_POST)
 
-scriptaddr = p2sh_scriptaddr
+def pubkey_to_p2sh_p2wpkh_script(pub):
+    """ Construct a nested-pay-to-witness-pubkey-hash
+    scriptPubKey given a single pubkey.
+    Script returned in binary.
+    """
+    if not isinstance(pub, bytes):
+        pub = binascii.unhexlify(pub)
+    wscript = pubkey_to_p2wpkh_script(pub)
+    return P2SH_P2WPKH_PRE + bin_hash160(wscript) + P2SH_P2WPKH_POST
 
+def pubkey_to_p2sh_p2wpkh_address(pub, magicbyte=5):
+    """ Construct a nested-pay-to-witness-pubkey-hash
+    address given a single pubkey; magicbyte defines
+    network as for any p2sh address.
+    """    
+    if not isinstance(pub, bytes):
+        pub = binascii.unhexlify(pub)
+    script = pubkey_to_p2wpkh_script(pub)
+    return p2sh_scriptaddr(script, magicbyte=magicbyte)
+
+def pubkey_to_p2wpkh_script(pub):
+    """ Construct a pay-to-witness-pubkey-hash
+    scriptPubKey given a single pubkey. Note that
+    this is the witness program (version 0). Script
+    is returned in binary.
+    """
+    if not isinstance(pub, bytes):
+        pub = binascii.unhexlify(pub)
+    return pubkey_to_script(pub, P2WPKH_PRE,
+                            require_compressed=True)
+
+def pubkey_to_p2wpkh_address(pub):
+    """ Construct a pay-to-witness-pubkey-hash
+    address (bech32) given a single pubkey.
+    """    
+    script = pubkey_to_p2wpkh_script(pub)
+    return script_to_address(script)
+
+def pubkeys_to_p2wsh_script(pubs):
+    """ Given a list of N pubkeys, constructs an N of N
+    multisig scriptPubKey of type pay-to-witness-script-hash.
+    No other scripts than N-N multisig supported as of now.
+    """
+    N = len(pubs)
+    script = mk_multisig_script(pubs, N)
+    return P2WSH_PRE + bin_sha256(binascii.unhexlify(script))
+
+def pubkeys_to_p2wsh_address(pubs):
+    """ Given a list of N pubkeys, constructs an N of N
+    multisig address of type pay-to-witness-script-hash.
+    No other scripts than N-N multisig supported as of now.
+    """
+    script = pubkeys_to_p2wsh_script(pubs)
+    return script_to_address(script)
 
 def deserialize_script(scriptinp):
-    """Note that this is not used internally, in
+    """ Note that this is not used internally, in
     the jmbitcoin package, to deserialize() transactions;
     its function is only to allow parsing of scripts by
     external callers. Thus, it returns in the format used
@@ -521,80 +636,118 @@ def serialize_script(script):
         return result
 
 
-def mk_multisig_script(*args):  # [pubs],k or pub1,pub2...pub[n],k
-    if isinstance(args[0], list):
-        pubs, k = args[0], int(args[1])
-    else:
-        pubs = list(filter(lambda x: len(str(x)) >= 32, args))
-        k = int(args[len(pubs)])
+def mk_multisig_script(pubs, k):
+    """ Given a list of pubkeys and an integer k,
+    construct a multisig script for k of N, where N is
+    the length of the list `pubs`; script is returned
+    as hex string.
+    """
     return serialize_script([k] + pubs + [len(pubs)]) + 'ae'
+
 
 # Signing and verifying
 
+def verify_tx_input(tx, i, script, sig, pub, scriptCode=None, amount=None):
+    """ Given a hex-serialized transaction tx, an integer index i,
+    a script (see more on this below), signature and pubkey, and optionally
+    a segwit scriptCode and  amount in satoshis (that flags segwit usage),
+    we return True if and only if the signature and pubkey is valid for
+    this tx input.
+    Note on 'script' and 'scriptCode':
+    For p2pkh, 'script' should be the output script (scriptPubKey), and
+    the scriptCode should be left as the default None.
+    For p2sh non-segwit multisig, the script should be the
+    output of mk_multisig_script (and scriptCode and amount None).
+    For either nested (p2sh) or not p2wpkh and p2wsh, the scriptCode is the
+    preimage of the scriptPubKey hash (the witness program, which here
+    has been passed in in the 'script' parameter).
 
-def verify_tx_input(tx, i, script, sig, pub, witness=None, amount=None):
+    Note that for the p2sh-p2wsh and p2wsh cases, a redeem script that is not
+    multisig should still be correctly handled here; the codebase restricts
+    the creation of such signatures to multisig only, but *verification* should
+    function correctly with any custom script.
+
+    TODO: Also note that the OP_CODESEPARATOR special case outlined in BIP143
+    is not yet covered.
+    """
+    assert isinstance(i, int)
+    assert i >= 0
     if not isinstance(tx, bytes):
         tx = binascii.unhexlify(tx)
     if not isinstance(script, bytes):
         script = binascii.unhexlify(script)
+    if scriptCode is not None and not isinstance(scriptCode, bytes):
+        scriptCode = binascii.unhexlify(scriptCode)
     if isinstance(sig, bytes):
         sig = binascii.hexlify(sig).decode('ascii')
     if isinstance(pub, bytes):
         pub = binascii.hexlify(pub).decode('ascii')
-    if witness:
-        if isinstance(witness, bytes):
-            witness = safe_hexlify(witness)
+
     hashcode = binascii.unhexlify(sig[-2:])
-    if witness and amount:
-        #TODO assumes p2sh wrapped segwit input; OK for JM wallets
-        scriptCode = binascii.unhexlify("76a914"+hash160(binascii.unhexlify(pub))+"88ac")
-        modtx = segwit_signature_form(deserialize(tx), int(i),
-                                      scriptCode, amount, hashcode, decoder_func=lambda x: x)
+
+    if amount:
+        modtx = segwit_signature_form(deserialize(tx), i,
+                    scriptCode, amount, hashcode, decoder_func=lambda x: x)
     else:
-        modtx = signature_form(tx, int(i), script, hashcode)
+        modtx = signature_form(tx, i, script, hashcode)
     return ecdsa_tx_verify(modtx, sig, pub, hashcode)
 
 
-def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None):
-    i = int(i)
+def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None,
+         native=False):
+    """
+    Given a serialized transaction tx, an input index i, and a privkey
+    in bytes or hex, returns a serialized transaction, in hex always,
+    into which the signature and/or witness has been inserted. The field
+    `amount` flags whether segwit signing is to be done, and the field
+    `native` flags that native segwit p2wpkh signing is to be done. Note
+    that signing multisig is to be done with the alternative functions
+    multisign or p2wsh_multisign (and non N of N multisig scripthash
+    signing is not currently supported).
+    """
     if isinstance(tx, basestring) and not isinstance(tx, bytes):
         tx = binascii.unhexlify(tx)
-        hexout = True
-    else:
-        hexout = False
     if len(priv) <= 33:
         priv = safe_hexlify(priv)
     if amount:
-        return p2sh_p2wpkh_sign(tx, i, priv, amount, hashcode=hashcode,
-                                usenonce=usenonce)
-    pub = privkey_to_pubkey(priv, True)
-    address = pubkey_to_address(pub)
-    signing_tx = signature_form(tx, i, mk_pubkey_script(address), hashcode)
-    sig = ecdsa_tx_sign(signing_tx, priv, hashcode, usenonce=usenonce)
-    txobj = deserialize(tx)
-    txobj["ins"][i]["script"] = serialize_script([sig, pub])
-    serobj = serialize(txobj)
-    if hexout and isinstance(serobj, basestring) and isinstance(serobj, bytes):
+        serobj = p2wpkh_sign(tx, i, priv, amount, hashcode=hashcode,
+                               usenonce=usenonce, native=native)
+    else:
+        pub = privkey_to_pubkey(priv, True)
+        address = pubkey_to_address(pub)
+        signing_tx = signature_form(tx, i, mk_pubkey_script(address), hashcode)
+        sig = ecdsa_tx_sign(signing_tx, priv, hashcode, usenonce=usenonce)
+        txobj = deserialize(tx)
+        txobj["ins"][i]["script"] = serialize_script([sig, pub])
+        serobj = serialize(txobj)
+    if isinstance(serobj, basestring) and isinstance(serobj, bytes):
         return binascii.hexlify(serobj).decode('ascii')
-    elif not hexout and not isinstance(serobj, bytes):
-        return binascii.unhexlify(serobj)
     else:
         return serobj
 
-def p2sh_p2wpkh_sign(tx, i, priv, amount, hashcode=SIGHASH_ALL, usenonce=None):
+def p2wpkh_sign(tx, i, priv, amount, hashcode=SIGHASH_ALL, native=False,
+                usenonce=None):
     """Given a serialized transaction, index, private key in hex,
     amount in satoshis and optionally hashcode, return the serialized
     transaction containing a signature and witness for this input; it's
-    assumed that the input is of type pay-to-witness-pubkey-hash nested in p2sh.
+    assumed that the input is of type pay-to-witness-pubkey-hash.
+    If native is False, it's treated as p2sh nested.
     """
     pub = privkey_to_pubkey(priv)
-    script = pubkey_to_p2sh_p2wpkh_script(pub)
-    scriptCode = "76a914"+hash160(binascii.unhexlify(pub))+"88ac"
+    # Convert the input tx and script to hex so that the deserialize()
+    # call creates hex-encoded fields
+    script = binascii.hexlify(pubkey_to_p2wpkh_script(pub)).decode('ascii')
+    scriptCode = binascii.hexlify(pubkey_to_p2pkh_script(pub)).decode('ascii')
+    if isinstance(tx, bytes):
+        tx = binascii.hexlify(tx).decode('ascii')
     signing_tx = segwit_signature_form(deserialize(tx), i, scriptCode, amount,
                                        hashcode=hashcode)
     sig = ecdsa_tx_sign(signing_tx, priv, hashcode, usenonce=usenonce)
     txobj = deserialize(tx)
-    txobj["ins"][i]["script"] = "16"+script
+    if not native:
+        txobj["ins"][i]["script"] = "16" + script
+    else:
+        txobj["ins"][i]["script"] = ""
     txobj["ins"][i]["txinwitness"] = [sig, pub]
     return serialize(txobj)
 
@@ -611,14 +764,45 @@ def signall(tx, priv):
     return tx
 
 
-def multisign(tx, i, script, pk, hashcode=SIGHASH_ALL):
+def multisign(tx, i, script, pk, amount=None, hashcode=SIGHASH_ALL):
+    """ Tx is assumed to be serialized. The script passed here is
+    the redeemscript, for example the output of mk_multisig_script.
+    pk is the private key, and must be passed in hex.
+    If amount is not None, the output of p2wsh_multisign is returned.
+    What is returned is a single signature.
+    """
     if isinstance(tx, str):
         tx = binascii.unhexlify(tx)
     if isinstance(script, str):
         script = binascii.unhexlify(script)
+    if amount:
+        return p2wsh_multisign(tx, i, script, pk, amount, hashcode)
     modtx = signature_form(tx, i, script, hashcode)
     return ecdsa_tx_sign(modtx, pk, hashcode)
 
+def p2wsh_multisign(tx, i, script, pk, amount, hashcode=SIGHASH_ALL):
+    """ See note to multisign for the value to pass in as `script`.
+    Tx is assumed to be serialized.
+    """
+    modtx = segwit_signature_form(deserialize(tx), i, script, amount,
+                                  hashcode, decoder_func=lambda x: x)
+    return ecdsa_tx_sign(modtx, pk, hashcode)
+
+def apply_p2wsh_multisignatures(tx, i, script, sigs):
+    """Sigs must be passed in as a list, and must be a
+    complete list for this multisig, in the same order
+    as the list of pubkeys when creating the scriptPubKey.
+    """
+    if isinstance(script, str):
+        script = binascii.unhexlify(script)
+    sigs = [binascii.unhexlify(x) if x[:2] == '30' else x for x in sigs]
+    if isinstance(tx, str):
+        return safe_hexlify(apply_p2wsh_multisignatures(
+            binascii.unhexlify(tx), i, script, sigs))
+    txobj = deserialize(tx)
+    txobj["ins"][i]["script"] = ""
+    txobj["ins"][i]["txinwitness"] = [None] + sigs + [script]
+    return serialize(txobj)
 
 def apply_multisignatures(*args):
     # tx,i,script,sigs OR tx,i,script,sig1,sig2...,sig[n]
@@ -636,21 +820,8 @@ def apply_multisignatures(*args):
     txobj["ins"][i]["script"] = serialize_script([None] + sigs + [script])
     return serialize(txobj)
 
-
-def is_inp(arg):
-    return len(arg) > 64 or "output" in arg or "outpoint" in arg
-
-
-def mktx(*args):
-    # [in0, in1...],[out0, out1...] or in0, in1 ... out0 out1 ...
-    ins, outs = [], []
-    for arg in args:
-        if isinstance(arg, list):
-            for a in arg:
-                (ins if is_inp(a) else outs).append(a)
-        else:
-            (ins if is_inp(arg) else outs).append(arg)
-    txobj = {"locktime": 0, "version": 1, "ins": [], "outs": []}
+def mktx(ins, outs, version=1):
+    txobj = {"locktime": 0, "version": version, "ins": [], "outs": []}
     for i in ins:
         if isinstance(i, dict) and "outpoint" in i:
             txobj["ins"].append(i)

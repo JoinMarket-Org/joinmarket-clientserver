@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division,
 from builtins import * # noqa: F401
 
 
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 from collections import OrderedDict
 import struct
 
@@ -17,56 +17,20 @@ NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET}
 WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef'}
 BIP44_COIN_MAP = {'mainnet': 2**31, 'testnet': 2**31 + 1}
 
-
-#
-# library stuff that should be in btc/jmbitcoin
-#
-
-
-P2PKH_PRE, P2PKH_POST = b'\x76\xa9\x14', b'\x88\xac'
-P2SH_P2WPKH_PRE, P2SH_P2WPKH_POST = b'\xa9\x14', b'\x87'
-P2WPKH_PRE = b'\x00\x14'
-
-
-def _pubkey_to_script(pubkey, script_pre, script_post=b''):
-    # sanity check for public key
-    # see https://github.com/bitcoin/bitcoin/blob/master/src/pubkey.h
-    if not ((len(pubkey) == 33 and pubkey[:1] in (b'\x02', b'\x03')) or
-            (len(pubkey) == 65 and pubkey[:1] in (b'\x04', b'\x06', b'\x07'))):
-        raise Exception("Invalid public key!")
-    h = btc.bin_hash160(pubkey)
-    assert len(h) == 0x14
-    assert script_pre[-1:] == b'\x14'
-    return script_pre + h + script_post
-
-
-def pubkey_to_p2pkh_script(pubkey):
-    return _pubkey_to_script(pubkey, P2PKH_PRE, P2PKH_POST)
-
-
-def pubkey_to_p2sh_p2wpkh_script(pubkey):
-    wscript = pubkey_to_p2wpkh_script(pubkey)
-    return P2SH_P2WPKH_PRE + btc.bin_hash160(wscript) + P2SH_P2WPKH_POST
-
-
-def pubkey_to_p2wpkh_script(pubkey):
-    return _pubkey_to_script(pubkey, P2WPKH_PRE)
-
-
 def detect_script_type(script):
-    if script.startswith(P2PKH_PRE) and script.endswith(P2PKH_POST) and\
-            len(script) == 0x14 + len(P2PKH_PRE) + len(P2PKH_POST):
+    if script.startswith(btc.P2PKH_PRE) and script.endswith(btc.P2PKH_POST) and\
+       len(script) == 0x14 + len(btc.P2PKH_PRE) + len(btc.P2PKH_POST):
         return TYPE_P2PKH
-    elif (script.startswith(P2SH_P2WPKH_PRE) and
-          script.endswith(P2SH_P2WPKH_POST) and
-          len(script) == 0x14 + len(P2SH_P2WPKH_PRE) + len(P2SH_P2WPKH_POST)):
+    elif (script.startswith(btc.P2SH_P2WPKH_PRE) and
+          script.endswith(btc.P2SH_P2WPKH_POST) and
+          len(script) == 0x14 + len(btc.P2SH_P2WPKH_PRE) + len(
+              btc.P2SH_P2WPKH_POST)):
         return TYPE_P2SH_P2WPKH
-    elif script.startswith(P2WPKH_PRE) and\
-            len(script) == 0x14 + len(P2WPKH_PRE):
+    elif script.startswith(btc.P2WPKH_PRE) and\
+            len(script) == 0x14 + len(btc.P2WPKH_PRE):
         return TYPE_P2WPKH
     raise EngineError("Unknown script type for script '{}'"
                       .format(hexlify(script)))
-
 
 class classproperty(object):
     """
@@ -246,24 +210,17 @@ class BTC_P2PKH(BTCEngine):
 
     @classmethod
     def pubkey_to_script(cls, pubkey):
-        return pubkey_to_p2pkh_script(pubkey)
+        return btc.pubkey_to_p2pkh_script(pubkey)
+
+    @classmethod
+    def pubkey_to_script_code(cls, pubkey):
+        raise EngineError("Script code does not apply to legacy wallets")
 
     @classmethod
     def sign_transaction(cls, tx, index, privkey, *args, **kwargs):
         hashcode = kwargs.get('hashcode') or btc.SIGHASH_ALL
-
-        pubkey = cls.privkey_to_pubkey(privkey)
-        script = cls.pubkey_to_script(pubkey)
-
-        signing_tx = btc.serialize(btc.signature_form(tx, index, script,
-                                                      hashcode=hashcode))
-        # FIXME: encoding mess
-        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey).decode('ascii'),
-                                          **kwargs))
-
-        tx['ins'][index]['script'] = btc.serialize_script([sig, pubkey])
-
-        return tx
+        return btc.sign(btc.serialize(tx), index, privkey,
+                        hashcode=hashcode, amount=None, native=False)
 
 
 class BTC_P2SH_P2WPKH(BTCEngine):
@@ -276,61 +233,58 @@ class BTC_P2SH_P2WPKH(BTCEngine):
 
     @classmethod
     def pubkey_to_script(cls, pubkey):
-        return pubkey_to_p2sh_p2wpkh_script(pubkey)
+        return btc.pubkey_to_p2sh_p2wpkh_script(pubkey)
+
+    @classmethod
+    def pubkey_to_script_code(cls, pubkey):
+        """ As per BIP143, the scriptCode for the p2wpkh
+        case is "76a914+hash160(pub)+"88ac" as per the
+        scriptPubKey of the p2pkh case.
+        """
+        return btc.pubkey_to_p2pkh_script(pubkey, require_compressed=True)
 
     @classmethod
     def sign_transaction(cls, tx, index, privkey, amount,
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         assert amount is not None
-
-        pubkey = cls.privkey_to_pubkey(privkey)
-        wpkscript = pubkey_to_p2wpkh_script(pubkey)
-        pkscript = pubkey_to_p2pkh_script(pubkey)
-
-        signing_tx = btc.segwit_signature_form(tx, index, pkscript, amount,
-                                               hashcode=hashcode,
-                                               decoder_func=lambda x: x)
-        # FIXME: encoding mess
-        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey).decode('ascii'),
-                                          hashcode=hashcode, **kwargs))
-
-        assert len(wpkscript) == 0x16
-        tx['ins'][index]['script'] = b'\x16' + wpkscript
-        tx['ins'][index]['txinwitness'] = [sig, pubkey]
-
-        return tx
-
+        return btc.sign(btc.serialize(tx), index, privkey,
+                        hashcode=hashcode, amount=amount, native=False)
 
 class BTC_P2WPKH(BTCEngine):
+
     @classproperty
     def VBYTE(cls):
-        return btc.BTC_P2SH_VBYTE[get_network()]
+        """Note that vbyte is needed in the native segwit case
+        to decide the value of the 'human readable part' of the
+        bech32 address. If it's 0 or 5 we use 'bc', else we use
+        'tb' for testnet bitcoin; so it doesn't matter if we use
+        the P2PK vbyte or the P2SH one.
+        However, regtest uses 'bcrt' only (and fails on 'tb'),
+        so bitcoin.script_to_address currently uses an artificial
+        value 100 to flag that case.
+        This means that for testing, this value must be explicitly
+        overwritten.
+        """
+        return btc.BTC_P2PK_VBYTE[get_network()]
 
     @classmethod
     def pubkey_to_script(cls, pubkey):
-        return pubkey_to_p2wpkh_script(pubkey)
+        return btc.pubkey_to_p2wpkh_script(pubkey)
+
+    @classmethod
+    def pubkey_to_script_code(cls, pubkey):
+        """ As per BIP143, the scriptCode for the p2wpkh
+        case is "76a914+hash160(pub)+"88ac" as per the
+        scriptPubKey of the p2pkh case.
+        """
+        return btc.pubkey_to_p2pkh_script(pubkey, require_compressed=True)
 
     @classmethod
     def sign_transaction(cls, tx, index, privkey, amount,
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         assert amount is not None
-        raise NotImplementedError("The following code is completely untested")
-
-        pubkey = cls.privkey_to_pubkey(privkey)
-        script = cls.pubkey_to_script(pubkey)
-
-        signing_tx = btc.segwit_signature_form(tx, index, script, amount,
-                                               hashcode=hashcode,
-                                               decoder_func=lambda x: x)
-        # FIXME: encoding mess
-        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey),
-                                          hashcode=hashcode, **kwargs))
-
-        tx['ins'][index]['script'] = script
-        tx['ins'][index]['txinwitness'] = [sig, pubkey]
-
-        return tx
-
+        return btc.sign(btc.serialize(tx), index, privkey,
+                        hashcode=hashcode, amount=amount, native=True)
 
 ENGINES = {
     TYPE_P2PKH: BTC_P2PKH,

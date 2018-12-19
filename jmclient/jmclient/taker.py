@@ -554,7 +554,7 @@ class Taker(object):
         for i, u in iteritems(utxo):
             if utxo_data[i] is None:
                 continue
-            #Check if the sender serialize_scripted the witness
+            #Check if the sender serialize_scripted the scriptCode
             #item into the sig message; if so, also pick up the amount
             #from the utxo data retrieved from the blockchain to verify
             #the segwit-style signature. Note that this allows a mixed
@@ -567,24 +567,50 @@ class Taker(object):
                 break
             if len(sig_deserialized) == 2:
                 ver_sig, ver_pub = sig_deserialized
-                wit = None
+                scriptCode = None
             elif len(sig_deserialized) == 3:
-                ver_sig, ver_pub, wit =  sig_deserialized
+                ver_sig, ver_pub, scriptCode =  sig_deserialized
             else:
                 jlog.debug("Invalid signature message - more than 3 items")
                 break
-            ver_amt = utxo_data[i]['value'] if wit else None
+            ver_amt = utxo_data[i]['value'] if scriptCode else None
             sig_good = btc.verify_tx_input(txhex, u[0], utxo_data[i]['script'],
-                                               ver_sig, ver_pub, witness=wit,
-                                               amount=ver_amt)
+                            ver_sig, ver_pub, scriptCode=scriptCode, amount=ver_amt)
+
+            if ver_amt is not None and not sig_good:
+                # Special case to deal with legacy bots 0.5.0 or lower:
+                # the third field in the sigmessage was originally *not* the
+                # scriptCode, but the contents of tx['ins'][index]['script'],
+                # i.e. the witness program 0014... ; for this we can verify
+                # implicitly, as verify_tx_input used to, by reconstructing
+                # from the public key. For these cases, we can *assume* that
+                # the input is of type p2sh-p2wpkh; we call the jmbitcoin method
+                # directly, as we cannot assume that *our* wallet handles this.
+                scriptCode = hexlify(btc.pubkey_to_p2pkh_script(
+                    ver_pub, True)).decode('ascii')
+                sig_good = btc.verify_tx_input(txhex, u[0], utxo_data[i]['script'],
+                        ver_sig, ver_pub, scriptCode=scriptCode, amount=ver_amt)
+
             if sig_good:
                 jlog.debug('found good sig at index=%d' % (u[0]))
-                if wit:
+                if ver_amt:
+                    # Note that, due to the complexity of handling multisig or other
+                    # arbitrary script (considering sending multiple signatures OTW),
+                    # there is an assumption of p2sh-p2wpkh or p2wpkh, for the segwit
+                    # case.
                     self.latest_tx["ins"][u[0]]["txinwitness"] = [ver_sig, ver_pub]
-                    self.latest_tx["ins"][u[0]]["script"] = "16" + wit
+                    if btc.is_segwit_native_script(utxo_data[i]['script']):
+                        scriptSig = ""
+                    else:
+                        scriptSig = btc.serialize_script_unit(
+                            btc.pubkey_to_p2wpkh_script(ver_pub))
+                    self.latest_tx["ins"][u[0]]["script"] = scriptSig
                 else:
+                    # Non segwit (as per above comments) is limited only to single key,
+                    # p2pkh case.
                     self.latest_tx["ins"][u[0]]["script"] = sig
                 inserted_sig = True
+
                 # check if maker has sent everything possible
                 try:
                     self.utxos[nick].remove(u[1])
@@ -740,13 +766,7 @@ class Taker(object):
             script = self.wallet.addr_to_script(self.input_utxos[utxo]['address'])
             amount = self.input_utxos[utxo]['value']
             our_inputs[index] = (script, amount)
-
-        # FIXME: ugly hack
-        tx_bin = btc.deserialize(unhexlify(btc.serialize(self.latest_tx)))
-        self.wallet.sign_tx(tx_bin, our_inputs)
-
-        self.latest_tx = btc.deserialize(hexlify(btc.serialize(tx_bin)).decode('ascii'))
-
+        self.latest_tx = self.wallet.sign_tx(self.latest_tx, our_inputs)
 
     def push(self):
         tx = btc.serialize(self.latest_tx)

@@ -14,7 +14,8 @@ from .old_mnemonic import mn_decode, mn_encode
 from .taker import Taker
 from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
-                     SegwitLegacyWallet, UTXOManager, WALLET_IMPLEMENTATIONS)
+                     SegwitWallet, SegwitLegacyWallet, UTXOManager,
+                     WALLET_IMPLEMENTATIONS)
 from .storage import (Argon2Hash, Storage, StorageError,
                       StoragePasswordError, VolatileStorage)
 from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
