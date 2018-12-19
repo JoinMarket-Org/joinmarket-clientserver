@@ -277,13 +277,16 @@ class Storage(object):
             return
         self._lock_file = '{}.lock'.format(self.path)
         if os.path.exists(self._lock_file):
+            with open(self._lock_file, 'r') as f:
+                locked_by_pid = f.read()
             self._lock_file = None
-            raise StorageError("File is currently in use. If this is a "
-                               "leftover from a crashed instance you need to "
-                               "remove the lock file manually")
-        #FIXME: in python >=3.3 use mode xb
-        with open(self._lock_file, 'wb'):
-            pass
+            raise StorageError("File is currently in use (locked by pid {}). "
+                               "If this is a leftover from a crashed instance "
+                               "you need to remove the lock file manually" .
+                               format(locked_by_pid))
+        #FIXME: in python >=3.3 use mode x
+        with open(self._lock_file, 'w') as f:
+            f.write(str(os.getpid()))
 
         atexit.register(self.close)
 
