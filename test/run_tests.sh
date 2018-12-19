@@ -1,5 +1,16 @@
 #!/bin/bash
 
+sha256_verify ()
+{
+    if [[ "$(uname)" == "Darwin" ]]; then
+        shasum -a 256 -c <<<"$1  $2"
+        return "$?"
+    else
+        sha256sum -c <<<"$1  $2"
+        return "$?"
+    fi
+}
+
 run_jm_tests ()
 {
     if [[ -z "${VIRTUAL_ENV}" ]]; then
@@ -14,10 +25,14 @@ run_jm_tests ()
     export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${VIRTUAL_ENV}/include"
 
     pushd "${jm_source}"
-    curl --retry 5 -L https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz -o miniircd.tar.gz
-    rm -rf ./miniircd
-    mkdir -p miniircd
-    tar -xzf miniircd.tar.gz -C ./miniircd --strip-components=1
+    if ! sha256_verify 'ce3a4ddc777343645ccd06ca36233b5777e218ee89d887ef529ece86a917fc33' 'miniircd.tar.gz'; then
+        curl --retry 5 -L https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz -o miniircd.tar.gz
+    fi
+    if [[ ! -x ${jm_source}/miniircd/miniircd ]]; then
+        rm -rf ./miniircd
+        mkdir -p miniircd
+        tar -xzf miniircd.tar.gz -C ./miniircd --strip-components=1
+    fi
     if ! pip install -r ./requirements-dev.txt; then
         echo "Packages in 'requirements-dev.txt' could not be installed. Exiting."
         return 1
