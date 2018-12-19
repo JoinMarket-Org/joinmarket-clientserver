@@ -1359,7 +1359,7 @@ class JMMainWindow(QMainWindow):
                 text, ok = QInputDialog.getText(self,
                                                 'Decrypt wallet',
                                                 'Enter your password:',
-                                                mode=QLineEdit.Password)
+                                                echo=QLineEdit.Password)
                 if not ok:
                     return
                 pwd = str(text).strip()
