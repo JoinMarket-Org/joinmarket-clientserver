@@ -30,7 +30,7 @@ class ElectrumConnectionError(Exception):
 class TxElectrumClientProtocol(LineReceiver):
     #map deferreds to msgids to correctly link response with request
     deferreds = {}
-    delimiter = "\n"
+    delimiter = b"\n"
 
     def __init__(self, factory):
         self.factory = factory
@@ -75,7 +75,7 @@ class TxElectrumClientProtocol(LineReceiver):
 
     def lineReceived(self, line):
         try:
-            parsed = json.loads(line)
+            parsed = json.loads(line.decode())
             msgid = parsed['id']
             linked_deferred = self.deferreds[msgid]
         except:
@@ -137,7 +137,7 @@ class ElectrumConn(threading.Thread):
                     all_data = data
                 else:
                     all_data = all_data + data
-                if '\n' in all_data:
+                if b'\n' in all_data:
                     break
             data_json = json.loads(all_data[:-1].decode())
             self.RetQueue.put(data_json)
@@ -226,12 +226,13 @@ class ElectrumInterface(BlockchainInterface):
         #mark as not currently synced
         self.wallet_synced = False
         if self.synctype == "sync-only":
-            reactor.run()
+            if not reactor.running:
+                reactor.run()
 
     def get_server(self, electrum_server):
         if not electrum_server:
             while True:
-                electrum_server = random.choice(get_default_servers().keys())
+                electrum_server = random.choice(list(get_default_servers().keys()))
                 if DEFAULT_PROTO in get_default_servers()[electrum_server]:
                     break
         s = electrum_server
