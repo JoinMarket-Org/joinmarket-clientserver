@@ -820,8 +820,23 @@ def apply_multisignatures(*args):
     txobj["ins"][i]["script"] = serialize_script([None] + sigs + [script])
     return serialize(txobj)
 
-def mktx(ins, outs, version=1):
-    txobj = {"locktime": 0, "version": version, "ins": [], "outs": []}
+def mktx(ins, outs, version=1, locktime=0):
+    """ Given a list of input dicts with key "output"
+    which are txid:n strings in hex, and a list of outputs
+    which are dicts with keys "address", "value", outputs
+    a hex serialized tranasction encoding this data.
+    Tx version and locktime are optionally set, for non-default
+    locktimes, inputs are given nSequence as per below comment.
+    """
+    txobj = {"locktime": locktime, "version": version, "ins": [], "outs": []}
+    # This does NOT trigger rbf and mimics Core's standard behaviour as of
+    # Jan 2019.
+    # Tx creators wishing to use rbf will need to set it explicitly outside
+    # of this function.
+    if locktime != 0:
+        sequence = 0xffffffff - 1
+    else:
+        sequence = 0xffffffff
     for i in ins:
         if isinstance(i, dict) and "outpoint" in i:
             txobj["ins"].append(i)
@@ -832,7 +847,7 @@ def mktx(ins, outs, version=1):
                 "outpoint": {"hash": i[:64],
                              "index": int(i[65:])},
                 "script": "",
-                "sequence": 4294967295
+                "sequence": sequence
             })
     for o in outs:
         if isinstance(o, str):

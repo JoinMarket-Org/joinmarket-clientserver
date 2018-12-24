@@ -412,5 +412,15 @@ def get_sendpayment_parser():
                       dest='answeryes',
                       default=False,
                       help='answer yes to everything')
+    parser.add_option('--payjoin',
+                      '-T',
+                      type='str',
+                      action='store',
+                      dest='p2ep',
+                      default='',
+                      help='specify recipient IRC nick for a '
+                      'p2ep style payment, for example:\n'
+                      'J5Ehn3EieVZFtm4q ')
+
     add_common_options(parser)
     return parser

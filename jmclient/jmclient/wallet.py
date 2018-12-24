@@ -4,6 +4,7 @@ from builtins import * # noqa: F401
 
 from configparser import NoOptionError
 import warnings
+import random
 import functools
 import collections
 import numbers
@@ -66,6 +67,18 @@ class Mnemonic(MnemonicParent):
     def detect_language(cls, code):
         return "english"
 
+def make_shuffled_tx(ins, outs, deser=True, version=1, locktime=0):
+    """ Simple utility to ensure transaction
+    inputs and outputs are randomly ordered.
+    Can possibly be replaced by BIP69 in future
+    """
+    random.shuffle(ins)
+    random.shuffle(outs)
+    tx = btc.mktx(ins, outs, version=version, locktime=locktime)
+    if deser:
+        return btc.deserialize(tx)
+    else:
+        return tx
 
 def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     '''Returns an estimate of the number of satoshis required

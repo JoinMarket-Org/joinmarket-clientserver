@@ -2,9 +2,10 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
-
+from future.utils import iteritems
 import base64
 import pprint
+import random
 import sys
 import abc
 from binascii import unhexlify
@@ -12,11 +13,12 @@ from binascii import unhexlify
 
 from jmbitcoin import SerializationError, SerializationTruncationError
 import jmbitcoin as btc
+from jmclient.wallet import estimate_tx_fee, make_shuffled_tx
 from jmclient.configure import jm_single
 from jmbase.support import get_log
-from jmclient.support import (calc_cj_fee)
+from jmclient.support import calc_cj_fee, select_one_utxo
 from jmclient.podle import verify_podle, PoDLE, PoDLEError
-from twisted.internet import task
+from twisted.internet import task, reactor
 from .cryptoengine import EngineError
 
 jlog = get_log()
@@ -283,3 +285,365 @@ class Maker(object):
         """Performs actions on receipt of 1st confirmation of
         a transaction into a block (e.g. announce orders)
         """
+
+class P2EPMaker(Maker):
+    """ The P2EP Maker object is instantiated for a specific payment,
+    with a specific address and expected payment amount. It inherits
+    normal Maker behaviour on startup and makes fake offers, which
+    it does not follow up in direct peer interaction (to be specific:
+    `!fill` requests in privmsg are simply ignored). Under the hood,
+    the daemon protocol will allow pubkey exchange with any counterparty,
+    but only after the Taker makes a !tx proposal matching our intended
+    address and payment amount, which were agreed out of band with the
+    sender(Taker) counterparty, do we pass over our intended inputs
+    and partially signed transaction, thus information leak to snoopers
+    is not possible.
+    """
+    def __init__(self, wallet, mixdepth, amount):
+        self.receiving_amount = amount
+        self.mixdepth = mixdepth
+        # destination mixdepth must be different from that
+        # which we source coins from; use the standard "next"
+        dest_mixdepth = (self.mixdepth + 1) % wallet.max_mixdepth
+        # Select an unused destination in the external branch
+        self.destination_addr = wallet.get_new_addr(dest_mixdepth, 0)
+        super(P2EPMaker, self).__init__(wallet)
+        # Callback to request user permission (for e.g. GUI)
+        # args: (1) message, as string
+        # returns: True or False
+        self.user_check = self.default_user_check
+
+    def default_user_check(self, message):
+        if input(message) == 'y':
+            return True
+        return False
+
+    def inform_user_details(self):
+        jlog.info("Your receiving address is: " + self.destination_addr)
+        jlog.info("You will receive amount: " + str(
+            self.receiving_amount) + " satoshis.")
+        jlog.info("The sender also needs to know your ephemeral "
+                  "nickname: " + jm_single().nickname)
+        jlog.info("This information has been stored in a file payjoin.txt;"
+                  " send it to your counterparty when you are ready.")
+        with open("payjoin.txt", "w") as f:
+            f.write("Payjoin transfer details:\n\n")
+            f.write("Address: " + self.destination_addr + "\n")
+            f.write("Amount (in sats): " + str(self.receiving_amount) + "\n")
+            f.write("Receiver nick: " + jm_single().nickname + "\n")
+        if not self.user_check("Enter 'y' to wait for the payment:"):
+            sys.exit(0)
+
+    def create_my_orders(self):
+        """ Fake offer for public consumption.
+        Requests to fill will be ignored.
+        """
+        ordertype = random.choice(("swreloffer", "swabsoffer"))
+        minsize = random.randint(100000, 10000000)
+        maxsize = random.randint(100000, 1000000000) + minsize
+        txfee = random.randint(0, 1000)
+        if ordertype == "swreloffer":
+            cjfee = str(random.randint(0, 100000)/100000000.0)
+        else:
+            cjfee = random.randint(0, 10000)
+        order = {'oid': 0,
+                 'ordertype': ordertype,
+                 'minsize': minsize,
+                 'maxsize': maxsize,
+                 'txfee': txfee,
+                 'cjfee': cjfee}
+
+        # sanity check
+        assert order['minsize'] >= 0
+        assert order['maxsize'] > 0
+        if order['minsize'] > order['maxsize']:
+            jlog.info('minsize (' + str(order['minsize']) + ') > maxsize (' + str(
+                order['maxsize']) + ')')
+            return []
+
+        return [order]
+
+    def oid_to_order(self, offer, amount):
+        # unreachable; only here to satisy abc.
+        pass
+
+    def on_tx_unconfirmed(self, txd, txid):
+        jlog.info("The transaction has been broadcast.")
+        jlog.info("Txid is: " + txid)
+        jlog.info("Transaction in detail: " + pprint.pformat(txd))
+        jlog.info("shutting down.")
+        reactor.stop()
+
+    def on_tx_confirmed(self, offer, confirmations, txid):
+        # will not be reached except in testing
+        self.on_tx_unconfirmed(offer, confirmations)
+
+    def on_tx_received(self, nick, txhex):
+        """ Called when the sender-counterparty has sent a transaction proposal.
+        1. First we check for the expected destination and amount (this is
+           sufficient to identify our cp, as this info was presumably passed
+           out of band, as for any normal payment).
+        2. Then we verify the validity of the proposed non-coinjoin
+           transaction; if not, reject, otherwise store this as a
+           fallback transaction in case the protocol doesn't complete.
+        3. Next, we select utxos from our wallet, to add into the
+           payment transaction as input. Try to select so as to not
+           trigger the UIH2 condition, but continue (and inform user)
+           even if we can't (if we can't select any coins, broadcast the
+           non-coinjoin payment, if the user agrees).
+           Proceeding with payjoin:
+        4. We update the output amount at the destination address.
+        5. We modify the change amount in the original proposal (which
+           will be the only other output other than the destination),
+           reducing it to account for the increased transaction fee
+           caused by our additional proposed input(s).
+        6. Finally we sign our own input utxo(s) and re-serialize the
+           tx, allowing it to be sent back to the counterparty.
+        7. If the transaction is not fully signed and broadcast within
+           the time unconfirm_timeout_sec as specified in the joinmarket.cfg,
+           we broadcast the non-coinjoin fallback tx instead.
+        """
+        try:
+            tx = btc.deserialize(txhex)
+        except (IndexError, SerializationError, SerializationTruncationError) as e:
+            return (False, 'malformed txhex. ' + repr(e))
+        jlog.info('obtained tx proposal from sender:\n' + pprint.pformat(tx))
+
+        if len(tx["outs"]) != 2:
+            return (False, "Transaction has more than 2 outputs; not supported.")
+        dest_found = False
+        destination_index = -1
+        change_index = -1
+        proposed_change_value = 0
+        for index, out in enumerate(tx["outs"]):
+            if out["script"] == btc.address_to_script(self.destination_addr):
+                # we found the expected destination; is the amount correct?
+                if not out["value"] == self.receiving_amount:
+                    return (False, "Wrong payout value in proposal from sender.")
+                dest_found = True
+                destination_index = index
+            else:
+                change_found = True
+                proposed_change_out = out["script"]
+                proposed_change_value = out["value"]
+                change_index = index
+
+        if not dest_found:
+            return (False, "Our expected destination address was not found.")
+
+        # Verify valid input utxos provided and check their value.
+        # batch retrieval of utxo data
+        utxo = {}
+        ctr = 0
+        for index, ins in enumerate(tx['ins']):
+            utxo_for_checking = ins['outpoint']['hash'] + ':' + str(ins[
+                'outpoint']['index'])
+            utxo[ctr] = [index, utxo_for_checking]
+            ctr += 1
+
+        utxo_data = jm_single().bc_interface.query_utxo_set(
+            [x[1] for x in utxo.values()])
+
+        total_sender_input = 0
+        for i, u in iteritems(utxo):
+            if utxo_data[i] is None:
+                return (False, "Proposed transaction contains invalid utxos")
+            total_sender_input += utxo_data[i]["value"]
+
+        # Check that the transaction *as proposed* balances; check that the
+        # included fee is within 0.3-3x our own current estimates, if not user
+        # must decide.
+        btc_fee = total_sender_input - self.receiving_amount - proposed_change_value
+        jlog.info("Network transaction fee is: " + str(btc_fee) + " satoshis.")
+        fee_est = estimate_tx_fee(len(tx['ins']), len(tx['outs']), txtype='p2sh-p2wpkh')
+        fee_ok = False
+        if btc_fee > 0.3 * fee_est and btc_fee < 3 * fee_est:
+            fee_ok = True
+        else:
+            if self.user_check("Is this transaction fee acceptable? (y/n):"):
+                fee_ok = True
+        if not fee_ok:
+            return (False,
+                    "Proposed transaction fee not accepted due to tx fee: " + str(
+                            btc_fee))
+
+        # This direct rpc call currently assumes Core 0.17, so not using now.
+        # It has the advantage of (a) being simpler and (b) allowing for any
+        # non standard coins.
+        #
+        #res = jm_single().bc_interface.rpc('testmempoolaccept', [txhex])
+        #print("Got this result from rpc call: ", res)
+        #if not res["accepted"]:
+        #    return (False, "Proposed transaction was rejected from mempool.")
+
+        # Manual verification of the transaction signatures. Passing this
+        # test does imply that the transaction is valid (unless there is
+        # a double spend during the process), but is restricted to standard
+        # types: p2pkh, p2wpkh, p2sh-p2wpkh only. Double spend is not counted
+        # as a risk as this is a payment.
+        for i, u in iteritems(utxo):
+            if "txinwitness" in tx["ins"][u[0]]:
+                ver_amt = utxo_data[i]["value"]
+                try:
+                    ver_sig, ver_pub = tx["ins"][u[0]]["txinwitness"]
+                except Exception as e:
+                    jlog.info("Segwit error: " + repr(e))
+                    return (False, "Segwit input not of expected type, "
+                            "either p2sh-p2wpkh or p2wpkh")
+                # note that the scriptCode is the same whether nested or not
+                # also note that the scriptCode has to be inferred if we are
+                # only given a transaction serialization.
+                scriptCode = "76a914" + btc.hash160(unhexlify(ver_pub)) + "88ac"
+            else:
+                scriptCode = None
+                ver_amt = None
+                scriptSig = btc.deserialize_script(tx["ins"][u[0]]["script"])
+                if len(scriptSig) != 2:
+                    return (False,
+                        "Proposed transaction contains unsupported input type")
+                ver_sig, ver_pub = scriptSig
+            if not btc.verify_tx_input(txhex, u[0],
+                                           utxo_data[i]['script'],
+                                           ver_sig, ver_pub,
+                                           scriptCode=scriptCode,
+                                           amount=ver_amt):
+                return (False, "Proposed transaction is not correctly signed.")
+
+        # At this point we are satisfied with the proposal. Record the fallback
+        # in case the sender disappears and the payjoin tx doesn't happen:
+        jlog.info("We'll use this serialized transaction to broadcast if your"
+                  " counterparty fails to broadcast the payjoin version:")
+        jlog.info(txhex)
+        # Keep a local copy for broadcast fallback:
+        self.fallback_tx = txhex
+
+        # Now we add our own inputs:
+        # See the gist comment here:
+        # https://gist.github.com/AdamISZ/4551b947789d3216bacfcb7af25e029e#gistcomment-2799709
+        # which sets out the decision Bob must make.
+        # In cases where Bob can add any amount, he selects one utxo
+        # to keep it simple.
+        # In cases where he must choose at least X, he selects one utxo
+        # which provides X if possible, otherwise defaults to a normal
+        # selection algorithm.
+        # In those cases where he must choose X but X is unavailable,
+        # he selects all coins, and proceeds anyway with payjoin, since
+        # it has other advantages (CIOH and utxo defrag).
+        my_utxos = {}
+        largest_out = max(self.receiving_amount, proposed_change_value)
+        max_sender_amt = max([u['value'] for u in utxo_data])
+        not_uih2 = False
+        if max_sender_amt < largest_out:
+            # just select one coin.
+            # have some reasonable lower limit but otherwise choose
+            # randomly; note that this is actually a great way of
+            # sweeping dust ...
+            jlog.info("Choosing one coin at random")
+            old_selector = self.wallet._utxos.selector
+            self.wallet._utxos.selector = select_one_utxo
+            try:
+                my_utxos = self.wallet.select_utxos(self.mixdepth,
+                                                    jm_single().DUST_THRESHOLD)
+            except:
+                return self.no_coins_fallback()
+            self.wallet._utxos.selector = old_selector
+            not_uih2 = True
+        else:
+            # get an approximate required amount assuming 4 inputs, which is
+            # fairly conservative (but guess by necessity).
+            fee_for_select = estimate_tx_fee(len(tx['ins']) + 4, 2,
+                                             txtype="p2sh-p2wpkh")
+            approx_sum = max_sender_amt - largest_out + fee_for_select
+            try:
+                my_utxos = self.wallet.select_utxos(self.mixdepth, approx_sum)
+                not_uih2 = True
+            except Exception:
+                # TODO probably not logical to always sweep here.
+                jlog.info("Sweeping all coins in this mixdepth.")
+                try:
+                    my_utxos = self.wallet.get_utxos_by_mixdepth()[self.mixdepth]
+                except:
+                    return self.no_coins_fallback()
+        if not_uih2:
+            jlog.info("The proposed tx does not trigger UIH2, which "
+                      "means it is indistinguishable from a normal "
+                      "payment. This is the ideal case. Continuing..")
+        else:
+            jlog.info("The proposed tx does trigger UIH2, which it makes "
+                      "it somewhat distinguishable from a normal payment,"
+                      " but proceeding with payjoin..")
+
+        my_total_in = sum([va['value'] for va in my_utxos.values()])
+        jlog.info("We selected inputs worth: " + str(my_total_in))
+        # adjust the output amount at the destination based on our contribution
+        new_destination_amount = self.receiving_amount + my_total_in
+        # estimate the required fee for the new version of the transaction
+        total_ins = len(tx["ins"]) + len(my_utxos.keys())
+        est_fee = estimate_tx_fee(total_ins, 2, txtype="p2sh-p2wpkh")
+        jlog.info("We estimated a fee of: " + str(est_fee))
+        new_change_amount = total_sender_input + my_total_in - \
+            new_destination_amount - est_fee
+        jlog.info("We calculated a new change amount of: " + str(new_change_amount))
+        jlog.info("We calculated a new destination amount of: " + str(new_destination_amount))
+        # now reconstruct the transaction with the new inputs and the
+        # amount-changed outputs
+        new_outs = [{"address": self.destination_addr,
+                     "value": new_destination_amount}]
+        if new_change_amount >= jm_single().BITCOIN_DUST_THRESHOLD:
+            new_outs.append({"script": proposed_change_out,
+                     "value": new_change_amount})
+        new_ins = [x[1] for x in utxo.values()]
+        new_ins.extend(my_utxos.keys())
+        # set locktime for best anonset (Core, Electrum) - most recent block.
+        # this call should never fail so no catch here.
+        currentblock = jm_single().bc_interface.rpc(
+            "getblockchaininfo", [])["blocks"]
+        new_tx = make_shuffled_tx(new_ins, new_outs, False, 2, currentblock)
+        new_tx_deser = btc.deserialize(new_tx)
+
+        # sign our inputs before transfer
+        our_inputs = {}
+        for index, ins in enumerate(new_tx_deser['ins']):
+            utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
+            if utxo not in my_utxos:
+                continue
+            script = self.wallet.addr_to_script(my_utxos[utxo]['address'])
+            amount = my_utxos[utxo]['value']
+            our_inputs[index] = (script, amount)
+
+        txs = self.wallet.sign_tx(btc.deserialize(new_tx), our_inputs)
+        jm_single().bc_interface.add_tx_notify(txs,
+            self.on_tx_unconfirmed, self.on_tx_confirmed,
+            self.destination_addr,
+            wallet_name=jm_single().bc_interface.get_wallet_name(self.wallet),
+            txid_flag=False, vb=self.wallet._ENGINE.VBYTE)
+        # The blockchain interface just abandons monitoring if the transaction
+        # is not broadcast before the configured timeout; we want to take
+        # action in this case, so we add an additional callback to the reactor:
+        reactor.callLater(jm_single().config.getint("TIMEOUT",
+                            "unconfirm_timeout_sec"), self.broadcast_fallback)
+        return (True, nick, btc.serialize(txs))
+
+    def no_coins_fallback(self):
+        """ Broadcast, optionally, the fallback non-coinjoin transaction
+        because we were not able to select coins to contribute.
+        """
+        jlog.info("Unable to select any coins; this mixdepth is empty.")
+        if self.user_check("Would you like to broadcast the non-coinjoin payment?"):
+            self.broadcast_fallback()
+            return (False, "Coinjoin unsuccessful, fallback attempted.")
+        else:
+            jlog.info("You chose not to broadcast; the payment has NOT been made.")
+            return (False, "No transaction made.")
+
+    def broadcast_fallback(self):
+        jlog.info("Broadcasting non-coinjoin fallback transaction.")
+        txid = btc.txhash(self.fallback_tx)
+        success = jm_single().bc_interface.pushtx(self.fallback_tx)
+        if not success:
+            jlog.info("ERROR: the fallback transaction did not broadcast. "
+                      "The payment has NOT been made.")
+        else:
+            jlog.info("Payment received successfully, but it was NOT a coinjoin.")
+            jlog.info("Txid: " + txid)
+        reactor.stop()

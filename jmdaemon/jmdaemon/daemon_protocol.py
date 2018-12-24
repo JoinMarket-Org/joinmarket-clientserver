@@ -647,6 +647,119 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if self.mcc:
             self.mcc.shutdown()
 
+class P2EPDaemonServerProtocol(JMDaemonServerProtocol):
+    @JMFill.responder
+    def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
+        """ Takes the setup information for the transaction
+        from the Taker (p2ep sender) and starts the key negotiation,
+        which is handled entirely in the daemon.
+        """
+        if not isinstance(amount, Integral) and amount >= 0:
+            return {'accepted': False}
+        self.amount = amount
+        # The counterparty was passed within a offers dict struct;
+        # we retain the variable `active_orders` for compatibility
+        # with inherited code, even though it's not really an
+        # "order" or "offer", and there's only one.
+        self.active_orders = json.loads(filled_offers)
+        if len(self.active_orders.keys()) != 1:
+            return {'accepted': False}
+        # Here the p2ep communication starts with sending an ephemeral
+        # pubkey
+        self.mcc.prepare_privmsg(list(self.active_orders.keys())[0],
+                                 "pubkey", self.kp.hex_pk().decode('ascii'))
+        return {'accepted': True}
+
+    def on_pubkey(self, nick, tmaker_pk):
+        """This is handled locally in the daemon; set up e2e
+        encrypted messaging with this counterparty.
+        Note that this message is used in both directions in p2ep
+        (as distinct from coinjoins where it's sent Maker->Taker
+        only).
+        """
+        if self.role == "TAKER":
+            maker_pk = tmaker_pk
+            if nick not in self.active_orders.keys():
+                log.msg("Counterparty not part of this transaction. Ignoring")
+                return
+            try:
+                self.crypto_boxes[nick] = [maker_pk, as_init_encryption(
+                    self.kp, init_pubkey(maker_pk))]
+            except NaclError as e:
+                print("Unable to setup crypto box with " + nick + ": " + repr(e))
+                self.mcc.send_error(nick, "invalid nacl pubkey: " + maker_pk)
+                return
+            d = self.callRemote(JMFillResponse, success=True,
+                    ioauth_data= json.dumps(list(self.active_orders.keys())))
+            self.defaultCallbacks(d)
+        elif self.role == "MAKER":
+            taker_pk = tmaker_pk
+            # Note that the Maker may receive this message from anyone,
+            # not only the sender he communicated with out of band;
+            # for this reason, the protocol only provides an ephemeral
+            # pubkey at this stage; the maker only sends private data,
+            # encrypted, when the Taker, in the next message (!tx), sends
+            # data demonstrating knowledge of the out-of-band info -
+            # specifically, the receiving address.
+
+            #prepare a pubkey for this valid transaction
+            kp = init_keypair()
+            try:
+                crypto_box = as_init_encryption(kp, init_pubkey(taker_pk))
+            except NaclError as e:
+                log.msg("Unable to set up cryptobox with counterparty: " + repr(e))
+                self.mcc.send_error(nick, "Invalid nacl pubkey: " + taker_pk)
+                return
+            #Note this sets the *whole* dict, old entries (e.g. changeaddr)
+            #are removed, so we can't have a conflict between old and new
+            #versions of active_orders[nick]
+            self.active_orders[nick] = {"crypto_box": crypto_box,
+                                        "kp": kp,
+                                        "offer": None,
+                                        "amount": None,
+                                        "commit": None}
+            self.mcc.prepare_privmsg(nick, "pubkey",
+                                     kp.hex_pk().decode('ascii'))
+        else:
+            raise JMProtocolError("Invalid role: " + self.role)
+
+        # This (on_pubkey) method can be called repeatedly without
+        # issue (see note above about active_orders); the following
+        # state update means that after this is called at least once,
+        # the JMMakeTx client call can be answered successfully.
+        self.jm_state = 4
+
+    def on_seen_tx(self, nick, txhex):
+        """Passes the txhex to the Taker and Maker (two way sending);
+        the Maker receives an unsigned tx from the Taker, checks it,
+        modifies it and sends a partially signed updated tx back.
+        This functions as a passthrough with a sanity check on the
+        counterparty identity.
+        """
+        if nick not in self.active_orders:
+            return
+        d = self.callRemote(JMTXReceived,
+                            nick=nick,
+                            txhex=txhex,
+                            offer="none")
+        self.defaultCallbacks(d)
+
+    # Remaining callbacks are mostly to be no-ops (answering
+    # !orderbook as maker, though, makes sense; on-error is also
+    # fine of course, and on-push-tx because it does nothing.)
+    def on_order_fill(self, nick, oid, amount, taker_pk, commit):
+        pass
+    def on_seen_auth(self, nick, commitment_revelation):
+        pass
+    def on_commitment_seen(self, nick, commitment):
+        pass
+    def on_commitment_transferred(self, nick, commitment):
+        pass
+    def on_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr,
+                  btc_sig):
+        pass
+    def on_sig(self, nick, sig):
+        pass
 
 class JMDaemonServerProtocolFactory(ServerFactory):
     protocol = JMDaemonServerProtocol
@@ -654,6 +767,11 @@ class JMDaemonServerProtocolFactory(ServerFactory):
     def buildProtocol(self, addr):
         return JMDaemonServerProtocol(self)
 
+class P2EPDaemonServerProtocolFactory(ServerFactory):
+    protocol = P2EPDaemonServerProtocol
+
+    def buildProtocol(self, addr):
+        return P2EPDaemonServerProtocol(self)
 
 def start_daemon(host, port, factory, usessl=False, sslkey=None, sslcert=None):
     if usessl:

@@ -2,7 +2,6 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
 from functools import reduce
-
 import random
 from jmbase.support import get_log
 from decimal import Decimal
@@ -162,6 +161,10 @@ def select_greediest(unspent, value):
             total += low[end]['value']
             end += 1
         return low[0:end]
+
+def select_one_utxo(unspent, value):
+    key = lambda u: u['value']
+    return [random.choice([u for u in unspent if key(u) >= value])]
 
 
 def calc_cj_fee(ordertype, cjfee, cj_amount):

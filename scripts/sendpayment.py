@@ -14,7 +14,7 @@ import sys
 from twisted.internet import reactor
 import pprint
 
-from jmclient import Taker, load_program_config, get_schedule,\
+from jmclient import Taker, P2EPTaker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, validate_address, jm_single,\
     sync_wallet, RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,\
     open_test_wallet_maybe, get_wallet_path
@@ -90,7 +90,7 @@ def main():
     if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
         jm_single().bc_interface.tick_forward_chain_interval = 10
         jm_single().bc_interface.simulating = True
-        jm_single().maker_timeout_sec = 15
+        jm_single().maker_timeout_sec = 5
 
     if options.pickorders:
         chooseOrdersFunc = pick_order
@@ -110,7 +110,7 @@ def main():
             options.txfee))
     assert (options.txfee >= 0)
 
-    if options.makercount != 0:
+    if not options.p2ep and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
         log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
                  "sat".format(*maxcjfee))
@@ -222,19 +222,24 @@ def main():
                 log.info("All transactions completed correctly")
             reactor.stop()
 
-    taker = Taker(wallet,
-                  schedule,
-                  order_chooser=chooseOrdersFunc,
-                  max_cj_fee=maxcjfee,
-                  callbacks=(filter_orders_callback, None, taker_finished))
+    if options.p2ep:
+        taker = P2EPTaker(options.p2ep, wallet, schedule,
+                          callbacks=(None, None, None))
+    else:
+        taker = Taker(wallet,
+                      schedule,
+                      order_chooser=chooseOrdersFunc,
+                      max_cj_fee=maxcjfee,
+                      callbacks=(filter_orders_callback, None, taker_finished))
     clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
+    p2ep = True if options.p2ep != "" else False
     if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
         startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
-                  clientfactory, daemon=daemon)
+                  clientfactory, daemon=daemon, p2ep=p2ep)
 
 if __name__ == "__main__":
     main()

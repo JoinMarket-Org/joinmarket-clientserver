@@ -113,7 +113,7 @@ def sign_tx(wallet, tx, utxos):
         script = wallet.addr_to_script(utxos[utxo]['address'])
         amount = utxos[utxo]['value']
         our_inputs[index] = (script, amount)
-    return wallet.sign_tx(deserialize(unhexlify(serialize(stx))), our_inputs)
+    return wallet.sign_tx(stx, our_inputs)
 
 def import_new_addresses(wallet, addr_list):
     # FIXME: same code as in maker.py and taker.py
