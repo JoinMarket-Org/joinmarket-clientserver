@@ -20,8 +20,7 @@ from numbers import Integral
 from .configure import jm_single
 from .support import select_gradual, select_greedy, select_greediest, \
     select
-from .cryptoengine import BTC_P2PKH, BTC_P2SH_P2WPKH, TYPE_P2PKH, \
-    TYPE_P2SH_P2WPKH
+from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, ENGINES
 from .support import get_random_bytes
 from . import mn_encode, mn_decode, btc
 
@@ -204,10 +203,7 @@ class BaseWallet(object):
         'greediest': select_greediest
     }
 
-    _ENGINES = {
-        TYPE_P2PKH: BTC_P2PKH,
-        TYPE_P2SH_P2WPKH: BTC_P2SH_P2WPKH
-    }
+    _ENGINES = ENGINES
 
     _ENGINE = None
 
@@ -383,6 +379,14 @@ class BaseWallet(object):
         path = self.script_to_path(script)
         engine = self._get_priv_from_path(path)[1]
         return engine.script_to_address(script)
+
+    @classmethod
+    def pubkey_has_address(cls, pubkey, addr):
+        return cls._ENGINE.pubkey_has_address(pubkey, addr)
+
+    @classmethod
+    def pubkey_has_script(cls, pubkey, script):
+        return cls._ENGINE.pubkey_has_script(pubkey, script)
 
     @deprecated
     def get_key(self, mixdepth, internal, index):
@@ -1340,7 +1344,7 @@ class BIP32Wallet(BaseWallet):
 
 class LegacyWallet(ImportWalletMixin, BIP32Wallet):
     TYPE = TYPE_P2PKH
-    _ENGINE = BTC_P2PKH
+    _ENGINE = ENGINES[TYPE_P2PKH]
 
     def _create_master_key(self):
         return hexlify(self._entropy)
@@ -1351,7 +1355,7 @@ class LegacyWallet(ImportWalletMixin, BIP32Wallet):
 
 class BIP49Wallet(BIP32Wallet):
     _BIP49_PURPOSE = 2**31 + 49
-    _ENGINE = BTC_P2SH_P2WPKH
+    _ENGINE = ENGINES[TYPE_P2SH_P2WPKH]
 
     def _get_bip32_base_path(self):
         return self._key_ident, self._BIP49_PURPOSE,\

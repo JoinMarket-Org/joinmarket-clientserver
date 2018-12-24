@@ -54,6 +54,21 @@ def pubkey_to_p2wpkh_script(pubkey):
     return _pubkey_to_script(pubkey, P2WPKH_PRE)
 
 
+def detect_script_type(script):
+    if script.startswith(P2PKH_PRE) and script.endswith(P2PKH_POST) and\
+            len(script) == 0x14 + len(P2PKH_PRE) + len(P2PKH_POST):
+        return TYPE_P2PKH
+    elif (script.startswith(P2SH_P2WPKH_PRE) and
+          script.endswith(P2SH_P2WPKH_POST) and
+          len(script) == 0x14 + len(P2SH_P2WPKH_PRE) + len(P2SH_P2WPKH_POST)):
+        return TYPE_P2SH_P2WPKH
+    elif script.startswith(P2WPKH_PRE) and\
+            len(script) == 0x14 + len(P2WPKH_PRE):
+        return TYPE_P2WPKH
+    raise EngineError("Unknown script type for script '{}'"
+                      .format(hexlify(script)))
+
+
 class classproperty(object):
     """
     from https://stackoverflow.com/a/5192374
@@ -193,6 +208,19 @@ class BTCEngine(object):
         return btc.script_to_address(script, cls.VBYTE)
 
     @classmethod
+    def pubkey_has_address(cls, pubkey, addr):
+        ascript = cls.address_to_script(addr)
+        return cls.pubkey_has_script(pubkey, ascript)
+
+    @classmethod
+    def pubkey_has_script(cls, pubkey, script):
+        stype = detect_script_type(script)
+        assert stype in ENGINES
+        engine = ENGINES[stype]
+        pscript = engine.pubkey_to_script(pubkey)
+        return script == pscript
+
+    @classmethod
     def sign_transaction(cls, tx, index, privkey, amount):
         raise NotImplementedError()
 
@@ -272,3 +300,41 @@ class BTC_P2SH_P2WPKH(BTCEngine):
         tx['ins'][index]['txinwitness'] = [sig, pubkey]
 
         return tx
+
+
+class BTC_P2WPKH(BTCEngine):
+    @classproperty
+    def VBYTE(cls):
+        return btc.BTC_P2SH_VBYTE[get_network()]
+
+    @classmethod
+    def pubkey_to_script(cls, pubkey):
+        return pubkey_to_p2wpkh_script(pubkey)
+
+    @classmethod
+    def sign_transaction(cls, tx, index, privkey, amount,
+                         hashcode=btc.SIGHASH_ALL, **kwargs):
+        assert amount is not None
+        raise NotImplementedError("The following code is completely untested")
+
+        pubkey = cls.privkey_to_pubkey(privkey)
+        script = cls.pubkey_to_script(pubkey)
+
+        signing_tx = btc.segwit_signature_form(tx, index, script, amount,
+                                               hashcode=hashcode,
+                                               decoder_func=lambda x: x)
+        # FIXME: encoding mess
+        sig = unhexlify(btc.ecdsa_tx_sign(signing_tx, hexlify(privkey),
+                                          hashcode=hashcode, **kwargs))
+
+        tx['ins'][index]['script'] = script
+        tx['ins'][index]['txinwitness'] = [sig, pubkey]
+
+        return tx
+
+
+ENGINES = {
+    TYPE_P2PKH: BTC_P2PKH,
+    TYPE_P2SH_P2WPKH: BTC_P2SH_P2WPKH,
+    TYPE_P2WPKH: BTC_P2WPKH
+}

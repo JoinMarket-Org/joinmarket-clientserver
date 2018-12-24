@@ -17,6 +17,9 @@ from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
 from jmclient.wallet import estimate_tx_fee
 from jmclient.podle import generate_podle, get_podle_commitments, PoDLE
 from .output import generate_podle_error_string
+from .cryptoengine import EngineError
+
+
 jlog = get_log()
 
 
@@ -377,14 +380,18 @@ class Taker(object):
             #Extract the address fields from the utxos
             #Construct the Bitcoin address for the auth_pub field
             #Ensure that at least one address from utxos corresponds.
-            input_addresses = [d['address'] for d in utxo_data]
-            # FIXME: This only works if taker's commitment address is of same type
-            # as our wallet.
-            auth_address = self.wallet.pubkey_to_addr(unhexlify(auth_pub))
-            if not auth_address in input_addresses:
+            auth_pub_bin = unhexlify(auth_pub)
+            for inp in utxo_data:
+                try:
+                    if self.wallet.pubkey_has_script(
+                            auth_pub_bin, unhexlify(inp['script'])):
+                        break
+                except EngineError:
+                    pass
+            else:
                 jlog.warn("ERROR maker's (" + nick + ")"
-                         " authorising pubkey is not included "
-                         "in the transaction: " + str(auth_address))
+                          " authorising pubkey is not included "
+                          "in the transaction!")
                 #this will not be added to the transaction, so we will have
                 #to recheck if we have enough
                 continue

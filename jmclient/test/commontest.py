@@ -91,13 +91,16 @@ class DummyBlockchainInterface(BlockchainInterface):
                                 'confirms': wallet_outs[to][1]})
             return results
         if txouts[0] in known_outs:
+            addr = btc.pubkey_to_p2sh_p2wpkh_address(
+                        known_outs[txouts[0]], get_p2sh_vbyte())
             return [{'value': 200000000,
-                    'address': btc.pubkey_to_p2sh_p2wpkh_address(
-                        known_outs[txouts[0]], get_p2sh_vbyte()),
-                    'confirms': 20}]
+                     'address': addr,
+                     'script': btc.address_to_script(addr),
+                     'confirms': 20}]
         for t in txouts:
             result_dict = {'value': 10000000000,
-                        'address': "mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ"}
+                           'address': "mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
+                           'script': '76a91479b000887626b294a914501a4cd226b58b23598388ac'}
             if includeconf:
                 result_dict['confirms'] = 20
             result.append(result_dict)        
