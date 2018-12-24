@@ -14,13 +14,14 @@ import sys
 from twisted.internet import reactor
 import pprint
 
-from jmclient import Taker, load_program_config, get_schedule,\
+from jmclient import Taker, P2EPTaker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, validate_address, jm_single,\
-    sync_wallet, RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,\
+    sync_wallet, estimate_tx_fee, direct_send,\
     open_test_wallet_maybe, get_wallet_path
 from twisted.python.log import startLogging
-from jmbase.support import get_log, jmprint
-from cli_options import get_sendpayment_parser, get_max_cj_fee_values
+from jmbase.support import get_log, set_logging_level, jmprint
+from cli_options import get_sendpayment_parser, get_max_cj_fee_values, \
+     check_regtest
 
 log = get_log()
 
@@ -86,11 +87,7 @@ def main():
 
     wallet_name = args[0]
 
-    #to allow testing of confirm/unconfirm callback for multiple txs
-    if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
-        jm_single().bc_interface.tick_forward_chain_interval = 10
-        jm_single().bc_interface.simulating = True
-        jm_single().maker_timeout_sec = 15
+    check_regtest()
 
     if options.pickorders:
         chooseOrdersFunc = pick_order
@@ -105,12 +102,12 @@ def main():
     # we guess conservatively with 2 inputs and 2 outputs each.
     if options.txfee == -1:
         options.txfee = max(options.txfee, estimate_tx_fee(2, 2,
-                                                           txtype="p2sh-p2wpkh"))
+                                        txtype="p2sh-p2wpkh"))
         log.debug("Estimated miner/tx fee for each cj participant: " + str(
             options.txfee))
     assert (options.txfee >= 0)
 
-    if options.makercount != 0:
+    if not options.p2ep and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
         log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
                  "sat".format(*maxcjfee))
@@ -222,19 +219,28 @@ def main():
                 log.info("All transactions completed correctly")
             reactor.stop()
 
-    taker = Taker(wallet,
-                  schedule,
-                  order_chooser=chooseOrdersFunc,
-                  max_cj_fee=maxcjfee,
-                  callbacks=(filter_orders_callback, None, taker_finished))
+    if options.p2ep:
+        # This workflow requires command line reading; we force info level logging
+        # to remove noise, and mostly communicate to the user with the fn
+        # log.info (directly or via default taker_info_callback).
+        set_logging_level("INFO")
+        taker = P2EPTaker(options.p2ep, wallet, schedule,
+                          callbacks=(None, None, None))
+    else:
+        taker = Taker(wallet,
+                      schedule,
+                      order_chooser=chooseOrdersFunc,
+                      max_cj_fee=maxcjfee,
+                      callbacks=(filter_orders_callback, None, taker_finished))
     clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
+    p2ep = True if options.p2ep != "" else False
     if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
         startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
-                  clientfactory, daemon=daemon)
+                  clientfactory, daemon=daemon, p2ep=p2ep)
 
 if __name__ == "__main__":
     main()

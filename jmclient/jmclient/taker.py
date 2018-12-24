@@ -7,14 +7,16 @@ from future.utils import iteritems
 import base64
 import pprint
 import random
+from twisted.internet import reactor
 from binascii import hexlify, unhexlify
 
+from jmbitcoin import SerializationError, SerializationTruncationError
 import jmbitcoin as btc
 from jmclient.configure import get_p2sh_vbyte, jm_single, validate_address
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
-from jmclient.wallet import estimate_tx_fee
+from jmclient.wallet import estimate_tx_fee, make_shuffled_tx
 from jmclient.podle import generate_podle, get_podle_commitments, PoDLE
 from .output import generate_podle_error_string
 from .cryptoengine import EngineError
@@ -491,9 +493,7 @@ class Taker(object):
                         for u in sum(self.utxos.values(), [])]
         self.outputs.append({'address': self.coinjoin_address(),
                              'value': self.cjamount})
-        random.shuffle(self.utxo_tx)
-        random.shuffle(self.outputs)
-        tx = btc.mktx(self.utxo_tx, self.outputs)
+        tx = make_shuffled_tx(self.utxo_tx, self.outputs, False)
         jlog.info('obtained tx\n' + pprint.pformat(btc.deserialize(tx)))
 
         self.latest_tx = btc.deserialize(tx)
@@ -842,3 +842,344 @@ class Taker(object):
             return
         assert hasattr(bci, 'get_wallet_name')
         bci.import_addresses(addr_list, bci.get_wallet_name(self.wallet))
+
+class P2EPTaker(Taker):
+    """ The P2EP Taker will initialize its protocol directly
+    with the prescribed counterparty (see -T argument to
+    sendpayment). It inherits the normal behaviour of requesting
+    an orderbook on startup, but does nothing with it; this
+    improves the privacy of the operation.
+    """
+
+    def __init__(self, counterparty, wallet, schedule, callbacks):
+        super(P2EPTaker, self).__init__(wallet, schedule, callbacks=callbacks)
+        self.p2ep_receiver_nick = counterparty
+        # Callback to request user permission (for e.g. GUI)
+        # args: (1) message, as string
+        # returns: True or False
+        self.user_check = self.default_user_check
+
+    def default_user_check(self, message):
+        if input(message) == 'y':
+            return True
+        return False
+
+    def register_user_check_callback(self, user_check):
+        self.user_check = user_check
+
+    def unconfirm_callback(self, txd, txid):
+        jlog.info("Transaction seen on network, shutting down.")
+        jlog.info("Txid was: " + txid)
+        # In P2EP we stop the protocol here.
+        reactor.stop()
+
+    def confirm_callback(self, txd, txid, confirmations):
+        # Will never trigger except in testing
+        self.unconfirm_callback(txd, txid)
+
+    def initialize(self, orderbook):
+        """ Note that the orderbook parameter is ignored.
+        Here the schedule data (the standard format for coinjoin
+        request specification) passes in the amount, destination
+        and source mixdepth information. We then select coins
+        using the inherited Taker method to do so.
+        """
+        if self.aborted:
+            return (False,)
+        self.taker_info_callback("INFO", "Received offers from joinmarket pit")
+        # only one schedule item has been allowed; parse from it.
+        self.schedule_index += 1
+        si = self.schedule[0]
+        self.mixdepth = si[0]
+        self.cjamount = si[1]
+        # For the p2ep taker, the variable 'my_cj_addr' is the destination:
+        self.my_cj_addr = si[3]
+        if isinstance(self.cjamount, float):
+            raise JMTakerError("P2EP coinjoin must use amount in satoshis")
+        if self.cjamount == 0:
+            # Note that we don't allow sweep, currently, since the coin
+            # choosing algo would not apply in that case (we'd have to rewrite
+            # prepare_my_bitcoin_data for that case).
+            raise JMTakerError("P2EP coinjoin does not currently support sweep")
+
+        # Next we prepare our coins with the inherited method
+        # for this purpose; for this we must set the
+        # number of counterparties and fee per cpy, for fee estimation;
+        # the estimates will be rather rough, but that's fine. Here we
+        # will end up selecting 20k sats more than the destination amount,
+        # which will make the already ultra-rare edge case of not selecting
+        # enough for fees, even more rare. "Stuck" coins due to edge cases
+        # are not an issue since the wallet has direct-send sweep.
+        self.n_counterparties = 1
+        self.txfee_default = 10000
+        self.total_cj_fee = 0
+        # Preparing bitcoin data here includes choosing utxos/coins.
+        # We don't trust the user on the selection algo choice; we want it
+        # to be fairly greedy for technical reasons explained in the comment
+        # thread to this gist:
+        # https://gist.github.com/AdamISZ/4551b947789d3216bacfcb7af25e029e
+        jm_single().config.set("POLICY", "merge_algorithm", "greedy")
+        self.noncj_fee_est = 0
+        if not self.prepare_my_bitcoin_data():
+            return (False, )
+        self.outputs = []
+        self.cjfee_total = 0
+        self.txfee_default = 5000
+        self.latest_tx = None
+        self.txid = None
+
+        # we return dummy values for commitment and revelation,
+        # and the offer dict only signals the nick of the counterparty.
+        return (True, self.cjamount, "p2ep", "p2ep", {self.p2ep_receiver_nick:{}})
+
+    def receive_utxos(self, ioauth_data):
+        """ TODO this function is misnamed for the
+        purpose of code reuse; fix it(e.g. 'make_tx_proposal').
+
+        The ioauth_data field will be a list containing the single
+        nick which we intend to send to (which fact we should check),
+        and then construct a transaction with the intended amount
+        to the intended destination. This transaction will not, in
+        normal operation, be broadcast; because the Maker (receiver)
+        will add his own inputs and change the total to be received at
+        that address. Thus we are functionally only sending our own input
+        utxos - the signed tx may be used as a fallback by the counterparty
+        in case we disappear - however this also serves the purpose of
+        signalling that we are the right counterparty.
+        """
+        if not ioauth_data[0] == self.p2ep_receiver_nick:
+            return (False, "Wrong counterparty IRC nick: " + ioauth_data[0])
+        # Transaction construction: use inputs as per `prepare_my_bitcoin_data`,
+        # use output destination self.my_cj_addr and use amount self.amount
+        self.outputs.append({'address': self.my_cj_addr,
+                                     'value': self.cjamount})
+        my_total_in = sum([va['value'] for u, va in iteritems(self.input_utxos)])
+        # estimate the fee for the version of the transaction which is
+        # not coinjoined:
+        est_fee = estimate_tx_fee(len(self.input_utxos), 2,
+                                  txtype=self.wallet.get_txtype())
+        my_change_value = my_total_in - self.cjamount - est_fee
+        if my_change_value <= 0:
+            # as discussed in initialize(), this should be an extreme edge case.
+            raise ValueError("Wallet utxo selection chose too few coins")
+        elif self.my_change_addr and my_change_value <= jm_single(
+            ).BITCOIN_DUST_THRESHOLD:
+            jlog.info("Dynamically calculated change lower than dust: " + str(
+                my_change_value) + "; dropping.")
+            self.my_change_addr = None
+            my_change_value = 0
+        # Note that the sweep case (my_change_addr is None, but not due to dust)
+        # is not currently allowed here.
+        if self.my_change_addr is not None:
+            self.outputs.append({'address': self.my_change_addr,
+                                 'value': my_change_value})
+        # set locktime for best anonset (Core, Electrum) - most recent block.
+        # this call should never fail so no catch here.
+        currentblock = jm_single().bc_interface.rpc(
+            "getblockchaininfo", [])["blocks"]
+        # As for JM coinjoins, the `None` key is used for our own inputs
+        # to the transaction; this preparatory version contains only those.
+        tx = make_shuffled_tx(self.utxos[None], self.outputs,
+                              False, 2, currentblock)
+        jlog.info('Obtained proposed payjoin tx\n' + pprint.pformat(
+            btc.deserialize(tx)))
+        # We now sign as a courtesy, because if we disappear the recipient
+        # can still claim his coins with this.
+        # sign our inputs before transfer
+        our_inputs = {}
+        dtx = btc.deserialize(tx)
+        for index, ins in enumerate(dtx['ins']):
+            utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
+            script = self.wallet.addr_to_script(self.input_utxos[utxo]['address'])
+            amount = self.input_utxos[utxo]['value']
+            our_inputs[index] = (script, amount)
+        self.signed_noncj_tx = btc.serialize(self.wallet.sign_tx(dtx, our_inputs))
+        self.taker_info_callback("INFO", "Built tx proposal, sending to receiver.")
+        return (True, [self.p2ep_receiver_nick], self.signed_noncj_tx)
+
+    def on_tx_received(self, nick, txhex):
+        """ Here the taker (payer) retrieves a version of the
+        transaction from the maker (receiver) which should have
+        the following properties:
+        * Destination address as previously agreed.
+        * Our correct change output with amount corresponding to fee.
+        * Net of (destination amount) - (receiver input amount)
+          must be equal to the original amount self.cjamount.
+        * Our inputs must be unchanged from original proposal.
+        * Counterparty should not provide more than 5 utxos; this
+          is a crude avoidance of over-paying fees, but note that
+          the maker selection should mean this almost never happens.
+        * Counterparties' transaction signatures must be valid.
+        If all conditions are met, we sign each of our inputs
+        and then broadcast (TODO broadcast delay or don't broadcast).
+        """
+        try:
+            tx = btc.deserialize(txhex)
+        except (IndexError, SerializationError, SerializationTruncationError) as e:
+            return (False, "malformed txhex. " + repr(e))
+        jlog.info("Obtained tx from receiver:\n" + pprint.pformat(tx))
+        cjaddr_script = btc.address_to_script(self.my_cj_addr)
+        changeaddr_script = btc.address_to_script(self.my_change_addr)
+
+        # We ensure that the coinjoin address and our expected change
+        # address are still in the outputs, once (with the caveat that
+        # the change address is allowed to be absent in a special case
+        # of dust change, which we assess after).
+        times_seen_cj_addr = 0
+        times_seen_change_addr = 0
+        for outs in tx['outs']:
+            if outs['script'] == cjaddr_script:
+                times_seen_cj_addr += 1
+                new_cj_amount = outs['value']
+                if new_cj_amount < self.cjamount:
+                    # This is a violation of protocol;
+                    # receiver must be providing extra bitcoin
+                    # as input, so his receiving amount should have increased.
+                    return (False,
+                    'Wrong cj_amount. I expect at least' + str(self.cjamount))
+            if outs['script'] == changeaddr_script:
+                times_seen_change_addr += 1
+                new_change_amount = outs['value']
+        if times_seen_cj_addr != 1:
+            fmt = ('cj addr not in tx outputs once, #cjaddr={}').format
+            return (False, (fmt(times_seen_cj_addr)))
+        if times_seen_change_addr != 1:
+            if times_seen_change_addr > 1:
+                return (False, "proposed tx has change address duplicated")
+            # Otherwise change has been ditched; will check this later.
+            new_change_amount = 0
+
+        # Check that our inputs are present.
+        tx_utxo_set = set(ins['outpoint']['hash'] + ':' + str(
+            ins['outpoint']['index']) for ins in tx['ins'])
+        if not tx_utxo_set.issuperset(set(self.utxos[None])):
+            return (False, "my utxos are not contained")
+
+        # Before even starting fee calculations, reject  > 5
+        # inputs from counterparty as an abuse (accidental or
+        # not) of PayJoin to sweep utxos at no cost.
+        # (TODO This is very kludgy, more sophisticated approach
+        # should be used in future):
+        if len(tx["ins"]) - len (self.utxos[None]) > 5:
+            return (False,
+                    "proposed tx has more than 5 inputs from "
+                    "the recipient, which is too expensive.")
+
+        # If we ignored fees, we would only need to check that
+        # the difference between our inputs and outputs was equal
+        # to the expected payment; but this difference will include
+        # the bitcoin transaction fee.
+        # Hence, we retrieve the counterparty's input amount,
+        # and find the overall bitcoin network fee, and decide
+        # from this whether the change value is as expected
+        # (our inputs - expected payment - network fee);
+        # and if that is dusty, agree to sign without change.
+
+        # batch retrieval of utxo data; we collect the utxos
+        # in the inputs which do not belong to us, and put
+        # them into a dict (`retrieve_utxos`), keyed by their
+        # index in the inputs, so we can use the collected
+        # script and amount data when we do the next stages,
+        # checking input validity and transaction balance.
+        retrieve_utxos = {}
+        ctr = 0
+        for index, ins in enumerate(tx['ins']):
+            utxo_for_checking = ins['outpoint']['hash'] + ':' + str(
+                ins['outpoint']['index'])
+            if utxo_for_checking in self.utxos[None]:
+                continue
+            retrieve_utxos[ctr] = [index, utxo_for_checking]
+            ctr += 1
+        # we always accept unconf utxos from receiver; it's their payment:
+        utxo_data = jm_single().bc_interface.query_utxo_set(
+            [x[1] for x in retrieve_utxos.values()], includeunconf=True)
+
+        # Next we'll verify each of the counterparty's inputs,
+        # while at the same time gathering the total they spent.
+        total_receiver_input = 0
+        for i, u in iteritems(retrieve_utxos):
+            if utxo_data[i] is None:
+                return (False, "Proposed transaction contains invalid utxos")
+            total_receiver_input += utxo_data[i]["value"]
+            scriptCode = None
+            ver_amt = None
+            idx = retrieve_utxos[i][0]
+            if "txinwitness" in tx["ins"][idx]:
+                ver_amt = utxo_data[i]["value"]
+                try:
+                    ver_sig, ver_pub = tx["ins"][idx]["txinwitness"]
+                except Exception as e:
+                    print("Segwit error: ", repr(e))
+                    return (False, "Segwit input not of expected type, "
+                            "either p2sh-p2wpkh or p2wpkh")
+                # note that the scriptCode is the same whether nested or not
+                # also note that the scriptCode has to be inferred if we are
+                # only given a transaction serialization.
+                scriptCode = "76a914" + btc.hash160(unhexlify(ver_pub)) + "88ac"
+            else:
+                scriptSig = btc.deserialize_script(tx["ins"][idx]["script"])
+                if len(scriptSig) != 2:
+                    return (False,
+                    "Proposed transaction contains unsupported input type")
+                ver_sig, ver_pub = scriptSig
+            if not btc.verify_tx_input(txhex, idx,
+                                       utxo_data[i]['script'],
+                                       ver_sig, ver_pub,
+                                       scriptCode=scriptCode,
+                                       amount=ver_amt):
+                return (False,
+                        "Proposed transaction is not correctly signed.")
+        payment = new_cj_amount - total_receiver_input
+        if payment != self.cjamount:
+            return (False, "Proposed transaction has wrong payment amount: " +\
+                    str(payment) + ", should be: " + str(self.cjamount))
+        # reminder: the keys of the input_utxos dict == self.utxos[None]
+        total_sender_input =  sum([va['value'] for va in self.input_utxos.values()])
+        # check full transaction balance
+        btc_fee = total_receiver_input + total_sender_input - new_cj_amount - new_change_amount
+        self.taker_info_callback("INFO",
+                                 "Network transaction fee is: " + str(btc_fee) + " satoshis.")
+        if btc_fee <= 0:
+            return (False, "Proposed transaction has no bitcoin fee")
+        # To validate the fee, we need to check the size, but this can only be estimated
+        # until it's fully signed; we now know the number of inputs, so we can use
+        # our fee estimator. Its return value will be governed by our own fee settings
+        # in joinmarket.cfg; allow either (a) automatic agreement for any value within
+        # a range of 0.3 to 3x this figure, or (b) user to agree on prompt.
+        fee_est = estimate_tx_fee(len(tx['ins']), len(tx['outs']),
+                                  txtype=self.wallet.get_txtype())
+        fee_ok = False
+        if btc_fee > 0.3 * fee_est and btc_fee < 3 * fee_est:
+            fee_ok = True
+        else:
+            if self.user_check("Is this transaction fee acceptable? (y/n):"):
+                fee_ok = True
+        if not fee_ok:
+            return (False,
+                    "Proposed transaction fee not accepted due to tx fee: " + str(
+                        btc_fee))
+
+        self.total_txfee = btc_fee
+        # now that the fee is known and accepted, we can check our change
+        if new_change_amount == 0:
+            # calculate what the change would be, after subtracting the agreed fee;
+            # if it's dusty, then we continue with no change; otherwise we prompt/
+            # reject.
+            hyp_change_amount = total_receiver_input - self.cjamount - btc_fee
+            if hyp_change_amount <= jm_single().BITCOIN_DUST_THRESHOLD:
+                jlog.info("Counterparty correctly removed dusty change value:"\
+                          + str(hyp_change_amount))
+            else:
+                jlog.info(('WARNING CHANGE NOT BEING '
+                                       'USED\nCHANGEVALUE = {}').format(
+                                           hyp_change_amount))
+                if not self.user_check("OK to broadcast with this change spent "
+                         "to miner fee? (y/n):"):
+                    return (False, "Proposed transaction not accepted due to "
+                            "absent change.")
+
+        # All checks have passed; we sign and broadcast
+        self.latest_tx = tx
+        self.self_sign_and_push()
+        # returning False here is not an error condition, only stops processing.
+        return (False, "OK")

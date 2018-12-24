@@ -584,6 +584,13 @@ def ecdsa_raw_verify(msg, pub, sig, usehex, rawmsg=False):
 
 def estimate_tx_size(ins, outs, txtype='p2pkh'):
     '''Estimate transaction size.
+    The txtype field as detailed below is used to distinguish
+    the type, but there is at least one source of meaningful roughness:
+    we assume the output types are the same as the input (to be fair,
+    outputs only contribute a little to the overall total). This combined
+    with a few bytes variation in signature sizes means we will expect,
+    say, 10% inaccuracy here.
+
     Assuming p2pkh:
     out: 8+1+3+2+20=34, in: 1+32+4+1+1+~73+1+1+33=147,
     ver:4,seq:4, +2 (len in,out)
@@ -592,6 +599,16 @@ def estimate_tx_size(ins, outs, txtype='p2pkh'):
     "ins" must contain M, N so ins= (numins, M, N) (crude assuming all same)
     74*M + 34*N + 45 per input, so total ins ~ len_ins * (45+74M+34N)
     so total ~ 34*len_out + (45+74M+34N)*len_in + 10
+    Assuming p2sh-p2wpkh:
+    witness are roughly 3+~73+33 for each input
+    (txid, vin, 4+20 for witness program encoded as scriptsig, 4 for sequence)
+    non-witness input fields are roughly 32+4+4+20+4=64, so total becomes
+    n_in * 64 + 4(ver) + 4(locktime) + n_out*34
+    Assuming p2wpkh native:
+    witness as previous case
+    non-witness loses the 24 witnessprogram, replaced with 1 zero,
+    in the scriptSig, so becomes:
+    n_in * 41 + 4(ver) + 4(locktime) +2 (len in, out) + n_out*34
     '''
     if txtype == 'p2pkh':
         return 10 + ins * 147 + 34 * outs
@@ -599,11 +616,14 @@ def estimate_tx_size(ins, outs, txtype='p2pkh'):
         #return the estimate for the witness and non-witness
         #portions of the transaction, assuming that all the inputs
         #are of segwit type p2sh-p2wpkh
-        #witness are roughly 3+~73+33 for each input
-        #non-witness input fields are roughly 32+4+4+20+4=64, so total becomes
-        #n_in * 64 + 4(ver) + 4(locktime) + n_out*34 + n_in * 109
+        # Note as of Jan19: this misses 2 bytes (trivial) for len in, out
+        # and also overestimates output size by 2 bytes.
         witness_estimate = ins*109
         non_witness_estimate = 4 + 4 + outs*34 + ins*64
+        return (witness_estimate, non_witness_estimate)
+    elif txtype == 'p2wpkh':
+        witness_estimate = ins*109
+        non_witness_estimate = 4 + 4 + 2 + outs*31 + ins*41
         return (witness_estimate, non_witness_estimate)
     elif txtype == 'p2shMofN':
         ins, M, N = ins

@@ -7,6 +7,7 @@ from optparse import OptionParser, OptionValueError
 from configparser import NoOptionError
 
 import jmclient.support
+from jmclient import jm_single, RegtestBitcoinCoreInterface, cryptoengine
 
 """This exists as a separate module for two reasons:
 to reduce clutter in main scripts, and refactor out
@@ -198,6 +199,20 @@ max_cj_fee_rel = {rel_val}\n""".format(rel_val=rel_val, abs_val=abs_val))
 
     return rel_val, abs_val
 
+
+def check_regtest(blockchain_start=True):
+    """ Applies any regtest-specific configuration
+    """
+    if not isinstance(jm_single().bc_interface,
+                      RegtestBitcoinCoreInterface):
+        return
+    if blockchain_start:
+        #to allow testing of confirm/unconfirm callback for multiple txs
+        jm_single().bc_interface.tick_forward_chain_interval = 10
+        jm_single().bc_interface.simulating = True
+        jm_single().maker_timeout_sec = 5
+    # handles the custom regtest hrp for bech32
+    cryptoengine.BTC_P2WPKH.VBYTE = 100
 
 def get_tumbler_parser():
     parser = OptionParser(
@@ -412,5 +427,15 @@ def get_sendpayment_parser():
                       dest='answeryes',
                       default=False,
                       help='answer yes to everything')
+    parser.add_option('--payjoin',
+                      '-T',
+                      type='str',
+                      action='store',
+                      dest='p2ep',
+                      default='',
+                      help='specify recipient IRC nick for a '
+                      'p2ep style payment, for example:\n'
+                      'J5Ehn3EieVZFtm4q ')
+
     add_common_options(parser)
     return parser

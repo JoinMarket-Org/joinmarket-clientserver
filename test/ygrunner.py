@@ -19,7 +19,8 @@ import pytest
 import random
 from jmbase import jmprint
 from jmclient import YieldGeneratorBasic, load_program_config, jm_single,\
-    sync_wallet, JMClientProtocolFactory, start_reactor
+    sync_wallet, JMClientProtocolFactory, start_reactor, SegwitWallet,\
+    SegwitLegacyWallet, cryptoengine
 
 
 class MaliciousYieldGenerator(YieldGeneratorBasic):
@@ -102,9 +103,16 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     Then start the ygs in background and publish
     the seed of the sp wallet for easy import into -qt
     """
+    if jm_single().config.get("POLICY", "native") == "true":
+        walletclass = SegwitWallet
+    else:
+        # TODO add Legacy
+        walletclass = SegwitLegacyWallet
+
     wallets = make_wallets(num_ygs + 1,
                            wallet_structures=wallet_structures,
-                           mean_amt=mean_amt)
+                           mean_amt=mean_amt,
+                           walletclass=walletclass)
     #the sendpayment bot uses the last wallet in the list
     wallet = wallets[num_ygs]['wallet']
     jmprint("\n\nTaker wallet seed : " + wallets[num_ygs]['seed'])
@@ -147,3 +155,5 @@ def setup_ygrunner():
     load_program_config()
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().bc_interface.simulate_blocks()
+    # handles the custom regtest hrp for bech32
+    cryptoengine.BTC_P2WPKH.VBYTE = 100

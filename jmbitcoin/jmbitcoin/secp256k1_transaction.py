@@ -438,7 +438,7 @@ def is_segwit_native_script(script):
         return True
     return False
 
-def script_to_address(script, vbyte=0, witver=0):
+def script_to_address(script, vbyte=b'\x00', witver=0):
     """ Given a hex or bytes script, and optionally a version byte
     (for P2SH) and/or a witness version (for native segwit witness
     programs), convert to a valid address (either bech32 or Base58CE).
@@ -452,7 +452,7 @@ def script_to_address(script, vbyte=0, witver=0):
         script = binascii.unhexlify(script)
     if is_segwit_native_script(script):
         #hrp interpreted from the vbyte entry, TODO: better way?
-        if vbyte in [0, 5]:
+        if vbyte in [b'\x00', b'\x05']:
             hrp = 'bc'
         elif vbyte == 100:
             hrp = 'bcrt'
@@ -465,7 +465,7 @@ def script_to_address(script, vbyte=0, witver=0):
         return bin_to_b58check(script[3:-2], vbyte)
     else:
         # BIP0016 scripthash addresses: requires explicit vbyte set
-        if vbyte == 0: raise Exception("Invalid version byte for P2SH")
+        if vbyte == b'\x00': raise Exception("Invalid version byte for P2SH")
         return bin_to_b58check(script[2:-1], vbyte)
 
 def pubkey_to_script(pubkey, script_pre, script_post=b'',
@@ -820,8 +820,23 @@ def apply_multisignatures(*args):
     txobj["ins"][i]["script"] = serialize_script([None] + sigs + [script])
     return serialize(txobj)
 
-def mktx(ins, outs, version=1):
-    txobj = {"locktime": 0, "version": version, "ins": [], "outs": []}
+def mktx(ins, outs, version=1, locktime=0):
+    """ Given a list of input dicts with key "output"
+    which are txid:n strings in hex, and a list of outputs
+    which are dicts with keys "address", "value", outputs
+    a hex serialized tranasction encoding this data.
+    Tx version and locktime are optionally set, for non-default
+    locktimes, inputs are given nSequence as per below comment.
+    """
+    txobj = {"locktime": locktime, "version": version, "ins": [], "outs": []}
+    # This does NOT trigger rbf and mimics Core's standard behaviour as of
+    # Jan 2019.
+    # Tx creators wishing to use rbf will need to set it explicitly outside
+    # of this function.
+    if locktime != 0:
+        sequence = 0xffffffff - 1
+    else:
+        sequence = 0xffffffff
     for i in ins:
         if isinstance(i, dict) and "outpoint" in i:
             txobj["ins"].append(i)
@@ -832,7 +847,7 @@ def mktx(ins, outs, version=1):
                 "outpoint": {"hash": i[:64],
                              "index": int(i[65:])},
                 "script": "",
-                "sequence": 4294967295
+                "sequence": sequence
             })
     for o in outs:
         if isinstance(o, str):
