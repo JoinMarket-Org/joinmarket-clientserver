@@ -8,7 +8,7 @@ import time
 
 from jmdaemon.message_channel import MessageChannel
 from jmdaemon.protocol import *
-from jmclient import get_log
+from jmbase import get_log
 from msgdata import *
 
 log = get_log()

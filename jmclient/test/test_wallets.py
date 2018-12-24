@@ -11,8 +11,9 @@ from commontest import create_wallet_for_sync, make_sign_and_push
 import json
 
 import pytest
+from jmbase import get_log
 from jmclient import (
-    load_program_config, jm_single, sync_wallet, get_log,
+    load_program_config, jm_single, sync_wallet,
     estimate_tx_fee, BitcoinCoreInterface, Mnemonic)
 from taker_test_data import t_raw_signed_tx
 testdir = os.path.dirname(os.path.realpath(__file__))

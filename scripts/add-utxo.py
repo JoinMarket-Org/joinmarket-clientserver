@@ -16,7 +16,7 @@ import binascii
 from pprint import pformat
 
 from optparse import OptionParser
-import jmclient.btc as btc
+import jmbitcoin as btc
 from jmclient import load_program_config, jm_single, get_p2pk_vbyte,\
     open_wallet, sync_wallet, add_external_commitments, update_commitments,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\

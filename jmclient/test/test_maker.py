@@ -4,7 +4,8 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
 
-from jmclient import Maker, btc, get_p2sh_vbyte, get_p2pk_vbyte, \
+import jmbitcoin as btc
+from jmclient import Maker, get_p2sh_vbyte, get_p2pk_vbyte, \
     load_program_config, jm_single
 import jmclient
 from commontest import DummyBlockchainInterface

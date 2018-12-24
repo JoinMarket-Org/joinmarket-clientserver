@@ -8,7 +8,8 @@ import binascii
 from commontest import create_wallet_for_sync
 
 import pytest
-from jmclient import load_program_config, jm_single, sync_wallet, get_log
+from jmbase import get_log
+from jmclient import load_program_config, jm_single, sync_wallet
 
 log = get_log()
 

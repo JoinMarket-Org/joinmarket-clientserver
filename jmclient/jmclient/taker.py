@@ -9,7 +9,7 @@ import pprint
 import random
 from binascii import hexlify, unhexlify
 
-from . import btc
+import jmbitcoin as btc
 from jmclient.configure import get_p2sh_vbyte, jm_single, validate_address
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,

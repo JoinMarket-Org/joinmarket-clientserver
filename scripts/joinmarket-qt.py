@@ -64,9 +64,10 @@ JM_CORE_VERSION = '0.5.0'
 #Version of this Qt script specifically
 JM_GUI_VERSION = '8'
 
+from jmbase import get_log
 from jmclient import load_program_config, get_network,\
     open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
-    jm_single, validate_address, get_log, weighted_order_choose, Taker,\
+    jm_single, validate_address, weighted_order_choose, Taker,\
     JMClientProtocolFactory, start_reactor, get_schedule, schedule_to_text,\
     get_blockchain_interface_instance, direct_send,\
     RegtestBitcoinCoreInterface, tumbler_taker_finished_update,\

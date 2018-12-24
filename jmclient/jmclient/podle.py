@@ -10,7 +10,7 @@ import hashlib
 import json
 import binascii
 import struct
-from .btc import multiply, add_pubkeys, getG, podle_PublicKey,\
+from jmbitcoin import multiply, add_pubkeys, getG, podle_PublicKey,\
     podle_PrivateKey, encode, decode, N, podle_PublicKey_class
 
 

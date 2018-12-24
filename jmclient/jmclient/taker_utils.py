@@ -8,11 +8,12 @@ import os
 import time
 import numbers
 from binascii import hexlify, unhexlify
-from .configure import get_log, jm_single, validate_address
+from jmbase import get_log
+from .configure import jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee
-from .btc import deserialize, mktx, serialize, txhash
+from jmbitcoin import deserialize, mktx, serialize, txhash
 log = get_log()
 
 """

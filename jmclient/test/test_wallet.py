@@ -10,7 +10,8 @@ from binascii import hexlify, unhexlify
 import pytest
 import jmbitcoin as btc
 from commontest import binarize_tx
-from jmclient import load_program_config, jm_single, get_log,\
+from jmbase import get_log
+from jmclient import load_program_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError
 from test_blockchaininterface import sync_test_wallet

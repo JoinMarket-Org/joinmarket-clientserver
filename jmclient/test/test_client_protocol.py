@@ -4,7 +4,8 @@ from __future__ import (absolute_import, division,
 from builtins import *
 '''test client-protocol interfacae.'''
 
-from jmclient import load_program_config, Taker, get_log,\
+from jmbase import get_log
+from jmclient import load_program_config, Taker,\
     JMClientProtocolFactory, jm_single, Maker
 from jmclient.client_protocol import JMTakerClientProtocol
 from twisted.python.log import msg as tmsg

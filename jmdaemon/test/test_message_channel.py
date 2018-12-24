@@ -10,7 +10,7 @@ from jmdaemon.message_channel import MChannelThread
 from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon.protocol import COMMAND_PREFIX, NICK_HASH_LENGTH,\
     NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER
-from jmclient import get_log
+from jmbase import get_log
 from msgdata import *
 import time
 import hashlib

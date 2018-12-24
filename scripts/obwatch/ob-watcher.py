@@ -31,7 +31,8 @@ except:
           "in the joinmarket virtualenv.")
     sys.exit(0)
 
-from jmclient import jm_single, load_program_config, get_log, calc_cj_fee, get_irc_mchannels
+from jmbase import get_log
+from jmclient import jm_single, load_program_config, calc_cj_fee, get_irc_mchannels
 from jmdaemon import OrderbookWatch, MessageChannelCollection, IRCMessageChannel
 #TODO this is only for base58, find a solution for a client without jmbitcoin
 import jmbitcoin as btc

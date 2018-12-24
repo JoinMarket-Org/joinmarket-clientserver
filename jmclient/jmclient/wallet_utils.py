@@ -16,7 +16,7 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     is_segwit_mode, SegwitLegacyWallet, LegacyWallet)
 from jmbase.support import get_password
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH
-import jmclient.btc as btc
+import jmbitcoin as btc
 
 
 # used for creating new wallets

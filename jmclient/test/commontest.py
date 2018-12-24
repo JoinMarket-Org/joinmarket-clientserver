@@ -9,8 +9,9 @@ import binascii
 import random
 from decimal import Decimal
 
+from jmbase import get_log
 from jmclient import (
-    jm_single, open_test_wallet_maybe, get_log, estimate_tx_fee,
+    jm_single, open_test_wallet_maybe, estimate_tx_fee,
     BlockchainInterface, get_p2sh_vbyte, BIP32Wallet, SegwitLegacyWallet)
 from jmbase.support import chunks
 import jmbitcoin as btc
