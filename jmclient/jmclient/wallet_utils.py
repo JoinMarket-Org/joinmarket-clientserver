@@ -593,8 +593,8 @@ def wallet_fetch_history(wallet, options):
         from collections import Counter
         value_freq_list = sorted(Counter(output_script_values.values())
                 .most_common(), key=lambda x: -x[1])
-        non_cj_freq = 0 if len(value_freq_list)==1 else sum(zip(
-            *value_freq_list[1:])[1])
+        non_cj_freq = 0 if len(value_freq_list)==1 else sum(list(zip(
+            *value_freq_list[1:]))[1])
         is_coinjoin = (value_freq_list[0][1] > 1 and value_freq_list[0][1] in
                 [non_cj_freq, non_cj_freq+1])
         cj_amount = value_freq_list[0][0]
