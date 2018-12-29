@@ -1465,10 +1465,18 @@ class JMMainWindow(QMainWindow):
     def getPassword(self):
         pd = PasswordDialog()
         while True:
-            pd.exec_()
-            if pd.new_pw.text() != pd.conf_pw.text():
+            pd_return = pd.exec_()
+            if pd_return == QDialog.Rejected:
+                return None
+            elif pd.new_pw.text() != pd.conf_pw.text():
                 JMQtMessageBox(self,
                                "Passwords don't match.",
+                               mbtype='warn',
+                               title="Error")
+                continue
+            elif pd.new_pw.text() == "":
+                JMQtMessageBox(self,
+                               "Password must not be empty.",
                                mbtype='warn',
                                title="Error")
                 continue
