@@ -11,6 +11,7 @@ from datetime import datetime
 from optparse import OptionParser
 from numbers import Integral
 from collections import Counter
+from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
     VolatileStorage, StoragePasswordError,
