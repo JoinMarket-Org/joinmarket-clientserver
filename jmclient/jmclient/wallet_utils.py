@@ -10,6 +10,7 @@ import binascii
 from datetime import datetime
 from optparse import OptionParser
 from numbers import Integral
+from collections import Counter
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
     VolatileStorage, StoragePasswordError,
@@ -291,6 +292,39 @@ class WalletView(WalletViewBase):
             return self.serclass(entryseparator.join([header] + [
                 x.serialize(entryseparator, summarize=False) for x in self.accounts] + [footer]))
 
+
+def get_tx_info(txid):
+    """
+    Retrieve some basic information about the given transaction.
+
+    :param txid: txid as hex-str
+    :return: tuple
+        is_coinjoin: bool
+        cj_amount: int, only useful if is_coinjoin==True
+        cj_n: int, number of cj participants, only useful if is_coinjoin==True
+        output_script_values: {script: value} dict including all outputs
+        blocktime: int, blocktime this tx was mined
+        txd: deserialized transaction object (hex-encoded data)
+    """
+    rpctx = jm_single().bc_interface.rpc('gettransaction', [txid])
+    txhex = str(rpctx['hex'])
+    txd = btc.deserialize(txhex)
+    output_script_values = {binascii.unhexlify(sv['script']): sv['value']
+                            for sv in txd['outs']}
+    value_freq_list = sorted(
+        Counter(output_script_values.values()).most_common(),
+        key=lambda x: -x[1])
+    non_cj_freq = (0 if len(value_freq_list) == 1 else
+                   sum(next(islice(zip(*value_freq_list[1:]), 1, None))))
+    is_coinjoin = (value_freq_list[0][1] > 1 and
+                   value_freq_list[0][1] in
+                   [non_cj_freq, non_cj_freq + 1])
+    cj_amount = value_freq_list[0][0]
+    cj_n = value_freq_list[0][1]
+    return is_coinjoin, cj_amount, cj_n, output_script_values,\
+        rpctx['blocktime'], txd
+
+
 def get_imported_privkey_branch(wallet, m, showprivkey):
     entries = []
     for path in wallet.yield_imported_paths(m):
@@ -338,13 +372,41 @@ def wallet_showutxos(wallet, showprivkey):
 
     return json.dumps(unsp, indent=4)
 
+
 def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
         serialized=True, summarized=False):
     """build the walletview object,
     then return its serialization directly if serialized,
     else return the WalletView object.
     """
+    def get_addr_status(addr_path, utxos, is_new, is_internal):
+        addr_balance = 0
+        status = []
+        for utxo, utxodata in iteritems(utxos):
+            if addr_path != utxodata['path']:
+                continue
+            addr_balance += utxodata['value']
+            is_coinjoin, cj_amount, cj_n = \
+                get_tx_info(binascii.hexlify(utxo[0]).decode('ascii'))[:3]
+            if is_coinjoin and utxodata['value'] == cj_amount:
+                status.append('cj-out')
+            elif is_coinjoin:
+                status.append('change-out')
+            elif is_internal:
+                status.append('non-cj-change')
+            else:
+                status.append('deposit')
+
+        out_status = 'new' if is_new else 'used'
+        if len(status) > 1:
+            out_status = 'reused'
+        elif len(status) == 1:
+            out_status = status[0]
+
+        return addr_balance, out_status
+
     acctlist = []
+    utxos = wallet.get_utxos_by_mixdepth_()
     for m in range(wallet.mixdepth + 1):
         branchlist = []
         for forchange in [0, 1]:
@@ -359,11 +421,8 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
             for k in range(unused_index + gaplimit):
                 path = wallet.get_path(m, forchange, k)
                 addr = wallet.get_addr_path(path)
-                balance = 0
-                for utxodata in wallet.get_utxos_by_mixdepth_()[m].values():
-                    if path == utxodata['path']:
-                        balance += utxodata['value']
-                used = 'used' if k < unused_index else 'new'
+                balance, used = get_addr_status(
+                    path, utxos[m], k >= unused_index, forchange)
                 if showprivkey:
                     privkey = wallet.get_wif_path(path)
                 else:
@@ -582,23 +641,11 @@ def wallet_fetch_history(wallet, options):
     deposit_times = []
     tx_number = 0
     for tx in txes:
-        rpctx = jm_single().bc_interface.rpc('gettransaction', [tx['txid']])
-        txhex = str(rpctx['hex'])
-        txd = btc.deserialize(txhex)
-        output_script_values = {binascii.unhexlify(sv['script']): sv['value']
-                                for sv in txd['outs']}
-        our_output_scripts = wallet_script_set.intersection(
-                output_script_values.keys())
+        is_coinjoin, cj_amount, cj_n, output_script_values, blocktime, txd =\
+            get_tx_info(tx['txid'])
 
-        from collections import Counter
-        value_freq_list = sorted(Counter(output_script_values.values())
-                .most_common(), key=lambda x: -x[1])
-        non_cj_freq = 0 if len(value_freq_list)==1 else sum(list(zip(
-            *value_freq_list[1:]))[1])
-        is_coinjoin = (value_freq_list[0][1] > 1 and value_freq_list[0][1] in
-                [non_cj_freq, non_cj_freq+1])
-        cj_amount = value_freq_list[0][0]
-        cj_n = value_freq_list[0][1]
+        our_output_scripts = wallet_script_set.intersection(
+            output_script_values.keys())
 
         rpc_inputs = []
         for ins in txd['ins']:
@@ -686,15 +733,12 @@ def wallet_fetch_history(wallet, options):
         utxo_count += (len(our_output_scripts) - utxos_consumed)
         index = '%4d'%(tx_number)
         tx_number += 1
-        timestamp = datetime.fromtimestamp(rpctx['blocktime']
-                ).strftime("%Y-%m-%d %H:%M")
-        utxo_count_str = '% 3d' % (utxo_count)
         if options.verbosity > 0:
             if options.verbosity <= 2:
                 n = cj_batch[0]
                 if tx_type == 'cj internal':
                     cj_batch[0] += 1
-                    cj_batch[1] += rpctx['blocktime']
+                    cj_batch[1] += blocktime
                     cj_batch[2] += amount
                     cj_batch[3] += delta_balance
                     cj_batch[4] = balance
@@ -712,18 +756,18 @@ def wallet_fetch_history(wallet, options):
                                   min(cj_batch[8]), max(cj_batch[9]), '...')
                     cj_batch = [0]*8 + [[]]*2 # reset the batch collector
                     # print batch terminating row
-                    print_row(index, rpctx['blocktime'], tx_type, amount,
+                    print_row(index, blocktime, tx_type, amount,
                               delta_balance, balance, cj_n, fees, utxo_count,
                               mixdepth_src, mixdepth_dst, tx['txid'])
             elif options.verbosity >= 5 or \
                  (options.verbosity >= 3 and tx_type != 'unknown type'):
-                print_row(index, rpctx['blocktime'], tx_type, amount,
+                print_row(index, blocktime, tx_type, amount,
                           delta_balance, balance, cj_n, fees, utxo_count,
                           mixdepth_src, mixdepth_dst, tx['txid'])
 
         if tx_type != 'cj internal':
             deposits.append(delta_balance)
-            deposit_times.append(rpctx['blocktime'])
+            deposit_times.append(blocktime)
 
     # we could have a leftover batch!
     if options.verbosity <= 2:

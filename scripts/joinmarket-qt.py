@@ -1093,7 +1093,7 @@ class JMWalletTab(QWidget):
                     for j in range(len(rows[i][forchange])):
                         item = QTreeWidgetItem(rows[i][forchange][j])
                         item.setFont(0, QFont(MONOSPACE_FONT))
-                        if rows[i][forchange][j][3] == 'used':
+                        if rows[i][forchange][j][3] != 'new':
                             item.setForeground(3, QBrush(QColor('red')))
                         seq_item.addChild(item)
 
