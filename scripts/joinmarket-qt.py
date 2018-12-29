@@ -1482,7 +1482,9 @@ class JMMainWindow(QMainWindow):
                                               QLineEdit.Normal, "wallet.jmdat")
         if not ok:
             JMQtMessageBox(self, "Create wallet aborted", mbtype='warn')
-            return None
+            # cannot use None for a 'fail' condition, as this is used
+            # for the case where the default wallet name is to be used in non-Qt.
+            return "cancelled"
         self.walletname = str(walletname)
         return self.walletname
 

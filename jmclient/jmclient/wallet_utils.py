@@ -523,6 +523,10 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         return False
 
     wallet_name = callbacks[3]()
+    if wallet_name == "cancelled":
+        # currently used only by Qt, because user has option
+        # to click cancel in dialog.
+        return False
     if not wallet_name:
         wallet_name = default_wallet_name
     wallet_path = os.path.join(walletspath, wallet_name)
