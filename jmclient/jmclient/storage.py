@@ -94,6 +94,8 @@ class Storage(object):
                 self.newly_created = True
             else:
                 raise StorageError("File not found.")
+        elif create:
+            raise StorageError("File already exists.")
         else:
             self._load_file(password)
 

@@ -1530,7 +1530,8 @@ class JMMainWindow(QMainWindow):
         Initializes by syncing.
         '''
         if not seed:
-            success = wallet_generate_recover_bip39("generate",
+            try:
+                success = wallet_generate_recover_bip39("generate",
                                                    "wallets",
                                                    "wallet.jmdat",
                                                    callbacks=(self.displayWords,
@@ -1538,10 +1539,14 @@ class JMMainWindow(QMainWindow):
                                                               self.getPassword,
                                                               self.getWalletFileName,
                                                               self.promptMnemonicExtension))
-            if not success:
-                JMQtMessageBox(self, "Failed to create new wallet file.",
-                               title="Error", mbtype="warn")
+                if not success:
+                    JMQtMessageBox(self, "Failed to create new wallet file.",
+                                   title="Error", mbtype="warn")
+                    return
+            except Exception as e:
+                JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
                 return
+
             JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                            title="Wallet created")
         self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword,
