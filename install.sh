@@ -357,7 +357,7 @@ parse_flags ()
                 with_qt='1'
                 ;;
             *)
-                echo -e "\nUsage: "${0}" [options]\n\nOptions:\n\n--develop       code remains editable in place\n--python, -p    python version: python2 or python3 (default: python2)\n--with-qt       build the Qt GUI (incompatible with python2)\n"
+                echo -e "\nUsage: "${0}" [options]\n\nOptions:\n\n--develop       code remains editable in place\n--python, -p    python version (default: python2)\n--with-qt       build the Qt GUI (incompatible with python2)\n"
                 exit 1
         esac
         shift
