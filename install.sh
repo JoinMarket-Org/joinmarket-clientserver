@@ -356,11 +356,9 @@ parse_flags ()
             --with-qt)
                 with_qt='1'
                 ;;
-            -?*)
-                echo "warning.  unknown flag : $1" 1>&2
-                ;;
             *)
-                break
+                echo -e "\nUsage: "${0}" [options]\n\nOptions:\n\n--develop       code remains editable in place\n--python, -p    python version: python2 or python3 (default: python2)\n--with-qt       build the Qt GUI (incompatible with python2)\n"
+                exit 1
         esac
         shift
     done
