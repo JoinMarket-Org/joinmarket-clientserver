@@ -288,8 +288,13 @@ libsecp256k1_install ()
 
 libsodium_build ()
 {
+    make uninstall
+    make distclean
     ./autogen.sh
-    ./configure --enable-shared --prefix="${jm_root}"
+    ./configure \
+        --enable-minimal \
+        --enable-shared \
+        --prefix="${jm_root}"
     make uninstall
     make
     if ! make check; then
