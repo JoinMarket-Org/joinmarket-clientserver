@@ -139,14 +139,30 @@ class Maker(object):
             our_inputs[index] = (script, amount)
 
         txs = self.wallet.sign_tx(btc.deserialize(unhexlify(txhex)), our_inputs)
-
         for index in our_inputs:
-            sigmsg = txs['ins'][index]['script']
+            sigmsg = unhexlify(txs['ins'][index]['script'])
             if 'txinwitness' in txs['ins'][index]:
-                #We prepend the witness data since we want (sig, pub, scriptCode);
-                #also, the items in witness are not serialize_script-ed.
-                sigmsg = b''.join(btc.serialize_script_unit(x)
-                                  for x in txs['ins'][index]['txinwitness']) + sigmsg
+                # Note that this flag only implies that the transaction
+                # *as a whole* is using segwit serialization; it doesn't
+                # imply that this specific input is segwit type (to be
+                # fully general, we allow that even our own wallet's
+                # inputs might be of mixed type). So, we catch the EngineError
+                # which is thrown by non-segwit types. This way the sigmsg
+                # will only contain the scriptSig field if the wallet object
+                # decides it's necessary/appropriate for this specific input
+                # If it is segwit, we prepend the witness data since we want
+                # (sig, pub, witnessprogram=scriptSig - note we could, better,
+                # pass scriptCode here, but that is not backwards compatible,
+                # as the taker uses this third field and inserts it into the
+                # transaction scriptSig), else (non-sw) the !sig message remains
+                # unchanged as (sig, pub).
+                try:
+                    scriptSig = btc.pubkey_to_p2wpkh_script(txs['ins'][index]['txinwitness'][1])
+                    sigmsg = b''.join(btc.serialize_script_unit(
+                x) for x in txs['ins'][index]['txinwitness'] + [scriptSig])
+                except IndexError:
+                    #the sigmsg was already set before the segwit check
+                    pass
             sigs.append(base64.b64encode(sigmsg).decode('ascii'))
         return (True, sigs)
 

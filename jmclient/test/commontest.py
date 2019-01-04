@@ -155,10 +155,10 @@ def make_sign_and_push(ins_full,
     binarize_tx(de_tx)
     de_tx = wallet.sign_tx(de_tx, scripts, hashcode=hashcode)
     #pushtx returns False on any error
-    tx = binascii.hexlify(btc.serialize(de_tx)).decode('ascii')
-    push_succeed = jm_single().bc_interface.pushtx(tx)
+    push_succeed = jm_single().bc_interface.pushtx(btc.serialize(de_tx))
     if push_succeed:
-        return btc.txhash(tx)
+        removed = wallet.remove_old_utxos(de_tx)
+        return btc.txhash(btc.serialize(de_tx))
     else:
         return False
 

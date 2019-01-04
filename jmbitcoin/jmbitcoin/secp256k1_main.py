@@ -436,6 +436,32 @@ def privkey_to_pubkey(priv, usehex=True):
 privtopub = privkey_to_pubkey
 
 @hexbin
+def is_valid_pubkey(pubkey, usehex, require_compressed=False):
+    """ Returns True if the serialized pubkey is a valid secp256k1
+    pubkey serialization or False if not; returns False for an
+    uncompressed encoding if require_compressed is True.
+    """
+    # sanity check for public key
+    # see https://github.com/bitcoin/bitcoin/blob/master/src/pubkey.h
+    if require_compressed:
+        valid_uncompressed = False
+    elif len(pubkey) == 65 and pubkey[:1] in (b'\x04', b'\x06', b'\x07'):
+        valid_uncompressed = True
+    else:
+        valid_uncompressed = False
+
+    if not ((len(pubkey) == 33 and pubkey[:1] in (b'\x02', b'\x03')) or
+    valid_uncompressed):
+        return False
+    # serialization is valid, but we must ensure it corresponds
+    # to a valid EC point:
+    try:
+        dummy = secp256k1.PublicKey(pubkey)
+    except:
+        return False
+    return True
+
+@hexbin
 def multiply(s, pub, usehex, rawpub=True, return_serialized=True):
     '''Input binary compressed pubkey P(33 bytes)
     and scalar s(32 bytes), return s*P.

@@ -13,7 +13,8 @@ from commontest import binarize_tx
 from jmbase import get_log
 from jmclient import load_program_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
-    VolatileStorage, get_network, cryptoengine, WalletError
+    VolatileStorage, get_network, cryptoengine, WalletError,\
+    SegwitWallet
 from test_blockchaininterface import sync_test_wallet
 
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -303,17 +304,17 @@ def test_signing_imported(setup_wallet, wif, keytype, type_check):
     utxo = fund_wallet_addr(wallet, wallet.get_addr_path(path))
     tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])],
                                   ['00'*17 + ':' + str(10**8 - 9000)]))
-    binarize_tx(tx)
     script = wallet.get_script_path(path)
-    wallet.sign_tx(tx, {0: (script, 10**8)})
+    tx = wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)
-    txout = jm_single().bc_interface.pushtx(hexlify(btc.serialize(tx)).decode('ascii'))
+    txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
     assert txout
 
 
 @pytest.mark.parametrize('wallet_cls,type_check', [
     [LegacyWallet, assert_not_segwit],
-    [SegwitLegacyWallet, assert_segwit]
+    [SegwitLegacyWallet, assert_segwit],
+    [SegwitWallet, assert_segwit],
 ])
 def test_signing_simple(setup_wallet, wallet_cls, type_check):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
@@ -321,13 +322,15 @@ def test_signing_simple(setup_wallet, wallet_cls, type_check):
     wallet_cls.initialize(storage, get_network())
     wallet = wallet_cls(storage)
     utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(0))
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])],
-                                  ['00'*17 + ':' + str(10**8 - 9000)]))
-    binarize_tx(tx)
+    # The dummy output is of length 25 bytes, because, for SegwitWallet, we else
+    # trigger the tx-size-small DOS limit in Bitcoin Core (82 bytes is the
+    # smallest "normal" transaction size (non-segwit size, ie no witness)
+    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'),
+                                utxo[1])], ['00'*25 + ':' + str(10**8 - 9000)]))
     script = wallet.get_script(0, 1, 0)
-    wallet.sign_tx(tx, {0: (script, 10**8)})
+    tx = wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)
-    txout = jm_single().bc_interface.pushtx(hexlify(btc.serialize(tx)).decode('ascii'))
+    txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
     assert txout
 
 
@@ -645,4 +648,6 @@ def test_wallet_mixdepth_decrease(setup_wallet):
 @pytest.fixture(scope='module')
 def setup_wallet():
     load_program_config()
+    #see note in cryptoengine.py:
+    cryptoengine.BTC_P2WPKH.VBYTE = 100
     jm_single().bc_interface.tick_forward_chain_interval = 2

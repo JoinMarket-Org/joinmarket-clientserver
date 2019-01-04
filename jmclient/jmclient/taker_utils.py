@@ -7,7 +7,7 @@ import pprint
 import os
 import time
 import numbers
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 from jmbase import get_log
 from .configure import jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
@@ -79,11 +79,12 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     log.info("Using a fee of : " + str(fee_est) + " satoshis.")
     if amount != 0:
         log.info("Using a change value of: " + str(changeval) + " satoshis.")
-    tx = sign_tx(wallet, mktx(list(utxos.keys()), outs), utxos)
-    txsigned = deserialize(tx)
+    txsigned = sign_tx(wallet, mktx(list(utxos.keys()), outs), utxos)
     log.info("Got signed transaction:\n")
-    log.info(tx + "\n")
     log.info(pformat(txsigned))
+    tx = serialize(txsigned)
+    log.info("In serialized form (for copy-paste):")
+    log.info(tx)
     actual_amount = amount if amount != 0 else total_inputs_val - fee_est
     log.info("Sends: " + str(actual_amount) + " satoshis to address: " + destaddr)
     if not answeryes:
@@ -112,12 +113,7 @@ def sign_tx(wallet, tx, utxos):
         script = wallet.addr_to_script(utxos[utxo]['address'])
         amount = utxos[utxo]['value']
         our_inputs[index] = (script, amount)
-
-    # FIXME: ugly hack
-    tx_bin = deserialize(unhexlify(serialize(stx)))
-    wallet.sign_tx(tx_bin, our_inputs)
-    return hexlify(serialize(tx_bin)).decode('ascii')
-
+    return wallet.sign_tx(deserialize(unhexlify(serialize(stx))), our_inputs)
 
 def import_new_addresses(wallet, addr_list):
     # FIXME: same code as in maker.py and taker.py
