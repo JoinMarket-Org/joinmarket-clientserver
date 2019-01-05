@@ -767,6 +767,7 @@ class Taker(object):
             amount = self.input_utxos[utxo]['value']
             our_inputs[index] = (script, amount)
         self.latest_tx = self.wallet.sign_tx(self.latest_tx, our_inputs)
+        assert btc.btc_consensus.libcon.verify_script(script, btc.serialize(self.latest_tx), index, amount)
 
     def push(self):
         tx = btc.serialize(self.latest_tx)
