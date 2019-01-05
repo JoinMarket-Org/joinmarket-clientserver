@@ -7,4 +7,4 @@ from jmbitcoin.secp256k1_transaction import *
 from jmbitcoin.secp256k1_deterministic import *
 from jmbitcoin.btscript import *
 from jmbitcoin.bech32 import *
-
+from jmbitcoin.btc_consensus import libcon
