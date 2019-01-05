@@ -335,6 +335,43 @@ joinmarket_install ()
     done
 }
 
+libcon_install ()
+{
+    libcon_version='0.17.1'
+    libcon_ver_pref="bitcoin-${libcon_version}"
+    libcon_lnx_x86_64_tar="${libcon_ver_pref}-x86_64-linux-gnu.tar.gz"
+    libcon_lnx_x86_64_sha='53ffca45809127c9ba33ce0080558634101ec49de5224b2998c489b6d0fc2b17'
+    libcon_osx64_tar="${libcon_ver_pref}-osx64.tar.gz"
+    libcon_osx64_sha='6aa567381b95a20ac96b0b949701b04729a0c5796c320481bfa1db22da25efdb'
+    libcon_url="https://bitcoincore.org/bin/bitcoin-core-${libcon_version}"
+    libcon_file_pref='libbitcoinconsensus'
+
+    if check_skip_build "${core_version}"; then
+        return 0
+    fi
+    if [[ $(uname) == Linux ]]; then
+        libcon_tar="${libcon_lnx_x86_64_tar}"
+        libcon_sha="${libcon_lnx_x86_64_sha}"
+        libcon_file="${libcon_file_pref}.so"
+    elif [[ $(uname) == Darwin ]]; then
+        libcon_tar="${libcon_osx64_tar}"
+        libcon_sha="${libcon_osx64_sha}"
+        libcon_file="${libcon_file_pref}.dylib"
+    fi
+    if ! dep_get "${libcon_tar}" "${libcon_sha}" "${libcon_url}"; then
+        return 1
+    fi
+    pushd "${libcon_ver_pref}"
+    rm -rf "./bin" "./share"
+    if ! [[ -r "./lib/${libcon_file}" ]]; then
+        return 1
+    fi
+    cp -rfv "./lib/" "./include/" "${jm_root}" && \
+    ln -sfv "${jm_root}/lib/${libcon_file}" "${jm_root}/lib/_libbitcoinconsensus.so" && \
+    popd
+}
+
+
 parse_flags ()
 {
     while :; do
@@ -479,6 +516,9 @@ main ()
     if ! libsodium_install; then
         echo "Libsodium was not built. Exiting."
         return 1
+    fi
+    if ! libcon_install; then
+        echo "Libbitcoinconsensus was not installed.  Exiting"
     fi
     popd
     if ! joinmarket_install; then
