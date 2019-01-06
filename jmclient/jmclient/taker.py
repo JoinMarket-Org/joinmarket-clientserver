@@ -955,7 +955,8 @@ class P2EPTaker(Taker):
         my_total_in = sum([va['value'] for u, va in iteritems(self.input_utxos)])
         # estimate the fee for the version of the transaction which is
         # not coinjoined:
-        est_fee = estimate_tx_fee(len(self.input_utxos), 2, txtype="p2sh-p2wpkh")
+        est_fee = estimate_tx_fee(len(self.input_utxos), 2,
+                                  txtype=self.wallet.get_txtype())
         my_change_value = my_total_in - self.cjamount - est_fee
         if my_change_value <= 0:
             # as discussed in initialize(), this should be an extreme edge case.
@@ -1130,7 +1131,8 @@ class P2EPTaker(Taker):
         # our fee estimator. Its return value will be governed by our own fee settings
         # in joinmarket.cfg; allow either (a) automatic agreement for any value within
         # a range of 0.3 to 3x this figure, or (b) user to agree on prompt.
-        fee_est = estimate_tx_fee(len(tx['ins']), len(tx['outs']), txtype='p2sh-p2wpkh')
+        fee_est = estimate_tx_fee(len(tx['ins']), len(tx['outs']),
+                                  txtype=self.wallet.get_txtype())
         fee_ok = False
         if btc_fee > 0.3 * fee_est and btc_fee < 3 * fee_est:
             fee_ok = True

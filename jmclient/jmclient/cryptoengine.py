@@ -11,7 +11,7 @@ import jmbitcoin as btc
 from .configure import get_network
 
 
-TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH = range(3)
+TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N = range(4)
 NET_MAINNET, NET_TESTNET = range(2)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET}
 WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef'}

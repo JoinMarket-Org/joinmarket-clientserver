@@ -455,7 +455,8 @@ class P2EPMaker(Maker):
         # must decide.
         btc_fee = total_sender_input - self.receiving_amount - proposed_change_value
         jlog.info("Network transaction fee is: " + str(btc_fee) + " satoshis.")
-        fee_est = estimate_tx_fee(len(tx['ins']), len(tx['outs']), txtype='p2sh-p2wpkh')
+        fee_est = estimate_tx_fee(len(tx['ins']), len(tx['outs']),
+                                  txtype=self.wallet.get_txtype())
         fee_ok = False
         if btc_fee > 0.3 * fee_est and btc_fee < 3 * fee_est:
             fee_ok = True
@@ -552,7 +553,7 @@ class P2EPMaker(Maker):
             # get an approximate required amount assuming 4 inputs, which is
             # fairly conservative (but guess by necessity).
             fee_for_select = estimate_tx_fee(len(tx['ins']) + 4, 2,
-                                             txtype="p2sh-p2wpkh")
+                                             txtype=self.wallet.get_txtype())
             approx_sum = max_sender_amt - largest_out + fee_for_select
             try:
                 my_utxos = self.wallet.select_utxos(self.mixdepth, approx_sum)
@@ -579,7 +580,7 @@ class P2EPMaker(Maker):
         new_destination_amount = self.receiving_amount + my_total_in
         # estimate the required fee for the new version of the transaction
         total_ins = len(tx["ins"]) + len(my_utxos.keys())
-        est_fee = estimate_tx_fee(total_ins, 2, txtype="p2sh-p2wpkh")
+        est_fee = estimate_tx_fee(total_ins, 2, txtype=self.wallet.get_txtype())
         jlog.info("We estimated a fee of: " + str(est_fee))
         new_change_amount = total_sender_input + my_total_in - \
             new_destination_amount - est_fee

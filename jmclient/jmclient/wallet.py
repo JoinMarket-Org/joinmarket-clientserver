@@ -95,9 +95,9 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     if txtype in ['p2pkh', 'p2shMofN']:
         tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype)
         return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
-    elif txtype=='p2sh-p2wpkh':
+    elif txtype in ['p2wpkh', 'p2sh-p2wpkh']:
         witness_estimate, non_witness_estimate = btc.estimate_tx_size(
-            ins, outs, 'p2sh-p2wpkh')
+            ins, outs, txtype)
         return int(int((
         non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
     else:
@@ -328,6 +328,8 @@ class BaseWallet(object):
             return 'p2pkh'
         elif self.TYPE == TYPE_P2SH_P2WPKH:
             return 'p2sh-p2wpkh'
+        elif self.TYPE == TYPE_P2WPKH:
+            return 'p2wpkh'
         assert False
 
     def sign_tx(self, tx, scripts, **kwargs):

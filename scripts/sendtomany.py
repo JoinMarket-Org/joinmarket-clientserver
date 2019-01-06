@@ -32,6 +32,7 @@ def sign(utxo, priv, destaddrs, segwit=True):
     assert results[0][0] == utxo
     amt = results[0][1]
     ins = [utxo]
+    # TODO extend to other utxo types
     txtype = 'p2sh-p2wpkh' if segwit else 'p2pkh'
     estfee = estimate_tx_fee(1, len(destaddrs), txtype=txtype)
     outs = []
