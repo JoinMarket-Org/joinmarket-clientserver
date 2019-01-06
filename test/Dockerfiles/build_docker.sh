@@ -15,7 +15,7 @@ build_docker ()
         return 0
     fi
 
-    core_version='0.16.3'
+    core_version='0.17.1'
     core_dist="bitcoin-${core_version}-x86_64-linux-gnu.tar.gz"
     core_url="https://bitcoincore.org/bin/bitcoin-core-${core_version}/${core_dist}"
     libffi_lib_tar='v3.2.1.tar.gz'
