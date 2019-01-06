@@ -7,7 +7,6 @@ import pprint
 import os
 import time
 import numbers
-from binascii import unhexlify
 from jmbase import get_log
 from .configure import jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\

@@ -10,16 +10,13 @@ import os
 import sys
 import pytest
 from twisted.internet import reactor
-from future.utils import iteritems
 from jmbase import get_log
 from jmclient import cryptoengine
 from jmclient import (load_program_config, jm_single, sync_wallet,
                       P2EPMaker, P2EPTaker,
                       LegacyWallet, SegwitLegacyWallet, SegwitWallet)
 from commontest import make_wallets
-from test_taker import dummy_filter_orderbook
 from test_coinjoin import make_wallets_to_list, sync_wallets, create_orderbook
-import jmbitcoin as btc
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()

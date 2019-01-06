@@ -7,7 +7,6 @@ from optparse import OptionParser
 
 import sys
 from twisted.python.log import startLogging
-from twisted.internet import reactor
 from jmbase import get_log
 from jmclient import P2EPMaker, jm_single, load_program_config, \
     sync_wallet, JMClientProtocolFactory, start_reactor, \
