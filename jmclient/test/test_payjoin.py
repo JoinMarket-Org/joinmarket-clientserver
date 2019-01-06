@@ -79,19 +79,31 @@ def final_checks(wallets, amount, txfee, tsb, msb, source_mixdepth=0):
     return True
 
 @pytest.mark.parametrize('wallet_cls, wallet_structures, mean_amt',
-        [(LegacyWallet, [[4, 0, 0, 0, 0]] * 2, 1.0),
-         (SegwitLegacyWallet, [[1, 3, 0, 0, 0]] * 2, 2.0),
-         (SegwitWallet, [[1, 0, 0, 0, 0]] * 2, 4.0),
+        [([LegacyWallet, LegacyWallet],
+          [[4, 0, 0, 0, 0]] * 2, 1.0),
+         ([SegwitLegacyWallet, SegwitLegacyWallet],
+          [[1, 3, 0, 0, 0]] * 2, 2.0),
+         ([SegwitWallet, SegwitWallet],
+          [[1, 0, 0, 0, 0]] * 2, 4.0),
+         ([LegacyWallet, SegwitWallet],
+          [[4, 0, 0, 0, 0]] * 2, 1.0),
+         ([SegwitLegacyWallet, SegwitWallet],
+          [[1, 3, 0, 0, 0]] * 2, 2.0),
+         ([SegwitWallet, SegwitLegacyWallet],
+          [[1, 0, 0, 0, 0]] * 2, 4.0),
          ])
 def test_simple_payjoin(monkeypatch, tmpdir, setup_cj, wallet_cls,
                         wallet_structures, mean_amt):
     def raise_exit(i):
         raise Exception("sys.exit called")
     monkeypatch.setattr(sys, 'exit', raise_exit)
-    wallets = make_wallets_to_list(make_wallets(
-        2, wallet_structures=wallet_structures,
-        mean_amt=mean_amt, wallet_cls=wallet_cls))
-
+    wallets = []
+    wallets.append(make_wallets_to_list(make_wallets(
+        1, wallet_structures=[wallet_structures[0]],
+        mean_amt=mean_amt, wallet_cls=wallet_cls[0]))[0])
+    wallets.append(make_wallets_to_list(make_wallets(
+            1, wallet_structures=[wallet_structures[1]],
+            mean_amt=mean_amt, wallet_cls=wallet_cls[1]))[0])
     jm_single().bc_interface.tickchain()
     sync_wallets(wallets)
 
@@ -121,9 +133,9 @@ def test_simple_payjoin(monkeypatch, tmpdir, setup_cj, wallet_cls,
     assert len(active_orders.keys()) == 1
     response = taker.receive_utxos(list(active_orders.keys()))
     assert response[0], "taker receive_utxos error"
-    # test for validity of signed fallback transaction; requires 0.17
+    # test for validity of signed fallback transaction; requires 0.17;
+    # note that we count this as an implicit test of fallback mode.
     res = jm_single().bc_interface.rpc('testmempoolaccept', [[response[2]]])
-    print("Got this result from rpc call: ", res)
     assert res[0]["allowed"], "Proposed transaction was rejected from mempool."
     maker_response = maker.on_tx_received("faketaker", response[2])
     if not maker_response[0]:
