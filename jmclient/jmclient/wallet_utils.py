@@ -323,7 +323,7 @@ def get_tx_info(txid):
     cj_amount = value_freq_list[0][0]
     cj_n = value_freq_list[0][1]
     return is_coinjoin, cj_amount, cj_n, output_script_values,\
-        rpctx['blocktime'], txd
+        rpctx.get('blocktime', 0), txd
 
 
 def get_imported_privkey_branch(wallet, m, showprivkey):
