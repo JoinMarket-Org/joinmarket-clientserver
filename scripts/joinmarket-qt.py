@@ -60,9 +60,9 @@ qt5reactor.install()
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 
 #Underlying joinmarket code version (as per setup.py etc.)
-JM_CORE_VERSION = '0.5.0'
+JM_CORE_VERSION = '0.5.1'
 #Version of this Qt script specifically
-JM_GUI_VERSION = '8'
+JM_GUI_VERSION = '9'
 
 from jmbase import get_log
 from jmclient import load_program_config, get_network,\
