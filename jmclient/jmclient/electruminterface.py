@@ -535,3 +535,19 @@ class ElectrumInterface(BlockchainInterface):
         if not spentfun or wl[3]:
             return
 
+    def rpc(self, method, args):
+        # FIXME: this is very poorly written code
+        if method == 'gettransaction':
+            assert len(args) == 1
+            return self._gettransaction(args[0])
+        else:
+            raise NotImplementedError(method)
+
+    def _gettransaction(self, txid):
+        # FIXME: this is not complete and only implemented to work with
+        # wallet_utils
+        return {
+            'hex': str(self.get_from_electrum('blockchain.transaction.get',
+                                              txid, blocking=True)
+                       .get('result'))
+        }
