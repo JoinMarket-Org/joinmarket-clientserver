@@ -156,7 +156,7 @@ console_log_level = INFO
 
 [TIMEOUT]
 maker_timeout_sec = 60
-unconfirm_timeout_sec = 90
+unconfirm_timeout_sec = 180
 confirm_timeout_hours = 6
 
 [POLICY]
