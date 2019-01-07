@@ -19,16 +19,16 @@ Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin C
 
 Once you've downloaded this repo, either as a zip file, and extracted it, or via `git clone`:
 
-    ./install.sh -p python3
+    ./install.sh
     (follow instructions on screen; provide sudo password when prompted)
     source jmvenv/bin/activate
     cd scripts
 
-(You can omit `-p python3` if you want to use Python2. You can also add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
+(You can add `-p python2` if you want to use Python2. You can also add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
 
 For the Qt GUI, pass the `--with-qt` flag to `install.sh` as well :
 
-    ./install.sh -p python3 --with-qt
+    ./install.sh --with-qt
 
 Do note, Python 2 is incompatible with the Qt GUI.
 

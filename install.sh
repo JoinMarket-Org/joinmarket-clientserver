@@ -371,7 +371,7 @@ Usage: "${0}" [options]
 Options:
 
 --develop       code remains editable in place
---python, -p    python version (default: python2)
+--python, -p    python version (default: python3)
 --with-qt       build the Qt GUI (incompatible with python2)
 "
                 return 1
@@ -403,6 +403,9 @@ is_python3 ()
 {
     if [[ ${python} == 'python3' ]]; then
         return 0
+    fi
+    if [[ ${python} == 'python2' ]]; then
+        return 1
     fi
     if eval "${python} -c 'import sys; sys.exit(0) if sys.version_info >= (3,0) else sys.exit(1)'"; then
         return 0
@@ -442,7 +445,7 @@ main ()
     # flags
     develop_build=''
     no_gpg_validation=''
-    python='python2'
+    python='python3'
     with_qt=''
     reinstall='false'
     if ! parse_flags ${@}; then

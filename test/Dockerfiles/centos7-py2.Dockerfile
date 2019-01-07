@@ -29,5 +29,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN ./install.sh
+RUN ./install.sh --python=python2
 RUN source jmvenv/bin/activate && ./test/run_tests.sh
