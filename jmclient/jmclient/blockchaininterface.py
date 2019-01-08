@@ -16,7 +16,7 @@ import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import get_p2pk_vbyte, jm_single
-from jmbase.support import get_log
+from jmbase.support import get_log, jmprint
 
 log = get_log()
 
@@ -388,7 +388,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             if restart_cb:
                 restart_cb(restart_msg)
             else:
-                print(restart_msg)
+                jmprint(restart_msg, "important")
                 sys.exit(0)
 
     def sync_wallet(self, wallet, fast=False, restart_cb=None):
@@ -936,7 +936,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
 
         ret = super(RegtestBitcoinCoreInterface, self).pushtx(txhex)
         if not self.simulating and self.tick_forward_chain_interval > 0:
-            print('will call tfc after ' + str(self.tick_forward_chain_interval) + ' seconds.')
+            log.debug('will call tfc after ' + str(self.tick_forward_chain_interval) + ' seconds.')
             reactor.callLater(self.tick_forward_chain_interval,
                               self.tick_forward_chain, 1)
         return ret

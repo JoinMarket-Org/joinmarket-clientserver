@@ -57,7 +57,7 @@ class JMClientProtocol(amp.AMP):
         d.addErrback(self.defaultErrback)
 
     def connectionMade(self):
-        print('connection was made, starting client')
+        jlog.debug('connection was made, starting client.')
         self.factory.setClient(self)
         self.clientStart()
 

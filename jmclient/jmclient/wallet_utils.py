@@ -16,7 +16,7 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
     VolatileStorage, StoragePasswordError,
     is_segwit_mode, SegwitLegacyWallet, LegacyWallet)
-from jmbase.support import get_password
+from jmbase.support import get_password, jmprint
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH
 import jmbitcoin as btc
 
@@ -456,7 +456,7 @@ def cli_get_wallet_passphrase_check():
     password = get_password('Enter wallet file encryption passphrase: ')
     password2 = get_password('Reenter wallet file encryption passphrase: ')
     if password != password2:
-        print('ERROR. Passwords did not match')
+        jmprint('ERROR. Passwords did not match', "error")
         return False
     return password
 
@@ -467,7 +467,7 @@ def cli_display_user_words(words, mnemonic_extension):
     text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
     if mnemonic_extension:
         text += '\nAnd this mnemonic extension: ' + mnemonic_extension + '\n'
-    print(text)
+    jmprint(text, "important")
 
 def cli_user_mnemonic_entry():
     mnemonic_phrase = input("Input mnemonic recovery phrase: ")
@@ -480,9 +480,10 @@ def cli_get_mnemonic_extension():
     uin = input("Would you like to use a two-factor mnemonic recovery "
                     "phrase? write 'n' if you don't know what this is (y/n): ")
     if len(uin) == 0 or uin[0] != 'y':
-        print("Not using mnemonic extension")
+        jmprint("Not using mnemonic extension", "info")
         return None #no mnemonic extension
-    print("Note: This will be stored in a reversible way. Do not reuse!")
+    jmprint("Note: This will be stored in a reversible way. Do not reuse!",
+            "info")
     return input("Enter mnemonic extension: ")
 
 
@@ -554,7 +555,7 @@ def wallet_generate_recover(method, walletspath,
         try:
             entropy = LegacyWallet.entropy_from_mnemonic(seed)
         except WalletError as e:
-            print("Unable to restore seed: {}".format(e.message))
+            jmprint("Unable to restore seed: {}".format(e.message), "error")
             return False
     elif method != 'generate':
         raise Exception("unknown method for wallet creation: '{}'"
@@ -571,8 +572,8 @@ def wallet_generate_recover(method, walletspath,
 
     wallet = create_wallet(wallet_path, password, mixdepth,
                            wallet_cls=LegacyWallet, entropy=entropy)
-    print("Write down and safely store this wallet recovery seed\n\n{}\n"
-          .format(wallet.get_mnemonic_words()[0]))
+    jmprint("Write down and safely store this wallet recovery seed\n\n{}\n"
+          .format(wallet.get_mnemonic_words()[0]), "important")
     wallet.close()
     return True
 
@@ -628,7 +629,7 @@ def wallet_fetch_history(wallet, options):
                 sat_to_str(balance), skip_n1(cj_n), sat_to_str(miner_fees),
                 '% 3d' % utxo_count, skip_n1(mixdepth_src), skip_n1(mixdepth_dst)]
         if options.verbosity % 2 == 0: data += [txid]
-        print(s().join(map('"{}"'.format, data)))
+        jmprint(s().join(map('"{}"'.format, data)), "info")
 
 
     field_names = ['tx#', 'timestamp', 'type', 'amount/btc',
@@ -636,9 +637,9 @@ def wallet_fetch_history(wallet, options):
             'utxo-count', 'mixdepth-from', 'mixdepth-to']
     if options.verbosity % 2 == 0: field_names += ['txid']
     if options.csv:
-        print('Bumping verbosity level to 4 due to --csv flag')
+        jmprint('Bumping verbosity level to 4 due to --csv flag', "debug")
         options.verbosity = 4
-    if options.verbosity > 0: print(s().join(field_names))
+    if options.verbosity > 0: jmprint(s().join(field_names), "info")
     if options.verbosity <= 2: cj_batch = [0]*8 + [[]]*2
     balance = 0
     utxo_count = 0
@@ -722,7 +723,7 @@ def wallet_fetch_history(wallet, options):
             #payment to self
             out_value = sum([output_script_values[a] for a in our_output_scripts])
             if not is_coinjoin:
-                print('this is wrong TODO handle non-coinjoin internal')
+                jmprint('this is wrong TODO handle non-coinjoin internal', "warning")
             tx_type = 'cj internal'
             amount = cj_amount
             delta_balance = out_value - our_input_value
@@ -732,7 +733,7 @@ def wallet_fetch_history(wallet, options):
             mixdepth_dst = wallet.get_script_mixdepth(cj_script)
         else:
             tx_type = 'unknown type'
-            print('our utxos: ' + str(len(our_input_scripts)) \
+            jmprint('our utxos: ' + str(len(our_input_scripts)) \
                   + ' in, ' + str(len(our_output_scripts)) + ' out')
         balance += delta_balance
         utxo_count += (len(our_output_scripts) - utxos_consumed)
@@ -790,10 +791,10 @@ def wallet_fetch_history(wallet, options):
                 )['time']
     except JsonRpcError:
         now = jm_single().bc_interface.rpc('getblock', [bestblockhash])['time']
-    print('     %s best block is %s' % (datetime.fromtimestamp(now)
+    jmprint('     %s best block is %s' % (datetime.fromtimestamp(now)
         .strftime("%Y-%m-%d %H:%M"), bestblockhash))
     total_profit = float(balance - sum(deposits)) / float(100000000)
-    print('total profit = %.8f BTC' % total_profit)
+    jmprint('total profit = %.8f BTC' % total_profit)
 
     if abs(total_profit) > 0:
         try:
@@ -808,21 +809,21 @@ def wallet_fetch_history(wallet, options):
                 return np.sum(np.exp((now - deposit_times) / 60.0 / 60 / 24 /
                     365)**r * deposits) - final_balance
             r = brentq(f, a=1, b=-1, args=(deposits, deposit_times, now, balance))
-            print('continuously compounded equivalent annual interest rate = ' +
+            jmprint('continuously compounded equivalent annual interest rate = ' +
                 str(r * 100) + ' %')
-            print('(as if yield generator was a bank account)')
+            jmprint('(as if yield generator was a bank account)')
         except ImportError:
-            print('scipy not installed, unable to predict accumulation rate')
-            print('to add it to this virtualenv, use `pip install scipy`')
+            jmprint('scipy not installed, unable to predict accumulation rate')
+            jmprint('to add it to this virtualenv, use `pip install scipy`')
 
     total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
     if balance != total_wallet_balance:
-        print(('BUG ERROR: wallet balance (%s) does not match balance from ' +
+        jmprint(('BUG ERROR: wallet balance (%s) does not match balance from ' +
             'history (%s)') % (sat_to_str(total_wallet_balance),
                 sat_to_str(balance)))
     wallet_utxo_count = sum(map(len, wallet.get_utxos_by_mixdepth_().values()))
     if utxo_count != wallet_utxo_count:
-        print(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
+        jmprint(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
             'history (%s)') % (wallet_utxo_count, utxo_count))
 
 
@@ -835,11 +836,11 @@ def wallet_showseed(wallet):
 
 
 def wallet_importprivkey(wallet, mixdepth, key_type):
-    print("WARNING: This imported key will not be recoverable with your 12 "
-          "word mnemonic phrase. Make sure you have backups.")
-    print("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
+    jmprint("WARNING: This imported key will not be recoverable with your 12 "
+          "word mnemonic phrase. Make sure you have backups.", "warning")
+    jmprint("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
           "non-intuitive behaviour and loss of funds.\n  Recommended instead "
-          "is to use the \'sweep\' feature of sendpayment.py.")
+          "is to use the \'sweep\' feature of sendpayment.py.", "warning")
     privkeys = input("Enter private key(s) to import: ")
     privkeys = privkeys.split(',') if ',' in privkeys else privkeys.split()
     imported_addr = []
@@ -857,20 +858,22 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
             imported_addr.append(wallet.get_addr_path(path))
 
     if not imported_addr:
-        print("Warning: No keys imported!")
+        jmprint("Warning: No keys imported!", "error")
         return
 
     wallet.save()
 
     # show addresses to user so they can verify everything went as expected
-    print("Imported keys for addresses:\n{}".format('\n'.join(imported_addr)))
+    jmprint("Imported keys for addresses:\n{}".format('\n'.join(imported_addr)),
+            "success")
     if import_failed:
-        print("Warning: failed to import {} keys".format(import_failed))
+        jmprint("Warning: failed to import {} keys".format(import_failed),
+                "error")
 
 
 def wallet_dumpprivkey(wallet, hdpath):
     if not hdpath:
-        print("Error: no hd wallet path supplied")
+        jmprint("Error: no hd wallet path supplied", "error")
         return False
     path = wallet.path_repr_to_path(hdpath)
     return wallet.get_wif_path(path)  # will raise exception on invalid path
@@ -992,10 +995,11 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
                 pwd = get_password("Enter wallet decryption passphrase: ") or None
                 storage = Storage(path, password=pwd, read_only=read_only)
             except StoragePasswordError:
-                print("Wrong password, try again.")
+                jmprint("Wrong password, try again.", "warning")
                 continue
             except Exception as e:
-                print("Failed to load wallet, error message: " + repr(e))
+                jmprint("Failed to load wallet, error message: " + repr(e),
+                        "error")
                 raise e
             break
     else:
@@ -1081,8 +1085,8 @@ def wallet_tool_main(wallet_root_path):
         return wallet_display(wallet, options.gaplimit, options.showprivkey, summarized=True)
     elif method == "history":
         if not isinstance(jm_single().bc_interface, BitcoinCoreInterface):
-            print('showing history only available when using the Bitcoin Core ' +
-                    'blockchain interface')
+            jmprint('showing history only available when using the Bitcoin Core ' +
+                    'blockchain interface', "error")
             sys.exit(0)
         else:
             return wallet_fetch_history(wallet, options)
@@ -1133,5 +1137,5 @@ if __name__ == "__main__":
         acctlist.append(WalletViewAccount(rootpath, a, branches=branches))
     wallet = WalletView(rootpath + "/" + str(walletbranch),
                              accounts=acctlist)
-    print(wallet.serialize())
+    jmprint(wallet.serialize(), "success")
 

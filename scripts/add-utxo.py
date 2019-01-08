@@ -16,6 +16,7 @@ import binascii
 from pprint import pformat
 
 from optparse import OptionParser
+from jmbase import jmprint
 import jmbitcoin as btc
 from jmclient import load_program_config, jm_single, get_p2pk_vbyte,\
     open_wallet, sync_wallet, add_external_commitments, update_commitments,\
@@ -161,16 +162,16 @@ def main():
         if len(args) > 0 or other:
             if input("You have chosen to delete commitments, other arguments "
                          "will be ignored; continue? (y/n)") != 'y':
-                print("Quitting")
+                jmprint("Quitting", "warning")
                 sys.exit(0)
         c, e = get_podle_commitments()
-        print(pformat(e))
+        jmprint(pformat(e), "info")
         if input(
             "You will remove the above commitments; are you sure? (y/n): ") != 'y':
-            print("Quitting")
+            jmprint("Quitting", "warning")
             sys.exit(0)
         update_commitments(external_to_remove=e)
-        print("Commitments deleted.")
+        jmprint("Commitments deleted.", "important")
         sys.exit(0)
 
     #Three options (-w, -r, -R) for loading utxo and privkey pairs from a wallet,
@@ -199,13 +200,13 @@ def main():
                 utxo_data.append((u, priv))
     elif options.in_json:
         if not os.path.isfile(options.in_json):
-            print("File: " + options.in_json + " not found.")
+            jmprint("File: " + options.in_json + " not found.", "error")
             sys.exit(0)
         with open(options.in_json, "rb") as f:
             try:
                 utxo_json = json.loads(f.read())
             except:
-                print("Failed to read json from " + options.in_json)
+                jmprint("Failed to read json from " + options.in_json, "error")
                 sys.exit(0)
         for u, pva in iteritems(utxo_json):
             utxo_data.append((u, pva['privkey']))
@@ -232,4 +233,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print('done')
+    jmprint('done', "success")

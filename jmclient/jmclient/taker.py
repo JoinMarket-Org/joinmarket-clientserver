@@ -563,7 +563,8 @@ class Taker(object):
             #verify_tx_input will not even parse the script if it has integers or None,
             #so abort in case we were given a junk sig:
             if not all([not isinstance(x, int) and x for x in sig_deserialized]):
-                print("Junk signature: ", sig_deserialized, ", not attempting to verify")
+                jlog.warn("Junk signature: " + str(sig_deserialized) + \
+                          ", not attempting to verify")
                 break
             if len(sig_deserialized) == 2:
                 ver_sig, ver_pub = sig_deserialized

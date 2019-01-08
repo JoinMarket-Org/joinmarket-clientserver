@@ -10,6 +10,7 @@ import hashlib
 import json
 import binascii
 import struct
+from jmbase import jmprint
 from jmbitcoin import multiply, add_pubkeys, getG, podle_PublicKey,\
     podle_PrivateKey, encode, decode, N, podle_PublicKey_class
 
@@ -312,7 +313,8 @@ def update_commitments(commitment=None,
                 c = json.loads(f.read().decode('utf-8'))
             except ValueError: #pragma: no cover
                 #Exit conditions cannot be included in tests.
-                print("the file: " + PODLE_COMMIT_FILE + " is not valid json.")
+                jmprint("the file: " + PODLE_COMMIT_FILE + " is not valid json.",
+                        "error")
                 sys.exit(0)
 
     if 'used' in c:

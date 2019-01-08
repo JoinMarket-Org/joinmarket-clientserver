@@ -8,7 +8,7 @@ import os
 import time
 import numbers
 from binascii import unhexlify
-from jmbase import get_log
+from jmbase import get_log, jmprint
 from .configure import jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
@@ -233,18 +233,19 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
             #for command line script TODO
             if taker.schedule[taker.schedule_index+1][3] == 'addrask':
                 jm_single().debug_silence[0] = True
-                print('\n'.join(['=' * 60] * 3))
-                print('Tumbler requires more addresses to stop amount correlation')
-                print('Obtain a new destination address from your bitcoin recipient')
-                print(' for example click the button that gives a new deposit address')
-                print('\n'.join(['=' * 60] * 1))
+                jmprint('\n'.join(['=' * 60] * 3))
+                jmprint('Tumbler requires more addresses to stop amount correlation')
+                jmprint('Obtain a new destination address from your bitcoin recipient')
+                jmprint(' for example click the button that gives a new deposit address')
+                jmprint('\n'.join(['=' * 60] * 1))
                 while True:
                     destaddr = input('insert new address: ')
                     addr_valid, errormsg = validate_address(destaddr)
                     if addr_valid:
                         break
-                    print(
-                    'Address ' + destaddr + ' invalid. ' + errormsg + ' try again')
+                    jmprint(
+                    'Address ' + destaddr + ' invalid. ' + errormsg + ' try again',
+                    "warning")
                 jm_single().debug_silence[0] = False
                 taker.schedule[taker.schedule_index+1][3] = destaddr
                 taker.tdestaddrs.append(destaddr)

@@ -19,20 +19,20 @@ from jmclient import Taker, load_program_config, get_schedule,\
     sync_wallet, RegtestBitcoinCoreInterface, estimate_tx_fee, direct_send,\
     open_test_wallet_maybe, get_wallet_path
 from twisted.python.log import startLogging
-from jmbase.support import get_log
+from jmbase.support import get_log, jmprint
 from cli_options import get_sendpayment_parser, get_max_cj_fee_values
 
 log = get_log()
 
 #CLI specific, so relocated here (not used by tumbler)
 def pick_order(orders, n): #pragma: no cover
-    print("Considered orders:")
+    jmprint("Considered orders:", "info")
     for i, o in enumerate(orders):
-        print("    %2d. %20s, CJ fee: %6s, tx fee: %6d" %
-              (i, o[0]['counterparty'], str(o[0]['cjfee']), o[0]['txfee']))
+        jmprint("    %2d. %20s, CJ fee: %6s, tx fee: %6d" %
+              (i, o[0]['counterparty'], str(o[0]['cjfee']), o[0]['txfee']), "info")
     pickedOrderIndex = -1
     if i == 0:
-        print("Only one possible pick, picking it.")
+        jmprint("Only one possible pick, picking it.", "info")
         return orders[0]
     while pickedOrderIndex == -1:
         try:
@@ -67,15 +67,15 @@ def main():
         mixdepth = options.mixdepth
         addr_valid, errormsg = validate_address(destaddr)
         if not addr_valid:
-            print('ERROR: Address invalid. ' + errormsg)
+            jmprint('ERROR: Address invalid. ' + errormsg, "error")
             return
         schedule = [[options.mixdepth, amount, options.makercount,
                      destaddr, 0.0, 0]]
     else:
         result, schedule = get_schedule(options.schedule)
         if not result:
-            log.info("Failed to load schedule file, quitting. Check the syntax.")
-            log.info("Error was: " + str(schedule))
+            log.error("Failed to load schedule file, quitting. Check the syntax.")
+            log.error("Error was: " + str(schedule))
             sys.exit(0)
         mixdepth = 0
         for s in schedule:
@@ -95,8 +95,8 @@ def main():
     if options.pickorders:
         chooseOrdersFunc = pick_order
         if sweeping:
-            print('WARNING: You may have to pick offers multiple times')
-            print('WARNING: due to manual offer picking while sweeping')
+            jmprint('WARNING: You may have to pick offers multiple times', "warning")
+            jmprint('WARNING: due to manual offer picking while sweeping', "warning")
     else:
         chooseOrdersFunc = options.order_choose_fn
 
@@ -134,8 +134,8 @@ def main():
         return
 
     if wallet.get_txtype() == 'p2pkh':
-        print("Only direct sends (use -N 0) are supported for "
-              "legacy (non-segwit) wallets.")
+        jmprint("Only direct sends (use -N 0) are supported for "
+              "legacy (non-segwit) wallets.", "error")
         return
 
     def filter_orders_callback(orders_fees, cjamount):
@@ -198,9 +198,9 @@ def main():
                              "giving up this attempt.")
                     reactor.stop()
                     return
-                print("We failed to complete the transaction. The following "
+                jmprint("We failed to complete the transaction. The following "
                       "makers responded honestly: ", taker.honest_makers,
-                      ", so we will retry with them.")
+                      ", so we will retry with them.", "warning")
                 #Now we have to set the specific group we want to use, and hopefully
                 #they will respond again as they showed honesty last time.
                 #we must reset the number of counterparties, as well as fix who they
@@ -238,4 +238,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print('done')
+    jmprint('done', "success")

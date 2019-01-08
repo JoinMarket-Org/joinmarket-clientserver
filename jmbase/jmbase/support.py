@@ -1,16 +1,48 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
-from future.utils import iteritems
-
-import sys
 
 import logging
-import pprint
 from getpass import getpass
 
-logFormatter = logging.Formatter(
-    "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s")
+from chromalog.log import (
+    ColorizingStreamHandler,
+    ColorizingFormatter,
+)
+from chromalog.colorizer import GenericColorizer
+from colorama import Fore, Back, Style
+
+# magic; importing e.g. 'info' actually instantiates
+# that as a function that uses the color map
+# defined below. ( noqa because flake doesn't understand)
+from chromalog.mark.helpers.simple import (  # noqa: F401
+    debug,
+    info,
+    important,
+    success,
+    warning,
+    error,
+    critical,
+)
+
+# our chosen colorings for log messages in JM:
+jm_color_map = {
+    'debug': (Style.DIM + Fore.LIGHTBLUE_EX, Style.RESET_ALL),
+    'info': (Style.BRIGHT + Fore.BLUE, Style.RESET_ALL),
+    'important': (Style.BRIGHT, Style.RESET_ALL),
+    'success': (Fore.GREEN, Style.RESET_ALL),
+    'warning': (Fore.YELLOW, Style.RESET_ALL),
+    'error': (Fore.RED, Style.RESET_ALL),
+    'critical': (Back.RED, Style.RESET_ALL),
+}
+
+class JMColorizer(GenericColorizer):
+    default_color_map = jm_color_map
+
+jm_colorizer = JMColorizer()
+
+logFormatter = ColorizingFormatter(
+    "%(asctime)s [%(levelname)s]  %(message)s")
 log = logging.getLogger('joinmarket')
 log.setLevel(logging.DEBUG)
 
@@ -21,11 +53,10 @@ debug_silence = [False]
 #TODO pass this through from client, bitcoin paramater:
 DUST_THRESHOLD = 2730
 
-#consoleHandler = logging.StreamHandler(stream=sys.stdout)
-class JoinMarketStreamHandler(logging.StreamHandler):
+class JoinMarketStreamHandler(ColorizingStreamHandler):
 
-    def __init__(self, stream):
-        super(JoinMarketStreamHandler, self).__init__(stream)
+    def __init__(self):
+        super(JoinMarketStreamHandler, self).__init__(colorizer=jm_colorizer)
 
     def emit(self, record):
         if joinmarket_alert[0]:
@@ -35,10 +66,31 @@ class JoinMarketStreamHandler(logging.StreamHandler):
         if not debug_silence[0]:
             super(JoinMarketStreamHandler, self).emit(record)
 
+handler = JoinMarketStreamHandler()
+handler.setFormatter(logFormatter)
+log.addHandler(handler)
 
-consoleHandler = JoinMarketStreamHandler(stream=sys.stdout)
-consoleHandler.setFormatter(logFormatter)
-log.addHandler(consoleHandler)
+def jmprint(msg, level="info"):
+    """ Provides the ability to print messages
+    with consistent formatting, outside the logging system
+    (in case you don't want the standard log format).
+    Example applications are: REPL style stuff, and/or
+    some very important / user workflow affecting communication.
+    Note that this exclusively for console printout, NOT for
+    logging to file (chromalog will handle file streams
+    properly, but this will not).
+    """
+    if not level in jm_color_map.keys():
+        raise Exception("Unsupported formatting")
+
+    # .colorize_message function does a .format() on the string,
+    # which does not work with string-ified json; this should
+    # result in output as intended:
+    msg = msg.replace('{', '{{')
+    msg = msg.replace('}', '}}')
+
+    fmtfn = eval(level)
+    print(jm_colorizer.colorize_message(fmtfn(msg)))
 
 def get_log():
     """
@@ -48,7 +100,7 @@ def get_log():
     return log
 
 def set_logging_level(level):
-    consoleHandler.setLevel(level)
+    handler.setLevel(level)
 
 def chunks(d, n):
     return [d[x:x + n] for x in range(0, len(d), n)]
@@ -58,21 +110,3 @@ def get_password(msg): #pragma: no cover
     if not isinstance(password, bytes):
         password = password.encode('utf-8')
     return password
-
-def debug_dump_object(obj, skip_fields=None):
-    if skip_fields is None:
-        skip_fields = []
-    log.debug('Class debug dump, name:' + obj.__class__.__name__)
-    for k, v in iteritems(obj.__dict__):
-        if k in skip_fields:
-            continue
-        if k == 'password' or k == 'given_password':
-            continue
-        log.debug('key=' + k)
-        if isinstance(v, str):
-            log.debug('string: len:' + str(len(v)))
-            log.debug(v)
-        elif isinstance(v, dict) or isinstance(v, list):
-            log.debug(pprint.pformat(v))
-        else:
-            log.debug(str(v))
