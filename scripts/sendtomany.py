@@ -65,7 +65,9 @@ def main():
                     "commitments in Joinmarket until 5 confirmations have passed."
                     " BE CAREFUL about handling private keys!"
                     " Don't do this in insecure environments."
-                    " Also note this ONLY works for standard (p2pkh) utxos."
+                    " Works only with p2pkh ('1') or p2sh-p2wpkh (segwit '3')"
+                    " utxos - set segwit=False in the POLICY section of"
+                    " joinmarket.cfg for the former."
     )
     parser.add_option(
         '-v',
