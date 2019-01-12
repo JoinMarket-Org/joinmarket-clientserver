@@ -1009,12 +1009,15 @@ class JMWalletTab(QWidget):
 
     def initUI(self):
         self.label1 = QLabel(
-            "CURRENT WALLET: " + self.wallet_name + ', total balance: 0.0',
+            'No wallet loaded. Use "Wallet > Load" to load existing wallet ' +
+            'or "Wallet > Generate" to create a new wallet.',
             self)
+        self.label1.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
         v = MyTreeWidget(self, self.create_menu, self.getHeaders())
         v.setSelectionMode(QAbstractItemView.ExtendedSelection)
         v.on_update = self.updateWalletInfo
-        self.history = v
+        v.hide()
+        self.walletTree = v
         vbox = QVBoxLayout()
         self.setLayout(vbox)
         vbox.setContentsMargins(0,0,0,0)
@@ -1031,7 +1034,7 @@ class JMWalletTab(QWidget):
         return ['Address', 'Index', 'Balance', 'Used/New']
 
     def create_menu(self, position):
-        item = self.history.currentItem()
+        item = self.walletTree.currentItem()
         address_valid = False
         xpub_exists = False
         if item:
@@ -1054,10 +1057,10 @@ class JMWalletTab(QWidget):
         menu.addAction("Resync wallet from blockchain",
                        lambda: w.resyncWallet())
         #TODO add more items to context menu
-        menu.exec_(self.history.viewport().mapToGlobal(position))
+        menu.exec_(self.walletTree.viewport().mapToGlobal(position))
 
     def updateWalletInfo(self, walletinfo=None):
-        l = self.history
+        l = self.walletTree
         l.clear()
         if walletinfo:
             self.mainwindow = self.parent().parent().parent()
@@ -1068,6 +1071,7 @@ class JMWalletTab(QWidget):
                 self.wallet_name = os.path.basename(self.mainwindow.wallet._storage.path)
             self.label1.setText("CURRENT WALLET: " + self.wallet_name +
                                 ', total balance: ' + total_bal)
+            self.walletTree.show()
 
         for i in range(jm_single().config.getint("GUI", "max_mix_depth")):
             if walletinfo:
