@@ -259,11 +259,11 @@ class txIRC_Client(irc.IRCClient, object):
     # ---------------------------------------------
 
     def signedOn(self):
-        wlog('signedOn:')
+        wlog('signedOn: ', self.hostname)
         self.join(self.factory.channel)
 
     def joined(self, channel):
-        wlog('joined: ', channel)
+        wlog('joined: ', channel, self.hostname)
         #Use as trigger for start to mcc:
         reactor.callLater(0.0, self.wrapper.on_welcome, self.wrapper)
 
