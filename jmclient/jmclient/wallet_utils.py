@@ -813,7 +813,7 @@ def wallet_fetch_history(wallet, options):
             print('(as if yield generator was a bank account)')
         except ImportError:
             print('scipy not installed, unable to predict accumulation rate')
-            print('to add it to this virtualenv, use `pip2 install scipy`')
+            print('to add it to this virtualenv, use `pip install scipy`')
 
     total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
     if balance != total_wallet_balance:
