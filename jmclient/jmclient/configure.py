@@ -148,6 +148,21 @@ socks5_port = 9050
 #usessl = false
 #socks5 = true
 
+[MESSAGING:server3]
+host = irc.darkscience.net
+channel = joinmarket-pit
+port = 6697
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
+
+#for tor
+#host = darksci3bfoka7tw.onion
+#port = 6697
+#usessl = true
+#socks5 = true
+
 [LOGGING]
 # Set the log level for the output to the terminal/console
 # Possible choices: DEBUG / INFO / WARNING / ERROR
