@@ -7,6 +7,7 @@ import abc
 import base64
 import binascii
 import threading
+from twisted.internet import reactor
 from jmdaemon import encrypt_encode, decode_decrypt, COMMAND_PREFIX,\
     NICK_HASH_LENGTH, NICK_MAX_ENCODED, plaintext_commands,\
     encrypted_commands, commitment_broadcast_list, offername_list
@@ -112,6 +113,7 @@ class MessageChannelCollection(object):
         #control access
         self.mc_lock = threading.Lock()
         self.nick=None
+        self.on_welcome_announce_id = None
 
     def set_nick(self, nick):
         if nick != self.nick:
@@ -412,9 +414,22 @@ class MessageChannelCollection(object):
             self.mc_status[mc] = 1
             if self.welcomed:
                 return
+
+            #Startup sequence:
+            #Since this trigger was called, at least one mchan is ready.
             #This way broadcasts orders or requests ONCE to ALL mchans
             #which are actually available.
-            if not any([x == 0 for x in self.mc_status.values()]):
+
+            # Any mchans not ready yet? Wait up to 60s for them.
+            if any([x == 0 for x in self.mc_status.values()]):
+                log.info("Could not connect to *ALL* servers yet, waiting " +
+                          "up to 60 more seconds.")
+                if not self.on_welcome_announce_id:
+                    self.on_welcome_announce_id = reactor.callLater(60, self.on_welcome,)
+            else:
+                log.info("All IRC servers connected, starting execution.")
+                if on_welcome_announce_id:
+                    self.on_welcome_announce_id.cancel()
                 if self.on_welcome:
                     self.on_welcome()
                 self.welcomed = True
