@@ -442,7 +442,7 @@ class MessageChannelCollection(object):
             #Is the nick available on another channel?
             other_channels = [x for x in self.available_channels() if x != mc]
             if len(other_channels) == 0:
-                log.warn(
+                log.debug(
                     "Cannot reconnect to dropped nick, no connections available.")
                 if self.on_nick_leave:
                     self.on_nick_leave(nick)
