@@ -130,7 +130,6 @@ socks5_port = 9050
 #host = 6dvj6v5imhny3anf.onion
 #onion / i2p have their own ports on CGAN
 #port = 6698
-#usessl = true
 #socks5 = true
 
 [MESSAGING:server2]
@@ -146,6 +145,19 @@ socks5_port = 9050
 #host = cfyfz6afpgfeirst.onion
 #port = 6667
 #usessl = false
+#socks5 = true
+
+[MESSAGING:server3]
+host = irc.darkscience.net
+channel = joinmarket-pit
+port = 6697
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
+
+#for tor
+#host = darksci3bfoka7tw.onion
 #socks5 = true
 
 [LOGGING]
