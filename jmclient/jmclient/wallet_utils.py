@@ -556,14 +556,14 @@ def wallet_generate_recover(method, walletspath,
             entropy = LegacyWallet.entropy_from_mnemonic(seed)
         except WalletError as e:
             jmprint("Unable to restore seed: {}".format(e.message), "error")
-            return False
+            return ""
     elif method != 'generate':
         raise Exception("unknown method for wallet creation: '{}'"
                         .format(method))
 
     password = cli_get_wallet_passphrase_check()
     if not password:
-        return False
+        return ""
 
     wallet_name = cli_get_wallet_file_name()
     if not wallet_name:
@@ -825,6 +825,8 @@ def wallet_fetch_history(wallet, options):
     if utxo_count != wallet_utxo_count:
         jmprint(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
             'history (%s)') % (wallet_utxo_count, utxo_count))
+    # wallet-tool.py prints return value, so return empty string instead of None here
+    return ''
 
 
 def wallet_showseed(wallet):
@@ -874,7 +876,7 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
 def wallet_dumpprivkey(wallet, hdpath):
     if not hdpath:
         jmprint("Error: no hd wallet path supplied", "error")
-        return False
+        return ""
     path = wallet.path_repr_to_path(hdpath)
     return wallet.get_wif_path(path)  # will raise exception on invalid path
 
@@ -889,9 +891,8 @@ def wallet_signmessage(wallet, hdpath, message):
 
     path = wallet.path_repr_to_path(hdpath)
     sig = wallet.sign_message(msg, path)
-    return ("Signature: {}\n"
-            "To verify this in Bitcoin Core use the RPC command 'verifymessage'"
-            .format(sig))
+    retval = "Signature: {}\nTo verify this in Bitcoin Core".format(sig)
+    return retval + " use the RPC command 'verifymessage'"
 
 
 def get_wallet_type():
@@ -1093,11 +1094,11 @@ def wallet_tool_main(wallet_root_path):
     elif method == "generate":
         retval = wallet_generate_recover("generate", wallet_root_path,
                                          mixdepth=options.mixdepth)
-        return retval if retval else "Failed"
+        return "Generated wallet OK" if retval else "Failed"
     elif method == "recover":
         retval = wallet_generate_recover("recover", wallet_root_path,
                                          mixdepth=options.mixdepth)
-        return retval if retval else "Failed"
+        return "Recovered wallet OK" if retval else "Failed"
     elif method == "showutxos":
         return wallet_showutxos(wallet, options.showprivkey)
     elif method == "showseed":
