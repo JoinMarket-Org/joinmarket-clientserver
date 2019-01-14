@@ -45,6 +45,7 @@ class Maker(object):
         if not self.offerlist:
             jlog.info("Failed to create offers, giving up.")
             sys.exit(0)
+        jlog.info('offerlist={}'.format(self.offerlist))
 
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
         """Receives data on proposed transaction offer from daemon, verifies
