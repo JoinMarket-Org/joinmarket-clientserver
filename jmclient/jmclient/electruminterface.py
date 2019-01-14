@@ -18,7 +18,7 @@ from twisted.protocols.basic import LineReceiver
 from twisted.internet import reactor, task, defer
 from .blockchaininterface import BlockchainInterface
 from .configure import get_p2sh_vbyte
-from jmbase import get_log
+from jmbase import get_log, jmprint
 from .electrum_data import get_default_servers, set_electrum_testnet,\
     DEFAULT_PROTO
 
@@ -96,7 +96,7 @@ class TxElectrumClientProtocolFactory(ClientFactory):
         self.bci.start_electrum_proto(None)
 
     def clientConnectionFailed(self, connector, reason):
-        print('connection failed')
+        jmprint('connection failed', "warning")
         self.bci.start_electrum_proto(None)
 
 class ElectrumConn(threading.Thread):
@@ -423,7 +423,7 @@ class ElectrumInterface(BlockchainInterface):
         if super(ElectrumInterface, self).fee_per_kb_has_been_manually_set(N):
             return int(random.uniform(N * float(0.8), N * float(1.2)))
         fee_info = self.get_from_electrum('blockchain.estimatefee', N, blocking=True)
-        print('got fee info result: ' + str(fee_info))
+        jmprint('got fee info result: ' + str(fee_info), "debug")
         fee = fee_info.get('result')
         fee_per_kb_sat = int(float(fee) * 100000000)
         return fee_per_kb_sat
@@ -437,7 +437,7 @@ class ElectrumInterface(BlockchainInterface):
         End the loop when the confirmation has been seen (no spent monitoring here).
         """
         wl = self.tx_watcher_loops[notifyaddr]
-        print('txoutset=' + pprint.pformat(tx_output_set))
+        jmprint('txoutset=' + pprint.pformat(tx_output_set), "debug")
         unconftx = self.get_from_electrum('blockchain.address.get_mempool',
                                           notifyaddr, blocking=True).get('result')
         unconftxs = set([str(t['tx_hash']) for t in unconftx])
@@ -453,14 +453,14 @@ class ElectrumInterface(BlockchainInterface):
                 txhex = txdata['hex']
                 outs = set([(sv['script'], sv['value']) for sv in btc.deserialize(
                     txhex)['outs']])
-                print('unconfirm query outs = ' + str(outs))
+                jmprint('unconfirm query outs = ' + str(outs), "debug")
                 if outs == tx_output_set:
                     unconfirmed_txid = txdata['id']
                     unconfirmed_txhex = txhex
                     break
             #call unconf callback if it was found in the mempool
             if unconfirmed_txid and not wl[1]:
-                print("Tx: " + str(unconfirmed_txid) + " seen on network.")
+                jmprint("Tx: " + str(unconfirmed_txid) + " seen on network.", "info")
                 unconfirmfun(btc.deserialize(unconfirmed_txhex), unconfirmed_txid)
                 wl[1] = True
                 return
@@ -479,7 +479,7 @@ class ElectrumInterface(BlockchainInterface):
                 txhex = txdata['hex']
                 outs = set([(sv['script'], sv['value']) for sv in btc.deserialize(
                     txhex)['outs']])
-                print('confirm query outs = ' + str(outs))
+                jmprint('confirm query outs = ' + str(outs), "info")
                 if outs == tx_output_set:
                     confirmed_txid = txdata['id']
                     confirmed_txhex = txhex
@@ -518,7 +518,7 @@ class ElectrumInterface(BlockchainInterface):
         unconftxs = [str(t['tx_hash']) for t in unconftxs_res]
 
         if not wl[1] and txid in unconftxs:
-            print("Tx: " + str(txid) + " seen on network.")
+            jmprint("Tx: " + str(txid) + " seen on network.", "info")
             unconfirmfun(txd, txid)
             wl[1] = True
             return
@@ -526,7 +526,7 @@ class ElectrumInterface(BlockchainInterface):
                                         addr, blocking=True).get('result')
         conftxs = [str(t['tx_hash']) for t in conftx]
         if not wl[2] and len(conftxs) and txid in conftxs:
-            print("Tx: " + str(txid) + " is confirmed.")
+            jmprint("Tx: " + str(txid) + " is confirmed.", "info")
             confirmfun(txd, txid, 1)
             wl[2] = True
             #Note we do not stop the monitoring loop when

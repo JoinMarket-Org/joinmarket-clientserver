@@ -17,6 +17,7 @@ from builtins import * # noqa: F401
 from common import make_wallets
 import pytest
 import random
+from jmbase import jmprint
 from jmclient import YieldGeneratorBasic, load_program_config, jm_single,\
     sync_wallet, JMClientProtocolFactory, start_reactor
 
@@ -41,14 +42,14 @@ class MaliciousYieldGenerator(YieldGeneratorBasic):
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
         if self.authmal:
             if random.randint(1, 100) < self.mfrac:
-                print("Counterparty commitment rejected maliciously")
+                jmprint("Counterparty commitment rejected maliciously", "debug")
                 return (False,)
         return super(MaliciousYieldGenerator, self).on_auth_received(nick,
                                     offer, commitment, cr, amount, kphex)
     def on_tx_received(self, nick, txhex, offerinfo):
         if self.txmal:
             if random.randint(1, 100) < self.mfrac:
-                print("Counterparty tx rejected maliciously")
+                jmprint("Counterparty tx rejected maliciously", "debug")
                 return (False, "malicious tx rejection")
         return super(MaliciousYieldGenerator, self).on_tx_received(nick, txhex,
                                                                    offerinfo)
@@ -74,13 +75,13 @@ class DeterministicMaliciousYieldGenerator(YieldGeneratorBasic):
 
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
         if self.authmal:
-            print("Counterparty commitment rejected maliciously")
+            jmprint("Counterparty commitment rejected maliciously", "debug")
             return (False,)
         return super(DeterministicMaliciousYieldGenerator, self).on_auth_received(nick,
                                     offer, commitment, cr, amount, kphex)
     def on_tx_received(self, nick, txhex, offerinfo):
         if self.txmal:
-            print("Counterparty tx rejected maliciously")
+            jmprint("Counterparty tx rejected maliciously", "debug")
             return (False, "malicious tx rejection")
         return super(DeterministicMaliciousYieldGenerator, self).on_tx_received(nick, txhex,
                                                                    offerinfo)
@@ -106,17 +107,15 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
                            mean_amt=mean_amt)
     #the sendpayment bot uses the last wallet in the list
     wallet = wallets[num_ygs]['wallet']
-    print("\n\nTaker wallet seed : " + wallets[num_ygs]['seed'])
+    jmprint("\n\nTaker wallet seed : " + wallets[num_ygs]['seed'])
     # for manual audit if necessary, show the maker's wallet seeds
     # also (note this audit should be automated in future, see
     # test_full_coinjoin.py in this directory)
-    print("\n\nMaker wallet seeds: ")
+    jmprint("\n\nMaker wallet seeds: ")
     for i in range(num_ygs):
-        print("Maker seed: " + wallets[i]['seed'])
-    print("\n")
-    #useful to see the utxos on screen sometimes
+        jmprint("Maker seed: " + wallets[i]['seed'])
+    jmprint("\n")
     sync_wallet(wallet, fast=True)
-    print(wallet.get_utxos_by_mixdepth())
     txfee = 1000
     cjfee_a = 4200
     cjfee_r = '0.001'

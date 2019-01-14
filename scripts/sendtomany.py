@@ -11,7 +11,7 @@ for other reasons).
 from pprint import pformat
 from optparse import OptionParser
 import jmbitcoin as btc
-from jmbase import get_log
+from jmbase import get_log, jmprint
 from jmclient import load_program_config, estimate_tx_fee, jm_single,\
     get_p2pk_vbyte, validate_address, get_utxo_info,\
     validate_utxo_data, quit
@@ -121,4 +121,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    print('done')
+    jmprint('done', "success")

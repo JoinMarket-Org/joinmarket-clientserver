@@ -12,7 +12,7 @@ from configparser import ConfigParser, NoOptionError
 import jmbitcoin as btc
 from jmclient.jsonrpc import JsonRpc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
-                            set_logging_level)
+                            set_logging_level, jmprint)
 from jmclient.podle import set_commitment_file
 
 log = get_log()
@@ -407,8 +407,8 @@ def load_program_config(config_path=None, bs=None):
     if len(loadedFiles) != 1:
         with open(global_singleton.config_location, "w") as configfile:
             configfile.write(defaultconfig)
-        print("Created a new `joinmarket.cfg`. Please review and adopt the "
-              "settings and restart joinmarket.")
+        jmprint("Created a new `joinmarket.cfg`. Please review and adopt the "
+              "settings and restart joinmarket.", "info")
         exit(1)
 
     #These are left as sanity checks but currently impossible
@@ -437,7 +437,8 @@ def load_program_config(config_path=None, bs=None):
     try:
         set_logging_level(loglevel)
     except:
-        print("Failed to set logging level, must be DEBUG, INFO, WARNING, ERROR")
+        jmprint("Failed to set logging level, must be DEBUG, INFO, WARNING, ERROR",
+                "error")
     try:
         global_singleton.maker_timeout_sec = global_singleton.config.getint(
             'TIMEOUT', 'maker_timeout_sec')

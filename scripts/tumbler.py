@@ -14,7 +14,7 @@ from jmclient import Taker, load_program_config, get_schedule,\
     RegtestBitcoinCoreInterface, schedule_to_text, restart_waiter,\
     get_tumble_log, tumbler_taker_finished_update,\
     tumbler_filter_orders_callback
-from jmbase.support import get_log
+from jmbase.support import get_log, jmprint
 from cli_options import get_tumbler_parser, get_max_cj_fee_values
 log = get_log()
 logsdir = os.path.join(os.path.dirname(
@@ -27,7 +27,7 @@ def main():
     options_org = options
     options = vars(options)
     if len(args) < 1:
-        print('Error: Needs a wallet file')
+        jmprint('Error: Needs a wallet file', "error")
         sys.exit(0)
     load_program_config()
 
@@ -50,7 +50,7 @@ def main():
     #Output information to log files
     jm_single().mincjamount = options['mincjamount']
     destaddrs = args[1:]
-    print(destaddrs)
+    jmprint("Destination addresses: " + str(destaddrs), "important")
     #If the --restart flag is set we read the schedule
     #from the file, and filter out entries that are
     #already complete
@@ -58,9 +58,9 @@ def main():
         res, schedule = get_schedule(os.path.join(logsdir,
                                                   options['schedulefile']))
         if not res:
-            print("Failed to load schedule, name: " + str(
-                options['schedulefile']))
-            print("Error was: " + str(schedule))
+            jmprint("Failed to load schedule, name: " + str(
+                options['schedulefile']), "error")
+            jmprint("Error was: " + str(schedule), "error")
             sys.exit(0)
         #This removes all entries that are marked as done
         schedule = [s for s in schedule if s[5] != 1]

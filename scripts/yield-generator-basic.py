@@ -3,7 +3,7 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
 
-from jmbase import get_log
+from jmbase import get_log, jmprint
 from jmclient import YieldGeneratorBasic, ygmain
 
 """THESE SETTINGS CAN SIMPLY BE EDITED BY HAND IN THIS FILE:
@@ -23,4 +23,4 @@ if __name__ == "__main__":
            cjfee_r=cjfee_r, ordertype=ordertype,
            nickserv_password=nickserv_password,
            minsize=max_minsize, gaplimit=gaplimit)
-    print('done')
+    jmprint('done', "success")

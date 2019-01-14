@@ -6,7 +6,7 @@ from future.utils import iteritems
 
 import random
 
-from jmbase import get_log
+from jmbase import get_log, jmprint
 from jmclient import YieldGeneratorBasic, ygmain, jm_single
 
 
@@ -98,4 +98,4 @@ if __name__ == "__main__":
            cjfee_r=cjfee_r, ordertype=ordertype,
            nickserv_password='',
            minsize=minsize, gaplimit=gaplimit)
-    print('done')
+    jmprint('done', "success")
