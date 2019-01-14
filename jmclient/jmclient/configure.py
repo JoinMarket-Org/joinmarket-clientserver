@@ -12,7 +12,7 @@ from configparser import ConfigParser, NoOptionError
 import jmbitcoin as btc
 from jmclient.jsonrpc import JsonRpc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
-                            set_logging_level, jmprint)
+                            set_logging_level, jmprint, set_logging_color)
 from jmclient.podle import set_commitment_file
 
 log = get_log()
@@ -165,6 +165,9 @@ socks5_port = 9050
 # Possible choices: DEBUG / INFO / WARNING / ERROR
 # Log level for the files in the logs-folder will always be DEBUG
 console_log_level = INFO
+
+# Use color-coded log messages to help distinguish log levels?:
+color = true
 
 [TIMEOUT]
 maker_timeout_sec = 60
@@ -439,6 +442,13 @@ def load_program_config(config_path=None, bs=None):
     except:
         jmprint("Failed to set logging level, must be DEBUG, INFO, WARNING, ERROR",
                 "error")
+
+    # Logs to the console are color-coded if user chooses (file is unaffected)
+    if global_singleton.config.get("LOGGING", "color") == "true":
+        set_logging_color(True)
+    else:
+        set_logging_color(False)
+
     try:
         global_singleton.maker_timeout_sec = global_singleton.config.getint(
             'TIMEOUT', 'maker_timeout_sec')

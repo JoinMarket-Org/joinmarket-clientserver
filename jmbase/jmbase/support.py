@@ -9,7 +9,7 @@ from chromalog.log import (
     ColorizingStreamHandler,
     ColorizingFormatter,
 )
-from chromalog.colorizer import GenericColorizer
+from chromalog.colorizer import GenericColorizer, MonochromaticColorizer
 from colorama import Fore, Back, Style
 
 # magic; importing e.g. 'info' actually instantiates
@@ -101,6 +101,12 @@ def get_log():
 
 def set_logging_level(level):
     handler.setLevel(level)
+
+def set_logging_color(colored=False):
+    if colored:
+        handler.colorizer = jm_colorizer
+    else:
+        handler.colorizer = MonochromaticColorizer()
 
 def chunks(d, n):
     return [d[x:x + n] for x in range(0, len(d), n)]
