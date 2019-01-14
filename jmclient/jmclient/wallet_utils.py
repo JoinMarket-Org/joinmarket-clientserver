@@ -825,6 +825,8 @@ def wallet_fetch_history(wallet, options):
     if utxo_count != wallet_utxo_count:
         jmprint(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
             'history (%s)') % (wallet_utxo_count, utxo_count))
+    # wallet-tool.py prints return value, so return empty string instead of None here
+    return ''
 
 
 def wallet_showseed(wallet):
