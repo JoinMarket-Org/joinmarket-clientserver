@@ -79,7 +79,7 @@ class JsonRpc(object):
         headers = {"User-Agent": "joinmarket",
                    "Content-Type": "application/json",
                    "Accept": "application/json"}
-        headers["Authorization"] = b"Basic %s" % base64.b64encode(self.authstr.encode('utf-8'))
+        headers["Authorization"] = b"Basic " + base64.b64encode(self.authstr.encode('utf-8'))
 
         body = json.dumps(obj)
 
