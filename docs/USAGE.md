@@ -3,16 +3,9 @@ followed a manual installation as per [here](INSTALL.md)).
 
 (If you want to run Joinmarket-Qt, start with the [walkthrough](JOINMARKET-QT-GUIDE.md) instead of this.)
 
-### Zeroth step: configuring for Bitcoin Core (or using Electrum servers).
+### Zeroth step: configuring for Bitcoin Core.
 
-It's highly recommended to run Joinmarket using a Bitcoin Core instance to connect to the Bitcoin network,
-and in the case of running a yield generator it's basically required. It gives better privacy, performance
-and reliability.
-
-The Bitcoin Core node *can* be pruned.
-
-To run one or more simple coinjoins without requiring Bitcoin Core, you can set the value of `blockchain_source` in the `[BLOCKCHAIN]` section of `joinmarket.cfg` (see below) to `electrum-server`.
-This will choose servers randomly and should sync the wallet quite quickly (a few seconds), but is not *perfectly* reliable (connections will fail occasionally; just try again).
+Bitcoin Core is required to use Joinmarket; note that the node *can* be pruned.
 
 Configuring Joinmarket for Core is now reduced, since there is no longer any `walletnotify` used.
 
@@ -32,7 +25,7 @@ and edit:
 Note, you can also use a cookie file by setting, in this section, a variable `rpc_cookie_file` to the location of the file,
 as an alternative to using user/password.
 
-(or, if not using Core, just make the edit mentioned above for `electrum-server`).
+If you use Bitcoin Core's multiwallet feature, you can edit the value of rpc_wallet_file to your chosen wallet file.
 
 Then retry the same `generate` command; it should now not error (see below).
 If you still get rpc connection errors, make sure you can connect to your Core node using the command line first.
