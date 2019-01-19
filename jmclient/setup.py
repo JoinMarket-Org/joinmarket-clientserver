@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 setup(name='joinmarketclient',
-      version='0.5.1',
+      version='0.5.2',
       description='Joinmarket client library for Bitcoin coinjoins',
       url='http://github.com/Joinmarket-Org/joinmarket-clientserver/jmclient',
       author='',
@@ -10,6 +10,6 @@ setup(name='joinmarketclient',
       license='GPL',
       packages=['jmclient'],
       install_requires=['future', 'configparser;python_version<"3.2"',
-                        'joinmarketbase==0.5.1', 'mnemonic', 'argon2_cffi',
+                        'joinmarketbase==0.5.2', 'mnemonic', 'argon2_cffi',
                         'bencoder.pyx>=2.0.0', 'pyaes'],
       zip_safe=False)
