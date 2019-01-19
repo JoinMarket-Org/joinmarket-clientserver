@@ -117,6 +117,11 @@ class JsonRpc(object):
                     self.conn.close()
                     self.conn.connect()
                     continue
+                elif e.errno == errno.EPROTOTYPE:
+                    jlog.warn('Connection had protocol wrong type for socket error, attempting reconnect.')
+                    self.conn.close()
+                    self.conn.connect()
+                    continue
                 else:
                     jlog.error('Unhandled connection error ' + str(e))
                     raise e
