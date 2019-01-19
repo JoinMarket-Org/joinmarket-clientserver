@@ -154,7 +154,7 @@ This data is stored in the file payjoin.txt but not currently using any encoding
 * Sender starts up the sendpayment script:
 
 ```
-python sendpayment.py -m 1 receiver-wallet.jmdat 27000000 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS -T J5AFezpsuV95CBCH
+python sendpayment.py -m 1 sender-wallet.jmdat 27000000 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS -T J5AFezpsuV95CBCH
 ```
 
 Notice that the user has specified the three pieces of data given; using the `-T` flags this as a PayJoin; if you don't do this you will be
