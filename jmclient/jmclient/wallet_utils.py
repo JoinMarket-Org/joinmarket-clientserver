@@ -712,7 +712,7 @@ def wallet_fetch_history(wallet, options):
                 tx_type = 'cj withdraw'
                 amount = cj_amount
             else:
-                tx_type = 'withdraw'
+                tx_type = 'withdraw   '
                 #TODO does tx_fee go here? not my_tx_fee only?
                 amount = our_input_value - change_value
                 cj_n = -1
