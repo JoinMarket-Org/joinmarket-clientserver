@@ -175,8 +175,14 @@ unconfirm_timeout_sec = 180
 confirm_timeout_hours = 6
 
 [POLICY]
-#Use segwit style wallets and transactions
+# Use segwit style wallets and transactions
+# Only set to false for old wallets, Joinmarket is now segwit only.
 segwit = true
+
+# Use native segwit (bech32) wallet. This is NOT
+# currently supported in Joinmarket coinjoins. Only set to "true"
+# if specifically advised to do so.
+native = false
 
 # for dust sweeping, try merge_algorithm = gradual
 # for more rapid dust sweeping, try merge_algorithm = greedy
@@ -352,7 +358,12 @@ def validate_address(addr):
     try:
         assert len(addr) > 2
         if addr[:2].lower() in ['bc', 'tb']:
-            #Enforce testnet/mainnet per config
+            # Regtest special case
+            if addr[:4] == 'bcrt':
+                if btc.bech32addr_decode('bcrt', addr)[1]:
+                    return True, 'address validated'
+                return False, 'Invalid bech32 regtest address'
+            #Else, enforce testnet/mainnet per config
             if get_network() == "testnet":
                 hrpreq = 'tb'
             else:
@@ -526,3 +537,8 @@ def get_blockchain_interface_instance(_config):
 
 def is_segwit_mode():
     return jm_single().config.get('POLICY', 'segwit') != 'false'
+
+def is_native_segwit_mode():
+    if not is_segwit_mode():
+        return False
+    return jm_single().config.get('POLICY', 'native') != 'false'

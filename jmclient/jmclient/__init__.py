@@ -8,21 +8,22 @@ from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       cheapest_order_choose, weighted_order_choose,
                       rand_norm_array, rand_pow_array, rand_exp_array, select,
                       select_gradual, select_greedy, select_greediest,
-                      get_random_bytes, random_under_max_order_choose)
+                      get_random_bytes, random_under_max_order_choose,
+                      select_one_utxo)
 from .jsonrpc import JsonRpcError, JsonRpcConnectionError, JsonRpc
 from .old_mnemonic import mn_decode, mn_encode
-from .taker import Taker
+from .taker import Taker, P2EPTaker
 from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
                      SegwitWallet, SegwitLegacyWallet, UTXOManager,
-                     WALLET_IMPLEMENTATIONS)
+                     WALLET_IMPLEMENTATIONS, make_shuffled_tx)
 from .storage import (Argon2Hash, Storage, StorageError,
                       StoragePasswordError, VolatileStorage)
 from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
 from .configure import (
     load_program_config, get_p2pk_vbyte, jm_single, get_network,
     validate_address, get_irc_mchannels, get_blockchain_interface_instance,
-    get_p2sh_vbyte, set_config, is_segwit_mode)
+    get_p2sh_vbyte, set_config, is_segwit_mode, is_native_segwit_mode)
 from .blockchaininterface import (BlockchainInterface, sync_wallet,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
@@ -45,7 +46,7 @@ from .wallet_utils import (
     wallet_tool_main, wallet_generate_recover_bip39, open_wallet,
     open_test_wallet_maybe, create_wallet, get_wallet_cls, get_wallet_path,
     wallet_display)
-from .maker import Maker
+from .maker import Maker, P2EPMaker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
 # Set default logging handler to avoid "No handler found" warnings.
 

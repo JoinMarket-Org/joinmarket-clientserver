@@ -14,6 +14,7 @@ Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin C
 * Can specify exact amount of coinjoin (figures from 0.01 to 30.0 btc and higher are practical), can choose time and number of counterparties
 * Can run passively to receive small payouts for taking part in coinjoins (see "Maker" and "yield-generator" in docs)
 * GUI to support Taker role, including tumbler/automated coinjoin sequence.
+* PayJoin - more economical and private payments between Joinmarket wallets.
 
 ### Quickstart
 
@@ -44,6 +45,10 @@ If you are new, follow and read the links in the [usage guide](docs/USAGE.md).
 If you are running Joinmarket-Qt, you can instead use the [walkthrough](docs/JOINMARKET-QT-GUIDE.md) to start.
 
 If you used the old version of Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
+
+### PayJoin
+
+If you want to use the PayJoin feature to pay/receive money to/from another Joinmarket wallet user, read [this guide](docs/PAYJOIN.md).
 
 ### Joinmarket-Qt
 

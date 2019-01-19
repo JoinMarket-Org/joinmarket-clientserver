@@ -7,7 +7,6 @@ import pprint
 import os
 import time
 import numbers
-from binascii import unhexlify
 from jmbase import get_log, jmprint
 from .configure import jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
@@ -113,7 +112,7 @@ def sign_tx(wallet, tx, utxos):
         script = wallet.addr_to_script(utxos[utxo]['address'])
         amount = utxos[utxo]['value']
         our_inputs[index] = (script, amount)
-    return wallet.sign_tx(deserialize(unhexlify(serialize(stx))), our_inputs)
+    return wallet.sign_tx(stx, our_inputs)
 
 def import_new_addresses(wallet, addr_list):
     # FIXME: same code as in maker.py and taker.py

@@ -11,11 +11,13 @@ from twisted.python.log import startLogging
 from jmclient import Taker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, jm_single, get_wallet_path,\
     open_test_wallet_maybe, sync_wallet, get_tumble_schedule,\
-    RegtestBitcoinCoreInterface, schedule_to_text, restart_waiter,\
+    schedule_to_text, restart_waiter,\
     get_tumble_log, tumbler_taker_finished_update,\
     tumbler_filter_orders_callback
 from jmbase.support import get_log, jmprint
-from cli_options import get_tumbler_parser, get_max_cj_fee_values
+from cli_options import get_tumbler_parser, get_max_cj_fee_values, \
+     check_regtest
+
 log = get_log()
 logsdir = os.path.join(os.path.dirname(
     jm_single().config_location), "logs")
@@ -30,6 +32,8 @@ def main():
         jmprint('Error: Needs a wallet file', "error")
         sys.exit(0)
     load_program_config()
+
+    check_regtest()
 
     #Load the wallet
     wallet_name = args[0]
@@ -108,12 +112,6 @@ def main():
             reactor.stop()
         elif fromtx != "unconfirmed":
             reactor.callLater(waittime*60, clientfactory.getClient().clientStart)
-
-    #to allow testing of confirm/unconfirm callback for multiple txs
-    if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
-        jm_single().bc_interface.tick_forward_chain_interval = 10
-        jm_single().bc_interface.simulating = True
-        jm_single().maker_timeout_sec = 15
 
     #instantiate Taker with given schedule and run
     taker = Taker(wallet,

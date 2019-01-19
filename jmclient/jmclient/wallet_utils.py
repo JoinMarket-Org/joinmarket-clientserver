@@ -14,10 +14,10 @@ from collections import Counter
 from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, JsonRpcError, sync_wallet, WalletError,
-    VolatileStorage, StoragePasswordError,
-    is_segwit_mode, SegwitLegacyWallet, LegacyWallet)
+    VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
+    LegacyWallet, SegwitWallet, is_native_segwit_mode)
 from jmbase.support import get_password, jmprint
-from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH
+from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH
 import jmbitcoin as btc
 
 
@@ -897,6 +897,8 @@ def wallet_signmessage(wallet, hdpath, message):
 
 def get_wallet_type():
     if is_segwit_mode():
+        if is_native_segwit_mode():
+            return TYPE_P2WPKH
         return TYPE_P2SH_P2WPKH
     return TYPE_P2PKH
 
@@ -937,6 +939,10 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
     returns:
         wallet object
     """
+    # If the native flag is set in the config, it overrides the argument
+    # test_wallet_cls
+    if jm_single().config.get("POLICY", "native") == "true":
+        test_wallet_cls = SegwitWallet
     if len(seed) == test_wallet_cls.ENTROPY_BYTES * 2:
         try:
             seed = binascii.unhexlify(seed)
