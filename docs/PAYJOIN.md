@@ -4,7 +4,7 @@
 reading this).
 
 This document does **not** discuss why PayJoin is interesting or the general concept.
-For that, see [this](TODO-BLOGPOST) post.
+For that, see [this](https://joinmarket.me/blog/blog/payjoin/) post.
 
 Some instructions here will be redundant with the introductory [usage guide](USAGE.md);
 this guide is aimed at users who have not/ will not use Joinmarket for ordinary coinjoins.
@@ -32,18 +32,64 @@ as an alternative to using user/password.
 
 If you use Bitcoin Core's multiwallet feature, you can edit the value of `rpc_wallet_file` to your chosen wallet file.
 
-Then retry the same `generate` command; it should now not error - continue the generate process as per next step.
+Then retry the same `generate` command; it should now not error - continue the generate process as per steps below.
 
-If you still get rpc connection errors, make sure you can connect to your Core node using the command line first.
+However, if you still get rpc connection errors, make sure you can connect to your Core node using the command line first.
+
+### Before I put funds in; how do I spend them/sweep them out?
+
+Good question! Whichever Joinmarket wallet you set up, you can always make a normal
+(non-coinjoin, non-PayJoin, nothing clever - just a normal payment) using the syntax:
+
+```
+python sendpayment.py -N0 -m <mixdepth> mywalletname.jmdat amount-in-sats address
+```
+
+Notice that the amount is always an integer, in satoshis. so 0.1BTC is 10000000.
+Also very important: to empty an account or *mixdepth* (more on this below),
+set the amount to 0. You will be prompted with the destination and amount before actually pushing the transaction
+to the network, as a sanity check. It looks like this:
+
+```
+2019-01-19 18:20:08,509 [INFO]  Using a fee of : 1672 satoshis.
+2019-01-19 18:20:08,510 [INFO]  Using a change value of: 189998328 satoshis.
+2019-01-19 18:20:08,511 [INFO]  Got signed transaction:
+
+2019-01-19 18:20:08,511 [INFO]  {'ins': [{'outpoint': {'hash': '0a00b5a40f4cd587b3158fbf37c75e1824df25b8c8a59e3760a6d3e4850e70e3',
+                       'index': 0},
+          'script': '1600146cac63b385d6e45acce4d814d9a5d4c36d7515a8',
+          'sequence': 4294967295,
+          'txinwitness': ['3045022100d9fe2096c689e882c560c3d5b7adf633b252c2ff8fed3fd81dd5523556ff404302204efdcc947899c7f330a321d5a7a4b56aec457ec5d6dfce72c93351bc65d1cb6c01',
+                          '03f58d6a2f317f829b3bf21a3ba79887013597853e45d656e43222930c5a2854f1']}],
+ 'locktime': 0,
+ 'outs': [{'script': 'a9140b48ac588e74b7dc02755459dbd56ef39a55f06687',
+           'value': 10000000},
+          {'script': 'a91477967d4582ef80417943dc152ab36858de02dedf87',
+           'value': 189998328}],
+ 'version': 1}
+2019-01-19 18:20:08,511 [INFO]  In serialized form (for copy-paste):
+2019-01-19 18:20:08,511 [INFO]  01000000000101e3700e85e4d3a660379ea5c8b825df24185ec737bf8f15b387d54c0fa4b5000a00000000171600146cac63b385d6e45acce4d814d9a5d4c36d7515a8ffffffff02809698000000000017a9140b48ac588e74b7dc02755459dbd56ef39a55f06687f824530b0000000017a91477967d4582ef80417943dc152ab36858de02dedf8702483045022100d9fe2096c689e882c560c3d5b7adf633b252c2ff8fed3fd81dd5523556ff404302204efdcc947899c7f330a321d5a7a4b56aec457ec5d6dfce72c93351bc65d1cb6c012103f58d6a2f317f829b3bf21a3ba79887013597853e45d656e43222930c5a2854f100000000
+2019-01-19 18:20:08,512 [INFO]  Sends: 10000000 satoshis to address: 2MtGtUpRFVYcQSYgjr6XDHo9QKhjsb3GRye
+Would you like to push to the network? (y/n):
+```
+
+This means that if you only want to do PayJoins and normal payments, and never coinjoins,
+you can do so and just use the above to move funds out of the wallet when it's time.
+
+(Extra note: you can also use the `-p` option to `wallet-tool.py` (see the help for that script)
+to get private keys if that's ever needed (never do this except in emergency cases). You can also
+use the mnemonic phrase in some other wallets, e.g. Electrum.)
+
+So now we know that, let's continue doing the `generate` command to make a new wallet ... :
 
 ### Make and fund the wallet
 
 Continue/complete the wallet generation with the above (`generate`) method.
 
-(Before you finish: want a bech32 wallet? you probably don't,
-but read [this](#what-if-i-wanted-bech32-native-segwit-addresses) in case.)
+(But wait again! Before you finish: want a bech32 wallet? you probably don't,
+but read [this](#what-if-i-wanted-bech32-native-segwit-addresses) if you do.)
 
-The wallet you create is BIP49 by default, using BIP39 12 word seed,
+The wallet you create is (if not bech32) BIP49 by default, using BIP39 12 word seed,
 mnemonic extension optional (simplest to leave it out if you're not sure).
 
 Once the `generate` method run has completed, successfully, you need to look at the wallet contents. Use
@@ -60,10 +106,10 @@ yours will be mainnet, so the addresses will start with '3' not '2').
 
 Joinmarket by default uses *5* accounts, not only 1 as some other wallets (e.g. Electrum), this is to help
 with coin isolation. Try to move coins from one account to another *only* via coinjoins; or, you can just
-use one or two accounts (called "mixdepths" in Joinmarket parlance) as if they were just one, understanding
+use one or two accounts (called **mixdepths** in Joinmarket parlance) as if they were just one, understanding
 that if you don't bother to do anything special, the coins in those two mixdepths are linked.
 
-Fund the wallet by choosing one or more addresses in the *external* section of the first account (called
+**Fund** the wallet by choosing one or more addresses in the *external* section of the first account (called
 "Mixdepth 0" here). When you fund, fund to the external addresses. The internals will be used for change.
 
 (The new standard (BIP49) *should* be compatible with TREZOR, Ledger, Electrum, Samourai and some others,
@@ -166,6 +212,23 @@ Security - since the receiver passively waits, what happens if a bad actor tries
 would fail to even start the process without knowing the payment amount and address, which the receiver is not broadcasting
 around everywhere (especially not the amount and ephemeral nickname), and even if they knew that, the worst
 they can do is learn at least 1 utxo of the receiver. The receiver won't pay attention to non-PayJoin messages, either.
+
+### Controlling fees
+
+**The fees are paid by the sender of funds; note that the fees are going to be a bit higher than a normal payment** (typically
+about 2-3x higher); this may be changed to share the fee, in a future version. There are controls to make sure the fee
+isn't *too* high.
+
+In the joinmarket.cfg file, under `[POLICY]` section you should see a setting called `tx_fees`.
+You can set this to any integer; if you set it to a number less than 144, it's treated as a "confirmation in N blocks target",
+i.e. if you set it to 3 (the default), the fee is chosen from Bitcoin Core's estimator to target confirmation in 3 blocks.
+So if you change it to e.g. 10, it will be cheaper but projected to get its first confirmation in 10 blocks on average.
+
+If you set it to a number >= 144, though, it's a number of satoshis per kilobyte (technically, kilo-vbyte) that you want
+to use. **Don't use less than about 1200 if you do this** - a typical figure might be 5000 or 10000, corresponding to
+about 5-10 sats/byte, which nowadays is a reasonable fee. The exact amount is randomised by ~20% to avoid you inadvertently
+watermarking all your transactions. So don't use < 1200 because then you might be using less than 1 sat/byte which is
+difficult to relay on the Bitcoin network.
 
 #### What if I wanted bech32 native segwit addresses?
 
