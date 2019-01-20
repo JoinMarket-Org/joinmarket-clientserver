@@ -496,6 +496,25 @@ class Taker(object):
         tx = make_shuffled_tx(self.utxo_tx, self.outputs, False)
         jlog.info('obtained tx\n' + pprint.pformat(btc.deserialize(tx)))
 
+        # boltzmann data
+        # Extract all our input scripts of the tx
+
+        def get_script(utxo):
+            if 'script' in utxo:
+                return utxo['script']
+            if 'address' in utxo:
+                return btc.address_to_script(utxo['address'])
+            assert False, 'Invalid utxo: {}'.format(utxo)
+
+        our_scripts = {get_script(x) for x in self.input_utxos.values()}
+        cjscript = self.wallet.addr_to_script(self.my_cj_addr)
+        if self.my_change_addr:
+            changescript = self.wallet.addr_to_script(self.my_change_addr)
+        else:
+            changescript = None
+        self.wallet.botlzmann(our_scripts, tx['outs'], cjscript, changescript, self.cjamount)
+        self.wallet.save()
+
         self.latest_tx = btc.deserialize(tx)
         for index, ins in enumerate(self.latest_tx['ins']):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
