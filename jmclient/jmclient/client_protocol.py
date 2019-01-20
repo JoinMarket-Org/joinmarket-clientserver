@@ -550,6 +550,11 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True,
                     jlog.error("Tried 100 ports but cannot listen on any of them. Quitting.")
                     sys.exit(1)
                 port += 1
+    else:
+        # if daemon run separately, and we do p2ep, we are using
+        # the protocol server at port+1
+        if p2ep:
+            port += 1
     if usessl:
         ctx = ClientContextFactory()
         reactor.connectSSL(host, port, factory, ctx)
