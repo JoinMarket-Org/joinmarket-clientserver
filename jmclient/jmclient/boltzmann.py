@@ -9,6 +9,10 @@ def _int_to_bytestr(i):
     return str(i).encode('ascii')
 
 
+def is_hex(s):
+    return len(s) % 2 == 0 and all(['0' <= x <= '9' or 'a' <= x.lower() <= 'f' for x in s])
+
+
 class Boltzmann(object):
     STORAGE_KEY = b'boltzmann'
 
@@ -67,5 +71,13 @@ class Boltzmann(object):
 
         self._rates[script] = rate
 
-    def boltzmann(self, tx):
-        raise NotImplementedError
+    def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
+        assert len(ins_scripts)
+        assert all([isinstance(x, str) and len(x) for x in ins_scripts])
+        assert all([x['script'] and isinstance(x['script'], str) and is_hex(x['script']) for x in outs])
+        assert all([x['value'] > 0 for x in outs])
+        assert isinstance(cjscript, bytes) and len(cjscript)
+        assert isinstance(changescript, bytes) and len(changescript) or changescript is None
+        assert isinstance(amount, numbers.Integral) and amount > 0
+
+        # raise NotImplementedError
