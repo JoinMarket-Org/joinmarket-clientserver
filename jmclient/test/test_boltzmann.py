@@ -57,13 +57,15 @@ def test_boltzmann_persist():
     assert not bz.has_script(script0)
 
 
-def _test_boltzmann(setup_env_nodeps):
+@pytest.mark.parametrize("ins_scripts, outs, cjscript, changescript, amount", [
+    (['00'], [{'script': '00', 'value': 123}], '00', None, 123),
+])
+def test_boltzmann(setup_env_nodeps, ins_scripts, outs, cjscript, changescript, amount):
     storage = MockStorage(None, 'wallet.jmdat', None, create=True)
     Boltzmann.initialize(storage)
     bz = Boltzmann(storage)
 
-    tx = {}  # TODO
-    bz.boltzmann(tx)
+    bz.boltzmann(ins_scripts, outs, cjscript, changescript, amount)
 
 
 @pytest.fixture

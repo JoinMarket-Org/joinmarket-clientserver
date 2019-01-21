@@ -76,8 +76,8 @@ class Boltzmann(object):
         assert all([isinstance(x, str) and len(x) for x in ins_scripts])
         assert all([x['script'] and isinstance(x['script'], str) and is_hex(x['script']) for x in outs])
         assert all([x['value'] > 0 for x in outs])
-        assert isinstance(cjscript, bytes) and len(cjscript)
-        assert isinstance(changescript, bytes) and len(changescript) or changescript is None
+        assert isinstance(cjscript, str) and len(cjscript) and is_hex(cjscript)
+        assert isinstance(changescript, str) and len(changescript) and is_hex(changescript) or changescript is None
         assert isinstance(amount, numbers.Integral) and amount > 0
 
         # raise NotImplementedError
