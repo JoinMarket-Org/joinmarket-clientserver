@@ -19,6 +19,7 @@ from numbers import Integral
 
 
 from .configure import jm_single
+from .boltzmann import Boltzmann
 from .support import select_gradual, select_greedy, select_greediest, \
     select
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
@@ -233,6 +234,7 @@ class BaseWallet(object):
         self.gap_limit = gap_limit
         self._storage = storage
         self._utxos = None
+        self._boltzmann = None
         # highest mixdepth ever used in wallet, important for synching
         self.max_mixdepth = None
         # effective maximum mixdepth to be used by joinmarket
@@ -280,6 +282,7 @@ class BaseWallet(object):
                             .format(self.TYPE))
         self.network = self._storage.data[b'network'].decode('ascii')
         self._utxos = UTXOManager(self._storage, self.merge_algorithm)
+        self._boltzmann = Boltzmann(self._storage)
 
     def save(self):
         """
@@ -317,6 +320,7 @@ class BaseWallet(object):
         storage.data[b'wallet_type'] = cls.TYPE
 
         UTXOManager.initialize(storage)
+        Boltzmann.initialize(storage)
 
         if write:
             storage.save()
@@ -834,6 +838,9 @@ class BaseWallet(object):
         Warning: improper use of 'force' will cause undefined behavior!
         """
         raise NotImplementedError()
+
+    def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
+        return self._boltzmann(self, ins_scripts, outs, cjscript, changescript, amount)
 
     def close(self):
         self._storage.close()
