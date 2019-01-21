@@ -6,7 +6,8 @@ from twisted.internet import reactor
 from twisted.python.log import startLogging
 import jmdaemon
 
-def startup_joinmarketd(host, port, usessl, finalizer=None, finalizer_args=None):
+def startup_joinmarketd(host, port, usessl, factories=None,
+                        finalizer=None, finalizer_args=None):
     """Start event loop for joinmarket daemon here.
     Args:
     port : port over which to serve the daemon
@@ -14,9 +15,13 @@ def startup_joinmarketd(host, port, usessl, finalizer=None, finalizer_args=None)
     finalizer_args : arguments to finalizer function.
     """
     startLogging(sys.stdout)
-    factory = jmdaemon.JMDaemonServerProtocolFactory()
-    jmdaemon.start_daemon(host, port, factory, usessl,
-                          './ssl/key.pem', './ssl/cert.pem')
+    if not factories:
+        factories = [jmdaemon.JMDaemonServerProtocolFactory(),
+                     jmdaemon.P2EPDaemonServerProtocolFactory()]
+    for factory in factories:
+        jmdaemon.start_daemon(host, port, factory, usessl,
+                              './ssl/key.pem', './ssl/cert.pem')
+        port += 1
     if finalizer:
         reactor.addSystemEventTrigger("after", "shutdown", finalizer,
                                       finalizer_args)
