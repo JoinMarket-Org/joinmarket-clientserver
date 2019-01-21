@@ -51,8 +51,13 @@ def main():
     parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
     load_program_config()
-    if options.schedule == '' and len(args) < 3:
-        parser.error('Needs a wallet, amount and destination address')
+    if options.p2ep and len(args) != 3:
+        parser.error("PayJoin requires exactly three arguments: "
+                     "wallet, amount and destination address.")
+        sys.exit(0)
+    elif options.schedule == '' and len(args) != 3:
+        parser.error("Joinmarket sendpayment (coinjoin) needs arguments:"
+        " wallet, amount and destination address")
         sys.exit(0)
 
     #without schedule file option, use the arguments to create a schedule
@@ -73,6 +78,9 @@ def main():
         schedule = [[options.mixdepth, amount, options.makercount,
                      destaddr, 0.0, 0]]
     else:
+        if options.p2ep:
+            parser.error("Schedule files are not compatible with PayJoin")
+            sys.exit(0)
         result, schedule = get_schedule(options.schedule)
         if not result:
             log.error("Failed to load schedule file, quitting. Check the syntax.")
@@ -126,7 +134,7 @@ def main():
     #wallet sync will now only occur on reactor start if we're joining.
     while not jm_single().bc_interface.wallet_synced:
         sync_wallet(wallet, fast=options.fastsync)
-    if options.makercount == 0:
+    if options.makercount == 0 and not options.p2ep:
         direct_send(wallet, amount, mixdepth, destaddr, options.answeryes)
         return
 
