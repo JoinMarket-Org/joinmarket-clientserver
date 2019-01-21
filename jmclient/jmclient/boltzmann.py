@@ -47,23 +47,23 @@ class Boltzmann(object):
         self._rates = {}
 
     def get_rate(self, script):
-        assert isinstance(script, bytes)
+        assert isinstance(script, bytes) and len(script)
 
         return self._rates.get(script, 1)
 
     def has_script(self, script):
-        assert isinstance(script, bytes)
+        assert isinstance(script, bytes) and len(script)
 
         return script in self._rates
 
     def remove_script(self, script):
-        assert isinstance(script, bytes)
+        assert isinstance(script, bytes) and len(script)
 
         return self._rates.pop(script)
 
     def set_rate(self, script, rate):
-        assert isinstance(script, bytes)
-        assert isinstance(rate, numbers.Integral)
+        assert isinstance(script, bytes) and len(script)
+        assert isinstance(rate, numbers.Integral) and rate > 0
 
         self._rates[script] = rate
 
