@@ -418,7 +418,8 @@ class P2EPMaker(Maker):
             tx = btc.deserialize(txhex)
         except (IndexError, SerializationError, SerializationTruncationError) as e:
             return (False, 'malformed txhex. ' + repr(e))
-        self.user_info('obtained tx proposal from sender:\n' + pprint.pformat(tx))
+        self.user_info('obtained proposed fallback (non-coinjoin) ' +\
+                       'transaction from sender:\n' + pprint.pformat(tx))
 
         if len(tx["outs"]) != 2:
             return (False, "Transaction has more than 2 outputs; not supported.")
@@ -465,7 +466,8 @@ class P2EPMaker(Maker):
         # included fee is within 0.3-3x our own current estimates, if not user
         # must decide.
         btc_fee = total_sender_input - self.receiving_amount - proposed_change_value
-        self.user_info("Network transaction fee is: " + str(btc_fee) + " satoshis.")
+        self.user_info("Network transaction fee of fallback tx is: " + str(
+            btc_fee) + " satoshis.")
         fee_est = estimate_tx_fee(len(tx['ins']), len(tx['outs']),
                                   txtype=self.wallet.get_txtype())
         fee_ok = False
