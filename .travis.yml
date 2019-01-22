@@ -41,9 +41,10 @@ matrix:
       services: docker
       env: DOCKER_IMG_JM=fedora27-py3
 before_install:
-  - do_on(){ if [ "$TRAVIS_OS_NAME" = "$1" ]; then shift; $@ ; fi; }
-  - on_host(){ if [ -z "$DOCKER_IMG_JM" ]; then $@ ; fi; }
-  - on_docker(){ if [ -n "$DOCKER_IMG_JM" ]; then $@ ; fi; }
+  - do_on(){ if [ "$TRAVIS_OS_NAME" = "$1" ]; then shift; "$@" ; fi; }
+  - on_host(){ if [ -z "$DOCKER_IMG_JM" ]; then "$@" ; fi; }
+  - should_run_dockers(){ if [ "$TRAVIS_EVENT_TYPE" = cron ] || [ -n "$TRAVIS_TAG" ] || echo "${TRAVIS_COMMIT_MESSAGE[@]}" | grep -q "TRAVIS_RUN_DOCKERS"; then return 0; else return 1; fi; }
+  - on_docker(){ if [ -n "$DOCKER_IMG_JM" ] && should_run_dockers; then "$@" ; fi; }
   - do_on osx pip install virtualenv
 cache:
   directories:
@@ -66,6 +67,3 @@ script:
 after_success:
   - on_docker echo "Success !"
   - on_host do_on linux coveralls
-branches:
- except:
-  - py3
