@@ -981,7 +981,7 @@ class P2EPTaker(Taker):
         # to the transaction; this preparatory version contains only those.
         tx = make_shuffled_tx(self.utxos[None], self.outputs,
                               False, 2, currentblock)
-        jlog.info('Obtained proposed payjoin tx\n' + pprint.pformat(
+        jlog.info('Created proposed fallback tx\n' + pprint.pformat(
             btc.deserialize(tx)))
         # We now sign as a courtesy, because if we disappear the recipient
         # can still claim his coins with this.
