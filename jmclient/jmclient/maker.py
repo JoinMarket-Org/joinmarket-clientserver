@@ -565,7 +565,7 @@ class P2EPMaker(Maker):
             # fairly conservative (but guess by necessity).
             fee_for_select = estimate_tx_fee(len(tx['ins']) + 4, 2,
                                              txtype=self.wallet.get_txtype())
-            approx_sum = max_sender_amt - largest_out + fee_for_select
+            approx_sum = max_sender_amt - self.receiving_amount + fee_for_select
             try:
                 my_utxos = self.wallet.select_utxos(self.mixdepth, approx_sum)
                 not_uih2 = True
