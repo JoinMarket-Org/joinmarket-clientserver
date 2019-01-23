@@ -112,7 +112,33 @@ At this point you should see `(jmvenv)` at the beginning of your command prompt.
     cd scripts
     python joinmarket-qt.py
 ```
-Alternative/custom installation:
+
+### Installation on Windows
+
+Installing JoinMarket on Windows using the following method requires Windows 10 version 1607 or later.
+
+#### Enable Windows Subsystem for Linux
+
+> note: a more detailed guide can be found [here](https://github.com/michaeltreat/Windows-Subsystem-For-Linux-Setup-Guide/blob/master/readmes/02_WSL_Ubuntu_setup.md).
+
+ 1. Open the `Control Panel` and navigate to `Programs`, `Programs and Features`, `Turn Windows features on or off`.
+ 2. Select `Windows Subsystem for Linux` and click `OK`.
+ 3. When asked, choose to restart.
+
+#### Install Ubuntu from the Windows Store
+1. Open the `Windows Store`, search for `Ubuntu 18.04 LTS` and click `Get`.
+> note: other distributions are available, but this is the only one tested
+2. When finished downloading click `Launch`.
+3. A window should pop up, telling your `Installing, this may take a few minutes...`
+4. After installation is done, you'll be asked to provide a `UNIX username` and `UNIX password`. This will be the administrator account for the Ubuntu installation.
+5. Finish the installation with updating the software within Ubuntu by typing the command `sudo apt update && sudo apt upgrade -y`. When asked, type the password provided earlier.
+
+#### Installing JoinMarket
+At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md) or [Installation on Linux](#Installation on Linux) section in this file.
+
+todo: add note about installing and configuring bitcoin core
+
+### Alternative/custom installation:
 
 #### Installing the daemon separately
 
@@ -155,27 +181,3 @@ Using `--develop` causes a `.egg-link` file to be added to `site-packages` for e
 The `.egg-link` file acts like a symlink pointing to the local code. This means any changes you
 make to the code will have effect immediately.
 
-### Installation on Windows
-
-Installing JoinMarket on Windows using the following method requires Windows 10 version 1607 or later.
-
-#### Enable Windows Subsystem for Linux
-
-> note: a more detailed guide can be found [here](https://github.com/michaeltreat/Windows-Subsystem-For-Linux-Setup-Guide/blob/master/readmes/02_WSL_Ubuntu_setup.md).
-
- 1. Open the `Control Panel` and navigate to `Programs`, `Programs and Features`, `Turn Windows features on or off`.
- 2. Select `Windows Subsystem for Linux` and click `OK`.
- 3. When asked, choose to restart.
-
-#### Install Ubuntu from the Windows Store
-1. Open the `Windows Store`, search for `Ubuntu 18.04 LTS` and click `Get`.
-> note: other distributions are available, but this is the only one tested
-2. When finished downloading click `Launch`.
-3. A window should pop up, telling your `Installing, this may take a few minutes...`
-4. After installation is done, you'll be asked to provide a `UNIX username` and `UNIX password`. This will be the administrator account for the Ubuntu installation.
-5. Finish the installation with updating the software within Ubuntu by typing the command `sudo apt update && sudo apt upgrade -y`. When asked, type the password provided earlier.
-
-#### Installing JoinMarket
-At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md) or [Installation on Linux](#Installation on Linux) section in this file.
-
-todo: add note about installing and configuring bitcoin core
