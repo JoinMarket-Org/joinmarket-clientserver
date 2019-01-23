@@ -570,9 +570,8 @@ class P2EPMaker(Maker):
             except Exception:
                 # TODO probably not logical to always sweep here.
                 self.user_info("Sweeping all coins in this mixdepth.")
-                try:
-                    my_utxos = self.wallet.get_utxos_by_mixdepth()[self.mixdepth]
-                except:
+                my_utxos = self.wallet.get_utxos_by_mixdepth()[self.mixdepth]
+                if my_utxos == {}:
                     return self.no_coins_fallback()
         if not_uih2:
             self.user_info("The proposed tx does not trigger UIH2, which "
