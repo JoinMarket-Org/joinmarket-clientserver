@@ -306,7 +306,8 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
     def estimate_fee_per_kb(self, N):
         if super(ElectrumWalletInterface, self).fee_per_kb_has_been_manually_set(N):
-            return int(random.uniform(N * float(0.8), N * float(1.2)))
+	     # use a floor of 1000 to not run into node relay problems
+            return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
                                                   ))
         log.debug("Got fee: " + str(fee))
@@ -872,7 +873,17 @@ class BitcoinCoreInterface(BlockchainInterface):
 
     def estimate_fee_per_kb(self, N):
         if super(BitcoinCoreInterface, self).fee_per_kb_has_been_manually_set(N):
-            return int(random.uniform(N * float(0.8), N * float(1.2)))
+            # use the local bitcoin core relay fee as floor to avoid relay problems
+            btc_relayfee = -1
+            rpc_result = self.rpc('getnetworkinfo', None)
+            btc_relayfee = rpc_result.get('relayfee', btc_relayfee)
+            if btc_relayfee > 0:
+                relayfee_in_sat = int(Decimal(1e8) * Decimal(btc_relayfee))
+                log.debug("Using this min relay fee as tx fee floor: " + str(relayfee_in_sat))
+                return int(max(relayfee_in_sat, random.uniform(N * float(0.8), N * float(1.2))))
+            else:   # cannot get valid relayfee: fall back to 1000 sat/kbyte
+                log.debug("Using this min relay fee as tx fee floor (fallback): 1000")
+                return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
 
         # Special bitcoin core case: sometimes the highest priority
         # cannot be estimated in that case the 2nd highest priority
