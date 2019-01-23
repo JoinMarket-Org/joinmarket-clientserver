@@ -132,7 +132,7 @@ At this point you should see `(jmvenv)` at the beginning of your command prompt.
 5. Finish the installation with updating the software within Ubuntu by typing the command `sudo apt update && sudo apt upgrade -y`. When asked, type the password provided earlier.
 
 #### Installing JoinMarket
-At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md) or [Installation on Linux](#nstallation-on-linux) section of this file.
+At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md#quickstart) or [Installation on Linux](#installation-on-linux) section of this file.
 
 #### Installing Bitcoin Core
 If you haven't done so yet, install Bitcoin Core as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
