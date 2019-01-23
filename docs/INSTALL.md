@@ -114,11 +114,9 @@ At this point you should see `(jmvenv)` at the beginning of your command prompt.
 ```
 
 ### Installation on Windows
-
-Installing JoinMarket on Windows using the following method requires Windows 10 version 1607 or later.
+> note: Installing JoinMarket on Windows using the following method requires Windows 10 version 1607 or later.
 
 #### Enable Windows Subsystem for Linux
-
 > note: a more detailed guide can be found [here](https://github.com/michaeltreat/Windows-Subsystem-For-Linux-Setup-Guide/blob/master/readmes/02_WSL_Ubuntu_setup.md).
 
  1. Open the `Control Panel` and navigate to `Programs`, `Programs and Features`, `Turn Windows features on or off`.
@@ -134,9 +132,37 @@ Installing JoinMarket on Windows using the following method requires Windows 10 
 5. Finish the installation with updating the software within Ubuntu by typing the command `sudo apt update && sudo apt upgrade -y`. When asked, type the password provided earlier.
 
 #### Installing JoinMarket
-At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md) or [Installation on Linux](#Installation on Linux) section in this file.
+At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md) or [Installation on Linux](#nstallation-on-linux) section of this file.
 
-todo: add note about installing and configuring bitcoin core
+#### Installing Bitcoin Core
+If you haven't done so yet, install Bitcoin Core as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
+
+#### Configuring Bitcoin Core
+Bitcoin Core needs to be configured to allow JoinMarket to connect to it. From the `Settings` menu choose `Options` and click `Open Configuration File`. Add `server=1`, save and close the file. After that restart Bitcoin Core.
+
+#### Configuring JoinMarket
+Lastly we must configure JoinMarket to allow it to connect to Bitcoin Core. Refer to the [this](USAGE.md#zeroth-step-configuring-for-bitcoin-core) section in the usage guide.
+
+Edit your `joinmarket.cfg` file (in Ubuntu) and replace the following lines in the section `[BLOCKCHAIN]`
+
+```
+rpc_user = bitcoin
+rpc_password = password
+```
+
+with
+
+```
+#rpc_user = bitcoin
+#rpc_password = password
+rpc_cookie_file = <path to the Bitcoin Core data directory>/.cookie
+```
+
+The location of the data directory was chosen when Bitcoin Core was first run. The default is `C:\Users\<your username>\AppData\Roaming\Bitcoin`. In Ubuntu this would be `/mnt/c/Users/<your username>/AppData/Roaming/Bitcoin`. Assuming your username is `Alice` the full line would be
+
+```
+rpc_cookie_file = /mnt/c/Users/Alice/AppData/Roaming/Bitcoin/.cookie
+```
 
 ### Alternative/custom installation:
 
