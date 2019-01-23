@@ -35,7 +35,7 @@ class Boltzmann(object):
 
         self._rates = {}
         for script, rate in storage.items():
-            self._rates[script] = int(rate)
+            self._rates[script.decode('ascii')] = int(rate)
 
     def save(self, write=True):
         new_data = {}
@@ -43,7 +43,7 @@ class Boltzmann(object):
         for script, rate in self._rates.items():
             rate = _int_to_bytestr(rate)
             # storage keys must be bytes()
-            new_data[script] = rate
+            new_data[script.encode('ascii')] = rate
         if write:
             self.storage.save()
 

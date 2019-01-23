@@ -16,9 +16,9 @@ def test_boltzmann_persist():
     Boltzmann.initialize(storage)
     bz = Boltzmann(storage)
 
-    script0 = b'\x00' * 7
-    script1 = b'\x01' * 7
-    script2 = b'\x02' * 7
+    script0 = '00' * 7
+    script1 = '01' * 7
+    script2 = '02' * 7
     rate0 = 3
     rate1 = 5 ** 13
 
