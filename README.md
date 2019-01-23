@@ -35,7 +35,7 @@ Do note, Python 2 is incompatible with the Qt GUI.
 
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 
-Alternative to this "quickstart" (including for MacOS): follow the [install guide](docs/INSTALL.md).
+Alternative to this "quickstart" (including for Windows and MacOS): follow the [install guide](docs/INSTALL.md).
 
 
 ### Usage
