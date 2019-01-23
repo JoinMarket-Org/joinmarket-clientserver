@@ -57,19 +57,61 @@ def test_boltzmann_persist():
     assert not bz.has_script(script0)
 
 
-@pytest.mark.parametrize("ins_scripts, outs, cjscript, changescript, amount", [
-    (['00'], [{'script': '00', 'value': 123}], '00', None, 123),
-])
-def test_boltzmann(setup_env_nodeps, ins_scripts, outs, cjscript, changescript, amount):
-    storage = MockStorage(None, 'wallet.jmdat', None, create=True)
-    Boltzmann.initialize(storage)
-    bz = Boltzmann(storage)
-
-    bz.boltzmann(ins_scripts, outs, cjscript, changescript, amount)
-
-
 @pytest.fixture
 def setup_env_nodeps(monkeypatch):
     monkeypatch.setattr(jmclient.configure, 'get_blockchain_interface_instance',
                         lambda x: DummyBlockchainInterface())
     load_program_config()
+
+
+def set_initial(bz, setup):
+    for s, r in setup:
+        bz.set_rate(s, r)
+
+
+def check_result(bz, expected):
+    for s, r in expected:
+        assert bz.get_rate(s) == r
+
+
+@pytest.mark.parametrize("ins_scripts, outs, cjscript, changescript, amount, setup, expected", [
+    # 1->1
+    (['00'], [{'script': '01', 'value': 100}], '01', None, 100, [], [('01', 1)]),
+    (['00'], [{'script': '01', 'value': 100}], '01', None, 100, [('00', 2)], [('01', 2)]),
+    # 1->2
+    (['00'], [{'script': '01', 'value': 100},
+              {'script': '02', 'value': 100}], '01', None, 100, [('00', 2)], [('01', 4)]),
+    # 1->1 + change
+    (['00'], [{'script': '01', 'value': 100},
+              {'script': '02', 'value': 10}], '01', '02', 100, [('00', 2)], [('01', 2),
+                                                                             ('02', 2)]),
+    # 2->1
+    (['00',
+      '01'], [{'script': '02', 'value': 100}], '02', None, 100, [('00', 5),
+                                                                 ('01', 7)], [('02', 5)]),
+    # 2->2
+    (['00',
+      '01'], [{'script': '02', 'value': 100},
+              {'script': '03', 'value': 100}], '02', None, 100, [('00', 5),
+                                                                 ('01', 7)], [('02', 10)]),
+    # 2->3 + change
+    (['00',
+      '01'], [{'script': '02', 'value': 100},
+              {'script': '03', 'value': 10},
+              {'script': '04', 'value': 100},
+              {'script': '05', 'value': 100},
+              {'script': '06', 'value': 110},
+              {'script': '07', 'value': 20},
+              {'script': '08', 'value': 30}], '02', '03', 100, [('00', 5),
+                                                                ('01', 7)], [('02', 15),
+                                                                             ('03', 5)]),
+])
+def test_update(ins_scripts, outs, cjscript, changescript, amount, setup, expected):
+    storage = MockStorage(None, 'wallet.jmdat', None, create=True)
+    Boltzmann.initialize(storage)
+    bz = Boltzmann(storage)
+    set_initial(bz, setup)
+
+    bz.boltzmann(ins_scripts, outs, cjscript, changescript, amount)
+
+    check_result(bz, expected)
