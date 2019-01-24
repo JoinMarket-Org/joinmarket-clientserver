@@ -204,7 +204,7 @@ def main():
                     reactor.stop()
                     return
                 jmprint("We failed to complete the transaction. The following "
-                      "makers responded honestly: ", taker.honest_makers,
+                      "makers responded honestly: " + str(taker.honest_makers) +\
                       ", so we will retry with them.", "warning")
                 #Now we have to set the specific group we want to use, and hopefully
                 #they will respond again as they showed honesty last time.
