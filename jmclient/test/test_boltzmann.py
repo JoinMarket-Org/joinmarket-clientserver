@@ -112,6 +112,6 @@ def test_update(ins_scripts, outs, cjscript, changescript, amount, setup, expect
     bz = Boltzmann(storage)
     set_initial(bz, setup)
 
-    bz.boltzmann(ins_scripts, outs, cjscript, changescript, amount)
+    bz.update(ins_scripts, outs, cjscript, changescript, amount)
 
     check_result(bz, expected)

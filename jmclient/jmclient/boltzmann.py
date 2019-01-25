@@ -75,7 +75,7 @@ class Boltzmann(object):
 
         self._rates[script] = rate
 
-    def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
+    def update(self, ins_scripts, outs, cjscript, changescript, amount):
         assert len(ins_scripts)
         assert all([isinstance(x, str) and len(x) for x in ins_scripts])
         assert all([x['script'] and isinstance(x['script'], str) and is_hex(x['script']) for x in outs])

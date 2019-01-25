@@ -840,7 +840,7 @@ class BaseWallet(object):
         raise NotImplementedError()
 
     def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
-        return self._boltzmann(self, ins_scripts, outs, cjscript, changescript, amount)
+        return self._boltzmann.update(self, ins_scripts, outs, cjscript, changescript, amount)
 
     def close(self):
         self._storage.close()
