@@ -147,7 +147,7 @@ class Maker(object):
         cjscript = self.wallet.addr_to_script(offerinfo['cjaddr'])
         changescript = self.wallet.addr_to_script(offerinfo['changeaddr'])
         amount = offerinfo['amount']
-        self.wallet.botlzmann(our_scripts, tx['outs'], cjscript, changescript, amount)
+        self.wallet.boltzmann(our_scripts, tx['outs'], cjscript, changescript, amount)
         self.wallet.save()
 
         txs = self.wallet.sign_tx(btc.deserialize(unhexlify(txhex)), our_inputs)
