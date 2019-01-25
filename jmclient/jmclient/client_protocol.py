@@ -110,7 +110,7 @@ class JMClientProtocol(amp.AMP):
                                     hashlen, max_encoded, hostid):
         verif_result = True
         if not btc.ecdsa_verify(str(msg), sig, pubkey):
-            jlog.debug("nick signature verification failed, ignoring.")
+            jlog.debug("nick signature verification failed, ignoring: " + str(nick))
             verif_result = False
         #check that nick matches hash of pubkey
         nick_pkh_raw = btc.bin_sha256(pubkey)[:hashlen]
