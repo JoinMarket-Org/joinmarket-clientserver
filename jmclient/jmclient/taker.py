@@ -512,7 +512,10 @@ class Taker(object):
             changescript = self.wallet.addr_to_script(self.my_change_addr)
         else:
             changescript = None
-        self.wallet.botlzmann(our_scripts, tx['outs'], cjscript, changescript, self.cjamount)
+        outputs = self.outputs.copy()
+        for output in outputs:
+            output['script'] = self.wallet.addr_to_script(output['address'])
+        self.wallet.botlzmann(our_scripts, outputs, cjscript, changescript, self.cjamount)
         self.wallet.save()
 
         self.latest_tx = btc.deserialize(tx)
