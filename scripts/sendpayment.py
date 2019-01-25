@@ -232,8 +232,15 @@ def main():
         # to remove noise, and mostly communicate to the user with the fn
         # log.info (directly or via default taker_info_callback).
         set_logging_level("INFO")
+        # in the case where the payment just hangs for a long period, allow
+        # it to fail gracefully with an information message; this is triggered
+        # only by the stallMonitor, which gives up after 20*maker_timeout_sec:
+        def p2ep_on_finished_callback(res, fromtx=False, waittime=0.0,
+                                      txdetails=None):
+            log.error("PayJoin payment was NOT made, timed out.")
+            reactor.stop()
         taker = P2EPTaker(options.p2ep, wallet, schedule,
-                          callbacks=(None, None, None))
+                          callbacks=(None, None, p2ep_on_finished_callback))
     else:
         taker = Taker(wallet,
                       schedule,
