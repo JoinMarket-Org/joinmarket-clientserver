@@ -1054,6 +1054,18 @@ class P2EPTaker(Taker):
             ins['outpoint']['index']) for ins in tx['ins'])
         if not tx_utxo_set.issuperset(set(self.utxos[None])):
             return (False, "my utxos are not contained")
+        # Check that the sequence numbers of all inputs are unaltered
+        # from the intended 0xffffffff - 1, and that the locktime
+        # is not zero (could go further and check exact block).
+        # Note that this is hacky and is most elegantly addressed by
+        # use of PSBT (although any object encapsulation of tx input
+        # would serve the same purpose).
+        if tx["locktime"] == 0:
+            return (False, "Invalid PayJoin v0 transaction: locktime 0")
+        for i in tx["ins"]:
+            if i["sequence"] != 0xffffffff - 1:
+                return (False, "Invalid PayJoin v0 transaction: "+\
+                        "sequence is not 0xffffffff -1")
 
         # Before even starting fee calculations, reject  > 5
         # inputs from counterparty as an abuse (accidental or
@@ -1180,6 +1192,9 @@ class P2EPTaker(Taker):
 
         # All checks have passed; we sign and broadcast
         self.latest_tx = tx
+        # Note that self.self_sign will only sign the self.input_utxos specified at
+        # the start of the processing, which guards against the "unwittingly sign
+        # extra inputs" attack mentioned in BIP79.
         self.self_sign_and_push()
         # returning False here is not an error condition, only stops processing.
         return (False, "OK")
