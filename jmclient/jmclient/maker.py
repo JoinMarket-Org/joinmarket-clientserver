@@ -138,14 +138,14 @@ class Maker(object):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
             if utxo not in utxos:
                 continue
-            script = self.wallet.addr_to_script(utxos[utxo]['address'])
+            script = btc.address_to_script(utxos[utxo]['address'])
             amount = utxos[utxo]['value']
-            our_inputs[index] = (script, amount)
+            our_inputs[index] = (unhexlify(script), amount)
             our_scripts.add(script)
 
         # boltzmann data
-        cjscript = self.wallet.addr_to_script(offerinfo['cjaddr'])
-        changescript = self.wallet.addr_to_script(offerinfo['changeaddr'])
+        cjscript = btc.address_to_script(offerinfo['cjaddr'])
+        changescript = btc.address_to_script(offerinfo['changeaddr'])
         amount = offerinfo['amount']
         self.wallet.boltzmann(our_scripts, tx['outs'], cjscript, changescript, amount)
         self.wallet.save()
