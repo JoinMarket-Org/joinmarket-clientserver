@@ -507,14 +507,14 @@ class Taker(object):
             assert False, 'Invalid utxo: {}'.format(utxo)
 
         our_scripts = {get_script(x) for x in self.input_utxos.values()}
-        cjscript = self.wallet.addr_to_script(self.my_cj_addr)
+        cjscript = btc.address_to_script(self.my_cj_addr)
         if self.my_change_addr:
-            changescript = self.wallet.addr_to_script(self.my_change_addr)
+            changescript = btc.address_to_script(self.my_change_addr)
         else:
             changescript = None
         outputs = self.outputs.copy()
         for output in outputs:
-            output['script'] = self.wallet.addr_to_script(output['address'])
+            output['script'] = btc.address_to_script((output['address']))
         self.wallet.boltzmann(our_scripts, outputs, cjscript, changescript, self.cjamount)
         self.wallet.save()
 
