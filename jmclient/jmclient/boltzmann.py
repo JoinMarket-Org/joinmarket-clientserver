@@ -83,8 +83,8 @@ class Boltzmann(object):
         assert isinstance(cjscript, str) and len(cjscript) and is_hex(cjscript)
         assert isinstance(changescript, str) and len(changescript) and is_hex(changescript) or changescript is None
         assert isinstance(amount, numbers.Integral) and amount > 0
-        assert [x['value'] for x in outs if x['script'] == cjscript] == [amount]
-        assert not changescript or [x['script'] for x in outs].count(changescript) == 1
+        assert amount in [x['value'] for x in outs if x['script'] == cjscript]
+        assert not changescript or [x['script'] for x in outs].count(changescript)
 
         input_rate = min(self.get_rate(x) for x in ins_scripts)
         mult = [x['value'] for x in outs].count(amount)
