@@ -258,9 +258,18 @@ class MessageChannelCollection(object):
                                      for x in self.available_channels()
                                      if mc == x.hostid]
                 if len(matching_channels) != 1: #pragma: no cover
-                    #raise because implies logic error
-                    raise Exception(
-                        "Tried to privmsg on an unavailable message channel.")
+                    #this can happen if an IRC goes down shortly before a message
+                    #is supposed to be sent. There used to be an exception raise.
+                    #to prevent a crash (especially in makers), we just inform
+                    #the user about it for now
+                    log.error("Tried to communicate on this IRC server but"
+                              "failed: " + str(mc))
+                    log.error("You might have to comment out this IRC server "
+                              "in joinmarket.cfg and restart.")
+                    log.error("No action needed for makers / yield generators!")
+                    # todo: add logic to continue on other available mc
+                    # mind comment in on_order_seen_trigger() when implementing
+                    return
                 mc = matching_channels[0]
                 mc.privmsg(nick, cmd, message)
                 return
