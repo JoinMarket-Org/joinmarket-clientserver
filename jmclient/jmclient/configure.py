@@ -133,21 +133,6 @@ socks5_port = 9050
 #socks5 = true
 
 [MESSAGING:server2]
-host = agora.anarplex.net
-channel = joinmarket-pit
-port = 14716
-usessl = true
-socks5 = false
-socks5_host = localhost
-socks5_port = 9050
-
-#for tor
-#host = cfyfz6afpgfeirst.onion
-#port = 6667
-#usessl = false
-#socks5 = true
-
-[MESSAGING:server3]
 host = irc.darkscience.net
 channel = joinmarket-pit
 port = 6697
@@ -159,6 +144,24 @@ socks5_port = 9050
 #for tor
 #host = darksci3bfoka7tw.onion
 #socks5 = true
+
+#Agora currently seems to be unreliable. Not active by default for that reason.
+#[MESSAGING:server3]
+#host = agora.anarplex.net
+#channel = joinmarket-pit
+#port = 14716
+#usessl = true
+#socks5 = false
+#socks5_host = localhost
+#socks5_port = 9050
+
+#for tor
+#host = cfyfz6afpgfeirst.onion
+#port = 6667
+#usessl = false
+#socks5 = true
+
+
 
 [LOGGING]
 # Set the log level for the output to the terminal/console
