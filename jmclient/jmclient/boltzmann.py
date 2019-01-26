@@ -73,6 +73,9 @@ class Boltzmann(object):
         self._check_script(script)
         assert isinstance(rate, numbers.Integral) and rate > 0
 
+        if self.has_script(script):
+            rate = min(self.get_rate(script), rate)
+
         self._rates[script] = rate
 
     def update(self, ins_scripts, outs, cjscript, changescript, amount):

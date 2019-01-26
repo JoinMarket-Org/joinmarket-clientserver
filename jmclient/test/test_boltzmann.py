@@ -57,6 +57,19 @@ def test_boltzmann_persist():
     assert not bz.has_script(script0)
 
 
+def test_set_rate():
+    """After set rate to a script, it cannot be increased"""
+    storage = MockStorage(None, 'wallet.jmdat', None, create=True)
+    Boltzmann.initialize(storage)
+    bz = Boltzmann(storage)
+
+    script = '00' * 7
+    bz.set_rate(script, 10)
+    assert bz.get_rate(script) == 10
+    bz.set_rate(script, 20)
+    assert bz.get_rate(script) == 10
+
+
 @pytest.fixture
 def setup_env_nodeps(monkeypatch):
     monkeypatch.setattr(jmclient.configure, 'get_blockchain_interface_instance',
