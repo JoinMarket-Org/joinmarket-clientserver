@@ -28,6 +28,9 @@ class Boltzmann(object):
         storage.data[cls.STORAGE_KEY] = {}
 
     def _load_storage(self):
+        # Upgrade wallets: without this initialization only new wallets would work
+        if self.STORAGE_KEY not in self.storage.data:
+            self.initialize(self.storage)
         storage = self.storage.data[self.STORAGE_KEY]
         assert isinstance(storage, dict)
         assert all([isinstance(x, bytes) for x in storage.keys()])
