@@ -144,7 +144,7 @@ class MessageChannelCollection(object):
                 for mc2 in self.available_channels():
                     if peer in self.nicks_seen[mc2]:
                         log.debug("Dynamically switching: " + peer + " to: " + \
-                                  str(mc2.serverport))
+                                  str(mc2.hostid))
                         self.active_channels[peer] = mc2
                         break
             #Remove all entries for the newly unavailable channel
@@ -235,12 +235,16 @@ class MessageChannelCollection(object):
         #to the signature; this prevents cross-channel replay but NOT
         #same-channel replay (in case of snooper after dropped connection
         #on this channel).
-        if nick in self.active_channels:
-            hostid = self.active_channels[nick].hostid
+        if mc is None:
+            if nick in self.active_channels:
+                hostid = self.active_channels[nick].hostid
+            else:
+                log.info("Failed to send message to: " + str(nick) + \
+                              "; cannot find on any message channel.")
+                return
         else:
-            log.info("Failed to send message to: " + str(nick) + \
-                          "; cannot find on any message channel.")
-            return
+            hostid = mc.hostid
+
         msg_to_be_signed = message + str(hostid)
 
         self.daemon.request_signed_message(nick, cmd, message, msg_to_be_signed,
@@ -402,8 +406,10 @@ class MessageChannelCollection(object):
         """
         self.mc_status[mc] = 2
         self.flush_nicks()
+        # construct a readable nicks seen:
+        readablens = dict([(k.hostid, self.nicks_seen[k]) for k in self.nicks_seen])
         log.debug("On disconnect fired, nicks_seen is now: " + str(
-            self.nicks_seen) + " " + mc.hostid)
+            readablens) + " " + mc.hostid)
         if not any([x == 1 for x in self.mc_status.values()]):
             if self.on_disconnect:
                 self.on_disconnect()
