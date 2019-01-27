@@ -112,7 +112,59 @@ At this point you should see `(jmvenv)` at the beginning of your command prompt.
     cd scripts
     python joinmarket-qt.py
 ```
-Alternative/custom installation:
+
+### Installation on Windows
+> note: Installing JoinMarket on Windows using the following method requires Windows 10 version 1607 or later.
+
+#### Enable Windows Subsystem for Linux
+> note: a more detailed guide can be found [here](https://github.com/michaeltreat/Windows-Subsystem-For-Linux-Setup-Guide/blob/master/readmes/02_WSL_Ubuntu_setup.md).
+
+ 1. Open the `Control Panel` and navigate to `Programs`, `Programs and Features`, `Turn Windows features on or off`.
+ 2. Select `Windows Subsystem for Linux` and click `OK`.
+ 3. When asked, choose to restart.
+
+#### Install Ubuntu from the Windows Store
+1. Open the `Windows Store`, search for `Ubuntu 18.04 LTS` and click `Get`.
+> note: other distributions are available, but this is the only one tested
+2. When finished downloading click `Launch`.
+3. A window should pop up, telling your `Installing, this may take a few minutes...`
+4. After installation is done, you'll be asked to provide a `UNIX username` and `UNIX password`. This will be the administrator account for the Ubuntu installation.
+5. Finish the installation with updating the software within Ubuntu by typing the command `sudo apt update && sudo apt upgrade -y`. When asked, type the password provided earlier.
+
+#### Installing JoinMarket
+At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md#quickstart) or [Installation on Linux](#installation-on-linux) section of this file.
+
+#### Installing Bitcoin Core
+If you haven't done so yet, install Bitcoin Core as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
+
+#### Configuring Bitcoin Core
+Bitcoin Core needs to be configured to allow JoinMarket to connect to it. From the `Settings` menu choose `Options` and click `Open Configuration File`. Add `server=1`, save and close the file. After that restart Bitcoin Core.
+
+#### Configuring JoinMarket
+Lastly we must configure JoinMarket to allow it to connect to Bitcoin Core. Refer to the [this](USAGE.md#zeroth-step-configuring-for-bitcoin-core) section in the usage guide.
+
+Edit your `joinmarket.cfg` file (in Ubuntu) and replace the following lines in the section `[BLOCKCHAIN]`
+
+```
+rpc_user = bitcoin
+rpc_password = password
+```
+
+with
+
+```
+#rpc_user = bitcoin
+#rpc_password = password
+rpc_cookie_file = <path to the Bitcoin Core data directory>/.cookie
+```
+
+The location of the data directory was chosen when Bitcoin Core was first run. The default is `C:\Users\<your username>\AppData\Roaming\Bitcoin`. In Ubuntu this would be `/mnt/c/Users/<your username>/AppData/Roaming/Bitcoin`. Assuming your username is `Alice` the full line would be
+
+```
+rpc_cookie_file = /mnt/c/Users/Alice/AppData/Roaming/Bitcoin/.cookie
+```
+
+### Alternative/custom installation:
 
 #### Installing the daemon separately
 
@@ -154,3 +206,4 @@ the local code would not have effect until the packages are reinstalled.
 Using `--develop` causes a `.egg-link` file to be added to `site-packages` for each package.
 The `.egg-link` file acts like a symlink pointing to the local code. This means any changes you
 make to the code will have effect immediately.
+
