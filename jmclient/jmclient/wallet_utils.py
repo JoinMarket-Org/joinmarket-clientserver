@@ -164,7 +164,7 @@ class WalletViewBase(object):
         return "{0:.08f}".format(self.get_balance(include_unconf))
 
 class WalletViewEntry(WalletViewBase):
-    def __init__(self, wallet_path_repr, account, forchange, aindex, addr, amounts,
+    def __init__(self, wallet_path_repr, account, forchange, aindex, addr, amounts, boltzmann,
                  used = 'new', serclass=str, priv=None, custom_separator=None):
         super(WalletViewEntry, self).__init__(wallet_path_repr, serclass=serclass,
                                               custom_separator=custom_separator)
@@ -176,6 +176,7 @@ class WalletViewEntry(WalletViewBase):
         self.aindex = aindex
         self.address = addr
         self.unconfirmed_amount, self.confirmed_amount = amounts
+        self.boltzmann = boltzmann
         #note no validation here
         self.private_key = priv
         self.used = used
@@ -210,6 +211,7 @@ class WalletViewEntry(WalletViewBase):
 
     def serialize_extra_data(self):
         ed = self.used
+        ed += self.separator + self.serclass(self.boltzmann)
         if self.private_key:
             ed += self.separator + self.serclass(self.private_key)
         return self.serclass(ed)
@@ -422,6 +424,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
             for k in range(unused_index + gaplimit):
                 path = wallet.get_path(m, forchange, k)
                 addr = wallet.get_addr_path(path)
+                boltzmann = wallet.boltzmann_get(btc.address_to_script(addr))
                 balance, used = get_addr_status(
                     path, utxos[m], k >= unused_index, forchange)
                 if showprivkey:
@@ -432,7 +435,7 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
                         (used == 'new' and forchange == 0)):
                     entrylist.append(WalletViewEntry(
                         wallet.get_path_repr(path), m, forchange, k, addr,
-                        [balance, balance], priv=privkey, used=used))
+                        [balance, balance], boltzmann, priv=privkey, used=used))
             wallet.set_next_index(m, forchange, unused_index)
             path = wallet.get_path_repr(wallet.get_path(m, forchange))
             branchlist.append(WalletViewBranch(path, m, forchange, entrylist,

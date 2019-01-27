@@ -843,6 +843,9 @@ class BaseWallet(object):
     def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
         return self._boltzmann.update(ins_scripts, outs, cjscript, changescript, amount)
 
+    def boltzmann_get(self, script):
+        return self._boltzmann.get_rate(script)
+
     def close(self):
         self._storage.close()
 
