@@ -164,6 +164,13 @@ The location of the data directory was chosen when Bitcoin Core was first run. T
 rpc_cookie_file = /mnt/c/Users/Alice/AppData/Roaming/Bitcoin/.cookie
 ```
 
+#### Running JoinMarket-Qt
+> note: you need to have installed JoinMarket with Qt support (see [this](../README.md#joinmarket-qt) section in the readme file)
+1. In Ubuntu, install additional dependencies `sudo apt install libgl1-mesa-glx`.
+2. Download and install [MobaXterm](https://mobaxterm.mobatek.net). This program needs to be running before you can start JoinMarket-Qt. It requires no additional configuration.
+3. Again in Ubuntu, type `DISPLAY=localhost:0.0` or add it to your `.bashrc` file so you don't need to type it every time you want to start JoinMarket-Qt.
+4. You can now start JoinMarket-Qt as described [here](JOINMARKET-QT-GUIDE.md).
+
 ### Alternative/custom installation:
 
 #### Installing the daemon separately
