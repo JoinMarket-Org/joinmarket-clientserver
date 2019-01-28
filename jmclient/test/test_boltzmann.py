@@ -70,6 +70,11 @@ def test_set_rate():
     assert bz.get_rate(script) == 10
 
 
+def test_not_init_storage():
+    storage = MockStorage(None, 'wallet.jmdat', None, create=True)
+    Boltzmann(storage)
+
+
 @pytest.fixture
 def setup_env_nodeps(monkeypatch):
     monkeypatch.setattr(jmclient.configure, 'get_blockchain_interface_instance',
