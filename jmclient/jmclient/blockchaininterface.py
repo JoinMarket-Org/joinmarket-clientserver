@@ -306,7 +306,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
     def estimate_fee_per_kb(self, N):
         if super(ElectrumWalletInterface, self).fee_per_kb_has_been_manually_set(N):
-	     # use a floor of 1000 to not run into node relay problems
+            # use a floor of 1000 to not run into node relay problems
             return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
                                                   ))
@@ -688,10 +688,12 @@ class BitcoinCoreInterface(BlockchainInterface):
                     res = self.rpc("gettransaction", [tx["txid"], 1])
                 except JsonRpcError as e:
                     #This should never happen (gettransaction is a wallet rpc).
-                    log.info("Failed any gettransaction call")
+                    log.warn("Failed gettransaction call; JsonRpcError")
                     res = None
                 except Exception as e:
-                    log.info(str(e))
+                    log.warn("Failed gettransaction call; unexpected error:")
+                    log.warn(str(e))
+                    res = None
             if not res:
                 continue
             if "confirmations" not in res:
