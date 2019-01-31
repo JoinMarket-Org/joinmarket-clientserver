@@ -81,11 +81,11 @@ def test_utxomanager_select(setup_env_nodeps):
 
     um.add_utxo(txid, index, path, value, mixdepth)
 
-    assert len(um.select_utxos(mixdepth, value)) is 1
-    assert len(um.select_utxos(mixdepth+1, value)) is 0
+    assert len(um.select_utxos(mixdepth, value)) == 1
+    assert len(um.select_utxos(mixdepth+1, value)) == 0
 
     um.add_utxo(txid, index+1, path, value, mixdepth)
-    assert len(um.select_utxos(mixdepth, value)) is 2
+    assert len(um.select_utxos(mixdepth, value)) == 2
 
 
 @pytest.fixture

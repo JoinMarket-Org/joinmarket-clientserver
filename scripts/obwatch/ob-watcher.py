@@ -212,7 +212,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         else:
             bins = 30
         plt.hist(ordersizes, bins, histtype='bar', rwidth=0.8)
-        if bins is not 30:
+        if bins != 30:
             fig.axes[0].set_xscale('log')
         plt.grid()
         plt.xlabel('Order sizes / btc')
