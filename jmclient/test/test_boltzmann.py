@@ -87,9 +87,13 @@ def set_initial(bz, setup):
         bz.set_rate(s, r)
 
 
-def check_result(bz, expected):
+def check_rates(bz, expected):
     for s, r in expected:
         assert bz.get_rate(s) == r
+
+
+def check_keys(bz, keys):
+    assert set(bz._rates.keys()) <= set(keys)
 
 
 @pytest.mark.parametrize("ins_scripts, outs, cjscript, changescript, amount, setup, expected", [
@@ -132,4 +136,22 @@ def test_update(ins_scripts, outs, cjscript, changescript, amount, setup, expect
 
     bz.update(ins_scripts, outs, cjscript, changescript, amount)
 
-    check_result(bz, expected)
+    check_rates(bz, expected)
+
+
+@pytest.mark.parametrize("current, setup", [
+    ([], []),
+    (['00'], [('00', 5)]),
+    (['00'], [('00', 5), ('01', 5), ('02', 5)]),
+    (['01', '02'], [('00', 5), ('01', 5), ('02', 5), ('03', 5)]),
+    (['07'], [('00', 5), ('01', 5), ('02', 5), ('03', 5)]),
+])
+def test_clean(current, setup):
+    storage = MockStorage(None, 'wallet.jmdat', None, create=True)
+    Boltzmann.initialize(storage)
+    bz = Boltzmann(storage)
+    set_initial(bz, setup)
+
+    bz.clean(current)
+
+    check_keys(bz, current)
