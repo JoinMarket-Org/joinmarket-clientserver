@@ -98,3 +98,9 @@ class Boltzmann(object):
         self.set_rate(cjscript, input_rate * mult)
         if changescript:
             self.set_rate(changescript, input_rate)
+
+    def clean(self, current_scripts):
+        scripts = set(current_scripts)
+        for key in list(self._rates.keys()):
+            if key not in scripts:
+                del self._rates[key]
