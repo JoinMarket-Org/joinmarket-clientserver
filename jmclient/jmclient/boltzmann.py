@@ -2,6 +2,7 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
 
+import math
 import numbers
 
 
@@ -61,6 +62,10 @@ class Boltzmann(object):
         self._check_script(script)
 
         return self._rates.get(script, 1)
+
+    def get_entropy(self, script):
+        rate = self.get_rate(script)
+        return math.log2(rate)
 
     def has_script(self, script):
         self._check_script(script)

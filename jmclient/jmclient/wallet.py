@@ -844,7 +844,8 @@ class BaseWallet(object):
         return self._boltzmann.update(ins_scripts, outs, cjscript, changescript, amount)
 
     def boltzmann_get(self, script):
-        return self._boltzmann.get_rate(script)
+        if self._boltzmann.has_script(script):
+            return self._boltzmann.get_entropy(script)
 
     def close(self):
         self._storage.close()

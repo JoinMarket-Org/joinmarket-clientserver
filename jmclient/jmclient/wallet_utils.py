@@ -211,7 +211,9 @@ class WalletViewEntry(WalletViewBase):
 
     def serialize_extra_data(self):
         ed = self.used
-        ed += self.separator + self.serclass(self.boltzmann)
+        if self.boltzmann:
+            # Defined and >0
+            ed += self.separator + self.serclass("{0:.1f}".format(self.boltzmann))
         if self.private_key:
             ed += self.separator + self.serclass(self.private_key)
         return self.serclass(ed)
