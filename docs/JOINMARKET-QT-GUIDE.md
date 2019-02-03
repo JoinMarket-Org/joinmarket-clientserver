@@ -4,17 +4,11 @@
 
 The gui can be run directly from Python script by doing `python joinmarket-qt.py` from within `scripts/`, or by running the executable file/binary (**[CLICK HERE](https://github.com/AdamISZ/joinmarket-clientserver/releases/)** to download the latest release).
 
-**LATEST VERSION of JoinMarket-Qt is GUI version 6**. You can check the version via `About` in the menu.
+**LATEST VERSION of JoinMarket-Qt is GUI version 9**. You can check the version via `About` in the menu.
 
 No other files / setup should be needed. You might need to `chmod 755` on Linux.
 
-The github commits to the main repo, above, are signed. For the executables in the release, there are .asc gpg signatures provided; please check them!
-
-My key (Adam Gibson, @AdamISZ on github, waxwing on reddit, btctalk, @waxwing__ on twitter): 
-
-    4668 9728 A9F6 4B39 1FA8  71B7 B3AE 09F1 E9A3 197A
-
-The gpg signature files for each binary should verify against the above key.
+The github commits to the main repo, above, are signed.
 
 **Contents**
 

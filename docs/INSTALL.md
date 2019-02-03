@@ -170,6 +170,7 @@ rpc_cookie_file = /mnt/c/Users/Alice/AppData/Roaming/Bitcoin/.cookie
 2. Download and install [MobaXterm](https://mobaxterm.mobatek.net). This program needs to be running before you can start JoinMarket-Qt. It requires no additional configuration.
 3. Again in Ubuntu, type `DISPLAY=localhost:0.0` or add it to your `.bashrc` file so you don't need to type it every time you want to start JoinMarket-Qt.
 4. You can now start JoinMarket-Qt as described [here](JOINMARKET-QT-GUIDE.md).
+If you find that the program crashes with `qt.qpa.plugin: Could not load the Qt platform plugin`, you can add Qt5 dependencies with `sudo apt install qtbase5-dev` and try again.
 
 ### Alternative/custom installation:
 
