@@ -368,7 +368,7 @@ def get_sendpayment_parser():
         'usage: %prog [options] [wallet file] [amount] [destaddr]',
         description='Sends a single payment from a given mixing depth of your '
         +
-        'wallet to an given address using coinjoin and then switches off. Also sends from bitcoinqt. '
+        'wallet to an given address using coinjoin and then switches off. '
         +
         'Setting amount to zero will do a sweep, where the entire mix depth is emptied')
     parser.add_option(
