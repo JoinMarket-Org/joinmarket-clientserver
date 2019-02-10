@@ -843,6 +843,10 @@ class BaseWallet(object):
     def clean_storage(self):
         """Remove used scripts from botlzmann storage.
         Utxo set must be synced"""
+
+        if self._storage.read_only:
+            return
+
         scripts = []
         utxo = self._utxos._utxo
         # utxo: [md: int][(txid: bytes, index: int)] -> (path: tuple, value: int)

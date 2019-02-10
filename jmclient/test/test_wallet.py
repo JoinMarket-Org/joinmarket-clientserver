@@ -646,10 +646,7 @@ def test_wallet_mixdepth_decrease(setup_wallet):
     assert utxo in new_wallet.select_utxos_(max_mixdepth, 10**7)
 
 
-def test_clean_storage(setup_wallet):
-    """Boltzmann rates set must be minimal after notification of sync_unspent event"""
-    wallet = get_populated_wallet(num=2)
-    sync_wallet(wallet)
+def fill_boltzmann(wallet):
 
     assert wallet._utxos._utxo
     assert wallet._script_map
@@ -672,11 +669,29 @@ def test_clean_storage(setup_wallet):
     wallet._boltzmann.set_rate('08' * 23, 7)
     wallet._boltzmann.set_rate('09' * 23, 7)
 
+    return scripts
+
+
+def test_clean_storage(setup_wallet):
+    """Boltzmann rates set must be minimal after notification of sync_unspent event"""
+    wallet = get_populated_wallet(num=2)
+    sync_wallet(wallet)
+    utxos_stripts = fill_boltzmann(wallet)
+
     wallet.clean_storage()
 
     # Check that boltzmann does not include used scripts
     for script in wallet._boltzmann._rates.keys():
-        assert script in scripts
+        assert script in utxos_stripts
+
+
+def test_clean_read_only_storage(setup_wallet):
+    wallet = get_populated_wallet(num=2)
+    wallet._storage.read_only = True
+    sync_wallet(wallet)
+    fill_boltzmann(wallet)
+
+    wallet.clean_storage()
 
 
 @pytest.fixture(scope='module')
