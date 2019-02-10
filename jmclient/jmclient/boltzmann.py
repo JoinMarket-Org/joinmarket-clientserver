@@ -106,8 +106,11 @@ class Boltzmann(object):
             self.set_rate(changescript, input_rate)
 
     def clean(self, current_scripts):
-        assert len(current_scripts)
         assert isinstance(current_scripts, Iterable)
+
+        # Do not clean if current_scripts is not initialized
+        if not current_scripts:
+            return
 
         scripts = set(current_scripts)
         for key in list(self._rates.keys()):
