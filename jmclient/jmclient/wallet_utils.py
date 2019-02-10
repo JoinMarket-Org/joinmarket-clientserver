@@ -364,9 +364,11 @@ def wallet_showutxos(wallet, showprivkey):
             key = wallet.get_key_from_addr(av['address'])
             tries = podle.get_podle_tries(u, key, max_tries)
             tries_remaining = max(0, max_tries - tries)
+            script = binascii.hexlify(av['script']).decode('ascii')
+            entropy = wallet.boltzmann_get(script) or 0
             unsp[u] = {'address': av['address'], 'value': av['value'],
                        'tries': tries, 'tries_remaining': tries_remaining,
-                       'external': False}
+                       'external': False, 'entropy': entropy}
             if showprivkey:
                 unsp[u]['privkey'] = wallet.get_wif_path(av['path'])
 
