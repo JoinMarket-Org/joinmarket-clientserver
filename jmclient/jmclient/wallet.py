@@ -840,6 +840,11 @@ class BaseWallet(object):
         """
         raise NotImplementedError()
 
+    def clean_storage(self):
+        """Remove used scripts from botlzmann storage.
+        Utxo set must be synced"""
+        pass
+
     def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
         return self._boltzmann.update(ins_scripts, outs, cjscript, changescript, amount)
 
