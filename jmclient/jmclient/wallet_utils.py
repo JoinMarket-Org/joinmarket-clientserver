@@ -29,7 +29,7 @@ def get_wallettool_parser():
     description = (
         'Use this script to monitor and manage your Joinmarket wallet.\n'
         'The method is one of the following: \n'
-        '(display) Shows addresses and balances.\n'
+        '(display) Shows addresses, balances and entropy.\n'
         '(displayall) Shows ALL addresses and balances.\n'
         '(summary) Shows a summary of mixing depth balances.\n'
         '(generate) Generates a new wallet.\n'
@@ -210,10 +210,13 @@ class WalletViewEntry(WalletViewBase):
         return self.serclass("{0:.08f}".format(self.unconfirmed_amount/1e8))
 
     def serialize_extra_data(self):
-        ed = self.used
         if self.boltzmann:
             # Defined and >0
-            ed += self.separator + self.serclass("{0:.1f}".format(self.boltzmann))
+            ed = self.serclass("{0:.1f}".format(self.boltzmann))
+        else:
+            # Placeholder
+            ed = '   '
+        ed += self.separator + self.used
         if self.private_key:
             ed += self.separator + self.serclass(self.private_key)
         return self.serclass(ed)
