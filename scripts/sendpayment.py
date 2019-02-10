@@ -115,7 +115,8 @@ def main():
             options.txfee))
     assert (options.txfee >= 0)
 
-    if not options.p2ep and options.makercount != 0:
+    maxcjfee = (1, float('inf'))
+    if not options.p2ep and not options.pickorders and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
         log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
                  "sat".format(*maxcjfee))
