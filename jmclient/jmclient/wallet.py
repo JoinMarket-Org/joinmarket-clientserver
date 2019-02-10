@@ -841,7 +841,7 @@ class BaseWallet(object):
         raise NotImplementedError()
 
     def clean_storage(self):
-        """Remove used scripts from botlzmann storage.
+        """Remove used scripts from boltzmann storage.
         Utxo set must be synced"""
 
         if self._storage.read_only:
