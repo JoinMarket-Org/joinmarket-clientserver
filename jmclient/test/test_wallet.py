@@ -655,7 +655,6 @@ def test_clean_storage(setup_wallet):
     assert wallet._script_map
 
     utxo = wallet._utxos._utxo
-    # utxo: [md: int][(txid: bytes, index: int)] -> (path: tuple, value: int)
     utxo_paths = set(chain(*[[y[0] for y in x.values()] for x in utxo.values()]))
     scripts = []
     for script, path in wallet._script_map.items():

@@ -843,7 +843,19 @@ class BaseWallet(object):
     def clean_storage(self):
         """Remove used scripts from botlzmann storage.
         Utxo set must be synced"""
-        pass
+        scripts = []
+        utxo = self._utxos._utxo
+        # utxo: [md: int][(txid: bytes, index: int)] -> (path: tuple, value: int)
+        utxo_paths = set(chain(*[[y[0] for y in x.values()] for x in utxo.values()]))
+
+        # Convert paths to scripts
+        for script, path in self._script_map.items():
+            if path in utxo_paths:
+                scripts.append(hexlify(script).decode('ascii'))
+
+        if scripts:
+            self._boltzmann.clean(scripts)
+            self.save()
 
     def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
         return self._boltzmann.update(ins_scripts, outs, cjscript, changescript, amount)

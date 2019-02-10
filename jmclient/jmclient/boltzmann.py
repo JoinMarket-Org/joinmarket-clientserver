@@ -4,6 +4,7 @@ from builtins import * # noqa: F401
 
 import math
 import numbers
+from collections.abc import Iterable
 
 
 def _int_to_bytestr(i):
@@ -105,6 +106,9 @@ class Boltzmann(object):
             self.set_rate(changescript, input_rate)
 
     def clean(self, current_scripts):
+        assert len(current_scripts)
+        assert isinstance(current_scripts, Iterable)
+
         scripts = set(current_scripts)
         for key in list(self._rates.keys()):
             if key not in scripts:

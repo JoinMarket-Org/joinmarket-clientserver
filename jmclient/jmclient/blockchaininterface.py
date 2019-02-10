@@ -31,6 +31,7 @@ def sync_wallet(wallet, fast=False):
         jm_single().bc_interface.sync_wallet(wallet, fast=True)
     else:
         jm_single().bc_interface.sync_wallet(wallet)
+    wallet.clean_storage()
 
 class BlockchainInterface(object):
     __metaclass__ = abc.ABCMeta
