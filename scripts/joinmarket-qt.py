@@ -1357,7 +1357,7 @@ class JMMainWindow(QMainWindow):
                                                    options=QFileDialog.DontUseNativeDialog)
             #TODO validate the file looks vaguely like a wallet file
             log.debug('Looking for wallet in: ' + str(firstarg))
-            if not firstarg:
+            if not firstarg or not firstarg[0]:
                 return
             decrypted = False
             while not decrypted:
