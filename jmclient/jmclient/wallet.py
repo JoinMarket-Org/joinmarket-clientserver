@@ -117,6 +117,7 @@ def deprecated(func):
 
 class UTXOManager(object):
     STORAGE_KEY = b'utxo'
+    METADATA_KEY = b'meta'
     TXID_LEN = 32
 
     def __init__(self, storage, merge_func):
@@ -124,6 +125,11 @@ class UTXOManager(object):
         self.selector = merge_func
         # {mixdexpth: {(txid, index): (path, value)}}
         self._utxo = None
+        # metadata kept as a separate key in the database
+        # for backwards compat; value as dict for forward-compat.
+        # format is {(txid, index): value-dict} with "disabled"
+        # as the only currently used key in the dict.
+        self._utxo_meta = None
         self._load_storage()
         assert self._utxo is not None
 
@@ -135,6 +141,7 @@ class UTXOManager(object):
         assert isinstance(self.storage.data[self.STORAGE_KEY], dict)
 
         self._utxo = collections.defaultdict(dict)
+        self._utxo_meta = collections.defaultdict(dict)
         for md, data in self.storage.data[self.STORAGE_KEY].items():
             md = int(md)
             md_data = self._utxo[md]
@@ -143,28 +150,46 @@ class UTXOManager(object):
                 index = int(utxo[self.TXID_LEN:])
                 md_data[(txid, index)] = value
 
+        # Wallets may not have any metadata
+        if self.METADATA_KEY in self.storage.data:
+            for utxo, value in self.storage.data[self.METADATA_KEY].items():
+                txid = utxo[:self.TXID_LEN]
+                index = int(utxo[self.TXID_LEN:])
+                self._utxo_meta[(txid, index)] = value
+
     def save(self, write=True):
         new_data = {}
         self.storage.data[self.STORAGE_KEY] = new_data
+
         for md, data in self._utxo.items():
             md = _int_to_bytestr(md)
             new_data[md] = {}
             # storage keys must be bytes()
             for (txid, index), value in data.items():
                 new_data[md][txid + _int_to_bytestr(index)] = value
+
+        new_meta_data = {}
+        self.storage.data[self.METADATA_KEY] = new_meta_data
+        for (txid, index), value in self._utxo_meta.items():
+            new_meta_data[txid + _int_to_bytestr(index)] = value
+
         if write:
             self.storage.save()
 
     def reset(self):
         self._utxo = collections.defaultdict(dict)
 
-    def have_utxo(self, txid, index):
+    def have_utxo(self, txid, index, include_disabled=True):
+        if not include_disabled and self.is_disabled(txid, index):
+            return False
         for md in self._utxo:
             if (txid, index) in self._utxo[md]:
                 return md
         return False
 
     def remove_utxo(self, txid, index, mixdepth):
+        # currently does not remove metadata associated
+        # with this utxo
         assert isinstance(txid, bytes)
         assert len(txid) == self.TXID_LEN
         assert isinstance(index, numbers.Integral)
@@ -173,6 +198,8 @@ class UTXOManager(object):
         return self._utxo[mixdepth].pop((txid, index))
 
     def add_utxo(self, txid, index, path, value, mixdepth):
+        # Assumed: that we add a utxo only if we want it enabled,
+        # so metadata is not currently added.
         assert isinstance(txid, bytes)
         assert len(txid) == self.TXID_LEN
         assert isinstance(index, numbers.Integral)
@@ -181,22 +208,59 @@ class UTXOManager(object):
 
         self._utxo[mixdepth][(txid, index)] = (path, value)
 
+    def is_disabled(self, txid, index):
+        if not self._utxo_meta:
+            return False
+        if (txid, index) not in self._utxo_meta:
+            return False
+        if b'disabled' not in self._utxo_meta[(txid, index)]:
+            return False
+        if not self._utxo_meta[(txid, index)][b'disabled']:
+            return False
+        return True
+
+    def disable_utxo(self, txid, index, disable=True):
+        assert isinstance(txid, bytes)
+        assert len(txid) == self.TXID_LEN
+        assert isinstance(index, numbers.Integral)
+
+        if b'disabled' not in self._utxo_meta[(txid, index)]:
+            self._utxo_meta[(txid, index)] = {}
+        self._utxo_meta[(txid, index)][b'disabled'] = disable
+
+    def enable_utxo(self, txid, index):
+        self.disable_utxo(txid, index, disable=False)
+
     def select_utxos(self, mixdepth, amount, utxo_filter=(), select_fn=None):
         assert isinstance(mixdepth, numbers.Integral)
         utxos = self._utxo[mixdepth]
+        # do not select anything in the filter
         available = [{'utxo': utxo, 'value': val}
             for utxo, (addr, val) in utxos.items() if utxo not in utxo_filter]
+        # do not select anything disabled
+        available = [u for u in available if not self.is_disabled(*u['utxo'])]
         selector = select_fn or self.selector
         selected = selector(available, amount)
         return {s['utxo']: {'path': utxos[s['utxo']][0],
                             'value': utxos[s['utxo']][1]}
                 for s in selected}
 
-    def get_balance_by_mixdepth(self, max_mixdepth=float('Inf')):
+    def get_balance_by_mixdepth(self, max_mixdepth=float('Inf'),
+                                include_disabled=True):
+        """ By default this returns a dict of aggregated bitcoin
+        balance per mixdepth: {0: N sats, 1: M sats, ...} for all
+        currently available mixdepths.
+        If max_mixdepth is set it will return balances only up
+        to that mixdepth.
+        To get only enabled balance, set include_disabled=False.
+        """
         balance_dict = collections.defaultdict(int)
         for mixdepth, utxomap in self._utxo.items():
             if mixdepth > max_mixdepth:
                 continue
+            if not include_disabled:
+                utxomap = {k: v for k, v in utxomap.items(
+                    ) if not self.is_disabled(*k)}
             value = sum(x[1] for x in utxomap.values())
             balance_dict[mixdepth] = value
         return balance_dict
@@ -285,7 +349,7 @@ class BaseWallet(object):
         """
         Write data to associated storage object and trigger persistent update.
         """
-        self._storage.save()
+        self._utxos.save()
 
     @classmethod
     def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
@@ -610,17 +674,28 @@ class BaseWallet(object):
 
         return ret
 
+    def disable_utxo(self, txid, index, disable=True):
+        self._utxos.disable_utxo(txid, index, disable)
+        # make sure the utxo database is persisted
+        self.save()
+
+    def toggle_disable_utxo(self, txid, index):
+        is_disabled = self._utxos.is_disabled(txid, index)
+        self.disable_utxo(txid, index, disable= not is_disabled)
+
     def reset_utxos(self):
         self._utxos.reset()
 
-    def get_balance_by_mixdepth(self, verbose=True):
+    def get_balance_by_mixdepth(self, verbose=True,
+                                include_disabled=False):
         """
         Get available funds in each active mixdepth.
-
+        By default ignores disabled utxos in calculation.
         returns: {mixdepth: value}
         """
         # TODO: verbose
-        return self._utxos.get_balance_by_mixdepth(max_mixdepth=self.mixdepth)
+        return self._utxos.get_balance_by_mixdepth(max_mixdepth=self.mixdepth,
+                                            include_disabled=include_disabled)
 
     @deprecated
     def get_utxos_by_mixdepth(self, verbose=True):
@@ -636,7 +711,7 @@ class BaseWallet(object):
                 utxos_conv[md][utxo_str] = data
         return utxos_conv
 
-    def get_utxos_by_mixdepth_(self):
+    def get_utxos_by_mixdepth_(self, include_disabled=False):
         """
         Get all UTXOs for active mixdepths.
 
@@ -651,6 +726,8 @@ class BaseWallet(object):
             if md > self.mixdepth:
                 continue
             for utxo, (path, value) in data.items():
+                if not include_disabled and self._utxos.is_disabled(*utxo):
+                    continue
                 script = self.get_script_path(path)
                 script_utxos[md][utxo] = {'script': script,
                                           'path': path,

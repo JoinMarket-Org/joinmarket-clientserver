@@ -18,6 +18,7 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     LegacyWallet, SegwitWallet, is_native_segwit_mode)
 from jmbase.support import get_password, jmprint
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH
+from .output import fmt_utxo
 import jmbitcoin as btc
 
 
@@ -40,7 +41,8 @@ def get_wallettool_parser():
         '(importprivkey) Adds privkeys to this wallet, privkeys are spaces or commas separated.\n'
         '(dumpprivkey) Export a single private key, specify an hd wallet path\n'
         '(signmessage) Sign a message with the private key from an address in \n'
-        'the wallet. Use with -H and specify an HD wallet path for the address.')
+        'the wallet. Use with -H and specify an HD wallet path for the address.\n'
+        '(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
                           description=description)
     parser.add_option('-p',
@@ -332,7 +334,8 @@ def get_imported_privkey_branch(wallet, m, showprivkey):
         addr = wallet.get_addr_path(path)
         script = wallet.get_script_path(path)
         balance = 0.0
-        for data in wallet.get_utxos_by_mixdepth_()[m].values():
+        for data in wallet.get_utxos_by_mixdepth_(
+                include_disabled=True)[m].values():
             if script == data['script']:
                 balance += data['value']
         used = ('used' if balance > 0.0 else 'empty')
@@ -407,7 +410,9 @@ def wallet_display(wallet, gaplimit, showprivkey, displayall=False,
         return addr_balance, out_status
 
     acctlist = []
-    utxos = wallet.get_utxos_by_mixdepth_()
+    # TODO - either optionally not show disabled utxos, or
+    # mark them differently in display (labels; colors)
+    utxos = wallet.get_utxos_by_mixdepth_(include_disabled=True)
     for m in range(wallet.mixdepth + 1):
         branchlist = []
         for forchange in [0, 1]:
@@ -816,12 +821,15 @@ def wallet_fetch_history(wallet, options):
             jmprint('scipy not installed, unable to predict accumulation rate')
             jmprint('to add it to this virtualenv, use `pip install scipy`')
 
-    total_wallet_balance = sum(wallet.get_balance_by_mixdepth().values())
+    # includes disabled utxos in accounting:
+    total_wallet_balance = sum(wallet.get_balance_by_mixdepth(
+        include_disabled=True).values())
     if balance != total_wallet_balance:
         jmprint(('BUG ERROR: wallet balance (%s) does not match balance from ' +
             'history (%s)') % (sat_to_str(total_wallet_balance),
                 sat_to_str(balance)))
-    wallet_utxo_count = sum(map(len, wallet.get_utxos_by_mixdepth_().values()))
+    wallet_utxo_count = sum(map(len, wallet.get_utxos_by_mixdepth_(
+        include_disabled=True).values()))
     if utxo_count != wallet_utxo_count:
         jmprint(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
             'history (%s)') % (wallet_utxo_count, utxo_count))
@@ -894,6 +902,104 @@ def wallet_signmessage(wallet, hdpath, message):
     retval = "Signature: {}\nTo verify this in Bitcoin Core".format(sig)
     return retval + " use the RPC command 'verifymessage'"
 
+def display_utxos_for_disable_choice_default(utxos_enabled, utxos_disabled):
+    """ CLI implementation of the callback required as described in
+    wallet_disableutxo
+    """
+
+    def default_user_choice(umax):
+        jmprint("Choose an index 0 .. {} to freeze/unfreeze or "
+                "-1 to just quit.".format(umax))
+        while True:
+            try:
+                ret = int(input())
+            except ValueError:
+                jmprint("Invalid choice, must be an integer.", "error")
+                continue
+            if not isinstance(ret, int) or ret < -1 or ret > umax:
+                jmprint("Invalid choice, must be between: -1 and {}, "
+                        "try again.".format(umax), "error")
+                continue
+            break
+        return ret
+
+    def output_utxos(utxos, status, start=0):
+        for (txid, idx), v in utxos.items():
+            value = v['value']
+            jmprint("{:4}: {:68}: {} sats, -- {}".format(
+                start, fmt_utxo((txid, idx)), value, status))
+            start += 1
+            yield txid, idx
+
+    ulist = list(output_utxos(utxos_disabled, 'FROZEN'))
+    disabled_max = len(ulist) - 1
+    ulist.extend(output_utxos(utxos_enabled, 'NOT FROZEN', start=len(ulist)))
+    max_id = len(ulist) - 1
+    chosen_idx = default_user_choice(max_id)
+    if chosen_idx == -1:
+        return None
+    # the return value 'disable' is the action we are going to take;
+    # so it should be true if the utxos is currently unfrozen/enabled.
+    disable = False if chosen_idx <= disabled_max else True
+    return ulist[chosen_idx], disable
+
+def get_utxos_enabled_disabled(wallet, md):
+    """ Returns dicts for enabled and disabled separately
+    """
+    utxos_enabled = wallet.get_utxos_by_mixdepth_()[md]
+    utxos_all = wallet.get_utxos_by_mixdepth_(include_disabled=True)[md]
+    utxos_disabled_keyset = set(utxos_all).difference(set(utxos_enabled))
+    utxos_disabled = {}
+    for u in utxos_disabled_keyset:
+        utxos_disabled[u] = utxos_all[u]
+    return utxos_enabled, utxos_disabled
+
+def wallet_freezeutxo(wallet, md, display_callback=None, info_callback=None):
+    """ Given a wallet and a mixdepth, display to the user
+    the set of available utxos, indexed by integer, and accept a choice
+    of index to "freeze", then commit this disabling to the wallet storage,
+    so that this disable-ment is persisted. Also allow unfreezing of a
+    chosen utxo which is currently frozen.
+    Callbacks for display and reporting can be specified in the keyword
+    arguments as explained below, otherwise default CLI is used.
+
+    ** display_callback signature:
+    args:
+    1. utxos_enabled ; dict of utxos as format in wallet.py.
+    2. utxos_disabled ; as above, for disabled
+    returns:
+    1.((txid(str), index(int)), disabled(bool)) of chosen utxo
+    for freezing/unfreezing, or None for no action/cancel.
+    ** info_callback signature:
+    args:
+    1. message (str)
+    2. type (str) ("info", "error" etc as per jmprint)
+    returns: None
+    """
+    if display_callback is None:
+        display_callback = display_utxos_for_disable_choice_default
+    if info_callback is None:
+        info_callback = jmprint
+    if md is None:
+        info_callback("Specify the mixdepth with the -m flag", "error")
+        return "Failed"
+    utxos_enabled, utxos_disabled = get_utxos_enabled_disabled(wallet, md)
+    if utxos_disabled == {} and utxos_enabled == {}:
+        info_callback("The mixdepth: " + str(md) + \
+            " contains no utxos to freeze/unfreeze.", "error")
+        return "Failed"
+    display_ret = display_callback(utxos_enabled, utxos_disabled)
+    if display_ret is None:
+        return "OK"
+    (txid, index), disable = display_ret
+    wallet.disable_utxo(txid, index, disable)
+    if disable:
+        info_callback("Utxo: {} is now frozen and unavailable for spending."
+                      .format(fmt_utxo((txid, index))))
+    else:
+        info_callback("Utxo: {} is now unfrozen and available for spending."
+                      .format(fmt_utxo((txid, index))))
+    return "Done"
 
 def get_wallet_type():
     if is_segwit_mode():
@@ -1047,7 +1153,7 @@ def wallet_tool_main(wallet_root_path):
 
     noseed_methods = ['generate', 'recover']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
-               'history', 'showutxos']
+               'history', 'showutxos', 'freeze']
     methods.extend(noseed_methods)
     noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
     readonly_methods = ['display', 'displayall', 'summary', 'showseed',
@@ -1120,6 +1226,8 @@ def wallet_tool_main(wallet_root_path):
         return "Key import completed."
     elif method == "signmessage":
         return wallet_signmessage(wallet, options.hd_path, args[2])
+    elif method == "freeze":
+        return wallet_freezeutxo(wallet, options.mixdepth)
 
 
 #Testing (can port to test modules, TODO)

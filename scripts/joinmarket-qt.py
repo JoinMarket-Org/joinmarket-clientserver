@@ -72,7 +72,7 @@ from jmclient import load_program_config, get_network,\
     get_blockchain_interface_instance, direct_send,\
     RegtestBitcoinCoreInterface, tumbler_taker_finished_update,\
     get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
-    wallet_generate_recover_bip39, wallet_display
+    wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -999,6 +999,106 @@ class TxHistoryTab(QWidget):
                            ','.join([str(item.text(_)) for _ in range(4)])))
         menu.exec_(self.tHTW.viewport().mapToGlobal(position))
 
+class CoinsTab(QWidget):
+
+    def __init__(self):
+        super(CoinsTab, self).__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.cTW = MyTreeWidget(self, self.create_menu, self.getHeaders())
+        self.cTW.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.cTW.header().setSectionResizeMode(QHeaderView.Interactive)
+        self.cTW.header().setStretchLastSection(False)
+        self.cTW.on_update = self.updateUtxos
+
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+        vbox.setContentsMargins(0,0,0,0)
+        vbox.setSpacing(0)
+        vbox.addWidget(self.cTW)
+        self.updateUtxos()
+        self.show()
+
+    def getHeaders(self):
+        '''Function included in case dynamic in future'''
+        return ['Txid:n', 'Amount in BTC', 'Address']
+
+    def updateUtxos(self):
+        """ Note that this refresh of the display only accesses in-process
+        utxo database (no sync e.g.) so can be immediate.
+        """
+        self.cTW.clear()
+        def show_blank():
+            m_item = QTreeWidgetItem(["No coins", "", ""])
+            self.cTW.addChild(m_item)
+            self.show()
+
+        if not w.wallet:
+            show_blank()
+            return
+        utxos_enabled = {}
+        utxos_disabled = {}
+        for i in range(jm_single().config.getint("GUI", "max_mix_depth")):
+            utxos_e, utxos_d = get_utxos_enabled_disabled(w.wallet, i)
+            if utxos_e != {}:
+                utxos_enabled[i] = utxos_e
+            if utxos_d != {}:
+                utxos_disabled[i] = utxos_d
+        if utxos_enabled == {} and utxos_disabled == {}:
+            show_blank()
+            return
+
+        for i in range(jm_single().config.getint("GUI", "max_mix_depth")):
+            uem = utxos_enabled.get(i)
+            udm = utxos_disabled.get(i)
+            m_item = QTreeWidgetItem(["Mixdepth " + str(i), '', ''])
+            self.cTW.addChild(m_item)
+            for heading in ["NOT FROZEN", "FROZEN"]:
+                um = uem if heading == "NOT FROZEN" else udm
+                seq_item = QTreeWidgetItem([heading, '', ''])
+                m_item.addChild(seq_item)
+                seq_item.setExpanded(True)
+                if um is None:
+                    item = QTreeWidgetItem(['None', '', ''])
+                    seq_item.addChild(item)
+                else:
+                    for k, v in um.items():
+                        # txid:index, btc, address
+                        t = btc.safe_hexlify(k[0])+":"+str(k[1])
+                        s = "{0:.08f}".format(v['value']/1e8)
+                        a = w.wallet.script_to_addr(v["script"])
+                        item = QTreeWidgetItem([t, s, a])
+                        item.setFont(0, QFont(MONOSPACE_FONT))
+                        #if rows[i][forchange][j][3] != 'new':
+                        #    item.setForeground(3, QBrush(QColor('red')))
+                        seq_item.addChild(item)
+        self.show()
+
+    def toggle_utxo_disable(self, txid, idx):
+        txid_bytes = btc.safe_from_hex(txid)
+        w.wallet.toggle_disable_utxo(txid_bytes, idx)
+        self.updateUtxos()
+
+    def create_menu(self, position):
+        item = self.cTW.currentItem()
+        if not item:
+            return
+        try:
+            txidn = item.text(0)
+            txid, idx = txidn.split(":")
+            assert len(txid) == 64
+            idx = int(idx)
+            assert idx >= 0
+        except:
+            return
+
+        menu = QMenu()
+        menu.addAction("Freeze/un-freeze utxo (toggle)",
+                           lambda: self.toggle_utxo_disable(txid, idx))
+        menu.addAction("Copy transaction id to clipboard",
+                       lambda: app.clipboard().setText(txid))
+        menu.exec_(self.cTW.viewport().mapToGlobal(position))
 
 class JMWalletTab(QWidget):
 
@@ -1613,6 +1713,15 @@ if not jm_single().config.get("POLICY", "segwit") == "true":
 
 update_config_for_gui()
 
+def onTabChange(i):
+    """ Respond to change of tab.
+    """
+    # TODO: hardcoded literal;
+    # note that this is needed for an auto-update
+    # of utxos on the Coins tab only atm.
+    if i == 4:
+        tabWidget.widget(4).updateUtxos()
+
 #to allow testing of confirm/unconfirm callback for multiple txs
 if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().bc_interface.tick_forward_chain_interval = 10
@@ -1639,11 +1748,14 @@ settingsTab = SettingsTab()
 tabWidget.addTab(settingsTab, "Settings")
 tabWidget.addTab(SpendTab(), "Coinjoins")
 tabWidget.addTab(TxHistoryTab(), "Tx History")
+tabWidget.addTab(CoinsTab(), "Coins")
+
 w.resize(600, 500)
 suffix = ' - Testnet' if get_network() == 'testnet' else ''
 w.setWindowTitle(appWindowTitle + suffix)
 tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 w.setCentralWidget(tabWidget)
+tabWidget.currentChanged.connect(onTabChange)
 w.show()
 reactor.runReturn()
 sys.exit(app.exec_())
