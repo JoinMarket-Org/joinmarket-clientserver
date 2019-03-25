@@ -6,6 +6,7 @@ from builtins import * # noqa: F401
 import os
 import json
 from binascii import hexlify, unhexlify
+from itertools import chain
 
 import pytest
 import jmbitcoin as btc
@@ -14,7 +15,7 @@ from jmbase import get_log
 from jmclient import load_program_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
-    SegwitWallet
+    SegwitWallet, sync_wallet
 from test_blockchaininterface import sync_test_wallet
 
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -643,6 +644,54 @@ def test_wallet_mixdepth_decrease(setup_wallet):
     # wallet.select_utxos will still return utxos from higher mixdepths
     # because we explicitly ask for a specific mixdepth
     assert utxo in new_wallet.select_utxos_(max_mixdepth, 10**7)
+
+
+def fill_boltzmann(wallet):
+
+    assert wallet._utxos._utxo
+    assert wallet._script_map
+
+    utxo = wallet._utxos._utxo
+    utxo_paths = set(chain(*[[y[0] for y in x.values()] for x in utxo.values()]))
+    scripts = []
+    for script, path in wallet._script_map.items():
+        if path in utxo_paths:
+            scripts.append(hexlify(script).decode('ascii'))
+
+    assert len(scripts) >= 2
+
+    # Initialize boltzmann storage
+    # Add almost all utxos' scripts
+    for script in scripts[:-1]:
+        wallet._boltzmann.set_rate(script, 7)
+    # Add used scripts
+    wallet._boltzmann.set_rate('07' * 23, 7)
+    wallet._boltzmann.set_rate('08' * 23, 7)
+    wallet._boltzmann.set_rate('09' * 23, 7)
+
+    return scripts
+
+
+def test_clean_storage(setup_wallet):
+    """Boltzmann rates set must be minimal after notification of sync_unspent event"""
+    wallet = get_populated_wallet(num=2)
+    sync_wallet(wallet)
+    utxos_stripts = fill_boltzmann(wallet)
+
+    wallet.clean_storage()
+
+    # Check that boltzmann does not include used scripts
+    for script in wallet._boltzmann._rates.keys():
+        assert script in utxos_stripts
+
+
+def test_clean_read_only_storage(setup_wallet):
+    wallet = get_populated_wallet(num=2)
+    wallet._storage.read_only = True
+    sync_wallet(wallet)
+    fill_boltzmann(wallet)
+
+    wallet.clean_storage()
 
 
 @pytest.fixture(scope='module')

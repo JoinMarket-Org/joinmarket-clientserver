@@ -19,6 +19,7 @@ from numbers import Integral
 
 
 from .configure import jm_single
+from .boltzmann import Boltzmann
 from .support import select_gradual, select_greedy, select_greediest, \
     select
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
@@ -233,6 +234,7 @@ class BaseWallet(object):
         self.gap_limit = gap_limit
         self._storage = storage
         self._utxos = None
+        self._boltzmann = None
         # highest mixdepth ever used in wallet, important for synching
         self.max_mixdepth = None
         # effective maximum mixdepth to be used by joinmarket
@@ -280,11 +282,13 @@ class BaseWallet(object):
                             .format(self.TYPE))
         self.network = self._storage.data[b'network'].decode('ascii')
         self._utxos = UTXOManager(self._storage, self.merge_algorithm)
+        self._boltzmann = Boltzmann(self._storage)
 
     def save(self):
         """
         Write data to associated storage object and trigger persistent update.
         """
+        self._boltzmann.save()
         self._storage.save()
 
     @classmethod
@@ -317,6 +321,7 @@ class BaseWallet(object):
         storage.data[b'wallet_type'] = cls.TYPE
 
         UTXOManager.initialize(storage)
+        Boltzmann.initialize(storage)
 
         if write:
             storage.save()
@@ -834,6 +839,34 @@ class BaseWallet(object):
         Warning: improper use of 'force' will cause undefined behavior!
         """
         raise NotImplementedError()
+
+    def clean_storage(self):
+        """Remove used scripts from boltzmann storage.
+        Utxo set must be synced"""
+
+        if self._storage.read_only:
+            return
+
+        scripts = []
+        utxo = self._utxos._utxo
+        # utxo: [md: int][(txid: bytes, index: int)] -> (path: tuple, value: int)
+        utxo_paths = set(chain(*[[y[0] for y in x.values()] for x in utxo.values()]))
+
+        # Convert paths to scripts
+        for script, path in self._script_map.items():
+            if path in utxo_paths:
+                scripts.append(hexlify(script).decode('ascii'))
+
+        if scripts:
+            self._boltzmann.clean(scripts)
+            self.save()
+
+    def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
+        return self._boltzmann.update(ins_scripts, outs, cjscript, changescript, amount)
+
+    def boltzmann_get(self, script):
+        if self._boltzmann.has_script(script):
+            return self._boltzmann.get_entropy(script)
 
     def close(self):
         self._storage.close()

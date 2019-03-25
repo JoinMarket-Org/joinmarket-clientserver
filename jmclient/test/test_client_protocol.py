@@ -8,6 +8,8 @@ from jmbase import get_log
 from jmclient import load_program_config, Taker,\
     JMClientProtocolFactory, jm_single, Maker
 from jmclient.client_protocol import JMTakerClientProtocol
+from jmclient.boltzmann import Boltzmann
+from jmclient import VolatileStorage
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor, task
 from twisted.internet.defer import inlineCallbacks
@@ -80,9 +82,16 @@ class DummyTaker(Taker):
 
 
 class DummyWallet(object):
+    def __init__(self):
+        self.storage = VolatileStorage()
+        Boltzmann.initialize(self.storage)
+        self._boltzmann = Boltzmann(self.storage)
+
     def get_wallet_id(self):
         return 'aaaa'
 
+    def boltzmann(self, ins_scripts, outs, cjscript, changescript, amount):
+        return self._boltzmann.update(ins_scripts, outs, cjscript, changescript, amount)
 
 class DummyMaker(Maker):
     def __init__(self):
