@@ -1383,7 +1383,7 @@ class JMMainWindow(QMainWindow):
             self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
 
     def loadWalletFromBlockchain(self, firstarg=None, pwd=None, restart_cb=None):
-        if (firstarg and pwd) or (firstarg and get_network() == 'testnet'):
+        if firstarg:
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
                 self.wallet = open_test_wallet_maybe(wallet_path, str(firstarg),
