@@ -66,52 +66,41 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
 ### Installation on macOS
 
 1) Install Apple Command Line Tools
-
+    ```
     xcode-select --install
-
+    ```
 2) Install Homebrew
-
+    ```
     /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-	
-3) Install PyQt4
-
-    brew install cartr/qt4/pyqt@4 libsodium
-	
+    ```
+3) Install python3 and libsodium
+    ```
+    brew install python libsodium
+    ```
 4) Create virtualenv "jmvenv"
-
-```sh
-    export PATH=/usr/local/opt/python/libexec/bin:$PATH
-    pip install virtualenv
-    virtualenv --python=/usr/local/opt/python/libexec/bin/python --system-site-packages jmvenv
+    ```sh
+    pip3 install virtualenv
+    virtualenv jmvenv
     source jmvenv/bin/activate
-```
+    ```
+    At this point you should see `(jmvenv)` at the beginning of your command prompt.
 
-At this point you should see `(jmvenv)` at the beginning of your command prompt.
-
-5) Clone the joinmarket-clientserver repo. Follow 5a for segwit and 5b for non-segwit
-
- 5a Segwit
-
+5) Clone the joinmarket-clientserver repo.
+    ```
     git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
     cd joinmarket-clientserver
-    git checkout v0.3.4
-
- 5b Non-segwit
-
-    git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
-    cd joinmarket-clientserver
-    git checkout 6ad114d
-
+    ```
 6) Setup joinmarket-qt
-```
-    python setupall.py --daemon
-    python setupall.py --client-bitcoin
-```
+    ```
+    pip install PySide2
+    pip install https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip
+    python setupall.py --all
+    ```
 7) Start joinmarket-qt
-```
+    ```
     cd scripts
     python joinmarket-qt.py
-```
+    ```
 
 ### Installation on Windows
 > note: Installing JoinMarket on Windows using the following method requires Windows 10 version 1607 or later.
