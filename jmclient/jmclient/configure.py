@@ -5,9 +5,10 @@ from builtins import * # noqa: F401
 import io
 import logging
 import os
+import platform
 import binascii
 
-from configparser import ConfigParser, NoOptionError
+from configparser import ConfigParser, MissingSectionHeaderError, NoOptionError
 
 import jmbitcoin as btc
 from jmclient.jsonrpc import JsonRpc
@@ -422,8 +423,43 @@ def load_program_config(config_path=None, bs=None):
         global_singleton.config.set("BLOCKCHAIN", "blockchain_source", bs)
     # Create default config file if not found
     if len(loadedFiles) != 1:
+
+        newconfig = defaultconfig
+
+        if global_singleton.config.get("BLOCKCHAIN", "blockchain_source") == "bitcoin-rpc":
+            # Try copying RPC settings from Bitcoin Core configuration
+            try:
+                if platform.system() == 'Darwin':
+                    bitcoin_conf = os.getenv('HOME') + '/Library/Application Support/Bitcoin/bitcoin.conf';
+                elif platform.system() == 'Windows':
+                    bitcoin_conf = os.getenv('APPDATA') + '\\Bitcoin\\bitcoin.conf';
+                else:
+                    bitcoin_conf = os.getenv('HOME') + '/.bitcoin/bitcoin.conf';
+                with open(bitcoin_conf, 'r') as f:
+                    config_string = f.read()
+                config = ConfigParser(strict = False)
+                network = 'mainnet'
+                # bitcoin.conf can either contain or not contain sections
+                try:
+                    config.read_string(config_string)
+                except MissingSectionHeaderError:
+                    # add dummy header and try again
+                    config.read_string(
+                        '[' + network + ']\n' +
+                        config_string
+                    );
+                # copy config options which are relevant to us and present
+                if config[network].get('rpcport') != None:
+                    newconfig = newconfig.replace('rpc_port = 8332', 'rpc_port = ' + config[network].get('rpcport'))
+                if config[network].get('rpcuser') != None:
+                    newconfig = newconfig.replace('rpc_user = bitcoin', 'rpc_user = ' + config[network].get('rpcuser'))
+                if config[network].get('rpcpassword') != None:
+                    newconfig = newconfig.replace('rpc_password = password', 'rpc_password = ' + config[network].get('rpcpassword'))
+            except FileNotFoundError:
+                pass
+
         with open(global_singleton.config_location, "w") as configfile:
-            configfile.write(defaultconfig)
+            configfile.write(newconfig)
         jmprint("Created a new `joinmarket.cfg`. Please review and adopt the "
               "settings and restart joinmarket.", "info")
         exit(1)
