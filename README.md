@@ -18,7 +18,10 @@ Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin C
 
 ### Quickstart
 
-Once you've downloaded this repo, either as a zip file, and extracted it, or via `git clone`:
+Once you've downloaded this repo, either as a tar/zip file, and extracted it, or via `git clone`:
+
+Make sure to validate the signature on the tar/zip file provided on the [https://github.com/Joinmarket-Org/joinmarket-clientserver/releases](release page),
+or check the signature in git if you install that way using `git log --show-signature`.
 
     ./install.sh
     (follow instructions on screen; provide sudo password when prompted)
@@ -27,9 +30,7 @@ Once you've downloaded this repo, either as a zip file, and extracted it, or via
 
 (You can add `-p python2` if you want to use Python2. You can also add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
 
-For the Qt GUI, pass the `--with-qt` flag to `install.sh` as well :
-
-    ./install.sh --with-qt
+You can optionally install a Qt GUI application, you will be prompted to choose this during installation.
 
 Do note, Python 2 is incompatible with the Qt GUI.
 
@@ -58,7 +59,7 @@ It's possible but unlikely that the Python2 version will be fixed, but in any ca
 
 If binaries are built, they will be gpg signed and announced on the Releases page.
 
-If you haven't used the `--with-qt` flag during installation with `install.sh`, then to run the script `joinmarket-qt.py` from the command line you will need to install two more packages.  Use these 2 commands while the `jmvenv` virtual environment is activated:
+If you haven't chosen the Qt option during installation with `install.sh`, then to run the script `joinmarket-qt.py` from the command line you will need to install two more packages.  Use these 2 commands while the `jmvenv` virtual environment is activated:
 
 ```
 pip install PySide2

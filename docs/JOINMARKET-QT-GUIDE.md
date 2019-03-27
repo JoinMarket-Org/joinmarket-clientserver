@@ -25,7 +25,8 @@ The github commits to the main repo, above, are signed.
 
 ### Walkthrough
 
-Double click the binary to run it.
+Double click the binary to run it, or go to the `/scripts` subdirectory and run `python joinmarket-qt.py`
+(make sure you're in the venv, go back to the README quick install instructions if you don't know what that means).
 
 You will get the following error screen initially:
 
@@ -40,7 +41,7 @@ has been created in the directory you're running in. If you're running Bitcoin C
     rpc_host = localhost #default usually correct 
     rpc_port = 8332 # default for mainnet
 
-If you're not using Core, you can set the value of `blockchain_source` in that section to `electrum-server`.
+If you're not using Core, you can set the value of `blockchain_source` in that section to `electrum-server` **but only do this for testing; it's not supported!**.
 
 Once the rpc connection is correct (or using Electrum), you will be presented with this start screen:
 

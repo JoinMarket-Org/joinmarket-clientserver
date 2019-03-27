@@ -13,9 +13,10 @@ Install the test requirements (still in your virtualenv as mentioned above):
 
 Running the test suite should be done something like (advisable to wipe ~/.bitcoin/regtest first):
 
-    pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=whatever --nirc=2 -k "not configure" --ignore test/test_full_coinjoin.py -p no:warnings
+    pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=whatever --nirc=2 --ignore test/test_full_coinjoin.py -p no:warnings
     
-(you'll first want to copy the regtest_joinmarket.cfg file from the test/ directory to the root directory, this file will need minor edits for your btc configuration).
+(you'll first want to copy the regtest_joinmarket.cfg file from the test/ directory to the root directory,
+this file will need minor edits for your btc configuration).
 
 ### Running tests of sendpayment and tumbler (including with malicious makers)
 
@@ -64,4 +65,11 @@ the add-utxo tool so external commitments usage can be tested.
 ### Testing Joinmarket-Qt with regtest
 
 You can follow the process above using `test/ygrunner.py` to set up the environment, and then just run `python joinmarket-qt.py` from within the `scripts` directory.
-Note that you can load a random/empty wallet with a 32 char hex string, or more usefully, use the provided wallet with coins in it, as described above. The 'generate' and 'recover' functions will not work on regtest for now, however; they can currently only be tested on mainnet.
+Note that you can load a random/empty wallet with a 32 char hex string, or more usefully,
+use the provided wallet with coins in it, as described above.
+
+The 'generate' and 'recover' functions will not work like this on regtest, but you can generate a file-based wallet on regtest from the command line,
+and then load it with a one line hack to the joinmarket-qt.py file (I'll let you work that out, if you got this far :) ).
+You can also do full tumbler tests, on regtest, using the GUI, using this setup. Spin up ygrunner.py as described above, then start the tumbler wizard
+in the 'CoinJoin' tab, and the multi- subtab, and choose Generate Tumbler Schedule. There are 3 default destination addresses provided although
+you may want to change them, depending on the test.
