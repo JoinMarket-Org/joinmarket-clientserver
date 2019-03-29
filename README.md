@@ -20,7 +20,7 @@ Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin C
 
 Once you've downloaded this repo, either as a tar/zip file, and extracted it, or via `git clone`:
 
-Make sure to validate the signature on the tar/zip file provided on the [https://github.com/Joinmarket-Org/joinmarket-clientserver/releases](release page),
+Make sure to validate the signature on the tar/zip file provided on the [release page](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases),
 or check the signature in git if you install that way using `git log --show-signature`.
 
     ./install.sh
