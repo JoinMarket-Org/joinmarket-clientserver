@@ -333,6 +333,22 @@ def test_signing_simple(setup_wallet, wallet_cls, type_check):
     txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
     assert txout
 
+def test_get_bbm(setup_wallet):
+    jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
+    amount = 10**8
+    num_tx = 3
+    wallet = get_populated_wallet(amount, num_tx)
+    # disable a utxo and check we can correctly report
+    # balance with the disabled flag off:
+    utxo_1 = list(wallet._utxos.get_utxos_by_mixdepth()[0].keys())[0]
+    wallet.disable_utxo(*utxo_1)
+    balances = wallet.get_balance_by_mixdepth(include_disabled=True)
+    assert balances[0] == num_tx * amount
+    balances = wallet.get_balance_by_mixdepth()
+    assert balances[0] == (num_tx - 1) * amount
+    wallet.toggle_disable_utxo(*utxo_1)
+    balances = wallet.get_balance_by_mixdepth()
+    assert balances[0] == num_tx * amount
 
 def test_add_utxos(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')

@@ -16,6 +16,12 @@ def select(unspent, value):
 
 
 def test_utxomanager_persist(setup_env_nodeps):
+    """ Tests that the utxo manager's data is correctly
+    persisted and can be recreated from storage.
+    This persistence is currently only used for metadata
+    (specifically, disabling coins for coin control).
+    """
+
     storage = MockStorage(None, 'wallet.jmdat', None, create=True)
     UTXOManager.initialize(storage)
     um = UTXOManager(storage, select)
@@ -28,27 +34,45 @@ def test_utxomanager_persist(setup_env_nodeps):
 
     um.add_utxo(txid, index, path, value, mixdepth)
     um.add_utxo(txid, index+1, path, value, mixdepth+1)
-
+    # the third utxo will be disabled and we'll check if
+    # the disablement persists in the storage across UM instances
+    um.add_utxo(txid, index+2, path, value, mixdepth+1)
+    um.disable_utxo(txid, index+2)
     um.save()
+
+    # Remove and recreate the UM from the same storage.
+
     del um
 
     um = UTXOManager(storage, select)
 
     assert um.have_utxo(txid, index) == mixdepth
     assert um.have_utxo(txid, index+1) == mixdepth + 1
-    assert um.have_utxo(txid, index+2) == False
+    # The third should not be registered as present given flag:
+    assert um.have_utxo(txid, index+2, include_disabled=False) == False
+    # check is_disabled works:
+    assert not um.is_disabled(txid, index)
+    assert not um.is_disabled(txid, index+1)
+    assert um.is_disabled(txid, index+2)
+    # check re-enabling works
+    um.enable_utxo(txid, index+2)
+    assert not um.is_disabled(txid, index+2)
+    um.disable_utxo(txid, index+2)
 
     utxos = um.get_utxos_by_mixdepth()
     assert len(utxos[mixdepth]) == 1
-    assert len(utxos[mixdepth+1]) == 1
+    assert len(utxos[mixdepth+1]) == 2
     assert len(utxos[mixdepth+2]) == 0
 
     balances = um.get_balance_by_mixdepth()
     assert balances[mixdepth] == value
-    assert balances[mixdepth+1] == value
+    assert balances[mixdepth+1] == value * 2
 
     um.remove_utxo(txid, index, mixdepth)
     assert um.have_utxo(txid, index) == False
+    # check that removing a utxo does not remove the metadata
+    um.remove_utxo(txid, index+2, mixdepth+1)
+    assert um.is_disabled(txid, index+2)
 
     um.save()
     del um
@@ -85,6 +109,12 @@ def test_utxomanager_select(setup_env_nodeps):
     assert len(um.select_utxos(mixdepth+1, value)) == 0
 
     um.add_utxo(txid, index+1, path, value, mixdepth)
+    assert len(um.select_utxos(mixdepth, value)) == 2
+
+    # ensure that added utxos that are disabled do not
+    # get used by the selector
+    um.add_utxo(txid, index+2, path, value, mixdepth)
+    um.disable_utxo(txid, index+2)
     assert len(um.select_utxos(mixdepth, value)) == 2
 
 

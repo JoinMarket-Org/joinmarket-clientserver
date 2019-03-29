@@ -182,6 +182,9 @@ def main():
         while not jm_single().bc_interface.wallet_synced:
             sync_wallet(wallet, fast=options.fastsync)
 
+        # minor note: adding a utxo from an external wallet for commitments, we
+        # default to not allowing disabled utxos to avoid a privacy leak, so the
+        # user would have to explicitly enable.
         for md, utxos in wallet.get_utxos_by_mixdepth_().items():
             for (txid, index), utxo in utxos.items():
                 txhex = binascii.hexlify(txid).decode('ascii') + ':' + str(index)
