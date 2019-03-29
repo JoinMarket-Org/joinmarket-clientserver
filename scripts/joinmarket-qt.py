@@ -1032,7 +1032,7 @@ class CoinsTab(QWidget):
         def show_blank():
             m_item = QTreeWidgetItem(["No coins", "", ""])
             self.cTW.addChild(m_item)
-            self.show()
+            self.cTW.show()
 
         if not w.wallet:
             show_blank()
@@ -1073,7 +1073,7 @@ class CoinsTab(QWidget):
                         #if rows[i][forchange][j][3] != 'new':
                         #    item.setForeground(3, QBrush(QColor('red')))
                         seq_item.addChild(item)
-        self.show()
+                    m_item.setExpanded(True)
 
     def toggle_utxo_disable(self, txid, idx):
         txid_bytes = btc.safe_from_hex(txid)
