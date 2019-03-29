@@ -58,6 +58,7 @@ qt5reactor.install()
 
 #General Joinmarket donation address; TODO
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
+donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
 
 #Underlying joinmarket code version (as per setup.py etc.)
 JM_CORE_VERSION = '0.5.3'
@@ -1173,14 +1174,18 @@ class JMMainWindow(QMainWindow):
                      str(jm_single().JM_VERSION)
                  ), "Help us support Bitcoin fungibility -", "donate here: "]))
         label2 = QLabel(donation_address)
-        for l in [label1, label2]:
+        label3 = QLabel(donation_address_sw)
+        for l in [label1, label2, label3]:
             l.setTextFormat(QtCore.Qt.RichText)
             l.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
             l.setOpenExternalLinks(True)
         label2.setText("<a href='bitcoin:" + donation_address + "'>" +
                        donation_address + "</a>")
+        label3.setText("<a href='bitcoin:" + donation_address_sw + "'>" +
+                       donation_address_sw + "</a>")
         lyt.addWidget(label1)
         lyt.addWidget(label2)
+        lyt.addWidget(label3)
         btnbox = QDialogButtonBox(msgbox)
         btnbox.setStandardButtons(QDialogButtonBox.Ok)
         btnbox.accepted.connect(msgbox.accept)

@@ -50,7 +50,14 @@ in the previously linked page. Don't neglect the point mentioned that, if you ar
 
 If you are upgrading from non-Segwit JM, you'll want to read this [upgrade guide](SEGWIT-UPGRADE.md).
 
-### Third step: Try out a coinjoin
+### Third step (optional): Try out a coinjoin
+
+**Doing single coinjoins doesn't really achieve a significant privacy boost;
+so you can skip this step if that's your only interest, and go to step 4b instead
+to learn about the tumbler script, which we strongly recommend to achieve this goal**.
+
+A single coinjoin *can* make destination (payment) outputs unclear, and can degrade automated blockchain surveillance significantly.
+We recommend using these opportunistically when making payments but on no account rely on any specific privacy gain from doing so.
 
 To try doing one coinjoin, use the `sendpayment.py` script. See [here](https://github.com/JoinMarket-Org/joinmarket/wiki/Sending-payments-with-CoinJoin#send-payment)
 
@@ -62,11 +69,17 @@ To try doing one coinjoin, use the `sendpayment.py` script. See [here](https://g
 
 Read the introductory guide [here](https://github.com/JoinMarket-Org/joinmarket/wiki/Running-a-Yield-Generator).
 
-You can use the `yield-generator-basic.py` script in the `scripts/` directory.
-The new script (much simplified) has the same fields at the top you can edit; note
-the new offertypes are 'swreloffer', 'swabsoffer' - they function the same, but use segwit.
+You can use (recommended) the `yg-privacyenhanced.py` script in the `scripts/` directory.
+You can also instead use the `yield-generator-basic.py` which is almost the same but the former has
+some slight behaviour tweaks to make the privacy properties of the bot better and is more clearly documented.
+
+If you're new to this, note the slightly strange/surprising fact that the settings are editable in the source file;
+at the top of those two script files (`yield-generator-basic.py` and `yg-privacyenhanced.py`), there is a user-editable section;
+the comments tell you what to change and what it means.
+
+For veteran users, note the new offertypes are 'swreloffer', 'swabsoffer' - they function the same, but use segwit.
 
 
-### 4b step: if you want to run the tumbler script.
+### 4b step: Running the tumbler script to boost privacy of owned coins.
 
 Read the instructions [here](tumblerguide.md)

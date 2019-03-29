@@ -8,12 +8,8 @@ See [here](SEGWIT-UPGRADE.md).
 
 #### Notes on upgrading versions generally:
 
-If you just want the executable/GUI/binary version of the code, always use
-the latest version of those files (example: joinmarket-qt.exe for Windows) found
-on the [releases](https://github.com/AdamISZ/joinmarket-clientserver/releases) page.
-
-(Note, sometimes this won't be the latest release, so you may have to scroll down
-a little; not all releases, for now, will include binary builds).
+If you just want the latest version in a new directory, go to the [releases](https://github.com/AdamISZ/joinmarket-clientserver/releases) page.
+Binary executables are not currently being built; that may change in the future.
 
 Otherwise: if you are upgrading from an older version, just update using git: `git pull origin master`,
 or `git fetch; git checkout tags/<tagname>` for a specific tagged release, then rerun the installation
