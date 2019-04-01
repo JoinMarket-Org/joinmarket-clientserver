@@ -61,7 +61,7 @@ donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
 
 #Underlying joinmarket code version (as per setup.py etc.)
-JM_CORE_VERSION = '0.5.3'
+JM_CORE_VERSION = '0.5.4'
 #Version of this Qt script specifically
 JM_GUI_VERSION = '9'
 
