@@ -10,6 +10,7 @@ Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin C
 * Multiple "mixdepths" or pockets (by default 5) for better coin isolation
 * Ability to spend directly, or with coinjoin; export private keys; BIP49 compatible seed (Trezor, Samourai etc.) and mnemonic extension option
 * Fine-grained control over bitcoin transaction fees
+* Basic coin control - can freeze individual utxos to stop them being spent in any tx
 * Can run sequence of coinjoins in automated form, either auto-generated (see `tumbler.py`) or self-generated sequence.
 * Can specify exact amount of coinjoin (figures from 0.01 to 30.0 btc and higher are practical), can choose time and number of counterparties
 * Can run passively to receive small payouts for taking part in coinjoins (see "Maker" and "yield-generator" in docs)
