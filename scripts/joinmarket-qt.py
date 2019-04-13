@@ -370,7 +370,7 @@ class SpendTab(QWidget):
         else:
             w.statusBar().showMessage("Schedule loaded OK.")
             self.spendstate.loaded_schedule = schedule
-            self.spendstate.schedule_name = os.path.basename(str(firstarg))
+            self.spendstate.schedule_name = os.path.basename(str(firstarg[0]))
             self.updateSchedView()
             if self.spendstate.schedule_name == "TUMBLE.schedule":
                 reply = JMQtMessageBox(self, "An incomplete tumble run detected. "
