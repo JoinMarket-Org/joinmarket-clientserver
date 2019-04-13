@@ -1451,7 +1451,7 @@ class JMMainWindow(QMainWindow):
                                    title="Wallet created")
         self.initWallet(seed=self.walletname, restart_cb=self.restartForScan)
 
-    def selectWallet(self, testnet_seed=None, restart_cb=None):
+    def selectWallet(self, testnet_seed=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
             current_path = os.path.dirname(os.path.realpath(__file__))
             if os.path.isdir(os.path.join(current_path, 'wallets')):
@@ -1473,7 +1473,7 @@ class JMMainWindow(QMainWindow):
                 if not ok:
                     return
                 pwd = str(text).strip()
-                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd, restart_cb)
+                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd, restart_cb=self.restartForScan)
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
