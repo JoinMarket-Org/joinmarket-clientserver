@@ -4,6 +4,8 @@ Joinmarket refactored to separate client and backend operations
 
 Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin Core as backend (version 0.16.3, 0.17.0 or later).
 
+For a quick introduction to Joinmarket you can watch [this demonstration](https://youtu.be/l2iv2MiGaYI?t=18890) of installation and usage given by [Adam Gibson](https://github.com/AdamISZ) during the [Understanding Bitcoin conference](https://understandingbtc.com/) on april 6 2019.
+
 ### Wallet features
 
 * Segwit addresses in the backward compatible form (start with `3`)
