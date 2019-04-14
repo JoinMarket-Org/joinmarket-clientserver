@@ -108,8 +108,8 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
  2. Select `Windows Subsystem for Linux` and click `OK`.
  3. When asked, choose to restart.
 
-#### Install Ubuntu from the Windows Store
-1. Open the `Windows Store`, search for `Ubuntu 18.04 LTS` and click `Get`.
+#### Install Ubuntu from the Microsoft Store
+1. Open the `Microsoft Store`, search for `Ubuntu 18.04 LTS` and click `Get`.
 > note: other distributions are available, but this is the only one tested
 2. When finished downloading click `Launch`.
 3. A window should pop up, telling your `Installing, this may take a few minutes...`
@@ -153,7 +153,7 @@ rpc_cookie_file = /mnt/c/Users/Alice/AppData/Roaming/Bitcoin/.cookie
 > note: you need to have installed JoinMarket with Qt support (see [this](../README.md#joinmarket-qt) section in the readme file)
 1. In Ubuntu, install additional dependencies `sudo apt install libgl1-mesa-glx`.
 2. Download and install [MobaXterm](https://mobaxterm.mobatek.net). This program needs to be running before you can start JoinMarket-Qt. It requires no additional configuration.
-3. Again in Ubuntu, type `DISPLAY=localhost:0.0` or add it to your `.bashrc` file so you don't need to type it every time you want to start JoinMarket-Qt.
+3. Open WSL-Ubuntu session in MobaXTerm. Go to JoinMarket directory and run `source jmvenv/bin/activate` to activate Python virtualenv.
 4. You can now start JoinMarket-Qt as described [here](JOINMARKET-QT-GUIDE.md).
 If you find that the program crashes with `qt.qpa.plugin: Could not load the Qt platform plugin`, you can add Qt5 dependencies with `sudo apt install qtbase5-dev` and try again.
 
