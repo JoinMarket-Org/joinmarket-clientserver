@@ -277,15 +277,16 @@ class Storage(object):
     def _create_lock(self):
         if self.read_only:
             return
-        self._lock_file = '{}.lock'.format(self.path)
+        lock_filename = '{}.lock'.format(self.path)
+        self._lock_file = lock_filename
         if os.path.exists(self._lock_file):
             with open(self._lock_file, 'r') as f:
                 locked_by_pid = f.read()
             self._lock_file = None
             raise StorageError("File is currently in use (locked by pid {}). "
                                "If this is a leftover from a crashed instance "
-                               "you need to remove the lock file manually" .
-                               format(locked_by_pid))
+                               "you need to remove the lock file `{}` manually." .
+                               format(locked_by_pid, lock_filename))
         #FIXME: in python >=3.3 use mode x
         with open(self._lock_file, 'w') as f:
             f.write(str(os.getpid()))
