@@ -427,6 +427,7 @@ qt_deps_install ()
 {
     pip install \
         PySide2 \
+        qrcode[pil] \
         https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip
 
     return "$?"
