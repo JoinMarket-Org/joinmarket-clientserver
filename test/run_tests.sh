@@ -63,7 +63,7 @@ run_jm_tests ()
     python -m pytest ${HAS_JOSH_K_SEAL_OF_APPROVAL+--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 -p no:warnings --ignore test/test_full_coinjoin.py
     local success="$?"
     unlink ./joinmarket.cfg
-    if read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
+    if [ -f "${jm_test_datadir}/bitcoind.pid" ] && read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
         kill -15 ${bitcoind_pid} || kill -9 ${bitcoind_pid}
     fi
     if [[ "${HAS_JOSH_K_SEAL_OF_APPROVAL}" == true ]] && (( ${success} != 0 )); then

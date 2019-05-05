@@ -2,7 +2,7 @@
 
 This is a rough sketch, some more background is found in [JM wiki](https://github.com/Joinmarket-Org/joinmarket/wiki/Testing)
 
-Make sure to have [bitcoind](https://bitcoin.org/en/full-node) installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
+Make sure to have [bitcoind](https://bitcoin.org/en/full-node) 0.17 or newer installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
 
     cd ~/joinmarket-clientserver
     git clone https://github.com/Joinmarket-Org/miniircd
