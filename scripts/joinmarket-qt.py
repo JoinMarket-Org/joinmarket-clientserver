@@ -1135,6 +1135,8 @@ class JMWalletTab(QWidget):
             self)
         self.label1.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
         v = MyTreeWidget(self, self.create_menu, self.getHeaders())
+        v.header().resizeSection(0, 400)    # size of "Address" column
+        v.header().resizeSection(1, 130)    # size of "Index" column
         v.setSelectionMode(QAbstractItemView.ExtendedSelection)
         v.on_update = self.updateWalletInfo
         v.hide()
