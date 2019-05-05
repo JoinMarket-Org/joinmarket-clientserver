@@ -25,7 +25,7 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 
 import sys, datetime, os, logging
 import platform, json, threading, time
-
+import qrcode
 
 from decimal import Decimal
 from PySide2 import QtCore
@@ -33,6 +33,8 @@ from PySide2 import QtCore
 from PySide2.QtGui import *
 
 from PySide2.QtWidgets import *
+
+from PIL.ImageQt import ImageQt
 
 if platform.system() == 'Windows':
     MONOSPACE_FONT = 'Lucida Console'
@@ -1101,6 +1103,24 @@ class CoinsTab(QWidget):
                        lambda: app.clipboard().setText(txid))
         menu.exec_(self.cTW.viewport().mapToGlobal(position))
 
+class BitcoinQRCodePopup(QDialog):
+
+    def __init__(self, parent, address):
+        super(BitcoinQRCodePopup, self).__init__(parent)
+        self.address = address
+        self.setWindowTitle(address)
+        img = qrcode.make('bitcoin:' + address)
+        self.imageLabel = QLabel()
+        self.imageLabel.setPixmap(QPixmap.fromImage(ImageQt(img)))
+        layout = QVBoxLayout()
+        layout.addWidget(self.imageLabel)
+        self.setLayout(layout)
+        self.initUI()
+
+    def initUI(self):
+        self.show()
+
+
 class JMWalletTab(QWidget):
 
     def __init__(self):
@@ -1152,6 +1172,8 @@ class JMWalletTab(QWidget):
         if address_valid:
             menu.addAction("Copy address to clipboard",
                            lambda: app.clipboard().setText(txt))
+            menu.addAction("Show QR code",
+                           lambda: self.openQRCodePopup(txt))
         if xpub_exists:
             menu.addAction("Copy extended pubkey to clipboard",
                            lambda: app.clipboard().setText(xpub))
@@ -1159,6 +1181,10 @@ class JMWalletTab(QWidget):
                        lambda: w.resyncWallet())
         #TODO add more items to context menu
         menu.exec_(self.walletTree.viewport().mapToGlobal(position))
+
+    def openQRCodePopup(self, address):
+        popup = BitcoinQRCodePopup(self, address)
+        popup.show()
 
     def updateWalletInfo(self, walletinfo=None):
         l = self.walletTree

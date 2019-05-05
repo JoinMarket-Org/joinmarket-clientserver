@@ -89,6 +89,7 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
 6) Setup joinmarket-qt
     ```
     pip install PySide2
+    pip install qrcode[pil]
     pip install https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip
     python setupall.py --all
     ```
