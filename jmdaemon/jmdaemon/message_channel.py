@@ -266,7 +266,7 @@ class MessageChannelCollection(object):
                     #is supposed to be sent. There used to be an exception raise.
                     #to prevent a crash (especially in makers), we just inform
                     #the user about it for now
-                    log.error("Tried to communicate on this IRC server but"
+                    log.error("Tried to communicate on this IRC server but "
                               "failed: " + str(mc))
                     log.error("You might have to comment out this IRC server "
                               "in joinmarket.cfg and restart.")
