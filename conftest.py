@@ -101,9 +101,11 @@ def setup(request):
                                 "-daemon", "-conf=" + bitcoin_conf])
     time.sleep(3)
     #generate blocks; segwit activates around block 500-600
-    for i in range(2):
-        local_command([bitcoin_path + "bitcoin-cli", "-regtest",
+    root_cmd = [bitcoin_path + "bitcoin-cli", "-regtest",
                        "-rpcuser=" + bitcoin_rpcusername,
-                       "-rpcpassword=" + bitcoin_rpcpassword, "generate", "301"])
+                       "-rpcpassword=" + bitcoin_rpcpassword]
+    for i in range(2):
+        destn_addr = local_command(root_cmd + ["getnewaddress"])
+        local_command(root_cmd + ["generatetoaddress", "301", destn_addr])
         time.sleep(1)
     

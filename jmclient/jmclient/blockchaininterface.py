@@ -916,6 +916,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
         self.absurd_fees = False
         self.simulating = False
         self.shutdown_signal = False
+        self.destn_addr = self.rpc("getnewaddress", [])
 
     def estimate_fee_per_kb(self, N):
         if not self.absurd_fees:
@@ -960,7 +961,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
         instruct to mine n blocks.
         """
         try:
-            self.rpc('generate', [n])
+            self.rpc('generatetoaddress', [n, self.destn_addr])
         except JsonRpcConnectionError:
             #can happen if the blockchain is shut down
             #automatically at the end of tests; this shouldn't
