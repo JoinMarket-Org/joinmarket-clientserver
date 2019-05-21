@@ -345,7 +345,8 @@ class BitcoinCoreInterface(BlockchainInterface):
 
     def rpc(self, method, args):
         if method not in ['importaddress', 'walletpassphrase', 'getaccount',
-                          'gettransaction', 'getrawtransaction', 'gettxout']:
+                          'gettransaction', 'getrawtransaction', 'gettxout',
+                          'importmulti']:
             log.debug('rpc: ' + method + " " + str(args))
         res = self.jsonRpc.call(method, args)
         return res
@@ -358,20 +359,31 @@ class BitcoinCoreInterface(BlockchainInterface):
         """
         log.debug('importing ' + str(len(addr_list)) +
                   ' addresses with label ' + wallet_name)
+        requests = []
         for addr in addr_list:
-            try:
-                self.rpc('importaddress', [addr, wallet_name, False])
-            except JsonRpcError as e:
-                if e.code == -4 and e.message == "The wallet already " + \
-                   "contains the private key for this address or script":
-                    log.warn("Fatal sync error: import of address: " + addr +
-                             " failed, since it's already owned by this Bitcoin Core "
-                             "wallet in another account. To prevent coin or privacy "
-                             "loss, Joinmarket will not load a wallet in this conflicted "
-                             "state. To fix: use a new Bitcoin Core wallet to sync this "
-                             "Joinmarket wallet, or use a new Joinmarket wallet.")
-                    sys.exit(1)
-                raise
+            requests.append({
+                "scriptPubKey": {"address": addr},
+                "timestamp": 0,
+                "label": wallet_name,
+                "watchonly": True
+            })
+
+        result = self.rpc('importmulti', [requests, {"rescan": False}])
+
+        num_failed = 0
+        for row in result:
+            if row['success'] == False:
+                num_failed += 1
+                # don't try/catch, assume failure always has error message
+                log.warn(row['error']['message'])
+        if num_failed > 0:
+            log.warn("Fatal sync error: import of {} address(es) failed for "
+                     "some reason. To prevent coin or privacy loss, "
+                     "Joinmarket will not load a wallet in this conflicted "
+                     "state. Try using a new Bitcoin Core wallet to sync this "
+                     "Joinmarket wallet, or use a new Joinmarket wallet."
+                     "".format(num_failed))
+            sys.exit(1)
 
     def add_watchonly_addresses(self, addr_list, wallet_name, restart_cb=None):
         """For backwards compatibility, this fn name is preserved
