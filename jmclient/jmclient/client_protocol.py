@@ -110,8 +110,10 @@ class JMClientProtocol(amp.AMP):
                                     hashlen, max_encoded, hostid):
         verif_result = True
         if not btc.ecdsa_verify(str(msg), sig, pubkey):
-            jlog.debug("nick signature verification failed, ignoring: " + str(nick))
-            verif_result = False
+            # workaround for hostid, which sometimes is lowercase-only for some IRC connections
+            if not btc.ecdsa_verify(str(msg[:-len(hostid)] + hostid.lower()), sig, pubkey):
+                jlog.debug("nick signature verification failed, ignoring: " + str(nick))
+                verif_result = False
         #check that nick matches hash of pubkey
         nick_pkh_raw = btc.bin_sha256(pubkey)[:hashlen]
         nick_stripped = nick[2:2 + max_encoded]
