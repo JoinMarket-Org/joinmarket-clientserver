@@ -383,7 +383,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         if jm_single().config.get("BLOCKCHAIN",
                                   "blockchain_source") != 'regtest': #pragma: no cover
             #Exit conditions cannot be included in tests
-            restart_msg = ("restart Bitcoin Core with -rescan if you're "
+            restart_msg = ("restart Bitcoin Core with -rescan or use "
+                           "`bitcoin-cli rescanblockchain` if you're "
                            "recovering an existing wallet from backup seed\n"
                            "Otherwise just restart this joinmarket application.")
             if restart_cb:
