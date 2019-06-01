@@ -351,7 +351,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         res = self.jsonRpc.call(method, args)
         return res
 
-    def import_addresses(self, addr_list, wallet_name):
+    def import_addresses(self, addr_list, wallet_name, restart_cb=None):
         """Imports addresses in a batch during initial sync.
         Refuses to proceed if keys are found to be under control
         of another account/label (see console output), and quits.
@@ -377,12 +377,16 @@ class BitcoinCoreInterface(BlockchainInterface):
                 # don't try/catch, assume failure always has error message
                 log.warn(row['error']['message'])
         if num_failed > 0:
-            log.warn("Fatal sync error: import of {} address(es) failed for "
-                     "some reason. To prevent coin or privacy loss, "
-                     "Joinmarket will not load a wallet in this conflicted "
-                     "state. Try using a new Bitcoin Core wallet to sync this "
-                     "Joinmarket wallet, or use a new Joinmarket wallet."
-                     "".format(num_failed))
+            fatal_msg = ("Fatal sync error: import of {} address(es) failed for "
+                         "some reason. To prevent coin or privacy loss, "
+                         "Joinmarket will not load a wallet in this conflicted "
+                         "state. Try using a new Bitcoin Core wallet to sync this "
+                         "Joinmarket wallet, or use a new Joinmarket wallet."
+                         "".format(num_failed))
+            if restart_cb:
+                restart_cb(fatal_msg)
+            else:
+                jmprint(fatal_msg, "important")
             sys.exit(1)
 
     def add_watchonly_addresses(self, addr_list, wallet_name, restart_cb=None):
@@ -391,7 +395,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         but in some cases a rescan is not required (if the address is known
         to be new/unused). For that case use import_addresses instead.
         """
-        self.import_addresses(addr_list, wallet_name)
+        self.import_addresses(addr_list, wallet_name, restart_cb)
         if jm_single().config.get("BLOCKCHAIN",
                                   "blockchain_source") != 'regtest': #pragma: no cover
             #Exit conditions cannot be included in tests
