@@ -784,8 +784,9 @@ class MessageChannel(object):
                                        minsize, maxsize, txfee, cjfee)
             except IndexError as e:
                 log.debug(e)
-                log.debug('index error parsing chunks, possibly malformed'
-                          'offer by other party. No user action required.')
+                log.debug('index error parsing chunks, possibly malformed '
+                          'offer by other party. No user action required. '
+                          'Triggered by: ' + str(nick))
                 # TODO what now? just ignore iirc
             finally:
                 return True

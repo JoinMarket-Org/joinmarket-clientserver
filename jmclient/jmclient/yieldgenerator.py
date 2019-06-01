@@ -104,7 +104,7 @@ class YieldGeneratorBasic(YieldGenerator):
         jlog.debug('mix depths that have enough = ' + str(filtered_mix_balance))
         filtered_mix_balance = sorted(filtered_mix_balance, key=lambda x: x[0])
         mixdepth = filtered_mix_balance[0][0]
-        jlog.info('filling offer, mixdepth=' + str(mixdepth))
+        jlog.info('filling offer, mixdepth=' + str(mixdepth) + ', amount=' + str(amount))
 
         # mixdepth is the chosen depth we'll be spending from
         cj_addr = self.wallet.get_internal_addr(
