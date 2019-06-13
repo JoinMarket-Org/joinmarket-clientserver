@@ -186,11 +186,13 @@ class Taker(object):
             #if destination is flagged "INTERNAL", choose a destination
             #from the next mixdepth modulo the maxmixdepth
             if self.my_cj_addr == "INTERNAL":
-                next_mixdepth = (self.mixdepth + 1) % (self.wallet.mixdepth + 1)
-                jlog.info("Choosing a destination from mixdepth: " + str(next_mixdepth))
-                self.my_cj_addr = self.wallet.get_internal_addr(next_mixdepth)
+                next_mixdepth = (self.mixdepth + 1) % (
+                    self.wallet.mixdepth + 1)
+                jlog.info("Choosing a destination from mixdepth: " + str(
+                    next_mixdepth))
+                self.my_cj_addr = self.wallet.get_internal_addr(next_mixdepth,
+                                                bci=jm_single().bc_interface)
                 jlog.info("Chose destination address: " + self.my_cj_addr)
-                self.import_new_addresses([self.my_cj_addr])
             self.outputs = []
             self.cjfee_total = 0
             self.maker_txfee_contributions = 0
@@ -275,8 +277,8 @@ class Taker(object):
         self.my_change_addr = None
         if self.cjamount != 0:
             try:
-                self.my_change_addr = self.wallet.get_internal_addr(self.mixdepth)
-                self.import_new_addresses([self.my_change_addr])
+                self.my_change_addr = self.wallet.get_internal_addr(self.mixdepth,
+                                                    bci=jm_single().bc_interface)
             except:
                 self.taker_info_callback("ABORT", "Failed to get a change address")
                 return False
@@ -834,14 +836,6 @@ class Taker(object):
         waittime = self.schedule[self.schedule_index][4]
         self.on_finished_callback(True, fromtx=fromtx, waittime=waittime,
                                   txdetails=(txd, txid))
-
-    def import_new_addresses(self, addr_list):
-        # FIXME: same code as in maker.py
-        bci = jm_single().bc_interface
-        if not hasattr(bci, 'import_addresses'):
-            return
-        assert hasattr(bci, 'get_wallet_name')
-        bci.import_addresses(addr_list, bci.get_wallet_name(self.wallet))
 
 class P2EPTaker(Taker):
     """ The P2EP Taker will initialize its protocol directly

@@ -108,9 +108,10 @@ class YieldGeneratorBasic(YieldGenerator):
 
         # mixdepth is the chosen depth we'll be spending from
         cj_addr = self.wallet.get_internal_addr(
-            (mixdepth + 1) % (self.wallet.mixdepth + 1))
-        change_addr = self.wallet.get_internal_addr(mixdepth)
-        self.import_new_addresses([cj_addr, change_addr])
+            (mixdepth + 1) % (self.wallet.mixdepth + 1),
+            jm_single().bc_interface)
+        change_addr = self.wallet.get_internal_addr(mixdepth,
+                                                    jm_single().bc_interface)
 
         utxos = self.wallet.select_utxos(mixdepth, total_amount)
         my_total_in = sum([va['value'] for va in utxos.values()])

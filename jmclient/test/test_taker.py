@@ -64,7 +64,7 @@ class DummyWallet(SegwitLegacyWallet):
             raise Exception("Not enough funds")
         return t_utxos_by_mixdepth[mixdepth]
 
-    def get_internal_addr(self, mixing_depth):
+    def get_internal_addr(self, mixing_depth, bci=None):
         if self.inject_addr_get_failure:
             raise Exception("address get failure")
         return "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf"
