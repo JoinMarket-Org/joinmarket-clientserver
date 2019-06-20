@@ -10,8 +10,8 @@ import pprint
 from twisted.python.log import startLogging
 from jmclient import Taker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, jm_single, get_wallet_path,\
-    open_test_wallet_maybe, sync_wallet, get_tumble_schedule,\
-    schedule_to_text, estimate_tx_fee, restart_waiter,\
+    open_test_wallet_maybe, get_tumble_schedule,\
+    schedule_to_text, estimate_tx_fee, restart_waiter, WalletService,\
     get_tumble_log, tumbler_taker_finished_update,\
     tumbler_filter_orders_callback, validate_address
 from jmbase.support import get_log, jmprint
@@ -38,13 +38,17 @@ def main():
     #Load the wallet
     wallet_name = args[0]
     max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
+    if options['amtmixdepths'] > max_mix_depth:
+        max_mix_depth = options['amtmixdepths']
     wallet_path = get_wallet_path(wallet_name, None)
     wallet = open_test_wallet_maybe(wallet_path, wallet_name, max_mix_depth)
-    if jm_single().config.get("BLOCKCHAIN",
-                              "blockchain_source") == "electrum-server":
-        jm_single().bc_interface.synctype = "with-script"
-    while not jm_single().bc_interface.wallet_synced:
-        sync_wallet(wallet, fast=options['fastsync'])
+    wallet_service = WalletService(wallet)
+    # in this script, we need the wallet synced before
+    # logic processing for some paths, so do it now:
+    while not wallet_service.synced:
+        wallet_service.sync_wallet(fast=not options['recoversync'])
+    # the sync call here will now be a no-op:
+    wallet_service.startService()
 
     maxcjfee = get_max_cj_fee_values(jm_single().config, options_org)
     log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} sat"
@@ -128,7 +132,7 @@ def main():
     max_mix_to_tumble = min(options['mixdepthsrc']+options['mixdepthcount'], \
                             max_mix_depth)
     for i in range(options['mixdepthsrc'], max_mix_to_tumble):
-        total_tumble_amount += wallet.get_balance_by_mixdepth()[i]
+        total_tumble_amount += wallet_service.get_balance_by_mixdepth()[i]
         if total_tumble_amount == 0:
             raise ValueError("No confirmed coins in the selected mixdepth(s). Quitting")
     exp_tx_fees_ratio = (involved_parties * options['txfee']) \
@@ -164,7 +168,7 @@ def main():
             reactor.callLater(waittime*60, clientfactory.getClient().clientStart)
 
     #instantiate Taker with given schedule and run
-    taker = Taker(wallet,
+    taker = Taker(wallet_service,
                   schedule,
                   order_chooser=options['order_choose_fn'],
                   max_cj_fee=maxcjfee,

@@ -4,11 +4,11 @@ from builtins import * # noqa: F401
 from binascii import hexlify
 
 
-def fmt_utxos(utxos, wallet, prefix=''):
+def fmt_utxos(utxos, wallet_service, prefix=''):
     output = []
     for u in utxos:
         utxo_str = '{}{} - {}'.format(
-            prefix, fmt_utxo(u), fmt_tx_data(utxos[u], wallet))
+            prefix, fmt_utxo(u), fmt_tx_data(utxos[u], wallet_service))
         output.append(utxo_str)
     return '\n'.join(output)
 
@@ -17,13 +17,13 @@ def fmt_utxo(utxo):
     return '{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])
 
 
-def fmt_tx_data(tx_data, wallet):
+def fmt_tx_data(tx_data, wallet_service):
     return 'path: {}, address: {}, value: {}'.format(
-        wallet.get_path_repr(wallet.script_to_path(tx_data['script'])),
-        wallet.script_to_addr(tx_data['script']), tx_data['value'])
+        wallet_service.get_path_repr(wallet_service.script_to_path(tx_data['script'])),
+        wallet_service.script_to_addr(tx_data['script']), tx_data['value'])
 
 
-def generate_podle_error_string(priv_utxo_pairs, to, ts, wallet, cjamount,
+def generate_podle_error_string(priv_utxo_pairs, to, ts, wallet_service, cjamount,
                                 taker_utxo_age, taker_utxo_amtpercent):
     """Gives detailed error information on why commitment sourcing failed.
     """
@@ -64,9 +64,9 @@ def generate_podle_error_string(priv_utxo_pairs, to, ts, wallet, cjamount,
                "with 'python add-utxo.py --help'\n\n")
     errmsg += ("***\nFor reference, here are the utxos in your wallet:\n")
 
-    for md, utxos in wallet.get_utxos_by_mixdepth_().items():
+    for md, utxos in wallet_service.get_utxos_by_mixdepth(hexfmt=False).items():
         if not utxos:
             continue
         errmsg += ("\nmixdepth {}:\n{}".format(
-            md, fmt_utxos(utxos, wallet, prefix='    ')))
+            md, fmt_utxos(utxos, wallet_service, prefix='    ')))
     return (errmsgheader, errmsg)

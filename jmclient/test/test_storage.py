@@ -84,7 +84,6 @@ def test_storage_invalid():
         MockStorage(b'garbagefile', __file__, b'password')
         pytest.fail("Non-wallet file, encrypted")
 
-
 def test_storage_readonly():
     s = MockStorage(None, 'nonexistant', b'password', create=True)
     s = MockStorage(s.file_data, __file__, b'password', read_only=True)

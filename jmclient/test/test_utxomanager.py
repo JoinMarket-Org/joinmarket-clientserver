@@ -32,11 +32,11 @@ def test_utxomanager_persist(setup_env_nodeps):
     mixdepth = 0
     value = 500
 
-    um.add_utxo(txid, index, path, value, mixdepth)
-    um.add_utxo(txid, index+1, path, value, mixdepth+1)
+    um.add_utxo(txid, index, path, value, mixdepth, 1)
+    um.add_utxo(txid, index+1, path, value, mixdepth+1, 2)
     # the third utxo will be disabled and we'll check if
     # the disablement persists in the storage across UM instances
-    um.add_utxo(txid, index+2, path, value, mixdepth+1)
+    um.add_utxo(txid, index+2, path, value, mixdepth+1, 3)
     um.disable_utxo(txid, index+2)
     um.save()
 
@@ -103,19 +103,23 @@ def test_utxomanager_select(setup_env_nodeps):
     mixdepth = 0
     value = 500
 
-    um.add_utxo(txid, index, path, value, mixdepth)
+    um.add_utxo(txid, index, path, value, mixdepth, 100)
 
     assert len(um.select_utxos(mixdepth, value)) == 1
     assert len(um.select_utxos(mixdepth+1, value)) == 0
 
-    um.add_utxo(txid, index+1, path, value, mixdepth)
+    um.add_utxo(txid, index+1, path, value, mixdepth, None)
     assert len(um.select_utxos(mixdepth, value)) == 2
 
     # ensure that added utxos that are disabled do not
     # get used by the selector
-    um.add_utxo(txid, index+2, path, value, mixdepth)
+    um.add_utxo(txid, index+2, path, value, mixdepth, 101)
     um.disable_utxo(txid, index+2)
     assert len(um.select_utxos(mixdepth, value)) == 2
+
+    # ensure that unconfirmed coins are not selected if
+    # dis-requested:
+    assert len(um.select_utxos(mixdepth, value, maxheight=105)) == 1
 
 
 @pytest.fixture

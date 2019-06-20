@@ -14,7 +14,7 @@ from jmbase import get_log
 from jmclient import load_program_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
-    SegwitWallet
+    SegwitWallet, WalletService
 from test_blockchaininterface import sync_test_wallet
 
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -52,7 +52,7 @@ def fund_wallet_addr(wallet, addr, value_btc=1):
     txin_id = jm_single().bc_interface.grab_coins(addr, value_btc)
     txinfo = jm_single().bc_interface.rpc('gettransaction', [txin_id])
     txin = btc.deserialize(unhexlify(txinfo['hex']))
-    utxo_in = wallet.add_new_utxos_(txin, unhexlify(txin_id))
+    utxo_in = wallet.add_new_utxos_(txin, unhexlify(txin_id), 1)
     assert len(utxo_in) == 1
     return list(utxo_in.keys())[0]
 
@@ -407,7 +407,7 @@ def test_add_new_utxos(setup_wallet):
                           for s in tx_scripts]))
     binarize_tx(tx)
     txid = b'\x01' * 32
-    added = wallet.add_new_utxos_(tx, txid)
+    added = wallet.add_new_utxos_(tx, txid, 1)
     assert len(added) == len(scripts)
 
     added_scripts = {x['script'] for x in added.values()}
@@ -429,7 +429,7 @@ def test_remove_old_utxos(setup_wallet):
     for i in range(3):
         txin = jm_single().bc_interface.grab_coins(
             wallet.get_internal_addr(1), 1)
-        wallet.add_utxo(unhexlify(txin), 0, wallet.get_script(1, 1, i), 10**8)
+        wallet.add_utxo(unhexlify(txin), 0, wallet.get_script(1, 1, i), 10**8, 1)
 
     inputs = wallet.select_utxos_(0, 10**8)
     inputs.update(wallet.select_utxos_(1, 2 * 10**8))
@@ -466,7 +466,7 @@ def test_initialize_twice(setup_wallet):
 def test_is_known(setup_wallet):
     wallet = get_populated_wallet(num=0)
     script = wallet.get_new_script(1, True)
-    addr = wallet.get_new_addr(2, False)
+    addr = wallet.get_external_addr(2)
 
     assert wallet.is_known_script(script)
     assert wallet.is_known_addr(addr)
@@ -651,7 +651,7 @@ def test_wallet_mixdepth_decrease(setup_wallet):
         VolatileStorage(data=storage_data), mixdepth=new_mixdepth)
     assert new_wallet.max_mixdepth == max_mixdepth
     assert new_wallet.mixdepth == new_mixdepth
-    sync_test_wallet(True, new_wallet)
+    sync_test_wallet(True, WalletService(new_wallet))
 
     assert max_mixdepth not in new_wallet.get_balance_by_mixdepth()
     assert max_mixdepth not in new_wallet.get_utxos_by_mixdepth()

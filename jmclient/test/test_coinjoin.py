@@ -12,8 +12,8 @@ import pytest
 from twisted.internet import reactor
 
 from jmbase import get_log
-from jmclient import load_program_config, jm_single, \
-    YieldGeneratorBasic, Taker, sync_wallet, LegacyWallet, SegwitLegacyWallet
+from jmclient import load_program_config, jm_single,\
+    YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet
 from jmclient.podle import set_commitment_file
 from commontest import make_wallets, binarize_tx
 from test_taker import dummy_filter_orderbook
@@ -30,18 +30,21 @@ def make_wallets_to_list(make_wallets_data):
     assert all(wallets)
     return wallets
 
-
-def sync_wallets(wallets):
-    for w in wallets:
-        w.gap_limit = 0
-        jm_single().bc_interface.wallet_synced = False
+def sync_wallets(wallet_services, fast=True):
+    for wallet_service in wallet_services:
+        wallet_service.synced = False
+        wallet_service.gap_limit = 0
         for x in range(20):
-            if jm_single().bc_interface.wallet_synced:
+            if wallet_service.synced:
                 break
-            sync_wallet(w)
+            wallet_service.sync_wallet(fast=fast)
         else:
             assert False, "Failed to sync wallet"
-
+    # because we don't run the monitoring loops for the
+    # wallet services, we need to update them on the latest
+    # block manually:
+    for wallet_service in wallet_services:
+        wallet_service.update_blockheight()
 
 def create_orderbook(makers):
     orderbook = []
@@ -119,15 +122,17 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
     set_commitment_file(str(tmpdir.join('commitments.json')))
 
     MAKER_NUM = 3
-    wallets = make_wallets_to_list(make_wallets(
+    wallet_services = make_wallets_to_list(make_wallets(
         MAKER_NUM + 1, wallet_structures=[[4, 0, 0, 0, 0]] * (MAKER_NUM + 1),
         mean_amt=1, wallet_cls=wallet_cls))
 
     jm_single().bc_interface.tickchain()
-    sync_wallets(wallets)
+    jm_single().bc_interface.tickchain()
+
+    sync_wallets(wallet_services)
 
     makers = [YieldGeneratorBasic(
-        wallets[i],
+        wallet_services[i],
         [0, 2000, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
 
     orderbook = create_orderbook(makers)
@@ -136,7 +141,7 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
     cj_amount = int(1.1 * 10**8)
     # mixdepth, amount, counterparties, dest_addr, waittime
     schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
-    taker = create_taker(wallets[-1], schedule, monkeypatch)
+    taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,
                                               orderbook, cj_amount)
@@ -156,21 +161,22 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     set_commitment_file(str(tmpdir.join('commitments.json')))
 
     MAKER_NUM = 3
-    wallets = make_wallets_to_list(make_wallets(
+    wallet_services = make_wallets_to_list(make_wallets(
         MAKER_NUM + 1,
         wallet_structures=[[4, 0, 0, 0, 0]] * MAKER_NUM + [[0, 0, 0, 0, 3]],
         mean_amt=1))
 
-    for w in wallets:
-        assert w.max_mixdepth == 4
+    for wallet_service in wallet_services:
+        assert wallet_service.max_mixdepth == 4
 
     jm_single().bc_interface.tickchain()
     jm_single().bc_interface.tickchain()
-    sync_wallets(wallets)
+
+    sync_wallets(wallet_services)
 
     cj_fee = 2000
     makers = [YieldGeneratorBasic(
-        wallets[i],
+        wallet_services[i],
         [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
 
     orderbook = create_orderbook(makers)
@@ -179,7 +185,7 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     cj_amount = int(1.1 * 10**8)
     # mixdepth, amount, counterparties, dest_addr, waittime
     schedule = [(4, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
-    taker = create_taker(wallets[-1], schedule, monkeypatch)
+    taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,
                                               orderbook, cj_amount)
@@ -193,11 +199,12 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     tx = btc.deserialize(txdata[2])
     binarize_tx(tx)
 
-    w = wallets[-1]
-    w.remove_old_utxos_(tx)
-    w.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
+    wallet_service = wallet_services[-1]
+    # TODO change for new tx monitoring:
+    wallet_service.remove_old_utxos_(tx)
+    wallet_service.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
 
-    balances = w.get_balance_by_mixdepth()
+    balances = wallet_service.get_balance_by_mixdepth()
     assert balances[0] == cj_amount
     # <= because of tx fee
     assert balances[4] <= 3 * 10**8 - cj_amount - (cj_fee * MAKER_NUM)
@@ -210,21 +217,22 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     set_commitment_file(str(tmpdir.join('commitments.json')))
 
     MAKER_NUM = 2
-    wallets = make_wallets_to_list(make_wallets(
+    wallet_services = make_wallets_to_list(make_wallets(
         MAKER_NUM + 1,
         wallet_structures=[[0, 0, 0, 0, 4]] * MAKER_NUM + [[3, 0, 0, 0, 0]],
         mean_amt=1))
 
-    for w in wallets:
-        assert w.max_mixdepth == 4
+    for wallet_service in wallet_services:
+        assert wallet_service.max_mixdepth == 4
 
     jm_single().bc_interface.tickchain()
     jm_single().bc_interface.tickchain()
-    sync_wallets(wallets)
+
+    sync_wallets(wallet_services)
 
     cj_fee = 2000
     makers = [YieldGeneratorBasic(
-        wallets[i],
+        wallet_services[i],
         [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
 
     orderbook = create_orderbook(makers)
@@ -233,7 +241,7 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     cj_amount = int(1.1 * 10**8)
     # mixdepth, amount, counterparties, dest_addr, waittime
     schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
-    taker = create_taker(wallets[-1], schedule, monkeypatch)
+    taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,
                                               orderbook, cj_amount)
@@ -248,43 +256,46 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     binarize_tx(tx)
 
     for i in range(MAKER_NUM):
-        w = wallets[i]
-        w.remove_old_utxos_(tx)
-        w.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
+        wallet_service = wallet_services[i]
+        # TODO as above re: monitoring
+        wallet_service.remove_old_utxos_(tx)
+        wallet_service.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
 
-        balances = w.get_balance_by_mixdepth()
+        balances = wallet_service.get_balance_by_mixdepth()
         assert balances[0] == cj_amount
         assert balances[4] == 4 * 10**8 - cj_amount + cj_fee
 
 
 @pytest.mark.parametrize('wallet_cls,wallet_cls_sec', (
     (SegwitLegacyWallet, LegacyWallet),
-    (LegacyWallet, SegwitLegacyWallet)
+    #(LegacyWallet, SegwitLegacyWallet)
 ))
 def test_coinjoin_mixed_maker_addresses(monkeypatch, tmpdir, setup_cj,
                                         wallet_cls, wallet_cls_sec):
     set_commitment_file(str(tmpdir.join('commitments.json')))
 
     MAKER_NUM = 2
-    wallets = make_wallets_to_list(make_wallets(
+    wallet_services = make_wallets_to_list(make_wallets(
         MAKER_NUM + 1,
         wallet_structures=[[1, 0, 0, 0, 0]] * MAKER_NUM + [[3, 0, 0, 0, 0]],
         mean_amt=1, wallet_cls=wallet_cls))
-    wallets_sec = make_wallets_to_list(make_wallets(
+    wallet_services_sec = make_wallets_to_list(make_wallets(
         MAKER_NUM,
         wallet_structures=[[1, 0, 0, 0, 0]] * MAKER_NUM,
         mean_amt=1, wallet_cls=wallet_cls_sec))
 
     for i in range(MAKER_NUM):
-        wif = wallets_sec[i].get_wif(0, False, 0)
-        wallets[i].import_private_key(0, wif, key_type=wallets_sec[i].TYPE)
+        wif = wallet_services_sec[i].get_wif(0, False, 0)
+        wallet_services[i].wallet.import_private_key(0, wif,
+                            key_type=wallet_services_sec[i].wallet.TYPE)
 
     jm_single().bc_interface.tickchain()
     jm_single().bc_interface.tickchain()
-    sync_wallets(wallets)
+
+    sync_wallets(wallet_services, fast=False)
 
     makers = [YieldGeneratorBasic(
-        wallets[i],
+        wallet_services[i],
         [0, 2000, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
 
     orderbook = create_orderbook(makers)
@@ -292,7 +303,7 @@ def test_coinjoin_mixed_maker_addresses(monkeypatch, tmpdir, setup_cj,
     cj_amount = int(1.1 * 10**8)
     # mixdepth, amount, counterparties, dest_addr, waittime
     schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
-    taker = create_taker(wallets[-1], schedule, monkeypatch)
+    taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,
                                               orderbook, cj_amount)

@@ -4,7 +4,6 @@ from builtins import * # noqa: F401
 
 from configparser import NoOptionError
 import warnings
-import random
 import functools
 import collections
 import numbers
@@ -19,6 +18,7 @@ from numbers import Integral
 
 
 from .configure import jm_single
+from .blockchaininterface import INF_HEIGHT
 from .support import select_gradual, select_greedy, select_greediest, \
     select
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
@@ -26,6 +26,7 @@ from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
+from jmbase import JM_WALLET_NAME_PREFIX
 
 
 """
@@ -66,19 +67,6 @@ class Mnemonic(MnemonicParent):
     @classmethod
     def detect_language(cls, code):
         return "english"
-
-def make_shuffled_tx(ins, outs, deser=True, version=1, locktime=0):
-    """ Simple utility to ensure transaction
-    inputs and outputs are randomly ordered.
-    Can possibly be replaced by BIP69 in future
-    """
-    random.shuffle(ins)
-    random.shuffle(outs)
-    tx = btc.mktx(ins, outs, version=version, locktime=locktime)
-    if deser:
-        return btc.deserialize(tx)
-    else:
-        return tx
 
 def estimate_tx_fee(ins, outs, txtype='p2pkh'):
     '''Returns an estimate of the number of satoshis required
@@ -123,7 +111,7 @@ class UTXOManager(object):
     def __init__(self, storage, merge_func):
         self.storage = storage
         self.selector = merge_func
-        # {mixdexpth: {(txid, index): (path, value)}}
+        # {mixdexpth: {(txid, index): (path, value, height)}}
         self._utxo = None
         # metadata kept as a separate key in the database
         # for backwards compat; value as dict for forward-compat.
@@ -197,16 +185,20 @@ class UTXOManager(object):
 
         return self._utxo[mixdepth].pop((txid, index))
 
-    def add_utxo(self, txid, index, path, value, mixdepth):
+    def add_utxo(self, txid, index, path, value, mixdepth, height=None):
         # Assumed: that we add a utxo only if we want it enabled,
         # so metadata is not currently added.
+        # The height (blockheight) field will be "infinity" for unconfirmed.
         assert isinstance(txid, bytes)
         assert len(txid) == self.TXID_LEN
         assert isinstance(index, numbers.Integral)
         assert isinstance(value, numbers.Integral)
         assert isinstance(mixdepth, numbers.Integral)
+        if height is None:
+            height = INF_HEIGHT
+        assert isinstance(height, numbers.Integral)
 
-        self._utxo[mixdepth][(txid, index)] = (path, value)
+        self._utxo[mixdepth][(txid, index)] = (path, value, height)
 
     def is_disabled(self, txid, index):
         if not self._utxo_meta:
@@ -231,28 +223,37 @@ class UTXOManager(object):
     def enable_utxo(self, txid, index):
         self.disable_utxo(txid, index, disable=False)
 
-    def select_utxos(self, mixdepth, amount, utxo_filter=(), select_fn=None):
+    def select_utxos(self, mixdepth, amount, utxo_filter=(), select_fn=None,
+                     maxheight=None):
         assert isinstance(mixdepth, numbers.Integral)
         utxos = self._utxo[mixdepth]
         # do not select anything in the filter
         available = [{'utxo': utxo, 'value': val}
-            for utxo, (addr, val) in utxos.items() if utxo not in utxo_filter]
+            for utxo, (addr, val, height) in utxos.items() if utxo not in utxo_filter]
+        # do not select anything with insufficient confirmations:
+        if maxheight is not None:
+            available = [{'utxo': utxo, 'value': val}
+                         for utxo, (addr, val, height) in utxos.items(
+                             ) if height <= maxheight]
         # do not select anything disabled
         available = [u for u in available if not self.is_disabled(*u['utxo'])]
         selector = select_fn or self.selector
         selected = selector(available, amount)
+        # note that we do not return height; for selection, we expect
+        # the caller will not want this (after applying the height filter)
         return {s['utxo']: {'path': utxos[s['utxo']][0],
                             'value': utxos[s['utxo']][1]}
                 for s in selected}
 
     def get_balance_by_mixdepth(self, max_mixdepth=float('Inf'),
-                                include_disabled=True):
+                                include_disabled=True, maxheight=None):
         """ By default this returns a dict of aggregated bitcoin
         balance per mixdepth: {0: N sats, 1: M sats, ...} for all
         currently available mixdepths.
         If max_mixdepth is set it will return balances only up
         to that mixdepth.
         To get only enabled balance, set include_disabled=False.
+        To get balances only with a certain number of confs, use maxheight.
         """
         balance_dict = collections.defaultdict(int)
         for mixdepth, utxomap in self._utxo.items():
@@ -261,6 +262,9 @@ class UTXOManager(object):
             if not include_disabled:
                 utxomap = {k: v for k, v in utxomap.items(
                     ) if not self.is_disabled(*k)}
+                if maxheight is not None:
+                    utxomap = {k: v for k, v in utxomap.items(
+                        ) if v[2] <= maxheight}
             value = sum(x[1] for x in utxomap.values())
             balance_dict[mixdepth] = value
         return balance_dict
@@ -345,6 +349,14 @@ class BaseWallet(object):
         self.network = self._storage.data[b'network'].decode('ascii')
         self._utxos = UTXOManager(self._storage, self.merge_algorithm)
 
+    def get_storage_location(self):
+        """ Return the location of the
+        persistent storage, if it exists, or None.
+        """
+        if not self._storage:
+            return None
+        return self._storage.get_location()
+
     def save(self):
         """
         Write data to associated storage object and trigger persistent update.
@@ -426,36 +438,25 @@ class BaseWallet(object):
         privkey = self._get_priv_from_path(path)[0]
         return hexlify(privkey).decode('ascii')
 
-    def _get_addr_int_ext(self, get_script_func, mixdepth, bci=None):
-        script = get_script_func(mixdepth)
-        addr = self.script_to_addr(script)
-        if bci is not None and hasattr(bci, 'import_addresses'):
-            assert hasattr(bci, 'get_wallet_name')
-            bci.import_addresses([addr], bci.get_wallet_name(self))
-        return addr
+    def _get_addr_int_ext(self, internal, mixdepth):
+        script = self.get_internal_script(mixdepth) if internal else \
+            self.get_external_script(mixdepth)
+        return self.script_to_addr(script)
 
-    def get_external_addr(self, mixdepth, bci=None):
+    def get_external_addr(self, mixdepth):
         """
         Return an address suitable for external distribution, including funding
         the wallet from other sources, or receiving payments or donations.
         JoinMarket will never generate these addresses for internal use.
-        If the argument bci is non-null, we attempt to import the new
-        address into this blockchaininterface instance
-        (based on Bitcoin Core's model).
         """
-        return self._get_addr_int_ext(self.get_external_script, mixdepth,
-                                      bci=bci)
+        return self._get_addr_int_ext(False, mixdepth)
 
-    def get_internal_addr(self, mixdepth, bci=None):
+    def get_internal_addr(self, mixdepth):
         """
         Return an address for internal usage, as change addresses and when
         participating in transactions initiated by other parties.
-        If the argument bci is non-null, we attempt to import the new
-        address into this blockchaininterface instance
-        (based on Bitcoin Core's model).
         """
-        return self._get_addr_int_ext(self.get_internal_script, mixdepth,
-                                      bci=bci)
+        return self._get_addr_int_ext(True, mixdepth)
 
     def get_external_script(self, mixdepth):
         return self.get_new_script(mixdepth, False)
@@ -575,7 +576,7 @@ class BaseWallet(object):
         args:
             tx: transaction dict
         returns:
-            {(txid, index): {'script': bytes, 'value': int} for all removed utxos
+            {(txid, index): {'script': bytes, 'path': str, 'value': int} for all removed utxos
         """
         removed_utxos = {}
         for inp in tx['ins']:
@@ -583,7 +584,7 @@ class BaseWallet(object):
             md = self._utxos.have_utxo(txid, index)
             if md is False:
                 continue
-            path, value = self._utxos.remove_utxo(txid, index, md)
+            path, value, height = self._utxos.remove_utxo(txid, index, md)
             script = self.get_script_path(path)
             removed_utxos[(txid, index)] = {'script': script,
                                             'path': path,
@@ -591,12 +592,12 @@ class BaseWallet(object):
         return removed_utxos
 
     @deprecated
-    def add_new_utxos(self, tx, txid):
+    def add_new_utxos(self, tx, txid, height=None):
         tx = deepcopy(tx)
         for out in tx['outs']:
             out['script'] = unhexlify(out['script'])
 
-        ret = self.add_new_utxos_(tx, unhexlify(txid))
+        ret = self.add_new_utxos_(tx, unhexlify(txid), height=height)
 
         added_utxos = {}
         for (txid_bin, index), val in ret.items():
@@ -605,12 +606,14 @@ class BaseWallet(object):
             added_utxos[txid + ':' + str(index)] = val
         return added_utxos
 
-    def add_new_utxos_(self, tx, txid):
+    def add_new_utxos_(self, tx, txid, height=None):
         """
         Add all outputs of tx for this wallet to internal utxo list.
 
         args:
             tx: transaction dict
+            height: blockheight in which tx was included, or None
+                    if unconfirmed.
         returns:
             {(txid, index): {'script': bytes, 'path': tuple, 'value': int}
                 for all added utxos
@@ -619,7 +622,8 @@ class BaseWallet(object):
         added_utxos = {}
         for index, outs in enumerate(tx['outs']):
             try:
-                self.add_utxo(txid, index, outs['script'], outs['value'])
+                self.add_utxo(txid, index, outs['script'], outs['value'],
+                              height=height)
             except WalletError:
                 continue
 
@@ -629,7 +633,7 @@ class BaseWallet(object):
                                           'value': outs['value']}
         return added_utxos
 
-    def add_utxo(self, txid, index, script, value):
+    def add_utxo(self, txid, index, script, value, height=None):
         assert isinstance(txid, bytes)
         assert isinstance(index, Integral)
         assert isinstance(script, bytes)
@@ -640,15 +644,30 @@ class BaseWallet(object):
 
         path = self.script_to_path(script)
         mixdepth = self._get_mixdepth_from_path(path)
-        self._utxos.add_utxo(txid, index, path, value, mixdepth)
+        self._utxos.add_utxo(txid, index, path, value, mixdepth, height=height)
+
+    def process_new_tx(self, txd, txid, height=None):
+        """ Given a newly seen transaction, deserialized as txd and
+        with transaction id, process its inputs and outputs and update
+        the utxo contents of this wallet accordingly.
+        NOTE: this should correctly handle transactions that are not
+        actually related to the wallet; it will not add (or remove,
+        obviously) utxos that were not related since the underlying
+        functions check this condition.
+        """
+        removed_utxos = self.remove_old_utxos(txd)
+        added_utxos = self.add_new_utxos(txd, txid, height=height)
+        return (removed_utxos, added_utxos)
 
     @deprecated
-    def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None):
+    def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
+                     maxheight=None):
         utxo_filter_new = None
         if utxo_filter:
             utxo_filter_new = [(unhexlify(utxo[:64]), int(utxo[65:]))
                                for utxo in utxo_filter]
-        ret = self.select_utxos_(mixdepth, amount, utxo_filter_new, select_fn)
+        ret = self.select_utxos_(mixdepth, amount, utxo_filter_new, select_fn,
+                                 maxheight=maxheight)
         ret_conv = {}
         for utxo, data in ret.items():
             addr = self.get_addr_path(data['path'])
@@ -657,7 +676,7 @@ class BaseWallet(object):
         return ret_conv
 
     def select_utxos_(self, mixdepth, amount, utxo_filter=None,
-                      select_fn=None):
+                      select_fn=None, maxheight=None):
         """
         Select a subset of available UTXOS for a given mixdepth whose value is
         greater or equal to amount.
@@ -667,6 +686,7 @@ class BaseWallet(object):
                 equal to wallet.max_mixdepth
             amount: int, total minimum amount of all selected utxos
             utxo_filter: list of (txid, index), utxos not to select
+            maxheight: only select utxos with blockheight <= this.
 
         returns:
             {(txid, index): {'script': bytes, 'path': tuple, 'value': int}}
@@ -681,7 +701,7 @@ class BaseWallet(object):
             assert isinstance(i[0], bytes)
             assert isinstance(i[1], numbers.Integral)
         ret = self._utxos.select_utxos(
-            mixdepth, amount, utxo_filter, select_fn)
+            mixdepth, amount, utxo_filter, select_fn, maxheight=maxheight)
 
         for data in ret.values():
             data['script'] = self.get_script_path(data['path'])
@@ -701,20 +721,24 @@ class BaseWallet(object):
         self._utxos.reset()
 
     def get_balance_by_mixdepth(self, verbose=True,
-                                include_disabled=False):
+                                include_disabled=False,
+                                maxheight=None):
         """
         Get available funds in each active mixdepth.
         By default ignores disabled utxos in calculation.
+        By default returns unconfirmed transactions, to filter
+        confirmations, set maxheight to max acceptable blockheight.
         returns: {mixdepth: value}
         """
         # TODO: verbose
         return self._utxos.get_balance_by_mixdepth(max_mixdepth=self.mixdepth,
-                                            include_disabled=include_disabled)
+                                            include_disabled=include_disabled,
+                                            maxheight=maxheight)
 
     @deprecated
-    def get_utxos_by_mixdepth(self, verbose=True):
+    def get_utxos_by_mixdepth(self, verbose=True, includeheight=False):
         # TODO: verbose
-        ret = self.get_utxos_by_mixdepth_()
+        ret = self.get_utxos_by_mixdepth_(includeheight=includeheight)
 
         utxos_conv = collections.defaultdict(dict)
         for md, utxos in ret.items():
@@ -725,13 +749,14 @@ class BaseWallet(object):
                 utxos_conv[md][utxo_str] = data
         return utxos_conv
 
-    def get_utxos_by_mixdepth_(self, include_disabled=False):
+    def get_utxos_by_mixdepth_(self, include_disabled=False, includeheight=False):
         """
         Get all UTXOs for active mixdepths.
 
         returns:
             {mixdepth: {(txid, index):
                 {'script': bytes, 'path': tuple, 'value': int}}}
+        (if `includeheight` is True, adds key 'height': int)
         """
         mix_utxos = self._utxos.get_utxos_by_mixdepth()
 
@@ -739,13 +764,15 @@ class BaseWallet(object):
         for md, data in mix_utxos.items():
             if md > self.mixdepth:
                 continue
-            for utxo, (path, value) in data.items():
+            for utxo, (path, value, height) in data.items():
                 if not include_disabled and self._utxos.is_disabled(*utxo):
                     continue
                 script = self.get_script_path(path)
                 script_utxos[md][utxo] = {'script': script,
                                           'path': path,
                                           'value': value}
+                if includeheight:
+                    script_utxos[md][utxo]['height'] = height
         return script_utxos
 
     @classmethod
@@ -841,6 +868,12 @@ class BaseWallet(object):
         priv, engine = self._get_priv_from_path(path)
         return engine.sign_message(priv, message)
 
+    def get_wallet_name(self):
+        """ Returns the name used as a label for this
+        specific Joinmarket wallet in Bitcoin Core.
+        """
+        return JM_WALLET_NAME_PREFIX + self.get_wallet_id()
+
     def get_wallet_id(self):
         """
         Get a human-readable identifier for the wallet.
@@ -925,6 +958,46 @@ class BaseWallet(object):
         Warning: improper use of 'force' will cause undefined behavior!
         """
         raise NotImplementedError()
+
+    def rewind_wallet_indices(self, used_indices, saved_indices):
+        for md in used_indices:
+            for int_type in (0, 1):
+                index = max(used_indices[md][int_type],
+                            saved_indices[md][int_type])
+                self.set_next_index(md, int_type, index, force=True)
+
+    def get_used_indices(self, addr_gen):
+        """ Returns a dict of max used indices for each branch in
+        the wallet, from the given addresses addr_gen, assuming
+        that they are known to the wallet.
+        """
+
+        indices = {x: [0, 0] for x in range(self.max_mixdepth + 1)}
+
+        for addr in addr_gen:
+            if not self.is_known_addr(addr):
+                continue
+            md, internal, index = self.get_details(
+                self.addr_to_path(addr))
+            if internal not in (0, 1):
+                assert internal == 'imported'
+                continue
+            indices[md][internal] = max(indices[md][internal], index + 1)
+
+        return indices
+
+    def check_gap_indices(self, used_indices):
+        """ Return False if any of the provided indices (which should be
+        those seen from listtransactions as having been used, for
+        this wallet/label) are higher than the ones recorded in the index
+        cache."""
+
+        for md in used_indices:
+            for internal in (0, 1):
+                if used_indices[md][internal] >\
+                   max(self.get_next_unused_index(md, internal), 0):
+                    return False
+        return True
 
     def close(self):
         self._storage.close()

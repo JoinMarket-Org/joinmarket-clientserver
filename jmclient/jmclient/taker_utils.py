@@ -20,7 +20,7 @@ Utility functions for tumbler-style takers;
 Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
 
-def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
+def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
                 accept_callback=None, info_callback=None):
     """Send coins directly from one mixdepth to one destination address;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
@@ -46,12 +46,12 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     assert mixdepth >= 0
     assert isinstance(amount, numbers.Integral)
     assert amount >=0
-    assert isinstance(wallet, BaseWallet)
+    assert isinstance(wallet_service.wallet, BaseWallet)
 
     from pprint import pformat
-    txtype = wallet.get_txtype()
+    txtype = wallet_service.get_txtype()
     if amount == 0:
-        utxos = wallet.get_utxos_by_mixdepth()[mixdepth]
+        utxos = wallet_service.get_utxos_by_mixdepth()[mixdepth]
         if utxos == {}:
             log.error(
                 "There are no utxos in mixdepth: " + str(mixdepth) + ", quitting.")
@@ -62,7 +62,7 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     else:
         #8 inputs to be conservative
         initial_fee_est = estimate_tx_fee(8,2, txtype=txtype)
-        utxos = wallet.select_utxos(mixdepth, amount + initial_fee_est)
+        utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est)
         if len(utxos) < 8:
             fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype)
         else:
@@ -70,15 +70,14 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
         total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
         changeval = total_inputs_val - fee_est - amount
         outs = [{"value": amount, "address": destaddr}]
-        change_addr = wallet.get_internal_addr(mixdepth,
-                                        jm_single().bc_interface)
+        change_addr = wallet_service.get_internal_addr(mixdepth)
         outs.append({"value": changeval, "address": change_addr})
 
     #Now ready to construct transaction
     log.info("Using a fee of : " + str(fee_est) + " satoshis.")
     if amount != 0:
         log.info("Using a change value of: " + str(changeval) + " satoshis.")
-    txsigned = sign_tx(wallet, mktx(list(utxos.keys()), outs), utxos)
+    txsigned = sign_tx(wallet_service, mktx(list(utxos.keys()), outs), utxos)
     log.info("Got signed transaction:\n")
     log.info(pformat(txsigned))
     tx = serialize(txsigned)
@@ -104,15 +103,15 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
     return txid
 
 
-def sign_tx(wallet, tx, utxos):
+def sign_tx(wallet_service, tx, utxos):
     stx = deserialize(tx)
     our_inputs = {}
     for index, ins in enumerate(stx['ins']):
         utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-        script = wallet.addr_to_script(utxos[utxo]['address'])
+        script = wallet_service.addr_to_script(utxos[utxo]['address'])
         amount = utxos[utxo]['value']
         our_inputs[index] = (script, amount)
-    return wallet.sign_tx(stx, our_inputs)
+    return wallet_service.sign_tx(stx, our_inputs)
 
 def get_tumble_log(logsdir):
     tumble_log = logging.getLogger('tumbler')
@@ -178,7 +177,7 @@ def unconf_update(taker, schedulefile, tumble_log, addtolog=False):
     #because addresses are not public until broadcast (whereas for makers,
     #they are public *during* negotiation). So updating the cache here
     #is sufficient
-    taker.wallet.update_cache_index()
+    taker.wallet_service.save_wallet()
 
     #If honest-only was set, and we are going to continue (e.g. Tumbler),
     #we switch off the honest-only filter. We also wipe the honest maker
@@ -255,9 +254,6 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
             waiting_message = "Waiting for: " + str(waittime) + " minutes."
             tumble_log.info(waiting_message)
             log.info(waiting_message)
-            txd, txid = txdetails
-            taker.wallet.remove_old_utxos(txd)
-            taker.wallet.add_new_utxos(txd, txid)
         else:
             #a transaction failed, either because insufficient makers
             #(acording to minimum_makers) responded in Phase 1, or not all

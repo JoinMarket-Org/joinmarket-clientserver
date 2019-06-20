@@ -217,6 +217,9 @@ class Storage(object):
         with open(self.path, 'rb') as fh:
             return fh.read()
 
+    def get_location(self):
+        return self.path
+
     @staticmethod
     def _serialize(data):
         return bencoder.bencode(data)
@@ -334,3 +337,6 @@ class VolatileStorage(Storage):
 
     def _read_file(self):
         return self.file_data
+
+    def get_location(self):
+        return None

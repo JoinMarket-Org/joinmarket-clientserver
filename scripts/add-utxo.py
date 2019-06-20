@@ -19,7 +19,7 @@ from optparse import OptionParser
 from jmbase import jmprint
 import jmbitcoin as btc
 from jmclient import load_program_config, jm_single, get_p2pk_vbyte,\
-    open_wallet, sync_wallet, add_external_commitments, update_commitments,\
+    open_wallet, WalletService, add_external_commitments, update_commitments,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
     get_wallet_path
 
@@ -146,12 +146,12 @@ def main():
         help='only validate the provided utxos (file or command line), not add',
         default=False
     )
-    parser.add_option('--fast',
+    parser.add_option('--recoversync',
                       action='store_true',
-                      dest='fastsync',
+                      dest='recoversync',
                       default=False,
-                      help=('choose to do fast wallet sync, only for Core and '
-                      'only for previously synced wallet'))
+                      help=('choose to do detailed wallet sync, '
+                            'used for recovering on new Core instance.'))
     (options, args) = parser.parse_args()
     load_program_config()
     #TODO; sort out "commit file location" global so this script can
@@ -179,16 +179,18 @@ def main():
     if options.loadwallet:
         wallet_path = get_wallet_path(options.loadwallet, None)
         wallet = open_wallet(wallet_path, gap_limit=options.gaplimit)
-        while not jm_single().bc_interface.wallet_synced:
-            sync_wallet(wallet, fast=options.fastsync)
+        wallet_service = WalletService(wallet)
+        while True:
+            if wallet_service.sync_wallet(fast=not options.recoversync):
+                break
 
         # minor note: adding a utxo from an external wallet for commitments, we
         # default to not allowing disabled utxos to avoid a privacy leak, so the
         # user would have to explicitly enable.
-        for md, utxos in wallet.get_utxos_by_mixdepth_().items():
+        for md, utxos in wallet_service.get_utxos_by_mixdepth(hexfmt=False).items():
             for (txid, index), utxo in utxos.items():
                 txhex = binascii.hexlify(txid).decode('ascii') + ':' + str(index)
-                wif = wallet.get_wif_path(utxo['path'])
+                wif = wallet_service.get_wif_path(utxo['path'])
                 utxo_data.append((txhex, wif))
 
     elif options.in_file:

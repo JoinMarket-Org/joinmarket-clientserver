@@ -33,12 +33,12 @@ def add_common_options(parser):
         'for the total transaction fee, default=dynamically estimated, note that this is adjusted '
         'based on the estimated fee calculated after tx construction, based on '
         'policy set in joinmarket.cfg.')
-    parser.add_option('--fast',
+    parser.add_option('--recoversync',
                       action='store_true',
-                      dest='fastsync',
+                      dest='recoversync',
                       default=False,
-                      help=('choose to do fast wallet sync, only for Core and '
-                            'only for previously synced wallet'))
+                      help=('choose to do detailed wallet sync, '
+                            'used for recovering on new Core instance.'))
     parser.add_option(
         '-x',
         '--max-cj-fee-abs',
@@ -358,6 +358,18 @@ def get_tumbler_parser():
             default=9,
             help=
             'maximum amount of times to re-create a transaction before giving up, default 9')
+    # note that this is used slightly differently in tumbler from sendpayment,
+    # hence duplicated:
+    parser.add_option('-A',
+            '--amtmixdepths',
+            action='store',
+            type='int',
+            dest='amtmixdepths',
+            help='number of mixdepths ever used in wallet, '
+                 'only to be used if mixdepths higher than '
+                 'mixdepthsrc + number of mixdepths to tumble '
+                 'have been used.',
+            default=-1)
     add_common_options(parser)
     return parser
 

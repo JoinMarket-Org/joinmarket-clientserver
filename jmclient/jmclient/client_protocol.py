@@ -18,9 +18,8 @@ import hashlib
 import os
 import sys
 from jmbase import get_log
-from jmclient import (jm_single, get_irc_mchannels, get_p2sh_vbyte,
+from jmclient import (jm_single, get_irc_mchannels,
                       RegtestBitcoinCoreInterface)
-from .output import fmt_tx_data
 import jmbitcoin as btc
 
 jlog = get_log()
@@ -263,72 +262,79 @@ class JMMakerClientProtocol(JMClientProtocol):
             self.finalized_offers[nick] = offer
             tx = btc.deserialize(txhex)
             self.finalized_offers[nick]["txd"] = tx
-            jm_single().bc_interface.add_tx_notify(tx, self.unconfirm_callback,
-                    self.confirm_callback, offer["cjaddr"],
-                    wallet_name=jm_single().bc_interface.get_wallet_name(
-                        self.client.wallet),
-                    txid_flag=False,
-                    vb=get_p2sh_vbyte())
+            txid = btc.txhash(btc.serialize(tx))
+            # we index the callback by the out-set of the transaction,
+            # because the txid is not known until all scriptSigs collected
+            # (hence this is required for Makers, but not Takers).
+            # For more info see WalletService.transaction_monitor():
+            txinfo = tuple((x["script"], x["value"]) for x in tx["outs"])
+            self.client.wallet_service.register_callbacks([self.unconfirm_callback],
+                                              txinfo, "unconfirmed")
+            self.client.wallet_service.register_callbacks([self.confirm_callback],
+                                              txinfo, "confirmed")
+
+            task.deferLater(reactor, float(jm_single().config.getint("TIMEOUT",
+                            "unconfirm_timeout_sec")),
+                            self.client.wallet_service.check_callback_called,
+                            txinfo, self.unconfirm_callback, "unconfirmed",
+                "transaction with outputs: " + str(txinfo) + " not broadcast.")
+
             d = self.callRemote(commands.JMTXSigs,
                                 nick=nick,
                                 sigs=json.dumps(sigs))
             self.defaultCallbacks(d)
         return {"accepted": True}
 
+    def tx_match(self, txd):
+        for k,v in iteritems(self.finalized_offers):
+            #Tx considered defined by its output set
+            if v["txd"]["outs"] == txd["outs"]:
+                offerinfo = v
+                break
+        else:
+            return False
+        return offerinfo
+
     def unconfirm_callback(self, txd, txid):
         #find the offer for this tx
-        offerinfo = None
-        for k,v in iteritems(self.finalized_offers):
-            #Tx considered defined by its output set
-            if v["txd"]["outs"] == txd["outs"]:
-                offerinfo = v
-                break
+        offerinfo = self.tx_match(txd)
         if not offerinfo:
-            jlog.info("Failed to find notified unconfirmed transaction: " + txid)
-            return
-        removed_utxos = self.client.wallet.remove_old_utxos(txd)
-        jlog.info('saw tx on network, removed_utxos=\n{}'.format('\n'.join(
-            '{} - {}'.format(u, fmt_tx_data(tx_data, self.client.wallet))
-            for u, tx_data in removed_utxos.items())))
+            return False
         to_cancel, to_announce = self.client.on_tx_unconfirmed(offerinfo,
-                                                               txid, removed_utxos)
+                                                               txid)
         self.client.modify_orders(to_cancel, to_announce)
+
+        txinfo = tuple((x["script"], x["value"]) for x in txd["outs"])
+        confirm_timeout_sec = float(jm_single().config.get(
+            "TIMEOUT", "confirm_timeout_hours")) * 3600
+        task.deferLater(reactor, confirm_timeout_sec,
+                        self.client.wallet_service.check_callback_called,
+                        txinfo, self.confirm_callback, "confirmed",
+        "transaction with outputs " + str(txinfo) + " not confirmed.")
+
         d = self.callRemote(commands.JMAnnounceOffers,
                             to_announce=json.dumps(to_announce),
                             to_cancel=json.dumps(to_cancel),
                             offerlist=json.dumps(self.client.offerlist))
         self.defaultCallbacks(d)
+        return True
 
-    def confirm_callback(self, txd, txid, confirmations):
+    def confirm_callback(self, txd, txid, confirms):
         #find the offer for this tx
-        offerinfo = None
-        for k,v in iteritems(self.finalized_offers):
-            #Tx considered defined by its output set
-            if v["txd"]["outs"] == txd["outs"]:
-                offerinfo = v
-                break
+        offerinfo = self.tx_match(txd)
         if not offerinfo:
-            jlog.info("Failed to find notified unconfirmed transaction: " + txid)
-            return
-        jm_single().bc_interface.wallet_synced = False
-        jm_single().bc_interface.sync_unspent(self.client.wallet)
-        jlog.info('tx in a block: ' + txid)
-        self.wait_for_sync_loop = task.LoopingCall(self.modify_orders, offerinfo,
-                                                   confirmations, txid)
-        self.wait_for_sync_loop.start(2.0)
-
-    def modify_orders(self, offerinfo, confirmations, txid):
-        if not jm_single().bc_interface.wallet_synced:
-            return
-        self.wait_for_sync_loop.stop()
+            return False
+        jlog.info('tx in a block: ' + txid + ' with ' + str(
+            confirms) + ' confirmations.')
         to_cancel, to_announce = self.client.on_tx_confirmed(offerinfo,
-                                                             confirmations, txid)
+                                                     txid, confirms)
         self.client.modify_orders(to_cancel, to_announce)
         d = self.callRemote(commands.JMAnnounceOffers,
-                            to_announce=json.dumps(to_announce),
-                            to_cancel=json.dumps(to_cancel),
-                            offerlist=json.dumps(self.client.offerlist))
+                        to_announce=json.dumps(to_announce),
+                        to_cancel=json.dumps(to_cancel),
+                        offerlist=json.dumps(self.client.offerlist))
         self.defaultCallbacks(d)
+        return True
 
 class JMTakerClientProtocol(JMClientProtocol):
 

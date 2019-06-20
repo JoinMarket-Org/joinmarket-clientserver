@@ -20,12 +20,12 @@ def receive_payjoin_main(makerclass):
     parser.add_option('-g', '--gap-limit', action='store', type="int",
                       dest='gaplimit', default=6,
                       help='gap limit for wallet, default=6')
-    parser.add_option('--fast',
+    parser.add_option('--recoversync',
                       action='store_true',
-                      dest='fastsync',
+                      dest='recoversync',
                       default=False,
-                      help=('choose to do fast wallet sync, only for Core and '
-                            'only for previously synced wallet'))
+                      help=('choose to do detailed wallet sync, '
+                            'used for recovering on new Core instance.'))
     parser.add_option('-m', '--mixdepth', action='store', type='int',
                       dest='mixdepth', default=0,
                       help="mixdepth to source coins from")
@@ -68,7 +68,7 @@ def receive_payjoin_main(makerclass):
         jm_single().bc_interface.synctype = "with-script"
 
     while not jm_single().bc_interface.wallet_synced:
-        sync_wallet(wallet, fast=options.fastsync)
+        sync_wallet(wallet, fast=not options.recoversync)
 
     maker = makerclass(wallet, options.mixdepth, receiving_amount)
     

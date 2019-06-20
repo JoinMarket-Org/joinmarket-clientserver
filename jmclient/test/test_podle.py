@@ -196,14 +196,14 @@ def test_podle_error_string(setup_podle):
                              ('fakepriv2', 'fakeutxo2')]
     to = ['tooold1', 'tooold2']
     ts = ['toosmall1', 'toosmall2']
-    wallet = make_wallets(1, [[1, 0, 0, 0, 0]])[0]['wallet']
+    wallet_service = make_wallets(1, [[1, 0, 0, 0, 0]])[0]['wallet']
     cjamt = 100
     tua = "3"
     tuamtper = "20"
     errmgsheader, errmsg = generate_podle_error_string(priv_utxo_pairs,
                                                        to,
                                                        ts,
-                                                       wallet,
+                                                       wallet_service,
                                                        cjamt,
                                                        tua,
                                                        tuamtper)
@@ -212,7 +212,7 @@ def test_podle_error_string(setup_podle):
     y = [x[1] for x in priv_utxo_pairs]
     assert all([errmsg.find(x) != -1 for x in to + ts + y])
     #ensure OK with nothing
-    errmgsheader, errmsg = generate_podle_error_string([], [], [], wallet,
+    errmgsheader, errmsg = generate_podle_error_string([], [], [], wallet_service,
                                                        cjamt, tua, tuamtper)
 
 @pytest.fixture(scope="module")

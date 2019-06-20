@@ -5,6 +5,9 @@ from builtins import * # noqa: F401
 import logging
 from getpass import getpass
 
+# global Joinmarket constants
+JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
+
 from chromalog.log import (
     ColorizingStreamHandler,
     ColorizingFormatter,
