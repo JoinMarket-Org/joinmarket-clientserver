@@ -68,6 +68,18 @@ def main():
             sys.exit(0)
         #This removes all entries that are marked as done
         schedule = [s for s in schedule if s[5] != 1]
+        # remaining destination addresses must be stored in Taker.tdestaddrs
+        # in case of tweaks; note we can't change, so any passed on command
+        # line must be ignored:
+        if len(destaddrs) > 0:
+            jmprint("For restarts, destinations are taken from schedule file,"
+                    " so passed destinations on the command line were ignored.",
+                    "important")
+            if input("OK? (y/n)") != "y":
+                sys.exit(0)
+        destaddrs = [s[3] for s in schedule if s[3] not in ["INTERNAL", "addrask"]]
+        jmprint("Remaining destination addresses in restart: " + ",".join(destaddrs),
+                "important")
         if isinstance(schedule[0][5], str) and len(schedule[0][5]) == 64:
             #ensure last transaction is confirmed before restart
             tumble_log.info("WAITING TO RESTART...")
