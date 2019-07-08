@@ -11,7 +11,7 @@ from twisted.python.log import startLogging
 from jmclient import Taker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, jm_single, get_wallet_path,\
     open_test_wallet_maybe, sync_wallet, get_tumble_schedule,\
-    schedule_to_text, restart_waiter,\
+    schedule_to_text, estimate_tx_fee, restart_waiter,\
     get_tumble_log, tumbler_taker_finished_update,\
     tumbler_filter_orders_callback
 from jmbase.support import get_log, jmprint
@@ -92,6 +92,37 @@ def main():
         print("Schedule written to logs/" + options['schedulefile'])
     tumble_log.info("With this schedule: ")
     tumble_log.info(pprint.pformat(schedule))
+
+    # Dynamically estimate an expected tx fee for the whole tumbling run.
+    # This is very rough: we guess with 2 inputs and 2 outputs each.
+    if options['txfee'] == -1:
+        options['txfee'] = max(options['txfee'], estimate_tx_fee(2, 2,
+                                        txtype="p2sh-p2wpkh"))
+        log.debug("Estimated miner/tx fee for each cj participant: " + str(
+            options['txfee']))
+    assert (options['txfee'] >= 0)
+
+    # From the estimated tx fees, check if the expected amount is a
+    # significant value compared the the cj amount
+    involved_parties = len(schedule)    # own participation in each CJ
+    for item in schedule:
+        involved_parties += item[2] #  number of total tumble counterparties
+    total_tumble_amount = int(0)
+    max_mix_to_tumble = min(options['mixdepthsrc']+options['mixdepthcount'], \
+                            max_mix_depth)
+    for i in range(options['mixdepthsrc'], max_mix_to_tumble):
+        total_tumble_amount += wallet.get_balance_by_mixdepth()[i]
+    exp_tx_fees_ratio = (involved_parties * options['txfee']) \
+        / total_tumble_amount
+    if exp_tx_fees_ratio > 0.05:
+        jmprint('WARNING: Expected bitcoin network miner fees for the whole '
+            'tumbling run are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
+        if not options['restart'] and input('You might want to modify your tx_fee'
+            ' settings in joinmarket.cfg. Still continue? (y/n):')[0] != 'y':
+            sys.exit('Aborted by user.')
+    else:
+        log.info("Estimated miner/tx fees for this coinjoin amount for the "
+            "whole tumbling run: {:.1%}".format(exp_tx_fees_ratio))
 
     print("Progress logging to logs/TUMBLE.log")
 
