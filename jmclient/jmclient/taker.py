@@ -801,7 +801,7 @@ class Taker(object):
             if i == n:
                 pushed = jm_single().bc_interface.pushtx(tx)
             else:
-                nick_to_use = self.maker_utxo_data.keys()[i]
+                nick_to_use = list(self.maker_utxo_data.keys())[i]
                 pushed = True
         else:
             jlog.info("Only self, random-peer and not-self broadcast "
