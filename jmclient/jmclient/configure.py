@@ -246,6 +246,12 @@ absurd_fee_per_kb = 350000
 # random-peer = everyone who took part in the coinjoin has a chance of broadcasting
 # not-self = never broadcast with your own ip
 tx_broadcast = self
+
+# If makers do not respond while creating a coinjoin transaction,
+# the non-responding ones will be ignored. This is the minimum
+# amount of makers which we are content with for the coinjoin to
+# succceed. Less makers means that the whole process will restart
+# after a timeout.
 minimum_makers = 2
 
 ##############################
