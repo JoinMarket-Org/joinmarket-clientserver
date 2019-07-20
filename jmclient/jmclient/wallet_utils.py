@@ -1228,6 +1228,9 @@ def wallet_tool_main(wallet_root_path):
         return wallet_signmessage(wallet, options.hd_path, args[2])
     elif method == "freeze":
         return wallet_freezeutxo(wallet, options.mixdepth)
+    else:
+        parser.error("Unknown wallet-tool method: " + method)
+        sys.exit(0)
 
 
 #Testing (can port to test modules, TODO)
