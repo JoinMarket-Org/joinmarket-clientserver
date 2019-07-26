@@ -582,7 +582,7 @@ class SpendTab(QWidget):
                 #since we already updated state to running, user cannot
                 #start another transactions while waiting. Also, use :0 because
                 #it always exists
-                self.waitingtxid=txid+":0"
+                self.waitingtxid=txid
                 self.restartTimer.timeout.connect(self.restartWaitWrap)
                 self.restartTimer.start(5000)
                 return

@@ -134,16 +134,28 @@ def get_tumble_log(logsdir):
     return tumble_log
 
 def restart_wait(txid):
-    """Here txid is of form txid:N for direct utxo query.
-    Returns true only if the utxo is reported to have at least 1
-    confirm by the blockchain interface.
+    """ Returns true only if the transaction txid is seen in the wallet,
+    and confirmed (it must be an in-wallet transaction since it always
+    spends coins from the wallet).
     """
-    res = jm_single().bc_interface.query_utxo_set(txid, includeconf=True)
-    if not res[0]:
+    try:
+        res = jm_single().bc_interface.rpc('gettransaction', [txid, True])
+    except JsonRpcError as e:
         return False
-    if res[0]['confirms'] > 0:
+    if not res:
+        return False
+    if "confirmations" not in res:
+        log.debug("Malformed gettx result: " + str(res))
+        return False
+    if res["confirmations"] == 0:
+        return False
+    if res["confirmations"] < 0:
+        log.warn("Tx: " + txid + " has a conflict, abandoning.")
+        sys.exit(0)
+    else:
+        log.debug("Tx: " + str(txid) + " has " + str(
+                res["confirmations"]) + " confirmations.")
         return True
-    return False
 
 def restart_waiter(txid):
     """Given a txid, wait for confirmation by polling the blockchain

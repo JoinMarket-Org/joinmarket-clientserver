@@ -84,7 +84,7 @@ def main():
             #ensure last transaction is confirmed before restart
             tumble_log.info("WAITING TO RESTART...")
             txid = schedule[0][5]
-            restart_waiter(txid + ":0") #add 0 index because all have it
+            restart_waiter(txid)
             #remove the already-done entry (this connects to the other TODO,
             #probably better *not* to truncate the done-already txs from file,
             #but simplest for now.
