@@ -127,9 +127,7 @@ socks5_host = localhost
 socks5_port = 9050
 
 #for tor
-#host = 6dvj6v5imhny3anf.onion
-#onion / i2p have their own ports on CGAN
-#port = 6698
+#host = epynixtbonxn4odv34z4eqnlamnpuwfz6uwmsamcqd62si7cbix5hqad.onion
 #socks5 = true
 
 [MESSAGING:server2]
