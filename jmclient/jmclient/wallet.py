@@ -426,22 +426,40 @@ class BaseWallet(object):
         privkey = self._get_priv_from_path(path)[0]
         return hexlify(privkey).decode('ascii')
 
-    def get_external_addr(self, mixdepth):
+    def _get_addr_int_ext(self, internal, mixdepth, bci=None):
+        script = self.get_internal_script(mixdepth) if internal else \
+            self.get_external_script(mixdepth)
+        addr = self.script_to_addr(script)
+        if bci is not None and hasattr(bci, 'import_addresses'):
+            assert hasattr(bci, 'get_wallet_name')
+            # we aggressively import ahead of our index, so that when
+            # detailed sync is needed in future, it will not find
+            # imports missing (and this operation costs nothing).
+            addrs_to_import = list(bci._collect_addresses_gap(
+                self, self.gaplimit))
+            bci.import_addresses(addrs_to_import, bci.get_wallet_name(self))
+        return addr
+
+    def get_external_addr(self, mixdepth, bci=None):
         """
         Return an address suitable for external distribution, including funding
         the wallet from other sources, or receiving payments or donations.
         JoinMarket will never generate these addresses for internal use.
+        If the argument bci is non-null, we attempt to import the new
+        address into this blockchaininterface instance
+        (based on Bitcoin Core's model).
         """
-        script = self.get_external_script(mixdepth)
-        return self.script_to_addr(script)
+        return self._get_addr_int_ext(False, mixdepth, bci=bci)
 
-    def get_internal_addr(self, mixdepth):
+    def get_internal_addr(self, mixdepth, bci=None):
         """
         Return an address for internal usage, as change addresses and when
         participating in transactions initiated by other parties.
+        If the argument bci is non-null, we attempt to import the new
+        address into this blockchaininterface instance
+        (based on Bitcoin Core's model).
         """
-        script = self.get_internal_script(mixdepth)
-        return self.script_to_addr(script)
+        return self._get_addr_int_ext(True, mixdepth, bci=bci)
 
     def get_external_script(self, mixdepth):
         return self.get_new_script(mixdepth, False)

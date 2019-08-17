@@ -70,8 +70,8 @@ def direct_send(wallet, amount, mixdepth, destaddr, answeryes=False,
         total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
         changeval = total_inputs_val - fee_est - amount
         outs = [{"value": amount, "address": destaddr}]
-        change_addr = wallet.get_internal_addr(mixdepth)
-        import_new_addresses(wallet, [change_addr])
+        change_addr = wallet.get_internal_addr(mixdepth,
+                                        jm_single().bc_interface)
         outs.append({"value": changeval, "address": change_addr})
 
     #Now ready to construct transaction
@@ -113,15 +113,6 @@ def sign_tx(wallet, tx, utxos):
         amount = utxos[utxo]['value']
         our_inputs[index] = (script, amount)
     return wallet.sign_tx(stx, our_inputs)
-
-def import_new_addresses(wallet, addr_list):
-    # FIXME: same code as in maker.py and taker.py
-    bci = jm_single().bc_interface
-    if not hasattr(bci, 'import_addresses'):
-        return
-    assert hasattr(bci, 'get_wallet_name')
-    bci.import_addresses(addr_list, bci.get_wallet_name(wallet))
-
 
 def get_tumble_log(logsdir):
     tumble_log = logging.getLogger('tumbler')

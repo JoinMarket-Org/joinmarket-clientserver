@@ -512,7 +512,15 @@ class BitcoinCoreInterface(BlockchainInterface):
         self.wallet_synced = True
 
     def sync_addresses(self, wallet, restart_cb=None):
+        # This more detailed version of wallet syncing must cover situations
+        # where the user has used the wallet on other Bitcoin Core instances
+        # and therefore the wallet label either does not have addresses
+        # imported, and/or, after the addresses are imported, they may not
+        # have the full history, since a rescan is required to discover
+        # the history of addresses before they were imported.
+
         log.debug("requesting detailed wallet history")
+
         wallet_name = self.get_wallet_name(wallet)
 
         addresses, saved_indices = self._collect_addresses_init(wallet)
@@ -534,7 +542,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         used_addresses_gen = (tx['address']
                               for tx in self._yield_transactions(wallet_name)
                               if tx['category'] == 'receive')
-
         used_indices = self._get_used_indices(wallet, used_addresses_gen)
         log.debug("got used indices: {}".format(used_indices))
         gap_limit_used = not self._check_gap_indices(wallet, used_indices)
