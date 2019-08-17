@@ -1458,7 +1458,7 @@ class JMMainWindow(QMainWindow):
             mn_extension = pp_field.text()
         return message_e.toPlainText(), mn_extension
 
-    def restartForScan(self, msg):
+    def restartWithMsg(self, msg):
         JMQtMessageBox(self, msg, mbtype='info',
                        title="Restart")
         self.close()
@@ -1477,7 +1477,7 @@ class JMMainWindow(QMainWindow):
             return
         JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                                    title="Wallet created")
-        self.initWallet(seed=self.walletname, restart_cb=self.restartForScan)
+        self.initWallet(seed=self.walletname, restart_cb=self.restartWithMsg)
 
     def selectWallet(self, testnet_seed=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
@@ -1501,7 +1501,7 @@ class JMMainWindow(QMainWindow):
                 if not ok:
                     return
                 pwd = str(text).strip()
-                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd, restart_cb=self.restartForScan)
+                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd, restart_cb=self.restartWithMsg)
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
@@ -1586,7 +1586,7 @@ class JMMainWindow(QMainWindow):
             seed = self.getTestnetSeed()
             self.selectWallet(testnet_seed=seed)
         else:
-            self.initWallet(restart_cb=self.restartForScan)
+            self.initWallet(restart_cb=self.restartWithMsg)
 
     def getTestnetSeed(self):
         text, ok = QInputDialog.getText(
