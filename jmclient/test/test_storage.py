@@ -63,21 +63,26 @@ def test_storage():
 
 
 def test_storage_invalid():
-    with pytest.raises(storage.StorageError, message="File does not exist"):
+    with pytest.raises(storage.StorageError):
         MockStorage(None, 'nonexistant', b'password')
+        pytest.fail("File does not exist")
 
     s = MockStorage(None, 'nonexistant', b'password', create=True)
-    with pytest.raises(storage.StorageError, message="Wrong password"):
+    with pytest.raises(storage.StorageError):
         MockStorage(s.file_data, __file__, b'wrongpass')
+        pytest.fail("Wrong password")
 
-    with pytest.raises(storage.StorageError, message="No password"):
+    with pytest.raises(storage.StorageError):
         MockStorage(s.file_data, __file__)
+        pytest.fail("No password")
 
-    with pytest.raises(storage.StorageError, message="Non-wallet file, unencrypted"):
+    with pytest.raises(storage.StorageError):
         MockStorage(b'garbagefile', __file__)
+        pytest.fail("Non-wallet file, unencrypted")
 
-    with pytest.raises(storage.StorageError, message="Non-wallet file, encrypted"):
+    with pytest.raises(storage.StorageError):
         MockStorage(b'garbagefile', __file__, b'password')
+        pytest.fail("Non-wallet file, encrypted")
 
 
 def test_storage_readonly():
@@ -99,16 +104,18 @@ def test_storage_lock(tmpdir):
     p = str(tmpdir.join('test.jmdat'))
     pw = None
 
-    with pytest.raises(storage.StorageError, message="File does not exist"):
+    with pytest.raises(storage.StorageError):
         storage.Storage(p, pw)
+        pytest.fail("File does not exist")
 
     s = storage.Storage(p, pw, create=True)
     assert s.is_locked()
     assert not s.is_encrypted()
     assert s.data == {}
 
-    with pytest.raises(storage.StorageError, message="File is locked"):
+    with pytest.raises(storage.StorageError):
         storage.Storage(p, pw)
+        pytest.fail("File is locked")
 
     assert storage.Storage.is_storage_file(p)
     assert not storage.Storage.is_encrypted_storage_file(p)
