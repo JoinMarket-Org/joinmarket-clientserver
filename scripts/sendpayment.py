@@ -115,6 +115,17 @@ def main():
             options.txfee))
     assert (options.txfee >= 0)
 
+    # From the estimated tx fees, check if the expected amount is a
+    # significant value compared the the cj amount
+    exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / amount
+    if exp_tx_fees_ratio > 0.05:
+        jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
+            ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
+    else:
+        log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
+            .format(exp_tx_fees_ratio))
+
+
     maxcjfee = (1, float('inf'))
     if not options.p2ep and not options.pickorders and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
