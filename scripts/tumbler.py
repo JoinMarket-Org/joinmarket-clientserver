@@ -124,6 +124,8 @@ def main():
                             max_mix_depth)
     for i in range(options['mixdepthsrc'], max_mix_to_tumble):
         total_tumble_amount += wallet.get_balance_by_mixdepth()[i]
+        if total_tumble_amount == 0:
+            raise ValueError("No confirmed coins in the selected mixdepth(s). Quitting")
     exp_tx_fees_ratio = (involved_parties * options['txfee']) \
         / total_tumble_amount
     if exp_tx_fees_ratio > 0.05:

@@ -115,17 +115,6 @@ def main():
             options.txfee))
     assert (options.txfee >= 0)
 
-    # From the estimated tx fees, check if the expected amount is a
-    # significant value compared the the cj amount
-    exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / amount
-    if exp_tx_fees_ratio > 0.05:
-        jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
-            ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
-    else:
-        log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
-            .format(exp_tx_fees_ratio))
-
-
     maxcjfee = (1, float('inf'))
     if not options.p2ep and not options.pickorders and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
@@ -146,6 +135,24 @@ def main():
     #wallet sync will now only occur on reactor start if we're joining.
     while not jm_single().bc_interface.wallet_synced:
         sync_wallet(wallet, fast=options.fastsync)
+
+    # From the estimated tx fees, check if the expected amount is a
+    # significant value compared the the cj amount
+    if amount == 0:
+        amount = wallet.get_balance_by_mixdepth()[options.mixdepth]
+        if amount == 0:
+            raise ValueError("No confirmed coins in the selected mixdepth. Quitting")
+    exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / amount
+    if exp_tx_fees_ratio > 0.05:
+        jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
+            ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
+        if input('You might want to modify your tx_fee'
+            ' settings in joinmarket.cfg. Still continue? (y/n):')[0] != 'y':
+            sys.exit('Aborted by user.')
+    else:
+        log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
+            .format(exp_tx_fees_ratio))
+
     if options.makercount == 0 and not options.p2ep:
         direct_send(wallet, amount, mixdepth, destaddr, options.answeryes)
         return
