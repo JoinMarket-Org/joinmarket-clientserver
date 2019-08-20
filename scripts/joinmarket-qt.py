@@ -96,9 +96,8 @@ def update_config_for_gui():
     operation of the command line version.
     '''
     gui_config_names = ['gaplimit', 'history_file', 'check_high_fee',
-                        'max_mix_depth', 'txfee_default', 'order_wait_time',
-                       'checktx']
-    gui_config_default_vals = ['6', 'jm-tx-history.txt', '2', '5', '5000', '30',
+                        'max_mix_depth', 'order_wait_time', 'checktx']
+    gui_config_default_vals = ['6', 'jm-tx-history.txt', '2', '5', '30',
                                'true']
     if "GUI" not in jm_single().config.sections():
         jm_single().config.add_section("GUI")

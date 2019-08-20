@@ -55,7 +55,6 @@ config_types = {'rpc_port': int,
                 'gaplimit': int,
                 'check_high_fee': int,
                 'max_mix_depth': int,
-                'txfee_default': int,
                 'order_wait_time': int,
                 "no_daemon": int,
                 "daemon_port": int,}
@@ -79,22 +78,18 @@ config_tips = {
     'socks5_port': 'port for SOCKS5 proxy (or comma separated list)',
     'maker_timeout_sec': 'timeout for waiting for replies from makers',
     'merge_algorithm': 'for dust sweeping, try merge_algorithm = gradual, \n' +
-    'for more rapid dust sweeping, try merge_algorithm = greedy \n' +
-    'for most rapid dust sweeping, try merge_algorithm = greediest \n' +
-    ' but dont forget to bump your miner fees!',
+    'for more rapid dust sweeping, try merge_algorithm = greedy, \n' +
+    'for most rapid dust sweeping, try merge_algorithm = greediest \n',
     'tx_fees':
     'the fee estimate is based on a projection of how many satoshis \n' +
     'per kB are needed to get in one of the next N blocks, N set here \n' +
     'as the value of "tx_fees". This estimate is high if you set N=1, \n' +
-    'so we choose N=3 for a more reasonable figure, \n' +
-    'as our default. Note that for clients not using a local blockchain \n' +
-    'instance, we retrieve an estimate from the API at blockcypher.com, currently. \n',
+    'so we choose N=3 for a more reasonable figure as our default.\n' +
+    'Alternative: Any value higher than 1000 will be interpreted as \n' +
+    'fee value in satoshi per KB. This overrides the dynamic estimation.',
     'gaplimit': 'How far forward to search for used addresses in the HD wallet',
     'check_high_fee': 'Percent fee considered dangerously high, default 2%',
     'max_mix_depth': 'Total number of mixdepths in the wallet, default 5',
-    'txfee_default': 'Number of satoshis per counterparty for an initial\n' +
-    'tx fee estimate; this value is not usually used and is best left at\n' +
-    'the default of 5000',
     'order_wait_time': 'How long to wait for orders to arrive on entering\n' +
     'the message channel, default is 30s',
     'no_daemon': "1 means don't use a separate daemon; set to 0 only if you\n" +
