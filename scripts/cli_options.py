@@ -29,10 +29,12 @@ def add_common_options(parser):
         type='int',
         dest='txfee',
         default=-1,
-        help='number of satoshis per participant to use as the initial estimate '
-        'for the total transaction fee, default=dynamically estimated, note that this is adjusted '
-        'based on the estimated fee calculated after tx construction, based on '
-        'policy set in joinmarket.cfg.')
+        help='Bitcoin miner tx_fee to use for transaction(s). A number higher '
+        'than 1000 is used as "satoshi per KB" tx fee. A number lower than that '
+        'uses the dynamic fee estimation of your blockchain provider as '
+        'confirmation target. This temporarily overrides the "tx_fees" setting '
+        'in your joinmarket.cfg. Works the same way as described in it. Check '
+        'it for examples.')
     parser.add_option('--recoversync',
                       action='store_true',
                       dest='recoversync',
