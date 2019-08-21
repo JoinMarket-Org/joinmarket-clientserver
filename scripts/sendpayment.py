@@ -138,11 +138,12 @@ def main():
 
     # From the estimated tx fees, check if the expected amount is a
     # significant value compared the the cj amount
-    if amount == 0:
-        amount = wallet.get_balance_by_mixdepth()[options.mixdepth]
-        if amount == 0:
+    total_cj_amount = amount
+    if total_cj_amount == 0:
+        total_cj_amount = wallet.get_balance_by_mixdepth()[options.mixdepth]
+        if total_cj_amount == 0:
             raise ValueError("No confirmed coins in the selected mixdepth. Quitting")
-    exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / amount
+    exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / total_cj_amount
     if exp_tx_fees_ratio > 0.05:
         jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
             ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
