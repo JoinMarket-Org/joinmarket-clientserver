@@ -306,12 +306,13 @@ A change output stays in the same mixing depth. This prevents the situation wher
 An example of the different identities being used is to not leak a lower limit of your wallet balance. Imagine if someone pays you $10 and sees it combined with $1 million, they could deduce you own at least that much. If instead those two payments go to different mixing levels then this analysis becomes harder. As coins move up the mixing levels via coinjoin, their identity becomes more uncertain. To introduce more uncertainty, have the coins separated by more mixing levels. E.G. A coin in level 0 and a second coin with level 1 will be merged with one set of coinjoins between them, the second coin at level 5 will be merged with 5 sets of coinjoins.
 
 #### BIP32 Structure
-    m - generated from seed
-    m/49' - purpose: this is specified by [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) for P2SH-wrapped segwit P2WPKH addresses
-    m/49'/0' - coin type 0 : see [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) which specifies this as the coin type for Bitcoin mainnet
-    m/49'/0'/n' - nth mixing depth (nth account) (as per BIP44)
-    m/49'/0'/n'/0/k - kth external address, for mixing depth n
-    m/49'/0'/n'/1/k - kth internal address, for mixing depth n
+
+m - generated from seed
+m/49' - purpose: this is specified by [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) for P2SH-wrapped segwit P2WPKH addresses
+m/49'/0' - coin type 0 : see [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) which specifies this as the coin type for Bitcoin mainnet
+m/49'/0'/n' - nth mixing depth (nth account) (as per BIP44)
+m/49'/0'/n'/0/k - kth external address, for mixing depth n
+m/49'/0'/n'/1/k - kth internal address, for mixing depth n
 
 Note that the quote (') indicates hardened derivation. See [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) for technical details.
 
