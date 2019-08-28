@@ -19,7 +19,7 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 * GUI to support Taker role, including tumbler/automated coinjoin sequence.
 * PayJoin - more economical and private payments between Joinmarket wallets.
 
-### Quickstart
+### Quickstart - RECOMMENDED INSTALLATION METHOD
 
 Once you've downloaded this repo, either as a tar/zip file, and extracted it, or via `git clone`:
 
