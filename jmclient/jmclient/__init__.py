@@ -48,6 +48,7 @@ from .wallet_utils import (
     wallet_display, get_utxos_enabled_disabled)
 from .maker import Maker, P2EPMaker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
+from .snicker_receiver import SNICKERError, SNICKERReceiver
 # Set default logging handler to avoid "No handler found" warnings.
 
 try:

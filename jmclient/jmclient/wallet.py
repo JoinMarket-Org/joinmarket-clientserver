@@ -397,6 +397,29 @@ class BaseWallet(object):
             return 'p2wpkh'
         assert False
 
+    def sign_tx_at_index(self, tx, in_index):
+        """ Caller assumes our ownership of a particular index,
+        and the wallet takes care of finding signing material.
+
+        Arguments: tx in deserialized form, input index as int.
+        Returns: 
+        the deserialized transaction,the txid,
+        or None, None in case of failure.
+        """
+        utxos = self.get_all_utxos()
+        txid = btc.txhash(btc.serialize(tx))
+        try:
+            x = tx["ins"][in_index]["outpoint"]
+            utxo_data = utxos[(x["hash"], x["index"])]
+        except KeyError:
+            return None, None
+        amt = utxo_data["value"]
+        script = utxo_data["script"]
+        path = self.script_to_path(script)
+        priv, engine = self._get_priv_from_path(path)
+        tx = engine.sign_transaction(tx, in_index, priv, amt)
+        return tx, btc.txhash(tx)
+        
     def sign_tx(self, tx, scripts, **kwargs):
         """
         Add signatures to transaction for inputs referenced by scripts.
@@ -601,7 +624,7 @@ class BaseWallet(object):
             out['script'] = unhexlify(out['script'])
 
         ret = self.add_new_utxos_(tx, unhexlify(txid))
-
+        print("got this return from add_new_utxos_: ", ret)
         added_utxos = {}
         for (txid_bin, index), val in ret.items():
             addr = self.get_addr_path(val['path'])
@@ -751,6 +774,17 @@ class BaseWallet(object):
                                           'path': path,
                                           'value': value}
         return script_utxos
+
+    def get_all_utxos(self, include_disabled=False):
+        """ Get all utxos in the wallet, format of return
+        is as for get_utxos_by_mixdepth_ for each mixdepth.
+        """
+        mix_utxos = self.get_utxos_by_mixdepth_(
+            include_disabled=include_disabled)
+        all_utxos = {}
+        for d in mix_utxos.values():
+            all_utxos.update(d)
+        return all_utxos
 
     @classmethod
     def _get_merge_algorithm(cls, algorithm_name=None):

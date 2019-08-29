@@ -20,8 +20,18 @@ order_choose_algorithms = {
     'weighted_order_choose': '-W'
 }
 
+def add_common_wallet_options(parser):
+    parser.add_option('--fast',
+                      action='store_true',
+                      dest='fastsync',
+                      default=False,
+                      help=('choose to do fast wallet sync, only for Core and '
+                            'only for previously synced wallet'))
 
 def add_common_options(parser):
+
+    add_common_wallet_options(parser)
+
     parser.add_option(
         '-f',
         '--txfee',
@@ -33,12 +43,6 @@ def add_common_options(parser):
         'for the total transaction fee, default=dynamically estimated, note that this is adjusted '
         'based on the estimated fee calculated after tx construction, based on '
         'policy set in joinmarket.cfg.')
-    parser.add_option('--fast',
-                      action='store_true',
-                      dest='fastsync',
-                      default=False,
-                      help=('choose to do fast wallet sync, only for Core and '
-                            'only for previously synced wallet'))
     parser.add_option(
         '-x',
         '--max-cj-fee-abs',
@@ -70,6 +74,7 @@ def add_common_options(parser):
              .format('random_under_max_order_choose',
                      ', '.join(order_choose_algorithms.keys())),
         dest='order_choose_fn')
+
     add_order_choose_short_options(parser)
 
 

@@ -19,6 +19,28 @@ P2WSH_PRE = b'\x00\x16'
 
 # Transaction serialization and deserialization
 
+def read_as_int(bytez, tx):
+    if bytez == 2:
+        return struct.unpack(b'<H', ser_read(tx, 2))[0]
+    elif bytez == 4:
+        return struct.unpack(b'<I', ser_read(tx, 4))[0]
+    elif bytez == 1:
+        return struct.unpack(b'B', ser_read(tx, 1))[0]
+    elif bytez == 8:
+        return struct.unpack(b'<Q', ser_read(tx, 8))[0]
+    else:
+        raise SerializationError('Asked to read unsupported %x bytes; bytez can only be 1, 2, 4 or 8' % bytez)
+
+def read_var_int(tx):
+    val = from_byte_to_int(ser_read(tx, 1))
+    if val < 253:
+        return val
+    return read_as_int(pow(2, val - 252), tx)
+
+def read_var_string(tx):
+    size = read_var_int(tx)
+    return ser_read(tx, size)
+
 def deserialize(txinp):
     if isinstance(txinp, basestring) and not isinstance(txinp, bytes):
         tx = BytesIO(binascii.unhexlify(txinp))
@@ -33,28 +55,6 @@ def deserialize(txinp):
         else:
             return scriptbytes
 
-    def read_as_int(bytez):
-        if bytez == 2:
-            return struct.unpack(b'<H', ser_read(tx, 2))[0]
-        elif bytez == 4:
-            return struct.unpack(b'<I', ser_read(tx, 4))[0]
-        elif bytez == 1:
-            return struct.unpack(b'B', ser_read(tx, 1))[0]
-        elif bytez == 8:
-            return struct.unpack(b'<Q', ser_read(tx, 8))[0]
-        else:
-            raise SerializationError('Asked to read unsupported %x bytes; bytez can only be 1, 2, 4 or 8' % bytez)
-
-    def read_var_int():
-        val = from_byte_to_int(ser_read(tx, 1))
-        if val < 253:
-            return val
-        return read_as_int(pow(2, val - 252))
-
-    def read_var_string():
-        size = read_var_int()
-        return ser_read(tx, size)
-
     def read_flag_byte(val):
         last = tx.tell()
         flag = ser_read(tx, 1)
@@ -65,7 +65,7 @@ def deserialize(txinp):
             return False
 
     obj = {"ins": [], "outs": []}
-    obj["version"] = read_as_int(4)
+    obj["version"] = read_as_int(4, tx)
     segwit = False
     if read_flag_byte(0): segwit = True
     if segwit:
@@ -74,22 +74,22 @@ def deserialize(txinp):
             #A raise is a DOS vector in some contexts
             return None
 
-    ins = read_var_int()
+    ins = read_var_int(tx)
     for i in range(ins):
         obj["ins"].append({
             "outpoint": {
                 "hash": hex_string(ser_read(tx, 32)[::-1], hexout),
-                "index": read_as_int(4)
+                "index": read_as_int(4, tx)
             },
             #TODO this will probably crap out on null for segwit
-            "script": hex_string(read_var_string(), hexout),
-            "sequence": read_as_int(4)
+            "script": hex_string(read_var_string(tx), hexout),
+            "sequence": read_as_int(4, tx)
         })
-    outs = read_var_int()
+    outs = read_var_int(tx)
     for i in range(outs):
         obj["outs"].append({
-            "value": read_as_int(8),
-            "script": hex_string(read_var_string(), hexout)
+            "value": read_as_int(8, tx),
+            "script": hex_string(read_var_string(tx), hexout)
         })
     #segwit flag is only set if at least one txinwitness exists,
     #in other words it would have to be at least partially signed;
@@ -104,13 +104,13 @@ def deserialize(txinp):
         #rpc decoderawtx, and attach a "txinwitness" for each in, with
         #the items in the witness space separated
         for i in range(ins):
-            num_items = read_var_int()
+            num_items = read_var_int(tx)
             items = []
             for ni in range(num_items):
-                items.append(hex_string(read_var_string(), hexout))
+                items.append(hex_string(read_var_string(tx), hexout))
             obj["ins"][i]["txinwitness"] = items
 
-    obj["locktime"] = read_as_int(4)
+    obj["locktime"] = read_as_int(4, tx)
     return obj
 
 def serialize(tx):
@@ -871,3 +871,15 @@ def mktx(ins, outs, version=1, locktime=0):
         txobj["outs"].append(outobj)
     return serialize(txobj)
 
+def bip69_sort(tx):
+    """ See https://github.com/bitcoin/bips/blob/master/bip-0069.mediawiki
+    Given a deserialized transaction, return a reordered deserialized
+    transaction according to BIP69. The original tx is unchanged.
+    Note: it is the responsibility of the caller to ensure that the outputs
+    have "script" entries and not (only) "address" entries (which mktx does
+    by default, so this will usually not be an issue).
+    """
+    new_tx = copy.deepcopy(tx)
+    new_tx["ins"].sort(key = lambda i: (i["outpoint"]["hash"], i["outpoint"]["index"]))
+    new_tx["outs"].sort(key = lambda o: (o["value"], o["script"]))
+    return new_tx

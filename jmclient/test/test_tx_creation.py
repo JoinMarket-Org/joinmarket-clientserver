@@ -72,6 +72,36 @@ def test_mktx(setup_tx_creation):
     with pytest.raises(Exception) as e_info:
         tx = bitcoin.mktx(ins, outs)
 
+def test_create_psbt(setup_tx_creation):
+    """ Testing creation of PSBTs
+    """
+    ins = [{'outpoint': {"hash":x*64, "index":0},
+                "script": "", "sequence": 4294967295} for x in ["a", "b", "c"]]
+    priv = "aa"*32 + "01"
+    pub = bitcoin.privkey_to_pubkey(priv)
+    scriptPubKey = bitcoin.pubkey_to_p2sh_p2wpkh_script(pub)
+    ins_segwit_utxos = [(1000*x, scriptPubKey) for x in range(2, 5)]
+    # paying here to same address; doesn't matter
+    outs = [{"script":scriptPubKey, "value":1000*x} for x in range(1,4)]
+    tx = bitcoin.deserialize(bitcoin.mktx(ins, outs, version=2, locktime=0))
+    updater, nserialized = bitcoin.create_psbt(tx, ins_segwit_utxos)
+    for i in range(len(tx['ins'])):
+        updater.add_input_redeem_script(i, bitcoin.pubkey_to_p2wpkh_script(pub))
+    signer = bitcoin.Signer(updater.psbt.serialize())
+    for i in range(len(tx['ins'])):
+        signed_serialized = bitcoin.sign(nserialized, i, priv, amount=1000*(i+2))
+        signed_deserialized = bitcoin.deserialize(signed_serialized)
+        sig, pub = [binascii.unhexlify(x) for x in signed_deserialized['ins'][i]['txinwitness']]
+        signer = bitcoin.Signer(bitcoin.sign_psbt(signer.psbt.serialize(), i, sig, pub))
+    # now the Signer object should have all inputs signed and
+    # should be finalizable
+    final, extracted = bitcoin.extract_final_tx_from_psbt(signer.psbt.serialize())
+    print(binascii.hexlify(extracted))
+    print(" here is the final pbst:")
+    print(final)
+    assert binascii.hexlify(extracted) == b'02000000000103aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa0000000017160014113163f08f3587892b3b6df7d40f598b8037338effffffffbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb0000000017160014113163f08f3587892b3b6df7d40f598b8037338effffffffcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc0000000017160014113163f08f3587892b3b6df7d40f598b8037338effffffff03e80300000000000017a914cc4afebdb9937ceb7ab8c1cf7beafed46ccdf5f587d00700000000000017a914cc4afebdb9937ceb7ab8c1cf7beafed46ccdf5f587b80b00000000000017a914cc4afebdb9937ceb7ab8c1cf7beafed46ccdf5f5874730440220487144366dff67619772082f0cc84d506618ff176b70d3efbe470462aaaf952b02203b860fd16744639693021b6256ec4da83a52b6d2b030cb1428b9be76237551e20121026a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e861bb583eb3483045022100f1e4419b8d9fa280e7d1f2d7a512b797953284563d3a698b4a942b77b511c2ba02202c3347cc30fdeacc169e3f2a44ab911273ce318e4bb970e577af1f146b088da50121026a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e861bb583eb348304502210094189740a9ce24d8152db34fee32adb8c704f484b08c9054f2192dd5cdaccf5102207778122c54869c793dad69deb7e054fd13818a2f4bd0f4d5b746c5d7074ea8da0121026a04ab98d9e4774ad806e302dddeb63bea16b5cb5f223ee77478e861bb583eb300000000'
+    
+    
 def test_bintxhash(setup_tx_creation):
     tx = "abcdef1234"
     x = bitcoin.bin_txhash(tx)
@@ -91,7 +121,6 @@ def test_all_same_priv(setup_tx_creation):
     ins = list(insfull.keys())
     tx = bitcoin.mktx(ins, outs)
     tx = bitcoin.signall(tx, wallet.get_key_from_addr(addrinwallet))
-
 @pytest.mark.parametrize(
     "signall",
     [

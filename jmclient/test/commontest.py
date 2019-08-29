@@ -124,6 +124,11 @@ def binarize_tx(tx):
         o['script'] = binascii.unhexlify(o['script'])
     for i in tx['ins']:
         i['outpoint']['hash'] = binascii.unhexlify(i['outpoint']['hash'])
+        if 'script' in i:
+            i['script'] = binascii.unhexlify(i['script'])
+        if 'txinwitness' in i:
+            for x, y in enumerate(i['txinwitness']):
+                i['txinwitness'][x] = binascii.unhexlify(i['txinwitness'][x])
 
 
 def make_sign_and_push(ins_full,
