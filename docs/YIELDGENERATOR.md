@@ -48,6 +48,10 @@ You may wish to change the input merging policy in `joinmarket.cfg`, see this pa
 
 The value of `gradual` or `greedy` is usually good for keeping the number of inputs from getting too large.
 
+## How to run yield generator in background
+
+Use [tmux](https://man.openbsd.org/OpenBSD-current/man1/tmux.1) or [GNU Screen](https://www.gnu.org/software/screen/).
+
 ## Modifying the algorithm
 If you are a programmer you could try creating your own algorithm for the yield generator.
 
