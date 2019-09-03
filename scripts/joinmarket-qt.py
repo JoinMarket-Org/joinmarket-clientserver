@@ -1513,7 +1513,7 @@ class JMMainWindow(QMainWindow):
             firstarg = str(testnet_seed)
             pwd = None
             #ignore return value as there is no decryption failure possible
-            self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
+            self.loadWalletFromBlockchain(firstarg, pwd, restart_cb=self.restartWithMsg)
 
     def loadWalletFromBlockchain(self, firstarg=None, pwd=None, restart_cb=None):
         if firstarg:
