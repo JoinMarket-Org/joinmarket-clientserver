@@ -33,7 +33,6 @@ class BlockchainInterface(object):
         except JsonRpcError:
             return len(self.rpc('getaddressinfo', [addr])['labels']) > 0
 
-    @abc.abstractmethod
     def is_address_labeled(self, utxo, walletname):
         """checks that UTXO belongs to the JM wallet"""
 
@@ -58,7 +57,6 @@ class BlockchainInterface(object):
         required for inclusion in the next N blocks.
 	'''
 
-    @abc.abstractmethod
     def import_addresses_if_needed(self, addresses, wallet_name):
         """import addresses to the underlying blockchain interface if needed
         returns True if the sync call needs to do a system exit"""
@@ -390,7 +388,53 @@ class BitcoinCoreInterface(BlockchainInterface):
             return 10000
         return int(Decimal(1e8) * Decimal(estimate))
 
-class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface):
+class RegtestBitcoinCoreMixin():
+    """
+    This Mixin provides helper functions that are used in Interface classes
+    requiring some functionality only useful on the regtest network.
+    """
+    def tick_forward_chain(self, n):
+        """
+        Special method for regtest only;
+        instruct to mine n blocks.
+        """
+        try:
+            self.rpc('generatetoaddress', [n, self.destn_addr])
+        except JsonRpcConnectionError:
+            #can happen if the blockchain is shut down
+            #automatically at the end of tests; this shouldn't
+            #trigger an error
+            log.debug(
+                "Failed to generate blocks, looks like the bitcoin daemon \
+	    has been shut down. Ignoring.")
+
+    def grab_coins(self, receiving_addr, amt=50):
+        """
+        NOTE! amt is passed in Coins, not Satoshis!
+        Special method for regtest only:
+        take coins from bitcoind's own wallet
+        and put them in the receiving addr.
+        Return the txid.
+        """
+        if amt > 500:
+            raise Exception("too greedy")
+        """
+        if amt > self.current_balance:
+        #mine enough to get to the reqd amt
+        reqd = int(amt - self.current_balance)
+        reqd_blocks = int(reqd/50) +1
+        if self.rpc('setgenerate', [True, reqd_blocks]):
+        raise Exception("Something went wrong")
+        """
+        # now we do a custom create transaction and push to the receiver
+        txid = self.rpc('sendtoaddress', [receiving_addr, amt])
+        if not txid:
+            raise Exception("Failed to broadcast transaction")
+        # confirm
+        self.tick_forward_chain(1)
+        return txid
+
+class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin):
 
     def __init__(self, jsonRpc, network):
         super(BitcoinCoreNoHistoryInterface, self).__init__(jsonRpc, network)
@@ -463,22 +507,15 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface):
         # avoidance of address reuse
         wallet.disable_new_scripts = True
 
-    ##these two functions are hacks to make the test code be able to use the
-    ##same helper functions, perhaps it would be nicer to create mixin classes
-    ##and use multiple inheritance to make the code more OOP, but its not
-    ##worth it now
-    def grab_coins(self, receiving_addr, amt=50):
-        RegtestBitcoinCoreInterface.grab_coins(self, receiving_addr, amt)
-
     def tick_forward_chain(self, n):
         self.destn_addr = self.rpc("getnewaddress", [])
-        RegtestBitcoinCoreInterface.tick_forward_chain(self, n)
+        super(BitcoinCoreNoHistoryInterface, self).tick_forward_chain(n)
 
 # class for regtest chain access
 # running on local daemon. Only
 # to be instantiated after network is up
 # with > 100 blocks.
-class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
+class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin): #pragma: no cover
 
     def __init__(self, jsonRpc):
         super(RegtestBitcoinCoreInterface, self).__init__(jsonRpc, 'regtest')
@@ -525,47 +562,6 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface): #pragma: no cover
             reactor.callLater(self.tick_forward_chain_interval,
                               self.tick_forward_chain, 1)
         return ret
-
-    def tick_forward_chain(self, n):
-        """
-        Special method for regtest only;
-        instruct to mine n blocks.
-        """
-        try:
-            self.rpc('generatetoaddress', [n, self.destn_addr])
-        except JsonRpcConnectionError:
-            #can happen if the blockchain is shut down
-            #automatically at the end of tests; this shouldn't
-            #trigger an error
-            log.debug(
-                "Failed to generate blocks, looks like the bitcoin daemon \
-	    has been shut down. Ignoring.")
-
-    def grab_coins(self, receiving_addr, amt=50):
-        """
-        NOTE! amt is passed in Coins, not Satoshis!
-        Special method for regtest only:
-        take coins from bitcoind's own wallet
-        and put them in the receiving addr.
-        Return the txid.
-        """
-        if amt > 500:
-            raise Exception("too greedy")
-        """
-        if amt > self.current_balance:
-        #mine enough to get to the reqd amt
-        reqd = int(amt - self.current_balance)
-        reqd_blocks = int(reqd/50) +1
-        if self.rpc('setgenerate', [True, reqd_blocks]):
-        raise Exception("Something went wrong")
-        """
-        # now we do a custom create transaction and push to the receiver
-        txid = self.rpc('sendtoaddress', [receiving_addr, amt])
-        if not txid:
-            raise Exception("Failed to broadcast transaction")
-        # confirm
-        self.tick_forward_chain(1)
-        return txid
 
     def get_received_by_addr(self, addresses, query_params):
         # NB This will NOT return coinbase coins (but wont matter in our use

@@ -15,14 +15,10 @@ build_docker ()
         return 0
     fi
 
-    core_version='0.17.1'
+    core_version='0.18.0'
     core_dist="bitcoin-${core_version}-x86_64-linux-gnu.tar.gz"
     core_url="https://bitcoincore.org/bin/bitcoin-core-${core_version}/${core_dist}"
-    libffi_lib_tar='v3.2.1.tar.gz'
-    libffi_url="https://github.com/libffi/libffi/archive/${libffi_lib_tar}"
-    sodium_lib_tar='libsodium-1.0.13.tar.gz'
-    sodium_url="https://download.libsodium.org/libsodium/releases/old/${sodium_lib_tar}"
-    declare -A deps=( [${core_dist}]="${core_url}" [${libffi_lib_tar}]="${libffi_url}" [${sodium_lib_tar}]="${sodium_url}" )
+    declare -A deps=( [${core_dist}]="${core_url}" )
     jm_root="${TRAVIS_BUILD_DIR}"
     owner_name="${TRAVIS_REPO_SLUG%\/*}"
     repo_name="${TRAVIS_REPO_SLUG#*\/}"

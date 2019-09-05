@@ -4,8 +4,7 @@ SHELL ["/bin/bash", "-c"]
 # dependencies
 RUN dnf -y groups install 'Development tools'
 RUN dnf -y install \
-    autoconf libtool pkgconfig \
-    python-devel python-pip python2-virtualenv gmp-devel
+    python-devel python-pip python2-virtualenv libsodium
 
 # needed for build time
 # https://stackoverflow.com/questions/34624428/g-error-usr-lib-rpm-redhat-redhat-hardened-cc1-no-such-file-or-directory
@@ -32,5 +31,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN ./install.sh --python=python2
+RUN virtualenv --python=python2 jmvenv
 RUN source jmvenv/bin/activate && ./test/run_tests.sh

@@ -2,6 +2,7 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import *
 import pytest
+import re
 import os
 import time
 import subprocess
@@ -11,6 +12,14 @@ bitcoin_conf = None
 bitcoin_rpcpassword = None
 bitcoin_rpcusername = None
 miniircd_procs = []
+
+def get_bitcoind_version(version_string):
+    # this utility function returns the version number
+    # as a tuple in the form (major, minor, patch)
+    version_tuple = re.match(
+        b'.*v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)',
+        version_string).groups()
+    return tuple(map(lambda x: int(x), version_tuple))
 
 def local_command(command, bg=False, redirect=''):
     if redirect == 'NULL':
@@ -96,10 +105,20 @@ def setup(request):
              "--motd=" + cwd + "/miniircd/testmotd"],
             bg=True)
         miniircd_procs.append(miniircd_proc)
+
+    # determine bitcoind version
+    bitcoind_version_string = subprocess.check_output([bitcoin_path + "bitcoind", "-version"]).split(b'\n')[0]
+    bitcoind_version = get_bitcoind_version(bitcoind_version_string)
+
     #start up regtest blockchain
-    btc_proc = subprocess.call([bitcoin_path + "bitcoind", "-regtest",
-                                "-daemon", "-conf=" + bitcoin_conf])
-    time.sleep(3)
+    bitcoin_args = ["-regtest", "-daemon", "-conf=" + bitcoin_conf]
+
+    #for bitcoin-core >= 0.19
+    if not (bitcoind_version[0] == 0 and bitcoind_version[1] < 19):
+        bitcoin_args += ['-acceptnonstdtxn']
+
+    btc_proc = subprocess.call([bitcoin_path + "bitcoind"] + bitcoin_args)
+    time.sleep(4)
     #generate blocks; segwit activates around block 500-600
     root_cmd = [bitcoin_path + "bitcoin-cli", "-regtest",
                        "-rpcuser=" + bitcoin_rpcusername,
