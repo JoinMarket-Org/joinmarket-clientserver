@@ -1477,9 +1477,9 @@ class JMMainWindow(QMainWindow):
             return
         JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                                    title="Wallet created")
-        self.initWallet(seed=self.walletname, restart_cb=self.restartWithMsg)
+        self.initWallet(seed=self.walletname)
 
-    def selectWallet(self, testnet_seed=None, restart_cb=None):
+    def selectWallet(self, testnet_seed=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
             current_path = os.path.dirname(os.path.realpath(__file__))
             if os.path.isdir(os.path.join(current_path, 'wallets')):
@@ -1501,7 +1501,8 @@ class JMMainWindow(QMainWindow):
                 if not ok:
                     return
                 pwd = str(text).strip()
-                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd, restart_cb)
+                decrypted = self.loadWalletFromBlockchain(firstarg[0],
+                                    fast=True, pwd=pwd)
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
@@ -1513,9 +1514,9 @@ class JMMainWindow(QMainWindow):
             firstarg = str(testnet_seed)
             pwd = None
             #ignore return value as there is no decryption failure possible
-            self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
+            self.loadWalletFromBlockchain(firstarg, pwd)
 
-    def loadWalletFromBlockchain(self, firstarg=None, pwd=None, restart_cb=None):
+    def loadWalletFromBlockchain(self, fast=True, firstarg=None, pwd=None):
         if firstarg:
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
@@ -1532,13 +1533,11 @@ class JMMainWindow(QMainWindow):
         if 'listunspent_args' not in jm_single().config.options('POLICY'):
             jm_single().config.set('POLICY', 'listunspent_args', '[0]')
         assert self.wallet, "No wallet loaded"
-        reactor.callLater(0, self.syncWalletUpdate, True, restart_cb)
+        reactor.callLater(0, self.syncWalletUpdate, fast)
         self.statusBar().showMessage("Reading wallet from blockchain ...")
         return True
 
-    def syncWalletUpdate(self, fast, restart_cb=None):
-        if restart_cb:
-            fast=False
+    def syncWalletUpdate(self, fast):
         #Special syncing condition for Electrum
         iselectrum = jm_single().config.get("BLOCKCHAIN",
                             "blockchain_source") == "electrum-server"
@@ -1546,7 +1545,7 @@ class JMMainWindow(QMainWindow):
             jm_single().bc_interface.synctype = "with-script"
 
         jm_single().bc_interface.sync_wallet(self.wallet, fast=fast,
-                                             restart_cb=restart_cb)
+                                             restart_cb=self.restartWithMsg)
 
         if iselectrum:
             #sync_wallet only initialises, we must manually call its entry
@@ -1586,7 +1585,7 @@ class JMMainWindow(QMainWindow):
             seed = self.getTestnetSeed()
             self.selectWallet(testnet_seed=seed)
         else:
-            self.initWallet(restart_cb=self.restartWithMsg)
+            self.initWallet()
 
     def getTestnetSeed(self):
         text, ok = QInputDialog.getText(
@@ -1662,7 +1661,7 @@ class JMMainWindow(QMainWindow):
             return None
         return str(mnemonic_extension)
 
-    def initWallet(self, seed=None, restart_cb=None):
+    def initWallet(self, seed=None):
         '''Creates a new wallet if seed not provided.
         Initializes by syncing.
         '''
@@ -1686,8 +1685,7 @@ class JMMainWindow(QMainWindow):
 
             JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                            title="Wallet created")
-        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword,
-                                      restart_cb=restart_cb)
+        self.loadWalletFromBlockchain(self.walletname, fast=False, pwd=self.textpassword)
 
 def get_wallet_printout(wallet):
     """Given a joinmarket wallet, retrieve the list of

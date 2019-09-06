@@ -413,13 +413,13 @@ class BitcoinCoreInterface(BlockchainInterface):
         #trigger fast sync if the index_cache is available
         #(and not specifically disabled).
         if fast:
-            self.sync_wallet_fast(wallet)
+            self.sync_wallet_fast(wallet, restart_cb)
             self.fast_sync_called = True
             return
         super(BitcoinCoreInterface, self).sync_wallet(wallet, restart_cb=restart_cb)
         self.fast_sync_called = False
 
-    def sync_wallet_fast(self, wallet):
+    def sync_wallet_fast(self, wallet, restart_cb=None):
         """Exploits the fact that given an index_cache,
         all addresses necessary should be imported, so we
         can just list all used addresses to find the right
@@ -428,12 +428,14 @@ class BitcoinCoreInterface(BlockchainInterface):
         self.get_address_usages(wallet)
         self.sync_unspent(wallet)
 
-    def get_address_usages(self, wallet):
+    def get_address_usages(self, wallet, restart_cb=None):
         """Use rpc `listaddressgroupings` to locate all used
         addresses in the account (whether spent or unspent outputs).
         This will not result in a full sync if working with a new
         Bitcoin Core instance, in which case "fast" should have been
         specifically disabled by the user.
+        The `restart_cb` callback is used only in cases where we
+        revert to a full sync because the wallet is detected as new.
         """
         wallet_name = self.get_wallet_name(wallet)
         agd = self.rpc('listaddressgroupings', [])
@@ -453,7 +455,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             # delegate inital address import to sync_addresses
             # this should be fast because "getaddressesbyaccount" should return
             # an empty list in this case
-            self.sync_addresses(wallet)
+            self.sync_addresses(wallet, restart_cb=restart_cb)
             self.wallet_synced = True
             return
 
