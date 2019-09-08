@@ -62,11 +62,26 @@ class JsonRpc(object):
         self.port = int(port)
         self.conn = http.client.HTTPConnection(self.host, self.port)
         self.authstr = "%s:%s" % (user, password)
+        self.queryId = 1
         if len(wallet_file) > 0:
             self.url = "/wallet/" + wallet_file
         else:
             self.url = ""
-        self.queryId = 1
+            # If no wallet specified, list all wallets and select first
+            # one, which should be default one. Handles situations when
+            # JM stops working because another wallet is loaded in Core
+            # for some reason and no rpc_wallet_file specified in config.
+            try:
+                loaded_wallets = self.call("listwallets", [])
+                if len(loaded_wallets) > 1:
+                    jlog.info(
+                        "Multiple wallets loaded in Bitcoin Core without "
+                        "rpc_wallet_file specified in joinmarket.cfg. "
+                        "Assuming '" + loaded_wallets[0] + "'.")
+                    self.url = "/wallet/" + loaded_wallets[0]
+            except JsonRpcError:
+                # Ignore, listwallets RPC might not exist
+                pass
 
     def queryHTTP(self, obj):
         """
