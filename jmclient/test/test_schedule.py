@@ -68,6 +68,7 @@ def get_options():
     options.amountpower = 100
     options.timelambda = 0.2
     options.waittime = 10
+    options.stage1_timelambda_increase = 3
     options.mincjamount = 1000000
     options.liquiditywait = 5
     options = vars(options)
@@ -88,7 +89,7 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
     options = get_options()
     options['mixdepthcount'] = mixdepthcount
     options['txcountparams'] = txcparams
-    schedule = get_tumble_schedule(options, destaddrs)
+    schedule = get_tumble_schedule(options, destaddrs, {0:1})
     dests = [x[3] for x in schedule]
     assert set(destaddrs).issubset(set(dests))
 
@@ -126,7 +127,7 @@ def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
     options['mixdepthcount'] = mixdepthcount
     options['txcountparams'] = txcparams
     options['makercountrange'] = makercountrange
-    schedule = get_tumble_schedule(options, destaddrs)
+    schedule = get_tumble_schedule(options, destaddrs, {0:1})
     dests = [x[3] for x in schedule]
     assert set(destaddrs).issubset(set(dests))
     new_schedule = tweak_tumble_schedule(options, schedule, lastcompleted)
