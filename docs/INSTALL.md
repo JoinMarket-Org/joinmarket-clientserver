@@ -37,7 +37,7 @@ To install everything (client and server), install these packages:
 
 Then install this repo:
 
-    git clone https://github.com/AdamISZ/joinmarket-clientserver
+    git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
     cd joinmarket-clientserver
 
 Then:
