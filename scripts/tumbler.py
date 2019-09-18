@@ -13,7 +13,7 @@ from jmclient import Taker, load_program_config, get_schedule,\
     open_test_wallet_maybe, sync_wallet, get_tumble_schedule,\
     schedule_to_text, estimate_tx_fee, restart_waiter,\
     get_tumble_log, tumbler_taker_finished_update,\
-    tumbler_filter_orders_callback
+    tumbler_filter_orders_callback, validate_address
 from jmbase.support import get_log, jmprint
 from cli_options import get_tumbler_parser, get_max_cj_fee_values, \
      check_regtest
@@ -54,6 +54,11 @@ def main():
     #Output information to log files
     jm_single().mincjamount = options['mincjamount']
     destaddrs = args[1:]
+    for daddr in destaddrs:
+        success, errmsg = validate_address(daddr)
+        if not success:
+            jmprint("Invalid destination address: " + daddr, "error")
+            sys.exit(1)
     jmprint("Destination addresses: " + str(destaddrs), "important")
     #If the --restart flag is set we read the schedule
     #from the file, and filter out entries that are
