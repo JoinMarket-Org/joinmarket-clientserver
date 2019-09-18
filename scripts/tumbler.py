@@ -107,7 +107,8 @@ def main():
         tumble_log.info("TUMBLE RESTARTING")
     else:
         #Create a new schedule from scratch
-        schedule = get_tumble_schedule(options, destaddrs)
+        schedule = get_tumble_schedule(options, destaddrs,
+            wallet.get_balance_by_mixdepth())
         tumble_log.info("TUMBLE STARTING")
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
             f.write(schedule_to_text(schedule))

@@ -623,12 +623,14 @@ class SchFinishPage(QWizardPage):
         layout.setSpacing(4)
 
         results = []
-        sN = ['Makercount sdev', 'Tx count sdev',
+        sN = ['Makercount sdev',
+              'Tx count sdev',
               'Amount power',
               'Minimum maker count',
               'Minimum transaction count',
               'Min coinjoin amount',
-              'wait time']
+              'Response wait time',
+              'Stage 1 transaction wait time increase']
         #Tooltips
         sH = ["Standard deviation of the number of makers to use in each "
               "transaction.",
@@ -638,13 +640,14 @@ class SchFinishPage(QWizardPage):
         "The lowest allowed number of maker counterparties.",
         "The lowest allowed number of transactions in one mixdepth.",
         "The lowest allowed size of any coinjoin, in satoshis.",
-        "The time in seconds to wait for response from counterparties."]
+        "The time in seconds to wait for response from counterparties.",
+        "The factor increase in wait time for stage 1 sweep coinjoins"]
         #types
-        sT = [float, float, float, int, int, int, float]
+        sT = [float, float, float, int, int, int, float, float]
         #constraints
         sMM = [(0.0, 10.0, 2), (0.0, 10.0, 2), (1.0, 10000.0, 1), (2,20),
-               (1, 10), (100000, 100000000), (10.0, 500.0, 2)]
-        sD = ['1.0', '1.0', '100.0', '2', '1', '1000000', '20']
+               (1, 10), (100000, 100000000), (10.0, 500.0, 2), (0, 100, 1)]
+        sD = ['1.0', '1.0', '100.0', '2', '1', '1000000', '20', '3']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
@@ -668,6 +671,7 @@ class SchFinishPage(QWizardPage):
         self.registerField("mintxcount", results[4][1])
         self.registerField("mincjamount", results[5][1])
         self.registerField("waittime", results[6][1])
+        self.registerField("stage1_timelambda_increase", results[7][1])
 
 class SchIntroPage(QWizardPage):
     def __init__(self, parent):
@@ -714,7 +718,7 @@ class ScheduleWizard(QWizard):
     def get_destaddrs(self):
         return self.destaddrs
 
-    def get_schedule(self):
+    def get_schedule(self, wallet_balance_by_mixdepth):
         self.destaddrs = []
         for i in range(self.page(2).required_addresses):
             daddrstring = str(self.field("destaddr"+str(i)))
@@ -738,13 +742,15 @@ class ScheduleWizard(QWizard):
         self.opts['amountpower'] = float(self.field("amountpower"))
         self.opts['timelambda'] = float(self.field("timelambda"))
         self.opts['waittime'] = float(self.field("waittime"))
+        self.opts["stage1_timelambda_increase"] = float(self.field("stage1_timelambda_increase"))
         self.opts['mincjamount'] = int(self.field("mincjamount"))
         relfeeval = float(self.field("maxrelfee"))
         absfeeval = int(self.field("maxabsfee"))
         self.opts['maxcjfee'] = (relfeeval, absfeeval)
         #needed for Taker to check:
         jm_single().mincjamount = self.opts['mincjamount']
-        return get_tumble_schedule(self.opts, self.destaddrs)
+        return get_tumble_schedule(self.opts, self.destaddrs,
+            wallet_balance_by_mixdepth)
 
 class TumbleRestartWizard(QWizard):
     def __init__(self):

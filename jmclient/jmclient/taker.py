@@ -188,7 +188,7 @@ class Taker(object):
             # for sweeps to external addresses we need an in-wallet import
             # for the transaction monitor (this will be a no-op for txs to
             # in-wallet addresses).
-            if self.cjamount == 0:
+            if self.cjamount == 0 and self.my_cj_addr != "INTERNAL":
                 self.wallet_service.import_non_wallet_address(self.my_cj_addr)
 
             #if destination is flagged "INTERNAL", choose a destination

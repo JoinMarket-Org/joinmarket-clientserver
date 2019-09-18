@@ -3,8 +3,11 @@ from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
 import copy
-from jmclient import (validate_address, rand_exp_array,
-                      rand_norm_array, rand_pow_array, jm_single)
+import random
+import sys
+
+from .configure import validate_address, jm_single
+from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
 """Utility functions for dealing with Taker schedules.
 
 - get_schedule(filename):
@@ -75,7 +78,7 @@ def get_amount_fractions(power, count):
             break
     return y
 
-def get_tumble_schedule(options, destaddrs):
+def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
     """for the general intent and design of the tumbler algo, see the docs in
     joinmarket-org/joinmarket.
     Alterations:
@@ -97,6 +100,29 @@ def get_tumble_schedule(options, destaddrs):
                                options['txcountparams'][1], options['mixdepthcount'])
     txcounts = lower_bounded_int(txcounts, options['mintxcount'])
     tx_list = []
+    ### stage 1 coinjoins, which sweep the entire mixdepth without creating change
+    lowest_initial_filled_mixdepth = sys.maxsize
+    sweep_mixdepths = []
+    for mixdepth, balance in mixdepth_balance_dict.items():
+        if balance > 0:
+            lowest_initial_filled_mixdepth = min(mixdepth,
+                lowest_initial_filled_mixdepth)
+            sweep_mixdepths.append(mixdepth)
+    waits = rand_exp_array(options['timelambda']*options[
+        'stage1_timelambda_increase'], len(sweep_mixdepths))
+    makercounts = rand_norm_array(options['makercountrange'][0],
+        options['makercountrange'][1], len(sweep_mixdepths))
+    makercounts = lower_bounded_int(makercounts, options['minmakercount'])
+    sweep_mixdepths = sorted(sweep_mixdepths)[::-1]
+    for mixdepth, wait, makercount in zip(sweep_mixdepths, waits, makercounts):
+        tx = {'amount_fraction': 0,
+              'wait': round(wait, 2),
+              'srcmixdepth': mixdepth,
+              'makercount': makercount,
+              'destination': 'INTERNAL'
+        }
+        tx_list.append(tx)
+    ### stage 2 coinjoins, which create a number of random-amount coinjoins from each mixdepth
     for m, txcount in enumerate(txcounts):
         if options['mixdepthcount'] - options['addrcount'] <= m and m < \
                 options['mixdepthcount'] - 1:
@@ -117,7 +143,7 @@ def get_tumble_schedule(options, destaddrs):
                                                      makercounts):
             tx = {'amount_fraction': amount_fraction,
                   'wait': round(wait, 2),
-                  'srcmixdepth': m + options['mixdepthsrc'],
+                  'srcmixdepth': lowest_initial_filled_mixdepth + m + options['mixdepthsrc'] + 1,
                   'makercount': makercount,
                   'destination': 'INTERNAL'}
             tx_list.append(tx)
@@ -125,10 +151,10 @@ def get_tumble_schedule(options, destaddrs):
         tx_list[-1]['amount_fraction'] = 0
 
     addrask = options['addrcount'] - len(destaddrs)
-    external_dest_addrs = ['addrask'] * addrask + destaddrs
+    external_dest_addrs = ['addrask'] * addrask + destaddrs[::-1]
     for mix_offset in range(options['addrcount']):
-        srcmix = (options['mixdepthsrc'] + options['mixdepthcount'] -
-            mix_offset - 1)
+        srcmix = (lowest_initial_filled_mixdepth + options['mixdepthsrc']
+            + options['mixdepthcount'] - mix_offset)
         for tx in reversed(tx_list):
             if tx['srcmixdepth'] == srcmix:
                 tx['destination'] = external_dest_addrs[mix_offset]

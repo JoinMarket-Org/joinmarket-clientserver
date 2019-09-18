@@ -328,6 +328,15 @@ def get_tumbler_parser():
             ' following an exponential distribution, which describes the time between uncorrelated'
             ' events. default=30')
     parser.add_option(
+            '--stage1-timelambda-increase',
+            type='float',
+            dest='stage1_timelambda_increase',
+            default=3,
+            help=
+            'Stage 1 sweep coinjoins have a longer wait time. This parameter'
+            ' controls by what factor longer is this average wait time compared to stage2 coinjoins'
+            ' which are controlled by `--timelambda`, default=3')
+    parser.add_option(
             '-w',
             '--wait-time',
             action='store',

@@ -320,20 +320,24 @@ class SpendTab(QWidget):
         self.spendstate.reset() #trigger callback to 'ready' state
 
     def generateTumbleSchedule(self):
+        if not mainWindow.wallet_service:
+            JMQtMessageBox(self, "Cannot start without a loaded wallet.",
+                           mbtype="crit", title="Error")
+            return
         #needs a set of tumbler options and destination addresses, so needs
         #a wizard
         wizard = ScheduleWizard()
         wizard_return = wizard.exec_()
         if wizard_return == QDialog.Rejected:
             return
-        self.spendstate.loaded_schedule = wizard.get_schedule()
+        self.spendstate.loaded_schedule = wizard.get_schedule(
+            mainWindow.wallet_service.get_balance_by_mixdepth())
         self.spendstate.schedule_name = wizard.get_name()
         self.updateSchedView()
         self.tumbler_options = wizard.opts
         self.tumbler_destaddrs = wizard.get_destaddrs()
         #tumbler may require more mixdepths; update the wallet
-        required_mixdepths = self.tumbler_options['mixdepthsrc'] + \
-            self.tumbler_options['mixdepthcount']
+        required_mixdepths = max([tx[0] for tx in self.spendstate.loaded_schedule])
         if required_mixdepths > jm_single().config.getint("GUI", "max_mix_depth"):
             jm_single().config.set("GUI", "max_mix_depth", str(required_mixdepths))
             #recreate wallet and sync again; needed due to cache.
