@@ -596,7 +596,7 @@ def wallet_fetch_history(wallet, options):
     con.row_factory = dict_factory
     tx_db = con.cursor()
     tx_db.execute("CREATE TABLE transactions(txid TEXT, "
-            "blockhash TEXT, blocktime INTEGER);")
+            "blockhash TEXT, blocktime INTEGER, conflicts INTEGER);")
     jm_single().debug_silence[0] = True
     wallet_name = jm_single().bc_interface.get_wallet_name(wallet)
     buf = range(1000)
@@ -605,15 +605,24 @@ def wallet_fetch_history(wallet, options):
         buf = jm_single().bc_interface.rpc('listtransactions', ["*",
             1000, t, True])
         t += len(buf)
-        tx_data = ((tx['txid'], tx['blockhash'], tx['blocktime']) for tx
+        # confirmed
+        tx_data = ((tx['txid'], tx['blockhash'], tx['blocktime'], 0) for tx
                 in buf if 'txid' in tx and 'blockhash' in tx and 'blocktime'
                 in tx)
-        tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?);',
+        tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?, ?);',
                 tx_data)
+        # unconfirmed
+        uc_tx_data = ((tx['txid'], None, None, len(tx['walletconflicts'])) for
+                tx in buf if 'txid' in tx and 'blockhash' not in tx and
+                'blocktme' not in tx)
+        tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?, ?);',
+                uc_tx_data)
 
     txes = tx_db.execute(
         'SELECT DISTINCT txid, blockhash, blocktime '
-        'FROM transactions ORDER BY blocktime').fetchall()
+        'FROM transactions '
+        'WHERE (blockhash IS NOT NULL AND blocktime IS NOT NULL) OR conflicts = 0 '
+        'ORDER BY blocktime').fetchall()
     wallet_script_set = set(wallet.get_script_path(p)
                             for p in wallet.yield_known_paths())
 
@@ -647,13 +656,19 @@ def wallet_fetch_history(wallet, options):
     if options.verbosity > 0: jmprint(s().join(field_names), "info")
     if options.verbosity <= 2: cj_batch = [0]*8 + [[]]*2
     balance = 0
+    unconfirmed_balance = 0
     utxo_count = 0
+    unconfirmed_utxo_count = 0
     deposits = []
     deposit_times = []
     tx_number = 0
     for tx in txes:
         is_coinjoin, cj_amount, cj_n, output_script_values, blocktime, txd =\
             get_tx_info(tx['txid'])
+
+        # unconfirmed transactions don't have blocktime, get_tx_info() returns
+        # 0 in that case
+        is_confirmed = (blocktime != 0)
 
         our_output_scripts = wallet_script_set.intersection(
             output_script_values.keys())
@@ -740,45 +755,52 @@ def wallet_fetch_history(wallet, options):
             tx_type = 'unknown type'
             jmprint('our utxos: ' + str(len(our_input_scripts)) \
                   + ' in, ' + str(len(our_output_scripts)) + ' out')
-        balance += delta_balance
-        utxo_count += (len(our_output_scripts) - utxos_consumed)
-        index = '%4d'%(tx_number)
-        tx_number += 1
-        if options.verbosity > 0:
-            if options.verbosity <= 2:
-                n = cj_batch[0]
-                if tx_type == 'cj internal':
-                    cj_batch[0] += 1
-                    cj_batch[1] += blocktime
-                    cj_batch[2] += amount
-                    cj_batch[3] += delta_balance
-                    cj_batch[4] = balance
-                    cj_batch[5] += cj_n
-                    cj_batch[6] += fees
-                    cj_batch[7] += utxo_count
-                    cj_batch[8] += [mixdepth_src]
-                    cj_batch[9] += [mixdepth_dst]
-                elif tx_type != 'unknown type':
-                    if n > 0:
-                        # print the previously-accumulated batch
-                        print_row('N='+"%2d"%n, cj_batch[1]/n, 'cj batch   ',
+
+        if is_confirmed:
+            balance += delta_balance
+            utxo_count += (len(our_output_scripts) - utxos_consumed)
+
+            index = '%4d'%(tx_number)
+            tx_number += 1
+            if options.verbosity > 0:
+                if options.verbosity <= 2:
+                    n = cj_batch[0]
+                    if tx_type == 'cj internal':
+                        cj_batch[0] += 1
+                        cj_batch[1] += blocktime
+                        cj_batch[2] += amount
+                        cj_batch[3] += delta_balance
+                        cj_batch[4] = balance
+                        cj_batch[5] += cj_n
+                        cj_batch[6] += fees
+                        cj_batch[7] += utxo_count
+                        cj_batch[8] += [mixdepth_src]
+                        cj_batch[9] += [mixdepth_dst]
+                    elif tx_type != 'unknown type':
+                        if n > 0:
+                            # print the previously-accumulated batch
+                            print_row('N='+"%2d"%n, cj_batch[1]/n, 'cj batch   ',
                                   cj_batch[2], cj_batch[3], cj_batch[4],
                                   cj_batch[5]/n, cj_batch[6], cj_batch[7]/n,
                                   min(cj_batch[8]), max(cj_batch[9]), '...')
-                    cj_batch = [0]*8 + [[]]*2 # reset the batch collector
-                    # print batch terminating row
-                    print_row(index, blocktime, tx_type, amount,
+                        cj_batch = [0]*8 + [[]]*2 # reset the batch collector
+                        # print batch terminating row
+                        print_row(index, blocktime, tx_type, amount,
                               delta_balance, balance, cj_n, fees, utxo_count,
                               mixdepth_src, mixdepth_dst, tx['txid'])
-            elif options.verbosity >= 5 or \
-                 (options.verbosity >= 3 and tx_type != 'unknown type'):
-                print_row(index, blocktime, tx_type, amount,
+                elif options.verbosity >= 5 or \
+                    (options.verbosity >= 3 and tx_type != 'unknown type'):
+                    print_row(index, blocktime, tx_type, amount,
                           delta_balance, balance, cj_n, fees, utxo_count,
                           mixdepth_src, mixdepth_dst, tx['txid'])
 
-        if tx_type != 'cj internal':
-            deposits.append(delta_balance)
-            deposit_times.append(blocktime)
+            if tx_type != 'cj internal':
+                deposits.append(delta_balance)
+                deposit_times.append(blocktime)
+
+        else:
+            unconfirmed_balance += delta_balance
+            utxo_count += (len(our_output_scripts) - utxos_consumed)
 
     # we could have a leftover batch!
     if options.verbosity <= 2:
@@ -824,15 +846,19 @@ def wallet_fetch_history(wallet, options):
     # includes disabled utxos in accounting:
     total_wallet_balance = sum(wallet.get_balance_by_mixdepth(
         include_disabled=True).values())
-    if balance != total_wallet_balance:
+    if balance + unconfirmed_balance != total_wallet_balance:
         jmprint(('BUG ERROR: wallet balance (%s) does not match balance from ' +
             'history (%s)') % (sat_to_str(total_wallet_balance),
                 sat_to_str(balance)))
     wallet_utxo_count = sum(map(len, wallet.get_utxos_by_mixdepth_(
         include_disabled=True).values()))
-    if utxo_count != wallet_utxo_count:
+    if utxo_count + unconfirmed_utxo_count != wallet_utxo_count:
         jmprint(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
             'history (%s)') % (wallet_utxo_count, utxo_count))
+
+    if unconfirmed_balance != 0:
+        jmprint('unconfirmed balance change = %s BTC' % sat_to_str(unconfirmed_balance))
+
     # wallet-tool.py prints return value, so return empty string instead of None here
     return ''
 
