@@ -19,7 +19,7 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 * GUI to support Taker role, including tumbler/automated coinjoin sequence.
 * PayJoin - more economical and private payments between Joinmarket wallets.
 
-### Quickstart - RECOMMENDED INSTALLATION METHOD
+### Quickstart - RECOMMENDED INSTALLATION METHOD (Linux only)
 
 Once you've downloaded this repo, either as a tar/zip file, and extracted it, or via `git clone`:
 
@@ -39,8 +39,11 @@ Do note, Python 2 is incompatible with the Qt GUI.
 
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 
-Alternative to this "quickstart" (including for Windows and MacOS): follow the [install guide](docs/INSTALL.md).
+Alternative to this "quickstart": follow the [install guide](docs/INSTALL.md).
 
+### Installation on MacOS or Windows
+
+Follow [this install guide](docs/INSTALL.md).
 
 ### Usage
 
