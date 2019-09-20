@@ -426,18 +426,12 @@ class BaseWallet(object):
         privkey = self._get_priv_from_path(path)[0]
         return hexlify(privkey).decode('ascii')
 
-    def _get_addr_int_ext(self, internal, mixdepth, bci=None):
-        script = self.get_internal_script(mixdepth) if internal else \
-            self.get_external_script(mixdepth)
+    def _get_addr_int_ext(self, get_script_func, mixdepth, bci=None):
+        script = get_script_func(mixdepth)
         addr = self.script_to_addr(script)
         if bci is not None and hasattr(bci, 'import_addresses'):
             assert hasattr(bci, 'get_wallet_name')
-            # we aggressively import ahead of our index, so that when
-            # detailed sync is needed in future, it will not find
-            # imports missing (and this operation costs nothing).
-            addrs_to_import = list(bci._collect_addresses_gap(
-                self, self.gaplimit))
-            bci.import_addresses(addrs_to_import, bci.get_wallet_name(self))
+            bci.import_addresses([addr], bci.get_wallet_name(self))
         return addr
 
     def get_external_addr(self, mixdepth, bci=None):
@@ -449,7 +443,8 @@ class BaseWallet(object):
         address into this blockchaininterface instance
         (based on Bitcoin Core's model).
         """
-        return self._get_addr_int_ext(False, mixdepth, bci=bci)
+        return self._get_addr_int_ext(self.get_external_script, mixdepth,
+                                      bci=bci)
 
     def get_internal_addr(self, mixdepth, bci=None):
         """
@@ -459,7 +454,8 @@ class BaseWallet(object):
         address into this blockchaininterface instance
         (based on Bitcoin Core's model).
         """
-        return self._get_addr_int_ext(True, mixdepth, bci=bci)
+        return self._get_addr_int_ext(self.get_internal_script, mixdepth,
+                                      bci=bci)
 
     def get_external_script(self, mixdepth):
         return self.get_new_script(mixdepth, False)
