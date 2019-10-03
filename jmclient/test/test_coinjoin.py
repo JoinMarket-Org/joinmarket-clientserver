@@ -13,7 +13,8 @@ from twisted.internet import reactor
 
 from jmbase import get_log
 from jmclient import load_program_config, jm_single,\
-    YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet
+    YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet,\
+    NO_ROUNDING
 from jmclient.podle import set_commitment_file
 from commontest import make_wallets, binarize_tx
 from test_taker import dummy_filter_orderbook
@@ -139,8 +140,8 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
     assert len(orderbook) == MAKER_NUM
 
     cj_amount = int(1.1 * 10**8)
-    # mixdepth, amount, counterparties, dest_addr, waittime
-    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
+    # mixdepth, amount, counterparties, dest_addr, waittime, rounding
+    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0, NO_ROUNDING)]
     taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,
@@ -183,8 +184,8 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     assert len(orderbook) == MAKER_NUM
 
     cj_amount = int(1.1 * 10**8)
-    # mixdepth, amount, counterparties, dest_addr, waittime
-    schedule = [(4, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
+    # mixdepth, amount, counterparties, dest_addr, waittime, rounding
+    schedule = [(4, cj_amount, MAKER_NUM, 'INTERNAL', 0, NO_ROUNDING)]
     taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,
@@ -239,8 +240,8 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     assert len(orderbook) == MAKER_NUM
 
     cj_amount = int(1.1 * 10**8)
-    # mixdepth, amount, counterparties, dest_addr, waittime
-    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
+    # mixdepth, amount, counterparties, dest_addr, waittime, rounding
+    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0, NO_ROUNDING)]
     taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,
@@ -301,8 +302,8 @@ def test_coinjoin_mixed_maker_addresses(monkeypatch, tmpdir, setup_cj,
     orderbook = create_orderbook(makers)
 
     cj_amount = int(1.1 * 10**8)
-    # mixdepth, amount, counterparties, dest_addr, waittime
-    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0)]
+    # mixdepth, amount, counterparties, dest_addr, waittime, rounding
+    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0, NO_ROUNDING)]
     taker = create_taker(wallet_services[-1], schedule, monkeypatch)
 
     active_orders, maker_data = init_coinjoin(taker, makers,

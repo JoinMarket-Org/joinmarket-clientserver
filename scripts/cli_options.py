@@ -385,6 +385,24 @@ def get_tumbler_parser():
                  'mixdepthsrc + number of mixdepths to tumble '
                  'have been used.',
             default=-1)
+    parser.add_option(
+            '--rounding-chance',
+            action='store',
+            type='float',
+            dest='rounding_chance',
+            help='probability of non-sweep coinjoin amount being rounded, default=0.25 (25%)',
+            default=0.25)
+    parser.add_option(
+            '--rounding-sigfig-weights',
+            type='float',
+            nargs=5,
+            dest='rounding_sigfig_weights',
+            default=(55, 15, 25, 65, 40),
+            help=
+            "If rounding happens (determined by --rounding-chance) then the weights of how many"
+            " significant figures to round to. The five values refer to the probability of"
+            " rounding to one, two, three, four and five significant figures respectively."
+            " default=(55, 15, 25, 65, 40)")
     add_common_options(parser)
     return parser
 
