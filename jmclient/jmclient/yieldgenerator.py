@@ -45,6 +45,26 @@ class YieldGenerator(Maker):
         self.income_statement.write(','.join(data) + '\n')
         self.income_statement.close()
 
+    def on_tx_unconfirmed(self, offer, txid, removed_utxos):
+        self.tx_unconfirm_timestamp[offer["cjaddr"]] = int(time.time())
+        newoffers = self.create_my_orders()
+
+        old_oid_offers = {x['oid']: x for x in self.offerlist}
+        new_oids = {x['oid'] for x in newoffers}
+
+        to_cancel, to_announce = [], []
+
+        for new_offer in newoffers:
+            old_offer = old_oid_offers.get(new_offer['oid'])
+            if old_offer is None or old_offer != new_offer:
+                to_announce.append(new_offer)
+
+        for old_oid in old_oid_offers:
+            if old_oid not in new_oids:
+                to_cancel.append(old_oid)
+
+        return to_cancel, to_announce
+
 
 class YieldGeneratorBasic(YieldGenerator):
     """A simplest possible instantiation of a yieldgenerator.
@@ -129,20 +149,6 @@ class YieldGeneratorBasic(YieldGenerator):
                 return None, None, None
 
         return utxos, cj_addr, change_addr
-
-    def on_tx_unconfirmed(self, offer, txid, removed_utxos):
-        self.tx_unconfirm_timestamp[offer["cjaddr"]] = int(time.time())
-        # if the balance of the highest-balance mixing depth change then
-        # reannounce it
-        oldoffer = self.offerlist[0] if len(self.offerlist) > 0 else None
-        newoffers = self.create_my_orders()
-        if len(newoffers) == 0:
-            return [0], []  # cancel old order
-        if oldoffer:
-            if oldoffer['maxsize'] == newoffers[0]['maxsize']:
-                return [], []  # change nothing
-        # announce new order, replacing the old order
-        return [], [newoffers[0]]
 
     def on_tx_confirmed(self, offer, confirmations, txid):
         if offer["cjaddr"] in self.tx_unconfirm_timestamp:
