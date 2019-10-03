@@ -7,7 +7,7 @@ import random
 import sys
 
 from .configure import validate_address, jm_single
-from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
+from .support import rand_exp_array, rand_norm_array, rand_pow_array, rand_weighted_choice
 """Utility functions for dealing with Taker schedules.
 
 - get_schedule(filename):
@@ -20,6 +20,8 @@ from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
     the chance of success on re-trying
 """
 
+NO_ROUNDING = 16 #max btc significant figures not including LN
+
 def get_schedule(filename):
     with open(filename, "rb") as f:
         schedule = []
@@ -29,8 +31,8 @@ def get_schedule(filename):
             if sl.startswith("#"):
                 continue
             try:
-                mixdepth, amount, makercount, destaddr, waittime, completed = \
-                    sl.split(',')
+                (mixdepth, amount, makercount, destaddr, waittime,
+                    rounding, completed) = sl.split(',')
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
             try:
@@ -44,6 +46,7 @@ def get_schedule(filename):
                 makercount = int(makercount)
                 destaddr = destaddr.strip()
                 waittime = float(waittime)
+                rounding = int(rounding)
                 completed = completed.strip()
                 if not len(completed) == 64:
                     completed = int(completed)
@@ -54,7 +57,7 @@ def get_schedule(filename):
                 if not success:
                     return (False, "Invalid address: " + destaddr + "," + errmsg)
             schedule.append([mixdepth, amount, makercount, destaddr,
-                             waittime, completed])
+                             waittime, rounding, completed])
     return (True, schedule)
 
 def get_amount_fractions(power, count):
@@ -119,7 +122,8 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
               'wait': round(wait, 2),
               'srcmixdepth': mixdepth,
               'makercount': makercount,
-              'destination': 'INTERNAL'
+              'destination': 'INTERNAL',
+              'rounding': NO_ROUNDING
         }
         tx_list.append(tx)
     ### stage 2 coinjoins, which create a number of random-amount coinjoins from each mixdepth
@@ -138,17 +142,25 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
         makercounts = rand_norm_array(options['makercountrange'][0],
                                       options['makercountrange'][1], txcount)
         makercounts = lower_bounded_int(makercounts, options['minmakercount'])
-
-        for amount_fraction, wait, makercount in zip(amount_fractions, waits,
-                                                     makercounts):
+        do_rounds = [random.random() < options['rounding_chance'] for _ in range(txcount)]
+        for amount_fraction, wait, makercount, do_round in zip(amount_fractions, waits,
+                                                     makercounts, do_rounds):
+            rounding = NO_ROUNDING
+            if do_round:
+                weight_sum = 1.0*sum(options['rounding_sigfig_weights'])
+                weight_prob = [a/weight_sum for a in options['rounding_sigfig_weights']]
+                rounding = rand_weighted_choice(len(weight_prob), weight_prob) + 1
             tx = {'amount_fraction': amount_fraction,
                   'wait': round(wait, 2),
                   'srcmixdepth': lowest_initial_filled_mixdepth + m + options['mixdepthsrc'] + 1,
                   'makercount': makercount,
-                  'destination': 'INTERNAL'}
+                  'destination': 'INTERNAL',
+                  'rounding': rounding
+            }
             tx_list.append(tx)
         #reset the final amt_frac to zero, as it's the last one for this mixdepth:
         tx_list[-1]['amount_fraction'] = 0
+        tx_list[-1]['rounding'] = NO_ROUNDING
 
     addrask = options['addrcount'] - len(destaddrs)
     external_dest_addrs = ['addrask'] * addrask + destaddrs[::-1]
@@ -172,7 +184,8 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
     schedule = []
     for t in tx_list:
         schedule.append([t['srcmixdepth'], t['amount_fraction'],
-                  t['makercount'], t['destination'], t['wait'], 0])
+                  t['makercount'], t['destination'], t['wait'],
+                  t['rounding'], 0])
     return schedule
 
 def tweak_tumble_schedule(options, schedule, last_completed, destaddrs=[]):
@@ -237,6 +250,8 @@ def human_readable_schedule_entry(se, amt=None, destn=None):
     amt_info = str(amt) if amt else str(se[1])
     hrs.append("sends amount: " + amt_info + " satoshis")
     dest_info = destn if destn else str(se[3])
+    hrs.append(("rounded to " + str(se[5]) + " significant figures"
+        if se[5] != NO_ROUNDING else "without rounding"))
     hrs.append("to destination address: " + dest_info)
     hrs.append("after coinjoin with " + str(se[2]) + " counterparties.")
     return ", ".join(hrs)

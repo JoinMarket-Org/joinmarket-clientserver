@@ -74,7 +74,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     get_blockchain_interface_instance, direct_send, WalletService,\
     RegtestBitcoinCoreInterface, tumbler_taker_finished_update,\
     get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
-    wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled
+    wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
+    NO_ROUNDING
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -557,17 +558,17 @@ class SpendTab(QWidget):
             #follow restart logic
             #1. filter out complete:
             self.spendstate.loaded_schedule = [
-                s for s in self.spendstate.loaded_schedule if s[5] != 1]
+                s for s in self.spendstate.loaded_schedule if s[-1] != 1]
             #reload destination addresses
             self.tumbler_destaddrs = [x[3] for x in self.spendstate.loaded_schedule
                                      if x not in ["INTERNAL", "addrask"]]
             #2 Check for unconfirmed
-            if isinstance(self.spendstate.loaded_schedule[0][5], str) and len(
-                self.spendstate.loaded_schedule[0][5]) == 64:
+            if isinstance(self.spendstate.loaded_schedule[0][-1], str) and len(
+                self.spendstate.loaded_schedule[0][-1]) == 64:
                 #ensure last transaction is confirmed before restart
                 tumble_log.info("WAITING TO RESTART...")
                 mainWindow.statusBar().showMessage("Waiting for confirmation to restart..")
-                txid = self.spendstate.loaded_schedule[0][5]
+                txid = self.spendstate.loaded_schedule[0][-1]
                 #remove the already-done entry (this connects to the other TODO,
                 #probably better *not* to truncate the done-already txs from file,
                 #but simplest for now.
@@ -643,7 +644,7 @@ class SpendTab(QWidget):
         #note 'amount' is integer, so not interpreted as fraction
         #see notes in sample testnet schedule for format
         self.spendstate.loaded_schedule = [[mixdepth, amount, makercount,
-                                            destaddr, 0, 0]]
+                                            destaddr, 0, NO_ROUNDING, 0]]
         self.spendstate.updateType('single')
         self.spendstate.updateRun('running')
         self.startJoin()

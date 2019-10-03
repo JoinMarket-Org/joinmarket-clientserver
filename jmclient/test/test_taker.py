@@ -15,7 +15,7 @@ import struct
 from base64 import b64encode
 from jmclient import load_program_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
-    get_network, WalletService
+    get_network, WalletService, NO_ROUNDING
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
     t_maker_response, t_chosen_orders, t_dummy_ext
 
@@ -124,7 +124,7 @@ def get_taker(schedule=None, schedule_len=0, on_finished=None,
               filter_orders=None):
     if not schedule:
         #note, for taker.initalize() this will result in junk
-        schedule = [['a', 'b', 'c', 'd', 'e']]*schedule_len
+        schedule = [['a', 'b', 'c', 'd', 'e', 'f']]*schedule_len
     print("Using schedule: " + str(schedule))
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
@@ -138,11 +138,11 @@ def test_filter_rejection(setup_taker):
         print("calling filter orders rejection")
         return False
     taker = get_taker(filter_orders=filter_orders_reject)
-    taker.schedule = [[0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0]]
+    taker.schedule = [[0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING]]
     res = taker.initialize(t_orderbook)
     assert not res[0]
     taker = get_taker(filter_orders=filter_orders_reject)
-    taker.schedule = [[0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0]]
+    taker.schedule = [[0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING]]
     res = taker.initialize(t_orderbook)
     assert not res[0]
 
@@ -171,7 +171,7 @@ def test_make_commitment(setup_taker, failquery, external):
     jm_single().config.set("POLICY", "taker_utxo_amtpercent", "20")
     mixdepth = 0
     amount = 110000000
-    taker = get_taker([(mixdepth, amount, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")])
+    taker = get_taker([(mixdepth, amount, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", NO_ROUNDING)])
     taker.cjamount = amount
     taker.input_utxos = t_utxos_by_mixdepth[0]
     if failquery:
@@ -180,7 +180,7 @@ def test_make_commitment(setup_taker, failquery, external):
     clean_up()
     
 def test_not_found_maker_utxos(setup_taker):
-    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
+    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)])
     orderbook = copy.deepcopy(t_orderbook)
     res = taker.initialize(orderbook)
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
@@ -192,7 +192,7 @@ def test_not_found_maker_utxos(setup_taker):
     jm_single().bc_interface.setQUSFail(False)
 
 def test_auth_pub_not_found(setup_taker):
-    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
+    taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)])
     orderbook = copy.deepcopy(t_orderbook)
     res = taker.initialize(orderbook)
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
@@ -214,33 +214,33 @@ def test_auth_pub_not_found(setup_taker):
 @pytest.mark.parametrize(
     "schedule, highfee, toomuchcoins, minmakers, notauthed, ignored, nocommit",
     [
-        ([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")], False, False,
+        ([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None),
-        ([(0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+        ([(0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #sweep
-        ([(0, 0.2, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+        ([(0, 0.2, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #tumble style non-int amounts
         #edge case triggers that don't fail
-        ([(0, 0, 4, "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf", 0)], False, False,
+        ([(0, 0, 4, "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #sweep rounding error case
-        ([(0, 199850001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+        ([(0, 199850001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger sub dust change for taker
         #edge case triggers that do fail
-        ([(0, 199850000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+        ([(0, 199850000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger negative change        
-        ([(0, 199599800, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+        ([(0, 199599800, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger sub dust change for maker
-        ([(0, 20000000, 3, "INTERNAL", 0)], True, False,
+        ([(0, 20000000, 3, "INTERNAL", 0, NO_ROUNDING)], True, False,
          2, False, None, None), #test high fee
-        ([(0, 20000000, 3, "INTERNAL", 0)], False, False,
+        ([(0, 20000000, 3, "INTERNAL", 0, NO_ROUNDING)], False, False,
          7, False, None, None), #test not enough cp
-        ([(0, 80000000, 3, "INTERNAL", 0)], False, False,
+        ([(0, 80000000, 3, "INTERNAL", 0, NO_ROUNDING)], False, False,
          2, False, None, "30000"), #test failed commit       
-        ([(0, 20000000, 3, "INTERNAL", 0)], False, False,
+        ([(0, 20000000, 3, "INTERNAL", 0, NO_ROUNDING)], False, False,
          2, True, None, None), #test unauthed response
-        ([(0, 5000000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, True,
+        ([(0, 5000000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, True,
          2, False, None, None), #test too much coins
-        ([(0, 0, 5, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
+        ([(0, 0, 5, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, ["J659UPUSLLjHJpaB", "J65z23xdjxJjC7er", 0], None), #test inadequate for sweep
     ])
 def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,

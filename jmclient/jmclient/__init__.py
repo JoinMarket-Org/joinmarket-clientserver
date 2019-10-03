@@ -6,7 +6,8 @@ import logging
 
 from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       cheapest_order_choose, weighted_order_choose,
-                      rand_norm_array, rand_pow_array, rand_exp_array, select,
+                      rand_norm_array, rand_pow_array, rand_exp_array,
+                      rand_weighted_choice, select,
                       select_gradual, select_greedy, select_greediest,
                       get_random_bytes, random_under_max_order_choose,
                       select_one_utxo)
@@ -37,7 +38,7 @@ from .output import generate_podle_error_string, fmt_utxos, fmt_utxo,\
     fmt_tx_data
 from .schedule import (get_schedule, get_tumble_schedule, schedule_to_text,
                        tweak_tumble_schedule, human_readable_schedule_entry,
-                       schedule_to_text)
+                       schedule_to_text, NO_ROUNDING)
 from .commitment_utils import get_utxo_info, validate_utxo_data, quit
 from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
                              restart_wait, get_tumble_log, direct_send,

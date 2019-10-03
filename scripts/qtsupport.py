@@ -630,24 +630,34 @@ class SchFinishPage(QWizardPage):
               'Minimum transaction count',
               'Min coinjoin amount',
               'Response wait time',
-              'Stage 1 transaction wait time increase']
+              'Stage 1 transaction wait time increase',
+              'Rounding Chance']
+        for w in ["One", "Two", "Three", "Four", "Five"]:
+            sN += [w + " significant figures rounding weight"]
         #Tooltips
         sH = ["Standard deviation of the number of makers to use in each "
-              "transaction.",
-        "Standard deviation of the number of transactions to use in each "
-        "mixdepth",
-        "A parameter to control the random coinjoin sizes.",
-        "The lowest allowed number of maker counterparties.",
-        "The lowest allowed number of transactions in one mixdepth.",
-        "The lowest allowed size of any coinjoin, in satoshis.",
-        "The time in seconds to wait for response from counterparties.",
-        "The factor increase in wait time for stage 1 sweep coinjoins"]
+                  "transaction.",
+              "Standard deviation of the number of transactions to use in each "
+                  "mixdepth",
+              "A parameter to control the random coinjoin sizes.",
+              "The lowest allowed number of maker counterparties.",
+              "The lowest allowed number of transactions in one mixdepth.",
+              "The lowest allowed size of any coinjoin, in satoshis.",
+              "The time in seconds to wait for response from counterparties.",
+              "The factor increase in wait time for stage 1 sweep coinjoins",
+              "The probability of non-sweep coinjoin amounts being rounded"]
+        for w in ["one", "two", "three", "four", "five"]:
+            sH += ["If rounding happens (determined by Rounding Chance) then this "
+                "is the relative probability of rounding to " + w +
+                " significant figures"]
         #types
-        sT = [float, float, float, int, int, int, float, float]
+        sT = [float, float, float, int, int, int, float, float, float] + [int]*5
         #constraints
         sMM = [(0.0, 10.0, 2), (0.0, 10.0, 2), (1.0, 10000.0, 1), (2,20),
-               (1, 10), (100000, 100000000), (10.0, 500.0, 2), (0, 100, 1)]
-        sD = ['1.0', '1.0', '100.0', '2', '1', '1000000', '20', '3']
+               (1, 10), (100000, 100000000), (10.0, 500.0, 2), (0, 100, 1),
+               (0.0, 1.0, 3)] + [(0, 10000)]*5
+        sD = ['1.0', '1.0', '100.0', '2', '1', '1000000', '20', '3', '0.25'] +\
+                 ['55', '15', '25', '65', '40']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
@@ -672,6 +682,9 @@ class SchFinishPage(QWizardPage):
         self.registerField("mincjamount", results[5][1])
         self.registerField("waittime", results[6][1])
         self.registerField("stage1_timelambda_increase", results[7][1])
+        self.registerField("rounding_chance", results[8][1])
+        for i in range(5):
+            self.registerField("rounding_sigfig_weight_" + str(i+1), results[9+i][1])
 
 class SchIntroPage(QWizardPage):
     def __init__(self, parent):
@@ -748,6 +761,8 @@ class ScheduleWizard(QWizard):
         absfeeval = int(self.field("maxabsfee"))
         self.opts['maxcjfee'] = (relfeeval, absfeeval)
         #needed for Taker to check:
+        self.opts['rounding_chance'] = float(self.field("rounding_chance"))
+        self.opts['rounding_sigfig_weights'] = tuple([int(self.field("rounding_sigfig_weight_" + str(i+1))) for i in range(5)])
         jm_single().mincjamount = self.opts['mincjamount']
         return get_tumble_schedule(self.opts, self.destaddrs,
             wallet_balance_by_mixdepth)
