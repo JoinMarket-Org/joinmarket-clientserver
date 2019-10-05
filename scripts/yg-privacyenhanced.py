@@ -35,12 +35,10 @@ jlog = get_log()
 class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
 
     def __init__(self, wallet, offerconfig):
-        self.txfee, self.cjfee_a, self.cjfee_r, self.ordertype, self.minsize \
-            = offerconfig
         super(YieldGeneratorPrivacyEnhanced, self).__init__(wallet, offerconfig)
 
     def create_my_orders(self):
-        mix_balance = self.wallet.get_balance_by_mixdepth()
+        mix_balance = self.get_available_mixdepths(verbose=False)
         # We publish ONLY the maximum amount and use minsize for lower bound;
         # leave it to oid_to_order to figure out the right depth to use.
         f = '0'

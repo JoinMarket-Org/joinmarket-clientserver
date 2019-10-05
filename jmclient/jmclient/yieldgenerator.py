@@ -17,7 +17,6 @@ from .wallet_utils import open_test_wallet_maybe, get_wallet_path
 
 jlog = get_log()
 
-MAX_MIX_DEPTH = 5
 
 class YieldGenerator(Maker):
     """A maker for the purposes of generating a yield from held
@@ -77,12 +76,11 @@ class YieldGeneratorBasic(YieldGenerator):
         super(YieldGeneratorBasic,self).__init__(wallet)
 
     def create_my_orders(self):
-        mix_balance = self.wallet.get_balance_by_mixdepth(verbose=False)
+        mix_balance = self.get_available_mixdepths()
         if len([b for m, b in iteritems(mix_balance) if b > 0]) == 0:
             jlog.error('do not have any coins left')
             return []
 
-        # print mix_balance
         max_mix = max(mix_balance, key=mix_balance.get)
         f = '0'
         if self.ordertype in ('reloffer', 'swreloffer'):
@@ -113,23 +111,24 @@ class YieldGeneratorBasic(YieldGenerator):
 
     def oid_to_order(self, offer, amount):
         total_amount = amount + offer["txfee"]
-        mix_balance = self.wallet.get_balance_by_mixdepth()
-        max_mix = max(mix_balance, key=mix_balance.get)
+        mix_balance = self.get_available_mixdepths()
 
-        filtered_mix_balance = [m
-                                for m in iteritems(mix_balance)
-                                if m[1] >= total_amount]
+        filtered_mix_balance = {m: b
+                                for m, b in iteritems(mix_balance)
+                                if b >= total_amount}
         if not filtered_mix_balance:
             return None, None, None
         jlog.debug('mix depths that have enough = ' + str(filtered_mix_balance))
-        filtered_mix_balance = sorted(filtered_mix_balance, key=lambda x: x[0])
-        mixdepth = filtered_mix_balance[0][0]
+        mixdepth = self.select_input_mixdepth(filtered_mix_balance, offer, amount)
+        if mixdepth is None:
+            return None, None, None
         jlog.info('filling offer, mixdepth=' + str(mixdepth) + ', amount=' + str(amount))
 
-        # mixdepth is the chosen depth we'll be spending from
-        cj_addr = self.wallet.get_internal_addr(
-            (mixdepth + 1) % (self.wallet.mixdepth + 1),
-            jm_single().bc_interface)
+        cj_addr = self.select_output_address(mixdepth, offer, amount)
+        if cj_addr is None:
+            return None, None, None
+        jlog.info('sending output to address=' + str(cj_addr))
+
         change_addr = self.wallet.get_internal_addr(mixdepth,
                                                     jm_single().bc_interface)
 
@@ -164,6 +163,28 @@ class YieldGeneratorBasic(YieldGenerator):
             )]), real_cjfee, real_cjfee - offer["offer"]["txfee"], round(
                 confirm_time / 60.0, 2), ''])
         return self.on_tx_unconfirmed(offer, txid, None)
+
+    def get_available_mixdepths(self):
+        """Returns the mixdepth/balance dict from the wallet that contains
+        all available inputs for offers."""
+        return self.wallet.get_balance_by_mixdepth(verbose=False)
+
+    def select_input_mixdepth(self, available, offer, amount):
+        """Returns the mixdepth from which the given order should spend the
+        inputs.  available is a mixdepth/balance dict of all the mixdepths
+        that can be chosen from, i.e. have enough balance.  If there is no
+        suitable input, the function can return None to abort the order."""
+        available = sorted(iteritems(available), key=lambda entry: entry[0])
+        return available[0][0]
+
+    def select_output_address(self, input_mixdepth, offer, amount):
+        """Returns the address to which the mixed output should be sent for
+        an order spending from the given input mixdepth.  Can return None if
+        there is no suitable output, in which case the order is
+        aborted."""
+        cjoutmix = (input_mixdepth + 1) % (self.wallet.mixdepth + 1)
+        return self.wallet.get_internal_addr(cjoutmix, jm_single().bc_interface)
+
 
 def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffer',
            nickserv_password='', minsize=100000, gaplimit=6):
