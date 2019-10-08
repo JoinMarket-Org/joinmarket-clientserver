@@ -38,7 +38,7 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         super(YieldGeneratorPrivacyEnhanced, self).__init__(wallet, offerconfig)
 
     def create_my_orders(self):
-        mix_balance = self.get_available_mixdepths(verbose=False)
+        mix_balance = self.get_available_mixdepths()
         # We publish ONLY the maximum amount and use minsize for lower bound;
         # leave it to oid_to_order to figure out the right depth to use.
         f = '0'
