@@ -985,11 +985,7 @@ class TxHistoryTab(QWidget):
         address_valid = False
         if item:
             address = str(item.text(0))
-            try:
-                btc.b58check_to_hex(address)
-                address_valid = True
-            except AssertionError:
-                log.debug('no btc address found, not creating menu item')
+            address_valid = validate_address(address)
 
         menu = QMenu()
         if address_valid:
