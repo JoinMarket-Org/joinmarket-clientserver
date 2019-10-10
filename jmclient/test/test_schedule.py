@@ -65,7 +65,6 @@ def get_options():
     options.txfee = 5000
     options.addrcount = 3
     options.mintxcount = 1
-    options.amountpower = 100
     options.timelambda = 0.2
     options.waittime = 10
     options.stage1_timelambda_increase = 3

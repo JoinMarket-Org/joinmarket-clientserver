@@ -311,13 +311,6 @@ def get_tumbler_parser():
             help=
             'percent of funds to donate to joinmarket development, or zero to opt out (default=0%)')
     parser.add_option(
-            '--amountpower',
-            type='float',
-            dest='amountpower',
-            default=100.0,
-            help=
-            'The output amounts follow a power law distribution, this is the power, default=100.0')
-    parser.add_option(
             '-l',
             '--timelambda',
             type='float',
