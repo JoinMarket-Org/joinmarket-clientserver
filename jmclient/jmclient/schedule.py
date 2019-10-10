@@ -7,7 +7,7 @@ import random
 import sys
 
 from .configure import validate_address, jm_single
-from .support import rand_exp_array, rand_norm_array, rand_pow_array, rand_weighted_choice
+from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
 """Utility functions for dealing with Taker schedules.
 
 - get_schedule(filename):
@@ -60,9 +60,8 @@ def get_schedule(filename):
                              waittime, rounding, completed])
     return (True, schedule)
 
-def get_amount_fractions(power, count):
-    """Get 'count' fractions following power law distn according to
-    parameter 'power'
+def get_amount_fractions(count):
+    """Get 'count' fractions following uniform distn
     Note that this function is not entirely generic; it ensures that
     the final entry is larger than a certain fraction, for a reason
     specific to the way the tumbler algo works: the last entry
@@ -71,9 +70,16 @@ def get_amount_fractions(power, count):
     setting, so we make sure it's appreciable to begin with.
     """
     while True:
-        amount_fractions = rand_pow_array(power, count)
-        amount_fractions = [1.0 - x for x in amount_fractions]
-        y = [x / sum(amount_fractions) for x in amount_fractions]
+        knives = [random.random() for i in range(count-1)]
+        knives = sorted(knives)[::-1]
+        y = []
+        l = 1
+        k = 1
+        for k in knives:
+            y.append( l - k )
+            l = k
+        y.append(k)
+
         #Here we insist that the last entry in the list is more
         #than 5% of the total, to account for tweaks upwards
         #on previous joins.
@@ -134,7 +140,7 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
             # amount_fraction cant be 1.0, some coins must be left over
             if txcount == 1:
                 txcount = 2
-        amount_fractions = get_amount_fractions(options['amountpower'], txcount)
+        amount_fractions = get_amount_fractions(txcount)
         # transaction times are uncorrelated
         # time between events in a poisson process followed exp
         waits = rand_exp_array(options['timelambda'], txcount)
@@ -232,7 +238,7 @@ def tweak_tumble_schedule(options, schedule, last_completed, destaddrs=[]):
         alreadyspent = sum([x[1] for x in already_done])
         tobespent = 1.0 - alreadyspent
         #power law for what's left:
-        new_fracs = get_amount_fractions(options['amountpower'], len(tobedone))
+        new_fracs = get_amount_fractions(len(tobedone))
         #rescale; the sum must be 'tobespent':
         new_fracs = [x*tobespent for x in new_fracs]
         #starting from the known 'last_completed+1' index, apply these new
