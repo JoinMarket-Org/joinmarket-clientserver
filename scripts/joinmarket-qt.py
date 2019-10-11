@@ -127,7 +127,7 @@ def getSettingsWidgets():
     sMM = ['', (2, 20),
            (0, jm_single().config.getint("GUI", "max_mix_depth") - 1),
            (0.00000001, 100.0, 8)]
-    sD = ['', '3', '0', '']
+    sD = ['', '9', '0', '']
     for x in zip(sN, sH, sT, sD, sMM):
         ql = QLabel(x[0])
         ql.setToolTip(x[1])

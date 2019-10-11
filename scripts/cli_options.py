@@ -269,9 +269,9 @@ def get_tumbler_parser():
             action='store',
             dest='makercountrange',
             help=
-            'Input the mean and spread of number of makers to use. e.g. 6 1 will be a normal distribution '
-            'with mean 6 and standard deviation 1 inclusive, default=6 1 (floats are also OK)',
-            default=(6, 1))
+            'Input the mean and spread of number of makers to use. e.g. 9 1 will be a normal distribution '
+            'with mean 9 and standard deviation 1 inclusive, default=9 1 (floats are also OK)',
+            default=(9, 1))
     parser.add_option(
             '--minmakercount',
             type='int',
@@ -292,17 +292,17 @@ def get_tumbler_parser():
             type='float',
             nargs=2,
             dest='txcountparams',
-            default=(4, 1),
+            default=(2, 1),
             help=
             'The number of transactions to take coins from one mixing depth to the next, it is'
             ' randomly chosen following a normal distribution. Should be similar to --addrask. '
-            'This option controls the parameters of the normal distribution curve. (mean, standard deviation). default=4 1')
+            'This option controls the parameters of the normal distribution curve. (mean, standard deviation). default=2 1')
     parser.add_option(
             '--mintxcount',
             type='int',
             dest='mintxcount',
-            default=1,
-            help='The minimum transaction count per mixing level, default=1')
+            default=2,
+            help='The minimum transaction count per mixing level, default=2')
     parser.add_option(
             '--donateamount',
             type='float',
@@ -315,11 +315,11 @@ def get_tumbler_parser():
             '--timelambda',
             type='float',
             dest='timelambda',
-            default=30,
+            default=60,
             help=
             'Average the number of minutes to wait between transactions. Randomly chosen '
             ' following an exponential distribution, which describes the time between uncorrelated'
-            ' events. default=30')
+            ' events. default=60')
     parser.add_option(
             '--stage1-timelambda-increase',
             type='float',
@@ -424,7 +424,7 @@ def get_sendpayment_parser():
         type='int',
         dest='makercount',
         help='how many makers to coinjoin with, default random from 4 to 6',
-        default=random.randint(4, 6))
+        default=random.randint(8, 10))
     parser.add_option('-S',
                       '--schedule-file',
                       type='string',
