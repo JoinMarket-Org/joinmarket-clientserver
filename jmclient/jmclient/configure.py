@@ -250,7 +250,7 @@ tx_broadcast = self
 # amount of makers which we are content with for the coinjoin to
 # succceed. Less makers means that the whole process will restart
 # after a timeout.
-minimum_makers = 2
+minimum_makers = 4
 
 ##############################
 #THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
