@@ -239,10 +239,11 @@ absurd_fee_per_kb = 350000
 # spends from unconfirmed inputs, which may then get malleated or double-spent!
 # other counterparties are likely to reject unconfirmed inputs... don't do it.
 
-# options: self, random-peer, not-self (note: currently, ONLY 'self' works).
+# options: self, random-peer, not-self, manual (note: currently, ONLY 'self' and 'manual' works).
 # self = broadcast transaction with your bitcoin node's ip
 # random-peer = everyone who took part in the coinjoin has a chance of broadcasting
 # not-self = never broadcast with your own ip
+# manual = don't broadcast at all, output tx data for manual broadcast by the user
 tx_broadcast = self
 
 # If makers do not respond while creating a coinjoin transaction,

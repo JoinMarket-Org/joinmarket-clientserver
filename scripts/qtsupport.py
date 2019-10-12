@@ -110,8 +110,8 @@ config_tips = {
     "consider switching to DEBUG in case of problems.",
     "absurd_fee_per_kb": "maximum satoshis/kilobyte you are willing to pay,\n" +
     "whatever the fee estimate currently says.",
-    "tx_broadcast": "Options: self, random-peer, not-self (note: random-maker\n" +
-    "is not currently supported).\n" +
+    "tx_broadcast": "Options: self, random-peer, not-self, manual\n" +
+    "(note: only self and manual is currently supported).\n" +
     "self = broadcast transaction with your own ip\n" +
     "random-peer = everyone who took part in the coinjoin has\n" +
     "a chance of broadcasting.\n" +

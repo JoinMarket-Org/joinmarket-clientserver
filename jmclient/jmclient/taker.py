@@ -13,7 +13,7 @@ from binascii import hexlify, unhexlify
 from jmbitcoin import SerializationError, SerializationTruncationError
 import jmbitcoin as btc
 from jmclient.configure import jm_single, validate_address
-from jmbase.support import get_log
+from jmbase.support import get_log, jmprint
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
 from jmclient.wallet import estimate_tx_fee
@@ -819,8 +819,12 @@ class Taker(object):
             else:
                 nick_to_use = list(self.maker_utxo_data.keys())[i]
                 pushed = True
+        elif tx_broadcast == 'manual':
+            jmprint("Transaction data for manual broadcast:")
+            jmprint(tx)
+            pushed = True
         else:
-            jlog.info("Only self, random-peer and not-self broadcast "
+            jlog.info("Only self, random-peer, not-self and manual broadcast "
                       "methods supported. Reverting to self-broadcast.")
             pushed = jm_single().bc_interface.pushtx(tx)
         if not pushed:

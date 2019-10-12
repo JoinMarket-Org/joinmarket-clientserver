@@ -85,7 +85,10 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
     log.info(tx)
     actual_amount = amount if amount != 0 else total_inputs_val - fee_est
     log.info("Sends: " + str(actual_amount) + " satoshis to address: " + destaddr)
-    if not answeryes:
+
+    tx_broadcast = jm_single().config.get('POLICY', 'tx_broadcast')
+
+    if not answeryes and tx_broadcast != "manual":
         if not accept_callback:
             if input('Would you like to push to the network? (y/n):')[0] != 'y':
                 log.info("You chose not to broadcast the transaction, quitting.")
@@ -95,9 +98,12 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
                                        fee_est)
             if not accepted:
                 return False
-    jm_single().bc_interface.pushtx(tx)
     txid = txhash(tx)
-    successmsg = "Transaction sent: " + txid
+    if tx_broadcast != "manual":
+        jm_single().bc_interface.pushtx(tx)
+        successmsg = "Transaction sent: " + txid
+    else:
+        successmsg = "Broadcast manually:\n\n" + tx + "\n\nTransaction id: " + txid
     cb = log.info if not info_callback else info_callback
     cb(successmsg)
     return txid
