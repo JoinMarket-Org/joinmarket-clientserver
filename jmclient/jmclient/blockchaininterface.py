@@ -204,10 +204,10 @@ class BlockchainInterface(object):
 	'''
 
     def fee_per_kb_has_been_manually_set(self, N):
-        '''if the 'block' target is higher than 144, interpret it
+        '''if the 'block' target is higher than 1000, interpret it
         as manually set fee/Kb.
     '''
-        if N > 144:
+        if N > 1000:
             return True
         else:
             return False

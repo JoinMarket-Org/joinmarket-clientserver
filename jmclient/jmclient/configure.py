@@ -195,7 +195,7 @@ merge_algorithm = default
 # per kB are needed to get in one of the next N blocks, N set here
 # as the value of 'tx_fees'. This cost estimate is high if you set 
 # N=1, so we choose 3 for a more reasonable figure, as our default.
-# You can also set your own fee/kb: any number higher than 144 will
+# You can also set your own fee/kb: any number higher than 1000 will
 # be interpreted as the fee in satoshi per kB that you wish to use
 # example: N=30000 will use 30000 sat/kB as a fee, while N=5
 # will use the estimate from your selected blockchain source

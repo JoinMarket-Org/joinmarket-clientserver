@@ -220,11 +220,11 @@ about 2-3x higher); this may be changed to share the fee, in a future version. T
 isn't *too* high.
 
 In the joinmarket.cfg file, under `[POLICY]` section you should see a setting called `tx_fees`.
-You can set this to any integer; if you set it to a number less than 144, it's treated as a "confirmation in N blocks target",
+You can set this to any integer; if you set it to 1000 or less then it's treated as a "confirmation in N blocks target",
 i.e. if you set it to 3 (the default), the fee is chosen from Bitcoin Core's estimator to target confirmation in 3 blocks.
 So if you change it to e.g. 10, it will be cheaper but projected to get its first confirmation in 10 blocks on average.
 
-If you set it to a number >= 144, though, it's a number of satoshis per kilobyte (technically, kilo-vbyte) that you want
+If you set it to a number > 1000, though, it's a number of satoshis per kilobyte (technically, kilo-vbyte) that you want
 to use. **Don't use less than about 1200 if you do this** - a typical figure might be 5000 or 10000, corresponding to
 about 5-10 sats/byte, which nowadays is a reasonable fee. The exact amount is randomised by ~20% to avoid you inadvertently
 watermarking all your transactions. So don't use < 1200 because then you might be using less than 1 sat/byte which is
