@@ -632,15 +632,20 @@ def wallet_fetch_history(wallet, options):
         return '%.8f'%(sat/1e8)
     def sat_to_str_p(sat):
         return '%+.8f'%(sat/1e8)
+    def sat_to_str_na(sat):
+        if sat == 0:
+            return "N/A       "
+        else:
+            return '%.8f'%(sat/1e8)
     def skip_n1(v):
         return '% 2s'%(str(v)) if v != -1 else ' #'
     def skip_n1_btc(v):
         return sat_to_str(v) if v != -1 else '#' + ' '*10
     def print_row(index, time, tx_type, amount, delta, balance, cj_n,
-                  miner_fees, utxo_count, mixdepth_src, mixdepth_dst, txid):
+                  total_fees, utxo_count, mixdepth_src, mixdepth_dst, txid):
         data = [index, datetime.fromtimestamp(time).strftime("%Y-%m-%d %H:%M"),
                 tx_type, sat_to_str(amount), sat_to_str_p(delta),
-                sat_to_str(balance), skip_n1(cj_n), sat_to_str(miner_fees),
+                sat_to_str(balance), skip_n1(cj_n), sat_to_str_na(total_fees),
                 '% 3d' % utxo_count, skip_n1(mixdepth_src), skip_n1(mixdepth_dst)]
         if options.verbosity % 2 == 0: data += [txid]
         jmprint(s().join(map('"{}"'.format, data)), "info")
@@ -726,18 +731,27 @@ def wallet_fetch_history(wallet, options):
             delta_balance = -our_input_value
             mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
         elif len(our_input_scripts) > 0 and len(our_output_scripts) == 1:
-            # payment to somewhere with our change address getting the remaining
-            change_value = output_script_values[list(our_output_scripts)[0]]
+            our_output_script = list(our_output_scripts)[0]
+            our_output_value = output_script_values[our_output_script]
+            fees = our_input_value - our_output_value - cj_amount
             if is_coinjoin:
-                tx_type = 'cj withdraw'
                 amount = cj_amount
+                if our_output_value == cj_amount:
+                    #a sweep coinjoin with no change address back to our wallet
+                    tx_type = 'cj intsweep'
+                    mixdepth_dst = wallet.get_script_mixdepth(our_output_script)
+                    fees = 0
+                else:
+                    #payment elsewhere with our change address getting the remaining
+                    #our_output_value is the change output
+                    tx_type = 'cj withdraw'
             else:
                 tx_type = 'withdraw   '
                 #TODO does tx_fee go here? not my_tx_fee only?
-                amount = our_input_value - change_value
+                amount = our_input_value - our_output_value
                 cj_n = -1
-            delta_balance = change_value - our_input_value
-            fees = our_input_value - change_value - cj_amount
+                fees = 0
+            delta_balance = our_output_value - our_input_value
             mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
         elif len(our_input_scripts) > 0 and len(our_output_scripts) == 2:
             #payment to self
@@ -818,7 +832,7 @@ def wallet_fetch_history(wallet, options):
                 )['time']
     except JsonRpcError:
         now = jm_single().bc_interface.rpc('getblock', [bestblockhash])['time']
-    jmprint('     %s best block is %s' % (datetime.fromtimestamp(now)
+    jmprint('        %s best block is %s' % (datetime.fromtimestamp(now)
         .strftime("%Y-%m-%d %H:%M"), bestblockhash))
     total_profit = float(balance - sum(deposits)) / float(100000000)
     jmprint('total profit = %.8f BTC' % total_profit)
