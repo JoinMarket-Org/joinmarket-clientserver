@@ -1460,17 +1460,22 @@ class JMMainWindow(QMainWindow):
         self.close()
 
     def recoverWallet(self):
-        success = wallet_generate_recover_bip39("recover", "wallets",
-                                                "wallet.jmdat",
-                                                callbacks=(None, self.seedEntry,
+        try:
+            success = wallet_generate_recover_bip39("recover", "wallets",
+                                                    "wallet.jmdat",
+                                                    callbacks=(None, self.seedEntry,
                                                            self.getPassword,
                                                            self.getWalletFileName))
-        if not success:
-            JMQtMessageBox(self,
+            if not success:
+                JMQtMessageBox(self,
                            "Failed to recover wallet.",
                            mbtype='warn',
                            title="Error")
+                return
+        except Exception as e:
+            JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
             return
+
         JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                                    title="Wallet created")
         self.initWallet(seed=self.walletname, restart_cb=self.restartWithMsg)
