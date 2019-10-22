@@ -356,7 +356,8 @@ class SpendTab(QWidget):
         current_path = os.path.dirname(os.path.realpath(__file__))
         firstarg = QFileDialog.getOpenFileName(self,
                                                'Choose Schedule File',
-                                               directory=current_path)
+                                               directory=current_path,
+                                               options=QFileDialog.DontUseNativeDialog)
         #TODO validate the schedule
         log.debug('Looking for schedule in: ' + str(firstarg))
         if not firstarg:
