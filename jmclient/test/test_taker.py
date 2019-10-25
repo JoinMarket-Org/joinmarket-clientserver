@@ -15,7 +15,7 @@ import struct
 from base64 import b64encode
 from jmclient import load_program_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
-    get_network
+    get_network, WalletService
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
     t_maker_response, t_chosen_orders, t_dummy_ext
 
@@ -35,14 +35,15 @@ class DummyWallet(SegwitLegacyWallet):
                 txid, index = txid.split(':')
                 path = (b'dummy', md, i)
                 self._utxos.add_utxo(binascii.unhexlify(txid), int(index),
-                                     path, data['value'], md)
+                                     path, data['value'], md, 1)
                 script = self._ENGINE.address_to_script(data['address'])
                 self._script_map[script] = path
 
-    def get_utxos_by_mixdepth(self, verbose=True):
+    def get_utxos_by_mixdepth(self, verbose=True, includeheight=False):
         return t_utxos_by_mixdepth
 
-    def get_utxos_by_mixdepth_(self, verbose=True):
+    def get_utxos_by_mixdepth_(self, verbose=True, include_disabled=False,
+                               includeheight=False):
         utxos = self.get_utxos_by_mixdepth(verbose)
 
         utxos_conv = {}
@@ -59,7 +60,8 @@ class DummyWallet(SegwitLegacyWallet):
 
         return utxos_conv
 
-    def select_utxos(self, mixdepth, amount):
+    def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
+                     maxheight=None):
         if amount > self.get_balance_by_mixdepth()[mixdepth]:
             raise Exception("Not enough funds")
         return t_utxos_by_mixdepth[mixdepth]
@@ -126,10 +128,12 @@ def get_taker(schedule=None, schedule_len=0, on_finished=None,
     print("Using schedule: " + str(schedule))
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
-    return Taker(DummyWallet(), schedule,
+    taker = Taker(WalletService(DummyWallet()), schedule,
                   callbacks=[filter_orders_callback, None, on_finished_callback])
+    taker.wallet_service.current_blockheight = 10**6
+    return taker
 
-def test_filter_rejection(createcmtdata):
+def test_filter_rejection(setup_taker):
     def filter_orders_reject(orders_feesl, cjamount):
         print("calling filter orders rejection")
         return False
@@ -149,7 +153,7 @@ def test_filter_rejection(createcmtdata):
         (True, False),
         (False, True),
     ])
-def test_make_commitment(createcmtdata, failquery, external):
+def test_make_commitment(setup_taker, failquery, external):
     def clean_up():
         jm_single().config.set("POLICY", "taker_utxo_age", old_taker_utxo_age)
         jm_single().config.set("POLICY", "taker_utxo_amtpercent", old_taker_utxo_amtpercent)
@@ -175,7 +179,7 @@ def test_make_commitment(createcmtdata, failquery, external):
     taker.make_commitment()
     clean_up()
     
-def test_not_found_maker_utxos(createcmtdata):
+def test_not_found_maker_utxos(setup_taker):
     taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
     orderbook = copy.deepcopy(t_orderbook)
     res = taker.initialize(orderbook)
@@ -187,7 +191,7 @@ def test_not_found_maker_utxos(createcmtdata):
     assert res[1] == "Not enough counterparties responded to fill, giving up"
     jm_single().bc_interface.setQUSFail(False)
 
-def test_auth_pub_not_found(createcmtdata):
+def test_auth_pub_not_found(setup_taker):
     taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
     orderbook = copy.deepcopy(t_orderbook)
     res = taker.initialize(orderbook)
@@ -239,7 +243,7 @@ def test_auth_pub_not_found(createcmtdata):
         ([(0, 0, 5, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)], False, False,
          2, False, ["J659UPUSLLjHJpaB", "J65z23xdjxJjC7er", 0], None), #test inadequate for sweep
     ])
-def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
+def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
                     notauthed, ignored, nocommit):
     #these tests do not trigger utxo_retries
     oldtakerutxoretries = jm_single().config.get("POLICY", "taker_utxo_retries")
@@ -349,7 +353,7 @@ def test_taker_init(createcmtdata, schedule, highfee, toomuchcoins, minmakers,
         taker.prepare_my_bitcoin_data()
     with pytest.raises(NotImplementedError) as e_info:
         a = taker.coinjoin_address()
-    taker.wallet.inject_addr_get_failure = True
+    taker.wallet_service.wallet.inject_addr_get_failure = True
     taker.my_cj_addr = "dummy"
     assert not taker.prepare_my_bitcoin_data()
     #clean up
@@ -365,6 +369,8 @@ def test_unconfirm_confirm(schedule_len):
     and merely update schedule index for confirm (useful for schedules/tumbles).
     This tests that the on_finished callback correctly reports the fromtx
     variable as "False" once the schedule is complete.
+    The exception to the above is that the txd passed in must match
+    self.latest_tx, so we use a dummy value here for that.
     """
     test_unconfirm_confirm.txflag = True
     def finished_for_confirms(res, fromtx=False, waittime=0, txdetails=None):
@@ -372,13 +378,14 @@ def test_unconfirm_confirm(schedule_len):
         test_unconfirm_confirm.txflag = fromtx
 
     taker = get_taker(schedule_len=schedule_len, on_finished=finished_for_confirms)
-    taker.unconfirm_callback("a", "b")
+    taker.latest_tx = {"outs": "blah"}
+    taker.unconfirm_callback({"ins": "foo", "outs": "blah"}, "b")
     for i in range(schedule_len-1):
         taker.schedule_index += 1
-        fromtx = taker.confirm_callback("a", "b", 1)
+        fromtx = taker.confirm_callback({"ins": "foo", "outs": "blah"}, "b", 1)
         assert test_unconfirm_confirm.txflag
     taker.schedule_index += 1
-    fromtx = taker.confirm_callback("a", "b", 1)
+    fromtx = taker.confirm_callback({"ins": "foo", "outs": "blah"}, "b", 1)
     assert not test_unconfirm_confirm.txflag
     
 @pytest.mark.parametrize(
@@ -387,7 +394,7 @@ def test_unconfirm_confirm(schedule_len):
         ("mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
          [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0)])
     ])
-def test_on_sig(createcmtdata, dummyaddr, schedule):
+def test_on_sig(setup_taker, dummyaddr, schedule):
     #plan: create a new transaction with known inputs and dummy outputs;
     #then, create a signature with various inputs, pass in in b64 to on_sig.
     #in order for it to verify, the DummyBlockchainInterface will have to 
@@ -472,7 +479,12 @@ def test_auth_counterparty(schedule):
     assert not taker.auth_counterparty(sig_tweaked, auth_pub, maker_pub)
 
 @pytest.fixture(scope="module")
-def createcmtdata(request):
+def setup_taker(request):
+    def clean():
+        from twisted.internet import reactor
+        for dc in reactor.getDelayedCalls():
+            dc.cancel()
+    request.addfinalizer(clean)
     def cmtdatateardown():
         shutil.rmtree("cmtdata")
     request.addfinalizer(cmtdatateardown)

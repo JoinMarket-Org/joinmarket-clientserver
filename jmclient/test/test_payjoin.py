@@ -12,17 +12,17 @@ import pytest
 from twisted.internet import reactor
 from jmbase import get_log
 from jmclient import cryptoengine
-from jmclient import (load_program_config, jm_single, sync_wallet,
+from jmclient import (load_program_config, jm_single,
                       P2EPMaker, P2EPTaker,
                       LegacyWallet, SegwitLegacyWallet, SegwitWallet)
 from commontest import make_wallets
-from test_coinjoin import make_wallets_to_list, sync_wallets, create_orderbook
+from test_coinjoin import make_wallets_to_list, create_orderbook, sync_wallets
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 
-def create_taker(wallet, schedule, monkeypatch):
-    taker = P2EPTaker("fakemaker", wallet, schedule,
+def create_taker(wallet_service, schedule, monkeypatch):
+    taker = P2EPTaker("fakemaker", wallet_service, schedule,
                       callbacks=(None, None, None))
     return taker
 
@@ -32,13 +32,13 @@ def dummy_user_check(message):
     log.info(message)
     return True
 
-def getbals(wallet, mixdepth):
+def getbals(wallet_service, mixdepth):
     """ Retrieves balances for a mixdepth and the 'next'
     """
-    bbm = wallet.get_balance_by_mixdepth()
-    return (bbm[mixdepth], bbm[(mixdepth + 1) % (wallet.mixdepth + 1)])
+    bbm = wallet_service.get_balance_by_mixdepth()
+    return (bbm[mixdepth], bbm[(mixdepth + 1) % (wallet_service.mixdepth + 1)])
 
-def final_checks(wallets, amount, txfee, tsb, msb, source_mixdepth=0):
+def final_checks(wallet_services, amount, txfee, tsb, msb, source_mixdepth=0):
     """We use this to check that the wallet contents are
     as we've expected according to the test case.
     amount is the payment amount going from taker to maker.
@@ -48,10 +48,9 @@ def final_checks(wallets, amount, txfee, tsb, msb, source_mixdepth=0):
     of two entries, source and destination mixdepth respectively.
     """
     jm_single().bc_interface.tickchain()
-    for wallet in wallets:
-        sync_wallet(wallet)
-    takerbals = getbals(wallets[1], source_mixdepth)
-    makerbals = getbals(wallets[0], source_mixdepth)
+    sync_wallets(wallet_services)
+    takerbals = getbals(wallet_services[1], source_mixdepth)
+    makerbals = getbals(wallet_services[0], source_mixdepth)
     # is the payment received?
     maker_newcoin_amt = makerbals[1] - msb[1]
     if not maker_newcoin_amt >= amount:
@@ -97,23 +96,23 @@ def test_simple_payjoin(monkeypatch, tmpdir, setup_cj, wallet_cls,
     def raise_exit(i):
         raise Exception("sys.exit called")
     monkeypatch.setattr(sys, 'exit', raise_exit)
-    wallets = []
-    wallets.append(make_wallets_to_list(make_wallets(
+    wallet_services = []
+    wallet_services.append(make_wallets_to_list(make_wallets(
         1, wallet_structures=[wallet_structures[0]],
         mean_amt=mean_amt, wallet_cls=wallet_cls[0]))[0])
-    wallets.append(make_wallets_to_list(make_wallets(
+    wallet_services.append(make_wallets_to_list(make_wallets(
             1, wallet_structures=[wallet_structures[1]],
             mean_amt=mean_amt, wallet_cls=wallet_cls[1]))[0])
     jm_single().bc_interface.tickchain()
-    sync_wallets(wallets)
+    sync_wallets(wallet_services)
 
     # For accounting purposes, record the balances
     # at the start.
-    msb = getbals(wallets[0], 0)
-    tsb = getbals(wallets[1], 0)
+    msb = getbals(wallet_services[0], 0)
+    tsb = getbals(wallet_services[1], 0)
 
     cj_amount = int(1.1 * 10**8)
-    maker = P2EPMaker(wallets[0], 0, cj_amount)
+    maker = P2EPMaker(wallet_services[0], 0, cj_amount)
     destaddr = maker.destination_addr
     monkeypatch.setattr(maker, 'user_check', dummy_user_check)
     # TODO use this to sanity check behaviour
@@ -123,7 +122,7 @@ def test_simple_payjoin(monkeypatch, tmpdir, setup_cj, wallet_cls,
     # mixdepth, amount, counterparties, dest_addr, waittime;
     # in payjoin we only pay attention to the first two entries.
     schedule = [(0, cj_amount, 1, destaddr, 0)]
-    taker = create_taker(wallets[-1], schedule, monkeypatch)
+    taker = create_taker(wallet_services[-1], schedule, monkeypatch)
     monkeypatch.setattr(taker, 'user_check', dummy_user_check)
     init_data = taker.initialize(orderbook)
     # the P2EPTaker.initialize() returns:
@@ -147,7 +146,7 @@ def test_simple_payjoin(monkeypatch, tmpdir, setup_cj, wallet_cls,
         assert False
     # Although the above OK is proof that a transaction went through,
     # it doesn't prove it was a good transaction! Here do balance checks:
-    assert final_checks(wallets, cj_amount, taker.total_txfee, tsb, msb)
+    assert final_checks(wallet_services, cj_amount, taker.total_txfee, tsb, msb)
 
 @pytest.fixture(scope='module')
 def setup_cj():

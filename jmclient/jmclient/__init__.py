@@ -16,7 +16,7 @@ from .taker import Taker, P2EPTaker
 from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
                      SegwitWallet, SegwitLegacyWallet, UTXOManager,
-                     WALLET_IMPLEMENTATIONS, make_shuffled_tx)
+                     WALLET_IMPLEMENTATIONS)
 from .storage import (Argon2Hash, Storage, StorageError,
                       StoragePasswordError, VolatileStorage)
 from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
@@ -24,7 +24,7 @@ from .configure import (
     load_program_config, get_p2pk_vbyte, jm_single, get_network,
     validate_address, get_irc_mchannels, get_blockchain_interface_instance,
     get_p2sh_vbyte, set_config, is_segwit_mode, is_native_segwit_mode)
-from .blockchaininterface import (BlockchainInterface, sync_wallet,
+from .blockchaininterface import (BlockchainInterface,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .electruminterface import ElectrumInterface
 from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
@@ -46,6 +46,7 @@ from .wallet_utils import (
     wallet_tool_main, wallet_generate_recover_bip39, open_wallet,
     open_test_wallet_maybe, create_wallet, get_wallet_cls, get_wallet_path,
     wallet_display, get_utxos_enabled_disabled)
+from .wallet_service import WalletService
 from .maker import Maker, P2EPMaker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
 # Set default logging handler to avoid "No handler found" warnings.

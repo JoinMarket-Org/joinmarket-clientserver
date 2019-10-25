@@ -9,6 +9,8 @@ import copy
 import re
 import os
 import struct
+# note, only used for non-cryptographic randomness:
+import random
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.bech32 import *
 
@@ -871,3 +873,15 @@ def mktx(ins, outs, version=1, locktime=0):
         txobj["outs"].append(outobj)
     return serialize(txobj)
 
+def make_shuffled_tx(ins, outs, deser=True, version=1, locktime=0):
+    """ Simple utility to ensure transaction
+    inputs and outputs are randomly ordered.
+    Can possibly be replaced by BIP69 in future
+    """
+    random.shuffle(ins)
+    random.shuffle(outs)
+    tx = mktx(ins, outs, version=version, locktime=locktime)
+    if deser:
+        return deserialize(tx)
+    else:
+        return tx

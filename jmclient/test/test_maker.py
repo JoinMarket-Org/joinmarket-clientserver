@@ -6,7 +6,7 @@ from builtins import * # noqa: F401
 
 import jmbitcoin as btc
 from jmclient import Maker, get_p2sh_vbyte, get_p2pk_vbyte, \
-    load_program_config, jm_single
+    load_program_config, jm_single, WalletService
 import jmclient
 from commontest import DummyBlockchainInterface
 from test_taker import DummyWallet
@@ -116,7 +116,7 @@ def test_verify_unsigned_tx_sw_valid(setup_env_nodeps):
     p2pkh_gen = address_p2pkh_generator()
 
     wallet = DummyWallet()
-    maker = OfflineMaker(wallet)
+    maker = OfflineMaker(WalletService(wallet))
 
     cj_addr, cj_script = next(p2sh_gen)
     changeaddr, cj_change_script = next(p2sh_gen)
@@ -149,7 +149,7 @@ def test_verify_unsigned_tx_nonsw_valid(setup_env_nodeps):
     p2pkh_gen = address_p2pkh_generator()
 
     wallet = DummyWallet()
-    maker = OfflineMaker(wallet)
+    maker = OfflineMaker(WalletService(wallet))
 
     cj_addr, cj_script = next(p2pkh_gen)
     changeaddr, cj_change_script = next(p2pkh_gen)

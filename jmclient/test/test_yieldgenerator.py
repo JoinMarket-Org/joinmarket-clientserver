@@ -5,7 +5,8 @@ from builtins import * # noqa: F401
 import unittest
 
 from jmclient import load_program_config, jm_single,\
-    SegwitLegacyWallet, VolatileStorage, YieldGeneratorBasic, get_network
+    SegwitLegacyWallet, VolatileStorage, YieldGeneratorBasic, \
+    get_network, WalletService
 
 
 class CustomUtxoWallet(SegwitLegacyWallet):
@@ -37,7 +38,7 @@ class CustomUtxoWallet(SegwitLegacyWallet):
         # script, and make it fit the required length (32 bytes).
         txid = tx['outs'][0]['script'] + b'x' * 32
         txid = txid[:32]
-        self.add_new_utxos_(tx, txid)
+        self.add_new_utxos_(tx, txid, 1)
 
     def assert_utxos_from_mixdepth(self, utxos, expected):
         """Asserts that the list of UTXOs (as returned from UTXO selection
@@ -56,7 +57,7 @@ def create_yg_basic(balances, txfee=0, cjfee_a=0, cjfee_r=0,
     wallet = CustomUtxoWallet(balances)
     offerconfig = (txfee, cjfee_a, cjfee_r, ordertype, minsize)
 
-    yg = YieldGeneratorBasic(wallet, offerconfig)
+    yg = YieldGeneratorBasic(WalletService(wallet), offerconfig)
 
     # We don't need any of the logic from Maker, including the waiting
     # loop.  Just stop it, so that it does not linger around and create
@@ -140,9 +141,9 @@ class OidToOrderTests(unittest.TestCase):
         yg = create_yg_basic([10, 1000, 2000])
         utxos, cj_addr, change_addr = self.call_oid_to_order(yg, 500)
         self.assertEqual(len(utxos), 1)
-        yg.wallet.assert_utxos_from_mixdepth(utxos, 1)
-        self.assertEqual(yg.wallet.get_addr_mixdepth(cj_addr), 2)
-        self.assertEqual(yg.wallet.get_addr_mixdepth(change_addr), 1)
+        yg.wallet_service.wallet.assert_utxos_from_mixdepth(utxos, 1)
+        self.assertEqual(yg.wallet_service.wallet.get_addr_mixdepth(cj_addr), 2)
+        self.assertEqual(yg.wallet_service.wallet.get_addr_mixdepth(change_addr), 1)
 
     def test_not_enough_balance_with_dust_threshold(self):
         # 410 is exactly the size of the change output.  So it will be
@@ -158,12 +159,12 @@ class OidToOrderTests(unittest.TestCase):
         # over the threshold.
         jm_single().DUST_THRESHOLD = 410
         yg = create_yg_basic([10, 1000, 10], txfee=100, cjfee_a=10)
-        yg.wallet.add_utxo_at_mixdepth(1, 500)
+        yg.wallet_service.wallet.add_utxo_at_mixdepth(1, 500)
         utxos, cj_addr, change_addr = self.call_oid_to_order(yg, 500)
         self.assertEqual(len(utxos), 2)
-        yg.wallet.assert_utxos_from_mixdepth(utxos, 1)
-        self.assertEqual(yg.wallet.get_addr_mixdepth(cj_addr), 2)
-        self.assertEqual(yg.wallet.get_addr_mixdepth(change_addr), 1)
+        yg.wallet_service.wallet.assert_utxos_from_mixdepth(utxos, 1)
+        self.assertEqual(yg.wallet_service.wallet.get_addr_mixdepth(cj_addr), 2)
+        self.assertEqual(yg.wallet_service.wallet.get_addr_mixdepth(change_addr), 1)
 
 
 class OfferReannouncementTests(unittest.TestCase):
@@ -171,7 +172,7 @@ class OfferReannouncementTests(unittest.TestCase):
 
     def call_on_tx_unconfirmed(self, yg):
         """Calls yg.on_tx_unconfirmed with fake arguments."""
-        return yg.on_tx_unconfirmed({'cjaddr': 'addr'}, 'txid', [])
+        return yg.on_tx_unconfirmed({'cjaddr': 'addr'}, 'txid')
 
     def create_yg_and_offer(self, maxsize):
         """Constructs a fake yg instance that has an offer with the given

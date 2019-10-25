@@ -19,7 +19,7 @@ import pytest
 import random
 from jmbase import jmprint
 from jmclient import YieldGeneratorBasic, load_program_config, jm_single,\
-    sync_wallet, JMClientProtocolFactory, start_reactor, SegwitWallet,\
+    JMClientProtocolFactory, start_reactor, SegwitWallet,\
     SegwitLegacyWallet, cryptoengine
 
 
@@ -109,21 +109,21 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
         # TODO add Legacy
         walletclass = SegwitLegacyWallet
 
-    wallets = make_wallets(num_ygs + 1,
+    wallet_services = make_wallets(num_ygs + 1,
                            wallet_structures=wallet_structures,
                            mean_amt=mean_amt,
                            walletclass=walletclass)
     #the sendpayment bot uses the last wallet in the list
-    wallet = wallets[num_ygs]['wallet']
-    jmprint("\n\nTaker wallet seed : " + wallets[num_ygs]['seed'])
+    wallet_service = wallet_services[num_ygs]['wallet']
+    jmprint("\n\nTaker wallet seed : " + wallet_services[num_ygs]['seed'])
     # for manual audit if necessary, show the maker's wallet seeds
     # also (note this audit should be automated in future, see
     # test_full_coinjoin.py in this directory)
     jmprint("\n\nMaker wallet seeds: ")
     for i in range(num_ygs):
-        jmprint("Maker seed: " + wallets[i]['seed'])
+        jmprint("Maker seed: " + wallet_services[i]['seed'])
     jmprint("\n")
-    sync_wallet(wallet, fast=True)
+    wallet_service.sync_wallet(fast=True)
     txfee = 1000
     cjfee_a = 4200
     cjfee_r = '0.001'
@@ -138,8 +138,9 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     for i in range(num_ygs):
         
         cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize]
-        sync_wallet(wallets[i]["wallet"], fast=True)
-        yg = ygclass(wallets[i]["wallet"], cfg)
+        wallet_service_yg = wallet_services[i]["wallet"]
+        wallet_service_yg.startService()
+        yg = ygclass(wallet_service_yg, cfg)
         if malicious:
             yg.set_maliciousness(malicious, mtype="tx")
         clientfactory = JMClientProtocolFactory(yg, proto_type="MAKER")

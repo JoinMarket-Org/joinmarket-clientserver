@@ -13,7 +13,7 @@ from commontest import make_wallets, make_sign_and_push
 import jmbitcoin as bitcoin
 import pytest
 from jmbase import get_log
-from jmclient import load_program_config, jm_single, sync_wallet,\
+from jmclient import load_program_config, jm_single,\
     get_p2pk_vbyte
 
 log = get_log()
@@ -36,14 +36,14 @@ def test_create_p2sh_output_tx(setup_tx_creation, nw, wallet_structures,
                                mean_amt, sdev_amt, amount, pubs, k):
     wallets = make_wallets(nw, wallet_structures, mean_amt, sdev_amt)
     for w in wallets.values():
-        sync_wallet(w['wallet'], fast=True)
+        w['wallet'].sync_wallet(fast=True)
     for k, w in enumerate(wallets.values()):
-        wallet = w['wallet']
-        ins_full = wallet.select_utxos(0, amount)
+        wallet_service = w['wallet']
+        ins_full = wallet_service.select_utxos(0, amount)
         script = bitcoin.mk_multisig_script(pubs, k)
         output_addr = bitcoin.script_to_address(script, vbyte=196)
         txid = make_sign_and_push(ins_full,
-                                  wallet,
+                                  wallet_service,
                                   amount,
                                   output_addr=output_addr)
         assert txid
@@ -81,16 +81,16 @@ def test_all_same_priv(setup_tx_creation):
     #recipient
     priv = "aa"*32 + "01"
     addr = bitcoin.privkey_to_address(priv, magicbyte=get_p2pk_vbyte())
-    wallet = make_wallets(1, [[1,0,0,0,0]], 1)[0]['wallet']
+    wallet_service = make_wallets(1, [[1,0,0,0,0]], 1)[0]['wallet']
     #make another utxo on the same address
-    addrinwallet = wallet.get_addr(0,0,0)
+    addrinwallet = wallet_service.get_addr(0,0,0)
     jm_single().bc_interface.grab_coins(addrinwallet, 1)
-    sync_wallet(wallet, fast=True)
-    insfull = wallet.select_utxos(0, 110000000)
+    wallet_service.sync_wallet(fast=True)
+    insfull = wallet_service.select_utxos(0, 110000000)
     outs = [{"address": addr, "value": 1000000}]
     ins = list(insfull.keys())
     tx = bitcoin.mktx(ins, outs)
-    tx = bitcoin.signall(tx, wallet.get_key_from_addr(addrinwallet))
+    tx = bitcoin.signall(tx, wallet_service.get_key_from_addr(addrinwallet))
 
 @pytest.mark.parametrize(
     "signall",
@@ -101,9 +101,9 @@ def test_all_same_priv(setup_tx_creation):
 def test_verify_tx_input(setup_tx_creation, signall):
     priv = "aa"*32 + "01"
     addr = bitcoin.privkey_to_address(priv, magicbyte=get_p2pk_vbyte())
-    wallet = make_wallets(1, [[2,0,0,0,0]], 1)[0]['wallet']
-    sync_wallet(wallet, fast=True)
-    insfull = wallet.select_utxos(0, 110000000)
+    wallet_service = make_wallets(1, [[2,0,0,0,0]], 1)[0]['wallet']
+    wallet_service.sync_wallet(fast=True)
+    insfull = wallet_service.select_utxos(0, 110000000)
     print(insfull)
     outs = [{"address": addr, "value": 1000000}]
     ins = list(insfull.keys())
@@ -115,14 +115,14 @@ def test_verify_tx_input(setup_tx_creation, signall):
         for index, ins in enumerate(desertx['ins']):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
             ad = insfull[utxo]['address']
-            priv = wallet.get_key_from_addr(ad)
+            priv = wallet_service.get_key_from_addr(ad)
             privdict[utxo] = priv
         tx = bitcoin.signall(tx, privdict)
     else:
         for index, ins in enumerate(desertx['ins']):
             utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
             ad = insfull[utxo]['address']
-            priv = wallet.get_key_from_addr(ad)
+            priv = wallet_service.get_key_from_addr(ad)
             tx = bitcoin.sign(tx, index, priv)
     desertx2 = bitcoin.deserialize(tx)
     print(desertx2)
@@ -143,28 +143,28 @@ def test_absurd_fees(setup_tx_creation):
     """
     jm_single().bc_interface.absurd_fees = True
     #pay into it
-    wallet = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
-    sync_wallet(wallet, fast=True)
+    wallet_service = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
+    wallet_service.sync_wallet(fast=True)
     amount = 350000000
-    ins_full = wallet.select_utxos(0, amount)
+    ins_full = wallet_service.select_utxos(0, amount)
     with pytest.raises(ValueError) as e_info:
-        txid = make_sign_and_push(ins_full, wallet, amount, estimate_fee=True)
+        txid = make_sign_and_push(ins_full, wallet_service, amount, estimate_fee=True)
 
 def test_create_sighash_txs(setup_tx_creation):
     #non-standard hash codes:
     for sighash in [bitcoin.SIGHASH_ANYONECANPAY + bitcoin.SIGHASH_SINGLE,
                     bitcoin.SIGHASH_NONE, bitcoin.SIGHASH_SINGLE]:
-        wallet = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
-        sync_wallet(wallet, fast=True)
+        wallet_service = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
+        wallet_service.sync_wallet(fast=True)
         amount = 350000000
-        ins_full = wallet.select_utxos(0, amount)
+        ins_full = wallet_service.select_utxos(0, amount)
         print("using hashcode: " + str(sighash))
-        txid = make_sign_and_push(ins_full, wallet, amount, hashcode=sighash)
+        txid = make_sign_and_push(ins_full, wallet_service, amount, hashcode=sighash)
         assert txid
 
     #trigger insufficient funds
     with pytest.raises(Exception) as e_info:
-        fake_utxos = wallet.select_utxos(4, 1000000000)
+        fake_utxos = wallet_service.select_utxos(4, 1000000000)
 
 
 def test_spend_p2sh_utxos(setup_tx_creation):
@@ -174,11 +174,11 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     script = bitcoin.mk_multisig_script(pubs, 2)
     msig_addr = bitcoin.p2sh_scriptaddr(script, magicbyte=196)
     #pay into it
-    wallet = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
-    sync_wallet(wallet, fast=True)
+    wallet_service = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
+    wallet_service.sync_wallet(fast=True)
     amount = 350000000
-    ins_full = wallet.select_utxos(0, amount)
-    txid = make_sign_and_push(ins_full, wallet, amount, output_addr=msig_addr)
+    ins_full = wallet_service.select_utxos(0, amount)
+    txid = make_sign_and_push(ins_full, wallet_service, amount, output_addr=msig_addr)
     assert txid
     #wait for mining
     time.sleep(1)
@@ -186,7 +186,7 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     msig_in = txid + ":0"
     ins = [msig_in]
     #random output address and change addr
-    output_addr = wallet.get_new_addr(1, 1)
+    output_addr = wallet_service.get_internal_addr(1)
     amount2 = amount - 50000
     outs = [{'value': amount2, 'address': output_addr}]
     tx = bitcoin.mktx(ins, outs)
@@ -205,19 +205,19 @@ def test_spend_p2wpkh(setup_tx_creation):
     scriptPubKeys = [bitcoin.pubkey_to_p2wpkh_script(pub) for pub in pubs]
     addresses = [bitcoin.pubkey_to_p2wpkh_address(pub) for pub in pubs]
     #pay into it
-    wallet = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
-    sync_wallet(wallet, fast=True)
+    wallet_service = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
+    wallet_service.sync_wallet(fast=True)
     amount = 35000000
     p2wpkh_ins = []
     for addr in addresses:
-        ins_full = wallet.select_utxos(0, amount)
-        txid = make_sign_and_push(ins_full, wallet, amount, output_addr=addr)
+        ins_full = wallet_service.select_utxos(0, amount)
+        txid = make_sign_and_push(ins_full, wallet_service, amount, output_addr=addr)
         assert txid
         p2wpkh_ins.append(txid + ":0")
         #wait for mining
         time.sleep(1)
     #random output address
-    output_addr = wallet.get_new_addr(1, 1)
+    output_addr = wallet_service.get_internal_addr(1)
     amount2 = amount*3 - 50000
     outs = [{'value': amount2, 'address': output_addr}]
     tx = bitcoin.mktx(p2wpkh_ins, outs)
@@ -249,19 +249,19 @@ def test_spend_p2wsh(setup_tx_creation):
     scriptPubKeys = [bitcoin.pubkeys_to_p2wsh_script(pubs[i:i+2]) for i in [0, 2]]
     addresses = [bitcoin.pubkeys_to_p2wsh_address(pubs[i:i+2]) for i in [0, 2]]
     #pay into it
-    wallet = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
-    sync_wallet(wallet, fast=True)
+    wallet_service = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
+    wallet_service.sync_wallet(fast=True)
     amount = 35000000
     p2wsh_ins = []
     for addr in addresses:
-        ins_full = wallet.select_utxos(0, amount)
-        txid = make_sign_and_push(ins_full, wallet, amount, output_addr=addr)
+        ins_full = wallet_service.select_utxos(0, amount)
+        txid = make_sign_and_push(ins_full, wallet_service, amount, output_addr=addr)
         assert txid
         p2wsh_ins.append(txid + ":0")
         #wait for mining
         time.sleep(1)
     #random output address and change addr
-    output_addr = wallet.get_new_addr(1, 1)
+    output_addr = wallet_service.get_internal_addr(1)
     amount2 = amount*2 - 50000
     outs = [{'value': amount2, 'address': output_addr}]
     tx = bitcoin.mktx(p2wsh_ins, outs)

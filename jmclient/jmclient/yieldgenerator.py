@@ -12,11 +12,13 @@ from twisted.python.log import startLogging
 from optparse import OptionParser
 from jmbase import get_log
 from jmclient import Maker, jm_single, load_program_config, \
-    sync_wallet, JMClientProtocolFactory, start_reactor, calc_cj_fee
+    JMClientProtocolFactory, start_reactor, \
+    calc_cj_fee, WalletService
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
 
 jlog = get_log()
 
+MAX_MIX_DEPTH = 5
 
 class YieldGenerator(Maker):
     """A maker for the purposes of generating a yield from held
@@ -26,8 +28,8 @@ class YieldGenerator(Maker):
     __metaclass__ = abc.ABCMeta
     statement_file = os.path.join('logs', 'yigen-statement.csv')
 
-    def __init__(self, wallet):
-        Maker.__init__(self, wallet)
+    def __init__(self, wallet_service):
+        Maker.__init__(self, wallet_service)
         self.tx_unconfirm_timestamp = {}
         if not os.path.isfile(self.statement_file):
             self.log_statement(
@@ -44,7 +46,7 @@ class YieldGenerator(Maker):
         self.income_statement.write(','.join(data) + '\n')
         self.income_statement.close()
 
-    def on_tx_unconfirmed(self, offer, txid, removed_utxos):
+    def on_tx_unconfirmed(self, offer, txid):
         self.tx_unconfirm_timestamp[offer["cjaddr"]] = int(time.time())
         newoffers = self.create_my_orders()
 
@@ -70,10 +72,10 @@ class YieldGeneratorBasic(YieldGenerator):
     It will often (but not always) reannounce orders after transactions,
     thus is somewhat suboptimal in giving more information to spies.
     """
-    def __init__(self, wallet, offerconfig):
+    def __init__(self, wallet_service, offerconfig):
         self.txfee, self.cjfee_a, self.cjfee_r, self.ordertype, self.minsize \
              = offerconfig
-        super(YieldGeneratorBasic,self).__init__(wallet)
+        super(YieldGeneratorBasic,self).__init__(wallet_service)
 
     def create_my_orders(self):
         mix_balance = self.get_available_mixdepths()
@@ -129,10 +131,9 @@ class YieldGeneratorBasic(YieldGenerator):
             return None, None, None
         jlog.info('sending output to address=' + str(cj_addr))
 
-        change_addr = self.wallet.get_internal_addr(mixdepth,
-                                                    jm_single().bc_interface)
+        change_addr = self.wallet_service.get_internal_addr(mixdepth)
 
-        utxos = self.wallet.select_utxos(mixdepth, total_amount)
+        utxos = self.wallet_service.select_utxos(mixdepth, total_amount, minconfs=1)
         my_total_in = sum([va['value'] for va in utxos.values()])
         real_cjfee = calc_cj_fee(offer["ordertype"], offer["cjfee"], amount)
         change_value = my_total_in - amount - offer["txfee"] + real_cjfee
@@ -140,8 +141,8 @@ class YieldGeneratorBasic(YieldGenerator):
             jlog.debug(('change value={} below dust threshold, '
                        'finding new utxos').format(change_value))
             try:
-                utxos = self.wallet.select_utxos(
-                    mixdepth, total_amount + jm_single().DUST_THRESHOLD)
+                utxos = self.wallet_service.select_utxos(mixdepth,
+                    total_amount + jm_single().DUST_THRESHOLD, minconfs=1)
             except Exception:
                 jlog.info('dont have the required UTXOs to make a '
                           'output above the dust threshold, quitting')
@@ -149,7 +150,7 @@ class YieldGeneratorBasic(YieldGenerator):
 
         return utxos, cj_addr, change_addr
 
-    def on_tx_confirmed(self, offer, confirmations, txid):
+    def on_tx_confirmed(self, offer, txid, confirmations):
         if offer["cjaddr"] in self.tx_unconfirm_timestamp:
             confirm_time = int(time.time()) - self.tx_unconfirm_timestamp[
                 offer["cjaddr"]]
@@ -162,12 +163,13 @@ class YieldGeneratorBasic(YieldGenerator):
             offer["utxos"]), sum([av['value'] for av in offer["utxos"].values(
             )]), real_cjfee, real_cjfee - offer["offer"]["txfee"], round(
                 confirm_time / 60.0, 2), ''])
-        return self.on_tx_unconfirmed(offer, txid, None)
+        return self.on_tx_unconfirmed(offer, txid)
 
     def get_available_mixdepths(self):
         """Returns the mixdepth/balance dict from the wallet that contains
         all available inputs for offers."""
-        return self.wallet.get_balance_by_mixdepth(verbose=False)
+        return self.wallet_service.get_balance_by_mixdepth(verbose=False,
+                                                           minconfs=1)
 
     def select_input_mixdepth(self, available, offer, amount):
         """Returns the mixdepth from which the given order should spend the
@@ -182,8 +184,8 @@ class YieldGeneratorBasic(YieldGenerator):
         an order spending from the given input mixdepth.  Can return None if
         there is no suitable output, in which case the order is
         aborted."""
-        cjoutmix = (input_mixdepth + 1) % (self.wallet.mixdepth + 1)
-        return self.wallet.get_internal_addr(cjoutmix, jm_single().bc_interface)
+        cjoutmix = (input_mixdepth + 1) % (self.wallet_service.mixdepth + 1)
+        return self.wallet_service.get_internal_addr(cjoutmix)
 
 
 def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffer',
@@ -209,12 +211,12 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     parser.add_option('-g', '--gap-limit', action='store', type="int",
                       dest='gaplimit', default=gaplimit,
                       help='gap limit for wallet, default='+str(gaplimit))
-    parser.add_option('--fast',
+    parser.add_option('--recoversync',
                       action='store_true',
-                      dest='fastsync',
+                      dest='recoversync',
                       default=False,
-                      help=('choose to do fast wallet sync, only for Core and '
-                            'only for previously synced wallet'))
+                      help=('choose to do detailed wallet sync, '
+                            'used for recovering on new Core instance.'))
     parser.add_option('-m', '--mixdepth', action='store', type='int',
                       dest='mixdepth', default=None,
                       help="highest mixdepth to use")
@@ -248,13 +250,12 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
         wallet_path, wallet_name, options.mixdepth,
         gap_limit=options.gaplimit)
 
-    if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "electrum-server":
-        jm_single().bc_interface.synctype = "with-script"
+    wallet_service = WalletService(wallet)
+    while not wallet_service.synced:
+        wallet_service.sync_wallet(fast=not options.recoversync)
+    wallet_service.startService()
 
-    while not jm_single().bc_interface.wallet_synced:
-        sync_wallet(wallet, fast=options.fastsync)
-
-    maker = ygclass(wallet, [options.txfee, cjfee_a, cjfee_r,
+    maker = ygclass(wallet_service, [options.txfee, cjfee_a, cjfee_r,
                              options.ordertype, options.minsize])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")

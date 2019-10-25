@@ -60,14 +60,14 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     MIXDEPTH = 0
 
     # set up wallets and inputs
-    nsw_wallet = make_wallets(1, wallet_structure, in_amt,
+    nsw_wallet_service = make_wallets(1, wallet_structure, in_amt,
                               walletclass=LegacyWallet)[0]['wallet']
-    jm_single().bc_interface.sync_wallet(nsw_wallet, fast=True)
-    sw_wallet = make_wallets(1, [[len(segwit_ins), 0, 0, 0, 0]], segwit_amt)[0]['wallet']
-    jm_single().bc_interface.sync_wallet(sw_wallet, fast=True)
+    nsw_wallet_service.sync_wallet(fast=True)
+    sw_wallet_service = make_wallets(1, [[len(segwit_ins), 0, 0, 0, 0]], segwit_amt)[0]['wallet']
+    sw_wallet_service.sync_wallet(fast=True)
 
-    nsw_utxos = nsw_wallet.get_utxos_by_mixdepth_()[MIXDEPTH]
-    sw_utxos = sw_wallet.get_utxos_by_mixdepth_()[MIXDEPTH]
+    nsw_utxos = nsw_wallet_service.get_utxos_by_mixdepth(hexfmt=False)[MIXDEPTH]
+    sw_utxos = sw_wallet_service.get_utxos_by_mixdepth(hexfmt=False)[MIXDEPTH]
     assert len(o_ins) <= len(nsw_utxos), "sync failed"
     assert len(segwit_ins) <= len(sw_utxos), "sync failed"
 
@@ -102,8 +102,8 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     FEE = 50000
     assert FEE < total_amt_in_sat - amount, "test broken, not enough funds"
 
-    cj_script = nsw_wallet.get_new_script(MIXDEPTH + 1, True)
-    change_script = nsw_wallet.get_new_script(MIXDEPTH, True)
+    cj_script = nsw_wallet_service.get_new_script(MIXDEPTH + 1, True)
+    change_script = nsw_wallet_service.get_new_script(MIXDEPTH, True)
     change_amt = total_amt_in_sat - amount - FEE
 
     tx_outs = [
@@ -115,22 +115,21 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
 
     # import new addresses to bitcoind
     jm_single().bc_interface.import_addresses(
-        [nsw_wallet.script_to_addr(x)
-         for x in [cj_script, change_script]],
-        jm_single().bc_interface.get_wallet_name(nsw_wallet))
+        [nsw_wallet_service.script_to_addr(x)
+         for x in [cj_script, change_script]], nsw_wallet_service.get_wallet_name())
 
     # sign tx
     scripts = {}
     for nsw_in_index in o_ins:
         inp = nsw_ins[nsw_in_index][1]
         scripts[nsw_in_index] = (inp['script'], inp['value'])
-    tx = nsw_wallet.sign_tx(tx, scripts)
+    tx = nsw_wallet_service.sign_tx(tx, scripts)
 
     scripts = {}
     for sw_in_index in segwit_ins:
         inp = sw_ins[sw_in_index][1]
         scripts[sw_in_index] = (inp['script'], inp['value'])
-    tx = sw_wallet.sign_tx(tx, scripts)
+    tx = sw_wallet_service.sign_tx(tx, scripts)
 
     print(tx)
 
@@ -139,8 +138,8 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     assert txid
 
     balances = jm_single().bc_interface.get_received_by_addr(
-        [nsw_wallet.script_to_addr(cj_script),
-         nsw_wallet.script_to_addr(change_script)], None)['data']
+        [nsw_wallet_service.script_to_addr(cj_script),
+         nsw_wallet_service.script_to_addr(change_script)], None)['data']
     assert balances[0]['balance'] == amount
     assert balances[1]['balance'] == change_amt
 

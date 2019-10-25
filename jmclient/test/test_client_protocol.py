@@ -6,7 +6,7 @@ from builtins import *
 
 from jmbase import get_log
 from jmclient import load_program_config, Taker,\
-    JMClientProtocolFactory, jm_single, Maker
+    JMClientProtocolFactory, jm_single, Maker, WalletService
 from jmclient.client_protocol import JMTakerClientProtocol
 from twisted.python.log import msg as tmsg
 from twisted.internet import protocol, reactor, task
@@ -83,11 +83,15 @@ class DummyWallet(object):
     def get_wallet_id(self):
         return 'aaaa'
 
+#class DummyWalletService(object):
+#    wallet = DummyWallet()
+#    def register_callbacks(self, callbacks, unconfirmed=True):
+#        pass
 
 class DummyMaker(Maker):
     def __init__(self):
         self.aborted = False
-        self.wallet = DummyWallet()
+        self.wallet_service = WalletService(DummyWallet())
         self.offerlist = self.create_my_orders()
 
     def try_to_create_my_orders(self):
@@ -125,10 +129,10 @@ class DummyMaker(Maker):
         # utxos, cj_addr, change_addr
         return [], '', ''
 
-    def on_tx_unconfirmed(self, cjorder, txid, removed_utxos):
+    def on_tx_unconfirmed(self, cjorder, txid):
         return [], []
 
-    def on_tx_confirmed(self, cjorder, confirmations, txid):
+    def on_tx_confirmed(self, cjorder, txid, confirmations):
         return [], []
 
 
@@ -278,7 +282,7 @@ class TrialTestJMClientProto(unittest.TestCase):
             self.addCleanup(self.client.transport.loseConnection)
         clientfactories = []
         takers = [DummyTaker(
-            None, ["a", "b"], callbacks=(
+            WalletService(DummyWallet()), ["a", "b"], callbacks=(
                 None, None, dummy_taker_finished)) for _ in range(len(params))]
         for i, p in enumerate(params):
             takers[i].set_fail_init(p[0])

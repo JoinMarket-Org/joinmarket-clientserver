@@ -3,34 +3,21 @@ from __future__ import (absolute_import, division,
 from builtins import * # noqa: F401
 
 import abc
-import ast
 import random
 import sys
-import time
-import binascii
-from copy import deepcopy
 from decimal import Decimal
 from twisted.internet import reactor, task
 
 import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
-from jmclient.configure import get_p2pk_vbyte, jm_single
+from jmclient.configure import jm_single
 from jmbase.support import get_log, jmprint
 
+# an inaccessible blockheight; consider rewriting in 1900 years
+INF_HEIGHT = 10**8
+
 log = get_log()
-
-
-def sync_wallet(wallet, fast=False):
-    """Wrapper function to choose fast syncing where it's
-    both possible and requested.
-    """
-    if fast and (
-        isinstance(jm_single().bc_interface, BitcoinCoreInterface) or isinstance(
-                jm_single().bc_interface, RegtestBitcoinCoreInterface)):
-        jm_single().bc_interface.sync_wallet(wallet, fast=True)
-    else:
-        jm_single().bc_interface.sync_wallet(wallet)
 
 class BlockchainInterface(object):
     __metaclass__ = abc.ABCMeta
@@ -38,149 +25,11 @@ class BlockchainInterface(object):
     def __init__(self):
         pass
 
-    def sync_wallet(self, wallet, restart_cb=None):
-        """Default behaviour is for Core and similar interfaces.
-	If address sync fails, flagged with wallet_synced value;
-	do not attempt to sync_unspent in that case.
-	"""
-        self.sync_addresses(wallet, restart_cb)
-        if self.wallet_synced:
-            self.sync_unspent(wallet)
-
-    @staticmethod
-    def get_wallet_name(wallet):
-        return 'joinmarket-wallet-' + wallet.get_wallet_id()
-
-    @abc.abstractmethod
-    def sync_addresses(self, wallet):
-        """Finds which addresses have been used"""
-
-    @abc.abstractmethod
-    def sync_unspent(self, wallet):
-        """Finds the unspent transaction outputs belonging to this wallet"""
-
     def is_address_imported(self, addr):
         try:
             return self.rpc('getaccount', [addr]) != ''
         except JsonRpcError:
             return len(self.rpc('getaddressinfo', [addr])['labels']) > 0
-
-    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr,
-                      wallet_name=None, timeoutfun=None, spentfun=None, txid_flag=True,
-                      n=0, c=1, vb=None):
-        """Given a deserialized transaction txd,
-        callback functions for broadcast and confirmation of the transaction,
-        an address to import, and a callback function for timeout, set up
-        a polling loop to check for events on the transaction. Also optionally set
-        to trigger "confirmed" callback on number of confirmations c. Also checks
-        for spending (if spentfun is not None) of the outpoint n.
-        If txid_flag is True, we create a watcher loop on the txid (hence only
-        really usable in a segwit context, and only on fully formed transactions),
-        else we create a watcher loop on the output set of the transaction (taken
-        from the outs field of the txd).
-        """
-        if not vb:
-            vb = get_p2pk_vbyte()
-        if isinstance(self, BitcoinCoreInterface) or isinstance(self,
-                                        RegtestBitcoinCoreInterface):
-            #This code ensures that a walletnotify is triggered, by
-            #ensuring that at least one of the output addresses is
-            #imported into the wallet (note the sweep special case, where
-            #none of the output addresses belong to me).
-            one_addr_imported = False
-            for outs in txd['outs']:
-                addr = btc.script_to_address(outs['script'], vb)
-                try:
-                    if self.is_address_imported(addr):
-                        one_addr_imported = True
-                        break
-                except JsonRpcError as e:
-                    log.debug("Failed to getaccount for address: " + addr)
-                    log.debug("This is normal for bech32 addresses.")
-                    continue
-            if not one_addr_imported:
-                try:
-                    self.rpc('importaddress', [notifyaddr, 'joinmarket-notify', False])
-                except JsonRpcError as e:
-                    #In edge case of address already controlled
-                    #by another account, warn but do not quit in middle of tx.
-                    #Can occur if destination is owned in Core wallet.
-                    if e.code == -4 and e.message == "The wallet already " + \
-                       "contains the private key for this address or script":
-                        log.warn("WARNING: Failed to import address: " + notifyaddr)
-                    #No other error should be possible
-                    else:
-                        raise
-
-        #Warning! In case of txid_flag false, this is *not* a valid txid,
-        #but only a hash of an incomplete transaction serialization.
-        txid = btc.txhash(btc.serialize(txd))
-        if not txid_flag:
-            tx_output_set = set([(sv['script'], sv['value']) for sv in txd['outs']])
-            loop = task.LoopingCall(self.outputs_watcher, wallet_name, notifyaddr,
-                                    tx_output_set, unconfirmfun, confirmfun,
-                                    timeoutfun)
-            log.debug("Created watcher loop for address: " + notifyaddr)
-            loopkey = notifyaddr
-        else:
-            loop = task.LoopingCall(self.tx_watcher, txd, unconfirmfun, confirmfun,
-                                    spentfun, c, n)
-            log.debug("Created watcher loop for txid: " + txid)
-            loopkey = txid
-        self.tx_watcher_loops[loopkey] = [loop, False, False, False]
-        #Hardcoded polling interval, but in any case it can be very short.
-        loop.start(5.0)
-        #Give up on un-broadcast transactions and broadcast but not confirmed
-        #transactions as per settings in the config.
-        reactor.callLater(float(jm_single().config.get("TIMEOUT",
-                    "unconfirm_timeout_sec")), self.tx_network_timeout, loopkey)
-        confirm_timeout_sec = int(jm_single().config.get(
-            "TIMEOUT", "confirm_timeout_hours")) * 3600
-        reactor.callLater(confirm_timeout_sec, self.tx_timeout, txd, loopkey, timeoutfun)
-
-    def tx_network_timeout(self, loopkey):
-        """If unconfirm has not been called by the time this
-	is triggered, we abandon monitoring, assuming the tx has
-	not been broadcast.
-	"""
-        if not self.tx_watcher_loops[loopkey][1]:
-            log.info("Abandoning monitoring of un-broadcast tx for: " + str(loopkey))
-            if self.tx_watcher_loops[loopkey][0].running:
-                self.tx_watcher_loops[loopkey][0].stop()
-
-    def tx_timeout(self, txd, loopkey, timeoutfun):
-        """Assuming we are watching for an already-broadcast
-	transaction, give up once this triggers if confirmation has not occurred.
-	"""
-        if not loopkey in self.tx_watcher_loops:
-            #Occurs if the tx has already confirmed before this
-            return
-        if not self.tx_watcher_loops[loopkey][2]:
-            #Not confirmed after prescribed timeout in hours; give up
-            log.info("Timed out waiting for confirmation of: " + str(loopkey))
-            if self.tx_watcher_loops[loopkey][0].running:
-                self.tx_watcher_loops[loopkey][0].stop()
-            if timeoutfun:
-                timeoutfun(txd, loopkey)
-
-    @abc.abstractmethod
-    def outputs_watcher(self, wallet_name, notifyaddr, tx_output_set,
-                        unconfirmfun, confirmfun, timeoutfun):
-        """Given a key for the watcher loop (notifyaddr), a wallet name (account),
-        a set of outputs, and unconfirm, confirm and timeout callbacks,
-        check to see if a transaction matching that output set has appeared in
-        the wallet. Call the callbacks and update the watcher loop state.
-        End the loop when the confirmation has been seen (no spent monitoring here).
-        """
-
-    @abc.abstractmethod
-    def tx_watcher(self, txd, unconfirmfun, confirmfun, spentfun, c, n):
-        """Called at a polling interval, checks if the given deserialized
-        transaction (which must be fully signed) is (a) broadcast, (b) confirmed
-        and (c) spent from at index n, and notifies confirmation if number
-        of confs = c.
-        TODO: Deal with conflicts correctly. Here just abandons monitoring.
-        """
 
     @abc.abstractmethod
     def pushtx(self, txhex):
@@ -232,16 +81,6 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
     def sync_unspent(self, wallet):
         log.debug("Dummy electrum interface, no sync unspent")
-
-    def add_tx_notify(self, txd, unconfirmfun, confirmfun, notifyaddr):
-        log.debug("Dummy electrum interface, no add tx notify")
-
-    def outputs_watcher(self, wallet_name, notifyaddr,
-                        tx_output_set, uf, cf, tf):
-        log.debug("Dummy electrum interface, no outputs watcher")
-
-    def tx_watcher(self, txd, ucf, cf, sf, c, n):
-        log.debug("Dummy electrum interface, no tx watcher")
 
     def pushtx(self, txhex, timeout=10):
         #synchronous send
@@ -319,20 +158,12 @@ class BitcoinCoreInterface(BlockchainInterface):
     def __init__(self, jsonRpc, network):
         super(BitcoinCoreInterface, self).__init__()
         self.jsonRpc = jsonRpc
-        self.fast_sync_called = False
         blockchainInfo = self.jsonRpc.call("getblockchaininfo", [])
         actualNet = blockchainInfo['chain']
 
         netmap = {'main': 'mainnet', 'test': 'testnet', 'regtest': 'regtest'}
         if netmap[actualNet] != network:
             raise Exception('wrong network configured')
-
-        self.txnotify_fun = []
-        self.wallet_synced = False
-        #task.LoopingCall objects that track transactions, keyed by txids.
-        #Format: {"txid": (loop, unconfirmed true/false, confirmed true/false,
-        #spent true/false), ..}
-        self.tx_watcher_loops = {}
 
     def get_block(self, blockheight):
         """Returns full serialized block at a given height.
@@ -346,7 +177,7 @@ class BitcoinCoreInterface(BlockchainInterface):
     def rpc(self, method, args):
         if method not in ['importaddress', 'walletpassphrase', 'getaccount',
                           'gettransaction', 'getrawtransaction', 'gettxout',
-                          'importmulti']:
+                          'importmulti', 'listtransactions', 'getblockcount']:
             log.debug('rpc: ' + method + " " + str(args))
         res = self.jsonRpc.call(method, args)
         return res
@@ -357,8 +188,6 @@ class BitcoinCoreInterface(BlockchainInterface):
         of another account/label (see console output), and quits.
         Do NOT use for in-run imports, use rpc('importaddress',..) instead.
         """
-        log.debug('importing ' + str(len(addr_list)) +
-                  ' addresses with label ' + wallet_name)
         requests = []
         for addr in addr_list:
             requests.append({
@@ -395,7 +224,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         but in some cases a rescan is not required (if the address is known
         to be new/unused). For that case use import_addresses instead.
         """
-        self.import_addresses(addr_list, wallet_name, restart_cb)
+        self.import_addresses(addr_list, wallet_name)
         if jm_single().config.get("BLOCKCHAIN",
                                   "blockchain_source") != 'regtest': #pragma: no cover
             #Exit conditions cannot be included in tests
@@ -408,218 +237,6 @@ class BitcoinCoreInterface(BlockchainInterface):
             else:
                 jmprint(restart_msg, "important")
                 sys.exit(0)
-
-    def sync_wallet(self, wallet, fast=False, restart_cb=None):
-        #trigger fast sync if the index_cache is available
-        #(and not specifically disabled).
-        if fast:
-            self.sync_wallet_fast(wallet)
-            self.fast_sync_called = True
-            return
-        super(BitcoinCoreInterface, self).sync_wallet(wallet, restart_cb=restart_cb)
-        self.fast_sync_called = False
-
-    def sync_wallet_fast(self, wallet):
-        """Exploits the fact that given an index_cache,
-        all addresses necessary should be imported, so we
-        can just list all used addresses to find the right
-        index values.
-        """
-        self.get_address_usages(wallet)
-        self.sync_unspent(wallet)
-
-    def get_address_usages(self, wallet):
-        """Use rpc `listaddressgroupings` to locate all used
-        addresses in the account (whether spent or unspent outputs).
-        This will not result in a full sync if working with a new
-        Bitcoin Core instance, in which case "fast" should have been
-        specifically disabled by the user.
-        """
-        wallet_name = self.get_wallet_name(wallet)
-        agd = self.rpc('listaddressgroupings', [])
-        #flatten all groups into a single list; then, remove duplicates
-        fagd = (tuple(item) for sublist in agd for item in sublist)
-        #"deduplicated flattened address grouping data" = dfagd
-        dfagd = set(fagd)
-        used_addresses = set()
-        for addr_info in dfagd:
-            if len(addr_info) < 3 or addr_info[2] != wallet_name:
-                continue
-            used_addresses.add(addr_info[0])
-
-        #for a first run, import first chunk
-        if not used_addresses:
-            log.info("Detected new wallet, performing initial import")
-            # delegate inital address import to sync_addresses
-            # this should be fast because "getaddressesbyaccount" should return
-            # an empty list in this case
-            self.sync_addresses(wallet)
-            self.wallet_synced = True
-            return
-
-        #Wallet has been used; scan forwards.
-        log.debug("Fast sync in progress. Got this many used addresses: " + str(
-            len(used_addresses)))
-        #Need to have wallet.index point to the last used address
-        #Algo:
-        #    1. Scan batch 1 of each branch, record matched wallet addresses.
-        #    2. Check if all addresses in 'used addresses' have been matched, if
-        #       so, break.
-        #    3. Repeat the above for batch 2, 3.. up to max 20 batches.
-        #    4. If after all 20 batches not all used addresses were matched,
-        #       quit with error.
-        #    5. Calculate used indices.
-        #    6. If all used addresses were matched, set wallet index to highest
-        #       found index in each branch and mark wallet sync complete.
-        #Rationale for this algo:
-        #    Retrieving addresses is a non-zero computational load, so batching
-        #    and then caching allows a small sync to complete *reasonably*
-        #    quickly while a larger one is not really negatively affected.
-        #    The downside is another free variable, batch size, but this need
-        #    not be exposed to the user; it is not the same as gap limit, in fact,
-        #    the concept of gap limit does not apply to this kind of sync, which
-        #    *assumes* that the most recent usage of addresses is indeed recorded.
-        remaining_used_addresses = used_addresses.copy()
-        addresses, saved_indices = self._collect_addresses_init(wallet)
-        for addr in addresses:
-            remaining_used_addresses.discard(addr)
-
-        BATCH_SIZE = 100
-        MAX_ITERATIONS = 20
-        current_indices = deepcopy(saved_indices)
-        for j in range(MAX_ITERATIONS):
-            if not remaining_used_addresses:
-                break
-            for addr in \
-                    self._collect_addresses_gap(wallet, gap_limit=BATCH_SIZE):
-                remaining_used_addresses.discard(addr)
-
-            # increase wallet indices for next iteration
-            for md in current_indices:
-                current_indices[md][0] += BATCH_SIZE
-                current_indices[md][1] += BATCH_SIZE
-            self._rewind_wallet_indices(wallet, current_indices,
-                                        current_indices)
-        else:
-            self._rewind_wallet_indices(wallet, saved_indices, saved_indices)
-            raise Exception("Failed to sync in fast mode after 20 batches; "
-                            "please re-try wallet sync without --fast flag.")
-
-        # creating used_indices on-the-fly would be more efficient, but the
-        # overall performance gain is probably negligible
-        used_indices = self._get_used_indices(wallet, used_addresses)
-        self._rewind_wallet_indices(wallet, used_indices, saved_indices)
-        self.wallet_synced = True
-
-    def sync_addresses(self, wallet, restart_cb=None):
-        log.debug("requesting detailed wallet history")
-        wallet_name = self.get_wallet_name(wallet)
-
-        addresses, saved_indices = self._collect_addresses_init(wallet)
-        try:
-            imported_addresses = set(self.rpc('getaddressesbyaccount',
-                [wallet_name]))
-        except JsonRpcError:
-            if wallet_name in self.rpc('listlabels', []):
-                imported_addresses = set(self.rpc('getaddressesbylabel',
-                    [wallet_name]).keys())
-            else:
-                imported_addresses = set()
-
-        if not addresses.issubset(imported_addresses):
-            self.add_watchonly_addresses(addresses - imported_addresses,
-                                         wallet_name, restart_cb)
-            return
-
-        used_addresses_gen = (tx['address']
-                              for tx in self._yield_transactions(wallet_name)
-                              if tx['category'] == 'receive')
-
-        used_indices = self._get_used_indices(wallet, used_addresses_gen)
-        log.debug("got used indices: {}".format(used_indices))
-        gap_limit_used = not self._check_gap_indices(wallet, used_indices)
-        self._rewind_wallet_indices(wallet, used_indices, saved_indices)
-
-        new_addresses = self._collect_addresses_gap(wallet)
-        if not new_addresses.issubset(imported_addresses):
-            log.debug("Syncing iteration finished, additional step required")
-            self.add_watchonly_addresses(new_addresses - imported_addresses,
-                                         wallet_name, restart_cb)
-            self.wallet_synced = False
-        elif gap_limit_used:
-            log.debug("Syncing iteration finished, additional step required")
-            self.wallet_synced = False
-        else:
-            log.debug("Wallet successfully synced")
-            self._rewind_wallet_indices(wallet, used_indices, saved_indices)
-            self.wallet_synced = True
-
-    @staticmethod
-    def _rewind_wallet_indices(wallet, used_indices, saved_indices):
-        for md in used_indices:
-            for int_type in (0, 1):
-                index = max(used_indices[md][int_type],
-                            saved_indices[md][int_type])
-                wallet.set_next_index(md, int_type, index, force=True)
-
-    @staticmethod
-    def _get_used_indices(wallet, addr_gen):
-        indices = {x: [0, 0] for x in range(wallet.max_mixdepth + 1)}
-
-        for addr in addr_gen:
-            if not wallet.is_known_addr(addr):
-                continue
-            md, internal, index = wallet.get_details(
-                wallet.addr_to_path(addr))
-            if internal not in (0, 1):
-                assert internal == 'imported'
-                continue
-            indices[md][internal] = max(indices[md][internal], index + 1)
-
-        return indices
-
-    @staticmethod
-    def _check_gap_indices(wallet, used_indices):
-        for md in used_indices:
-            for internal in (0, 1):
-                if used_indices[md][internal] >\
-                        max(wallet.get_next_unused_index(md, internal), 0):
-                    return False
-        return True
-
-    @staticmethod
-    def _collect_addresses_init(wallet):
-        addresses = set()
-        saved_indices = dict()
-
-        for md in range(wallet.max_mixdepth + 1):
-            saved_indices[md] = [0, 0]
-            for internal in (0, 1):
-                next_unused = wallet.get_next_unused_index(md, internal)
-                for index in range(next_unused):
-                    addresses.add(wallet.get_addr(md, internal, index))
-                for index in range(wallet.gap_limit):
-                    addresses.add(wallet.get_new_addr(md, internal))
-                wallet.set_next_index(md, internal, next_unused)
-                saved_indices[md][internal] = next_unused
-            for path in wallet.yield_imported_paths(md):
-                addresses.add(wallet.get_addr_path(path))
-
-        return addresses, saved_indices
-
-    @staticmethod
-    def _collect_addresses_gap(wallet, gap_limit=None):
-        gap_limit = gap_limit or wallet.gap_limit
-        addresses = set()
-
-        for md in range(wallet.max_mixdepth + 1):
-            for internal in (True, False):
-                old_next = wallet.get_next_unused_index(md, internal)
-                for index in range(gap_limit):
-                    addresses.add(wallet.get_new_addr(md, internal))
-                wallet.set_next_index(md, internal, old_next)
-
-        return addresses
 
     def _yield_transactions(self, wallet_name):
         batch_size = 1000
@@ -634,47 +251,6 @@ class BitcoinCoreInterface(BlockchainInterface):
                 return
             iteration += 1
 
-    def start_unspent_monitoring(self, wallet):
-        self.unspent_monitoring_loop = task.LoopingCall(self.sync_unspent, wallet)
-        self.unspent_monitoring_loop.start(1.0)
-
-    def stop_unspent_monitoring(self):
-        self.unspent_monitoring_loop.stop()
-
-    def sync_unspent(self, wallet):
-        st = time.time()
-        wallet_name = self.get_wallet_name(wallet)
-        wallet.reset_utxos()
-
-        listunspent_args = []
-        if 'listunspent_args' in jm_single().config.options('POLICY'):
-            listunspent_args = ast.literal_eval(jm_single().config.get(
-                'POLICY', 'listunspent_args'))
-
-        unspent_list = self.rpc('listunspent', listunspent_args)
-        for u in unspent_list:
-            if not wallet.is_known_addr(u['address']):
-                continue
-            self._add_unspent_utxo(wallet, u)
-        et = time.time()
-        log.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
-        self.wallet_synced = True
-
-    @staticmethod
-    def _add_unspent_utxo(wallet, utxo):
-        """
-        Add a UTXO as returned by rpc's listunspent call to the wallet.
-
-        params:
-            wallet: wallet
-            utxo: single utxo dict as returned by listunspent
-        """
-        txid = binascii.unhexlify(utxo['txid'])
-        script = binascii.unhexlify(utxo['scriptPubKey'])
-        value = int(Decimal(str(utxo['amount'])) * Decimal('1e8'))
-
-        wallet.add_utxo(txid, int(utxo['vout']), script, value)
-
     def get_deser_from_gettransaction(self, rpcretval):
         """Get full transaction deserialization from a call
         to `gettransaction`
@@ -686,156 +262,36 @@ class BitcoinCoreInterface(BlockchainInterface):
         hexval = str(rpcretval["hex"])
         return btc.deserialize(hexval)
 
-    def outputs_watcher(self, wallet_name, notifyaddr, tx_output_set,
-                        unconfirmfun, confirmfun, timeoutfun):
-        """Given a key for the watcher loop (notifyaddr), a wallet name (label),
-        a set of outputs, and unconfirm, confirm and timeout callbacks,
-        check to see if a transaction matching that output set has appeared in
-        the wallet. Call the callbacks and update the watcher loop state.
-        End the loop when the confirmation has been seen (no spent monitoring here).
+    def list_transactions(self, num):
+        """ Return a list of the last `num` transactions seen
+        in the wallet (under any label/account).
         """
-        wl = self.tx_watcher_loops[notifyaddr]
-        txlist = self.rpc("listtransactions", ["*", 100, 0, True])
-        for tx in txlist[::-1]:
-            #changed syntax in 0.14.0; allow both syntaxes
-            try:
-                res = self.rpc("gettransaction", [tx["txid"], True])
-            except:
-                try:
-                    res = self.rpc("gettransaction", [tx["txid"], 1])
-                except JsonRpcError as e:
-                    #This should never happen (gettransaction is a wallet rpc).
-                    log.warn("Failed gettransaction call; JsonRpcError")
-                    res = None
-                except Exception as e:
-                    log.warn("Failed gettransaction call; unexpected error:")
-                    log.warn(str(e))
-                    res = None
-            if not res:
-                continue
-            if "confirmations" not in res:
-                log.debug("Malformed gettx result: " + str(res))
-                return
-            txd = self.get_deser_from_gettransaction(res)
-            if txd is None:
-                continue
-            txos = set([(sv['script'], sv['value']) for sv in txd['outs']])
-            if not txos == tx_output_set:
-                continue
-            #Here we have found a matching transaction in the wallet.
-            real_txid = btc.txhash(btc.serialize(txd))
-            if not wl[1] and res["confirmations"] == 0:
-                log.debug("Tx: " + str(real_txid) + " seen on network.")
-                unconfirmfun(txd, real_txid)
-                wl[1] = True
-                return
-            if not wl[2] and res["confirmations"] > 0:
-                log.debug("Tx: " + str(real_txid) + " has " + str(
-                res["confirmations"]) + " confirmations.")
-                confirmfun(txd, real_txid, res["confirmations"])
-                wl[2] = True
-                wl[0].stop()
-                return
-            if res["confirmations"] < 0:
-                log.debug("Tx: " + str(real_txid) + " has a conflict. Abandoning.")
-                wl[0].stop()
-                return
+        return self.rpc("listtransactions", ["*", num, 0, True])
 
-    def tx_watcher(self, txd, unconfirmfun, confirmfun, spentfun, c, n):
-        """Called at a polling interval, checks if the given deserialized
-        transaction (which must be fully signed) is (a) broadcast, (b) confirmed
-        and (c) spent from at index n, and notifies confirmation if number
-        of confs = c.
-        TODO: Deal with conflicts correctly. Here just abandons monitoring.
+    def get_transaction(self, txid):
+        """ Returns a serialized transaction for txid txid,
+        in hex as returned by Bitcoin Core rpc, or None
+        if no transaction can be retrieved. Works also for
+        watch-only wallets.
         """
-        txid = btc.txhash(btc.serialize(txd))
-        wl = self.tx_watcher_loops[txid]
+        #changed syntax in 0.14.0; allow both syntaxes
         try:
-            res = self.rpc('gettransaction', [txid, True])
-        except JsonRpcError as e:
-            return
-        if not res:
-            return
+            res = self.rpc("gettransaction", [txid, True])
+        except:
+            try:
+                res = self.rpc("gettransaction", [txid, 1])
+            except JsonRpcError as e:
+                #This should never happen (gettransaction is a wallet rpc).
+                log.warn("Failed gettransaction call; JsonRpcError")
+                return None
+            except Exception as e:
+                log.warn("Failed gettransaction call; unexpected error:")
+                log.warn(str(e))
+                return None
         if "confirmations" not in res:
-            log.debug("Malformed gettx result: " + str(res))
-            return
-        if not wl[1] and res["confirmations"] == 0:
-            log.debug("Tx: " + str(txid) + " seen on network.")
-            unconfirmfun(txd, txid)
-            wl[1] = True
-            return
-        if not wl[2] and res["confirmations"] > 0:
-            log.debug("Tx: " + str(txid) + " has " + str(
-                res["confirmations"]) + " confirmations.")
-            confirmfun(txd, txid, res["confirmations"])
-            if c <= res["confirmations"]:
-                wl[2] = True
-                #Note we do not stop the monitoring loop when
-                #confirmations occur, since we are also monitoring for spending.
-            return
-        if res["confirmations"] < 0:
-            log.debug("Tx: " + str(txid) + " has a conflict. Abandoning.")
-            wl[0].stop()
-            return
-        if not spentfun or wl[3]:
-            return
-        #To trigger the spent callback, we check if this utxo outpoint appears in
-        #listunspent output with 0 or more confirmations. Note that this requires
-        #we have added the destination address to the watch-only wallet, otherwise
-        #that outpoint will not be returned by listunspent.
-        res2 = self.rpc('listunspent', [0, 999999])
-        if not res2:
-            return
-        txunspent = False
-        for r in res2:
-            if "txid" not in r:
-                continue
-            if txid == r["txid"] and n == r["vout"]:
-                txunspent = True
-                break
-        if not txunspent:
-            #We need to find the transaction which spent this one;
-            #assuming the address was added to the wallet, then this
-            #transaction must be in the recent list retrieved via listunspent.
-            #For each one, use gettransaction to check its inputs.
-            #This is a bit expensive, but should only occur once.
-            txlist = self.rpc("listtransactions", ["*", 1000, 0, True])
-            for tx in txlist[::-1]:
-                #changed syntax in 0.14.0; allow both syntaxes
-                try:
-                    res = self.rpc("gettransaction", [tx["txid"], True])
-                except:
-                    try:
-                        res = self.rpc("gettransaction", [tx["txid"], 1])
-                    except:
-                        #This should never happen (gettransaction is a wallet rpc).
-                        log.info("Failed any gettransaction call")
-                        res = None
-                if not res:
-                    continue
-                deser = self.get_deser_from_gettransaction(res)
-                if deser is None:
-                    continue
-                for vin in deser["ins"]:
-                    if not "outpoint" in vin:
-                        #coinbases
-                        continue
-                    if vin["outpoint"]["hash"] == txid and vin["outpoint"]["index"] == n:
-                        #recover the deserialized form of the spending transaction.
-                        log.info("We found a spending transaction: " + \
-                                   btc.txhash(binascii.unhexlify(res["hex"])))
-                        res2 = self.rpc("gettransaction", [tx["txid"], True])
-                        spending_deser = self.get_deser_from_gettransaction(res2)
-                        if not spending_deser:
-                            log.info("ERROR: could not deserialize spending tx.")
-                            #Should never happen, it's a parsing bug.
-                            #No point continuing to monitor, we just hope we
-                            #can extract the secret by scanning blocks.
-                            wl[3] = True
-                            return
-                        spentfun(spending_deser, vin["outpoint"]["hash"])
-                        wl[3] = True
-                        return
+            log.warning("Malformed gettx result: " + str(res))
+            return None
+        return res
 
     def pushtx(self, txhex):
         try:

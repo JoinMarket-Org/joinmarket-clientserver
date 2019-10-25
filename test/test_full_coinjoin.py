@@ -57,7 +57,7 @@ def test_cj(setup_full_coinjoin, num_ygs, wallet_structures, mean_amt,
     wallet = wallets[num_ygs]['wallet']
     sync_wallet(wallet, fast=True)
     # grab a dest addr from the wallet
-    destaddr = wallet.get_new_addr(4, 0)
+    destaddr = wallet.get_external_addr(4)
     coinjoin_amt = 20000000
     schedule = [[1, coinjoin_amt, 2, destaddr,
                      0.0, False]]

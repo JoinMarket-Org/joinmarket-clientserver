@@ -12,7 +12,8 @@ from decimal import Decimal
 from jmbase import get_log
 from jmclient import (
     jm_single, open_test_wallet_maybe, estimate_tx_fee,
-    BlockchainInterface, get_p2sh_vbyte, BIP32Wallet, SegwitLegacyWallet)
+    BlockchainInterface, get_p2sh_vbyte, BIP32Wallet,
+    SegwitLegacyWallet, WalletService)
 from jmbase.support import chunks
 import jmbitcoin as btc
 
@@ -30,24 +31,15 @@ class DummyBlockchainInterface(BlockchainInterface):
         self.fake_query_results = None
         self.qusfail = False
 
+    def rpc(self, a, b):
+        return None
     def sync_addresses(self, wallet):
         pass
     def sync_unspent(self, wallet):
         pass
-    def import_addresses(self, addr_list, wallet_name):
+    def import_addresses(self, addr_list, wallet_name, restart_cb=None):
         pass
-    def outputs_watcher(self, wallet_name, notifyaddr,
-                        tx_output_set, uf, cf, tf):
-        pass
-    def tx_watcher(self, txd, ucf, cf, sf, c, n):
-        pass
-    def add_tx_notify(self,
-                      txd,
-                      unconfirmfun,
-                      confirmfun,
-                      notifyaddr,
-                      timeoutfun=None,
-                      vb=None):
+    def is_address_imported(self, addr):
         pass
     
     def pushtx(self, txhex):
@@ -127,7 +119,7 @@ def binarize_tx(tx):
 
 
 def make_sign_and_push(ins_full,
-                       wallet,
+                       wallet_service,
                        amount,
                        output_addr=None,
                        change_addr=None,
@@ -136,11 +128,12 @@ def make_sign_and_push(ins_full,
     """Utility function for easily building transactions
     from wallets
     """
+    assert isinstance(wallet_service, WalletService)
     total = sum(x['value'] for x in ins_full.values())
     ins = list(ins_full.keys())
     #random output address and change addr
-    output_addr = wallet.get_new_addr(1, 1) if not output_addr else output_addr
-    change_addr = wallet.get_new_addr(1, 0) if not change_addr else change_addr
+    output_addr = wallet_service.get_new_addr(1, 1) if not output_addr else output_addr
+    change_addr = wallet_service.get_new_addr(0, 1) if not change_addr else change_addr
     fee_est = estimate_tx_fee(len(ins), 2) if estimate_fee else 10000
     outs = [{'value': amount,
              'address': output_addr}, {'value': total - amount - fee_est,
@@ -150,15 +143,18 @@ def make_sign_and_push(ins_full,
     scripts = {}
     for index, ins in enumerate(de_tx['ins']):
         utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-        script = wallet.addr_to_script(ins_full[utxo]['address'])
+        script = wallet_service.addr_to_script(ins_full[utxo]['address'])
         scripts[index] = (script, ins_full[utxo]['value'])
     binarize_tx(de_tx)
-    de_tx = wallet.sign_tx(de_tx, scripts, hashcode=hashcode)
+    de_tx = wallet_service.sign_tx(de_tx, scripts, hashcode=hashcode)
     #pushtx returns False on any error
     push_succeed = jm_single().bc_interface.pushtx(btc.serialize(de_tx))
     if push_succeed:
-        removed = wallet.remove_old_utxos(de_tx)
-        return btc.txhash(btc.serialize(de_tx))
+        txid = btc.txhash(btc.serialize(de_tx))
+        # in normal operation this happens automatically
+        # but in some tests there is no monitoring loop:
+        wallet_service.process_new_tx(de_tx, txid)
+        return txid
     else:
         return False
 
@@ -194,17 +190,17 @@ def make_wallets(n,
 
         w = open_test_wallet_maybe(seeds[i], seeds[i], mixdepths - 1,
                                    test_wallet_cls=wallet_cls)
-
+        wallet_service = WalletService(w)
         wallets[i + start_index] = {'seed': seeds[i],
-                                    'wallet': w}
+                                    'wallet': wallet_service}
         for j in range(mixdepths):
             for k in range(wallet_structures[i][j]):
                 deviation = sdev_amt * random.random()
                 amt = mean_amt - sdev_amt / 2.0 + deviation
                 if amt < 0: amt = 0.001
                 amt = float(Decimal(amt).quantize(Decimal(10)**-8))
-                jm_single().bc_interface.grab_coins(
-                    w.get_new_addr(j, populate_internal), amt)
+                jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(
+                    j, populate_internal), amt)
     return wallets
 
 

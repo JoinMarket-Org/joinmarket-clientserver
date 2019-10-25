@@ -13,38 +13,38 @@ import json
 import pytest
 from jmbase import get_log
 from jmclient import (
-    load_program_config, jm_single, sync_wallet,
+    load_program_config, jm_single,
     estimate_tx_fee, BitcoinCoreInterface, Mnemonic)
 from taker_test_data import t_raw_signed_tx
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 
 
-def do_tx(wallet, amount):
-    ins_full = wallet.select_utxos(0, amount)
-    cj_addr = wallet.get_internal_addr(1)
-    change_addr = wallet.get_internal_addr(0)
-    wallet.update_cache_index()
+def do_tx(wallet_service, amount):
+    ins_full = wallet_service.select_utxos(0, amount)
+    cj_addr = wallet_service.get_internal_addr(1)
+    change_addr = wallet_service.get_internal_addr(0)
+    wallet_service.save_wallet()
     txid = make_sign_and_push(ins_full,
-                              wallet,
+                              wallet_service,
                               amount,
                               output_addr=cj_addr,
                               change_addr=change_addr,
                               estimate_fee=True)
     assert txid
     time.sleep(2)  #blocks
-    jm_single().bc_interface.sync_unspent(wallet)
+    wallet_service.sync_unspent()
     return txid
 
 
 def test_query_utxo_set(setup_wallets):
     load_program_config()
     jm_single().bc_interface.tick_forward_chain_interval = 1
-    wallet = create_wallet_for_sync([2, 3, 0, 0, 0],
+    wallet_service = create_wallet_for_sync([2, 3, 0, 0, 0],
                                     ["wallet4utxo.json", "4utxo", [2, 3]])
-    sync_wallet(wallet, fast=True)
-    txid = do_tx(wallet, 90000000)
-    txid2 = do_tx(wallet, 20000000)
+    wallet_service.sync_wallet(fast=True)
+    txid = do_tx(wallet_service, 90000000)
+    txid2 = do_tx(wallet_service, 20000000)
     print("Got txs: ", txid, txid2)
     res1 = jm_single().bc_interface.query_utxo_set(txid + ":0", includeunconf=True)
     res2 = jm_single().bc_interface.query_utxo_set(
