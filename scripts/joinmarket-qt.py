@@ -167,7 +167,7 @@ class HelpLabel(QLabel):
         self.setStyleSheet(BLUE_FG)
 
     def mouseReleaseEvent(self, x):
-        QMessageBox.information(w, self.wtitle, self.help_text)
+        QMessageBox.information(mainWindow, self.wtitle, self.help_text)
 
     def enterEvent(self, event):
         self.font.setUnderline(True)
@@ -243,7 +243,7 @@ class SettingsTab(QDialog):
                 oname = 'network'
                 oval = 'testnet' if checked else 'mainnet'
                 add = '' if not checked else ' - Testnet'
-                w.setWindowTitle(appWindowTitle + add)
+                mainWindow.setWindowTitle(appWindowTitle + add)
             else:
                 oname = str(t[0].text())
                 oval = 'true' if checked else 'false'
@@ -371,7 +371,7 @@ class SpendTab(QWidget):
             JMQtMessageBox(self, "Not a valid JM schedule file", mbtype='crit',
                            title='Error')
         else:
-            w.statusBar().showMessage("Schedule loaded OK.")
+            mainWindow.statusBar().showMessage("Schedule loaded OK.")
             self.spendstate.loaded_schedule = schedule
             self.spendstate.schedule_name = os.path.basename(str(firstarg[0]))
             self.updateSchedView()
@@ -516,17 +516,14 @@ class SpendTab(QWidget):
 
     def updateConsoleText(self, txt):
         #these alerts are a bit suboptimal;
-        #colored is better, and in the ultra-rare
-        #case of getting both, one will be swallowed.
+        #colored is better
         #However, the transaction confirmation dialog
         #will at least show both in RED and BOLD, and they will be more prominent.
         #TODO in new daemon this is not accessible? Or?
         """
         if joinmarket_alert[0]:
-            w.statusBar().showMessage("JOINMARKET ALERT: " + joinmarket_alert[
+            mainWindow.statusBar().showMessage("JOINMARKET ALERT: " + joinmarket_alert[
                 0])
-        if core_alert[0]:
-            w.statusBar().showMessage("BITCOIN CORE ALERT: " + core_alert[0])
         """
         self.textedit.insertPlainText(txt)
 
@@ -537,7 +534,7 @@ class SpendTab(QWidget):
         if restart_wait(self.waitingtxid):
             self.restartTimer.stop()
             self.waitingtxid = None
-            w.statusBar().showMessage("Transaction in a block, now continuing.")
+            mainWindow.statusBar().showMessage("Transaction in a block, now continuing.")
             self.startJoin()
 
     def startMultiple(self):
@@ -573,7 +570,7 @@ class SpendTab(QWidget):
                 self.spendstate.loaded_schedule[0][5]) == 64:
                 #ensure last transaction is confirmed before restart
                 tumble_log.info("WAITING TO RESTART...")
-                w.statusBar().showMessage("Waiting for confirmation to restart..")
+                mainWindow.statusBar().showMessage("Waiting for confirmation to restart..")
                 txid = self.spendstate.loaded_schedule[0][5]
                 #remove the already-done entry (this connects to the other TODO,
                 #probably better *not* to truncate the done-already txs from file,
@@ -622,7 +619,7 @@ class SpendTab(QWidget):
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
         if makercount == 0:
-            txid = direct_send(w.wallet_service, amount, mixdepth,
+            txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
                                   destaddr, accept_callback=self.checkDirectSend,
                                   info_callback=self.infoDirectSend)
             if not txid:
@@ -652,7 +649,7 @@ class SpendTab(QWidget):
         self.startJoin()
 
     def startJoin(self):
-        if not w.wallet_service:
+        if not mainWindow.wallet_service:
             JMQtMessageBox(self, "Cannot start without a loaded wallet.",
                            mbtype="crit", title="Error")
             return
@@ -666,7 +663,7 @@ class SpendTab(QWidget):
             check_offers_callback = None
 
         destaddrs = self.tumbler_destaddrs if self.tumbler_options else []
-        self.taker = Taker(w.wallet_service,
+        self.taker = Taker(mainWindow.wallet_service,
                            self.spendstate.loaded_schedule,
                            order_chooser=weighted_order_choose,
                            callbacks=[check_offers_callback,
@@ -690,7 +687,7 @@ class SpendTab(QWidget):
             #This will re-use IRC connections in background (daemon), no restart
             self.clientfactory.getClient().client = self.taker
             self.clientfactory.getClient().clientStart()
-        w.statusBar().showMessage("Connecting to IRC ...")
+        mainWindow.statusBar().showMessage("Connecting to IRC ...")
 
     def takerInfo(self, infotype, infomsg):
         if infotype == "INFO":
@@ -698,7 +695,7 @@ class SpendTab(QWidget):
             if len(infomsg) > 200:
                 log.info("INFO: " + infomsg)
             else:
-                w.statusBar().showMessage(infomsg)
+                mainWindow.statusBar().showMessage(infomsg)
         elif infotype == "ABORT":
             JMQtMessageBox(self, infomsg,
                            mbtype='warn')
@@ -795,7 +792,7 @@ class SpendTab(QWidget):
         #GUI-specific updates; QTimer.singleShot serves the role
         #of reactor.callLater
         if fromtx == "unconfirmed":
-            w.statusBar().showMessage(
+            mainWindow.statusBar().showMessage(
                 "Transaction seen on network: " + self.taker.txid)
             if self.spendstate.typestate == 'single':
                 JMQtMessageBox(self, "Transaction broadcast OK. You can safely \n"
@@ -813,7 +810,7 @@ class SpendTab(QWidget):
             return
         if fromtx:
             if res:
-                w.statusBar().showMessage("Transaction confirmed: " + self.taker.txid)
+                mainWindow.statusBar().showMessage("Transaction confirmed: " + self.taker.txid)
                 #singleShot argument is in milliseconds
                 if self.nextTxTimer:
                     self.nextTxTimer.stop()
@@ -825,14 +822,14 @@ class SpendTab(QWidget):
                 #                         self.startNextTransaction)
             else:
                 if self.tumbler_options:
-                    w.statusBar().showMessage("Transaction failed, trying again...")
+                    mainWindow.statusBar().showMessage("Transaction failed, trying again...")
                     QtCore.QTimer.singleShot(0, self.startNextTransaction)
                 else:
                     #currently does not continue for non-tumble schedules
                     self.giveUp()
         else:
             if res:
-                w.statusBar().showMessage("All transaction(s) completed successfully.")
+                mainWindow.statusBar().showMessage("All transaction(s) completed successfully.")
                 if len(self.taker.schedule) == 1:
                     msg = "Transaction has been confirmed.\n" + "Txid: " + \
                                            str(self.taker.txid)
@@ -851,7 +848,7 @@ class SpendTab(QWidget):
                                   ).strftime("%Y/%m/%d %H:%M:%S")])).encode('utf-8'))
             f.write(b'\n')  #TODO: Windows
         #update the TxHistory tab
-        txhist = w.centralWidget().widget(3)
+        txhist = mainWindow.centralWidget().widget(3)
         txhist.updateTxInfo()
 
     def toggleButtons(self):
@@ -888,7 +885,7 @@ class SpendTab(QWidget):
         """Inform the user that the transaction failed, then reset state.
         """
         log.debug("Transaction aborted.")
-        w.statusBar().showMessage("Transaction aborted.")
+        mainWindow.statusBar().showMessage("Transaction aborted.")
         if self.taker and len(self.taker.ignored_makers) > 0:
             JMQtMessageBox(self, "These Makers did not respond, and will be \n"
                            "ignored in future: \n" + str(
@@ -921,7 +918,7 @@ class SpendTab(QWidget):
             if len(self.widgets[i][1].text()) == 0:
                 JMQtMessageBox(self, errs[i - 1], mbtype='warn', title="Error")
                 return False
-        if not w.wallet_service:
+        if not mainWindow.wallet_service:
             JMQtMessageBox(self,
                            "There is no wallet loaded.",
                            mbtype='warn',
@@ -966,8 +963,8 @@ class TxHistoryTab(QWidget):
     def getTxInfoFromFile(self):
         hf = jm_single().config.get("GUI", "history_file")
         if not os.path.isfile(hf):
-            if w:
-                w.statusBar().showMessage("No transaction history found.")
+            if mainWindow:
+                mainWindow.statusBar().showMessage("No transaction history found.")
             return []
         txhist = []
         with open(hf, 'rb') as f:
@@ -979,7 +976,7 @@ class TxHistoryTab(QWidget):
                                    "Incorrectedly formatted file " + hf,
                                    mbtype='warn',
                                    title="Error")
-                    w.statusBar().showMessage("No transaction history found.")
+                    mainWindow.statusBar().showMessage("No transaction history found.")
                     return []
         return txhist[::-1
                      ]  #appended to file in date order, window shows reverse
@@ -1039,13 +1036,13 @@ class CoinsTab(QWidget):
             self.cTW.addChild(m_item)
             self.cTW.show()
 
-        if not w.wallet_service:
+        if not mainWindow.wallet_service:
             show_blank()
             return
         utxos_enabled = {}
         utxos_disabled = {}
         for i in range(jm_single().config.getint("GUI", "max_mix_depth")):
-            utxos_e, utxos_d = get_utxos_enabled_disabled(w.wallet_service, i)
+            utxos_e, utxos_d = get_utxos_enabled_disabled(mainWindow.wallet_service, i)
             if utxos_e != {}:
                 utxos_enabled[i] = utxos_e
             if utxos_d != {}:
@@ -1072,7 +1069,7 @@ class CoinsTab(QWidget):
                         # txid:index, btc, address
                         t = btc.safe_hexlify(k[0])+":"+str(k[1])
                         s = "{0:.08f}".format(v['value']/1e8)
-                        a = w.wallet_service.script_to_addr(v["script"])
+                        a = mainWindow.wallet_service.script_to_addr(v["script"])
                         item = QTreeWidgetItem([t, s, a])
                         item.setFont(0, QFont(MONOSPACE_FONT))
                         #if rows[i][forchange][j][3] != 'new':
@@ -1082,7 +1079,7 @@ class CoinsTab(QWidget):
 
     def toggle_utxo_disable(self, txid, idx):
         txid_bytes = btc.safe_from_hex(txid)
-        w.wallet_service.toggle_disable_utxo(txid_bytes, idx)
+        mainWindow.wallet_service.toggle_disable_utxo(txid_bytes, idx)
         self.updateUtxos()
 
     def create_menu(self, position):
@@ -1203,13 +1200,12 @@ class JMWalletTab(QWidget):
             esrs.append(expandedness)
         l.clear()
         if walletinfo:
-            self.mainwindow = self.parent().parent().parent()
             rows, mbalances, xpubs, total_bal = walletinfo
             if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
-                self.wallet_name = self.mainwindow.testwalletname
+                self.wallet_name = mainWindow.testwalletname
             else:
                 self.wallet_name = os.path.basename(
-                    self.mainwindow.wallet_service.get_storage_location())
+                    mainWindow.wallet_service.get_storage_location())
             if total_bal is None:
                 total_bal = " (syncing..)"
             self.label1.setText("CURRENT WALLET: " + self.wallet_name +
@@ -1792,8 +1788,8 @@ tumble_log = get_tumble_log(logsdir)
 ignored_makers = []
 appWindowTitle = 'JoinMarketQt'
 from twisted.internet import reactor
-w = JMMainWindow(reactor)
-tabWidget = QTabWidget(w)
+mainWindow = JMMainWindow(reactor)
+tabWidget = QTabWidget(mainWindow)
 tabWidget.addTab(JMWalletTab(), "JM Wallet")
 settingsTab = SettingsTab()
 tabWidget.addTab(settingsTab, "Settings")
@@ -1801,12 +1797,12 @@ tabWidget.addTab(SpendTab(), "Coinjoins")
 tabWidget.addTab(TxHistoryTab(), "Tx History")
 tabWidget.addTab(CoinsTab(), "Coins")
 
-w.resize(600, 500)
+mainWindow.resize(600, 500)
 suffix = ' - Testnet' if get_network() == 'testnet' else ''
-w.setWindowTitle(appWindowTitle + suffix)
+mainWindow.setWindowTitle(appWindowTitle + suffix)
 tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-w.setCentralWidget(tabWidget)
+mainWindow.setCentralWidget(tabWidget)
 tabWidget.currentChanged.connect(onTabChange)
-w.show()
+mainWindow.show()
 reactor.runReturn()
 sys.exit(app.exec_())
