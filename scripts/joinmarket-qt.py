@@ -1281,30 +1281,35 @@ class JMMainWindow(QMainWindow):
     def initUI(self):
         self.statusBar().showMessage("Ready")
         self.setGeometry(300, 300, 250, 150)
+        loadAction = QAction('&Load', self)
+        loadAction.setStatusTip('Load wallet from file')
+        loadAction.triggered.connect(self.selectWallet)
+        generateAction = QAction('&Generate', self)
+        generateAction.setStatusTip('Generate new wallet')
+        generateAction.triggered.connect(self.generateWallet)
+        recoverAction = QAction('&Recover', self)
+        recoverAction.setStatusTip('Recover wallet from seed phrase')
+        recoverAction.triggered.connect(self.recoverWallet)
+        showSeedAction = QAction('&Show seed', self)
+        showSeedAction.setStatusTip('Show wallet seed phrase')
+        showSeedAction.triggered.connect(self.showSeedDialog)
+        exportPrivAction = QAction('&Export keys', self)
+        exportPrivAction.setStatusTip('Export all private keys to a  file')
+        exportPrivAction.triggered.connect(self.exportPrivkeysJson)
         exitAction = QAction(QIcon('exit.png'), '&Exit', self)
         exitAction.setShortcut('Ctrl+Q')
         exitAction.setStatusTip('Exit application')
         exitAction.triggered.connect(qApp.quit)
-        generateAction = QAction('&Generate', self)
-        generateAction.setStatusTip('Generate new wallet')
-        generateAction.triggered.connect(self.generateWallet)
-        loadAction = QAction('&Load', self)
-        loadAction.setStatusTip('Load wallet from file')
-        loadAction.triggered.connect(self.selectWallet)
-        recoverAction = QAction('&Recover', self)
-        recoverAction.setStatusTip('Recover wallet from seedphrase')
-        recoverAction.triggered.connect(self.recoverWallet)
+
         aboutAction = QAction('About Joinmarket', self)
         aboutAction.triggered.connect(self.showAboutDialog)
-        exportPrivAction = QAction('&Export keys', self)
-        exportPrivAction.setStatusTip('Export all private keys to a  file')
-        exportPrivAction.triggered.connect(self.exportPrivkeysJson)
-        menubar = self.menuBar()
 
+        menubar = self.menuBar()
         walletMenu = menubar.addMenu('&Wallet')
         walletMenu.addAction(loadAction)
         walletMenu.addAction(generateAction)
         walletMenu.addAction(recoverAction)
+        walletMenu.addAction(showSeedAction)
         walletMenu.addAction(exportPrivAction)
         walletMenu.addAction(exitAction)
         aboutMenu = menubar.addMenu('&About')
@@ -1610,6 +1615,21 @@ class JMMainWindow(QMainWindow):
             return
         return str(text).strip()
 
+    def showSeedDialog(self):
+        if not self.wallet_service:
+            JMQtMessageBox(self,
+                           "No wallet loaded.",
+                           mbtype='crit',
+                           title="Error")
+            return
+        try:
+            self.displayWords(*self.wallet_service.get_mnemonic_words())
+        except NotImplementedError:
+            JMQtMessageBox(self,
+                           "Wallet does not support seed phrases",
+                           mbtype='info',
+                           title="Error")
+
     def getPassword(self):
         pd = PasswordDialog()
         while True:
@@ -1645,16 +1665,16 @@ class JMMainWindow(QMainWindow):
         return self.walletname
 
     def displayWords(self, words, mnemonic_extension):
-        mb = QMessageBox()
+        mb = QMessageBox(self)
         seed_recovery_warning = [
             "WRITE DOWN THIS WALLET RECOVERY SEED.",
             "If you fail to do this, your funds are",
             "at risk. Do NOT ignore this step!!!"
         ]
-        mb.setText("\n".join(seed_recovery_warning))
-        text = words
+        mb.setText("<br/>".join(seed_recovery_warning))
+        text = "<strong>" + words + "</strong>"
         if mnemonic_extension:
-            text += '\n\nMnemonic extension: ' + mnemonic_extension
+            text += "<br/><br/>Seed extension: <strong>" + mnemonic_extension.decode("utf-8") + "</strong>"
         mb.setInformativeText(text)
         mb.setStandardButtons(QMessageBox.Ok)
         ret = mb.exec_()
