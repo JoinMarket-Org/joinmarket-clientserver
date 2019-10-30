@@ -105,6 +105,10 @@ def main():
     else:
         chooseOrdersFunc = options.order_choose_fn
 
+    # If tx_fees are set manually by CLI argument, override joinmarket.cfg:
+    if int(options.txfee) > 0:
+        jm_single().config.set("POLICY", "tx_fees", str(options.txfee))
+
     # Dynamically estimate a realistic fee if it currently is the default value.
     # At this point we do not know even the number of our own inputs, so
     # we guess conservatively with 2 inputs and 2 outputs each.

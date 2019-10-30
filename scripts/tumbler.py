@@ -114,6 +114,10 @@ def main():
     tumble_log.info("With this schedule: ")
     tumble_log.info(pprint.pformat(schedule))
 
+    # If tx_fees are set manually by CLI argument, override joinmarket.cfg:
+    if int(options['txfee']) > 0:
+        jm_single().config.set("POLICY", "tx_fees", str(options['txfee']))
+
     # Dynamically estimate an expected tx fee for the whole tumbling run.
     # This is very rough: we guess with 2 inputs and 2 outputs each.
     if options['txfee'] == -1:
