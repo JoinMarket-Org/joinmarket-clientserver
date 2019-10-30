@@ -225,8 +225,8 @@ class WalletService(Service):
             # transaction pertains to anything known (but must
             # have correct label per above); filter on this Joinmarket wallet label,
             # or the external monitoring label:
-            if "label" in tx and tx["label"] in [
-                self.EXTERNAL_WALLET_LABEL, self.get_wallet_name()]:
+            if (self.bci.is_address_labeled(tx, self.get_wallet_name()) or
+                self.bci.is_address_labeled(tx, self.EXTERNAL_WALLET_LABEL)):
                 for f in self.callbacks["all"]:
                     # note we need no return value as we will never
                     # remove these from the list
@@ -491,13 +491,13 @@ class WalletService(Service):
                 'POLICY', 'listunspent_args'))
 
         unspent_list = self.bci.rpc('listunspent', listunspent_args)
-        unspent_list = [x for x in unspent_list if "label" in x]
         # filter on label, but note (a) in certain circumstances (in-
         # wallet transfer) it is possible for the utxo to be labeled
         # with the external label, and (b) the wallet will know if it
         # belongs or not anyway (is_known_addr):
-        our_unspent_list = [x for x in unspent_list if x["label"] in [
-            wallet_name, self.EXTERNAL_WALLET_LABEL]]
+        our_unspent_list = [x for x in unspent_list if (
+            self.bci.is_address_labeled(x, wallet_name) or
+            self.bci.is_address_labeled(x, self.EXTERNAL_WALLET_LABEL))]
         for u in our_unspent_list:
             if not self.is_known_addr(u['address']):
                 continue
