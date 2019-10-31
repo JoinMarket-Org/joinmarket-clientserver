@@ -203,7 +203,6 @@ class Taker(object):
             self.outputs = []
             self.cjfee_total = 0
             self.maker_txfee_contributions = 0
-            self.txfee_default = 5000
             self.latest_tx = None
             self.txid = None
 
@@ -293,7 +292,8 @@ class Taker(object):
             #to make failures unlikely while keeping the occurence of failure to
             #find sufficient utxos extremely rare. Indeed, a doubling of 'normal'
             #txfee indicates undesirable behaviour on maker side anyway.
-            self.total_txfee = 2 * self.txfee_default * self.n_counterparties
+            self.total_txfee = estimate_tx_fee(3, 2,
+                txtype=self.wallet_service.get_txtype()) * self.n_counterparties
             total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
             jlog.info('total estimated amount spent = ' + str(total_amount))
             try:
@@ -315,13 +315,9 @@ class Taker(object):
             jlog.debug("Estimated ins: "+str(est_ins))
             est_outs = 2*self.n_counterparties + 1
             jlog.debug("Estimated outs: "+str(est_outs))
-            estimated_fee = estimate_tx_fee(est_ins, est_outs,
+            self.total_txfee = estimate_tx_fee(est_ins, est_outs,
                                             txtype=self.wallet_service.get_txtype())
-            jlog.debug("We have a fee estimate: "+str(estimated_fee))
-            jlog.debug("And a requested fee of: "+str(
-                self.txfee_default * self.n_counterparties))
-            self.total_txfee = max([estimated_fee,
-                                    self.n_counterparties * self.txfee_default])
+            jlog.debug("We have a fee estimate: "+str(self.total_txfee))
             total_value = sum([va['value'] for va in self.input_utxos.values()])
             allowed_types = ["reloffer", "absoffer"] if jm_single().config.get(
                 "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
@@ -941,7 +937,6 @@ class P2EPTaker(Taker):
         # enough for fees, even more rare. "Stuck" coins due to edge cases
         # are not an issue since the wallet has direct-send sweep.
         self.n_counterparties = 1
-        self.txfee_default = 10000
         self.total_cj_fee = 0
         # Preparing bitcoin data here includes choosing utxos/coins.
         # We don't trust the user on the selection algo choice; we want it
@@ -954,7 +949,6 @@ class P2EPTaker(Taker):
             return (False, )
         self.outputs = []
         self.cjfee_total = 0
-        self.txfee_default = 5000
         self.latest_tx = None
         self.txid = None
 
