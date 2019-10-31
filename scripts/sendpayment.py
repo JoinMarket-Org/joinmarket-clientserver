@@ -131,7 +131,9 @@ def main():
 
     wallet_path = get_wallet_path(wallet_name, None)
     wallet = open_test_wallet_maybe(
-        wallet_path, wallet_name, max_mix_depth, gap_limit=options.gaplimit)
+        wallet_path, wallet_name, max_mix_depth,
+        wallet_password_stdin=options.wallet_password_stdin,
+        gap_limit=options.gaplimit)
     wallet_service = WalletService(wallet)
     # in this script, we need the wallet synced before
     # logic processing for some paths, so do it now:

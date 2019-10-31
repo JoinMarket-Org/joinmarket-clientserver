@@ -36,6 +36,12 @@ def receive_payjoin_main(makerclass):
                       dest='amtmixdepths',
                       help='number of mixdepths in wallet, default 5',
                       default=5)    
+    parser.add_option('--wallet-password-stdin',
+                      action='store_true',
+                      default=False,
+                      dest='wallet_password_stdin',
+                      help='Read wallet password from stdin')
+
     (options, args) = parser.parse_args()
     if len(args) < 2:
         parser.error('Needs a wallet, and a receiving amount in satoshis')
@@ -62,6 +68,7 @@ def receive_payjoin_main(makerclass):
     max_mix_depth = max([options.mixdepth, options.amtmixdepths - 1])
     wallet = open_test_wallet_maybe(
         wallet_path, wallet_name, max_mix_depth,
+        wallet_password_stdin=options.wallet_password_stdin,
         gap_limit=options.gaplimit)
 
     if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "electrum-server":
