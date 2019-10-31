@@ -632,8 +632,8 @@ class SpendTab(QWidget):
                     if rtxid == txid:
                         return True
                     return False
-                w.wallet_service.active_txids.append(txid)
-                w.wallet_service.register_callbacks([qt_directsend_callback],
+                mainWindow.wallet_service.active_txids.append(txid)
+                mainWindow.wallet_service.register_callbacks([qt_directsend_callback],
                                                     txid, cb_type="confirmed")
                 self.persistTxToHistory(destaddr, self.direct_send_amount, txid)
                 self.cleanUp()
