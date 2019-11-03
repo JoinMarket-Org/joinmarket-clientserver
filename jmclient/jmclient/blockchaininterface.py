@@ -32,6 +32,10 @@ class BlockchainInterface(object):
             return len(self.rpc('getaddressinfo', [addr])['labels']) > 0
 
     @abc.abstractmethod
+    def is_address_labeled(self, utxo, walletname):
+        """checks that UTXO belongs to the JM wallet"""
+
+    @abc.abstractmethod
     def pushtx(self, txhex):
         """pushes tx to the network, returns False if failed"""
 
@@ -181,6 +185,13 @@ class BitcoinCoreInterface(BlockchainInterface):
             log.debug('rpc: ' + method + " " + str(args))
         res = self.jsonRpc.call(method, args)
         return res
+
+    def is_address_labeled(self, utxo, walletname):
+        # Bitcoin Core before 0.17 used accounts, new versions has labels
+        return (
+            ("label" in utxo and utxo["label"] == walletname) or
+            ("account" in utxo and utxo["account"] == walletname)
+        )
 
     def import_addresses(self, addr_list, wallet_name, restart_cb=None):
         """Imports addresses in a batch during initial sync.
