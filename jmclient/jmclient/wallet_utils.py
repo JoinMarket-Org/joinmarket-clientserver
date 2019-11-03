@@ -101,6 +101,13 @@ def get_wallettool_parser():
                             "if your address starts with '3' use 'segwit-p2sh.\n"
                             "Native segwit addresses (starting with 'bc') are"
                             "not yet supported."))
+    parser.add_option('--wallet-password-stdin',
+                      action='store_true',
+                      default=False,
+                      dest='wallet_password_stdin',
+                      help='Read wallet password from stdin')
+
+
     return parser
 
 
@@ -1072,7 +1079,7 @@ def create_wallet(path, password, max_mixdepth, wallet_cls=None, **kwargs):
 
 
 def open_test_wallet_maybe(path, seed, max_mixdepth,
-                           test_wallet_cls=SegwitLegacyWallet, **kwargs):
+                           test_wallet_cls=SegwitLegacyWallet, wallet_password_stdin=False, **kwargs):
     """
     Create a volatile test wallet if path is a hex-encoded string of length 64,
     otherwise run open_wallet().
@@ -1113,6 +1120,11 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
             if 'read_only' in kwargs:
                 del kwargs['read_only']
             return test_wallet_cls(storage, **kwargs)
+
+    if wallet_password_stdin is True:
+        stdin = sys.stdin.read()
+        password = stdin.encode('utf-8')
+        return open_wallet(path, ask_for_password=False, password=password, mixdepth=max_mixdepth, **kwargs)
 
     return open_wallet(path, mixdepth=max_mixdepth, **kwargs)
 
@@ -1220,7 +1232,7 @@ def wallet_tool_main(wallet_root_path):
 
         wallet = open_test_wallet_maybe(
             wallet_path, seed, options.mixdepth, read_only=read_only,
-            gap_limit=options.gaplimit)
+            wallet_password_stdin=options.wallet_password_stdin, gap_limit=options.gaplimit)
 
         # this object is only to respect the layering,
         # the service will not be started since this is a synchronous script:

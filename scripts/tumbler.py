@@ -41,7 +41,7 @@ def main():
     if options['amtmixdepths'] > max_mix_depth:
         max_mix_depth = options['amtmixdepths']
     wallet_path = get_wallet_path(wallet_name, None)
-    wallet = open_test_wallet_maybe(wallet_path, wallet_name, max_mix_depth)
+    wallet = open_test_wallet_maybe(wallet_path, wallet_name, max_mix_depth, wallet_password_stdin=options_org.wallet_password_stdin)
     wallet_service = WalletService(wallet)
     # in this script, we need the wallet synced before
     # logic processing for some paths, so do it now:

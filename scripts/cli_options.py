@@ -72,6 +72,11 @@ def add_common_options(parser):
              .format('random_under_max_order_choose',
                      ', '.join(order_choose_algorithms.keys())),
         dest='order_choose_fn')
+    parser.add_option('--wallet-password-stdin',
+                      action='store_true',
+                      default=False,
+                      dest='wallet_password_stdin',
+                      help='Read wallet password from stdin')
     add_order_choose_short_options(parser)
 
 

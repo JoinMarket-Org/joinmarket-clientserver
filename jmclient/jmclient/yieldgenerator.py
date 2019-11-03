@@ -220,6 +220,11 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     parser.add_option('-m', '--mixdepth', action='store', type='int',
                       dest='mixdepth', default=None,
                       help="highest mixdepth to use")
+    parser.add_option('--wallet-password-stdin',
+                      action='store_true',
+                      default=False,
+                      dest='wallet_password_stdin',
+                      help='Read wallet password from stdin')
     (options, args) = parser.parse_args()
     if len(args) < 1:
         parser.error('Needs a wallet')
@@ -248,6 +253,7 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     wallet_path = get_wallet_path(wallet_name, 'wallets')
     wallet = open_test_wallet_maybe(
         wallet_path, wallet_name, options.mixdepth,
+        wallet_password_stdin=options.wallet_password_stdin,
         gap_limit=options.gaplimit)
 
     wallet_service = WalletService(wallet)
