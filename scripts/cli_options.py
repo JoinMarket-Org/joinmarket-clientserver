@@ -217,7 +217,6 @@ def check_regtest(blockchain_start=True):
         #to allow testing of confirm/unconfirm callback for multiple txs
         jm_single().bc_interface.tick_forward_chain_interval = 10
         jm_single().bc_interface.simulating = True
-        jm_single().maker_timeout_sec = 15
     # handles the custom regtest hrp for bech32
     cryptoengine.BTC_P2WPKH.VBYTE = 100
 
