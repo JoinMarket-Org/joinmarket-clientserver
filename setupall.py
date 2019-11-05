@@ -26,7 +26,7 @@ def help():
           "`--client-bitcoin` - using joinmarket bitcoin code, installs secp256k1\n"
           "`--develop` - uses the local code for all packages (does not install to site-packages)."
           )
-    sys.exit(0)
+    sys.exit(2)
 
 if len(sys.argv) != 2:
     help()

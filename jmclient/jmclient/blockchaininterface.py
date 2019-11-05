@@ -12,7 +12,8 @@ import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import jm_single
-from jmbase.support import get_log, jmprint
+from jmbase.support import get_log, jmprint, EXIT_SUCCESS, EXIT_FAILURE
+
 
 # an inaccessible blockheight; consider rewriting in 1900 years
 INF_HEIGHT = 10**8
@@ -227,7 +228,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 restart_cb(fatal_msg)
             else:
                 jmprint(fatal_msg, "important")
-            sys.exit(1)
+            sys.exit(EXIT_FAILURE)
 
     def add_watchonly_addresses(self, addr_list, wallet_name, restart_cb=None):
         """For backwards compatibility, this fn name is preserved
@@ -247,7 +248,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 restart_cb(restart_msg)
             else:
                 jmprint(restart_msg, "important")
-                sys.exit(0)
+                sys.exit(EXIT_SUCCESS)
 
     def _yield_transactions(self, wallet_name):
         batch_size = 1000

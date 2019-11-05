@@ -13,6 +13,7 @@ from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee
 from jmbitcoin import deserialize, mktx, serialize, txhash, amount_to_str
+from jmbase.support import EXIT_SUCCESS
 log = get_log()
 
 """
@@ -141,7 +142,7 @@ def restart_wait(txid):
         return False
     if res["confirmations"] < 0:
         log.warn("Tx: " + txid + " has a conflict, abandoning.")
-        sys.exit(0)
+        sys.exit(EXIT_SUCCESS)
     else:
         log.debug("Tx: " + str(txid) + " has " + str(
                 res["confirmations"]) + " confirmations.")

@@ -8,6 +8,11 @@ from getpass import getpass
 # global Joinmarket constants
 JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
 
+# Exit status codes
+EXIT_SUCCESS = 0
+EXIT_FAILURE = 1
+EXIT_ARGERROR = 2
+
 from chromalog.log import (
     ColorizingStreamHandler,
     ColorizingFormatter,
