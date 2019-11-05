@@ -6,10 +6,12 @@ import sys
 import jmbitcoin as btc
 from jmbase import jmprint
 from jmclient import jm_single, get_p2pk_vbyte, get_p2sh_vbyte
+from jmbase.support import EXIT_FAILURE
+
 
 def quit(parser, errmsg): #pragma: no cover
     parser.error(errmsg)
-    sys.exit(0)
+    sys.exit(EXIT_FAILURE)
 
 def get_utxo_info(upriv):
     """Verify that the input string parses correctly as (utxo, priv)

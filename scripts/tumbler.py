@@ -14,7 +14,8 @@ from jmclient import Taker, load_program_config, get_schedule,\
     schedule_to_text, estimate_tx_fee, restart_waiter, WalletService,\
     get_tumble_log, tumbler_taker_finished_update,\
     tumbler_filter_orders_callback, validate_address
-from jmbase.support import get_log, jmprint
+from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
+    EXIT_FAILURE, EXIT_ARGERROR
 from cli_options import get_tumbler_parser, get_max_cj_fee_values, \
      check_regtest
 
@@ -30,7 +31,7 @@ def main():
     options = vars(options)
     if len(args) < 1:
         jmprint('Error: Needs a wallet file', "error")
-        sys.exit(0)
+        sys.exit(EXIT_ARGERROR)
     load_program_config()
 
     check_regtest()
@@ -62,7 +63,7 @@ def main():
         success, errmsg = validate_address(daddr)
         if not success:
             jmprint("Invalid destination address: " + daddr, "error")
-            sys.exit(1)
+            sys.exit(EXIT_ARGERROR)
     jmprint("Destination addresses: " + str(destaddrs), "important")
     #If the --restart flag is set we read the schedule
     #from the file, and filter out entries that are
@@ -74,7 +75,7 @@ def main():
             jmprint("Failed to load schedule, name: " + str(
                 options['schedulefile']), "error")
             jmprint("Error was: " + str(schedule), "error")
-            sys.exit(0)
+            sys.exit(EXIT_FAILURE)
         #This removes all entries that are marked as done
         schedule = [s for s in schedule if s[5] != 1]
         # remaining destination addresses must be stored in Taker.tdestaddrs
@@ -85,7 +86,7 @@ def main():
                     " so passed destinations on the command line were ignored.",
                     "important")
             if input("OK? (y/n)") != "y":
-                sys.exit(0)
+                sys.exit(EXIT_SUCCESS)
         destaddrs = [s[3] for s in schedule if s[3] not in ["INTERNAL", "addrask"]]
         jmprint("Remaining destination addresses in restart: " + ",".join(destaddrs),
                 "important")
@@ -100,7 +101,7 @@ def main():
             schedule = schedule[1:]
         elif schedule[0][5] != 0:
             print("Error: first schedule entry is invalid.")
-            sys.exit(0)
+            sys.exit(EXIT_FAILURE)
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
                     f.write(schedule_to_text(schedule))
         tumble_log.info("TUMBLE RESTARTING")

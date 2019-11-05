@@ -16,7 +16,7 @@ import jmbitcoin as btc
 from jmclient.wallet import estimate_tx_fee
 from jmclient.wallet_service import WalletService
 from jmclient.configure import jm_single
-from jmbase.support import get_log
+from jmbase.support import get_log, EXIT_SUCCESS, EXIT_FAILURE
 from jmclient.support import calc_cj_fee, select_one_utxo
 from jmclient.podle import verify_podle, PoDLE, PoDLEError
 from twisted.internet import task, reactor
@@ -48,7 +48,7 @@ class Maker(object):
         self.sync_wait_loop.stop()
         if not self.offerlist:
             jlog.info("Failed to create offers, giving up.")
-            sys.exit(0)
+            sys.exit(EXIT_FAILURE)
         jlog.info('offerlist={}'.format(self.offerlist))
 
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
@@ -339,7 +339,7 @@ class P2EPMaker(Maker):
             f.write("Amount (in sats): " + str(self.receiving_amount) + "\n")
             f.write("Receiver nick: " + jm_single().nickname + "\n")
         if not self.user_check("Enter 'y' to wait for the payment:"):
-            sys.exit(0)
+            sys.exit(EXIT_SUCCESS)
 
     def create_my_orders(self):
         """ Fake offer for public consumption.

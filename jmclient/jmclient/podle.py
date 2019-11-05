@@ -13,6 +13,7 @@ import struct
 from jmbase import jmprint
 from jmbitcoin import multiply, add_pubkeys, getG, podle_PublicKey,\
     podle_PrivateKey, encode, decode, N, podle_PublicKey_class
+from jmbase.support import EXIT_FAILURE
 
 
 PODLE_COMMIT_FILE = None
@@ -315,7 +316,7 @@ def update_commitments(commitment=None,
                 #Exit conditions cannot be included in tests.
                 jmprint("the file: " + PODLE_COMMIT_FILE + " is not valid json.",
                         "error")
-                sys.exit(0)
+                sys.exit(EXIT_FAILURE)
 
     if 'used' in c:
         commitments = c['used']

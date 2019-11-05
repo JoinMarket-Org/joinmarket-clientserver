@@ -22,6 +22,7 @@ from jmclient import load_program_config, jm_single, get_p2pk_vbyte,\
     open_wallet, WalletService, add_external_commitments, update_commitments,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
     get_wallet_path
+from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR
 
 
 def add_ext_commitments(utxo_datas):
@@ -163,16 +164,16 @@ def main():
             if input("You have chosen to delete commitments, other arguments "
                          "will be ignored; continue? (y/n)") != 'y':
                 jmprint("Quitting", "warning")
-                sys.exit(0)
+                sys.exit(EXIT_SUCCESS)
         c, e = get_podle_commitments()
         jmprint(pformat(e), "info")
         if input(
             "You will remove the above commitments; are you sure? (y/n): ") != 'y':
             jmprint("Quitting", "warning")
-            sys.exit(0)
+            sys.exit(EXIT_SUCCESS)
         update_commitments(external_to_remove=e)
         jmprint("Commitments deleted.", "important")
-        sys.exit(0)
+        sys.exit(EXIT_SUCCESS)
 
     #Three options (-w, -r, -R) for loading utxo and privkey pairs from a wallet,
     #csv file or json file.
@@ -206,13 +207,13 @@ def main():
     elif options.in_json:
         if not os.path.isfile(options.in_json):
             jmprint("File: " + options.in_json + " not found.", "error")
-            sys.exit(0)
+            sys.exit(EXIT_FAILURE)
         with open(options.in_json, "rb") as f:
             try:
                 utxo_json = json.loads(f.read())
             except:
                 jmprint("Failed to read json from " + options.in_json, "error")
-                sys.exit(0)
+                sys.exit(EXIT_FAILURE)
         for u, pva in iteritems(utxo_json):
             utxo_data.append((u, pva['privkey']))
     elif len(args) == 1:
@@ -230,7 +231,7 @@ def main():
         if not validate_utxo_data(utxo_data, segwit=sw):
             quit(parser, "Utxos did not validate, quitting")
     if options.vonly:
-        sys.exit(0)
+        sys.exit(EXIT_ARGERROR)
     
     #We are adding utxos to the external list
     assert len(utxo_data)
