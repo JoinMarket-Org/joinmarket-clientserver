@@ -618,9 +618,13 @@ class SpendTab(QWidget):
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
         if makercount == 0:
-            txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
+            try:
+                txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
                                   destaddr, accept_callback=self.checkDirectSend,
                                   info_callback=self.infoDirectSend)
+            except Exception as e:
+                JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
+                return
             if not txid:
                 self.giveUp()
             else:
