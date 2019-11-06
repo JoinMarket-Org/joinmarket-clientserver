@@ -489,12 +489,16 @@ def cli_user_mnemonic_entry():
         mnemonic_extension = None
     return (mnemonic_phrase, mnemonic_extension)
 
-def cli_get_mnemonic_extension():
+def cli_do_use_mnemonic_extension():
     uin = input("Would you like to use a two-factor mnemonic recovery "
                     "phrase? write 'n' if you don't know what this is (y/n): ")
     if len(uin) == 0 or uin[0] != 'y':
         jmprint("Not using mnemonic extension", "info")
-        return None #no mnemonic extension
+        return False #no mnemonic extension
+    else:
+        return True
+
+def cli_get_mnemonic_extension():
     jmprint("Note: This will be stored in a reversible way. Do not reuse!",
             "info")
     return input("Enter mnemonic extension: ")
@@ -506,6 +510,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
                                              cli_user_mnemonic_entry,
                                              cli_get_wallet_passphrase_check,
                                              cli_get_wallet_file_name,
+                                             cli_do_use_mnemonic_extension,
                                              cli_get_mnemonic_extension)):
     """Optionally provide callbacks:
     0 - display seed
@@ -518,7 +523,10 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     entropy = None
     mnemonic_extension = None
     if method == "generate":
-        mnemonic_extension = callbacks[4]()
+        if callbacks[4]():
+            mnemonic_extension = callbacks[5]()
+            if not mnemonic_extension:
+                return False
     elif method == 'recover':
         words, mnemonic_extension = callbacks[1]()
         mnemonic_extension = mnemonic_extension and mnemonic_extension.strip()
