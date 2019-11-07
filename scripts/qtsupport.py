@@ -68,15 +68,13 @@ config_tips = {
     'rpc_port': 'port for connecting to bitcoind over rpc',
     'rpc_user': 'user for connecting to bitcoind over rpc',
     'rpc_password': 'password for connecting to bitcoind over rpc',
-    'host': 'hostname for IRC server (or comma separated list)',
-    'channel': 'channel name on IRC server (or comma separated list)',
-    'port': 'port for connecting to IRC server (or comma separated list)',
-    'usessl': "'true'/'false' to use SSL for each connection to IRC\n" +
-    "(or comma separated list)",
-    'socks5': "'true'/'false' to use a SOCKS5 proxy for each connection" +
-    "to IRC (or comma separated list)",
-    'socks5_host': 'host for SOCKS5 proxy (or comma separated list)',
-    'socks5_port': 'port for SOCKS5 proxy (or comma separated list)',
+    'host': 'hostname for IRC server',
+    'channel': 'channel name on IRC server',
+    'port': 'port for connecting to IRC server',
+    'usessl': "'true'/'false' to use SSL for each connection to IRC\n",
+    'socks5': "'true'/'false' to use a SOCKS5 proxy for each connection",
+    'socks5_host': 'host for SOCKS5 proxy',
+    'socks5_port': 'port for SOCKS5 proxy',
     'maker_timeout_sec': 'timeout for waiting for replies from makers',
     'merge_algorithm': 'for dust sweeping, try merge_algorithm = gradual, \n' +
     'for more rapid dust sweeping, try merge_algorithm = greedy \n' +
@@ -106,6 +104,7 @@ config_tips = {
     "documentation for details on how to set up certs if you use this.",
     "history_file": "Location of the file storing transaction history",
     "segwit": "Only used for migrating legacy wallets; see documentation.",
+    "native": "NOT currently supported, except for PayJoin (command line only)",
     "console_log_level": "one of INFO, DEBUG, WARN, ERROR; INFO is least noisy;\n" +
     "consider switching to DEBUG in case of problems.",
     "absurd_fee_per_kb": "maximum satoshis/kilobyte you are willing to pay,\n" +
