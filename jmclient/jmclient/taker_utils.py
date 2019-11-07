@@ -12,7 +12,7 @@ from .configure import jm_single, validate_address
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee
-from jmbitcoin import deserialize, mktx, serialize, txhash
+from jmbitcoin import deserialize, mktx, serialize, txhash, amount_to_str
 log = get_log()
 
 """
@@ -74,9 +74,9 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
         outs.append({"value": changeval, "address": change_addr})
 
     #Now ready to construct transaction
-    log.info("Using a fee of : " + str(fee_est) + " satoshis.")
+    log.info("Using a fee of : " + amount_to_str(fee_est) + ".")
     if amount != 0:
-        log.info("Using a change value of: " + str(changeval) + " satoshis.")
+        log.info("Using a change value of: " + amount_to_str(changeval) + ".")
     txsigned = sign_tx(wallet_service, mktx(list(utxos.keys()), outs), utxos)
     log.info("Got signed transaction:\n")
     log.info(pformat(txsigned))
@@ -84,7 +84,7 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
     log.info("In serialized form (for copy-paste):")
     log.info(tx)
     actual_amount = amount if amount != 0 else total_inputs_val - fee_est
-    log.info("Sends: " + str(actual_amount) + " satoshis to address: " + destaddr)
+    log.info("Sends: " + amount_to_str(actual_amount) + " to address: " + destaddr)
     if not answeryes:
         if not accept_callback:
             if input('Would you like to push to the network? (y/n):')[0] != 'y':
