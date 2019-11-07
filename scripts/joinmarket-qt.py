@@ -1295,10 +1295,10 @@ class JMMainWindow(QMainWindow):
         exportPrivAction = QAction('&Export keys', self)
         exportPrivAction.setStatusTip('Export all private keys to a  file')
         exportPrivAction.triggered.connect(self.exportPrivkeysJson)
-        exitAction = QAction(QIcon('exit.png'), '&Exit', self)
-        exitAction.setShortcut('Ctrl+Q')
-        exitAction.setStatusTip('Exit application')
-        exitAction.triggered.connect(qApp.quit)
+        quitAction = QAction(QIcon('exit.png'), '&Quit', self)
+        quitAction.setShortcut('Ctrl+Q')
+        quitAction.setStatusTip('Quit application')
+        quitAction.triggered.connect(qApp.quit)
 
         aboutAction = QAction('About Joinmarket', self)
         aboutAction.triggered.connect(self.showAboutDialog)
@@ -1310,7 +1310,7 @@ class JMMainWindow(QMainWindow):
         walletMenu.addAction(recoverAction)
         walletMenu.addAction(showSeedAction)
         walletMenu.addAction(exportPrivAction)
-        walletMenu.addAction(exitAction)
+        walletMenu.addAction(quitAction)
         aboutMenu = menubar.addMenu('&About')
         aboutMenu.addAction(aboutAction)
 
