@@ -21,7 +21,7 @@ from .storage import (Argon2Hash, Storage, StorageError,
                       StoragePasswordError, VolatileStorage)
 from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
 from .configure import (
-    load_program_config, get_p2pk_vbyte, jm_single, get_network,
+    load_program_config, get_p2pk_vbyte, jm_single, get_network, update_persist_config,
     validate_address, get_irc_mchannels, get_blockchain_interface_instance,
     get_p2sh_vbyte, set_config, is_segwit_mode, is_native_segwit_mode)
 from .blockchaininterface import (BlockchainInterface,

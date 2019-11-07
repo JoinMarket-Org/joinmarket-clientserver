@@ -6,6 +6,7 @@ import io
 import logging
 import os
 import binascii
+import re
 
 from configparser import ConfigParser, NoOptionError
 
@@ -541,6 +542,59 @@ def get_blockchain_interface_instance(_config):
         raise ValueError("Invalid blockchain source")
     return bc_interface
 
+def update_persist_config(section, name, value):
+    """ Unfortunately we cannot persist an updated config
+    while preserving the full set of comments with ConfigParser's
+    model (the 'set no-value settings' doesn't cut it).
+    Hence if we want to update and persist, we must manually
+    edit the file at the same time as editing the in-memory
+    config object.
+
+    Arguments: section and name must be strings (and
+    section must already exist), while value can be any valid
+    type for a config value, but must be cast-able to string.
+
+    Returns: False if the config setting was not found,
+    or True if it was found and edited+saved as intended.
+    """
+
+    m_line  = re.compile(r"^\s*" + name + r"\s*" + "=", re.IGNORECASE)
+    m_section = re.compile(r"\[\s*" + section + r"\s*\]", re.IGNORECASE)
+
+    # Find the single line containing the specified value; only accept
+    # if it's the right section; create a new copy of all the config
+    # lines, with that one line edited.
+    # If one match is found and edited, rewrite the config and update
+    # the in-memory config, else return an error.
+    sectionname = None
+    newlines = []
+    match_found = False
+    with open(jm_single().config_location, "r") as f:
+        for line in f.readlines():
+            newline  = line
+            # ignore comment lines
+            if line.strip().startswith("#"):
+                newlines.append(line)
+                continue
+            regexp_match_section = m_section.search(line)
+            if regexp_match_section:
+                # get the section name from the match
+                sectionname = regexp_match_section.group().strip("[]").strip()
+            regexp_match = m_line.search(line)
+            if regexp_match and sectionname and sectionname.upper(
+                ) == section.upper():
+                # We have the right line; change it
+                newline = name + " = " + str(value)+"\n"
+                match_found = True
+            newlines.append(newline)
+    # If it wasn't found, do nothing but return an error
+    if not match_found:
+        return False
+    # success: update in-mem and re-persist
+    jm_single().config.set(section, name, value)
+    with open(jm_single().config_location, "wb") as f:
+        f.writelines([x.encode("utf-8") for x in newlines])
+    return True
 
 def is_segwit_mode():
     return jm_single().config.get('POLICY', 'segwit') != 'false'
