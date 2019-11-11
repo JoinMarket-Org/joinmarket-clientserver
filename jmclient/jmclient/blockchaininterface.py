@@ -463,6 +463,17 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface):
         # avoidance of address reuse
         wallet.disable_new_scripts = True
 
+    ##these two functions are hacks to make the test code be able to use the
+    ##same helper functions, perhaps it would be nicer to create mixin classes
+    ##and use multiple inheritance to make the code more OOP, but its not
+    ##worth it now
+    def grab_coins(self, receiving_addr, amt=50):
+        RegtestBitcoinCoreInterface.grab_coins(self, receiving_addr, amt)
+
+    def tick_forward_chain(self, n):
+        self.destn_addr = self.rpc("getnewaddress", [])
+        RegtestBitcoinCoreInterface.tick_forward_chain(self, n)
+
 # class for regtest chain access
 # running on local daemon. Only
 # to be instantiated after network is up
