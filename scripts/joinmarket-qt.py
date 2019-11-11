@@ -1677,12 +1677,13 @@ class JMMainWindow(QMainWindow):
         mb.setStandardButtons(QMessageBox.Ok)
         ret = mb.exec_()
 
-    def promptMnemonicExtension(self):
+    def promptUseMnemonicExtension(self):
         msg = "Would you like to use a two-factor mnemonic recovery phrase?\nIf you don\'t know what this is press No."
         reply = QMessageBox.question(self, 'Use mnemonic extension?',
                     msg, QMessageBox.Yes, QMessageBox.No)
-        if reply == QMessageBox.No:
-            return None
+        return reply == QMessageBox.Yes
+
+    def promptInputMnemonicExtension(self):
         mnemonic_extension, ok = QInputDialog.getText(self,
                                      'Input Mnemonic Extension',
                                      'Enter mnemonic Extension:',
@@ -1704,7 +1705,8 @@ class JMMainWindow(QMainWindow):
                                                               None,
                                                               self.getPassword,
                                                               self.getWalletFileName,
-                                                              self.promptMnemonicExtension))
+                                                              self.promptUseMnemonicExtension,
+                                                              self.promptInputMnemonicExtension))
                 if not success:
                     JMQtMessageBox(self, "Failed to create new wallet file.",
                                    title="Error", mbtype="warn")
