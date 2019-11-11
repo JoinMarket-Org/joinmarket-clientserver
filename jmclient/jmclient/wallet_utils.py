@@ -636,24 +636,20 @@ def wallet_fetch_history(wallet, options):
 
     def s():
         return ',' if options.csv else ' '
-    def sat_to_str(sat):
-        return '%.8f'%(sat/1e8)
-    def sat_to_str_p(sat):
-        return '%+.8f'%(sat/1e8)
     def sat_to_str_na(sat):
         if sat == 0:
             return "N/A       "
         else:
-            return '%.8f'%(sat/1e8)
+            return btc.sat_to_str(sat)
     def skip_n1(v):
         return '% 2s'%(str(v)) if v != -1 else ' #'
     def skip_n1_btc(v):
-        return sat_to_str(v) if v != -1 else '#' + ' '*10
+        return btc.sat_to_str(v) if v != -1 else '#' + ' '*10
     def print_row(index, time, tx_type, amount, delta, balance, cj_n,
                   total_fees, utxo_count, mixdepth_src, mixdepth_dst, txid):
         data = [index, datetime.fromtimestamp(time).strftime("%Y-%m-%d %H:%M"),
-                tx_type, sat_to_str(amount), sat_to_str_p(delta),
-                sat_to_str(balance), skip_n1(cj_n), sat_to_str_na(total_fees),
+                tx_type, btc.sat_to_str(amount), btc.sat_to_str_p(delta),
+                btc.sat_to_str(balance), skip_n1(cj_n), sat_to_str_na(total_fees),
                 '% 3d' % utxo_count, skip_n1(mixdepth_src), skip_n1(mixdepth_dst)]
         if options.verbosity % 2 == 0: data += [txid]
         jmprint(s().join(map('"{}"'.format, data)), "info")
@@ -870,8 +866,8 @@ def wallet_fetch_history(wallet, options):
         include_disabled=True).values())
     if balance + unconfirmed_balance != total_wallet_balance:
         jmprint(('BUG ERROR: wallet balance (%s) does not match balance from ' +
-            'history (%s)') % (sat_to_str(total_wallet_balance),
-                sat_to_str(balance)))
+            'history (%s)') % (btc.sat_to_str(total_wallet_balance),
+                btc.sat_to_str(balance)))
     wallet_utxo_count = sum(map(len, wallet.get_utxos_by_mixdepth(
         include_disabled=True, hexfmt=False).values()))
     if utxo_count + unconfirmed_utxo_count != wallet_utxo_count:
@@ -879,7 +875,7 @@ def wallet_fetch_history(wallet, options):
             'history (%s)') % (wallet_utxo_count, utxo_count))
 
     if unconfirmed_balance != 0:
-        jmprint('unconfirmed balance change = %s BTC' % sat_to_str(unconfirmed_balance))
+        jmprint('unconfirmed balance change = %s BTC' % btc.sat_to_str(unconfirmed_balance))
 
     # wallet-tool.py prints return value, so return empty string instead of None here
     return ''

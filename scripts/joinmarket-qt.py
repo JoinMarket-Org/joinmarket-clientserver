@@ -27,7 +27,6 @@ import sys, datetime, os, logging
 import platform, json, threading, time
 import qrcode
 
-from decimal import Decimal
 from PySide2 import QtCore
 
 from PySide2.QtGui import *
@@ -83,8 +82,6 @@ from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
 
 
 from twisted.internet import task
-def satoshis_to_amt_str(x):
-    return str(Decimal(x)/Decimal('1e8')) + " BTC"
 
 log = get_log()
 
@@ -124,13 +121,13 @@ def checkAddress(parent, addr):
 def getSettingsWidgets():
     results = []
     sN = ['Recipient address', 'Number of counterparties', 'Mixdepth',
-          'Amount in bitcoins (BTC)']
+          'Amount (BTC or sat)']
     sH = ['The address you want to send the payment to',
           'How many other parties to send to; if you enter 4\n' +
           ', there will be 5 participants, including you.\n' +
           'Enter 0 to send direct without coinjoin.',
           'The mixdepth of the wallet to send the payment from',
-          'The amount IN BITCOINS to send.\n' +
+          'The amount to send, either BTC (if contains dot) or satoshis.\n' +
           'If you enter 0, a SWEEP transaction\nwill be performed,' +
           ' spending all the coins \nin the given mixdepth.']
     sT = [str, int, int, float]
@@ -591,9 +588,9 @@ class SpendTab(QWidget):
         note the callback includes the full prettified transaction,
         but currently not printing it for space reasons.
         """
-        mbinfo = ["Sending " + satoshis_to_amt_str(amount) + ",",
+        mbinfo = ["Sending " + btc.amount_to_str(amount) + ",",
                   "to: " + destaddr + ",",
-                  "Fee: " + satoshis_to_amt_str(fee) + ".",
+                  "Fee: " + btc.amount_to_str(fee) + ".",
                   "Accept?"]
         reply = JMQtMessageBox(self, '\n'.join([m + '<p>' for m in mbinfo]),
                                mbtype='question', title="Direct send")
@@ -614,7 +611,7 @@ class SpendTab(QWidget):
         destaddr = str(self.widgets[0][1].text())
         #convert from bitcoins (enforced by QDoubleValidator) to satoshis
         btc_amount_str = self.widgets[3][1].text()
-        amount = int(Decimal(btc_amount_str) * Decimal('1e8'))
+        amount = btc.amount_to_sat(btc_amount_str)
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
         if makercount == 0:
@@ -728,11 +725,9 @@ class SpendTab(QWidget):
             return
         offers, total_cj_fee = offers_fee
         total_fee_pc = 1.0 * total_cj_fee / self.taker.cjamount
-        #Note this will be a new value if sweep, else same as previously entered
-        btc_amount_str = satoshis_to_amt_str(self.taker.cjamount)
 
         mbinfo = []
-        mbinfo.append("Sending amount: " + btc_amount_str)
+        mbinfo.append("Sending amount: " + btc.amount_to_str(self.taker.cjamount))
         mbinfo.append("to address: " + self.taker.my_cj_addr)
         mbinfo.append(" ")
         mbinfo.append("Counterparties chosen:")
@@ -750,8 +745,8 @@ class SpendTab(QWidget):
                 return False
             mbinfo.append(k + ', ' + str(o['oid']) + ',         ' + str(
                 display_fee))
-        mbinfo.append('Total coinjoin fee = ' + str(total_cj_fee) +
-                      ' satoshis, or ' + str(float('%.3g' % (
+        mbinfo.append('Total coinjoin fee = ' + btc.amount_to_str(total_cj_fee) +
+                      ', or ' + str(float('%.3g' % (
                           100.0 * total_fee_pc))) + '%')
         title = 'Check Transaction'
         if total_fee_pc * 100 > jm_single().config.getint("GUI",
@@ -846,7 +841,7 @@ class SpendTab(QWidget):
     def persistTxToHistory(self, addr, amt, txid):
         #persist the transaction to history
         with open(jm_single().config.get("GUI", "history_file"), 'ab') as f:
-            f.write((','.join([addr, satoshis_to_amt_str(amt), txid,
+            f.write((','.join([addr, btc.amount_to_btc_str(amt), txid,
                               datetime.datetime.now(
                                   ).strftime("%Y/%m/%d %H:%M:%S")])).encode('utf-8'))
             f.write(b'\n')  #TODO: Windows

@@ -22,6 +22,7 @@ from twisted.python.log import startLogging
 from jmbase.support import get_log, set_logging_level, jmprint
 from cli_options import get_sendpayment_parser, get_max_cj_fee_values, \
      check_regtest
+import jmbitcoin as btc
 
 log = get_log()
 
@@ -64,9 +65,7 @@ def main():
     #of a single transaction
     sweeping = False
     if options.schedule == '':
-        #note that sendpayment doesn't support fractional amounts, fractions throw
-        #here.
-        amount = int(args[1])
+        amount = btc.amount_to_sat(args[1])
         if amount == 0:
             sweeping = True
         destaddr = args[2]
@@ -123,7 +122,7 @@ def main():
     if not options.p2ep and not options.pickorders and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
         log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
-                 "sat".format(*maxcjfee))
+                 "".format(maxcjfee[0], btc.amount_to_str(maxcjfee[1])))
 
     log.debug('starting sendpayment')
 
