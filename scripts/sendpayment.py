@@ -85,13 +85,14 @@ def main():
             log.error("Failed to load schedule file, quitting. Check the syntax.")
             log.error("Error was: " + str(schedule))
             sys.exit(0)
-        mixdepth = 0
-        for s in schedule:
-            if s[1] == 0:
-                sweeping = True
-            #only used for checking the maximum mixdepth required
-            mixdepth = max([mixdepth, s[0]])
+        mixdepth = schedule[0][0]
+        amount = schedule[0][1]
+        options.makercount = schedule[0][2]
+        destaddr = schedule[0][3]
 
+    if amount == 0:
+        sweeping = True
+    
     wallet_name = args[0]
 
     check_regtest()
@@ -146,7 +147,7 @@ def main():
     # significant value compared the the cj amount
     total_cj_amount = amount
     if total_cj_amount == 0:
-        total_cj_amount = wallet_service.get_balance_by_mixdepth()[options.mixdepth]
+        total_cj_amount = wallet_service.get_balance_by_mixdepth()[mixdepth]
         if total_cj_amount == 0:
             raise ValueError("No confirmed coins in the selected mixdepth. Quitting")
     exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / total_cj_amount
