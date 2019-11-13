@@ -175,7 +175,8 @@ class WalletViewBase(object):
 
 class WalletViewEntry(WalletViewBase):
     def __init__(self, wallet_path_repr, account, forchange, aindex, addr, amounts,
-                 used = 'new', serclass=str, priv=None, custom_separator=None):
+                 used = 'new', serclass=str, priv=None, custom_separator=None,
+                 addr_blank_out=False):
         super(WalletViewEntry, self).__init__(wallet_path_repr, serclass=serclass,
                                               custom_separator=custom_separator)
         self.account = account
@@ -189,6 +190,7 @@ class WalletViewEntry(WalletViewBase):
         #note no validation here
         self.private_key = priv
         self.used = used
+        self.addr_blank_out = addr_blank_out
 
     def get_balance(self, include_unconf=True):
         """Overwrites base class since no children
@@ -208,7 +210,14 @@ class WalletViewEntry(WalletViewBase):
         return self.wallet_path_repr.ljust(20)
 
     def serialize_address(self):
-        return self.serclass(self.address)
+        addr_result = self.address
+        if self.addr_blank_out:
+            #middle fifth of address is blanked out
+            start = int(len(self.address) * 2 / 5)
+            end = int(len(self.address) * 3 / 5)
+            addr_result = (self.address[:start] + "*"*(end-start)
+                + self.address[end:])
+        return self.serclass(addr_result)
 
     def serialize_amounts(self, unconf_separate=False, denom="BTC"):
         if denom != "BTC":
@@ -445,7 +454,8 @@ def wallet_display(wallet_service, gaplimit, showprivkey, displayall=False,
                         (used == 'new' and forchange == 0)):
                     entrylist.append(WalletViewEntry(
                         wallet_service.get_path_repr(path), m, forchange, k, addr,
-                        [balance, balance], priv=privkey, used=used))
+                        [balance, balance], priv=privkey, used=used,
+                        addr_blank_out=not displayall and (balance > 0) and not showprivkey))
             wallet_service.set_next_index(m, forchange, unused_index)
             path = wallet_service.get_path_repr(wallet_service.get_path(m, forchange))
             branchlist.append(WalletViewBranch(path, m, forchange, entrylist,
