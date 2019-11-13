@@ -180,8 +180,8 @@ class Taker(object):
                 #reset to satoshis
                 self.cjamount = int(self.cjamount * self.mixdepthbal)
                 if self.cjamount < jm_single().mincjamount:
-                    jlog.info("Coinjoin amount too low, bringing up to: " + str(
-                        jm_single().mincjamount))
+                    jlog.info("Coinjoin amount too low, bringing up to: " +
+                        btc.amount_to_str(jm_single().mincjamount))
                     self.cjamount = jm_single().mincjamount
             self.n_counterparties = si[2]
             self.my_cj_addr = si[3]
@@ -295,7 +295,7 @@ class Taker(object):
             self.total_txfee = estimate_tx_fee(3, 2,
                 txtype=self.wallet_service.get_txtype()) * self.n_counterparties
             total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
-            jlog.info('total estimated amount spent = ' + str(total_amount))
+            jlog.info('total estimated amount spent = ' + btc.amount_to_str(total_amount))
             try:
                 self.input_utxos = self.wallet_service.select_utxos(self.mixdepth, total_amount,
                                                         minconfs=1)
@@ -457,8 +457,10 @@ class Taker(object):
             estimated_fee = estimate_tx_fee(
                 len(sum(self.utxos.values(), [])), len(self.outputs) + 2,
                 txtype=self.wallet_service.get_txtype())
-            jlog.info("Based on initial guess: " + str(self.total_txfee) +
-                     ", we estimated a miner fee of: " + str(estimated_fee))
+            jlog.info("Based on initial guess: " +
+                      btc.amount_to_str(self.total_txfee) +
+                      ", we estimated a miner fee of: " +
+                      btc.amount_to_str(estimated_fee))
             #reset total
             self.total_txfee = estimated_fee
         my_txfee = max(self.total_txfee - self.maker_txfee_contributions, 0)
@@ -470,13 +472,13 @@ class Taker(object):
         #in SendPayment.create_tx(), but it is still a possibility if one maker
         #uses a *lot* of inputs.
         if self.my_change_addr and my_change_value <= 0:
-            raise ValueError("Calculated transaction fee of: " + str(
-                self.total_txfee) +
-                             " is too large for our inputs;Please try again.")
+            raise ValueError("Calculated transaction fee of: " +
+                btc.amount_to_str(self.total_txfee) +
+                " is too large for our inputs; Please try again.")
         elif self.my_change_addr and my_change_value <= jm_single(
         ).BITCOIN_DUST_THRESHOLD:
-            jlog.info("Dynamically calculated change lower than dust: " + str(
-                my_change_value) + "; dropping.")
+            jlog.info("Dynamically calculated change lower than dust: " +
+                btc.amount_to_str(my_change_value) + "; dropping.")
             self.my_change_addr = None
             my_change_value = 0
         jlog.info(
@@ -489,7 +491,7 @@ class Taker(object):
                 # rounding so 1 satoshi extra or fewer being spent as miner
                 # fees is acceptable
                 jlog.info(('WARNING CHANGE NOT BEING '
-                           'USED\nCHANGEVALUE = {}').format(my_change_value))
+                           'USED\nCHANGEVALUE = {}').format(btc.amount_to_str(my_change_value)))
         else:
             self.outputs.append({'address': self.my_change_addr,
                                  'value': my_change_value})
