@@ -361,6 +361,9 @@ parse_flags ()
             --with-qt)
                 with_qt='1'
                 ;;
+            --without-qt)
+                with_qt='0'
+                ;;
             "")
                 break
                 ;;
@@ -373,6 +376,7 @@ Options:
 --develop       code remains editable in place
 --python, -p    python version (default: python3)
 --with-qt       build the Qt GUI (incompatible with python2)
+--without-qt    don't build the Qt GUI
 "
                 return 1
                 ;;
@@ -384,7 +388,7 @@ Options:
         echo "ERROR: Joinmarket-Qt is currently only available for Python 3
                      Use the flag '--python=python3' to enable a python3 install."
         return 1
-    elif [[ ${with_qt} != 1 ]] && [[ ${python} == python3* ]]; then
+    elif [[ ${with_qt} == '' ]] && [[ ${python} == python3* ]]; then
         read -p "
         INFO: Joinmarket-Qt for GUI Taker and Tumbler modes is available.
         Install Qt dependencies (~160mb) ? [y|n] : "
