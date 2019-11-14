@@ -15,13 +15,13 @@ deps_install ()
 {
     if [[ ${install_os} == 'debian' ]]; then
         if is_python3; then
-            if deb_deps_install "python-virtualenv curl python3-dev python3-pip build-essential automake pkg-config libtool libgmp-dev libltdl-dev"; then
+            if deb_deps_install "python-virtualenv curl python3-dev python3-pip build-essential automake pkg-config libtool libgmp-dev libltdl-dev libssl-dev"; then
                 return 0
             else
                 return 1
             fi
         else
-            if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool libgmp-dev libltdl-dev"; then
+            if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool libgmp-dev libltdl-dev libssl-dev"; then
                 return 0
             else
                 return 1
