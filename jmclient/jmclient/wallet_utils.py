@@ -17,7 +17,8 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
     LegacyWallet, SegwitWallet, is_native_segwit_mode)
 from jmclient.wallet_service import WalletService
-from jmbase.support import get_password, jmprint
+from jmbase.support import get_password, jmprint, EXIT_FAILURE, EXIT_ARGERROR
+
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH
 from .output import fmt_utxo
 import jmbitcoin as btc
@@ -1218,11 +1219,11 @@ def wallet_tool_main(wallet_root_path):
 
     if len(args) < 1:
         parser.error('Needs a wallet file or method')
-        sys.exit(0)
+        sys.exit(EXIT_ARGERROR)
 
     if options.mixdepth is not None and options.mixdepth < 0:
         parser.error("Must have at least one mixdepth.")
-        sys.exit(0)
+        sys.exit(EXIT_ARGERROR)
 
     if args[0] in noseed_methods:
         method = args[0]
@@ -1263,7 +1264,7 @@ def wallet_tool_main(wallet_root_path):
         if not isinstance(jm_single().bc_interface, BitcoinCoreInterface):
             jmprint('showing history only available when using the Bitcoin Core ' +
                     'blockchain interface', "error")
-            sys.exit(0)
+            sys.exit(EXIT_ARGERROR)
         else:
             return wallet_fetch_history(wallet_service, options)
     elif method == "generate":
@@ -1293,13 +1294,13 @@ def wallet_tool_main(wallet_root_path):
         return wallet_freezeutxo(wallet_service, options.mixdepth)
     else:
         parser.error("Unknown wallet-tool method: " + method)
-        sys.exit(0)
+        sys.exit(EXIT_ARGERROR)
 
 
 #Testing (can port to test modules, TODO)
 if __name__ == "__main__":
     if not test_bip32_pathparse():
-        sys.exit(0)
+        sys.exit(EXIT_FAILURE)
     rootpath="m/0"
     walletbranch = 0
     accounts = range(3)

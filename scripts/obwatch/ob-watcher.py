@@ -19,6 +19,7 @@ from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
 
+from jmbase.support import EXIT_FAILURE
 
 
 # https://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
@@ -29,7 +30,7 @@ try:
 except:
     print("matplotlib not found; do `pip install matplotlib`"
           "in the joinmarket virtualenv.")
-    sys.exit(0)
+    sys.exit(EXIT_FAILURE)
 
 from jmbase import get_log
 from jmclient import jm_single, load_program_config, calc_cj_fee, get_irc_mchannels

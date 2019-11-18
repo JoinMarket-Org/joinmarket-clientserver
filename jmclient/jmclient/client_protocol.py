@@ -21,6 +21,7 @@ from jmbase import get_log
 from jmclient import (jm_single, get_irc_mchannels,
                       RegtestBitcoinCoreInterface)
 import jmbitcoin as btc
+from jmbase.support import EXIT_FAILURE
 
 jlog = get_log()
 
@@ -556,7 +557,7 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True,
                 jlog.warn("Cannot listen on port " + str(port) + ", trying next port")
                 if port >= (orgport + 100):
                     jlog.error("Tried 100 ports but cannot listen on any of them. Quitting.")
-                    sys.exit(1)
+                    sys.exit(EXIT_FAILURE)
                 port += 1
     else:
         # if daemon run separately, and we do p2ep, we are using

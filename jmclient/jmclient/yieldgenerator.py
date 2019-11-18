@@ -15,6 +15,7 @@ from jmclient import Maker, jm_single, load_program_config, \
     JMClientProtocolFactory, start_reactor, \
     calc_cj_fee, WalletService
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
+from jmbase.support import EXIT_ARGERROR
 
 jlog = get_log()
 
@@ -228,7 +229,7 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     (options, args) = parser.parse_args()
     if len(args) < 1:
         parser.error('Needs a wallet')
-        sys.exit(0)
+        sys.exit(EXIT_ARGERROR)
     wallet_name = args[0]
     ordertype = options.ordertype
     txfee = options.txfee
@@ -245,7 +246,7 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     else:
         parser.error('You specified an incorrect offer type which ' +\
                      'can be either swreloffer or swabsoffer')
-        sys.exit(0)
+        sys.exit(EXIT_ARGERROR)
     nickserv_password = options.password
 
     load_program_config()
