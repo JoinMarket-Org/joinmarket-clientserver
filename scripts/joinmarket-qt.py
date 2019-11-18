@@ -67,7 +67,7 @@ JM_CORE_VERSION = '0.5.5'
 JM_GUI_VERSION = '10'
 
 from jmbase import get_log
-from jmclient import load_program_config, get_network,\
+from jmclient import load_program_config, get_network, update_persist_config,\
     open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
     jm_single, validate_address, weighted_order_choose, Taker,\
     JMClientProtocolFactory, start_reactor, get_schedule, schedule_to_text,\
@@ -89,8 +89,6 @@ def update_config_for_gui():
     '''The default joinmarket config does not contain these GUI settings
     (they are generally set by command line flags or not needed).
     If they are set in the file, use them, else set the defaults.
-    These *will* be persisted to joinmarket.cfg, but that will not affect
-    operation of the command line version.
     '''
     gui_config_names = ['gaplimit', 'history_file', 'check_high_fee',
                         'max_mix_depth', 'order_wait_time', 'checktx']
@@ -102,13 +100,6 @@ def update_config_for_gui():
     for gcn, gcv in zip(gui_config_names, gui_config_default_vals):
         if gcn not in [_[0] for _ in gui_items]:
             jm_single().config.set("GUI", gcn, gcv)
-
-
-def persist_config():
-    '''This loses all comments in the config file.
-    TODO: possibly correct that.'''
-    with open('joinmarket.cfg', 'w') as f:
-        jm_single().config.write(f)
 
 def checkAddress(parent, addr):
     valid, errmsg = validate_address(str(addr))
@@ -245,12 +236,17 @@ class SettingsTab(QDialog):
                 oval = 'true' if checked else 'false'
             log.debug('setting section: ' + section + ' and name: ' + oname +
                       ' to: ' + oval)
-            jm_single().config.set(section, oname, oval)
+            if not update_persist_config(section, oname, oval):
+                log.warn("Unable to persist config change to file: " + str(section) + str(oname) + str(oval))
 
         else:  #currently there is only QLineEdit
             log.debug('setting section: ' + section + ' and name: ' + str(t[
                 0].text()) + ' to: ' + str(t[1].text()))
-            jm_single().config.set(section, str(t[0].text()), str(t[1].text()))
+            if not update_persist_config(section, str(t[0].text()), str(t[1].text())):
+                # we don't include GUI as it's not required to be persisted:
+                if not section == "GUI":
+                    log.warn("Unable to persist config change to file: " + str(
+                        section) + str(t[0].text()) + str(t[1].text()))
             if str(t[0].text()) == 'blockchain_source':
                 jm_single().bc_interface = get_blockchain_interface_instance(
                     jm_single().config)
@@ -1268,7 +1264,6 @@ class JMMainWindow(QMainWindow):
         quit_msg = "Are you sure you want to quit?"
         reply = JMQtMessageBox(self, quit_msg, mbtype='question')
         if reply == QMessageBox.Yes:
-            persist_config()
             event.accept()
             if self.reactor.threadpool is not None:
                 self.reactor.threadpool.stop()
