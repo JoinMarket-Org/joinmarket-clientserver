@@ -145,22 +145,24 @@ def main():
 
 
     # From the estimated tx fees, check if the expected amount is a
-    # significant value compared the the cj amount
-    total_cj_amount = amount
-    if total_cj_amount == 0:
-        total_cj_amount = wallet_service.get_balance_by_mixdepth()[options.mixdepth]
+    # significant value compared the the cj amount; currently enabled
+    # only for single join (the predominant, non-advanced case)
+    if options.schedule == '':
+        total_cj_amount = amount
         if total_cj_amount == 0:
-            raise ValueError("No confirmed coins in the selected mixdepth. Quitting")
-    exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / total_cj_amount
-    if exp_tx_fees_ratio > 0.05:
-        jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
-            ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
-        if input('You might want to modify your tx_fee'
-            ' settings in joinmarket.cfg. Still continue? (y/n):')[0] != 'y':
-            sys.exit('Aborted by user.')
-    else:
-        log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
-            .format(exp_tx_fees_ratio))
+            total_cj_amount = wallet_service.get_balance_by_mixdepth()[options.mixdepth]
+            if total_cj_amount == 0:
+                raise ValueError("No confirmed coins in the selected mixdepth. Quitting")
+        exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / total_cj_amount
+        if exp_tx_fees_ratio > 0.05:
+            jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
+                ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
+            if input('You might want to modify your tx_fee'
+                ' settings in joinmarket.cfg. Still continue? (y/n):')[0] != 'y':
+                sys.exit('Aborted by user.')
+        else:
+            log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
+                .format(exp_tx_fees_ratio))
 
     if options.makercount == 0 and not options.p2ep:
         direct_send(wallet_service, amount, mixdepth, destaddr, options.answeryes)
