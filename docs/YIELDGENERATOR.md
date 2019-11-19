@@ -13,6 +13,7 @@ The first thing to understand is that this is not a bank account with a guarante
 You will need to:
 + Install JoinMarket (see the README file of this repository, then follow the [usage guide](USAGE.md)).
 + If you've followed the usage guide and funded your wallet with some coins (anywhere is fine, but the 0th mixdepth is most logical), you can then configure your yield generator script:
++ First, choose a yg script. For beginners, use one of the defaults (as in the next bullet point). But you can also use more customised and advanced scripts, found [here](https://github.com/Joinmarket-Org/custom-scripts)
 + Edit `yg-privacyenhanced.py` or `yield-generator-basic.py` (former is recommended) at the top of the file with your chosen fee selections, then run this variant yield-generator.py on a permanently-on computer with a stable internet connection. For example:
         (jmvenv)$ python yg-privacyenhanced.py yournewwallet.jmdat
 + Wait and be patient. The volume of joins is always dependent on the number of takers. A successful join may take a day or longer to appear.
