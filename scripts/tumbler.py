@@ -77,7 +77,7 @@ def main():
             jmprint("Error was: " + str(schedule), "error")
             sys.exit(EXIT_FAILURE)
         #This removes all entries that are marked as done
-        schedule = [s for s in schedule if s[5] != 1]
+        schedule = [s for s in schedule if s[-1] != 1]
         # remaining destination addresses must be stored in Taker.tdestaddrs
         # in case of tweaks; note we can't change, so any passed on command
         # line must be ignored:
@@ -90,16 +90,16 @@ def main():
         destaddrs = [s[3] for s in schedule if s[3] not in ["INTERNAL", "addrask"]]
         jmprint("Remaining destination addresses in restart: " + ",".join(destaddrs),
                 "important")
-        if isinstance(schedule[0][5], str) and len(schedule[0][5]) == 64:
+        if isinstance(schedule[0][-1], str) and len(schedule[0][-1]) == 64:
             #ensure last transaction is confirmed before restart
             tumble_log.info("WAITING TO RESTART...")
-            txid = schedule[0][5]
+            txid = schedule[0][-1]
             restart_waiter(txid)
             #remove the already-done entry (this connects to the other TODO,
             #probably better *not* to truncate the done-already txs from file,
             #but simplest for now.
             schedule = schedule[1:]
-        elif schedule[0][5] != 0:
+        elif schedule[0][-1] != 0:
             print("Error: first schedule entry is invalid.")
             sys.exit(EXIT_FAILURE)
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
@@ -107,7 +107,8 @@ def main():
         tumble_log.info("TUMBLE RESTARTING")
     else:
         #Create a new schedule from scratch
-        schedule = get_tumble_schedule(options, destaddrs)
+        schedule = get_tumble_schedule(options, destaddrs,
+            wallet.get_balance_by_mixdepth())
         tumble_log.info("TUMBLE STARTING")
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
             f.write(schedule_to_text(schedule))

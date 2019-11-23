@@ -196,7 +196,7 @@ def unconf_update(taker, schedulefile, tumble_log, addtolog=False):
     #full record should always be accurate; but TUMBLE.log should be
     #used for checking what actually happened.
     completion_flag = 1 if not addtolog else taker.txid
-    taker.schedule[taker.schedule_index][5] = completion_flag
+    taker.schedule[taker.schedule_index][-1] = completion_flag
     with open(schedulefile, "wb") as f:
         f.write(schedule_to_text(taker.schedule))
 

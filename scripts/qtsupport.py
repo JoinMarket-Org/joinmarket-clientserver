@@ -553,7 +553,7 @@ class SchDynamicPage1(QWizardPage):
         sMM = [(0, jm_single().config.getint("GUI", "max_mix_depth") - 1), (3, 20),
                (2, 7), (0.00000001, 100.0, 8), (2, 10), (0.000001, 0.25, 6),
                (0, 10000000)]
-        sD = ['0', '6', '4', '30.0', '4', '0.005', '10000']
+        sD = ['0', '9', '4', '60.0', '2', '0.005', '10000']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
@@ -623,28 +623,39 @@ class SchFinishPage(QWizardPage):
         layout.setSpacing(4)
 
         results = []
-        sN = ['Makercount sdev', 'Tx count sdev',
-              'Amount power',
+        sN = ['Makercount sdev',
+              'Tx count sdev',
               'Minimum maker count',
               'Minimum transaction count',
               'Min coinjoin amount',
-              'wait time']
+              'Response wait time',
+              'Stage 1 transaction wait time increase',
+              'Rounding Chance']
+        for w in ["One", "Two", "Three", "Four", "Five"]:
+            sN += [w + " significant figures rounding weight"]
         #Tooltips
         sH = ["Standard deviation of the number of makers to use in each "
-              "transaction.",
-        "Standard deviation of the number of transactions to use in each "
-        "mixdepth",
-        "A parameter to control the random coinjoin sizes.",
-        "The lowest allowed number of maker counterparties.",
-        "The lowest allowed number of transactions in one mixdepth.",
-        "The lowest allowed size of any coinjoin, in satoshis.",
-        "The time in seconds to wait for response from counterparties."]
+                  "transaction.",
+              "Standard deviation of the number of transactions to use in each "
+                  "mixdepth",
+              "The lowest allowed number of maker counterparties.",
+              "The lowest allowed number of transactions in one mixdepth.",
+              "The lowest allowed size of any coinjoin, in satoshis.",
+              "The time in seconds to wait for response from counterparties.",
+              "The factor increase in wait time for stage 1 sweep coinjoins",
+              "The probability of non-sweep coinjoin amounts being rounded"]
+        for w in ["one", "two", "three", "four", "five"]:
+            sH += ["If rounding happens (determined by Rounding Chance) then this "
+                "is the relative probability of rounding to " + w +
+                " significant figures"]
         #types
-        sT = [float, float, float, int, int, int, float]
+        sT = [float, float, int, int, int, float, float, float] + [int]*5
         #constraints
-        sMM = [(0.0, 10.0, 2), (0.0, 10.0, 2), (1.0, 10000.0, 1), (2,20),
-               (1, 10), (100000, 100000000), (10.0, 500.0, 2)]
-        sD = ['1.0', '1.0', '100.0', '2', '1', '1000000', '20']
+        sMM = [(0.0, 10.0, 2), (0.0, 10.0, 2), (2,20),
+               (1, 10), (100000, 100000000), (10.0, 500.0, 2), (0, 100, 1),
+               (0.0, 1.0, 3)] + [(0, 10000)]*5
+        sD = ['1.0', '1.0', '2', '2', '1000000', '20', '3', '0.25'] +\
+                 ['55', '15', '25', '65', '40']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
@@ -663,11 +674,14 @@ class SchFinishPage(QWizardPage):
         #fields not considered 'mandatory' as defaults are accepted
         self.registerField("makercountsdev", results[0][1])
         self.registerField("txcountsdev", results[1][1])
-        self.registerField("amountpower", results[2][1])
-        self.registerField("minmakercount", results[3][1])
-        self.registerField("mintxcount", results[4][1])
-        self.registerField("mincjamount", results[5][1])
-        self.registerField("waittime", results[6][1])
+        self.registerField("minmakercount", results[2][1])
+        self.registerField("mintxcount", results[3][1])
+        self.registerField("mincjamount", results[4][1])
+        self.registerField("waittime", results[5][1])
+        self.registerField("stage1_timelambda_increase", results[6][1])
+        self.registerField("rounding_chance", results[7][1])
+        for i in range(5):
+            self.registerField("rounding_sigfig_weight_" + str(i+1), results[8+i][1])
 
 class SchIntroPage(QWizardPage):
     def __init__(self, parent):
@@ -714,7 +728,7 @@ class ScheduleWizard(QWizard):
     def get_destaddrs(self):
         return self.destaddrs
 
-    def get_schedule(self):
+    def get_schedule(self, wallet_balance_by_mixdepth):
         self.destaddrs = []
         for i in range(self.page(2).required_addresses):
             daddrstring = str(self.field("destaddr"+str(i)))
@@ -735,16 +749,19 @@ class ScheduleWizard(QWizard):
         self.opts['txcountparams'] = (int(self.field("txcountparams")),
                                     float(self.field("txcountsdev")))
         self.opts['mintxcount'] = int(self.field("mintxcount"))
-        self.opts['amountpower'] = float(self.field("amountpower"))
         self.opts['timelambda'] = float(self.field("timelambda"))
         self.opts['waittime'] = float(self.field("waittime"))
+        self.opts["stage1_timelambda_increase"] = float(self.field("stage1_timelambda_increase"))
         self.opts['mincjamount'] = int(self.field("mincjamount"))
         relfeeval = float(self.field("maxrelfee"))
         absfeeval = int(self.field("maxabsfee"))
         self.opts['maxcjfee'] = (relfeeval, absfeeval)
         #needed for Taker to check:
+        self.opts['rounding_chance'] = float(self.field("rounding_chance"))
+        self.opts['rounding_sigfig_weights'] = tuple([int(self.field("rounding_sigfig_weight_" + str(i+1))) for i in range(5)])
         jm_single().mincjamount = self.opts['mincjamount']
-        return get_tumble_schedule(self.opts, self.destaddrs)
+        return get_tumble_schedule(self.opts, self.destaddrs,
+            wallet_balance_by_mixdepth)
 
 class TumbleRestartWizard(QWizard):
     def __init__(self):
@@ -754,7 +771,6 @@ class TumbleRestartWizard(QWizard):
 
     def getOptions(self):
         self.opts = {}
-        self.opts['amountpower'] = float(self.field("amountpower"))
         self.opts['mincjamount'] = int(self.field("mincjamount"))
         relfeeval = float(self.field("maxrelfee"))
         absfeeval = int(self.field("maxabsfee"))
@@ -773,21 +789,19 @@ class RestartSettingsPage(QWizardPage):
         layout.setSpacing(4)
 
         results = []
-        sN = ['Amount power',
-              'Min coinjoin amount',
+        sN = ['Min coinjoin amount',
               'Max relative fee per counterparty (e.g. 0.005)',
               'Max fee per counterparty, satoshis (e.g. 10000)']
         #Tooltips
-        sH = ["A parameter to control the random coinjoin sizes.",
-        "The lowest allowed size of any coinjoin, in satoshis.",
+        sH = ["The lowest allowed size of any coinjoin, in satoshis.",
         "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
         "Integer number of satoshis (this AND previous must be violated to reject)"]
         #types
-        sT = [float, int, float, int]
+        sT = [int, float, int]
         #constraints
-        sMM = [(1.0, 10000.0, 1), (100000, 100000000), (0.000001, 0.25, 6),
+        sMM = [(100000, 100000000), (0.000001, 0.25, 6),
                (0, 10000000)]
-        sD = ['100.0', '1000000', '0.0005', '10000']
+        sD = ['1000000', '0.0005', '10000']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
@@ -804,7 +818,6 @@ class RestartSettingsPage(QWizardPage):
             layout.addWidget(x[1], i + 1, 1, 1, 2)
         self.setLayout(layout)
         #fields not considered 'mandatory' as defaults are accepted
-        self.registerField("amountpower", results[0][1])
-        self.registerField("mincjamount", results[1][1])
-        self.registerField("maxrelfee", results[2][1])
-        self.registerField("maxabsfee", results[3][1])
+        self.registerField("mincjamount", results[0][1])
+        self.registerField("maxrelfee", results[1][1])
+        self.registerField("maxabsfee", results[2][1])

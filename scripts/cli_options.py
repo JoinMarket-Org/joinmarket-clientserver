@@ -269,9 +269,9 @@ def get_tumbler_parser():
             action='store',
             dest='makercountrange',
             help=
-            'Input the mean and spread of number of makers to use. e.g. 6 1 will be a normal distribution '
-            'with mean 6 and standard deviation 1 inclusive, default=6 1 (floats are also OK)',
-            default=(6, 1))
+            'Input the mean and spread of number of makers to use. e.g. 9 1 will be a normal distribution '
+            'with mean 9 and standard deviation 1 inclusive, default=9 1 (floats are also OK)',
+            default=(9, 1))
     parser.add_option(
             '--minmakercount',
             type='int',
@@ -292,17 +292,17 @@ def get_tumbler_parser():
             type='float',
             nargs=2,
             dest='txcountparams',
-            default=(4, 1),
+            default=(2, 1),
             help=
             'The number of transactions to take coins from one mixing depth to the next, it is'
             ' randomly chosen following a normal distribution. Should be similar to --addrask. '
-            'This option controls the parameters of the normal distribution curve. (mean, standard deviation). default=4 1')
+            'This option controls the parameters of the normal distribution curve. (mean, standard deviation). default=2 1')
     parser.add_option(
             '--mintxcount',
             type='int',
             dest='mintxcount',
-            default=1,
-            help='The minimum transaction count per mixing level, default=1')
+            default=2,
+            help='The minimum transaction count per mixing level, default=2')
     parser.add_option(
             '--donateamount',
             type='float',
@@ -311,22 +311,24 @@ def get_tumbler_parser():
             help=
             'percent of funds to donate to joinmarket development, or zero to opt out (default=0%)')
     parser.add_option(
-            '--amountpower',
-            type='float',
-            dest='amountpower',
-            default=100.0,
-            help=
-            'The output amounts follow a power law distribution, this is the power, default=100.0')
-    parser.add_option(
             '-l',
             '--timelambda',
             type='float',
             dest='timelambda',
-            default=30,
+            default=60,
             help=
             'Average the number of minutes to wait between transactions. Randomly chosen '
             ' following an exponential distribution, which describes the time between uncorrelated'
-            ' events. default=30')
+            ' events. default=60')
+    parser.add_option(
+            '--stage1-timelambda-increase',
+            type='float',
+            dest='stage1_timelambda_increase',
+            default=3,
+            help=
+            'Stage 1 sweep coinjoins have a longer wait time. This parameter'
+            ' controls by what factor longer is this average wait time compared to stage2 coinjoins'
+            ' which are controlled by `--timelambda`, default=3')
     parser.add_option(
             '-w',
             '--wait-time',
@@ -376,6 +378,24 @@ def get_tumbler_parser():
                  'mixdepthsrc + number of mixdepths to tumble '
                  'have been used.',
             default=-1)
+    parser.add_option(
+            '--rounding-chance',
+            action='store',
+            type='float',
+            dest='rounding_chance',
+            help='probability of non-sweep coinjoin amount being rounded, default=0.25 (25%)',
+            default=0.25)
+    parser.add_option(
+            '--rounding-sigfig-weights',
+            type='float',
+            nargs=5,
+            dest='rounding_sigfig_weights',
+            default=(55, 15, 25, 65, 40),
+            help=
+            "If rounding happens (determined by --rounding-chance) then the weights of how many"
+            " significant figures to round to. The five values refer to the probability of"
+            " rounding to one, two, three, four and five significant figures respectively."
+            " default=(55, 15, 25, 65, 40)")
     add_common_options(parser)
     return parser
 
@@ -404,7 +424,7 @@ def get_sendpayment_parser():
         type='int',
         dest='makercount',
         help='how many makers to coinjoin with, default random from 4 to 6',
-        default=random.randint(4, 6))
+        default=random.randint(8, 10))
     parser.add_option('-S',
                       '--schedule-file',
                       type='string',

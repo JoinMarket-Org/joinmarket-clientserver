@@ -10,30 +10,30 @@ from jmclient import (get_schedule, get_tumble_schedule,
 import os
 
 valids = """#sample for testing
-1, 110000000, 3, INTERNAL, 0, 1
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 9.88, 0
+1, 110000000, 3, INTERNAL, 0, 16, 1
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 9.88, 16, 0
 """
 
 invalids1 = """#sample for testing
-1, 110000000, 3, 5, INTERNAL, 0
+1, 110000000, 3, 5, INTERNAL, 16, 0
 #pointless comment here; following line has trailing spaces
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw ,0, 0,  
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw ,0, 16, 0,  
 """
 
 invalids2 = """#sample for testing
-1, 110000000, notinteger, INTERNAL, 0, 0
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0
+1, 110000000, notinteger, INTERNAL, 0, 16, 0
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 16, 0
 """
 
 invalids3 = """#sample for testing
-1, 110000000, 3, INTERNAL, 0, 0
-0, notinteger, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0
+1, 110000000, 3, INTERNAL, 0, 16, 0
+0, notinteger, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 16, 0
 """
 
 #invalid address
 invalids4 = """#sample for testing
-1, 110000000, 3, INTERNAL, 0, 0
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qq, 0, 0
+1, 110000000, 3, INTERNAL, 0, 16, 0
+0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qq, 0, 16, 0
 """
 
 
@@ -65,11 +65,13 @@ def get_options():
     options.txfee = 5000
     options.addrcount = 3
     options.mintxcount = 1
-    options.amountpower = 100
     options.timelambda = 0.2
     options.waittime = 10
+    options.stage1_timelambda_increase = 3
     options.mincjamount = 1000000
     options.liquiditywait = 5
+    options.rounding_chance = 0.25
+    options.rounding_sigfig_weights = (55, 15, 25, 65, 40)
     options = vars(options)
     return options
 
@@ -88,7 +90,7 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
     options = get_options()
     options['mixdepthcount'] = mixdepthcount
     options['txcountparams'] = txcparams
-    schedule = get_tumble_schedule(options, destaddrs)
+    schedule = get_tumble_schedule(options, destaddrs, {0:1})
     dests = [x[3] for x in schedule]
     assert set(destaddrs).issubset(set(dests))
 
@@ -126,7 +128,7 @@ def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
     options['mixdepthcount'] = mixdepthcount
     options['txcountparams'] = txcparams
     options['makercountrange'] = makercountrange
-    schedule = get_tumble_schedule(options, destaddrs)
+    schedule = get_tumble_schedule(options, destaddrs, {0:1})
     dests = [x[3] for x in schedule]
     assert set(destaddrs).issubset(set(dests))
     new_schedule = tweak_tumble_schedule(options, schedule, lastcompleted)

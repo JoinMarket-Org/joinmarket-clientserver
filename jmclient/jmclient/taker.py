@@ -21,6 +21,7 @@ from jmclient.podle import generate_podle, get_podle_commitments, PoDLE
 from jmclient.wallet_service import WalletService
 from .output import generate_podle_error_string
 from .cryptoengine import EngineError
+from .schedule import NO_ROUNDING
 
 
 jlog = get_log()
@@ -168,6 +169,7 @@ class Taker(object):
             si = self.schedule[self.schedule_index]
             self.mixdepth = si[0]
             self.cjamount = si[1]
+            rounding = si[5]
             #non-integer coinjoin amounts are treated as fractions
             #this is currently used by the tumbler algo
             if isinstance(self.cjamount, float):
@@ -179,6 +181,9 @@ class Taker(object):
                         )[self.mixdepth]
                 #reset to satoshis
                 self.cjamount = int(self.cjamount * self.mixdepthbal)
+                if rounding != NO_ROUNDING:
+                    self.cjamount = round_to_significant_figures(self.cjamount,
+                        rounding)
                 if self.cjamount < jm_single().mincjamount:
                     jlog.info("Coinjoin amount too low, bringing up to: " + str(
                         jm_single().mincjamount))
@@ -188,7 +193,7 @@ class Taker(object):
             # for sweeps to external addresses we need an in-wallet import
             # for the transaction monitor (this will be a no-op for txs to
             # in-wallet addresses).
-            if self.cjamount == 0:
+            if self.cjamount == 0 and self.my_cj_addr != "INTERNAL":
                 self.wallet_service.import_non_wallet_address(self.my_cj_addr)
 
             #if destination is flagged "INTERNAL", choose a destination
@@ -1222,3 +1227,13 @@ class P2EPTaker(Taker):
         self.self_sign_and_push()
         # returning False here is not an error condition, only stops processing.
         return (False, "OK")
+
+def round_to_significant_figures(d, sf):
+    '''Rounding number d to sf significant figures in base 10'''
+    for p in range(-10, 15):
+        power10 = 10**p
+        if power10 > d:
+            sf_power10 = 10**sf
+            sigfiged = int(round(d/power10*sf_power10)*power10/sf_power10)
+            return sigfiged
+    raise RuntimeError()

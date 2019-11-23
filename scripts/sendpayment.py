@@ -17,7 +17,7 @@ import pprint
 from jmclient import Taker, P2EPTaker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, validate_address, jm_single,\
     estimate_tx_fee, direct_send, WalletService,\
-    open_test_wallet_maybe, get_wallet_path
+    open_test_wallet_maybe, get_wallet_path, NO_ROUNDING
 from twisted.python.log import startLogging
 from jmbase.support import get_log, set_logging_level, jmprint, \
     EXIT_FAILURE, EXIT_ARGERROR
@@ -77,7 +77,7 @@ def main():
             jmprint('ERROR: Address invalid. ' + errormsg, "error")
             sys.exit(EXIT_ARGERROR)
         schedule = [[options.mixdepth, amount, options.makercount,
-                     destaddr, 0.0, 0]]
+                     destaddr, 0.0, NO_ROUNDING, 0]]
     else:
         if options.p2ep:
             parser.error("Schedule files are not compatible with PayJoin")
