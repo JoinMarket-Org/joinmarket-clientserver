@@ -19,6 +19,7 @@ from twisted.trial import unittest
 from twisted.test import proto_helpers
 from jmbase.commands import *
 from taker_test_data import t_raw_signed_tx
+from commontest import default_max_cj_fee
 import json
 import jmbitcoin as bitcoin
 
@@ -282,7 +283,7 @@ class TrialTestJMClientProto(unittest.TestCase):
             self.addCleanup(self.client.transport.loseConnection)
         clientfactories = []
         takers = [DummyTaker(
-            WalletService(DummyWallet()), ["a", "b"], callbacks=(
+            WalletService(DummyWallet()), ["a", "b"], default_max_cj_fee, callbacks=(
                 None, None, dummy_taker_finished)) for _ in range(len(params))]
         for i, p in enumerate(params):
             takers[i].set_fail_init(p[0])

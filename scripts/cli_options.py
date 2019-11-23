@@ -105,30 +105,19 @@ def get_order_choose_algorithm(option, opt_str, value, parser, value_kw=None):
     setattr(parser.values, option.dest, fn)
 
 
-def get_max_cj_fee_values(config, parser_options):
-    CONFIG_SECTION = 'POLICY'
-    CONFIG_OPTION = 'max_cj_fee_'
-    # rel, abs
-    fee_values = [None, None]
-    fee_types = [float, int]
+"""
+The following defaults are maintained as accessed via functions for
+flexibility.
+TODO This should be moved from this module."""
+MAX_DEFAULT_REL_FEE = 0.001
+MIN_MAX_DEFAULT_ABS_FEE = 1000
+MAX_MAX_DEFAULT_ABS_FEE = 10000
 
-    for i, option in enumerate(('rel', 'abs')):
-        value = getattr(parser_options, CONFIG_OPTION + option, None)
-        if value is not None:
-            fee_values[i] = fee_types[i](value)
-            continue
+def get_default_max_relative_fee():
+    return MAX_DEFAULT_REL_FEE
 
-        try:
-            fee_values[i] = config.get(CONFIG_SECTION, CONFIG_OPTION + option)
-        except NoOptionError:
-            pass
-
-    if any(x is None for x in fee_values):
-        fee_values = prompt_user_for_cj_fee(*fee_values)
-
-    return tuple(map(lambda j: fee_types[j](fee_values[j]),
-                     range(len(fee_values))))
-
+def get_default_max_absolute_fee():
+    return random.randint(MIN_MAX_DEFAULT_ABS_FEE, MAX_MAX_DEFAULT_ABS_FEE)
 
 def prompt_user_for_cj_fee(rel_val, abs_val):
     msg = """Joinmarket will choose market makers randomly as long as their
@@ -163,12 +152,12 @@ counterparties are selected."""
     rel_prompt = False
     if rel_val is None:
         rel_prompt = True
-        rel_val = 0.001
+        rel_val = get_default_max_relative_fee()
 
     abs_prompt = False
     if abs_val is None:
         abs_prompt = True
-        abs_val = random.randint(1000, 10000)
+        abs_val = get_default_max_absolute_fee()
 
     print(msg.format(rel_val=rel_val, abs_val=abs_val))
     if rel_prompt:
@@ -206,6 +195,40 @@ max_cj_fee_rel = {rel_val}\n""".format(rel_val=rel_val, abs_val=abs_val))
 
     return rel_val, abs_val
 
+def get_max_cj_fee_values(config, parser_options,
+                          user_callback=prompt_user_for_cj_fee):
+    """ Given a config object, retrieve the chosen maximum absolute
+    and relative coinjoin fees chosen by the user, or prompt
+    the user via the user_callback function, if not present in
+    the config.
+
+    user_callback:
+    Arguments: relative value(default None), absolute value (default None)
+    Returns: relative value (float), absolute value (int, satoshis)
+    """
+
+    CONFIG_SECTION = 'POLICY'
+    CONFIG_OPTION = 'max_cj_fee_'
+    # rel, abs
+    fee_values = [None, None]
+    fee_types = [float, int]
+
+    for i, option in enumerate(('rel', 'abs')):
+        if parser_options is not None:
+            value = getattr(parser_options, CONFIG_OPTION + option, None)
+            if value is not None:
+                fee_values[i] = fee_types[i](value)
+                continue
+        try:
+            fee_values[i] = config.get(CONFIG_SECTION, CONFIG_OPTION + option)
+        except NoOptionError:
+            pass
+
+    if any(x is None for x in fee_values):
+        fee_values = user_callback(*fee_values)
+
+    return tuple(map(lambda j: fee_types[j](fee_values[j]),
+                     range(len(fee_values))))
 
 def check_regtest(blockchain_start=True):
     """ Applies any regtest-specific configuration

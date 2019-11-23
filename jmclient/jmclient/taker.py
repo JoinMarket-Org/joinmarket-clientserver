@@ -35,14 +35,17 @@ class Taker(object):
     def __init__(self,
                  wallet_service,
                  schedule,
+                 max_cj_fee,
                  order_chooser=weighted_order_choose,
                  callbacks=None,
                  tdestaddrs=None,
-                 ignored_makers=None,
-                 max_cj_fee=(1, float('inf'))):
-        """Schedule must be a list of tuples: (see sample_schedule_for_testnet
+                 ignored_makers=None):
+        """`schedule`` must be a list of tuples: (see sample_schedule_for_testnet
         for explanation of syntax, also schedule.py module in this directory),
         which will be a sequence of joins to do.
+        `max_cj_fee` must be a tuple of form: (float, int or float) where the first
+        is the maximum relative fee as a decimal and the second is the maximum
+        absolute fee in satoshis.
         Callbacks:
         External callers set the 3 callbacks for filtering orders,
         sending info messages to client, and action on completion.
@@ -883,7 +886,7 @@ class P2EPTaker(Taker):
     """
 
     def __init__(self, counterparty, wallet_service, schedule, callbacks):
-        super(P2EPTaker, self).__init__(wallet_service, schedule, callbacks=callbacks)
+        super(P2EPTaker, self).__init__(wallet_service, schedule, (1, float('inf')), callbacks=callbacks)
         self.p2ep_receiver_nick = counterparty
         # Callback to request user permission (for e.g. GUI)
         # args: (1) message, as string

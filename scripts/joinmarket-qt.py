@@ -80,7 +80,9 @@ from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
     donation_more_message
-
+# TODO refactor; these functions do not belong in cli_options:
+from cli_options import get_max_cj_fee_values, get_default_max_absolute_fee, \
+     get_default_max_relative_fee
 
 from twisted.internet import task
 
@@ -649,6 +651,27 @@ class SpendTab(QWidget):
         self.spendstate.updateRun('running')
         self.startJoin()
 
+    def getMaxCJFees(self, relfee, absfee):
+        """ Used as a callback to decide relative and absolute
+        maximum fees for coinjoins, in cases where the user has not
+        set these values in the config (which is the default)."""
+        if relfee is None:
+            relfee = get_default_max_relative_fee()
+        if absfee is None:
+            absfee = get_default_max_absolute_fee()
+        msg = ("Your maximum absolute fee in from one counterparty has been "
+              "set to: " + str(absfee) + " satoshis.\n"
+              "Your maximum relative fee from one counterparty has been set "
+              "to: " + str(relfee) + ".\n"
+              "To change these, please edit the config file and change the "
+              "settings:\n"
+              "max_cj_fee_abs = your-value-in-satoshis\n"
+              "max_cj_fee_rel = your-value-as-decimal\n"
+              "in the [POLICY] section.\n"
+              "Note: If you don't do this, this dialog will interrupt the tumbler.")
+        JMQtMessageBox(self, msg, mbtype="info", title="Setting fee limits.")
+        return relfee, absfee
+
     def startJoin(self):
         if not mainWindow.wallet_service:
             JMQtMessageBox(self, "Cannot start without a loaded wallet.",
@@ -664,8 +687,13 @@ class SpendTab(QWidget):
             check_offers_callback = None
 
         destaddrs = self.tumbler_destaddrs if self.tumbler_options else []
+        maxcjfee = get_max_cj_fee_values(jm_single().config, None,
+                                         user_callback=self.getMaxCJFees)
+        log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
+                     "".format(maxcjfee[0], btc.amount_to_str(maxcjfee[1])))
         self.taker = Taker(mainWindow.wallet_service,
                            self.spendstate.loaded_schedule,
+                           maxcjfee,
                            order_chooser=weighted_order_choose,
                            callbacks=[check_offers_callback,
                                       self.takerInfo,
@@ -707,7 +735,7 @@ class SpendTab(QWidget):
 
     def checkOffersTumbler(self, offers_fees, cjamount):
         return tumbler_filter_orders_callback(offers_fees, cjamount,
-                                              self.taker, self.tumbler_options)
+                                              self.taker)
 
     def checkOffers(self, offers_fee, cjamount):
         """Parse offers and total fee from client protocol,

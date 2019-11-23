@@ -531,9 +531,7 @@ class SchDynamicPage1(QWizardPage):
         sN = ['Starting mixdepth', 'Average number of counterparties',
               'How many mixdepths to tumble through',
               'Average wait time between transactions, in minutes',
-              'Average number of transactions per mixdepth',
-              'Max relative fee per counterparty (e.g. 0.005)',
-              'Max fee per counterparty, satoshis (e.g. 10000)']
+              'Average number of transactions per mixdepth']
         #Tooltips
         sH = ["The starting mixdepth can be decided from the Wallet tab; it must\n"
         "have coins in it, but it's OK if some coins are in other mixdepths.",
@@ -544,16 +542,13 @@ class SchDynamicPage1(QWizardPage):
         "will move coins from mixdepth 1 to mixdepth 5",
         "This is the time waited *after* 1 confirmation has occurred, and is\n"
         "varied randomly.",
-        "Will be varied randomly, see advanced settings next page",
-        "A decimal fraction (e.g. 0.001 = 0.1%) (this AND next must be violated to reject",
-        "Integer number of satoshis (this AND previous must be violated to reject)"]
+        "Will be varied randomly, see advanced settings next page"]
         #types
-        sT = [int, int, int, float, int, float, int]
+        sT = [int, int, int, float, int]
         #constraints
         sMM = [(0, jm_single().config.getint("GUI", "max_mix_depth") - 1), (3, 20),
-               (2, 7), (0.00000001, 100.0, 8), (2, 10), (0.000001, 0.25, 6),
-               (0, 10000000)]
-        sD = ['0', '9', '4', '60.0', '2', '0.005', '10000']
+               (2, 7), (0.00000001, 100.0, 8), (2, 10)]
+        sD = ['0', '9', '4', '60.0', '2']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
@@ -574,8 +569,6 @@ class SchDynamicPage1(QWizardPage):
         self.registerField("mixdepthcount", results[2][1])
         self.registerField("timelambda", results[3][1])
         self.registerField("txcountparams", results[4][1])
-        self.registerField("maxrelfee", results[5][1])
-        self.registerField("maxabsfee", results[6][1])
 
 class SchDynamicPage2(QWizardPage):
 
@@ -753,9 +746,6 @@ class ScheduleWizard(QWizard):
         self.opts['waittime'] = float(self.field("waittime"))
         self.opts["stage1_timelambda_increase"] = float(self.field("stage1_timelambda_increase"))
         self.opts['mincjamount'] = int(self.field("mincjamount"))
-        relfeeval = float(self.field("maxrelfee"))
-        absfeeval = int(self.field("maxabsfee"))
-        self.opts['maxcjfee'] = (relfeeval, absfeeval)
         #needed for Taker to check:
         self.opts['rounding_chance'] = float(self.field("rounding_chance"))
         self.opts['rounding_sigfig_weights'] = tuple([int(self.field("rounding_sigfig_weight_" + str(i+1))) for i in range(5)])

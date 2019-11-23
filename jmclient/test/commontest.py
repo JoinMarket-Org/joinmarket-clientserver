@@ -26,6 +26,8 @@ import platform
 OS = platform.system()
 PINL = '\r\n' if OS == 'Windows' else '\n'
 
+default_max_cj_fee = (1, float('inf'))
+
 class DummyBlockchainInterface(BlockchainInterface):
     def __init__(self):
         self.fake_query_results = None
