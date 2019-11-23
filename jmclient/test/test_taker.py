@@ -18,7 +18,7 @@ from jmclient import load_program_config, jm_single, set_commitment_file,\
     get_network, WalletService, NO_ROUNDING
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
     t_maker_response, t_chosen_orders, t_dummy_ext
-
+from commontest import default_max_cj_fee
 
 class DummyWallet(SegwitLegacyWallet):
     def __init__(self):
@@ -128,7 +128,7 @@ def get_taker(schedule=None, schedule_len=0, on_finished=None,
     print("Using schedule: " + str(schedule))
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
-    taker = Taker(WalletService(DummyWallet()), schedule,
+    taker = Taker(WalletService(DummyWallet()), schedule, default_max_cj_fee,
                   callbacks=[filter_orders_callback, None, on_finished_callback])
     taker.wallet_service.current_blockheight = 10**6
     return taker

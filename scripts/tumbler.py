@@ -158,7 +158,7 @@ def main():
     def filter_orders_callback(orders_fees, cjamount):
         """Decide whether to accept fees
         """
-        return tumbler_filter_orders_callback(orders_fees, cjamount, taker, options)
+        return tumbler_filter_orders_callback(orders_fees, cjamount, taker)
 
     def taker_finished(res, fromtx=False, waittime=0.0, txdetails=None):
         """on_finished_callback for tumbler; processing is almost entirely
@@ -176,8 +176,8 @@ def main():
     #instantiate Taker with given schedule and run
     taker = Taker(wallet_service,
                   schedule,
+                  maxcjfee,
                   order_chooser=options['order_choose_fn'],
-                  max_cj_fee=maxcjfee,
                   callbacks=(filter_orders_callback, None, taker_finished),
                   tdestaddrs=destaddrs)
     clientfactory = JMClientProtocolFactory(taker)

@@ -16,7 +16,7 @@ from jmclient import load_program_config, jm_single,\
     YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet,\
     NO_ROUNDING
 from jmclient.podle import set_commitment_file
-from commontest import make_wallets, binarize_tx
+from commontest import make_wallets, binarize_tx, default_max_cj_fee
 from test_taker import dummy_filter_orderbook
 import jmbitcoin as btc
 
@@ -64,8 +64,8 @@ def create_taker(wallet, schedule, monkeypatch):
         on_finished_callback.called = True
     on_finished_callback.called = False
     on_finished_callback.status = None
-    taker = Taker(wallet, schedule, callbacks=(dummy_filter_orderbook, None,
-                                               on_finished_callback))
+    taker = Taker(wallet, schedule, default_max_cj_fee,
+                callbacks=(dummy_filter_orderbook, None, on_finished_callback))
 
     # we have skipped irc key setup and key exchange, handled by jmdaemon
     monkeypatch.setattr(taker, 'auth_counterparty', lambda *args: True)

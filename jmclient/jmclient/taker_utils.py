@@ -328,7 +328,7 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
                 f.write(schedule_to_text(taker.schedule))
 
 
-def tumbler_filter_orders_callback(orders_fees, cjamount, taker, options):
+def tumbler_filter_orders_callback(orders_fees, cjamount, taker):
     """Since the tumbler does not use interactive fee checking,
     we use the -x values from the command line instead.
     """
