@@ -1509,9 +1509,9 @@ class JMMainWindow(QMainWindow):
 
         JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                                    title="Wallet created")
-        self.initWallet(seed=self.walletname, restart_cb=self.restartWithMsg)
+        self.initWallet(seed=self.walletname)
 
-    def selectWallet(self, testnet_seed=None, restart_cb=None):
+    def selectWallet(self, testnet_seed=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
             current_path = os.path.dirname(os.path.realpath(__file__))
             if os.path.isdir(os.path.join(current_path, 'wallets')):
@@ -1533,7 +1533,7 @@ class JMMainWindow(QMainWindow):
                 if not ok:
                     return
                 pwd = str(text).strip()
-                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd, restart_cb)
+                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd)
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
@@ -1545,9 +1545,9 @@ class JMMainWindow(QMainWindow):
             firstarg = str(testnet_seed)
             pwd = None
             #ignore return value as there is no decryption failure possible
-            self.loadWalletFromBlockchain(firstarg, pwd, restart_cb)
+            self.loadWalletFromBlockchain(firstarg, pwd)
 
-    def loadWalletFromBlockchain(self, firstarg=None, pwd=None, restart_cb=None):
+    def loadWalletFromBlockchain(self, firstarg=None, pwd=None):
         if firstarg:
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
@@ -1575,7 +1575,7 @@ class JMMainWindow(QMainWindow):
             self.walletRefresh.stop()
 
         self.wallet_service = WalletService(wallet)
-        self.wallet_service.add_restart_callback(restart_cb)
+        self.wallet_service.add_restart_callback(self.restartWithMsg)
         self.wallet_service.startService()
         self.walletRefresh = task.LoopingCall(self.updateWalletInfo)
         self.walletRefresh.start(5.0)
@@ -1600,7 +1600,7 @@ class JMMainWindow(QMainWindow):
             seed = self.getTestnetSeed()
             self.selectWallet(testnet_seed=seed)
         else:
-            self.initWallet(restart_cb=self.restartWithMsg)
+            self.initWallet()
 
     def getTestnetSeed(self):
         text, ok = QInputDialog.getText(
@@ -1692,7 +1692,7 @@ class JMMainWindow(QMainWindow):
             return None
         return str(mnemonic_extension)
 
-    def initWallet(self, seed=None, restart_cb=None):
+    def initWallet(self, seed=None):
         '''Creates a new wallet if seed not provided.
         Initializes by syncing.
         '''
@@ -1717,8 +1717,7 @@ class JMMainWindow(QMainWindow):
 
             JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                            title="Wallet created")
-        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword,
-                                      restart_cb=restart_cb)
+        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword)
 
 def get_wallet_printout(wallet_service):
     """Given a WalletService object, retrieve the list of
