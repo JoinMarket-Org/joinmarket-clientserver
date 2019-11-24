@@ -1672,7 +1672,7 @@ class JMMainWindow(QMainWindow):
         mb.setText("<br/>".join(seed_recovery_warning))
         text = "<strong>" + words + "</strong>"
         if mnemonic_extension:
-            text += "<br/><br/>Seed extension: <strong>" + mnemonic_extension.decode("utf-8") + "</strong>"
+            text += "<br/><br/>Seed extension: <strong>" + mnemonic_extension + "</strong>"
         mb.setInformativeText(text)
         mb.setStandardButtons(QMessageBox.Ok)
         ret = mb.exec_()
