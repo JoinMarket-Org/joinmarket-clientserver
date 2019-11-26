@@ -307,7 +307,7 @@ libsodium_install ()
     sodium_version='libsodium-1.0.13'
     sodium_lib_tar="${sodium_version}.tar.gz"
     sodium_lib_sha='9c13accb1a9e59ab3affde0e60ef9a2149ed4d6e8f99c93c7a5b97499ee323fd'
-    sodium_url='https://download.libsodium.org/libsodium/releases/old'
+    sodium_url='https://download.libsodium.org/libsodium/releases/old/unsupported'
 
     if check_skip_build "${sodium_version}"; then
         return 0
