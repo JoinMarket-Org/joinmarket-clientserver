@@ -13,6 +13,7 @@ from jmclient import P2EPMaker, jm_single, load_program_config, \
     open_test_wallet_maybe, get_wallet_path
 from cli_options import check_regtest
 from jmbase.support import EXIT_FAILURE, EXIT_ARGERROR
+from jmbitcoin import amount_to_sat
 
 jlog = get_log()
 
@@ -45,16 +46,16 @@ def receive_payjoin_main(makerclass):
 
     (options, args) = parser.parse_args()
     if len(args) < 2:
-        parser.error('Needs a wallet, and a receiving amount in satoshis')
+        parser.error('Needs a wallet, and a receiving amount in bitcoins or satoshis')
         sys.exit(EXIT_ARGERROR)
     wallet_name = args[0]
     try:
-        receiving_amount = int(args[1])
+        receiving_amount = amount_to_sat(args[1])
     except:
         parser.error("Invalid receiving amount passed: " + receiving_amount)
         sys.exit(EXIT_FAILURE)
     if receiving_amount < 0:
-        parser.error("Receiving amount must be a positive integer in satoshis")
+        parser.error("Receiving amount must be a positive number")
         sys.exit(EXIT_FAILURE)
     load_program_config()
 
