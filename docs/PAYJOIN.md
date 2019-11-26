@@ -42,17 +42,17 @@ Good question! Whichever Joinmarket wallet you set up, you can always make a nor
 (non-coinjoin, non-PayJoin, nothing clever - just a normal payment) using the syntax:
 
 ```
-python sendpayment.py -N0 -m <mixdepth> mywalletname.jmdat amount-in-sats address
+python sendpayment.py -N0 -m <mixdepth> mywalletname.jmdat amount address
 ```
 
-Notice that the amount is always an integer, in satoshis. so 0.1BTC is 10000000.
+Amount can be specified as both bitcoins (if decimal value or has "btc" suffix) or satoshis (if integer value or has "sat" suffix). So, 0.1 BTC can be specified as 0.1, 0.1btc, 10000000 or 10000000sat.
 Also very important: to empty an account or *mixdepth* (more on this below),
 set the amount to 0. You will be prompted with the destination and amount before actually pushing the transaction
 to the network, as a sanity check. It looks like this:
 
 ```
-2019-01-19 18:20:08,509 [INFO]  Using a fee of : 1672 satoshis.
-2019-01-19 18:20:08,510 [INFO]  Using a change value of: 189998328 satoshis.
+2019-01-19 18:20:08,509 [INFO]  Using a fee of : 0.00001672 BTC (1672 sat).
+2019-01-19 18:20:08,510 [INFO]  Using a change value of: 1.89998328 BTC (189998328 sat).
 2019-01-19 18:20:08,511 [INFO]  Got signed transaction:
 
 2019-01-19 18:20:08,511 [INFO]  {'ins': [{'outpoint': {'hash': '0a00b5a40f4cd587b3158fbf37c75e1824df25b8c8a59e3760a6d3e4850e70e3',
@@ -69,7 +69,7 @@ to the network, as a sanity check. It looks like this:
  'version': 1}
 2019-01-19 18:20:08,511 [INFO]  In serialized form (for copy-paste):
 2019-01-19 18:20:08,511 [INFO]  01000000000101e3700e85e4d3a660379ea5c8b825df24185ec737bf8f15b387d54c0fa4b5000a00000000171600146cac63b385d6e45acce4d814d9a5d4c36d7515a8ffffffff02809698000000000017a9140b48ac588e74b7dc02755459dbd56ef39a55f06687f824530b0000000017a91477967d4582ef80417943dc152ab36858de02dedf8702483045022100d9fe2096c689e882c560c3d5b7adf633b252c2ff8fed3fd81dd5523556ff404302204efdcc947899c7f330a321d5a7a4b56aec457ec5d6dfce72c93351bc65d1cb6c012103f58d6a2f317f829b3bf21a3ba79887013597853e45d656e43222930c5a2854f100000000
-2019-01-19 18:20:08,512 [INFO]  Sends: 10000000 satoshis to address: 2MtGtUpRFVYcQSYgjr6XDHo9QKhjsb3GRye
+2019-01-19 18:20:08,512 [INFO]  Sends: 0.10000000 BTC (10000000 sat) to address: 2MtGtUpRFVYcQSYgjr6XDHo9QKhjsb3GRye
 Would you like to push to the network? (y/n):
 ```
 
@@ -124,7 +124,7 @@ you can read it after this to see that it makes sense; there's also a video
 * Receiver needs to start: run (still in scripts/ directory):
 
 ```
-python receive-payjoin.py -m 1 receiver-wallet-name.jmdat amount-in-satoshis
+python receive-payjoin.py -m 1 receiver-wallet-name.jmdat amount
 ```
 
 Note : `-m 1` is choosing the *mixdepth* (see above) to *spend* coins from: in a payjoin,
