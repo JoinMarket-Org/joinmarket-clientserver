@@ -358,6 +358,8 @@ Here is another example of a CoinJoin usage:
 
 Sends 1BTC (100 million satoshis) from mixing depth 1 (the second!), mixing with five other parties.
 
+Amount can be specified as either bitcoins (if decimal value or has "btc" suffix) or satoshis (if integer value or has "sat" suffix). So, 1 BTC can be specified as 1.0, 1btc, 100000000, 100000000sat or 100000000.0sat.
+
 Setting the *amount* to zero will cause the bot to sweep. Meaning it will empty that mixing depth, calculating the coinjoin fee so that no coins are left.
 
         (jmvenv)$ python sendpayment.py -N 7 wallet.jmdat 0 mprGzBA9rQk82Ly41TsmpQGa8UPpZb2w8c
