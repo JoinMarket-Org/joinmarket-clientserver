@@ -9,7 +9,7 @@ import sys
 from twisted.python.log import startLogging
 from jmbase import get_log, set_logging_level
 from jmclient import P2EPMaker, jm_single, load_program_config, \
-    sync_wallet, JMClientProtocolFactory, start_reactor, \
+    WalletService, JMClientProtocolFactory, start_reactor, \
     open_test_wallet_maybe, get_wallet_path
 from cli_options import check_regtest
 from jmbase.support import EXIT_FAILURE, EXIT_ARGERROR
@@ -71,14 +71,13 @@ def receive_payjoin_main(makerclass):
         wallet_path, wallet_name, max_mix_depth,
         wallet_password_stdin=options.wallet_password_stdin,
         gap_limit=options.gaplimit)
+    wallet_service = WalletService(wallet)
 
-    if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "electrum-server":
-        jm_single().bc_interface.synctype = "with-script"
+    while not wallet_service.synced:
+        wallet_service.sync_wallet(fast=not options.recoversync)
+    wallet_service.startService()
 
-    while not jm_single().bc_interface.wallet_synced:
-        sync_wallet(wallet, fast=not options.recoversync)
-
-    maker = makerclass(wallet, options.mixdepth, receiving_amount)
+    maker = makerclass(wallet_service, options.mixdepth, receiving_amount)
     
     jlog.info('starting receive-payjoin')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
