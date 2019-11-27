@@ -137,8 +137,8 @@ spending the coins from*. If you have 2 btc in mixdepth 0 and 1 btc in mixdepth 
 you want to send 1.4 coins you must type `0` in this box; Joinmarket only spends coins 
 from one mixdepth at one time, to aid privacy (again, see the wiki for details).
 
-Amount in BTC is the amount the recipient address will actually receive; so don't add 
-any transaction fees or coinjoin fees here.
+Amount in BTC (if decimal) or satoshis (if integer) is the amount the recipient address
+will actually receive; so don't add any transaction fees or coinjoin fees here.
 
 Once the settings are done, click Start. **NOTE** you haven't committed to the transaction 
 yet at this point (if you didn't edit the `checktx` setting in Settings). After a little delay (it can be changed using the setting `order_wait_time`) while you're connecting to IRC and gathering orders, you'll eventually see a prompt like this:
