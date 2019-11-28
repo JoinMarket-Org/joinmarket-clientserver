@@ -5,6 +5,7 @@ from builtins import * # noqa: F401
 import abc
 import random
 import sys
+import time
 from decimal import Decimal
 from twisted.internet import reactor, task
 
@@ -12,7 +13,7 @@ import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 from jmclient.configure import jm_single
-from jmbase.support import get_log, jmprint, EXIT_SUCCESS, EXIT_FAILURE
+from jmbase.support import get_log, jmprint, EXIT_FAILURE
 
 
 # an inaccessible blockheight; consider rewriting in 1900 years
@@ -57,6 +58,11 @@ class BlockchainInterface(object):
         required for inclusion in the next N blocks.
 	'''
 
+    @abc.abstractmethod
+    def import_addresses_if_needed(self, addresses, wallet_name):
+        """import addresses to the underlying blockchain interface if needed
+        returns True if the sync call needs to do a system exit"""
+
     def fee_per_kb_has_been_manually_set(self, N):
         '''if the 'block' target is higher than 1000, interpret it
         as manually set fee/Kb.
@@ -65,7 +71,6 @@ class BlockchainInterface(object):
             return True
         else:
             return False
-
 
 class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
     """A pseudo-blockchain interface using the existing 
@@ -167,7 +172,9 @@ class BitcoinCoreInterface(BlockchainInterface):
         actualNet = blockchainInfo['chain']
 
         netmap = {'main': 'mainnet', 'test': 'testnet', 'regtest': 'regtest'}
-        if netmap[actualNet] != network:
+        if netmap[actualNet] != network and \
+                (not (actualNet == "regtest" and network == "testnet")):
+            #special case of regtest and testnet having the same addr format
             raise Exception('wrong network configured')
 
     def get_block(self, blockheight):
@@ -182,7 +189,8 @@ class BitcoinCoreInterface(BlockchainInterface):
     def rpc(self, method, args):
         if method not in ['importaddress', 'walletpassphrase', 'getaccount',
                           'gettransaction', 'getrawtransaction', 'gettxout',
-                          'importmulti', 'listtransactions', 'getblockcount']:
+                          'importmulti', 'listtransactions', 'getblockcount',
+                          'scantxoutset']:
             log.debug('rpc: ' + method + " " + str(args))
         res = self.jsonRpc.call(method, args)
         return res
@@ -230,25 +238,20 @@ class BitcoinCoreInterface(BlockchainInterface):
                 jmprint(fatal_msg, "important")
             sys.exit(EXIT_FAILURE)
 
-    def add_watchonly_addresses(self, addr_list, wallet_name, restart_cb=None):
-        """For backwards compatibility, this fn name is preserved
-        as the case where we quit the program if a rescan is required;
-        but in some cases a rescan is not required (if the address is known
-        to be new/unused). For that case use import_addresses instead.
-        """
-        self.import_addresses(addr_list, wallet_name)
-        if jm_single().config.get("BLOCKCHAIN",
-                                  "blockchain_source") != 'regtest': #pragma: no cover
-            #Exit conditions cannot be included in tests
-            restart_msg = ("restart Bitcoin Core with -rescan or use "
-                           "`bitcoin-cli rescanblockchain` if you're "
-                           "recovering an existing wallet from backup seed\n"
-                           "Otherwise just restart this joinmarket application.")
-            if restart_cb:
-                restart_cb(restart_msg)
+    def import_addresses_if_needed(self, addresses, wallet_name):
+        try:
+            imported_addresses = set(self.rpc('getaddressesbyaccount',
+                                                  [wallet_name]))
+        except JsonRpcError:
+            if wallet_name in self.rpc('listlabels', []):
+                imported_addresses = set(self.rpc('getaddressesbylabel',
+                                                      [wallet_name]).keys())
             else:
-                jmprint(restart_msg, "important")
-                sys.exit(EXIT_SUCCESS)
+                imported_addresses = set()
+        import_needed = not addresses.issubset(imported_addresses)
+        if import_needed:
+            self.import_addresses(addresses - imported_addresses, wallet_name)
+        return import_needed
 
     def _yield_transactions(self, wallet_name):
         batch_size = 1000
@@ -387,6 +390,78 @@ class BitcoinCoreInterface(BlockchainInterface):
             return 10000
         return int(Decimal(1e8) * Decimal(estimate))
 
+class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface):
+
+    def __init__(self, jsonRpc, network):
+        super(BitcoinCoreNoHistoryInterface, self).__init__(jsonRpc, network)
+        self.import_addresses_call_count = 0
+        self.wallet_name = None
+        self.scan_result = None
+
+    def import_addresses_if_needed(self, addresses, wallet_name):
+        self.import_addresses_call_count += 1
+        if self.import_addresses_call_count == 1:
+            self.wallet_name = wallet_name
+            addr_list = ["addr(" + a + ")" for a in addresses]
+            log.debug("Starting scan of UTXO set")
+            st = time.time()
+            try:
+                self.rpc("scantxoutset", ["abort", []])
+                self.scan_result = self.rpc("scantxoutset", ["start",
+                    addr_list])
+            except JsonRpcError as e:
+                raise RuntimeError("Bitcoin Core 0.17.0 or higher required "
+                    + "for no-history sync (" + repr(e) + ")")
+            et = time.time()
+            log.debug("UTXO set scan took " + str(et - st) + "sec")
+        elif self.import_addresses_call_count > 4:
+            #called twice for the first call of sync_addresses(), then two
+            # more times for the second call. the second call happens because
+            # sync_addresses() re-runs in order to have gap_limit new addresses
+            assert False
+        return False
+
+    def _get_addr_from_desc(self, desc_str):
+        #example
+        #'desc': 'addr(2MvAfRVvRAeBS18NT7mKVc1gFim169GkFC5)#h5yn9eq4',
+        assert desc_str.startswith("addr(")
+        return desc_str[5:desc_str.find(")")]
+
+    def _yield_transactions(self, wallet_name):
+        for u in self.scan_result["unspents"]:
+            tx = {"category": "receive", "address":
+                self._get_addr_from_desc(u["desc"])}
+            yield tx
+
+    def list_transactions(self, num):
+        return []
+
+    def rpc(self, method, args):
+        if method == "listaddressgroupings":
+            raise RuntimeError("default sync not supported by bitcoin-rpc-nohistory, use --recoversync")
+        elif method == "listunspent":
+            minconf = 0 if len(args) < 1 else args[0]
+            maxconf = 9999999 if len(args) < 2 else args[1]
+            return [{
+                "address": self._get_addr_from_desc(u["desc"]),
+                "label": self.wallet_name,
+                "height": u["height"],
+                "txid": u["txid"],
+                "vout": u["vout"],
+                "scriptPubKey": u["scriptPubKey"],
+                "amount": u["amount"]
+                } for u in self.scan_result["unspents"]]
+        else:
+            return super(BitcoinCoreNoHistoryInterface, self).rpc(method, args)
+
+    def set_wallet_no_history(self, wallet):
+        #make wallet-tool not display any new addresses
+        #because no-history cant tell if an address is used and empty
+        #so this is necessary to avoid address reuse
+        wallet.gap_limit = 0
+        #disable generating change addresses, also because cant guarantee
+        # avoidance of address reuse
+        wallet.disable_new_scripts = True
 
 # class for regtest chain access
 # running on local daemon. Only
