@@ -181,7 +181,8 @@ class WalletService(Service):
 
         self.update_blockheight()
 
-        txlist = self.bci.list_transactions(100)
+        wallet_name = self.wallet.get_wallet_name()
+        txlist = self.bci.list_transactions(100, wallet_name)
         new_txs = []
         for x in txlist:
             # process either (a) a completely new tx or
@@ -327,9 +328,10 @@ class WalletService(Service):
         else:
             self.sync_addresses()
             self.sync_unspent()
+        wallet_name = self.wallet.get_wallet_name()
         # Don't attempt updates on transactions that existed
         # before startup
-        self.old_txs = [x['txid'] for x in self.bci.list_transactions(100)]
+        self.old_txs = [x['txid'] for x in self.bci.list_transactions(100, wallet_name)]
         return self.synced
 
     def resync_wallet(self, fast=True):

@@ -256,7 +256,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         while True:
             new = self.rpc(
                 'listtransactions',
-                ["*", batch_size, iteration * batch_size, True])
+                [wallet_name, batch_size, iteration * batch_size, True])
             for tx in new:
                 yield tx
             if len(new) < batch_size:
@@ -274,11 +274,11 @@ class BitcoinCoreInterface(BlockchainInterface):
         hexval = str(rpcretval["hex"])
         return btc.deserialize(hexval)
 
-    def list_transactions(self, num):
+    def list_transactions(self, num, wallet_name="*"):
         """ Return a list of the last `num` transactions seen
-        in the wallet (under any label/account).
+        in the wallet (under any label/account), or specify wallet.
         """
-        return self.rpc("listtransactions", ["*", num, 0, True])
+        return self.rpc("listtransactions", [wallet_name, num, 0, True])
 
     def get_transaction(self, txid):
         """ Returns a serialized transaction for txid txid,

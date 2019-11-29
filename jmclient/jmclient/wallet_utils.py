@@ -619,7 +619,7 @@ def wallet_fetch_history(wallet, options):
     buf = range(1000)
     t = 0
     while len(buf) == 1000:
-        buf = jm_single().bc_interface.rpc('listtransactions', ["*",
+        buf = jm_single().bc_interface.rpc('listtransactions', [wallet_name,
             1000, t, True])
         t += len(buf)
         # confirmed
