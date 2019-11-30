@@ -62,9 +62,9 @@ donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
 
 #Underlying joinmarket code version (as per setup.py etc.)
-JM_CORE_VERSION = '0.5.5'
+JM_CORE_VERSION = '0.6.0'
 #Version of this Qt script specifically
-JM_GUI_VERSION = '10'
+JM_GUI_VERSION = '11'
 
 from jmbase import get_log
 from jmclient import load_program_config, get_network, update_persist_config,\
