@@ -187,10 +187,12 @@ class WalletService(Service):
             # process either (a) a completely new tx or
             # (b) a tx that reached unconf status but we are still
             # waiting for conf (active_txids)
+            if "txid" not in x:
+                continue
             if x['txid'] in self.active_txids or x['txid'] not in self.old_txs:
                 new_txs.append(x)
         # reset for next polling event:
-        self.old_txs = [x['txid'] for x in txlist]
+        self.old_txs = [x['txid'] for x in txlist if "txid" in x]
 
         for tx in new_txs:
             txid = tx["txid"]
@@ -329,7 +331,8 @@ class WalletService(Service):
             self.sync_unspent()
         # Don't attempt updates on transactions that existed
         # before startup
-        self.old_txs = [x['txid'] for x in self.bci.list_transactions(100)]
+        self.old_txs = [x['txid'] for x in self.bci.list_transactions(100)
+            if "txid" in x]
         return self.synced
 
     def resync_wallet(self, fast=True):
