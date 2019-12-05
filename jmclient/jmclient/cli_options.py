@@ -6,6 +6,7 @@ from configparser import NoOptionError
 import jmclient.support
 from jmbase import JM_APP_NAME
 from jmclient import jm_single, RegtestBitcoinCoreInterface, cryptoengine
+from jmbase.support import print_jm_version
 
 """This exists as a separate module for two reasons:
 to reduce clutter in main scripts, and refactor out
@@ -46,6 +47,10 @@ def add_base_options(parser):
                       default=False,
                       dest='wallet_password_stdin',
                       help='Read wallet password from stdin')
+    parser.add_option('--version',
+                      action='callback',
+                      callback=print_jm_version,
+                      help='Print JoinMarket version and exit.')
 
 def add_common_options(parser):
     add_base_options(parser)

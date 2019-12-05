@@ -1,8 +1,10 @@
 
-import logging
+import logging, sys
 from getpass import getpass
 from os import path, environ
-import sys
+
+# JoinMarket version
+JM_CORE_VERSION = '0.6.2'
 
 # global Joinmarket constants
 JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
@@ -144,3 +146,7 @@ def lookup_appdata_folder(appname):
     else:
         data_folder = path.expanduser(path.join("~", "." + appname + "/"))
     return data_folder
+
+def print_jm_version(option, opt_str, value, parser):
+    print("JoinMarket " + JM_CORE_VERSION)
+    sys.exit(EXIT_SUCCESS)
