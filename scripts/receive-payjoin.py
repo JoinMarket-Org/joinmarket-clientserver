@@ -77,6 +77,12 @@ def receive_payjoin_main(makerclass):
     while not wallet_service.synced:
         wallet_service.sync_wallet(fast=not options.recoversync)
     wallet_service.startService()
+    # having enforced wallet sync, we can check if we have coins
+    # to do payjoin in the mixdepth
+    if wallet_service.get_balance_by_mixdepth()[options.mixdepth] == 0:
+        jlog.error("Cannot do payjoin from mixdepth " + str(
+            options.mixdepth) + ", no coins. Shutting down.")
+        sys.exit(EXIT_ARGERROR)
 
     maker = makerclass(wallet_service, options.mixdepth, receiving_amount)
     
