@@ -205,9 +205,11 @@ Try increasing the gap limit up from its default of 6. This is more likely to ha
 
         (jmvenv)$ python wallet-tool.py -g 50 my-wallet-file.jmdat
 
-Another possible cause is you were running the tumbler script and it was stopped halfway through, with your coins currently at mixing depth 8. In that case increase the maximum mixdepth:
+Another possible cause is you used the tumbler script with a larger number of mixdepths than 5 in the old wallet. In that case increase the maximum mixdepth:
 
-        (jmvenv)$ python wallet-tool.py -m 15 my-wallet-file.jmdat
+        (jmvenv)$ python wallet-tool.py -m 15 recover
+
+Note that you have to make that decision *at the start*, when creating the new wallet file for this old seed, using the `recover` method. So, if you think the wallet was heavily used with large mixdepth numbers, err on the side of caution and use a larger `-m` value. If you don't specify it, it will just use the default 5.
 
 <a name="mnemonic" />
 
