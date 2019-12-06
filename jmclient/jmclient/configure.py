@@ -107,9 +107,7 @@ daemon_host = localhost
 use_ssl = false
 
 [BLOCKCHAIN]
-#options: bitcoin-rpc, regtest, electrum-server
-# for instructions on bitcoin-rpc read
-# https://github.com/chris-belcher/joinmarket/wiki/Running-JoinMarket-with-Bitcoin-Core-full-node
+#options: bitcoin-rpc, regtest
 blockchain_source = bitcoin-rpc
 network = mainnet
 rpc_host = localhost
