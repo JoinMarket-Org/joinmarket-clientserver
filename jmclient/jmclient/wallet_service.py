@@ -401,9 +401,12 @@ class WalletService(Service):
         #    and then caching allows a small sync to complete *reasonably*
         #    quickly while a larger one is not really negatively affected.
         #    The downside is another free variable, batch size, but this need
-        #    not be exposed to the user; it is not the same as gap limit, in fact,
-        #    the concept of gap limit does not apply to this kind of sync, which
-        #    *assumes* that the most recent usage of addresses is indeed recorded.
+        #    not be exposed to the user; it is not the same as gap limit.
+        #    The assumption is that usage of addresses occurs only if already
+        #    imported, either through in-app usage during coinjoins, or because
+        #    deposit by user will be based on wallet_display() which is only
+        #    showing imported addresses. Hence the gap-limit import at the end
+        #    to ensure this is always true.
         remaining_used_addresses = used_addresses.copy()
         addresses, saved_indices = self.collect_addresses_init()
         for addr in addresses:
@@ -415,8 +418,11 @@ class WalletService(Service):
         for j in range(MAX_ITERATIONS):
             if not remaining_used_addresses:
                 break
-            for addr in \
-                self.collect_addresses_gap(gap_limit=BATCH_SIZE):
+            gap_addrs = self.collect_addresses_gap(gap_limit=BATCH_SIZE)
+            # note: gap addresses *not* imported here; we are still trying
+            # to find the highest-index used address, and assume that imports
+            # are up to that index (at least) - see above main rationale.
+            for addr in gap_addrs:
                 remaining_used_addresses.discard(addr)
 
             # increase wallet indices for next iteration
@@ -433,6 +439,12 @@ class WalletService(Service):
         # overall performance gain is probably negligible
         used_indices = self.get_used_indices(used_addresses)
         self.rewind_wallet_indices(used_indices, saved_indices)
+        # at this point we have the correct up to date index at each branch;
+        # we ensure that all addresses that will be displayed (see wallet_utils.py,
+        # function wallet_display()) are imported by importing gap limit beyond current
+        # index:
+        self.bci.import_addresses(self.collect_addresses_gap(), self.get_wallet_name(),
+                                  self.restart_callback)
         self.synced = True
 
     def sync_addresses(self):
