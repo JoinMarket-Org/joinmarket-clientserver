@@ -251,6 +251,15 @@ tx_broadcast = self
 # after a timeout.
 minimum_makers = 4
 
+# Threshold number of satoshis below which an incoming utxo
+# to a reused address in the wallet will be AUTOMATICALLY frozen.
+# This avoids forced address reuse attacks; see:
+# https://en.bitcoin.it/wiki/Privacy#Forced_address_reuse
+#
+# The default is to ALWAYS freeze a utxo to an already used address,
+# whatever the value of it, and this is set with the value -1.
+max_sats_freeze_reuse = -1
+
 ##############################
 #THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
 #DON'T ALTER THEM UNLESS YOU UNDERSTAND THE IMPLICATIONS.

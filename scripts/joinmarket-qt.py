@@ -1513,6 +1513,18 @@ class JMMainWindow(QMainWindow):
             mn_extension = pp_field.text()
         return message_e.toPlainText(), mn_extension
 
+    def autofreeze_warning_cb(self, utxostr):
+        """ Handles coins sent to reused addresses,
+        preventing forced address reuse, according to value of
+        POLICY setting `max_sats_freeze_reuse` (see
+        WalletService.check_for_reuse()).
+        """
+        msg = "New utxo has been automatically " +\
+             "frozen to prevent forced address reuse:\n" + utxostr +\
+             "\n You can unfreeze this utxo via the Coins tab."
+        JMQtMessageBox(self, msg, mbtype='info',
+                       title="New utxo frozen")
+
     def restartWithMsg(self, msg):
         JMQtMessageBox(self, msg, mbtype='info',
                        title="Restart")
@@ -1603,7 +1615,10 @@ class JMMainWindow(QMainWindow):
             self.walletRefresh.stop()
 
         self.wallet_service = WalletService(wallet)
+        # add information callbacks:
         self.wallet_service.add_restart_callback(self.restartWithMsg)
+        self.wallet_service.autofreeze_warning_cb = self.autofreeze_warning_cb
+
         self.wallet_service.startService()
         self.walletRefresh = task.LoopingCall(self.updateWalletInfo)
         self.walletRefresh.start(5.0)
