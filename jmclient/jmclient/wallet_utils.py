@@ -386,7 +386,7 @@ def wallet_showutxos(wallet, showprivkey):
     return json.dumps(unsp, indent=4)
 
 
-def wallet_display(wallet_service, gaplimit, showprivkey, displayall=False,
+def wallet_display(wallet_service, showprivkey, displayall=False,
         serialized=True, summarized=False):
     """build the walletview object,
     then return its serialization directly if serialized,
@@ -399,16 +399,22 @@ def wallet_display(wallet_service, gaplimit, showprivkey, displayall=False,
             if addr_path != utxodata['path']:
                 continue
             addr_balance += utxodata['value']
-            is_coinjoin, cj_amount, cj_n = \
-                get_tx_info(binascii.hexlify(utxo[0]).decode('ascii'))[:3]
-            if is_coinjoin and utxodata['value'] == cj_amount:
-                status.append('cj-out')
-            elif is_coinjoin:
-                status.append('change-out')
-            elif is_internal:
-                status.append('non-cj-change')
-            else:
-                status.append('deposit')
+            #TODO it is a failure of abstraction here that
+            # the bitcoin core interface is used directly
+            #the function should either be removed or added to bci
+            #or possibly add some kind of `gettransaction` function
+            # to bci
+            if jm_single().bc_interface.__class__ == BitcoinCoreInterface:
+                is_coinjoin, cj_amount, cj_n = \
+                    get_tx_info(binascii.hexlify(utxo[0]).decode('ascii'))[:3]
+                if is_coinjoin and utxodata['value'] == cj_amount:
+                    status.append('cj-out')
+                elif is_coinjoin:
+                    status.append('change-out')
+                elif is_internal:
+                    status.append('non-cj-change')
+                else:
+                    status.append('deposit')
 
         out_status = 'new' if is_new else 'used'
         if len(status) > 1:
@@ -433,7 +439,7 @@ def wallet_display(wallet_service, gaplimit, showprivkey, displayall=False,
                 xpub_key = ""
 
             unused_index = wallet_service.get_next_unused_index(m, forchange)
-            for k in range(unused_index + gaplimit):
+            for k in range(unused_index + wallet_service.gap_limit):
                 path = wallet_service.get_path(m, forchange, k)
                 addr = wallet_service.get_addr_path(path)
                 balance, used = get_addr_status(
@@ -1254,12 +1260,12 @@ def wallet_tool_main(wallet_root_path):
 
     #Now the wallet/data is prepared, execute the script according to the method
     if method == "display":
-        return wallet_display(wallet_service, options.gaplimit, options.showprivkey)
+        return wallet_display(wallet_service, options.showprivkey)
     elif method == "displayall":
-        return wallet_display(wallet_service, options.gaplimit, options.showprivkey,
+        return wallet_display(wallet_service, options.showprivkey,
                               displayall=True)
     elif method == "summary":
-        return wallet_display(wallet_service, options.gaplimit, options.showprivkey, summarized=True)
+        return wallet_display(wallet_service, options.showprivkey, summarized=True)
     elif method == "history":
         if not isinstance(jm_single().bc_interface, BitcoinCoreInterface):
             jmprint('showing history only available when using the Bitcoin Core ' +

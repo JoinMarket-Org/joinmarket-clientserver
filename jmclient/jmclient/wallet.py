@@ -1283,6 +1283,7 @@ class BIP32Wallet(BaseWallet):
             self.get_bip32_priv_export(0, 0).encode('ascii')).digest())\
             .digest()[:3]
         self._populate_script_map()
+        self.disable_new_scripts = False
 
     @classmethod
     def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
@@ -1372,7 +1373,7 @@ class BIP32Wallet(BaseWallet):
         current_index = self._index_cache[md][int_type]
 
         if index == current_index:
-            return self.get_new_script(md, int_type)
+            return self.get_new_script_override_disable(md, int_type)
 
         priv, engine = self._get_priv_from_path(path)
         script = engine.privkey_to_script(priv)
@@ -1454,6 +1455,12 @@ class BIP32Wallet(BaseWallet):
         return path[0] == self._key_ident
 
     def get_new_script(self, mixdepth, internal):
+        if self.disable_new_scripts:
+            raise RuntimeError("Obtaining new wallet addresses "
+                + "disabled, due to nohistory mode")
+        return self.get_new_script_override_disable(mixdepth, internal)
+
+    def get_new_script_override_disable(self, mixdepth, internal):
         # This is called by get_script_path and calls back there. We need to
         # ensure all conditions match to avoid endless recursion.
         int_type = self._get_internal_type(internal)

@@ -6,6 +6,7 @@ import collections
 import time
 import ast
 import binascii
+import sys
 from decimal import Decimal
 from copy import deepcopy
 from twisted.internet import reactor
@@ -14,8 +15,9 @@ from twisted.application.service import Service
 from numbers import Integral
 from jmclient.configure import jm_single, get_log
 from jmclient.output import fmt_tx_data
-from jmclient.jsonrpc import JsonRpcError
-from jmclient.blockchaininterface import INF_HEIGHT
+from jmclient.blockchaininterface import (INF_HEIGHT, BitcoinCoreInterface,
+    BitcoinCoreNoHistoryInterface)
+from jmbase.support import jmprint, EXIT_SUCCESS
 """Wallet service
 
 The purpose of this independent service is to allow
@@ -333,6 +335,8 @@ class WalletService(Service):
         # before startup
         self.old_txs = [x['txid'] for x in self.bci.list_transactions(100)
             if "txid" in x]
+        if isinstance(self.bci, BitcoinCoreNoHistoryInterface):
+            self.bci.set_wallet_no_history(self.wallet)
         return self.synced
 
     def resync_wallet(self, fast=True):
@@ -447,6 +451,24 @@ class WalletService(Service):
                                   self.restart_callback)
         self.synced = True
 
+    def display_rescan_message_and_system_exit(self, restart_cb):
+        #TODO using system exit here should be avoided as it makes the code
+        # harder to understand and reason about
+        #theres also a sys.exit() in BitcoinCoreInterface.import_addresses()
+        #perhaps have sys.exit() placed inside the restart_cb that only
+        # CLI scripts will use
+        if self.bci.__class__ == BitcoinCoreInterface:
+            #Exit conditions cannot be included in tests
+            restart_msg = ("restart Bitcoin Core with -rescan or use "
+                           "`bitcoin-cli rescanblockchain` if you're "
+                           "recovering an existing wallet from backup seed\n"
+                           "Otherwise just restart this joinmarket application.")
+            if restart_cb:
+                restart_cb(restart_msg)
+            else:
+                jmprint(restart_msg, "important")
+                sys.exit(EXIT_SUCCESS)
+
     def sync_addresses(self):
         """ Triggered by use of --recoversync option in scripts,
         attempts a full scan of the blockchain without assuming
@@ -456,19 +478,11 @@ class WalletService(Service):
         jlog.debug("requesting detailed wallet history")
         wallet_name = self.get_wallet_name()
         addresses, saved_indices = self.collect_addresses_init()
-        try:
-            imported_addresses = set(self.bci.rpc('getaddressesbyaccount',
-                                                  [wallet_name]))
-        except JsonRpcError:
-            if wallet_name in self.bci.rpc('listlabels', []):
-                imported_addresses = set(self.bci.rpc('getaddressesbylabel',
-                                                      [wallet_name]).keys())
-            else:
-                imported_addresses = set()
 
-        if not addresses.issubset(imported_addresses):
-            self.bci.add_watchonly_addresses(addresses - imported_addresses,
-                                             wallet_name, self.restart_callback)
+        import_needed = self.bci.import_addresses_if_needed(addresses,
+            wallet_name)
+        if import_needed:
+            self.display_rescan_message_and_system_exit(self.restart_callback)
             return
 
         used_addresses_gen = (tx['address']
@@ -480,13 +494,12 @@ class WalletService(Service):
         self.rewind_wallet_indices(used_indices, saved_indices)
 
         new_addresses = self.collect_addresses_gap()
-        if not new_addresses.issubset(imported_addresses):
-            jlog.debug("Syncing iteration finished, additional step required")
-            self.bci.add_watchonly_addresses(new_addresses - imported_addresses,
-                                             wallet_name, self.restart_callback)
+        if self.bci.import_addresses_if_needed(new_addresses, wallet_name):
+            jlog.debug("Syncing iteration finished, additional step required (more address import required)")
             self.synced = False
+            self.display_rescan_message_and_system_exit(self.restart_callback)
         elif gap_limit_used:
-            jlog.debug("Syncing iteration finished, additional step required")
+            jlog.debug("Syncing iteration finished, additional step required (gap limit used)")
             self.synced = False
         else:
             jlog.debug("Wallet successfully synced")
@@ -513,14 +526,30 @@ class WalletService(Service):
         our_unspent_list = [x for x in unspent_list if (
             self.bci.is_address_labeled(x, wallet_name) or
             self.bci.is_address_labeled(x, self.EXTERNAL_WALLET_LABEL))]
-        for u in our_unspent_list:
-            if not self.is_known_addr(u['address']):
+        for utxo in our_unspent_list:
+            if not self.is_known_addr(utxo['address']):
                 continue
-            self._add_unspent_utxo(u, current_blockheight)
+            # The result of bitcoin core's listunspent RPC call does not have
+            # a "height" field, only "confirmations".
+            # But the result of scantxoutset used in no-history sync does
+            # have "height".
+            if "height" in utxo:
+                height = utxo["height"]
+            else:
+                height = None
+                # wallet's utxo database needs to store an absolute rather
+                # than relative height measure:
+                confs = int(utxo['confirmations'])
+                if confs < 0:
+                    jlog.warning("Utxo not added, has a conflict: " + str(utxo))
+                    continue
+                if confs >= 1:
+                    height = current_blockheight - confs + 1
+            self._add_unspent_txo(utxo, height)
         et = time.time()
         jlog.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
 
-    def _add_unspent_utxo(self, utxo, current_blockheight):
+    def _add_unspent_txo(self, utxo, height):
         """
         Add a UTXO as returned by rpc's listunspent call to the wallet.
 
@@ -532,15 +561,6 @@ class WalletService(Service):
         txid = binascii.unhexlify(utxo['txid'])
         script = binascii.unhexlify(utxo['scriptPubKey'])
         value = int(Decimal(str(utxo['amount'])) * Decimal('1e8'))
-        confs = int(utxo['confirmations'])
-        # wallet's utxo database needs to store an absolute rather
-        # than relative height measure:
-        height = None
-        if confs < 0:
-            jlog.warning("Utxo not added, has a conflict: " + str(utxo))
-            return
-        if confs >=1 :
-            height = current_blockheight - confs + 1
         self.add_utxo(txid, int(utxo['vout']), script, value, height)
 
 
