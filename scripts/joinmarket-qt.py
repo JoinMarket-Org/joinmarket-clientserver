@@ -75,14 +75,12 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     RegtestBitcoinCoreInterface, tumbler_taker_finished_update,\
     get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
-    NO_ROUNDING
+    NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
+    get_default_max_relative_fee
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
     donation_more_message
-# TODO refactor; these functions do not belong in cli_options:
-from cli_options import get_max_cj_fee_values, get_default_max_absolute_fee, \
-     get_default_max_relative_fee
 
 from twisted.internet import task
 
@@ -1448,11 +1446,13 @@ class JMMainWindow(QMainWindow):
         privkeys_fn = privkeys_fn_base
         # Updated to use json format, simply because L1354 writer
         # has some extremely weird behaviour cross Py2/Py3
-        while os.path.isfile(privkeys_fn + '.json'):
+        while os.path.isfile(os.path.join(jm_single().datadir,
+                                          privkeys_fn + '.json')):
             i += 1
             privkeys_fn = privkeys_fn_base + str(i)
         try:
-            with open(privkeys_fn + '.json', "wb") as f:
+            with open(os.path.join(jm_single().datadir,
+                                   privkeys_fn + '.json'), "wb") as f:
                 for addr, pk in private_keys.items():
                     #sanity check
                     if not addr == btc.pubkey_to_p2sh_p2wpkh_address(
@@ -1476,8 +1476,8 @@ class JMMainWindow(QMainWindow):
             return
 
         JMQtMessageBox(self,
-                       "Private keys exported to: " + privkeys_fn + '.json',
-                       title="Success")
+                       "Private keys exported to: " + os.path.join(jm_single().datadir,
+                        privkeys_fn) + '.json', title="Success")
 
     def seedEntry(self):
         d = QDialog(self)
@@ -1555,12 +1555,11 @@ class JMMainWindow(QMainWindow):
 
     def selectWallet(self, testnet_seed=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
-            current_path = os.path.dirname(os.path.realpath(__file__))
-            if os.path.isdir(os.path.join(current_path, 'wallets')):
-                current_path = os.path.join(current_path, 'wallets')
+            # guaranteed to exist as load_program_config was called on startup:
+            wallets_path = os.path.join(jm_single().datadir, 'wallets')
             firstarg = QFileDialog.getOpenFileName(self,
                                                    'Choose Wallet File',
-                                                   directory=current_path,
+                                                   wallets_path,
                                                    options=QFileDialog.DontUseNativeDialog)
             #TODO validate the file looks vaguely like a wallet file
             log.debug('Looking for wallet in: ' + str(firstarg))
@@ -1743,8 +1742,10 @@ class JMMainWindow(QMainWindow):
         '''
         if not seed:
             try:
+                # guaranteed to exist as load_program_config was called on startup:
+                wallets_path = os.path.join(jm_single().datadir, 'wallets')
                 success = wallet_generate_recover_bip39("generate",
-                                                   "wallets",
+                                                   wallets_path,
                                                    "wallet.jmdat",
                                                    callbacks=(self.displayWords,
                                                               None,
@@ -1801,6 +1802,8 @@ def get_wallet_printout(wallet_service):
 ################################
 config_load_error = False
 try:
+    # note: uses default config_path value of "" always, i.e. user
+    # data is always in ~/.joinmarket for JM-QT
     load_program_config()
 except Exception as e:
     config_load_error = "Failed to setup joinmarket: "+repr(e)

@@ -33,7 +33,7 @@ You will get the following error screen initially:
 ![](images/JMQrpcfailed.png)
 
 ... because your rpc connection to Bitcoin Core is not set up. A `joinmarket.cfg` file
-has been created in the directory you're running in. If you're running Bitcoin Core, open it and edit:
+has been created in your Joinmarket data directory (see [here](USAGE.md#data)). If you're running Bitcoin Core, open it and edit:
 
     [BLOCKCHAIN]
     rpc_user = yourusername-as-in-bitcoin.conf
@@ -41,9 +41,7 @@ has been created in the directory you're running in. If you're running Bitcoin C
     rpc_host = localhost #default usually correct 
     rpc_port = 8332 # default for mainnet
 
-If you're not using Core, you can set the value of `blockchain_source` in that section to `electrum-server` **but only do this for testing; it's not supported!**.
-
-Once the rpc connection is correct (or using Electrum), you will be presented with this start screen:
+Once the rpc connection is correct, you will be presented with this start screen:
 
 ![](images/JMQInitregtest.png)
 
@@ -67,8 +65,7 @@ Next, give a name for your wallet file:
 
 ![](images/JMQnewwalletfile.png)
 
-The wallet file will be saved with this name under the directory `wallets`, which is 
-created in the same location as where you have downloaded the application/binary.
+The wallet file will be saved with this name under the directory `wallets` in the same data directory as mentioned above.
 
 Joinmarket wallet file names are .json by default; this isn't strictly necessary, but better to 
 stick to that convention.

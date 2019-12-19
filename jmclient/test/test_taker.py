@@ -13,7 +13,7 @@ import pytest
 import json
 import struct
 from base64 import b64encode
-from jmclient import load_program_config, jm_single, set_commitment_file,\
+from jmclient import load_test_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
     get_network, WalletService, NO_ROUNDING
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
@@ -490,6 +490,6 @@ def setup_taker(request):
     request.addfinalizer(cmtdatateardown)
     if not os.path.exists("cmtdata"):
             os.makedirs("cmtdata")
-    load_program_config()
+    load_test_config()
     jm_single().bc_interface = DummyBlockchainInterface()
     jm_single().config.set("BLOCKCHAIN", "network", "testnet")

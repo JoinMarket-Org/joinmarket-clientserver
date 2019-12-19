@@ -6,7 +6,7 @@ from builtins import * # noqa: F401
 
 import jmbitcoin as btc
 from jmclient import Maker, get_p2sh_vbyte, get_p2pk_vbyte, \
-    load_program_config, jm_single, WalletService
+    load_test_config, jm_single, WalletService
 import jmclient
 from commontest import DummyBlockchainInterface
 from test_taker import DummyWallet
@@ -179,4 +179,4 @@ def test_verify_unsigned_tx_nonsw_valid(setup_env_nodeps):
 def setup_env_nodeps(monkeypatch):
     monkeypatch.setattr(jmclient.configure, 'get_blockchain_interface_instance',
                         lambda x: DummyBlockchainInterface())
-    load_program_config()
+    load_test_config()

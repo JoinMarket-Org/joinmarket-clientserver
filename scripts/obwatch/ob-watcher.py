@@ -445,8 +445,6 @@ def get_dummy_nick():
     return nick
 
 def main():
-    load_program_config(config_path='..')
-
     parser = OptionParser(
             usage='usage: %prog [options]',
             description='Runs a webservice which shows the orderbook.')
@@ -465,7 +463,7 @@ def main():
                       help='port to listen on, default=62601',
                       default=62601)
     (options, args) = parser.parse_args()
-
+    load_program_config(config_path=options.datadir)
     hostport = (options.host, options.port)
     mcs = [ObIRCMessageChannel(c) for c in get_irc_mchannels()]
     mcc = MessageChannelCollection(mcs)

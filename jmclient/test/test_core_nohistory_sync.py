@@ -10,12 +10,12 @@ from commontest import create_wallet_for_sync
 
 import pytest
 from jmbase import get_log
-from jmclient import load_program_config
+from jmclient import load_test_config
 
 log = get_log()
 
 def test_fast_sync_unavailable(setup_sync):
-    load_program_config(bs="bitcoin-rpc-no-history")
+    load_test_config(bs="bitcoin-rpc-no-history")
     wallet_service = create_wallet_for_sync([0, 0, 0, 0, 0],
         ['test_fast_sync_unavailable'])
     with pytest.raises(RuntimeError) as e_info:
@@ -23,7 +23,7 @@ def test_fast_sync_unavailable(setup_sync):
 
 @pytest.mark.parametrize('internal', (False, True))
 def test_sync(setup_sync, internal):
-    load_program_config(bs="bitcoin-rpc-no-history")
+    load_test_config(bs="bitcoin-rpc-no-history")
     used_count = [1, 3, 6, 2, 23]
     wallet_service = create_wallet_for_sync(used_count, ['test_sync'],
         populate_internal=internal)

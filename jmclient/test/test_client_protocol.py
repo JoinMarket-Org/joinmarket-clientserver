@@ -5,7 +5,7 @@ from builtins import *
 '''test client-protocol interfacae.'''
 
 from jmbase import get_log
-from jmclient import load_program_config, Taker,\
+from jmclient import load_test_config, Taker,\
     JMClientProtocolFactory, jm_single, Maker, WalletService
 from jmclient.client_protocol import JMTakerClientProtocol
 from twisted.python.log import msg as tmsg
@@ -274,7 +274,7 @@ class TrialTestJMClientProto(unittest.TestCase):
         global clientfactory
         print("setUp()")
         params = [[False, False], [True, False], [False, True], [-1, False]]
-        load_program_config()
+        load_test_config()
         jm_single().maker_timeout_sec = 1
         self.port = reactor.listenTCP(28184, JMTestServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
@@ -337,7 +337,7 @@ class TestMakerClientProtocol(unittest.TestCase):
         return d
 
     def setUp(self):
-        load_program_config()
+        load_test_config()
         factory = JMClientProtocolFactory(DummyMaker(), proto_type='MAKER')
         self.client = factory.buildProtocol(None)
         self.tr = proto_helpers.StringTransport()

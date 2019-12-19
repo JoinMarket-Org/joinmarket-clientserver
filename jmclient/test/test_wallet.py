@@ -11,7 +11,7 @@ import pytest
 import jmbitcoin as btc
 from commontest import binarize_tx
 from jmbase import get_log
-from jmclient import load_program_config, jm_single, \
+from jmclient import load_test_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
     SegwitWallet, WalletService
@@ -663,7 +663,7 @@ def test_wallet_mixdepth_decrease(setup_wallet):
 
 @pytest.fixture(scope='module')
 def setup_wallet():
-    load_program_config()
+    load_test_config()
     #see note in cryptoengine.py:
     cryptoengine.BTC_P2WPKH.VBYTE = 100
     jm_single().bc_interface.tick_forward_chain_interval = 2

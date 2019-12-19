@@ -9,7 +9,7 @@ from commontest import create_wallet_for_sync
 
 import pytest
 from jmbase import get_log
-from jmclient import load_program_config, jm_single
+from jmclient import load_test_config, jm_single
 
 log = get_log()
 
@@ -157,5 +157,5 @@ def test_imported_wallet_sync(setup_wallets, fast):
 
 @pytest.fixture(scope='module')
 def setup_wallets():
-    load_program_config()
+    load_test_config()
     jm_single().bc_interface.tick_forward_chain_interval = 1

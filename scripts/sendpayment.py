@@ -17,13 +17,12 @@ import pprint
 from jmclient import Taker, P2EPTaker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, validate_address, jm_single,\
     estimate_tx_fee, direct_send, WalletService,\
-    open_test_wallet_maybe, get_wallet_path, NO_ROUNDING
+    open_test_wallet_maybe, get_wallet_path, NO_ROUNDING, \
+    get_sendpayment_parser, get_max_cj_fee_values, check_regtest
 from twisted.python.log import startLogging
 from jmbase.support import get_log, set_logging_level, jmprint, \
     EXIT_FAILURE, EXIT_ARGERROR
 
-from cli_options import get_sendpayment_parser, get_max_cj_fee_values, \
-     check_regtest
 import jmbitcoin as btc
 
 log = get_log()
@@ -53,7 +52,7 @@ def pick_order(orders, n): #pragma: no cover
 def main():
     parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
-    load_program_config()
+    load_program_config(config_path=options.datadir)
     if options.p2ep and len(args) != 3:
         parser.error("PayJoin requires exactly three arguments: "
                      "wallet, amount and destination address.")

@@ -10,8 +10,8 @@ from twisted.python.log import startLogging
 from jmbase import get_log, set_logging_level
 from jmclient import P2EPMaker, jm_single, load_program_config, \
     WalletService, JMClientProtocolFactory, start_reactor, \
-    open_test_wallet_maybe, get_wallet_path
-from cli_options import check_regtest
+    open_test_wallet_maybe, get_wallet_path, check_regtest, \
+    add_base_options
 from jmbase.support import EXIT_FAILURE, EXIT_ARGERROR
 from jmbitcoin import amount_to_sat
 
@@ -19,15 +19,10 @@ jlog = get_log()
 
 def receive_payjoin_main(makerclass):
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [amount-to-receive]')
+    add_base_options(parser)
     parser.add_option('-g', '--gap-limit', action='store', type="int",
                       dest='gaplimit', default=6,
                       help='gap limit for wallet, default=6')
-    parser.add_option('--recoversync',
-                      action='store_true',
-                      dest='recoversync',
-                      default=False,
-                      help=('choose to do detailed wallet sync, '
-                            'used for recovering on new Core instance.'))
     parser.add_option('-m', '--mixdepth', action='store', type='int',
                       dest='mixdepth', default=0,
                       help="mixdepth to source coins from")
@@ -37,12 +32,7 @@ def receive_payjoin_main(makerclass):
                       type='int',
                       dest='amtmixdepths',
                       help='number of mixdepths in wallet, default 5',
-                      default=5)    
-    parser.add_option('--wallet-password-stdin',
-                      action='store_true',
-                      default=False,
-                      dest='wallet_password_stdin',
-                      help='Read wallet password from stdin')
+                      default=5)
 
     (options, args) = parser.parse_args()
     if len(args) < 2:
@@ -57,7 +47,7 @@ def receive_payjoin_main(makerclass):
     if receiving_amount < 0:
         parser.error("Receiving amount must be a positive number")
         sys.exit(EXIT_FAILURE)
-    load_program_config()
+    load_program_config(config_path=options.datadir)
 
     check_regtest()
 

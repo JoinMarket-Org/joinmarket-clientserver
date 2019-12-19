@@ -6,7 +6,7 @@ from jmclient.wallet import UTXOManager
 from test_storage import MockStorage
 import pytest
 
-from jmclient import load_program_config
+from jmclient import load_test_config
 import jmclient
 from commontest import DummyBlockchainInterface
 
@@ -126,4 +126,4 @@ def test_utxomanager_select(setup_env_nodeps):
 def setup_env_nodeps(monkeypatch):
     monkeypatch.setattr(jmclient.configure, 'get_blockchain_interface_instance',
                         lambda x: DummyBlockchainInterface())
-    load_program_config()
+    load_test_config()

@@ -9,7 +9,7 @@ from hashlib import sha256
 from binascii import hexlify, unhexlify
 from collections import defaultdict
 from pyaes import AESModeOfOperationCBC, Decrypter
-
+from jmbase import JM_APP_NAME
 from jmclient import Storage, load_program_config
 from jmclient.wallet_utils import get_password, get_wallet_cls,\
     cli_get_wallet_passphrase_check, get_wallet_path
@@ -135,13 +135,22 @@ def main():
     parser.add_argument('old_wallet_file', type=open)
     parser.add_argument('--name', '-n', required=False, dest='name',
                         help="Name of the new wallet file. Default: [old wallet name].jmdat")
+    # hack; not using jmclient.add_base_options because ArgumentParser not OptionParser:
+    parser.add_argument(
+        '--datadir',
+        dest='datadir',
+        default="",
+        help='Specify the path to a directory you want to use to store your user'
+        'data - wallets, logs and commitment files - and your joinmarket.cfg. '
+        'By default, the directory .' + JM_APP_NAME + ' is used.'
+    )
 
     try:
         args = parser.parse_args()
     except Exception as e:
         print("Error: {}".format(e))
         return
-
+    load_program_config(config_path=args.datadir)
     data = parse_old_wallet(args.old_wallet_file)
 
     if not data:
@@ -157,5 +166,4 @@ def main():
 
 
 if __name__ == '__main__':
-    load_program_config()
     main()

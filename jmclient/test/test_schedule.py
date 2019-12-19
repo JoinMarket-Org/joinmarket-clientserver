@@ -6,7 +6,7 @@ from builtins import * # noqa: F401
 
 import pytest
 from jmclient import (get_schedule, get_tumble_schedule,
-                      tweak_tumble_schedule, load_program_config)
+                      tweak_tumble_schedule, load_test_config)
 import os
 
 valids = """#sample for testing
@@ -38,7 +38,7 @@ invalids4 = """#sample for testing
 
 
 def test_get_schedule():
-    load_program_config()
+    load_test_config()
     tsf = "schedulefortesting"
     for s in [valids, invalids1, invalids2, invalids3, invalids4]:
         if os.path.exists(tsf):
@@ -123,7 +123,7 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
     ])
 def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
                       makercountrange):
-    load_program_config()
+    load_test_config()
     options = get_options()
     options['mixdepthcount'] = mixdepthcount
     options['txcountparams'] = txcparams

@@ -4,9 +4,12 @@ from builtins import * # noqa: F401
 
 import logging
 from getpass import getpass
+from os import path, environ
+import sys
 
 # global Joinmarket constants
 JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
+JM_APP_NAME = "joinmarket"
 
 # Exit status codes
 EXIT_SUCCESS = 0
@@ -124,3 +127,23 @@ def get_password(msg): #pragma: no cover
     if not isinstance(password, bytes):
         password = password.encode('utf-8')
     return password
+
+def lookup_appdata_folder(appname):
+    """ Given an appname as a string,
+    return the correct directory for storing
+    data for the given OS environment.
+    """
+    if sys.platform == 'darwin':
+        if "HOME" in environ:
+            data_folder = path.join(os.environ["HOME"],
+                                   "Library/Application support/",
+                                   appname) + '/'
+        else:
+            print("Could not find home folder")
+            os.exit()
+
+    elif 'win32' in sys.platform or 'win64' in sys.platform:
+        data_folder = path.join(environ['APPDATA'], appname) + '\\'
+    else:
+        data_folder = path.expanduser(path.join("~", "." + appname + "/"))
+    return data_folder

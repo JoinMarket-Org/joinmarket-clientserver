@@ -7,7 +7,7 @@ import pytest
 
 from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon import IRCMessageChannel
-from jmclient import get_irc_mchannels, load_program_config
+from jmclient import get_irc_mchannels, load_test_config
 from jmdaemon.protocol import JM_VERSION, ORDER_KEYS
 class DummyDaemon(object):
     def request_signature_verify(self, a, b, c, d, e,
@@ -24,7 +24,7 @@ def on_welcome(x):
     print("Simulated on-welcome")
 
 def get_ob():
-    load_program_config()
+    load_test_config()
     dm = DummyDaemon()
     mc = DummyMC(get_irc_mchannels()[0], "test", dm)
     ob = OrderbookWatch()

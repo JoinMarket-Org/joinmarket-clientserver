@@ -16,13 +16,12 @@ import binascii
 from pprint import pformat
 
 from optparse import OptionParser
-from jmbase import jmprint
 import jmbitcoin as btc
 from jmclient import load_program_config, jm_single, get_p2pk_vbyte,\
     open_wallet, WalletService, add_external_commitments, update_commitments,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
-    get_wallet_path
-from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR
+    get_wallet_path, add_base_options
+from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR, jmprint
 
 
 def add_ext_commitments(utxo_datas):
@@ -79,6 +78,7 @@ def main():
                     
                     "Also note this ONLY works for standard (p2pkh or p2sh-p2wpkh) utxos."
     )
+    add_base_options(parser)
     parser.add_option(
         '-r',
         '--read-from-file',
@@ -147,14 +147,8 @@ def main():
         help='only validate the provided utxos (file or command line), not add',
         default=False
     )
-    parser.add_option('--recoversync',
-                      action='store_true',
-                      dest='recoversync',
-                      default=False,
-                      help=('choose to do detailed wallet sync, '
-                            'used for recovering on new Core instance.'))
     (options, args) = parser.parse_args()
-    load_program_config()
+    load_program_config(config_path=options.datadir)
     #TODO; sort out "commit file location" global so this script can
     #run without this hardcoding:
     utxo_data = []
@@ -178,7 +172,7 @@ def main():
     #Three options (-w, -r, -R) for loading utxo and privkey pairs from a wallet,
     #csv file or json file.
     if options.loadwallet:
-        wallet_path = get_wallet_path(options.loadwallet, None)
+        wallet_path = get_wallet_path(options.loadwallet)
         wallet = open_wallet(wallet_path, gap_limit=options.gaplimit)
         wallet_service = WalletService(wallet)
         while True:

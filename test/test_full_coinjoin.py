@@ -12,7 +12,7 @@ but certainly could be extended further.
 from common import make_wallets
 import pytest
 import sys
-from jmclient import YieldGeneratorBasic, load_program_config, jm_single,\
+from jmclient import YieldGeneratorBasic, load_test_config, jm_single,\
     sync_wallet, JMClientProtocolFactory, start_reactor, Taker, \
     random_under_max_order_choose
 from jmbase.support import get_log
@@ -142,6 +142,6 @@ def test_cj(setup_full_coinjoin, num_ygs, wallet_structures, mean_amt,
 
 @pytest.fixture(scope="module")
 def setup_full_coinjoin():
-    load_program_config()
+    load_test_config()
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().bc_interface.simulate_blocks()

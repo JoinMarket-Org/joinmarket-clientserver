@@ -11,7 +11,7 @@ import json
 import pytest
 import copy
 from jmbase import get_log
-from jmclient import load_program_config, jm_single, generate_podle,\
+from jmclient import load_test_config, jm_single, generate_podle,\
     generate_podle_error_string, get_commitment_file, PoDLE,\
     get_podle_commitments, add_external_commitments, update_commitments
 from jmclient.podle import verify_all_NUMS, verify_podle, PoDLEError
@@ -217,7 +217,7 @@ def test_podle_error_string(setup_podle):
 
 @pytest.fixture(scope="module")
 def setup_podle(request):
-    load_program_config()
+    load_test_config()
     if not os.path.exists("cmtdata"):
         os.mkdir("cmtdata")
     prev_commits = False
