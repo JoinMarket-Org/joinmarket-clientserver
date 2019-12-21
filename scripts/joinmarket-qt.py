@@ -1200,8 +1200,10 @@ class JMWalletTab(QWidget):
         if address_valid:
             menu.addAction("Copy address to clipboard",
                            lambda: app.clipboard().setText(txt))
-            menu.addAction("Show QR code",
-                           lambda: self.openQRCodePopup(txt))
+            # Show QR code option only for new addresses to avoid address reuse
+            if item.text(3) == "new":
+                menu.addAction("Show QR code",
+                               lambda: self.openQRCodePopup(txt))
         if xpub_exists:
             menu.addAction("Copy extended pubkey to clipboard",
                            lambda: app.clipboard().setText(xpub))
