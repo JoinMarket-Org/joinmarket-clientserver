@@ -28,7 +28,7 @@ To install everything (client and server), install these packages:
 
     git clone git://github.com/jedisct1/libsodium.git
     cd libsodium
-    git checkout tags/1.0.4
+    git checkout tags/1.0.18
     ./autogen.sh
     ./configure
     make check
