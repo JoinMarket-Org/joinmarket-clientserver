@@ -61,6 +61,8 @@ class WalletService(Service):
         # to ensure transactions are only logged once:
         self.logged_txids = []
 
+        self.set_autofreeze_warning_cb()
+
     def update_blockheight(self):
         """ Can be called manually (on startup, or for tests)
         but will be called as part of main monitoring
@@ -175,6 +177,54 @@ class WalletService(Service):
             self.bci.import_addresses([address], self.EXTERNAL_WALLET_LABEL,
                                   restart_cb=self.restart_callback)
 
+    def default_autofreeze_warning_cb(self, utxostr):
+        jlog.warning("WARNING: new utxo has been automatically "
+             "frozen to prevent forced address reuse: ")
+        jlog.warning(utxostr)
+        jlog.warning("You can unfreeze this utxo with the method "
+                 "'freeze' of wallet-tool.py or the Coins tab "
+                 "of Joinmarket-Qt.")
+
+    def set_autofreeze_warning_cb(self, cb=None):
+        """ This callback takes a single argument, the
+        string representation of a utxo in form txid:index,
+        and informs the user that the utxo has been frozen.
+        It returns nothing (the user is not deciding in this case,
+        as the decision was already taken by the configuration).
+        """
+        if cb is None:
+            self.autofreeze_warning_cb = self.default_autofreeze_warning_cb
+        else:
+            self.autofreeze_warning_cb = cb
+
+    def check_for_reuse(self, added_utxos):
+        """ (a) Check if addresses in new utxos are already in
+        used address list, (b) record new addresses as now used
+        (c) disable the new utxo if it returned as true for (a),
+        and it passes the filter set in the configuration.
+        """
+        to_be_frozen = set()
+        for au in added_utxos:
+            if added_utxos[au]["address"] in self.used_addresses:
+                to_be_frozen.add(au)
+        # any utxos actually added must have their destination address
+        # added to the used address list for this program run:
+        for au in added_utxos.values():
+            self.used_addresses.add(au["address"])
+
+        # disable those that passed the first check, before the addition,
+        # if they satisfy configured logic
+        for utxo in to_be_frozen:
+            freeze_threshold = jm_single().config.getint("POLICY",
+                                        "max_sats_freeze_reuse")
+            if freeze_threshold == -1 or added_utxos[
+                utxo]["value"] <= freeze_threshold:
+                # freezing of coins must be communicated to user:
+                self.autofreeze_warning_cb(utxo)
+                # process_new_tx returns added utxos in str format:
+                txidstr, idx = utxo.split(":")
+                self.disable_utxo(binascii.unhexlify(txidstr), int(idx))
+
     def transaction_monitor(self):
         """Keeps track of any changes in the wallet (new transactions).
         Intended to be run as a twisted task.LoopingCall so that this
@@ -218,6 +268,10 @@ class WalletService(Service):
             if txd is None:
                 continue
             removed_utxos, added_utxos = self.wallet.process_new_tx(txd, txid, height)
+
+            # apply checks to disable/freeze utxos to reused addrs if needed:
+            self.check_for_reuse(added_utxos)
+
             # TODO note that this log message will be missed if confirmation
             # is absurdly fast, this is considered acceptable compared with
             # additional complexity.
@@ -354,17 +408,22 @@ class WalletService(Service):
         can just list all used addresses to find the right
         index values.
         """
-        self.get_address_usages()
+        self.sync_addresses_fast()
         self.sync_unspent()
 
-    def get_address_usages(self):
-        """Use rpc `listaddressgroupings` to locate all used
-        addresses in the account (whether spent or unspent outputs).
-        This will not result in a full sync if working with a new
-        Bitcoin Core instance, in which case "fast" should have been
-        specifically disabled by the user.
+    def has_address_been_used(self, address):
+        """ Once wallet has been synced, the set of used
+        addresses includes those identified at sync time,
+        plus any used during operation. This is stored in
+        the WalletService object as self.used_addresses.
         """
-        wallet_name = self.get_wallet_name()
+        return address in self.used_addresses
+
+    def get_address_usages(self):
+        """ sets, at time of sync, the list of addresses that
+        have been used in our Core wallet with the specific label
+        for our JM wallet. This operation is generally immediate.
+        """
         agd = self.bci.rpc('listaddressgroupings', [])
         # flatten all groups into a single list; then, remove duplicates
         fagd = (tuple(item) for sublist in agd for item in sublist)
@@ -372,10 +431,23 @@ class WalletService(Service):
         dfagd = set(fagd)
         used_addresses = set()
         for addr_info in dfagd:
-            if len(addr_info) < 3 or addr_info[2] != wallet_name:
+            if len(addr_info) < 3 or addr_info[2] != self.get_wallet_name():
                 continue
             used_addresses.add(addr_info[0])
+        self.used_addresses = used_addresses
 
+    def sync_addresses_fast(self):
+        """Locates all used addresses in the account (whether spent or
+        unspent outputs), and then, assuming that all such usages must be
+        related to our wallet, calculates the correct wallet indices and
+        does any needed imports.
+
+        This will not result in a full sync if working with a new
+        Bitcoin Core instance, in which case "recoversync" should have
+        been specifically chosen by the user.
+        """
+        wallet_name = self.get_wallet_name()
+        used_addresses = self.get_address_usages()
         # for a first run, import first chunk
         if not used_addresses:
             jlog.info("Detected new wallet, performing initial import")
