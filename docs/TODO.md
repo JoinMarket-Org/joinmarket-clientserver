@@ -16,7 +16,7 @@ The Issues list is for specific bugs or feature requests.
 * Find a correct model for tests using twisted; current arch. used in `test_client_protocol.py`
 (and daemon) is extremely ugly, involving hardcoded timeouts. It uses `twisted.trial` which I believe(?) is the correct module
 to use, but I don't seem to have figured out the right/best way to use it.
-* Rewrites for several tests needed; in particular, blockchaininterface, segwit, transaction creation generally.
+* Need end to end testing of user functions, especially on Qt. Currently this is done manually which is not practical.
 * Current `test/ygrunner.py` is a nice way to do "by-hand" testing of various clients against either
 honest or malicious counterparties (makers). Can and should be extended to be automatic, with taker
 running in same process.
@@ -45,6 +45,12 @@ This was previously marked 'done' but is now very much "un-done" since the code 
 
 * The [issue693](https://github.com/JoinMarket-Org/joinmarket/issues/693) problem is by far the most important one to spend time on.
 
+Possible future update ("hard fork") for Joinmarket protocol may include:
+* bech32 addresses for joins; possibly mixed address types, needs discussion.
+* change format of data transfer (in particular, avoid double encoding which wastes space)
+* with respect to above issue693, see fidelity bonds discussion in #371 ; if implemented this may (will?) require some changes to protocol messages.
+
+ An additional possibility is discussesd in #415 namely, possible decentralized architecture for Joinmarket inter-participant communication.
 ### Qt GUI
 
 * Binary build process automated and, more importantly, working for Linux, Windows and Mac.
@@ -59,6 +65,17 @@ There is no current process for building binaries on Mac or Windows (theoretical
 
 ### Bitcoin
 
-* ~~Several related concepts here: 1/ switching to Peter Todd's python-bitcoinlib, but want good backend i.e. libsecp256k1 binding.
-2/ coincurve of Ofek looks like a better (and better-maintained) option than secp256k1-py, so ideally put that behind python-bitcoinlib.
-3/ Also doing all this without Python3 usage doesn't seem to make much sense.~~ The story is probably not over yet, but we now use coincurve and have made some alterations to use the same logic as the now un-maintained python-bitcoinlib. There will be more changes to Bitcoin including better segwit support. There is still much to do here but it'll probably be patchwork changes rather than a further complete rewrite.
+We use coincurve as a binding to libsecp256k1.
+The current jmbitcoin package morphed over many iterations from the original pybitcointools base code.
+We need to rework it considerably as it is very messy architecturally, particularly in regard to data types.
+A full rewrite is likely the best option, including in particular the removal of data type flexibility; use binary
+only within the package (which will also require rewrite and simplification of some parts of the wallet code).
+
+A rewrite of the transaction signing portion of the jmbitcoin code will need to account for the future
+probable need to support taproot and Schnorr (without yet implementing it).
+
+### Extra features.
+
+PayJoin is already implemented, though not in GUI, that could be added.
+Maker functionality is not in GUI, that could quite plausibly added and is quite widely requested.
+SNICKER exists currently as a proposed code update but is not quite ready, see #403.
