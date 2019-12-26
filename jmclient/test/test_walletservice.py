@@ -20,7 +20,7 @@ def try_address_reuse(wallet_service, idx, funding_amt, config_threshold,
                       expected_final_balance):
     set_freeze_reuse_config(config_threshold)
     # check that below the threshold on the same address is not allowed:
-    fund_wallet_addr(wallet_service.wallet, wallet_service.get_addr(0, 0, idx),
+    fund_wallet_addr(wallet_service.wallet, wallet_service.get_addr(0, 1, idx),
                      value_btc=funding_amt)
     wallet_service.transaction_monitor()
     balances = wallet_service.get_balance_by_mixdepth()
@@ -40,23 +40,31 @@ def test_address_reuse_freezing(setup_walletservice):
     called, and that the balance available in the mixdepth correctly
     reflects the usage pattern and freeze policy.
     """
-    amount = 10**8
-    num_tx = 3
     cb_called = 0
     def reuse_callback(utxostr):
         nonlocal cb_called
         print("Address reuse freezing callback on utxo: ", utxostr)
         cb_called += 1
-    wallet = get_populated_wallet(amount, num_tx)
+    # we must fund after initial sync (for imports), hence
+    # "populated" with no coins
+    wallet = get_populated_wallet(num=0)
     wallet_service = WalletService(wallet)
     wallet_service.set_autofreeze_warning_cb(reuse_callback)
     sync_test_wallet(True, wallet_service)
+    for i in range(3):
+        fund_wallet_addr(wallet_service.wallet,
+                         wallet_service.get_addr(0, 1, i))
+    # manually force the wallet service to see the new utxos:
     wallet_service.transaction_monitor()
+
+    # check that with default status any reuse is blocked:
     try_address_reuse(wallet_service, 0, 1, -1, 3 * 10**8)
     assert cb_called == 1, "Failed to trigger freeze callback"
+
     # check that above the threshold is allowed (1 sat less than funding)
     try_address_reuse(wallet_service, 1, 1, 99999999, 4 * 10**8)
     assert cb_called == 1, "Incorrectly triggered freeze callback"
+
     # check that below the threshold on the same address is not allowed:
     try_address_reuse(wallet_service, 1, 0.99999998, 99999999, 4 * 10**8)
     # note can be more than 1 extra call here, somewhat suboptimal:

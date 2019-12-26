@@ -58,8 +58,8 @@ class WalletService(Service):
         # transactions we are actively monitoring,
         # i.e. they are not new but we want to track:
         self.active_txids = []
-        # to ensure transactions are only logged once:
-        self.logged_txids = []
+        # to ensure transactions are only processed once:
+        self.processed_txids = []
 
         self.set_autofreeze_warning_cb()
 
@@ -205,7 +205,7 @@ class WalletService(Service):
         """
         to_be_frozen = set()
         for au in added_utxos:
-            if added_utxos[au]["address"] in self.used_addresses:
+            if self.has_address_been_used(added_utxos[au]["address"]):
                 to_be_frozen.add(au)
         # any utxos actually added must have their destination address
         # added to the used address list for this program run:
@@ -268,16 +268,14 @@ class WalletService(Service):
             if txd is None:
                 continue
             removed_utxos, added_utxos = self.wallet.process_new_tx(txd, txid, height)
-
-            # apply checks to disable/freeze utxos to reused addrs if needed:
-            self.check_for_reuse(added_utxos)
-
-            # TODO note that this log message will be missed if confirmation
-            # is absurdly fast, this is considered acceptable compared with
-            # additional complexity.
-            if txid not in self.logged_txids:
+            if txid not in self.processed_txids:
+                # apply checks to disable/freeze utxos to reused addrs if needed:
+                self.check_for_reuse(added_utxos)
+                # TODO note that this log message will be missed if confirmation
+                # is absurdly fast, this is considered acceptable compared with
+                # additional complexity.
                 self.log_new_tx(removed_utxos, added_utxos, txid)
-                self.logged_txids.append(txid)
+                self.processed_txids.append(txid)
 
             # first fire 'all' type callbacks, irrespective of if the
             # transaction pertains to anything known (but must
@@ -446,10 +444,9 @@ class WalletService(Service):
         Bitcoin Core instance, in which case "recoversync" should have
         been specifically chosen by the user.
         """
-        wallet_name = self.get_wallet_name()
-        used_addresses = self.get_address_usages()
+        self.get_address_usages()
         # for a first run, import first chunk
-        if not used_addresses:
+        if not self.used_addresses:
             jlog.info("Detected new wallet, performing initial import")
             # delegate inital address import to sync_addresses
             # this should be fast because "getaddressesbyaccount" should return
@@ -460,7 +457,7 @@ class WalletService(Service):
 
         # Wallet has been used; scan forwards.
         jlog.debug("Fast sync in progress. Got this many used addresses: " + str(
-            len(used_addresses)))
+            len(self.used_addresses)))
         # Need to have wallet.index point to the last used address
         # Algo:
         #    1. Scan batch 1 of each branch, record matched wallet addresses.
@@ -483,7 +480,7 @@ class WalletService(Service):
         #    deposit by user will be based on wallet_display() which is only
         #    showing imported addresses. Hence the gap-limit import at the end
         #    to ensure this is always true.
-        remaining_used_addresses = used_addresses.copy()
+        remaining_used_addresses = self.used_addresses.copy()
         addresses, saved_indices = self.collect_addresses_init()
         for addr in addresses:
             remaining_used_addresses.discard(addr)
@@ -513,7 +510,7 @@ class WalletService(Service):
 
         # creating used_indices on-the-fly would be more efficient, but the
         # overall performance gain is probably negligible
-        used_indices = self.get_used_indices(used_addresses)
+        used_indices = self.get_used_indices(self.used_addresses)
         self.rewind_wallet_indices(used_indices, saved_indices)
         # at this point we have the correct up to date index at each branch;
         # we ensure that all addresses that will be displayed (see wallet_utils.py,
