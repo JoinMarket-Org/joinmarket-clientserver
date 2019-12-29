@@ -1,3 +1,9 @@
+* [Notes on upgrading, binaries and compatibility](#notes-on-upgrading-binaries-and-compatibility)
+* [Installation on Linux](#installation-on-linux)
+* [Installation on macOS](#installation-on-macos)
+* [Installation on Windows](#installation-on-windows)
+* [Alternative/custom installation](#alternativecustom-installation)
+
 ### Notes on upgrading, binaries and compatibility
 
 (You can ignore this whole section if starting from scratch).
