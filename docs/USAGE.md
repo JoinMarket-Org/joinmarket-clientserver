@@ -277,7 +277,7 @@ If you have numpy/scipy installed it also calculates the effective interest rate
 
 You can create a csv file for opening with spreadsheet software:
 
-        (jmvenv)$ python wallet-tool.py --csv wallet.json history > history.csv
+        (jmvenv)$ python wallet-tool.py --csv wallet.jmdat history > history.csv
 
 <a name="importprivkeys" />
 
