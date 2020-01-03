@@ -127,6 +127,9 @@ config_tips = {
     "minimum_makers": "The minimum number of counterparties for the transaction\n" +
     "to complete (default 2). If set to a high value it can cause transactions\n" +
     "to fail much more frequently.",
+    "max_sats_freeze_reuse": "Threshold number of satoshis below which an\n" +
+    "incoming utxo to a reused address in the wallet will\n" +
+    "be AUTOMATICALLY frozen. -1 means always freeze reuse.",
 }
 
 #Temporarily disabled
