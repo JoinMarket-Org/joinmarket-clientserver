@@ -1776,8 +1776,7 @@ def get_wallet_printout(wallet_service):
     xpubs: [[xpubext, xpubint], ...]
     Bitcoin amounts returned are in btc, not satoshis
     """
-    walletview = wallet_display(wallet_service, jm_single().config.getint("GUI",
-                                            "gaplimit"), False, serialized=False)
+    walletview = wallet_display(wallet_service, False, serialized=False)
     rows = []
     mbalances = []
     xpubs = []
