@@ -1292,6 +1292,10 @@ class JMMainWindow(QMainWindow):
         # the walletservice to update the GUI
         self.walletRefresh = None
 
+        # keep track of whether wallet sync message
+        # was already shown
+        self.syncmsg = ""
+
         self.reactor = reactor
         self.initUI()
 
@@ -1631,13 +1635,15 @@ class JMMainWindow(QMainWindow):
     def updateWalletInfo(self):
         t = self.centralWidget().widget(0)
         if not self.wallet_service:  #failure to sync in constructor means object is not created
-            newstmsg = "Unable to sync wallet - see error in console."
+            newsyncmsg = "Unable to sync wallet - see error in console."
         elif not self.wallet_service.synced:
             return
         else:
             t.updateWalletInfo(get_wallet_printout(self.wallet_service))
-            newstmsg = "Wallet synced successfully."
-        self.statusBar().showMessage(newstmsg)
+            newsyncmsg = "Wallet synced successfully."
+        if newsyncmsg != self.syncmsg:
+            self.syncmsg = newsyncmsg
+            self.statusBar().showMessage(self.syncmsg)
 
     def generateWallet(self):
         log.debug('generating wallet')
