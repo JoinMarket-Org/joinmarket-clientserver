@@ -9,7 +9,7 @@ Make sure to have [bitcoind](https://bitcoin.org/en/full-node) 0.17 or newer ins
 
 Install the test requirements (still in your virtualenv as mentioned above):
 
-    pip install -r requirements-dev.txt
+    pip install -r requirements/testing.txt
 
 Running the test suite should be done something like (advisable to wipe ~/.bitcoin/regtest first):
 

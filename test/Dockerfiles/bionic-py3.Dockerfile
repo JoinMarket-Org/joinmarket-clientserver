@@ -3,11 +3,8 @@ SHELL ["/bin/bash", "-c"]
 
 # dependencies
 RUN apt-get update
-RUN apt-get install -y build-essential
 RUN apt-get install -y \
-    automake pkg-config libtool libgmp-dev
-RUN apt-get install -y \
-    python3-dev python3-pip python-virtualenv python3-pyqt4 python3-sip
+    python3-dev python3-pip python-virtualenv libsodium23
 
 # curl is a better tool
 RUN apt-get install -y curl
@@ -33,5 +30,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN echo y | ./install.sh --python=python3
+RUN virtualenv --python=python3 jmvenv
 RUN source jmvenv/bin/activate && ./test/run_tests.sh

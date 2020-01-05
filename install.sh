@@ -13,20 +13,22 @@ sha256_verify ()
 
 deps_install ()
 {
+    common_deps=( \
+        'python-virtualenv' \
+        'curl' \
+        'build-essential' \
+        'automake' \
+        'pkg-config' \
+        'libtool' \
+        'libgmp-dev' )
+
     if [[ ${install_os} == 'debian' ]]; then
         if is_python3; then
-            if deb_deps_install "python-virtualenv curl python3-dev python3-pip build-essential automake pkg-config libtool libgmp-dev libltdl-dev libssl-dev"; then
-                return 0
-            else
-                return 1
-            fi
+            deb_deps_install "${common_deps[@]} python3-dev python3-pip"
         else
-            if deb_deps_install "python-virtualenv curl python-dev python-pip build-essential automake pkg-config libtool libgmp-dev libltdl-dev libssl-dev"; then
-                return 0
-            else
-                return 1
-            fi
+            deb_deps_install "${common_deps[@]} python-dev python-pip"
         fi
+        return "$?"
     else
         echo "OS can not be determined. Trying to build."
         return 0
@@ -212,80 +214,6 @@ libffi_install ()
     popd
 }
 
-coincurve_patch_ignore_sys_libsecp ()
-{
-    cat <<'EOF' > setup_support.py.patch
-74c74,77
-<         ffi.dlopen("secp256k1")
----
->         if "COINCURVE_IGNORE_SYSTEM_LIB" in os.environ:
->             return False
->         else:
->             ffi.dlopen("secp256k1")
-EOF
-    cat <<'EOF' > setup.py.patch
-216,218c216
-<             self.library_dirs.append(
-<                 os.path.join(_build_clib.build_clib, 'lib'),
-<             )
----
->             self.library_dirs.insert(0, os.path.join(_build_clib.build_clib, 'lib'))
-EOF
-    patch setup.py setup.py.patch && \
-    patch setup_support.py setup_support.py.patch
-}
-
-coincurve_build ()
-{
-    if ! coincurve_patch_ignore_sys_libsecp; then
-        return 1
-    fi
-    if [[ -d "${jm_deps}/secp256k1-${secp256k1_version}" ]]; then
-        unlink ./libsecp256k1
-        ln -sf "${jm_source}/deps/secp256k1-${secp256k1_version}" ./libsecp256k1
-    else
-        return 1
-    fi
-    COINCURVE_IGNORE_SYSTEM_LIB="1" python setup.py install
-    return "$?"
-}
-
-coincurve_install ()
-{
-    coincurve_version='9.0.0'
-    coincurve_lib_tar="${coincurve_version}.tar.gz"
-    coincurve_lib_sha='81561e954b4a978231e6611ae6153740bfbaebb214caff7a7b4e71fe9affbe09'
-    coincurve_url='https://github.com/ofek/coincurve/archive'
-
-    rm -rf "./coincurve-${coincurve_version}"
-    if ! dep_get "${coincurve_lib_tar}" "${coincurve_lib_sha}" "${coincurve_url}"; then
-        return 1
-    fi
-    pushd "coincurve-${coincurve_version}"
-    if ! coincurve_build; then
-        return 1
-    fi
-    popd
-}
-
-libsecp256k1_install ()
-{
-    secp256k1_version='1e6f1f5ad5e7f1e3ef79313ec02023902bf8175c'
-    secp256k1_lib_tar="${secp256k1_version}.tar.gz"
-    secp256k1_lib_sha='d4bc033398d4db43077ceb3aa50bb2f7700bdf3fc6eb95b8c799ff6f657a804a'
-    secp256k1_url='https://github.com/bitcoin-core/secp256k1/archive'
-
-    if check_skip_build "secp256k1-${secp256k1_version}"; then
-        return 0
-    fi
-    if ! dep_get "${secp256k1_lib_tar}" "${secp256k1_lib_sha}" "${secp256k1_url}"; then
-        return 1
-    fi
-    if ! coincurve_install; then
-        return 1
-    fi
-}
-
 libsodium_build ()
 {
     make uninstall
@@ -326,12 +254,14 @@ libsodium_install ()
 
 joinmarket_install ()
 {
-    jm_pkgs=( 'jmbase' 'jmdaemon' 'jmbitcoin' 'jmclient' )
-    for pkg in ${jm_pkgs[@]}; do
-        pip uninstall -y "${pkg/jm/joinmarket}"
-        pushd "${pkg}"
-        pip install ${develop_build:+-e} . || return 1
-        popd
+    reqs=( 'base.txt' )
+
+    if [[ ${with_qt} = "1" ]]; then
+        reqs+=( 'gui.txt' )
+    fi
+
+    for req in ${reqs[@]}; do
+        pip install -r "requirements/${req}" || return 1
     done
 }
 
@@ -373,7 +303,7 @@ Usage: "${0}" [options]
 
 Options:
 
---develop       code remains editable in place
+--develop       code remains editable in place (currently always enabled)
 --python, -p    python version (default: python3)
 --with-qt       build the Qt GUI (incompatible with python2)
 --without-qt    don't build the Qt GUI
@@ -405,17 +335,13 @@ os_is_deb ()
 
 is_python3 ()
 {
-    if [[ ${python} == 'python3' ]]; then
+    if [[ ${python} == python3* ]]; then
         return 0
     fi
-    if [[ ${python} == 'python2' ]]; then
+    if [[ ${python} == python2* ]]; then
         return 1
     fi
-    if eval "${python} -c 'import sys; sys.exit(0) if sys.version_info >= (3,0) else sys.exit(1)'"; then
-        return 0
-    else
-        return 1
-    fi
+    ${python} -c 'import sys; sys.exit(0) if sys.version_info >= (3,0) else sys.exit(1)'
 }
 
 install_get_os ()
@@ -425,16 +351,6 @@ install_get_os ()
     else
         echo 'unknown'
     fi
-}
-
-qt_deps_install ()
-{
-    pip install \
-        PySide2 \
-        qrcode[pil] \
-        https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip
-
-    return "$?"
 }
 
 main ()
@@ -480,10 +396,6 @@ main ()
         echo "Libffi was not built. Exiting."
         return 1
     fi
-    if ! libsecp256k1_install; then
-        echo "libsecp256k1 was not build. Exiting."
-        return 1
-    fi
     if ! libsodium_install; then
         echo "Libsodium was not built. Exiting."
         return 1
@@ -493,11 +405,6 @@ main ()
         echo "Joinmarket was not installed. Exiting."
         deactivate
         return 1
-    fi
-    if [[ ${with_qt} == 1 ]]; then
-        if ! qt_deps_install; then
-            echo "Qt dependencies could not be installed. Joinmarket-Qt might not work."
-        fi
     fi
     deactivate
     echo "Joinmarket successfully installed

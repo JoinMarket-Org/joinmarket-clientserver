@@ -26,7 +26,7 @@ is actually newer in version number, than what was there already.
 
 To install everything (client and server), install these packages:
 
-    sudo apt-get install python-dev python-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev libgmp-dev
+    sudo apt-get install python3-dev python3-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev libgmp-dev
 
 (+ `libsodium-dev` if you can find it, else build after)
 
@@ -49,7 +49,7 @@ Then install this repo:
 Then:
 
     sudo pip install virtualenv
-    virtualenv jmvenv
+    virtualenv --python=python3 jmvenv
     source jmvenv/bin/activate
 
 **At this point you should see `(jmvenv)` at the beginning of your command prompt.**
@@ -57,10 +57,9 @@ Then:
 
 #### Installing packages to run everything in-one:
 
-> *NOTE*: It is very important to have activated virtualenv before running this step. Otherwise, `setupall.py` will fail, you may be tempted to re-run it with `sudo setupall.py` which will cause problems in the future.
+> *NOTE*: It is very important to have activated virtualenv before running this step. Otherwise, `pip install` will fail, you may be tempted to re-run it with `sudo pip install` which will cause problems in the future.
 
-    python setupall.py --daemon
-    python setupall.py --client-bitcoin
+    pip install -r requirements/base.txt
 
 If you have installed this "full" version of the client, you can use it with the
 command line scripts as explained in the [scripts README](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/scripts).
@@ -94,10 +93,7 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
     ```
 6) Setup joinmarket-qt
     ```
-    pip install PySide2
-    pip install qrcode[pil]
-    pip install https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip
-    python setupall.py --all
+    pip install -r requirements/gui.txt
     ```
 7) Start joinmarket-qt
     ```

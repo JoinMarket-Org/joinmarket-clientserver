@@ -40,11 +40,10 @@ def test_address_reuse_freezing(setup_walletservice):
     called, and that the balance available in the mixdepth correctly
     reflects the usage pattern and freeze policy.
     """
-    cb_called = 0
+    context = {'cb_called': 0}
     def reuse_callback(utxostr):
-        nonlocal cb_called
         print("Address reuse freezing callback on utxo: ", utxostr)
-        cb_called += 1
+        context['cb_called'] += 1
     # we must fund after initial sync (for imports), hence
     # "populated" with no coins
     wallet = get_populated_wallet(num=0)
@@ -59,16 +58,16 @@ def test_address_reuse_freezing(setup_walletservice):
 
     # check that with default status any reuse is blocked:
     try_address_reuse(wallet_service, 0, 1, -1, 3 * 10**8)
-    assert cb_called == 1, "Failed to trigger freeze callback"
+    assert context['cb_called'] == 1, "Failed to trigger freeze callback"
 
     # check that above the threshold is allowed (1 sat less than funding)
     try_address_reuse(wallet_service, 1, 1, 99999999, 4 * 10**8)
-    assert cb_called == 1, "Incorrectly triggered freeze callback"
+    assert context['cb_called'] == 1, "Incorrectly triggered freeze callback"
 
     # check that below the threshold on the same address is not allowed:
     try_address_reuse(wallet_service, 1, 0.99999998, 99999999, 4 * 10**8)
     # note can be more than 1 extra call here, somewhat suboptimal:
-    assert cb_called > 1, "Failed to trigger freeze callback"
+    assert context['cb_called'] > 1, "Failed to trigger freeze callback"
 
 
 @pytest.fixture(scope='module')
