@@ -65,6 +65,13 @@ class JMMsgSignatureVerify(JMCommand):
                  (b'fullmsg', Unicode()),
                  (b'hostid', Unicode())]
 
+class JMShutdown(JMCommand):
+    """ Requests shutdown of the current
+    message channel connections (to be used
+    when the client is shutting down).
+    """
+    arguments = []
+
 """TAKER specific commands
 """
 

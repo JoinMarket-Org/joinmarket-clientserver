@@ -72,13 +72,13 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
-    get_default_max_relative_fee, RetryableStorageError, add_base_options, \
+    get_default_max_relative_fee, RetryableStorageError, add_base_options, ygstart,\
     BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin, wallet_change_passphrase, \
     parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
-    donation_more_message, BitcoinAmountEdit, JMIntValidator,\
+    donation_more_message, BitcoinAmountEdit, JMIntValidator, StatusBarButton, read_QIcon, MakerDialog\
     ReceiveBIP78Dialog, QRCodePopup
 
 from twisted.internet import task
@@ -1459,6 +1459,11 @@ class JMMainWindow(QMainWindow):
         # created when user starts a payjoin event:
         self.backend_receiver = None
 
+        # makerDialog keeps track of state related
+        # to running in Maker mode:
+        self.makerDialog = None
+        self.maker_running = False
+
         self.reactor = reactor
         self.initUI()
 
@@ -1473,8 +1478,59 @@ class JMMainWindow(QMainWindow):
         else:
             event.ignore()
 
+    def makerManager(self):
+        action_fn = self.stopMaker if self.maker_running else self.startMaker
+        self.makerDialog = MakerDialog(action_fn, self.maker_running)
+
+    def toggle_non_maker_function(self):
+        """ While maker is running we prevent actions
+        to do coinjoins as taker or to load or alter the wallet
+        or change settings.
+        TODO These restrictions can be relaxed after analysis.
+        """
+        for action in [self.loadAction, self.generateAction,
+                       self.recoverAction]:
+            action.setEnabled(not self.maker_running)
+        for tab in [self.centralWidget().widget(x) for x in [1,2]]:
+            tab.setEnabled(not self.maker_running)
+
+    def startMaker(self):
+        if not self.wallet_service:
+            return (False, "Wallet is not loaded and synced, cannot start maker.")
+        mle = self.makerDialog.maker_settings_le
+        offertype = 'swreloffer' if mle[0][1].currentText() == "Relative fee" else 'swabsoffer'
+        cjabsfee = int(mle[1][1].text())
+        cjrelfee = float(mle[2][1].text())
+        txfee = int(mle[3][1].text())
+        minsize = int(mle[4][1].text())
+        self.makerfactory = ygstart(self.wallet_service, [txfee, cjabsfee, cjrelfee,
+                                        offertype, minsize], rs=False)
+        self.maker_running = True
+        self.setMakerBtn()
+        self.toggle_non_maker_function()
+        self.makerDialog.close()
+
+
+    def setMakerBtn(self):
+        if self.maker_running:
+            self.makerbtn.setIcon(read_QIcon("greencircle.png"))
+            self.makerbtn.setToolTip("Maker running: click to manage")
+        else:
+            self.makerbtn.setIcon(read_QIcon("reddiamond.png"))
+            self.makerbtn.setToolTip("Click to start maker.")
+
+    def stopMaker(self):
+        self.makerfactory.proto_client.request_mc_shutdown()
+        self.maker_running = False
+        self.setMakerBtn()
+        self.toggle_non_maker_function()
+        self.makerDialog.close()
+
     def initUI(self):
         self.statusBar().showMessage("Ready")
+        self.makerbtn = StatusBarButton(read_QIcon("reddiamond.png"),
+                                "Click to start maker", self.makerManager)
+        self.statusBar().addPermanentWidget(self.makerbtn)
         self.setGeometry(300, 300, 250, 150)
         loadAction = QAction('&Load...', self)
         loadAction.setStatusTip('Load wallet from file')

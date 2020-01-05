@@ -270,8 +270,11 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer'
     ordertype = prefix + ordertype
     jlog.debug("Set the offer type string to: " + ordertype)
 
-    maker = ygclass(wallet_service, [options.txfee, cjfee_a, cjfee_r,
-                             ordertype, options.minsize])
+    ygstart(wallet_service, [options.txfee, cjfee_a, cjfee_r,
+                ordertype, options.minsize], ygclass=ygclass)
+
+def ygstart(wallet_service, makerconfig, rs=True, ygclass=YieldGeneratorBasic):
+    maker = ygclass(wallet_service, makerconfig)
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
 
@@ -281,4 +284,5 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer'
         startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
-                      clientfactory, daemon=daemon)
+                      clientfactory, rs=rs, daemon=daemon)
+    return clientfactory

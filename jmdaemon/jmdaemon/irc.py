@@ -113,6 +113,7 @@ class IRCMessageChannel(MessageChannel):
     def shutdown(self):
         self.tx_irc_client.quit()
         self.give_up = True
+        self.myRS.stopService()
 
     def _pubmsg(self, msg):
         self.tx_irc_client._pubmsg(msg)
@@ -155,8 +156,8 @@ class IRCMessageChannel(MessageChannel):
                 use_tls = False
             ircEndpoint = TorSocksEndpoint(torEndpoint, self.serverport[0],
                                            self.serverport[1], tls=use_tls)
-            myRS = ClientService(ircEndpoint, factory)
-            myRS.startService()
+            self.myRS = ClientService(ircEndpoint, factory)
+            self.myRS.startService()
         else:
             try:
                 factory = TxIRCFactory(self)
@@ -201,7 +202,7 @@ class txIRC_Client(irc.IRCClient, object):
     def connectionLost(self, reason=protocol.connectionDone):
         wlog("INFO", "Lost IRC connection to: " + str(self.hostname)
             + " . Should reconnect automatically soon.")
-        if self.wrapper.on_disconnect:
+        if not self.wrapper.give_up and self.wrapper.on_disconnect:
             reactor.callLater(0.0, self.wrapper.on_disconnect, self.wrapper)
         return irc.IRCClient.connectionLost(self, reason)
 

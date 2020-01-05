@@ -17,7 +17,8 @@ Qt files for the wizard for initiating a tumbler run.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-import math, logging, qrcode, re, string
+import math, logging, qrcode, re, string, os
+from functools import lru_cache
 from io import BytesIO
 from PySide2 import QtCore
 
@@ -28,6 +29,96 @@ from jmbitcoin.amount import amount_to_sat, btc_to_sat, sat_to_btc
 from jmbitcoin.bip21 import decode_bip21_uri
 from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
+class MakerDialog(QDialog):
+
+    def __init__(self, action_fn, running):
+        """ Parameter action_fn:
+        each time the user opens the dialog they will
+        pass a function to be connected to the action-button.
+        """
+        super(MakerDialog, self).__init__()
+        # these QLineEdit objects will contain the settings
+        # for the maker as chosen by the user:
+        self.maker_settings_le = []
+        self.action_fn = action_fn
+        self.running = running
+        self.initUI()
+
+    def initUI(self):
+        self.setModal(1)
+        tp = "Running: " if self.running else "(Not running): "
+        self.setWindowTitle(tp + "Manage yield generator")
+        self.setLayout(self.get_maker_dialog())
+        self.show()
+
+    def get_maker_dialog(self):
+        sN = ['CJ Offer type', 'CJ Absolute fee (sats)',
+              'CJ Relative fee (decimal)',
+              'Tx fee contribution (sats)',
+              'Minimum CJ size (sats)']
+        #Tooltips
+        sH = ["abc" for x in range(len(sN))]
+        #types
+        sT = [str, int, float, int, int]
+        # defaults (TODO: keep up to date with edits)
+        sD = ['Relative fee', '500', '0.0002', '100', '1000000']
+        for x in zip(sN, sH, sT, sD):
+            ql = QLabel(x[0])
+            ql.setToolTip(x[1])
+            if x[0] == 'CJ Offer type':
+                qle = QComboBox()
+                qle.addItem("Relative fee")
+                qle.addItem("Absolute fee")
+            else:
+                qle = QLineEdit(x[3])
+            if self.running:
+                qle.setEnabled(False)
+
+            # TODO: apply validators
+            #if x[2] == int:
+            #    qle.setValidator(QIntValidator(*x[4]))
+            #if x[2] == float:
+            #    qle.setValidator(QDoubleValidator(*x[4]))
+            self.maker_settings_le.append((ql, qle))
+        layout = QGridLayout(self)
+        layout.setSpacing(4)
+        for i, x in enumerate(self.maker_settings_le):
+            layout.addWidget(x[0], i + 1, 0)
+            layout.addWidget(x[1], i + 1, 1, 1, 2)
+        btnbox = QDialogButtonBox()
+        btnbox.setStandardButtons(QDialogButtonBox.Cancel)
+        btnname = "Stop" if self.running else "Start"
+        btnbox.addButton(btnname, QDialogButtonBox.ActionRole)
+        layout.addWidget(btnbox, i +2, 0)
+        btnbox.rejected.connect(self.close)
+        btnbox.buttons()[1].clicked.connect(self.action_fn)
+        return layout
+
+def icon_path(icon_basename):
+    return os.path.join('icons', icon_basename)
+
+@lru_cache(maxsize=1000)
+def read_QIcon(icon_basename):
+    return QIcon(icon_path(icon_basename))
+
+class StatusBarButton(QPushButton):
+    def __init__(self, icon, tooltip, func):
+        QPushButton.__init__(self, icon, '')
+        self.setToolTip(tooltip)
+        self.setFlat(True)
+        self.setMaximumWidth(25)
+        self.clicked.connect(self.onPress)
+        self.func = func
+        self.setIconSize(QtCore.QSize(25,25))
+        self.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+
+    def onPress(self, checked=False):
+        '''Drops the unwanted PyQt5 "checked" argument'''
+        self.func()
+
+    def keyPressEvent(self, e):
+        if e.key() == QtCore.Qt.Key_Return:
+            self.func()
 
 GREEN_BG = "QWidget {background-color:#80ff80;}"
 RED_BG = "QWidget {background-color:#ffcccc;}"
