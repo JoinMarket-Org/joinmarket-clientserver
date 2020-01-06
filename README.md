@@ -97,7 +97,7 @@ Save the file and make it executable by running the following command:
 Step 2: Download the icon and place it into the pixmaps folder:
 
 ```
-$ sudo wget -P /usr/share/pixmaps https://raw.githubusercontent.com/openoms/bitcoin-tutorials/master/joinmarket/joinmarket_logo.png
+$ sudo wget -P /usr/share/pixmaps https://raw.githubusercontent.com/JoinMarket-Org/joinmarket-clientserver/master/docs/images/joinmarket_logo.png
 ```
 
 Step 3: Create desktop file
