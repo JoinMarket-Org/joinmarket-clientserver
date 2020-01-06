@@ -107,9 +107,13 @@ daemon_host = localhost
 use_ssl = false
 
 [BLOCKCHAIN]
-#options: bitcoin-rpc, regtest, bitcoin-rpc-no-history
-# when using bitcoin-rpc-no-history remember to increase the gap limit to scan for more addresses, try -g 5000
+# options: bitcoin-rpc, regtest, bitcoin-rpc-no-history, no-blockchain
+# When using bitcoin-rpc-no-history remember to increase the gap limit to scan for more addresses, try -g 5000
+# Use 'no-blockchain' to run the ob-watcher.py script in scripts/obwatch without current access
+# to Bitcoin Core; note that use of this option for any other purpose is currently unsupported.
 blockchain_source = bitcoin-rpc
+# options: testnet, mainnet
+# Note: for regtest, use network = testnet
 network = mainnet
 rpc_host = localhost
 rpc_port = 8332
@@ -528,7 +532,6 @@ def get_blockchain_interface_instance(_config):
     from jmclient.blockchaininterface import BitcoinCoreInterface, \
         RegtestBitcoinCoreInterface, ElectrumWalletInterface, \
         BitcoinCoreNoHistoryInterface
-    from jmclient.electruminterface import ElectrumInterface
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
     testnet = network == 'testnet'
@@ -549,8 +552,8 @@ def get_blockchain_interface_instance(_config):
             assert 0
     elif source == 'electrum':
         bc_interface = ElectrumWalletInterface(testnet)
-    elif source == 'electrum-server':
-        bc_interface = ElectrumInterface(testnet) #can specify server, config, TODO
+    elif source == 'no-blockchain':
+        bc_interface = None
     else:
         raise ValueError("Invalid blockchain source")
     return bc_interface

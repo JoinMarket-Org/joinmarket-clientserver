@@ -1818,6 +1818,15 @@ except Exception as e:
              ])
     JMQtMessageBox(None, config_load_error, mbtype='crit', title='failed to load')
     exit(1)
+# Qt does not currently support any functioning without a Core interface:
+if jm_single().bc_interface is None:
+    blockchain_error = ''.join(["Joinmarket-Qt requires Bitcoin Core as a blockchain ",
+                                "interface; change the setting of 'blockchain_source' ",
+                                "in the joinmarket.cfg file to a value not equal to ",
+                                "'no-blockchain'; see comments for details."])
+    JMQtMessageBox(None, blockchain_error, mbtype='crit',
+                   title='Invalid blockchain source')
+    exit(1)
 #refuse to load non-segwit wallet (needs extra work in wallet-utils).
 if not jm_single().config.get("POLICY", "segwit") == "true":
     wallet_load_error = ''.join(["Joinmarket-Qt only supports segwit based wallets, ",
