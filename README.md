@@ -75,7 +75,7 @@ There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
 
 #### Joinmarket-Qt desktop icon for Linux
 
-If you are using Ubuntu desktop and wish to use JoinMarket's graphical interface, the following instructions will create an icon in your Applications for easy access.
+If you are using a Linux desktop and wish to use JoinMarket's graphical interface, the following instructions will create an icon in your Applications for easy access.
 
 Step 1: Create environment script
 
