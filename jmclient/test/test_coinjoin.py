@@ -12,7 +12,7 @@ import pytest
 from twisted.internet import reactor
 
 from jmbase import get_log
-from jmclient import load_program_config, jm_single,\
+from jmclient import load_test_config, jm_single,\
     YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet,\
     NO_ROUNDING
 from jmclient.podle import set_commitment_file
@@ -319,7 +319,7 @@ def test_coinjoin_mixed_maker_addresses(monkeypatch, tmpdir, setup_cj,
 
 @pytest.fixture(scope='module')
 def setup_cj():
-    load_program_config()
+    load_test_config()
     jm_single().config.set('POLICY', 'tx_broadcast', 'self')
     jm_single().bc_interface.tick_forward_chain_interval = 5
     jm_single().bc_interface.simulate_blocks()

@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
 from builtins import * # noqa: F401
-from jmclient.configure import validate_address, load_program_config
+from jmclient.configure import validate_address, load_test_config
 from jmclient import jm_single
 import json
 import pytest
@@ -77,4 +77,4 @@ def test_invalid_bech32_addresses():
 
 @pytest.fixture(scope="module")
 def setup_addresses():
-    load_program_config()
+    load_test_config()

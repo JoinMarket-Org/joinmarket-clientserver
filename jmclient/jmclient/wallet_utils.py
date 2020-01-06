@@ -15,7 +15,8 @@ from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, JsonRpcError, WalletError,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
-    LegacyWallet, SegwitWallet, is_native_segwit_mode)
+    LegacyWallet, SegwitWallet, is_native_segwit_mode, load_program_config,
+    add_base_options, check_regtest)
 from jmclient.wallet_service import WalletService
 from jmbase.support import get_password, jmprint, EXIT_FAILURE, EXIT_ARGERROR
 
@@ -47,6 +48,7 @@ def get_wallettool_parser():
         '(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
                           description=description)
+    add_base_options(parser)
     parser.add_option('-p',
                       '--privkey',
                       action='store_true',
@@ -79,12 +81,6 @@ def get_wallettool_parser():
                       default=1,
                       help=('History method verbosity, 0 (least) to 6 (most), '
                             '<=2 batches earnings, even values also list TXIDs'))
-    parser.add_option('--recoversync',
-                      action='store_true',
-                      dest='recoversync',
-                      default=False,
-                      help=('choose to do detailed wallet sync, '
-                            'used for recovering on new Core instance.'))
     parser.add_option('-H',
                       '--hd',
                       action='store',
@@ -99,15 +95,9 @@ def get_wallettool_parser():
                       default=None,
                       help=("Key type when importing private keys.\n"
                             "If your address starts with '1' use 'standard', "
-                            "if your address starts with '3' use 'segwit-p2sh.\n"
-                            "Native segwit addresses (starting with 'bc') are"
+                            "if your address starts with '3' use 'segwit-p2sh'.\n"
+                            "Native segwit addresses (starting with 'bc') are "
                             "not yet supported."))
-    parser.add_option('--wallet-password-stdin',
-                      action='store_true',
-                      default=False,
-                      dest='wallet_password_stdin',
-                      help='Read wallet password from stdin')
-
 
     return parser
 
@@ -1203,9 +1193,9 @@ def wallet_sanity_check(wallet):
                         "is on '{}'.".format(get_network(), wallet.network))
 
 
-def get_wallet_path(file_name, wallet_dir):
-    # TODO: move default wallet path to ~/.joinmarket
-    wallet_dir = wallet_dir or 'wallets'
+def get_wallet_path(file_name, wallet_dir=None):
+    if not wallet_dir:
+        wallet_dir = os.path.join(jm_single().datadir, 'wallets')
     return os.path.join(wallet_dir, file_name)
 
 
@@ -1214,7 +1204,10 @@ def wallet_tool_main(wallet_root_path):
     """
     parser = get_wallettool_parser()
     (options, args) = parser.parse_args()
-
+    load_program_config(config_path=options.datadir)
+    check_regtest(blockchain_start=False)
+    # full path to the wallets/ subdirectory in the user data area:
+    wallet_root_path = os.path.join(jm_single().datadir, wallet_root_path)
     noseed_methods = ['generate', 'recover']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
                'history', 'showutxos', 'freeze']

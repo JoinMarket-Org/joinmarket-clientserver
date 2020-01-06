@@ -11,7 +11,7 @@ from jmdaemon.daemon_protocol import JMDaemonServerProtocol
 from jmdaemon.protocol import NICK_HASH_LENGTH, NICK_MAX_ENCODED, JM_VERSION,\
     JOINMARKET_NICK_HEADER
 from jmbase import get_log
-from jmclient import (load_program_config, jm_single, get_irc_mchannels)
+from jmclient import (load_test_config, jm_single, get_irc_mchannels)
 from twisted.python.log import msg as tmsg
 from twisted.python.log import startLogging
 from twisted.internet import protocol, reactor, task
@@ -294,7 +294,7 @@ class TrialTestJMDaemonProto(unittest.TestCase):
 
     def setUp(self):
         startLogging(sys.stdout)
-        load_program_config()
+        load_test_config()
         jm_single().maker_timeout_sec = 1
         self.port = reactor.listenTCP(28184, JMDaemonTestServerProtocolFactory())
         self.addCleanup(self.port.stopListening)
@@ -314,7 +314,7 @@ class TestJMDaemonProtoInit(unittest.TestCase):
     def setUp(self):
         global end_early
         end_early = True
-        load_program_config()
+        load_test_config()
         jm_single().maker_timeout_sec = 1
         self.port = reactor.listenTCP(28184, JMDaemonTest2ServerProtocolFactory())
         self.addCleanup(self.port.stopListening)

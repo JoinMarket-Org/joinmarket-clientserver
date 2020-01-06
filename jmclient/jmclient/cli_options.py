@@ -7,6 +7,7 @@ from optparse import OptionParser, OptionValueError
 from configparser import NoOptionError
 
 import jmclient.support
+from jmbase import JM_APP_NAME
 from jmclient import jm_single, RegtestBitcoinCoreInterface, cryptoengine
 
 """This exists as a separate module for two reasons:
@@ -20,8 +21,37 @@ order_choose_algorithms = {
     'weighted_order_choose': '-W'
 }
 
+def add_base_options(parser):
+    """ Options for scripts common to all scripts
+    including maker, taker and non-coinjoin scripts.
+    See https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/430
+    for more on how to further improve this.
+    Note that it's fine to have options here that are not used
+    in *all* scripts, as long as there is no conflict with another
+    usage of the option.
+    """
+    parser.add_option(
+        '--datadir',
+        dest='datadir',
+        default="",
+        help='Specify the path to a directory you want to use to store your user'
+        'data - wallets, logs and commitment files - and your joinmarket.cfg. '
+        'By default, the directory .' + JM_APP_NAME + ' is used.'
+    )
+    parser.add_option('--recoversync',
+                      action='store_true',
+                      dest='recoversync',
+                      default=False,
+                      help=('choose to do detailed wallet sync, '
+                            'used for recovering on new Core instance.'))
+    parser.add_option('--wallet-password-stdin',
+                      action='store_true',
+                      default=False,
+                      dest='wallet_password_stdin',
+                      help='Read wallet password from stdin')
 
 def add_common_options(parser):
+    add_base_options(parser)
     parser.add_option(
         '-f',
         '--txfee',
@@ -35,12 +65,6 @@ def add_common_options(parser):
         'confirmation target. This temporarily overrides the "tx_fees" setting '
         'in your joinmarket.cfg. Works the same way as described in it. Check '
         'it for examples.')
-    parser.add_option('--recoversync',
-                      action='store_true',
-                      dest='recoversync',
-                      default=False,
-                      help=('choose to do detailed wallet sync, '
-                            'used for recovering on new Core instance.'))
     parser.add_option(
         '-x',
         '--max-cj-fee-abs',
@@ -72,11 +96,6 @@ def add_common_options(parser):
              .format('random_under_max_order_choose',
                      ', '.join(order_choose_algorithms.keys())),
         dest='order_choose_fn')
-    parser.add_option('--wallet-password-stdin',
-                      action='store_true',
-                      default=False,
-                      dest='wallet_password_stdin',
-                      help='Read wallet password from stdin')
     add_order_choose_short_options(parser)
 
 

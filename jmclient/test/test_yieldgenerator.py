@@ -4,7 +4,7 @@ from builtins import * # noqa: F401
 
 import unittest
 
-from jmclient import load_program_config, jm_single,\
+from jmclient import load_test_config, jm_single,\
     SegwitLegacyWallet, VolatileStorage, YieldGeneratorBasic, \
     get_network, WalletService
 
@@ -20,7 +20,7 @@ class CustomUtxoWallet(SegwitLegacyWallet):
         as given by the array.  (And the number of mixdepths from the array
         elements."""
 
-        load_program_config()
+        load_test_config()
 
         storage = VolatileStorage()
         super(CustomUtxoWallet, self).initialize(storage, get_network(),

@@ -13,7 +13,8 @@ from configparser import ConfigParser, NoOptionError
 import jmbitcoin as btc
 from jmclient.jsonrpc import JsonRpc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
-                            set_logging_level, jmprint, set_logging_color)
+                            set_logging_level, jmprint, set_logging_color,
+                            JM_APP_NAME, lookup_appdata_folder)
 from jmclient.podle import set_commitment_file
 
 log = get_log()
@@ -64,6 +65,8 @@ class AttributeDict(object):
 
 global_singleton = AttributeDict()
 global_singleton.JM_VERSION = 5
+global_singleton.APPNAME = JM_APP_NAME
+global_singleton.datadir = None
 global_singleton.nickname = None
 global_singleton.BITCOIN_DUST_THRESHOLD = 2730
 global_singleton.DUST_THRESHOLD = 10 * global_singleton.BITCOIN_DUST_THRESHOLD
@@ -423,14 +426,27 @@ def remove_unwanted_default_settings(config):
         if section.startswith('MESSAGING:'):
             config.remove_section(section)
 
-
-def load_program_config(config_path=None, bs=None):
+def load_program_config(config_path="", bs=None):
     global_singleton.config.readfp(io.StringIO(defaultconfig))
-    remove_unwanted_default_settings(global_singleton.config)
     if not config_path:
-        config_path = os.getcwd()
+        config_path = lookup_appdata_folder(global_singleton.APPNAME)
+    # we set the global home directory, but keep the config_path variable
+    # for callers of this function:
+    global_singleton.datadir = config_path
+    jmprint("User data location: " + global_singleton.datadir, "info")
+    if not os.path.exists(global_singleton.datadir):
+        os.makedirs(global_singleton.datadir)
+    # prepare folders for wallets and logs
+    if not os.path.exists(os.path.join(global_singleton.datadir, "wallets")):
+        os.makedirs(os.path.join(global_singleton.datadir, "wallets"))
+    if not os.path.exists(os.path.join(global_singleton.datadir, "logs")):
+        os.makedirs(os.path.join(global_singleton.datadir, "logs"))
+    if not os.path.exists(os.path.join(global_singleton.datadir, "cmtdata")):
+        os.makedirs(os.path.join(global_singleton.datadir, "cmtdata"))
     global_singleton.config_location = os.path.join(
-        config_path, global_singleton.config_location)
+        global_singleton.datadir, global_singleton.config_location)
+
+    remove_unwanted_default_settings(global_singleton.config)
     loadedFiles = global_singleton.config.read([global_singleton.config_location
                                                ])
     #Hack required for electrum; must be able to enforce a different
@@ -491,16 +507,27 @@ def load_program_config(config_path=None, bs=None):
     global_singleton.bc_interface = get_blockchain_interface_instance(
         global_singleton.config)
 
-    #set the location of the commitments file
+    # set the location of the commitments file; for non-mainnet a different
+    # file is used to avoid conflict
     try:
         global_singleton.commit_file_location = global_singleton.config.get(
             "POLICY", "commit_file_location")
     except NoOptionError: #pragma: no cover
         log.debug("No commitment file location in config, using default "
                   "location cmtdata/commitments.json")
+    if get_network() != "mainnet":
+        # no need to be flexible for tests; note this is used
+        # for regtest as well as testnet(3)
+        global_singleton.commit_file_location = "cmtdata/testnet_commitments.json"
     set_commitment_file(os.path.join(config_path,
                                          global_singleton.commit_file_location))
 
+
+def load_test_config(**kwargs):
+    if "config_path" not in kwargs:
+        load_program_config(config_path=".", **kwargs)
+    else:
+        load_program_config(**kwargs)
 
 ##########################################################
 ## Returns a tuple (rpc_user: String, rpc_pass: String) ##

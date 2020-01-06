@@ -6,7 +6,7 @@ from builtins import * # noqa: F401
 import os
 import pytest
 from jmbase import get_log
-from jmclient import load_program_config, jm_single, \
+from jmclient import load_test_config, jm_single, \
      WalletService
 from test_blockchaininterface import sync_test_wallet
 from test_wallet import fund_wallet_addr, get_populated_wallet
@@ -72,7 +72,7 @@ def test_address_reuse_freezing(setup_walletservice):
 
 @pytest.fixture(scope='module')
 def setup_walletservice(request):
-    load_program_config()
+    load_test_config()
     old_reuse_freeze_val = jm_single().config.getint("POLICY",
                                     "max_sats_freeze_reuse")
     def reset_config():

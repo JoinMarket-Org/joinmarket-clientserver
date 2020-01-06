@@ -5,12 +5,12 @@ from builtins import * # noqa: F401
 from commontest import DummyBlockchainInterface
 import pytest
 
-from jmclient import (load_program_config, jm_single)
+from jmclient import (load_test_config, jm_single)
 from jmclient.commitment_utils import get_utxo_info, validate_utxo_data
 
 
 def test_get_utxo_info():
-    load_program_config()
+    load_test_config()
     jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
     dbci = DummyBlockchainInterface()
     privkey = "L1RrrnXkcKut5DEMwtDthjwRcTTwED36thyL1DebVrKuwvohjMNi"

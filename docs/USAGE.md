@@ -5,9 +5,13 @@ followed a manual installation as per [here](INSTALL.md)).
 
 # Contents
 
-1. [Configuring for Bitcoin Core](#configure)
+1. [Managing your Joinmarket data](#data)
 
-2. [Using the wallet-tool.py script](#wallet-tool)
+   a. [Portability](#portability)
+
+2. [Configuring for Bitcoin Core](#configure)
+
+3. [Using the wallet-tool.py script](#wallet-tool)
 
    a. [Creating a Wallet](#generate)
 
@@ -29,11 +33,51 @@ followed a manual installation as per [here](INSTALL.md)).
 
    j. [What is the Gap Limit](#gaplimit)
 
-3. [Try out a coinjoin; using sendpayment.py](#try-coinjoin)
+4. [Try out a coinjoin; using sendpayment.py](#try-coinjoin)
 
-4. [Running a "Maker" or "yield generator"](#run-maker)
+5. [Running a "Maker" or "yield generator"](#run-maker)
 
-5. [Running the tumbler script to boost privacy of owned coins](#run-tumbler)
+6. [Running the tumbler script to boost privacy of owned coins](#run-tumbler)
+
+<a name="data" />
+
+## Managing your Joinmarket data
+
+First thing to do: go into `scripts/`, and run:
+
+        (jmvenv)$ python wallet-tool.py generate
+
+This *should* quit with an error, because the connection to Bitcoin Core is not configured; we'll cover that in the next section.
+However, this first run will have automatically created a data directory.
+Locate the newly created file `joinmarket.cfg` which will be in your user home directory under `.joinmarket/`.
+So on Linux you should find it under `/home/username/.joinmarket/joinmarket.cfg`, and similarly for MacOS and Windows.
+You should see the following files and folders for an initial setup:
+
+```
+.joinmarket/
+    joinmarket.cfg
+    logs/
+    wallets/
+    cmtdata/
+```
+
+`joinmarket.cfg` is the main configuration file for Joinmarket and has a lot of settings, several of which you'll want to edit or at least examine.
+This will be discussed in several of the sections below.
+The `wallets/` directory is where wallet files, extension (by default) of `.jmdat` are stored after you create them. They are encrypted and store important information; without them, it is possible to recover your coins with the seedphrase, but can be a hassle, so keep the file safe.
+The `logs/` directory contains a log file for each bot you run (Maker or Taker), with debug information. You'll rarely need to read these files unless you encounter a problem; deleting them regularly is recommended (and never dangerous). However there are other log files kept here, in particular one called `yigen-statement.csv` which records all transactions your Maker bot does over time. This can be useful for keeping track. Additionall, tumbles have a `TUMBLE.schedule` and `TUMBLE.log` file here which can be very useful; don't delete these.
+The `cmtdata/` directory stores technical information that you will not need to read.
+
+<a name="portability" />
+
+### Portability
+
+It is possible to use a different data directory than the default mentioned above (`~/.joinmarket/` or equivalent). To do this, run any Joinmarket script (see below for descriptions of the main ones) with the flag `--datadir=/my/data/directory`.
+Then the above directory structure will be created there. If you move a wallet file from one directory to another it will work fine, as long as you are using the same instance of Bitcoin Core.
+
+The slightly more difficult case is moving to a new machine and/or a new Bitcoin Core instance. There, apart from the obvious of needing to change your BLOCKCHAIN configuration settings (see next section), you will encounter an additional hurdle when you move your `.jmdat` file to the new setup.
+Since the new Bitcoin Core instance doesn't have the addresses imported, you will need to do a rescan of the blockchain for some appropriate range of blocks.
+
+The worst case is if you recover only from seedphrase and on a new Core instance; then you not only don't have the addresses imported, but Joinmarket will have to search through the addresses to find all usages, which can be tricky and might require multiple rescans in theory. Use the `--recoversync` option of `wallet-tool.py` and use a large gap limit (`-g`) if the wallet was heavily used.
 
 <a name="configure" />
 
@@ -41,14 +85,9 @@ followed a manual installation as per [here](INSTALL.md)).
 
 Bitcoin Core is required to use Joinmarket; note that the node *can* be pruned.
 
-Configuring Joinmarket for Core is now reduced, since there is no longer any `walletnotify` used.
+Configuring Joinmarket for Core no longer needs any `walletnotify` setting.
 
-First thing to do: go into `scripts/`, and run:
-
-        (jmvenv)$ python wallet-tool.py generate
-
-This *should* quit with an error, because the rpc is not configured. Open the newly created file `joinmarket.cfg`,
-and edit:
+In the `joinmarket.cfg` file described above, edit this section (comments omitted; do read them):
 
     [BLOCKCHAIN]
     rpc_user = yourusername-as-in-bitcoin.conf
@@ -58,9 +97,10 @@ and edit:
 
 Note, you can also use a cookie file by setting, in this section, a variable `rpc_cookie_file` to the location of the file, as an alternative to using user/password.
 
-If you use Bitcoin Core's multiwallet feature, you can edit the value of `rpc_wallet_file` to your chosen wallet file.
+If you use Bitcoin Core's multiwallet feature, you can edit the value of `rpc_wallet_file` to your chosen wallet file. Just use a new line with `rpc_wallet_file = wallet2.dat` or similar.
 
-Then retry the same `generate` command; it should now not error (see [below](#generate)).
+Then retry the `generate` command we mentioned above; it should now not error (see [below](#generate)).
+
 If you still get rpc connection errors, make sure you can connect to your Core node using the command line first.
 
 <a name="wallet-tool" />

@@ -5,7 +5,7 @@ from builtins import * # noqa: F401
 
 import pytest
 import struct
-from jmclient import load_program_config, jm_single, get_irc_mchannels
+from jmclient import load_test_config, jm_single, get_irc_mchannels
 from jmclient.configure import (get_config_irc_channel, get_p2sh_vbyte,
                                 get_p2pk_vbyte, get_blockchain_interface_instance)
 
@@ -20,32 +20,32 @@ def test_attribute_dict():
 
 
 def test_load_config(tmpdir):
-    load_program_config(bs="regtest")
+    load_test_config(bs="regtest")
     jm_single().config_location = "joinmarket.cfg"
     with pytest.raises(SystemExit):
-        load_program_config(config_path=str(tmpdir), bs="regtest")
+        load_test_config(config_path=str(tmpdir), bs="regtest")
     jm_single().config_location = "joinmarket.cfg"
-    load_program_config()
+    load_test_config()
 
 
 def test_config_get_irc_channel():
-    load_program_config()
+    load_test_config()
     channel = "dummy"
     assert get_config_irc_channel(channel) == "#dummy-test"
     jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
     assert get_config_irc_channel(channel) == "#dummy"
     get_irc_mchannels()
-    load_program_config()
+    load_test_config()
 
 
 def test_net_byte():
-    load_program_config()
+    load_test_config()
     assert struct.unpack(b'B', get_p2pk_vbyte())[0] == 0x6f
     assert struct.unpack(b'B', get_p2sh_vbyte())[0] == 196
 
 
 def test_blockchain_sources():
-    load_program_config()
+    load_test_config()
     for src in ["electrum", "dummy"]:
         jm_single().config.set("BLOCKCHAIN", "blockchain_source", src)
         if src=="electrum":
@@ -55,4 +55,4 @@ def test_blockchain_sources():
                 get_blockchain_interface_instance(jm_single().config)
         else:
             get_blockchain_interface_instance(jm_single().config)
-    load_program_config()
+    load_test_config()

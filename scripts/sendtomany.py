@@ -13,7 +13,7 @@ from optparse import OptionParser
 import jmbitcoin as btc
 from jmbase import get_log, jmprint
 from jmclient import load_program_config, estimate_tx_fee, jm_single,\
-    get_p2pk_vbyte, validate_address, get_utxo_info,\
+    get_p2pk_vbyte, validate_address, get_utxo_info, add_base_options,\
     validate_utxo_data, quit
 
 
@@ -94,8 +94,9 @@ def main():
         help='input is p2pkh ("1" address), not segwit; if not used, input is assumed to be segwit type.',
         default=False
     )
+    add_base_options(parser)
     (options, args) = parser.parse_args()
-    load_program_config()
+    load_program_config(config_path=options.datadir)
     if len(args) < 2:
         quit(parser, 'Invalid syntax')
     u = args[0]

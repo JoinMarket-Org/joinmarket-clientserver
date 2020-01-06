@@ -12,12 +12,12 @@ from jmclient import Taker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, jm_single, get_wallet_path,\
     open_test_wallet_maybe, get_tumble_schedule,\
     schedule_to_text, estimate_tx_fee, restart_waiter, WalletService,\
-    get_tumble_log, tumbler_taker_finished_update,\
-    tumbler_filter_orders_callback, validate_address
+    get_tumble_log, tumbler_taker_finished_update, check_regtest, \
+    tumbler_filter_orders_callback, validate_address, get_tumbler_parser, \
+    get_max_cj_fee_values
+
 from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
     EXIT_FAILURE, EXIT_ARGERROR
-from cli_options import get_tumbler_parser, get_max_cj_fee_values, \
-     check_regtest
 
 log = get_log()
 logsdir = os.path.join(os.path.dirname(
@@ -32,7 +32,7 @@ def main():
     if len(args) < 1:
         jmprint('Error: Needs a wallet file', "error")
         sys.exit(EXIT_ARGERROR)
-    load_program_config()
+    load_program_config(config_path=options.datadir)
 
     check_regtest()
 

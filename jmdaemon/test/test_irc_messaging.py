@@ -9,7 +9,7 @@ from twisted.trial import unittest
 from twisted.internet import reactor, task
 from jmdaemon import IRCMessageChannel, MessageChannelCollection
 #needed for test framework
-from jmclient import (load_program_config, get_irc_mchannels, jm_single)
+from jmclient import (load_test_config, get_irc_mchannels, jm_single)
 
 si = 1
 class DummyDaemon(object):
@@ -110,7 +110,7 @@ def getmc(nick):
 class TrialIRC(unittest.TestCase):
 
     def setUp(self):
-        load_program_config()
+        load_test_config()
         print(get_irc_mchannels()[0])
         jm_single().maker_timeout_sec = 1
         dm, mc, mcc = getmc("irc_publisher")

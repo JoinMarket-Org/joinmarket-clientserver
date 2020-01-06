@@ -11,7 +11,7 @@ from pprint import pformat
 import jmbitcoin as btc
 import pytest
 from jmbase import get_log
-from jmclient import load_program_config, jm_single, LegacyWallet
+from jmclient import load_test_config, jm_single, LegacyWallet
 log = get_log()
 
 
@@ -146,7 +146,7 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
 
 @pytest.fixture(scope="module")
 def setup_segwit():
-    load_program_config()
+    load_test_config()
     jm_single().bc_interface.tick_forward_chain_interval = 1
 
 

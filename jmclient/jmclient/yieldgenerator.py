@@ -12,8 +12,8 @@ from twisted.python.log import startLogging
 from optparse import OptionParser
 from jmbase import get_log
 from jmclient import Maker, jm_single, load_program_config, \
-    JMClientProtocolFactory, start_reactor, \
-    calc_cj_fee, WalletService
+    JMClientProtocolFactory, start_reactor, calc_cj_fee, \
+    WalletService, add_base_options
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
 from jmbase.support import EXIT_ARGERROR
 
@@ -194,6 +194,7 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     import sys
 
     parser = OptionParser(usage='usage: %prog [options] [wallet file]')
+    add_base_options(parser)
     parser.add_option('-o', '--ordertype', action='store', type='string',
                       dest='ordertype', default=ordertype,
                       help='type of order; can be either reloffer or absoffer')
@@ -212,20 +213,9 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     parser.add_option('-g', '--gap-limit', action='store', type="int",
                       dest='gaplimit', default=gaplimit,
                       help='gap limit for wallet, default='+str(gaplimit))
-    parser.add_option('--recoversync',
-                      action='store_true',
-                      dest='recoversync',
-                      default=False,
-                      help=('choose to do detailed wallet sync, '
-                            'used for recovering on new Core instance.'))
     parser.add_option('-m', '--mixdepth', action='store', type='int',
                       dest='mixdepth', default=None,
                       help="highest mixdepth to use")
-    parser.add_option('--wallet-password-stdin',
-                      action='store_true',
-                      default=False,
-                      dest='wallet_password_stdin',
-                      help='Read wallet password from stdin')
     (options, args) = parser.parse_args()
     if len(args) < 1:
         parser.error('Needs a wallet')
@@ -249,9 +239,9 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
         sys.exit(EXIT_ARGERROR)
     nickserv_password = options.password
 
-    load_program_config()
+    load_program_config(config_path=options.datadir)
 
-    wallet_path = get_wallet_path(wallet_name, 'wallets')
+    wallet_path = get_wallet_path(wallet_name, None)
     wallet = open_test_wallet_maybe(
         wallet_path, wallet_name, options.mixdepth,
         wallet_password_stdin=options.wallet_password_stdin,

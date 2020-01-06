@@ -13,7 +13,7 @@ from commontest import make_wallets, make_sign_and_push
 import jmbitcoin as bitcoin
 import pytest
 from jmbase import get_log
-from jmclient import load_program_config, jm_single,\
+from jmclient import load_test_config, jm_single,\
     get_p2pk_vbyte
 
 log = get_log()
@@ -283,4 +283,4 @@ def test_spend_p2wsh(setup_tx_creation):
 
 @pytest.fixture(scope="module")
 def setup_tx_creation():
-    load_program_config()
+    load_test_config()
