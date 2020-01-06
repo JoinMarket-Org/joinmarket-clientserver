@@ -27,11 +27,12 @@ class YieldGenerator(Maker):
     the largest amount within the constraints of mixing depth isolation.
     """
     __metaclass__ = abc.ABCMeta
-    statement_file = os.path.join('logs', 'yigen-statement.csv')
 
     def __init__(self, wallet_service):
         Maker.__init__(self, wallet_service)
         self.tx_unconfirm_timestamp = {}
+        self.statement_file = os.path.join(jm_single().datadir,
+                                      'logs', 'yigen-statement.csv')
         if not os.path.isfile(self.statement_file):
             self.log_statement(
                 ['timestamp', 'cj amount/satoshi', 'my input count',
