@@ -76,7 +76,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
-    get_default_max_relative_fee
+    get_default_max_relative_fee, RetryableStorageError
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -1578,7 +1578,14 @@ class JMMainWindow(QMainWindow):
                 if not ok:
                     return
                 pwd = str(text).strip()
-                decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd)
+                try:
+                    decrypted = self.loadWalletFromBlockchain(firstarg[0], pwd)
+                except Exception as e:
+                    JMQtMessageBox(self,
+                               str(e),
+                               mbtype='warn',
+                               title="Error")
+                    return
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
@@ -1599,7 +1606,7 @@ class JMMainWindow(QMainWindow):
                 wallet = open_test_wallet_maybe(wallet_path, str(firstarg),
                         None, ask_for_password=False, password=pwd.encode('utf-8') if pwd else None,
                         gap_limit=jm_single().config.getint("GUI", "gaplimit"))
-            except Exception as e:
+            except RetryableStorageError as e:
                 JMQtMessageBox(self,
                                str(e),
                                mbtype='warn',

@@ -1152,7 +1152,7 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
     if not Storage.is_storage_file(path):
         raise Exception("Failed to open wallet at '{}': not a valid joinmarket"
                         " wallet.\n\nIf this wallet is in the old json format "
-                        "you need to convert it using the conversion script"
+                        "you need to convert it using the conversion script "
                         "at `scripts/convert_old_wallet.py`".format(path))
 
     if ask_for_password and Storage.is_encrypted_storage_file(path):
