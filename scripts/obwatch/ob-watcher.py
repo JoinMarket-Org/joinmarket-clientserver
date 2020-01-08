@@ -28,7 +28,7 @@ try:
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
 except:
-    print("matplotlib not found; do `pip install matplotlib`"
+    print("matplotlib not found; do `pip install matplotlib` "
           "in the joinmarket virtualenv.")
     sys.exit(EXIT_FAILURE)
 
