@@ -33,7 +33,8 @@ except:
     sys.exit(EXIT_FAILURE)
 
 from jmbase import get_log
-from jmclient import jm_single, load_program_config, calc_cj_fee, get_irc_mchannels
+from jmclient import jm_single, load_program_config, calc_cj_fee, \
+     get_irc_mchannels, add_base_options
 from jmdaemon import OrderbookWatch, MessageChannelCollection, IRCMessageChannel
 #TODO this is only for base58, find a solution for a client without jmbitcoin
 import jmbitcoin as btc
@@ -448,6 +449,7 @@ def main():
     parser = OptionParser(
             usage='usage: %prog [options]',
             description='Runs a webservice which shows the orderbook.')
+    add_base_options(parser)
     parser.add_option('-H',
                       '--host',
                       action='store',
