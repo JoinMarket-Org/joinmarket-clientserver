@@ -46,7 +46,11 @@ class StorageError(Exception):
     pass
 
 
-class StoragePasswordError(StorageError):
+class RetryableStorageError(StorageError):
+    pass
+
+
+class StoragePasswordError(RetryableStorageError):
     pass
 
 
@@ -185,7 +189,7 @@ class Storage(object):
 
         if magic == self.MAGIC_ENC:
             if password is None:
-                raise StorageError("Password required to open wallet.")
+                raise RetryableStorageError("Password required to open wallet.")
             data = self._decrypt_file(password, data)
         else:
             assert magic == self.MAGIC_UNENC
@@ -286,7 +290,8 @@ class Storage(object):
             with open(self._lock_file, 'r') as f:
                 locked_by_pid = f.read()
             self._lock_file = None
-            raise StorageError("File is currently in use (locked by pid {}). "
+            raise RetryableStorageError(
+                               "File is currently in use (locked by pid {}). "
                                "If this is a leftover from a crashed instance "
                                "you need to remove the lock file `{}` manually." .
                                format(locked_by_pid, lock_filename))
