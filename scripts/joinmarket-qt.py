@@ -22,6 +22,7 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 
 import sys, datetime, os, logging
 import platform, json, threading, time
+
 from optparse import OptionParser
 
 from PySide2 import QtCore
@@ -92,8 +93,9 @@ def update_config_for_gui():
     '''
     gui_config_names = ['gaplimit', 'history_file', 'check_high_fee',
                         'max_mix_depth', 'order_wait_time', 'checktx']
-    gui_config_default_vals = ['6', 'jm-tx-history.txt', '2', '5', '30',
-                               'true']
+    gui_config_default_vals = ['6', os.path.join(jm_single().datadir,
+                                                 'jm-tx-history.txt'),
+                               '2', '5', '30', 'true']
     if "GUI" not in jm_single().config.sections():
         jm_single().config.add_section("GUI")
     gui_items = jm_single().config.items("GUI")
@@ -740,7 +742,8 @@ class SpendTab(QWidget):
                 mainWindow.wallet_service.active_txids.append(txid)
                 mainWindow.wallet_service.register_callbacks([qt_directsend_callback],
                                                     txid, cb_type="confirmed")
-                self.persistTxToHistory(destaddr, self.direct_send_amount, txid)
+                mainWindow.centralWidget().widget(3).persistTxToHistory(destaddr,
+                                                            self.direct_send_amount, txid)
                 self.cleanUp()
             return
 
@@ -957,8 +960,8 @@ class SpendTab(QWidget):
                                title="Success")
             #TODO: theoretically possible to miss this if confirmed event
             #seen before unconfirmed.
-            self.persistTxToHistory(self.taker.my_cj_addr, self.taker.cjamount,
-                                                        self.taker.txid)
+            mainWindow.centralWidget().widget(3).persistTxToHistory(
+                self.taker.my_cj_addr, self.taker.cjamount, self.taker.txid)
 
             #TODO prob best to completely fold multiple and tumble to reduce
             #complexity/duplication
@@ -996,17 +999,6 @@ class SpendTab(QWidget):
                 self.cleanUp()
             else:
                 self.giveUp()
-
-    def persistTxToHistory(self, addr, amt, txid):
-        #persist the transaction to history
-        with open(jm_single().config.get("GUI", "history_file"), 'ab') as f:
-            f.write((','.join([addr, btc.amount_to_btc_str(amt), txid,
-                              datetime.datetime.now(
-                                  ).strftime("%Y/%m/%d %H:%M:%S")])).encode('utf-8'))
-            f.write(b'\n')  #TODO: Windows
-        #update the TxHistory tab
-        txhist = mainWindow.centralWidget().widget(3)
-        txhist.updateTxInfo()
 
     def toggleButtons(self):
         """Refreshes accessibility of buttons in the (single, multiple) join
@@ -1114,6 +1106,7 @@ class TxHistoryTab(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.txids = set()
         self.initUI()
 
     def initUI(self):
@@ -1133,6 +1126,19 @@ class TxHistoryTab(QWidget):
     def getHeaders(self):
         '''Function included in case dynamic in future'''
         return ['Receiving address', 'Amount in BTC', 'Transaction id', 'Date']
+
+    def persistTxToHistory(self, addr, amt, txid):
+        #persist the transaction to history
+        if txid in self.txids:
+            # don't repeat entries
+            return
+        self.txids.add(txid)
+        with open(jm_single().config.get("GUI", "history_file"), 'ab') as f:
+            f.write((','.join([addr, btc.amount_to_btc_str(amt), txid,
+                              datetime.datetime.now(
+                                  ).strftime("%Y/%m/%d %H:%M:%S")])).encode('utf-8'))
+            f.write(b'\n')  #TODO: Windows
+        self.updateTxInfo()
 
     def updateTxInfo(self, txinfo=None):
         self.tHTW.clear()
@@ -1155,6 +1161,7 @@ class TxHistoryTab(QWidget):
             txlines = f.readlines()
             for tl in txlines:
                 txhist.append(tl.decode('utf-8').strip().split(','))
+                self.txids.add(txhist[-1][2])
                 if not len(txhist[-1]) == 4:
                     JMQtMessageBox(self,
                                    "Incorrectedly formatted file " + hf,
@@ -1941,6 +1948,7 @@ class JMMainWindow(QMainWindow):
         # add information callbacks:
         self.wallet_service.add_restart_callback(self.restartWithMsg)
         self.wallet_service.autofreeze_warning_cb = self.autofreeze_warning_cb
+        self.wallet_service.register_callbacks([self.updateTxHistory], None, cb_type="all")
         self.wallet_service.startService()
         self.syncmsg = ""
         self.walletRefresh = task.LoopingCall(self.updateWalletInfo)
@@ -1976,6 +1984,35 @@ class JMMainWindow(QMainWindow):
         if newsyncmsg != self.syncmsg:
             self.syncmsg = newsyncmsg
             self.statusBar().showMessage(self.syncmsg)
+
+    def updateTxHistory(self, txd, txid):
+        """ If a transaction is seen by the wallet service
+        while running in maker mode, we update the tx history to
+        record the txid. We note *a* receiving address and the
+        corresponding amount; this is because a full analysis
+        requires detailed algos to account for custom deposit
+        patterns as well as coinjoin pattern analysis.
+        Note this is separate from the yigen log.
+        TODO implement these algos in WalletService.
+        TODO consolidate the multiple tx history functions.
+        """
+
+        if not self.maker_running:
+            # these transactions are recorded separately
+            # (note that this includes direct sends)
+            return
+        addr_val = [None, None]
+        for o in txd["outs"]:
+            bscript = btc.safe_from_hex(o["script"])
+            if self.wallet_service.is_known_script(bscript):
+                addr_val = [self.wallet_service.script_to_addr(bscript),
+                            o["value"]]
+                break
+        if addr_val[0] is None:
+            # it's possible to get notified of a transaction
+            # on this label that isn't in our wallet; ignore.
+            return
+        self.centralWidget().widget(3).persistTxToHistory(*addr_val, txid)
 
     def generateWallet(self):
         log.debug('generating wallet')

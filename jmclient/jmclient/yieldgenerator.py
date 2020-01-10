@@ -4,6 +4,7 @@ import datetime
 import os
 import time
 import abc
+import sys
 from twisted.python.log import startLogging
 from optparse import OptionParser
 from jmbase import get_log

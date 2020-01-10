@@ -211,7 +211,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMShutdown.responder
     def on_JM_SHUTDOWN(self):
-        print("reached on shutdown in jmdaemonserverprotocol")
         self.mc_shutdown()
         self.jm_state = 0
         return {'accepted': True}
