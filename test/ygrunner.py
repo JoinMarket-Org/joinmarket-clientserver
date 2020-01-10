@@ -18,7 +18,7 @@ from common import make_wallets
 import pytest
 import random
 from jmbase import jmprint
-from jmclient import YieldGeneratorBasic, load_program_config, jm_single,\
+from jmclient import YieldGeneratorBasic, load_test_config, jm_single,\
     JMClientProtocolFactory, start_reactor, SegwitWallet,\
     SegwitLegacyWallet, cryptoengine
 
@@ -153,7 +153,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
 
 @pytest.fixture(scope="module")
 def setup_ygrunner():
-    load_program_config()
+    load_test_config()
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().bc_interface.simulate_blocks()
     # handles the custom regtest hrp for bech32
