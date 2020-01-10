@@ -735,7 +735,7 @@ class WalletService(Service):
                 saved_indices[md][internal] = next_unused
             # include any imported addresses
             for path in self.yield_imported_paths(md):
-                addresses.add(self.get_addr_path(path))
+                addresses.add(self.get_address_from_path(path))
 
         return addresses, saved_indices
 

@@ -511,8 +511,8 @@ class BaseWallet(object):
         script = self.get_script(mixdepth, internal, index)
         return self.script_to_addr(script)
 
-    def get_addr_path(self, path):
-        script = self.get_script_path(path)
+    def get_address_from_path(self, path):
+        script = self.get_script_from_path(path)
         return self.script_to_addr(script)
 
     def get_new_addr(self, mixdepth, internal):
@@ -565,7 +565,7 @@ class BaseWallet(object):
 
         removed_utxos = {}
         for (txid, index), val in ret.items():
-            val['address'] = self.get_addr_path(val['path'])
+            val['address'] = self.get_address_from_path(val['path'])
             removed_utxos[hexlify(txid).decode('ascii') + ':' + str(index)] = val
         return removed_utxos
 
@@ -585,7 +585,7 @@ class BaseWallet(object):
             if md is False:
                 continue
             path, value, height = self._utxos.remove_utxo(txid, index, md)
-            script = self.get_script_path(path)
+            script = self.get_script_from_path(path)
             removed_utxos[(txid, index)] = {'script': script,
                                             'path': path,
                                             'value': value}
@@ -601,7 +601,7 @@ class BaseWallet(object):
 
         added_utxos = {}
         for (txid_bin, index), val in ret.items():
-            addr = self.get_addr_path(val['path'])
+            addr = self.get_address_from_path(val['path'])
             val['address'] = addr
             added_utxos[txid + ':' + str(index)] = val
         return added_utxos
@@ -670,7 +670,7 @@ class BaseWallet(object):
                                  maxheight=maxheight)
         ret_conv = {}
         for utxo, data in ret.items():
-            addr = self.get_addr_path(data['path'])
+            addr = self.get_address_from_path(data['path'])
             utxo_txt = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
             ret_conv[utxo_txt] = {'address': addr, 'value': data['value']}
         return ret_conv
@@ -704,7 +704,7 @@ class BaseWallet(object):
             mixdepth, amount, utxo_filter, select_fn, maxheight=maxheight)
 
         for data in ret.values():
-            data['script'] = self.get_script_path(data['path'])
+            data['script'] = self.get_script_from_path(data['path'])
 
         return ret
 
@@ -744,7 +744,7 @@ class BaseWallet(object):
         for md, utxos in ret.items():
             for utxo, data in utxos.items():
                 utxo_str = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
-                addr = self.get_addr_path(data['path'])
+                addr = self.get_address_from_path(data['path'])
                 data['address'] = addr
                 utxos_conv[md][utxo_str] = data
         return utxos_conv
@@ -767,7 +767,7 @@ class BaseWallet(object):
             for utxo, (path, value, height) in data.items():
                 if not include_disabled and self._utxos.is_disabled(*utxo):
                     continue
-                script = self.get_script_path(path)
+                script = self.get_script_from_path(path)
                 script_utxos[md][utxo] = {'script': script,
                                           'path': path,
                                           'value': value}
@@ -793,7 +793,7 @@ class BaseWallet(object):
     def _get_mixdepth_from_path(self, path):
         raise NotImplementedError()
 
-    def get_script_path(self, path):
+    def get_script_from_path(self, path):
         """
         internal note: This is the final sink for all operations that somehow
             need to derive a script. If anything goes wrong when deriving a
@@ -808,7 +808,7 @@ class BaseWallet(object):
 
     def get_script(self, mixdepth, internal, index):
         path = self.get_path(mixdepth, internal, index)
-        return self.get_script_path(path)
+        return self.get_script_from_path(path)
 
     def _get_priv_from_path(self, path):
         raise NotImplementedError()
@@ -1120,7 +1120,7 @@ class ImportWalletMixin(object):
         assert len(path) == 3
 
         if not script:
-            script = self.get_script_path(path)
+            script = self.get_script_from_path(path)
 
         # we need to retain indices
         self._imported[path[1]][path[2]] = (b'', -1)
@@ -1192,9 +1192,9 @@ class ImportWalletMixin(object):
             return super(ImportWalletMixin, self).get_details(path)
         return path[1], 'imported', path[2]
 
-    def get_script_path(self, path):
+    def get_script_from_path(self, path):
         if not self._is_imported_path(path):
-            return super(ImportWalletMixin, self).get_script_path(path)
+            return super(ImportWalletMixin, self).get_script_from_path(path)
 
         priv, engine = self._get_priv_from_path(path)
         return engine.privkey_to_script(priv)
@@ -1328,7 +1328,7 @@ class BIP32Wallet(BaseWallet):
             for int_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID):
                 for i in range(self._index_cache[md][int_type]):
                     path = self.get_path(md, int_type, i)
-                    script = self.get_script_path(path)
+                    script = self.get_script_from_path(path)
                     self._script_map[script] = path
 
     def save(self):
@@ -1360,7 +1360,7 @@ class BIP32Wallet(BaseWallet):
     def _derive_bip32_master_key(cls, seed):
         return cls._ENGINE.derive_bip32_master_key(seed)
 
-    def get_script_path(self, path):
+    def get_script_from_path(self, path):
         if not self._is_my_bip32_path(path):
             raise WalletError("unable to get script for unknown key path")
 
@@ -1461,19 +1461,19 @@ class BIP32Wallet(BaseWallet):
         return self.get_new_script_override_disable(mixdepth, internal)
 
     def get_new_script_override_disable(self, mixdepth, internal):
-        # This is called by get_script_path and calls back there. We need to
+        # This is called by get_script_from_path and calls back there. We need to
         # ensure all conditions match to avoid endless recursion.
         int_type = self._get_internal_type(internal)
         index = self._index_cache[mixdepth][int_type]
         self._index_cache[mixdepth][int_type] += 1
         path = self.get_path(mixdepth, int_type, index)
-        script = self.get_script_path(path)
+        script = self.get_script_from_path(path)
         self._script_map[script] = path
         return script
 
     def get_script(self, mixdepth, internal, index):
         path = self.get_path(mixdepth, internal, index)
-        return self.get_script_path(path)
+        return self.get_script_from_path(path)
 
     @deprecated
     def get_key(self, mixdepth, internal, index):
