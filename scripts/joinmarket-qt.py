@@ -26,6 +26,7 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 import sys, datetime, os, logging
 import platform, json, threading, time
 import qrcode
+from optparse import OptionParser
 
 from PySide2 import QtCore
 
@@ -76,7 +77,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
-    get_default_max_relative_fee, RetryableStorageError
+    get_default_max_relative_fee, RetryableStorageError, add_base_options
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -1812,11 +1813,17 @@ def get_wallet_printout(wallet_service):
     return (rows, mbalances, xpubs, total_bal)
 
 ################################
+
+parser = OptionParser(usage='usage: %prog [options]')
+add_base_options(parser)
+# wallet related base options are not applicable:
+parser.remove_option("--recoversync")
+parser.remove_option("--wallet-password-stdin")
+(options, args) = parser.parse_args()
+
 config_load_error = False
 try:
-    # note: uses default config_path value of "" always, i.e. user
-    # data is always in ~/.joinmarket for JM-QT
-    load_program_config()
+    load_program_config(config_path=options.datadir)
 except Exception as e:
     config_load_error = "Failed to setup joinmarket: "+repr(e)
     if "RPC" in repr(e):
