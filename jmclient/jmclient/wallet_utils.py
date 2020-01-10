@@ -353,7 +353,7 @@ def get_imported_privkey_branch(wallet_service, m, showprivkey):
 def wallet_showutxos(wallet, showprivkey):
     unsp = {}
     max_tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
-    utxos = wallet.get_utxos_by_mixdepth()
+    utxos = wallet.get_utxos_by_mixdepth(includeconfs=True)
     for md in utxos:
         for u, av in utxos[md].items():
             key = wallet.get_key_from_addr(av['address'])
@@ -361,7 +361,8 @@ def wallet_showutxos(wallet, showprivkey):
             tries_remaining = max(0, max_tries - tries)
             unsp[u] = {'address': av['address'], 'value': av['value'],
                        'tries': tries, 'tries_remaining': tries_remaining,
-                       'external': False}
+                       'external': False,
+                       'confirmations': av['confs']}
             if showprivkey:
                 unsp[u]['privkey'] = wallet.get_wif_path(av['path'])
 
