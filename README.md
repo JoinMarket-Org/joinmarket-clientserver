@@ -1,10 +1,14 @@
 # joinmarket-clientserver
 
-Joinmarket refactored to separate client and backend operations
+JoinMarket is software to create a special kind of bitcoin transaction called a CoinJoin transaction. It's aim is to improve the confidentiality and privacy of bitcoin transactions.
 
-Joinmarket is coinjoin software, and includes a wallet, which requires Bitcoin Core as backend (version 0.16.3, 0.17.0 or later).
+A CoinJoin transaction requires other people to take part. The right resources (coins) have to be in the right place, at the right time, in the right quantity. This isn't a software or tech problem, its an economic problem. JoinMarket works by creating a new kind of market that would allocate these resources in the best way.
 
-For a quick introduction to Joinmarket you can watch [this demonstration](https://youtu.be/hwmvZVQ4C4M) of installation and usage given by [Adam Gibson](https://github.com/AdamISZ) during the [Understanding Bitcoin conference](https://understandingbtc.com/) on april 6 2019.
+One group of participants (called market makers) will always be available to take part in CoinJoins at any time. Other participants (called market takers) can create a CoinJoin at any time. The takers pay a fee which incentivizes the makers. A form of smart contract is created, meaning the private keys will never be broadcasted outside of your computer, resulting in virtually zero risk of loss (aside from malware or bugs). As a result of free-market forces the fees will eventually be next to nothing.
+
+Widespread use of JoinMarket improves bitcoin's fungibility and privacy. This implementation of JoinMarket also implements [PayJoin](https://en.bitcoin.it/wiki/PayJoin).
+
+For a quick introduction to Joinmarket you can watch [this demonstration](https://youtu.be/hwmvZVQ4C4M) of installation and usage given by [Adam Gibson](https://github.com/AdamISZ) during the [Understanding Bitcoin conference](https://understandingbtc.com/) on April 6 2019.
 
 ### Wallet features
 
@@ -12,12 +16,13 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 * Multiple "mixdepths" or pockets (by default 5) for better coin isolation
 * Ability to spend directly, or with coinjoin; export private keys; BIP49 compatible seed (Trezor, Samourai etc.) and mnemonic extension option
 * Fine-grained control over bitcoin transaction fees
-* Basic coin control - can freeze individual utxos to stop them being spent in any tx
+* Basic coin control - can freeze individual utxos to stop them being spent in any transaction
 * Can run sequence of coinjoins in automated form, either auto-generated (see `tumbler.py`) or self-generated sequence.
 * Can specify exact amount of coinjoin (figures from 0.01 to 30.0 btc and higher are practical), can choose time and number of counterparties
 * Can run passively to receive small payouts for taking part in coinjoins (see "Maker" and "yield-generator" in docs)
 * GUI to support Taker role, including tumbler/automated coinjoin sequence.
 * PayJoin - more economical and private payments between Joinmarket wallets.
+* Protection from [forced address reuse](https://en.bitcoin.it/wiki/Privacy#Forced_address_reuse) attacks.
 
 ### Quickstart - RECOMMENDED INSTALLATION METHOD (Linux only)
 
@@ -73,39 +78,27 @@ pip install -r requirements/gui.txt
 After this, the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work.
 There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
 
-### Notes on architectural changes (can be ignored)
+### Architecture notes
 
-Motivation: By separating the code which manages conversation with other
-Joinmarket participants from the code which manages this participant's Bitcoin
-wallet actions, we get a considerable gain at a minor cost of an additional layer:
-code dependencies for each part are much reduced, security requirements of the 
-server/daemon layer are massively reduced (which can have several advantages such as
-it being more acceptable to distribute this layer as a binary), and client code
-can be written, implementing application-level logic (do join with coins X under condition X)
-using other Bitcoin libraries, or wallets, without knowing anything about
-Joinmarket's inter-participant protocol. An example is my work on the Joinmarket
-electrum [plugin](https://github.com/AdamISZ/electrum-joinmarket-plugin).
-
-It also
-means that updates to the Bitcoin element of Joinmarket, such as P2SH and segwit, should
-have extremely minimal to no impact on the backend code, since the latter just implements
-communication of a set of formatted messages, and allows the client to decide on
-their validity beyond simply syntax.
-
-Joinmarket's own [messaging protocol](https://github.com/JoinMarket-Org/JoinMarket-Docs/blob/master/Joinmarket-messaging-protocol.md) is thus enforced *only* in the server/daemon.
-
-The client and server currently communicate using twisted.protocol.amp, see
-[AMP](https://amp-protocol.net/),
-and the specification of the communication between the client and server is isolated to
-[this](https://github.com/AdamISZ/joinmarket-clientserver/blob/master/jmbase/jmbase/commands.py) module.
-Currently the messaging layer of Joinmarket is IRC-only (but easily extensible, see [here](https://github.com/JoinMarket-Org/joinmarket/issues/650).
-The IRC layer is also implemented here using Twisted, reducing the complexity required with threading.
-
-The "server" is just a daemon service that can be run as a separate process (see `scripts/joinmarketd.py`), or for convenience in the same process (the default for command line scripts).
+See [architecture-notes.md](docs/architecture-notes.md).
 
 ### TESTING
 
-Instructions for developers for testing [here](docs/TESTING.md). If you want to help improve the project, please have a read of [this todo list](docs/TODO.md).
+Instructions for developers for testing [here](docs/TESTING.md). If you want to help improve the project, please have a read of [this todo list](docs/TODO.md) and the [Help Wanted tag](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) on the issue tracker.
+
+### Community
+
++ IRC: `#joinmarket` on irc.freenode.net https://webchat.freenode.net/?channels=%23joinmarket
+
++ IRC on tor: `#joinmarket` on the networks [AgoraIRC](https://anarplex.net/agorairc/) and [Cyberguerilla](https://cyberguerrilla.info/). These channels are bridged to the above freenode channel.
+
++ Bitcoin wiki page: https://en.bitcoin.it/wiki/JoinMarket
+
++ Subreddit: https://reddit.com/r/joinmarket
+
++ Bitcointalk thread: https://bitcointalk.org/index.php?topic=919116.msg10096563
+
++ Twitter: https://twitter.com/joinmarket
 
 ### Support JoinMarket and bitcoin privacy
 
