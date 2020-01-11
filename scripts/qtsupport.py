@@ -31,38 +31,91 @@ from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
 class MakerDialog(QDialog):
 
-    def __init__(self, action_fn, running):
+    parameter_names = ['CJ Offer type', 'CJ Absolute fee (sats)',
+              'CJ Relative fee (decimal)',
+              'Tx fee contribution (sats)',
+              'Minimum CJ size (sats)']
+    parameter_tooltips = [
+     "Type of offer; absolute is a fixed price in sats,\n"
+     "relative is a decimal fraction of coinjoin amount.",
+     "Satoshis fee (integer) if absolute offer type chosen.",
+     "Decimal fraction of coinjoin amount offered as fee\n"
+     "if relative offer type chosen.",
+     "Satoshis contribution (integer) to bitcoin transaction fee.",
+     "Minimum size in satoshis of coinjoin allowed."]
+    parameter_types = [str, int, float, int, int]
+    parameter_settings = ['Relative fee', 500, 0.0002, 100, 1000000]
+
+    def __init__(self, action_fn, running, parameter_settings=None):
         """ Parameter action_fn:
         each time the user opens the dialog they will
         pass a function to be connected to the action-button.
         """
         super(MakerDialog, self).__init__()
-        # these QLineEdit objects will contain the settings
-        # for the maker as chosen by the user:
-        self.maker_settings_le = []
+        if parameter_settings:
+            self.parameter_settings = parameter_settings
+        # these QLineEdit or QLabel objects will contain the
+        # settings for the maker as chosen by the user:
+        self.maker_settings_ql = []
         self.action_fn = action_fn
         self.running = running
         self.initUI()
 
     def initUI(self):
         self.setModal(1)
-        tp = "Running: " if self.running else "(Not running): "
-        self.setWindowTitle(tp + "Manage yield generator")
+        tp = "(Running) " if self.running else "(Not running) "
+        self.setWindowTitle(tp + "Manage maker:")
         self.setLayout(self.get_maker_dialog())
         self.show()
 
     def get_maker_dialog(self):
-        sN = ['CJ Offer type', 'CJ Absolute fee (sats)',
-              'CJ Relative fee (decimal)',
-              'Tx fee contribution (sats)',
-              'Minimum CJ size (sats)']
-        #Tooltips
-        sH = ["abc" for x in range(len(sN))]
-        #types
-        sT = [str, int, float, int, int]
-        # defaults (TODO: keep up to date with edits)
-        sD = ['Relative fee', '500', '0.0002', '100', '1000000']
-        for x in zip(sN, sH, sT, sD):
+        """ Shows dialog with either editable settings
+        or info on running settings, and has a start/stop
+        button.
+        """
+        if self.running:
+            layout = self.get_maker_running_dialog()
+        else:
+            layout = self.get_maker_notrunning_dialog()
+        btnbox = QDialogButtonBox()
+        btnbox.setStandardButtons(QDialogButtonBox.Cancel)
+        btnname = "Stop" if self.running else "Start"
+        btnbox.addButton(btnname, QDialogButtonBox.ActionRole)
+        layout.addWidget(btnbox, len(self.parameter_names) +2, 0)
+        btnbox.rejected.connect(self.close)
+        btnbox.buttons()[1].clicked.connect(self.action_fn)
+        return layout
+
+    def get_maker_running_dialog(self):
+        """ Let user know that maker is running and
+        with what settings, and where they can see info
+        on maker transactions; allow them to switch it off.
+        """
+        intro_text = ("Maker is running and actively offering coinjoins.\n"
+                     "These settings are being used:")
+        for x in zip(self.parameter_names, self.parameter_tooltips,
+                     self.parameter_settings):
+            ql = QLabel(x[0])
+            ql.setToolTip(x[1])
+            ql2 = QLabel(str(x[2]))
+            self.maker_settings_ql.append((ql, ql2))
+        layout = QGridLayout(self)
+        layout.setSpacing(4)
+        for i, x in enumerate(self.maker_settings_ql):
+            layout.addWidget(x[0], i + 1, 0)
+            layout.addWidget(x[1], i + 1, 1, 1, 2)
+        return layout
+
+    def get_maker_notrunning_dialog(self):
+        """ Dialog shows parameters to start up yield
+        generator bot in background.
+        """
+        #constraints
+        valid_ranges = [None, (-1000, 1000000),
+               (-0.001, 0.1, 6), (0, 50000), (1,100000000)]
+        for x in zip(self.parameter_names, self.parameter_tooltips,
+                     self.parameter_types, self.parameter_settings,
+                     valid_ranges):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
             if x[0] == 'CJ Offer type':
@@ -70,28 +123,17 @@ class MakerDialog(QDialog):
                 qle.addItem("Relative fee")
                 qle.addItem("Absolute fee")
             else:
-                qle = QLineEdit(x[3])
-            if self.running:
-                qle.setEnabled(False)
-
-            # TODO: apply validators
-            #if x[2] == int:
-            #    qle.setValidator(QIntValidator(*x[4]))
-            #if x[2] == float:
-            #    qle.setValidator(QDoubleValidator(*x[4]))
-            self.maker_settings_le.append((ql, qle))
+                qle = QLineEdit(str(x[3]))
+            if x[2] == int:
+                qle.setValidator(QIntValidator(*x[4]))
+            if x[2] == float:
+                qle.setValidator(QDoubleValidator(*x[4]))
+            self.maker_settings_ql.append((ql, qle))
         layout = QGridLayout(self)
         layout.setSpacing(4)
-        for i, x in enumerate(self.maker_settings_le):
+        for i, x in enumerate(self.maker_settings_ql):
             layout.addWidget(x[0], i + 1, 0)
             layout.addWidget(x[1], i + 1, 1, 1, 2)
-        btnbox = QDialogButtonBox()
-        btnbox.setStandardButtons(QDialogButtonBox.Cancel)
-        btnname = "Stop" if self.running else "Start"
-        btnbox.addButton(btnname, QDialogButtonBox.ActionRole)
-        layout.addWidget(btnbox, i +2, 0)
-        btnbox.rejected.connect(self.close)
-        btnbox.buttons()[1].clicked.connect(self.action_fn)
         return layout
 
 def icon_path(icon_basename):

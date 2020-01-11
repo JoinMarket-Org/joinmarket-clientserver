@@ -1470,6 +1470,7 @@ class JMMainWindow(QMainWindow):
         # to running in Maker mode:
         self.makerDialog = None
         self.maker_running = False
+        self.maker_settings = None
 
         self.reactor = reactor
         self.initUI()
@@ -1487,7 +1488,8 @@ class JMMainWindow(QMainWindow):
 
     def makerManager(self):
         action_fn = self.stopMaker if self.maker_running else self.startMaker
-        self.makerDialog = MakerDialog(action_fn, self.maker_running)
+        self.makerDialog = MakerDialog(action_fn, self.maker_running,
+                                       self.maker_settings)
 
     def toggle_non_maker_function(self):
         """ While maker is running we prevent actions
@@ -1504,12 +1506,14 @@ class JMMainWindow(QMainWindow):
     def startMaker(self):
         if not self.wallet_service:
             return (False, "Wallet is not loaded and synced, cannot start maker.")
-        mle = self.makerDialog.maker_settings_le
+        mle = self.makerDialog.maker_settings_ql
         offertype = 'swreloffer' if mle[0][1].currentText() == "Relative fee" else 'swabsoffer'
         cjabsfee = int(mle[1][1].text())
         cjrelfee = float(mle[2][1].text())
         txfee = int(mle[3][1].text())
         minsize = int(mle[4][1].text())
+        # keep track of currently chosen settings for next display of dialog:
+        self.maker_settings = [mle[0][1].currentText(), cjabsfee, cjrelfee, txfee, minsize]
         self.makerfactory = ygstart(self.wallet_service, [txfee, cjabsfee, cjrelfee,
                                         offertype, minsize], rs=False)
         self.maker_running = True
@@ -1524,7 +1528,7 @@ class JMMainWindow(QMainWindow):
             self.makerbtn.setToolTip("Maker running: click to manage")
         else:
             self.makerbtn.setIcon(read_QIcon("reddiamond.png"))
-            self.makerbtn.setToolTip("Click to start maker.")
+            self.makerbtn.setToolTip("Maker not running: click to manage.")
 
     def stopMaker(self):
         self.makerfactory.proto_client.request_mc_shutdown()
