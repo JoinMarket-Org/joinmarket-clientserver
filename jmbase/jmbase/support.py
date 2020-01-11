@@ -135,12 +135,12 @@ def lookup_appdata_folder(appname):
     """
     if sys.platform == 'darwin':
         if "HOME" in environ:
-            data_folder = path.join(os.environ["HOME"],
+            data_folder = path.join(environ["HOME"],
                                    "Library/Application support/",
                                    appname) + '/'
         else:
-            print("Could not find home folder")
-            os.exit()
+            jmprint("Could not find home folder")
+            sys.exit(EXIT_FAILURE)
 
     elif 'win32' in sys.platform or 'win64' in sys.platform:
         data_folder = path.join(environ['APPDATA'], appname) + '\\'
