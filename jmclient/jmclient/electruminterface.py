@@ -354,7 +354,7 @@ class ElectrumInterface(BlockchainInterface):
                 for index in range(wallet.get_next_unused_index(md, internal)):
                     addrs.add(wallet.get_addr(md, internal, index))
             for path in wallet.yield_imported_paths(md):
-                addrs.add(wallet.get_addr_path(path))
+                addrs.add(wallet.get_address_from_path(path))
 
         self.listunspent_calls = len(addrs)
         for a in addrs:

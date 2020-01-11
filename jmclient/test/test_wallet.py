@@ -277,8 +277,8 @@ def test_import_key(setup_wallet):
     assert len(imported_paths_md1) == 1
 
     # verify imported addresses
-    assert wallet.get_addr_path(imported_paths_md0[0]) == '2MzY5yyonUY7zpHspg7jB7WQs1uJxKafQe4'
-    assert wallet.get_addr_path(imported_paths_md1[0]) == 'mpCX9EbdXpcrKMtjEe1fqFhvzctkfzMYTX'
+    assert wallet.get_address_from_path(imported_paths_md0[0]) == '2MzY5yyonUY7zpHspg7jB7WQs1uJxKafQe4'
+    assert wallet.get_address_from_path(imported_paths_md1[0]) == 'mpCX9EbdXpcrKMtjEe1fqFhvzctkfzMYTX'
 
     # test remove key
     wallet.remove_imported_key(path=imported_paths_md0[0])
@@ -301,10 +301,10 @@ def test_signing_imported(setup_wallet, wif, keytype, type_check):
 
     MIXDEPTH = 0
     path = wallet.import_private_key(MIXDEPTH, wif, keytype)
-    utxo = fund_wallet_addr(wallet, wallet.get_addr_path(path))
+    utxo = fund_wallet_addr(wallet, wallet.get_address_from_path(path))
     tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])],
                                   ['00'*17 + ':' + str(10**8 - 9000)]))
-    script = wallet.get_script_path(path)
+    script = wallet.get_script_from_path(path)
     tx = wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)
     txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
@@ -580,7 +580,7 @@ def test_addr_script_conversion(setup_wallet):
     wallet = get_populated_wallet(num=1)
 
     path = wallet.get_path(0, True, 0)
-    script = wallet.get_script_path(path)
+    script = wallet.get_script_from_path(path)
     addr = wallet.script_to_addr(script)
 
     assert script == wallet.addr_to_script(addr)
@@ -597,14 +597,14 @@ def test_imported_key_removed(setup_wallet):
     wallet = SegwitLegacyWallet(storage)
 
     path = wallet.import_private_key(1, wif, key_type)
-    script = wallet.get_script_path(path)
+    script = wallet.get_script_from_path(path)
     assert wallet.is_known_script(script)
 
     wallet.remove_imported_key(path=path)
     assert not wallet.is_known_script(script)
 
     with pytest.raises(WalletError):
-        wallet.get_script_path(path)
+        wallet.get_script_from_path(path)
 
 
 def test_wallet_mixdepth_simple(setup_wallet):

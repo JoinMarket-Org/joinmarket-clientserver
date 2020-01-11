@@ -330,8 +330,8 @@ def get_tx_info(txid):
 def get_imported_privkey_branch(wallet_service, m, showprivkey):
     entries = []
     for path in wallet_service.yield_imported_paths(m):
-        addr = wallet_service.get_addr_path(path)
-        script = wallet_service.get_script_path(path)
+        addr = wallet_service.get_address_from_path(path)
+        script = wallet_service.get_script_from_path(path)
         balance = 0.0
         for data in wallet_service.get_utxos_by_mixdepth(include_disabled=True,
                                              hexfmt=False)[m].values():
@@ -432,7 +432,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             unused_index = wallet_service.get_next_unused_index(m, forchange)
             for k in range(unused_index + wallet_service.gap_limit):
                 path = wallet_service.get_path(m, forchange, k)
-                addr = wallet_service.get_addr_path(path)
+                addr = wallet_service.get_address_from_path(path)
                 balance, used = get_addr_status(
                     path, utxos[m], k >= unused_index, forchange)
                 if showprivkey:
@@ -637,7 +637,7 @@ def wallet_fetch_history(wallet, options):
         'FROM transactions '
         'WHERE (blockhash IS NOT NULL AND blocktime IS NOT NULL) OR conflicts = 0 '
         'ORDER BY blocktime').fetchall()
-    wallet_script_set = set(wallet.get_script_path(p)
+    wallet_script_set = set(wallet.get_script_from_path(p)
                             for p in wallet.yield_known_paths())
 
     def s():
@@ -915,7 +915,7 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
             print("Failed to import key {}: {}".format(wif, e))
             import_failed += 1
         else:
-            imported_addr.append(wallet.get_addr_path(path))
+            imported_addr.append(wallet.get_address_from_path(path))
 
     if not imported_addr:
         jmprint("Warning: No keys imported!", "error")
