@@ -981,6 +981,7 @@ def display_utxos_for_disable_choice_default(utxos_enabled, utxos_disabled):
             start += 1
             yield txid, idx
 
+    jmprint("List of UTXOs:")
     ulist = list(output_utxos(utxos_disabled, 'FROZEN'))
     disabled_max = len(ulist) - 1
     ulist.extend(output_utxos(utxos_enabled, 'NOT FROZEN', start=len(ulist)))
@@ -1033,22 +1034,23 @@ def wallet_freezeutxo(wallet, md, display_callback=None, info_callback=None):
     if md is None:
         info_callback("Specify the mixdepth with the -m flag", "error")
         return "Failed"
-    utxos_enabled, utxos_disabled = get_utxos_enabled_disabled(wallet, md)
-    if utxos_disabled == {} and utxos_enabled == {}:
-        info_callback("The mixdepth: " + str(md) + \
-            " contains no utxos to freeze/unfreeze.", "error")
-        return "Failed"
-    display_ret = display_callback(utxos_enabled, utxos_disabled)
-    if display_ret is None:
-        return "OK"
-    (txid, index), disable = display_ret
-    wallet.disable_utxo(txid, index, disable)
-    if disable:
-        info_callback("Utxo: {} is now frozen and unavailable for spending."
-                      .format(fmt_utxo((txid, index))))
-    else:
-        info_callback("Utxo: {} is now unfrozen and available for spending."
-                      .format(fmt_utxo((txid, index))))
+    while True:
+        utxos_enabled, utxos_disabled = get_utxos_enabled_disabled(wallet, md)
+        if utxos_disabled == {} and utxos_enabled == {}:
+            info_callback("The mixdepth: " + str(md) + \
+                " contains no utxos to freeze/unfreeze.", "error")
+            return "Failed"
+        display_ret = display_callback(utxos_enabled, utxos_disabled)
+        if display_ret is None:
+            break
+        (txid, index), disable = display_ret
+        wallet.disable_utxo(txid, index, disable)
+        if disable:
+            info_callback("Utxo: {} is now frozen and unavailable for spending."
+                          .format(fmt_utxo((txid, index))))
+        else:
+            info_callback("Utxo: {} is now unfrozen and available for spending."
+                          .format(fmt_utxo((txid, index))))
     return "Done"
 
 def get_wallet_type():
