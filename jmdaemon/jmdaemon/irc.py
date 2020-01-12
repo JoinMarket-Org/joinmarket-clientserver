@@ -31,6 +31,9 @@ def wlog(*x):
     if x[0] == "WARNING":
         msg = " ".join([conv(a) for a in x[1:]])
         log.warn(msg)
+    elif x[0] == "INFO":
+        msg = " ".join([conv(a) for a in x[1:]])
+        log.info(msg)
     else:
         msg = " ".join([conv(a) for a in x])
         log.debug(msg)
@@ -200,6 +203,8 @@ class txIRC_Client(irc.IRCClient, object):
         return irc.IRCClient.connectionMade(self)
 
     def connectionLost(self, reason=protocol.connectionDone):
+        wlog("INFO", "Lost IRC connection to: " + str(self.hostname)
+            + " . Should reconnect automatically soon.")
         if self.wrapper.on_disconnect:
             reactor.callLater(0.0, self.wrapper.on_disconnect, self.wrapper)
         return irc.IRCClient.connectionLost(self, reason)
@@ -263,7 +268,7 @@ class txIRC_Client(irc.IRCClient, object):
         self.join(self.factory.channel)
 
     def joined(self, channel):
-        wlog('joined: ', channel, self.hostname)
+        wlog("INFO", "joined: " + str(channel) + " " + str(self.hostname))
         #Use as trigger for start to mcc:
         reactor.callLater(0.0, self.wrapper.on_welcome, self.wrapper)
 
