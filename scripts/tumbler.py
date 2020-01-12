@@ -32,7 +32,7 @@ def main():
     if len(args) < 1:
         jmprint('Error: Needs a wallet file', "error")
         sys.exit(EXIT_ARGERROR)
-    load_program_config(config_path=options.datadir)
+    load_program_config(config_path=options['datadir'])
 
     check_regtest()
 
