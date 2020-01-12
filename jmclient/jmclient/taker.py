@@ -16,7 +16,7 @@ from jmclient.configure import jm_single, validate_address
 from jmbase.support import get_log
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
-from jmclient.wallet import estimate_tx_fee
+from jmclient.wallet import estimate_tx_fee, compute_tx_locktime
 from jmclient.podle import generate_podle, get_podle_commitments, PoDLE
 from jmclient.wallet_service import WalletService
 from .output import generate_podle_error_string
@@ -1007,14 +1007,10 @@ class P2EPTaker(Taker):
         if self.my_change_addr is not None:
             self.outputs.append({'address': self.my_change_addr,
                                  'value': my_change_value})
-        # set locktime for best anonset (Core, Electrum) - most recent block.
-        # this call should never fail so no catch here.
-        currentblock = jm_single().bc_interface.rpc(
-            "getblockchaininfo", [])["blocks"]
         # As for JM coinjoins, the `None` key is used for our own inputs
         # to the transaction; this preparatory version contains only those.
         tx = btc.make_shuffled_tx(self.utxos[None], self.outputs,
-                              False, 2, currentblock)
+                              False, 2, compute_tx_locktime())
         jlog.info('Created proposed fallback tx\n' + pprint.pformat(
             btc.deserialize(tx)))
         # We now sign as a courtesy, because if we disappear the recipient

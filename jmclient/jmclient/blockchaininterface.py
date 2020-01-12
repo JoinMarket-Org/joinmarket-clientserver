@@ -388,6 +388,10 @@ class BitcoinCoreInterface(BlockchainInterface):
             return 10000
         return int(Decimal(1e8) * Decimal(estimate))
 
+    def get_current_block_height(self):
+        return self.rpc("getblockchaininfo", [])["blocks"]
+
+
 class RegtestBitcoinCoreMixin():
     """
     This Mixin provides helper functions that are used in Interface classes

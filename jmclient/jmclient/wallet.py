@@ -7,6 +7,7 @@ import warnings
 import functools
 import collections
 import numbers
+import random
 from binascii import hexlify, unhexlify
 from datetime import datetime
 from copy import deepcopy
@@ -90,6 +91,16 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
         non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
     else:
         raise NotImplementedError("Txtype: " + txtype + " not implemented.")
+
+
+def compute_tx_locktime():
+    # set locktime for best anonset (Core, Electrum)
+    # most recent block or some time back in random cases
+    locktime = jm_single().bc_interface.get_current_block_height()
+    if random.randint(0, 9) == 0:
+        # P2EP requires locktime > 0
+        locktime = max(1, locktime - random.randint(0, 99))
+    return locktime
 
 
 #FIXME: move this to a utilities file?

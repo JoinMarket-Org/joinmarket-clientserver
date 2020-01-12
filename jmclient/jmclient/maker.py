@@ -13,7 +13,7 @@ from binascii import unhexlify
 
 from jmbitcoin import SerializationError, SerializationTruncationError
 import jmbitcoin as btc
-from jmclient.wallet import estimate_tx_fee
+from jmclient.wallet import estimate_tx_fee, compute_tx_locktime
 from jmclient.wallet_service import WalletService
 from jmclient.configure import jm_single
 from jmbase.support import get_log, EXIT_SUCCESS, EXIT_FAILURE
@@ -605,11 +605,7 @@ class P2EPMaker(Maker):
                      "value": new_change_amount})
         new_ins = [x[1] for x in utxo.values()]
         new_ins.extend(my_utxos.keys())
-        # set locktime for best anonset (Core, Electrum) - most recent block.
-        # this call should never fail so no catch here.
-        currentblock = jm_single().bc_interface.rpc(
-            "getblockchaininfo", [])["blocks"]
-        new_tx = btc.make_shuffled_tx(new_ins, new_outs, False, 2, currentblock)
+        new_tx = btc.make_shuffled_tx(new_ins, new_outs, False, 2, compute_tx_locktime())
         new_tx_deser = btc.deserialize(new_tx)
 
         # sign our inputs before transfer
