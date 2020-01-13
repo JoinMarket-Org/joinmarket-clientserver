@@ -163,6 +163,10 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
 class BitcoinCoreInterface(BlockchainInterface):
 
+    # Bitcoin RPC error codes
+    RPC_WALLET_ERROR            = -4    # Unspecified problem with wallet (key not found etc.)
+    RPC_WALLET_UNLOCK_NEEDED    = -13   # Enter the wallet passphrase with walletpassphrase first
+
     def __init__(self, jsonRpc, network):
         super(BitcoinCoreInterface, self).__init__()
         self.jsonRpc = jsonRpc
@@ -215,7 +219,38 @@ class BitcoinCoreInterface(BlockchainInterface):
                 "watchonly": True
             })
 
-        result = self.rpc('importmulti', [requests, {"rescan": False}])
+        try:
+            result = self.rpc('importmulti', [requests, {"rescan": False}])
+        except JsonRpcError as e:
+            # importmulti currently fails on any imports, even watchonly,
+            # when wallet is locked; fallback to importaddress in such cases.
+            # See https://github.com/bitcoin/bitcoin/issues/17867
+            if e.code == self.RPC_WALLET_UNLOCK_NEEDED:
+                log.debug(
+                    "importmulti failed with locked Bitcoin Core wallet, "
+                    "fallback to importaddress")
+                for addr in addr_list:
+                    try:
+                        self.rpc('importaddress', [addr, wallet_name, False])
+                    except JsonRpcError as e2:
+                        if (e2.code == self.RPC_WALLET_ERROR and
+                            e2.message == "The wallet already contains " + \
+                                "the private key for this address or script"):
+                            fatal_msg = ("Fatal sync error: import of address: " + addr +
+                                " failed, since it's already owned by this Bitcoin Core "
+                                "wallet in another account. To prevent coin or privacy "
+                                "loss, Joinmarket will not load a wallet in this conflicted "
+                                "state. To fix: use a new Bitcoin Core wallet to sync this "
+                                "Joinmarket wallet, or use a new Joinmarket wallet.")
+                            if restart_cb:
+                                restart_cb(fatal_msg)
+                            else:
+                                jmprint(fatal_msg, "important")
+                            sys.exit(EXIT_FAILURE)
+                        raise
+                result = []
+            else:
+                raise
 
         num_failed = 0
         for row in result:
