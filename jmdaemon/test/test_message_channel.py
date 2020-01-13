@@ -165,7 +165,7 @@ def test_setup_mc():
     #kill the chan on which the cp is marked active;
     #note dummychannel has no actual shutdown (call it anyway),
     #so change its status manually.
-    dmcs[2].shutdown()
+    dmcs[1].shutdown()
     mcc.mc_status[dmcs[1]] = 2
     time.sleep(0.5)
     #Flush removes references to inactive channels (in this case dmcs[1]).
@@ -179,6 +179,7 @@ def test_setup_mc():
     mcc.send_error(cp1, "error")
     #simulate order cancels (even though we have none)
     mcc.cancel_orders([0,1,2])
+
     #let cp1 be seen on mc2 without having got into active channels;
     #note that this is an illegal pubmsg and is ignored for everything *except*
     #nick_seen (what we need here)
@@ -201,7 +202,6 @@ def test_setup_mc():
     mcc.announce_orders(t_orderbook, nick=cp1)
     #direct to one cp on one mc
     mcc.announce_orders(t_orderbook, nick=cp1, new_mc=dmcs[0])
-    
     #Next, set up 6 counterparties and fill their offers,
     #send txs to them
     cps = [make_valid_nick(i) for i in range(1, 7)]
@@ -224,9 +224,9 @@ def test_setup_mc():
     #try to send the transaction to a wrong cp:
     mcc.send_tx(["notrealcp"], "deadbeef")
     
-    #At this stage, dmcs0,2 should be "up" and 1 should have been reset to 1
+    #At this stage, dmcs0,2 should be "up" and 1 should be "down":
     assert mcc.mc_status[dmcs[0]] == 1
-    assert mcc.mc_status[dmcs[1]] == 1
+    assert mcc.mc_status[dmcs[1]] == 2
     assert mcc.mc_status[dmcs[2]] == 1
     #Not currently used:
     #simulate re-connection of dmcs[1] ; note that this code isn't used atm
