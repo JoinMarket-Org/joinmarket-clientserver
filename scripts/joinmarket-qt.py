@@ -1487,6 +1487,10 @@ class JMMainWindow(QMainWindow):
             event.ignore()
 
     def makerManager(self):
+        if not self.wallet_service:
+            JMQtMessageBox(self, "No wallet loaded.",
+                           mbtype='crit', title="Error")
+            return
         action_fn = self.stopMaker if self.maker_running else self.startMaker
         self.makerDialog = MakerDialog(action_fn, self.maker_running,
                                        self.maker_settings)
@@ -1504,8 +1508,6 @@ class JMMainWindow(QMainWindow):
             tab.setEnabled(not self.maker_running)
 
     def startMaker(self):
-        if not self.wallet_service:
-            return (False, "Wallet is not loaded and synced, cannot start maker.")
         mle = self.makerDialog.maker_settings_ql
         offertype = 'swreloffer' if mle[0][1].currentText() == "Relative fee" else 'swabsoffer'
         cjabsfee = int(mle[1][1].text())
