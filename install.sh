@@ -20,14 +20,17 @@ deps_install ()
         'automake' \
         'pkg-config' \
         'libtool' \
-        'libgmp-dev' )
+        'libgmp-dev' \
+        'python3-dev' \
+        'python3-pip' )
+
+    if ! is_python3; then
+        echo "Python 2 is no longer supported. Please use a compatible Python 3 version."
+        return 1
+    fi
 
     if [[ ${install_os} == 'debian' ]]; then
-        if is_python3; then
-            deb_deps_install "${common_deps[@]} python3-dev python3-pip"
-        else
-            deb_deps_install "${common_deps[@]} python-dev python-pip"
-        fi
+        deb_deps_install "${common_deps[@]}"
         return "$?"
     else
         echo "OS can not be determined. Trying to build."
@@ -304,8 +307,8 @@ Usage: "${0}" [options]
 Options:
 
 --develop       code remains editable in place (currently always enabled)
---python, -p    python version (default: python3)
---with-qt       build the Qt GUI (incompatible with python2)
+--python, -p    python version (only python3 versions are supported)
+--with-qt       build the Qt GUI
 --without-qt    don't build the Qt GUI
 "
                 return 1
@@ -314,11 +317,7 @@ Options:
         shift
     done
 
-    if [[ ${with_qt} == 1 ]] && [[ ${python} == python2* ]]; then
-        echo "ERROR: Joinmarket-Qt is currently only available for Python 3
-                     Use the flag '--python=python3' to enable a python3 install."
-        return 1
-    elif [[ ${with_qt} == '' ]] && [[ ${python} == python3* ]]; then
+    if [[ ${with_qt} == '' ]]; then
         read -p "
         INFO: Joinmarket-Qt for GUI Taker and Tumbler modes is available.
         Install Qt dependencies (~160mb) ? [y|n] : "

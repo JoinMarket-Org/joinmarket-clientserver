@@ -36,11 +36,11 @@ or check the signature in git if you install that way using `git log --show-sign
     source jmvenv/bin/activate
     cd scripts
 
-(You can add `-p python2` if you want to use Python2. You can also add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
+(You can add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
 
 You can optionally install a Qt GUI application, you will be prompted to choose this during installation.
 
-Do note, Python 2 is incompatible with the Qt GUI.
+Do note, Python 2 is no longer supported as it has reached its end of life.
 
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 
@@ -69,8 +69,6 @@ If you want to use the PayJoin feature to pay/receive money to/from another Join
 ### Joinmarket-Qt
 
 Provides single join and multi-join/tumbler functionality (i.e. "Taker") only, in a GUI.
-NOTE: This is currently **only available for Python3**, not Python2 (due to bugs in the PySide2 Python2 implementation).
-It's possible but unlikely that the Python2 version will be fixed, but in any case Python2 will be deprecated at some point.
 
 If binaries are built, they will be gpg signed and announced on the Releases page.
 
