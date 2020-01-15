@@ -46,9 +46,13 @@ You should now be able to run the scripts like `python wallet-tool.py` etc., jus
 
 Alternative to this "quickstart": follow the [install guide](docs/INSTALL.md).
 
-### Installation on MacOS or Windows
+### More installation guides
 
-Follow [this install guide](docs/INSTALL.md).
+* Installation on MacOS or Windows. Follow [this install guide](docs/INSTALL.md).
+* [Installation guide for RaspiBlitz](https://github.com/openoms/bitcoin-tutorials/blob/master/joinmarket/README.md).
+* [Installation guide for RaspiBolt](https://github.com/kristapsk/raspibolt-extras/blob/master/joinmarket.md).
+* [Installation guide for Qubes+Whonix](https://github.com/qubenix/qubes-whonix-bitcoin/blob/master/1_joinmarket.md).
+* [Youtube video installation tutorial for Ubuntu](https://www.youtube.com/watch?v=zTCC86IUzWo).
 
 ### Usage
 
