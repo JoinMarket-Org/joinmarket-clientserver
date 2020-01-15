@@ -50,7 +50,7 @@ def get_populated_wallet(amount=10**8, num=3):
 
 def fund_wallet_addr(wallet, addr, value_btc=1):
     txin_id = jm_single().bc_interface.grab_coins(addr, value_btc)
-    txinfo = jm_single().bc_interface.rpc('gettransaction', [txin_id])
+    txinfo = jm_single().bc_interface.get_transaction(txin_id)
     txin = btc.deserialize(unhexlify(txinfo['hex']))
     utxo_in = wallet.add_new_utxos_(txin, unhexlify(txin_id), 1)
     assert len(utxo_in) == 1

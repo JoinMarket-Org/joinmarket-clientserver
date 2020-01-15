@@ -308,7 +308,7 @@ def get_tx_info(txid):
         blocktime: int, blocktime this tx was mined
         txd: deserialized transaction object (hex-encoded data)
     """
-    rpctx = jm_single().bc_interface.rpc('gettransaction', [txid])
+    rpctx = jm_single().bc_interface.get_transaction(txid)
     txhex = str(rpctx['hex'])
     txd = btc.deserialize(txhex)
     output_script_values = {binascii.unhexlify(sv['script']): sv['value']
@@ -616,8 +616,7 @@ def wallet_fetch_history(wallet, options):
     buf = range(1000)
     t = 0
     while len(buf) == 1000:
-        buf = jm_single().bc_interface.rpc('listtransactions', ["*",
-            1000, t, True])
+        buf = jm_single().bc_interface.list_transactions(1000, t)
         t += len(buf)
         # confirmed
         tx_data = ((tx['txid'], tx['blockhash'], tx['blocktime'], 0) for tx
@@ -690,10 +689,9 @@ def wallet_fetch_history(wallet, options):
 
         rpc_inputs = []
         for ins in txd['ins']:
-            try:
-                wallet_tx = jm_single().bc_interface.rpc('gettransaction',
-                        [ins['outpoint']['hash']])
-            except JsonRpcError:
+            wallet_tx = jm_single().bc_interface.get_transaction(
+                ins['outpoint']['hash'])
+            if wallet_tx is None:
                 continue
             input_dict = btc.deserialize(str(wallet_tx['hex']))['outs'][ins[
                 'outpoint']['index']]
@@ -835,13 +833,8 @@ def wallet_fetch_history(wallet, options):
                       cj_batch[7]/n, min(cj_batch[8]), max(cj_batch[9]), '...')
 
 
-    bestblockhash = jm_single().bc_interface.rpc('getbestblockhash', [])
-    try:
-        #works with pruning enabled, but only after v0.12
-        now = jm_single().bc_interface.rpc('getblockheader', [bestblockhash]
-                )['time']
-    except JsonRpcError:
-        now = jm_single().bc_interface.rpc('getblock', [bestblockhash])['time']
+    bestblockhash = jm_single().bc_interface.get_best_block_hash()
+    now = jm_single().bc_interface.get_block_time(bestblockhash)
     jmprint('        %s best block is %s' % (datetime.fromtimestamp(now)
         .strftime("%Y-%m-%d %H:%M"), bestblockhash))
     total_profit = float(balance - sum(deposits)) / float(100000000)
