@@ -275,11 +275,12 @@ class BitcoinCoreInterface(BlockchainInterface):
         hexval = str(rpcretval["hex"])
         return btc.deserialize(hexval)
 
-    def list_transactions(self, num):
+    def list_transactions(self, num, skip=0):
         """ Return a list of the last `num` transactions seen
-        in the wallet (under any label/account).
+        in the wallet (under any label/account), optionally
+        skipping some.
         """
-        return self.rpc("listtransactions", ["*", num, 0, True])
+        return self.rpc("listtransactions", ["*", num, skip, True])
 
     def get_transaction(self, txid):
         """ Returns a serialized transaction for txid txid,
@@ -389,7 +390,17 @@ class BitcoinCoreInterface(BlockchainInterface):
         return int(Decimal(1e8) * Decimal(estimate))
 
     def get_current_block_height(self):
-        return self.rpc("getblockchaininfo", [])["blocks"]
+        return self.rpc("getblockcount", [])
+
+    def get_best_block_hash(self):
+        return self.rpc('getbestblockhash', [])
+
+    def get_block_time(self, blockhash):
+        try:
+            # works with pruning enabled, but only after v0.12
+            return self.rpc('getblockheader', [blockhash])['time']
+        except JsonRpcError:
+            return self.rpc('getblock', [blockhash])['time']
 
 
 class RegtestBitcoinCoreMixin():

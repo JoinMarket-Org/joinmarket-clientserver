@@ -39,12 +39,12 @@ class DummyMessageChannel(MessageChannel):
         i = 0
         while True:
             if self.give_up:
+                log.debug("shutting down a mc due to give up, name=" + str(self))
                 break
             time.sleep(0.5)
             if i == 1:
                 if self.on_welcome:
                     log.debug("Calling on welcome")
-                    self.on_welcome(self)
             i += 1
     
     def shutdown(self):
