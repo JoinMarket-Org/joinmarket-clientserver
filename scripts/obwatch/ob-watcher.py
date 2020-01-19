@@ -1,6 +1,3 @@
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import *
 from future.utils import iteritems
 from past.builtins import cmp
 from functools import cmp_to_key

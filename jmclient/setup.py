@@ -12,4 +12,5 @@ setup(name='joinmarketclient',
       install_requires=['future', 'configparser;python_version<"3.2"',
                         'joinmarketbase==0.6.1', 'mnemonic', 'argon2_cffi',
                         'bencoder.pyx>=2.0.0', 'pyaes'],
+      python_requires='>=3.3',
       zip_safe=False)

@@ -1,7 +1,4 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 '''Tests of joinmarket bots end-to-end (including IRC and bitcoin) '''
 
 import time
