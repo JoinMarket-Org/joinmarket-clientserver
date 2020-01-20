@@ -106,6 +106,9 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 
 ### Support JoinMarket and bitcoin privacy
 
-Donate to help make JoinMarket even better: `bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5` or `1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL`. Signed bitcoin addresses can be found [here](docs/signed-donation-address.txt).
+Donate to help make JoinMarket even better: [Obtain a bitcoin address here](https://bitcoinprivacy.me/joinmarket-donations)
 
 JoinMarket is an open source project which does not have a funding model, fortunately the project itself has very low running costs as it is almost-fully decentralized and available to everyone for free. Developers contribute only as volunteers and donations are divided amongst them. Many developers have also been important in advocating for privacy and educating the wider bitcoin user base. Be part of the effort to improve bitcoin privacy and fungibility. Every donated coin helps us spend more time on JoinMarket instead of doing other stuff.
+
+Old donation addresses: `bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5` or `1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL`. Signatures can be found [here](docs/signed-donation-address.txt).
+Ideally use the above https link to obtain a brand new address.

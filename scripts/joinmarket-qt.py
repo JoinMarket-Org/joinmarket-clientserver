@@ -61,6 +61,7 @@ qt5reactor.install()
 #General Joinmarket donation address; TODO
 donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
+donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 
 #Underlying joinmarket code version (as per setup.py etc.)
 JM_CORE_VERSION = '0.6.1'
@@ -1352,28 +1353,39 @@ class JMMainWindow(QMainWindow):
         msgbox = QDialog(self)
         lyt = QVBoxLayout(msgbox)
         msgbox.setWindowTitle(appWindowTitle)
-        label1 = QLabel()
-        label1.setText(
+        about_text_label = QLabel()
+        about_text_label.setText(
             "<a href=" + "'https://github.com/joinmarket-org/joinmarket-clientserver/'>"
             + "Read more about Joinmarket</a><p>" + "<p>".join(
-                ["Joinmarket core software version: " + JM_CORE_VERSION,
-                 "JoinmarketQt version: " + JM_GUI_VERSION,
-                 "Messaging protocol version:" + " %s" % (
+                ["Joinmarket core software version: " + JM_CORE_VERSION + "<br/>JoinmarketQt version: "
+                    + JM_GUI_VERSION + "<br/>Messaging protocol version:" + " %s" % (
                      str(jm_single().JM_VERSION)
-                 ), "Help us support Bitcoin fungibility -", "donate here: "]))
-        label2 = QLabel(donation_address)
-        label3 = QLabel(donation_address_sw)
-        for l in [label1, label2, label3]:
+                 ), "JoinMarket is an open source project which does not have a funding model, "
+                  + "fortunately the project itself has very low running costs as it is almost-fully "
+                  + "decentralized and available to everyone for free. Developers contribute only as "
+                  + "volunteers and donations are divided amongst them. Many developers have also been "
+                  + "important in advocating for privacy and educating the wider bitcoin user base. "
+                  + "Be part of the effort to improve bitcoin privacy and fungibility. Every donated "
+                  + "coin helps us spend more time on JoinMarket instead of doing other stuff."]))
+        about_text_label.setWordWrap(True)
+        donation_url_label = QLabel(donation_address_url)
+        donation_addr_label = QLabel(donation_address)
+        donation_addr_sw_label = QLabel(donation_address_sw)
+        for l in [about_text_label, donation_url_label, donation_addr_label, donation_addr_sw_label]:
             l.setTextFormat(QtCore.Qt.RichText)
             l.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
             l.setOpenExternalLinks(True)
-        label2.setText("<a href='bitcoin:" + donation_address + "'>" +
-                       donation_address + "</a>")
-        label3.setText("<a href='bitcoin:" + donation_address_sw + "'>" +
-                       donation_address_sw + "</a>")
-        lyt.addWidget(label1)
-        lyt.addWidget(label2)
-        lyt.addWidget(label3)
+        donation_url_label.setText("<a href='" + donation_address_url + "'>" +
+            donation_address_url + "</a>")
+        donation_addr_label.setText("<a href='bitcoin:" + donation_address + "'>" +
+            donation_address + "</a>")
+        donation_addr_sw_label.setText("<a href='bitcoin:" + donation_address_sw + "'>" +
+            donation_address_sw + "</a>")
+        lyt.addWidget(about_text_label)
+        lyt.addWidget(donation_url_label)
+        lyt.addWidget(QLabel("Old donation addresses below. Ideally use the above URL."))
+        lyt.addWidget(donation_addr_label)
+        lyt.addWidget(donation_addr_sw_label)
         btnbox = QDialogButtonBox(msgbox)
         btnbox.setStandardButtons(QDialogButtonBox.Ok)
         btnbox.accepted.connect(msgbox.accept)
