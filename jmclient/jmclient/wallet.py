@@ -299,6 +299,9 @@ class BaseWallet(object):
 
     _ENGINE = None
 
+    ADDRESS_TYPE_EXTERNAL = 0
+    ADDRESS_TYPE_INTERNAL = 1
+
     def __init__(self, storage, gap_limit=6, merge_algorithm_name=None,
                  mixdepth=None):
         # to be defined by inheriting classes
@@ -446,9 +449,13 @@ class BaseWallet(object):
         privkey = self._get_priv_from_path(path)[0]
         return hexlify(privkey).decode('ascii')
 
-    def _get_addr_int_ext(self, internal, mixdepth):
-        script = self.get_internal_script(mixdepth) if internal else \
-            self.get_external_script(mixdepth)
+    def _get_addr_int_ext(self, address_type, mixdepth):
+        if address_type == self.ADDRESS_TYPE_EXTERNAL:
+            script = self.get_external_script(mixdepth)
+        elif address_type == self.ADDRESS_TYPE_INTERNAL:
+            script = self.get_internal_script(mixdepth)
+        else:
+            assert 0
         return self.script_to_addr(script)
 
     def get_external_addr(self, mixdepth):
@@ -457,20 +464,20 @@ class BaseWallet(object):
         the wallet from other sources, or receiving payments or donations.
         JoinMarket will never generate these addresses for internal use.
         """
-        return self._get_addr_int_ext(False, mixdepth)
+        return self._get_addr_int_ext(self.ADDRESS_TYPE_EXTERNAL, mixdepth)
 
     def get_internal_addr(self, mixdepth):
         """
         Return an address for internal usage, as change addresses and when
         participating in transactions initiated by other parties.
         """
-        return self._get_addr_int_ext(True, mixdepth)
+        return self._get_addr_int_ext(self.ADDRESS_TYPE_INTERNAL, mixdepth)
 
     def get_external_script(self, mixdepth):
-        return self.get_new_script(mixdepth, False)
+        return self.get_new_script(mixdepth, self.ADDRESS_TYPE_EXTERNAL)
 
     def get_internal_script(self, mixdepth):
-        return self.get_new_script(mixdepth, True)
+        return self.get_new_script(mixdepth, self.ADDRESS_TYPE_INTERNAL)
 
     @classmethod
     def addr_to_script(cls, addr):
@@ -512,40 +519,40 @@ class BaseWallet(object):
         return cls._ENGINE.pubkey_has_script(pubkey, script)
 
     @deprecated
-    def get_key(self, mixdepth, internal, index):
+    def get_key(self, mixdepth, address_type, index):
         raise NotImplementedError()
 
-    def get_addr(self, mixdepth, internal, index):
-        script = self.get_script(mixdepth, internal, index)
+    def get_addr(self, mixdepth, address_type, index):
+        script = self.get_script(mixdepth, address_type, index)
         return self.script_to_addr(script)
 
     def get_address_from_path(self, path):
         script = self.get_script_from_path(path)
         return self.script_to_addr(script)
 
-    def get_new_addr(self, mixdepth, internal):
+    def get_new_addr(self, mixdepth, address_type):
         """
         use get_external_addr/get_internal_addr
         """
-        script = self.get_new_script(mixdepth, internal)
+        script = self.get_new_script(mixdepth, address_type)
         return self.script_to_addr(script)
 
-    def get_new_script(self, mixdepth, internal):
+    def get_new_script(self, mixdepth, address_type):
         raise NotImplementedError()
 
-    def get_wif(self, mixdepth, internal, index):
-        return self.get_wif_path(self.get_path(mixdepth, internal, index))
+    def get_wif(self, mixdepth, address_type, index):
+        return self.get_wif_path(self.get_path(mixdepth, address_type, index))
 
     def get_wif_path(self, path):
         priv, engine = self._get_priv_from_path(path)
         return engine.privkey_to_wif(priv)
 
-    def get_path(self, mixdepth=None, internal=None, index=None):
+    def get_path(self, mixdepth=None, address_type=None, index=None):
         raise NotImplementedError()
 
     def get_details(self, path):
         """
-        Return mixdepth, internal, index for a given path
+        Return mixdepth, address_type, index for a given path
 
         args:
             path: wallet path
@@ -814,8 +821,8 @@ class BaseWallet(object):
         """
         raise NotImplementedError()
 
-    def get_script(self, mixdepth, internal, index):
-        path = self.get_path(mixdepth, internal, index)
+    def get_script(self, mixdepth, address_type, index):
+        path = self.get_path(mixdepth, address_type, index)
         return self.get_script_from_path(path)
 
     def _get_priv_from_path(self, path):
@@ -843,7 +850,7 @@ class BaseWallet(object):
         """
         raise NotImplementedError()
 
-    def get_next_unused_index(self, mixdepth, internal):
+    def get_next_unused_index(self, mixdepth, address_type):
         """
         Get the next index for public scripts/addresses not yet handed out.
 
@@ -952,13 +959,13 @@ class BaseWallet(object):
         assert script in self._script_map
         return self._script_map[script]
 
-    def set_next_index(self, mixdepth, internal, index, force=False):
+    def set_next_index(self, mixdepth, address_type, index, force=False):
         """
         Set the next index to use when generating a new key pair.
 
         params:
             mixdepth: int
-            internal: 0/False or 1/True
+            address_type: 0 (external) or 1 (internal)
             index: int
             force: True if you know the wallet already knows all scripts
                    up to (excluding) the given index
@@ -969,10 +976,11 @@ class BaseWallet(object):
 
     def rewind_wallet_indices(self, used_indices, saved_indices):
         for md in used_indices:
-            for int_type in (0, 1):
-                index = max(used_indices[md][int_type],
-                            saved_indices[md][int_type])
-                self.set_next_index(md, int_type, index, force=True)
+            for address_type in (self.ADDRESS_TYPE_EXTERNAL,
+                    self.ADDRESS_TYPE_INTERNAL):
+                index = max(used_indices[md][address_type],
+                            saved_indices[md][address_type])
+                self.set_next_index(md, address_type, index, force=True)
 
     def get_used_indices(self, addr_gen):
         """ Returns a dict of max used indices for each branch in
@@ -985,12 +993,13 @@ class BaseWallet(object):
         for addr in addr_gen:
             if not self.is_known_addr(addr):
                 continue
-            md, internal, index = self.get_details(
+            md, address_type, index = self.get_details(
                 self.addr_to_path(addr))
-            if internal not in (0, 1):
-                assert internal == 'imported'
+            if address_type not in (self.ADDRESS_TYPE_EXTERNAL,
+                    self.ADDRESS_TYPE_INTERNAL):
+                assert address_type == 'imported'
                 continue
-            indices[md][internal] = max(indices[md][internal], index + 1)
+            indices[md][address_type] = max(indices[md][address_type], index + 1)
 
         return indices
 
@@ -1001,9 +1010,10 @@ class BaseWallet(object):
         cache."""
 
         for md in used_indices:
-            for internal in (0, 1):
-                if used_indices[md][internal] >\
-                   max(self.get_next_unused_index(md, internal), 0):
+            for address_type in (self.ADDRESS_TYPE_EXTERNAL,
+                    self.ADDRESS_TYPE_INTERNAL):
+                if used_indices[md][address_type] >\
+                   max(self.get_next_unused_index(md, address_type), 0):
                     return False
         return True
 
@@ -1265,13 +1275,14 @@ class BIP32Wallet(BaseWallet):
     _STORAGE_ENTROPY_KEY = b'entropy'
     _STORAGE_INDEX_CACHE = b'index_cache'
     BIP32_MAX_PATH_LEVEL = 2**31
-    BIP32_EXT_ID = 0
-    BIP32_INT_ID = 1
+    BIP32_EXT_ID = BaseWallet.ADDRESS_TYPE_EXTERNAL
+    BIP32_INT_ID = BaseWallet.ADDRESS_TYPE_INTERNAL
     ENTROPY_BYTES = 16
 
     def __init__(self, storage, **kwargs):
         self._entropy = None
-        # {mixdepth: {type: index}} with type being 0/1 for [non]-internal
+        # {mixdepth: {type: index}} with type being 0/1 corresponding
+        #  to external/internal addresses
         self._index_cache = None
         # path is a tuple of BIP32 levels,
         # m is the master key's fingerprint
@@ -1333,9 +1344,9 @@ class BIP32Wallet(BaseWallet):
 
     def _populate_script_map(self):
         for md in self._index_cache:
-            for int_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID):
-                for i in range(self._index_cache[md][int_type]):
-                    path = self.get_path(md, int_type, i)
+            for address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID):
+                for i in range(self._index_cache[md][address_type]):
+                    path = self.get_path(md, address_type, i)
                     script = self.get_script_from_path(path)
                     self._script_map[script] = path
 
@@ -1372,43 +1383,42 @@ class BIP32Wallet(BaseWallet):
         if not self._is_my_bip32_path(path):
             raise WalletError("unable to get script for unknown key path")
 
-        md, int_type, index = self.get_details(path)
+        md, address_type, index = self.get_details(path)
 
         if not 0 <= md <= self.max_mixdepth:
             raise WalletError("Mixdepth outside of wallet's range.")
-        assert int_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID)
+        assert address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID)
 
-        current_index = self._index_cache[md][int_type]
+        current_index = self._index_cache[md][address_type]
 
         if index == current_index:
-            return self.get_new_script_override_disable(md, int_type)
+            return self.get_new_script_override_disable(md, address_type)
 
         priv, engine = self._get_priv_from_path(path)
         script = engine.privkey_to_script(priv)
 
         return script
 
-    def get_path(self, mixdepth=None, internal=None, index=None):
+    def get_path(self, mixdepth=None, address_type=None, index=None):
         if mixdepth is not None:
             assert isinstance(mixdepth, Integral)
             if not 0 <= mixdepth <= self.max_mixdepth:
                 raise WalletError("Mixdepth outside of wallet's range.")
 
-        if internal is not None:
+        if address_type is not None:
             if mixdepth is None:
-                raise Exception("mixdepth must be set if internal is set")
-            int_type = self._get_internal_type(internal)
+                raise Exception("mixdepth must be set if address_type is set")
 
         if index is not None:
             assert isinstance(index, Integral)
-            if internal is None:
-                raise Exception("internal must be set if index is set")
-            assert index <= self._index_cache[mixdepth][int_type]
+            if address_type is None:
+                raise Exception("address_type must be set if index is set")
+            assert index <= self._index_cache[mixdepth][address_type]
             assert index < self.BIP32_MAX_PATH_LEVEL
-            return tuple(chain(self._get_bip32_export_path(mixdepth, internal),
+            return tuple(chain(self._get_bip32_export_path(mixdepth, address_type),
                                (index,)))
 
-        return tuple(self._get_bip32_export_path(mixdepth, internal))
+        return tuple(self._get_bip32_export_path(mixdepth, address_type))
 
     def get_path_repr(self, path):
         path = list(path)
@@ -1462,53 +1472,50 @@ class BIP32Wallet(BaseWallet):
     def _is_my_bip32_path(self, path):
         return path[0] == self._key_ident
 
-    def get_new_script(self, mixdepth, internal):
+    def get_new_script(self, mixdepth, address_type):
         if self.disable_new_scripts:
             raise RuntimeError("Obtaining new wallet addresses "
                 + "disabled, due to nohistory mode")
-        return self.get_new_script_override_disable(mixdepth, internal)
+        return self.get_new_script_override_disable(mixdepth, address_type)
 
-    def get_new_script_override_disable(self, mixdepth, internal):
+    def get_new_script_override_disable(self, mixdepth, address_type):
         # This is called by get_script_from_path and calls back there. We need to
         # ensure all conditions match to avoid endless recursion.
-        int_type = self._get_internal_type(internal)
-        index = self._index_cache[mixdepth][int_type]
-        self._index_cache[mixdepth][int_type] += 1
-        path = self.get_path(mixdepth, int_type, index)
+        index = self._index_cache[mixdepth][address_type]
+        self._index_cache[mixdepth][address_type] += 1
+        path = self.get_path(mixdepth, address_type, index)
         script = self.get_script_from_path(path)
         self._script_map[script] = path
         return script
 
-    def get_script(self, mixdepth, internal, index):
-        path = self.get_path(mixdepth, internal, index)
+    def get_script(self, mixdepth, address_type, index):
+        path = self.get_path(mixdepth, address_type, index)
         return self.get_script_from_path(path)
 
     @deprecated
-    def get_key(self, mixdepth, internal, index):
-        int_type = self._get_internal_type(internal)
-        path = self.get_path(mixdepth, int_type, index)
+    def get_key(self, mixdepth, address_type, index):
+        path = self.get_path(mixdepth, address_type, index)
         priv = self._ENGINE.derive_bip32_privkey(self._master_key, path)
         return hexlify(priv).decode('ascii')
 
-    def get_bip32_priv_export(self, mixdepth=None, internal=None):
-        path = self._get_bip32_export_path(mixdepth, internal)
+    def get_bip32_priv_export(self, mixdepth=None, address_type=None):
+        path = self._get_bip32_export_path(mixdepth, address_type)
         return self._ENGINE.derive_bip32_priv_export(self._master_key, path)
 
-    def get_bip32_pub_export(self, mixdepth=None, internal=None):
-        path = self._get_bip32_export_path(mixdepth, internal)
+    def get_bip32_pub_export(self, mixdepth=None, address_type=None):
+        path = self._get_bip32_export_path(mixdepth, address_type)
         return self._ENGINE.derive_bip32_pub_export(self._master_key, path)
 
-    def _get_bip32_export_path(self, mixdepth=None, internal=None):
+    def _get_bip32_export_path(self, mixdepth=None, address_type=None):
         if mixdepth is None:
-            assert internal is None
+            assert address_type is None
             path = tuple()
         else:
             assert 0 <= mixdepth <= self.max_mixdepth
-            if internal is None:
+            if address_type is None:
                 path = (self._get_bip32_mixdepth_path_level(mixdepth),)
             else:
-                int_type = self._get_internal_type(internal)
-                path = (self._get_bip32_mixdepth_path_level(mixdepth), int_type)
+                path = (self._get_bip32_mixdepth_path_level(mixdepth), address_type)
 
         return tuple(chain(self._get_bip32_base_path(), path))
 
@@ -1519,19 +1526,15 @@ class BIP32Wallet(BaseWallet):
     def _get_bip32_mixdepth_path_level(cls, mixdepth):
         return mixdepth
 
-    def _get_internal_type(self, is_internal):
-        return self.BIP32_INT_ID if is_internal else self.BIP32_EXT_ID
-
-    def get_next_unused_index(self, mixdepth, internal):
+    def get_next_unused_index(self, mixdepth, address_type):
         assert 0 <= mixdepth <= self.max_mixdepth
-        int_type = self._get_internal_type(internal)
 
-        if self._index_cache[mixdepth][int_type] >= self.BIP32_MAX_PATH_LEVEL:
+        if self._index_cache[mixdepth][address_type] >= self.BIP32_MAX_PATH_LEVEL:
             # FIXME: theoretically this should work for up to
             # self.BIP32_MAX_PATH_LEVEL * 2, no?
             raise WalletError("All addresses used up, cannot generate new ones.")
 
-        return self._index_cache[mixdepth][int_type]
+        return self._index_cache[mixdepth][address_type]
 
     def get_mnemonic_words(self):
         return ' '.join(mn_encode(hexlify(self._entropy).decode('ascii'))), None
@@ -1547,11 +1550,10 @@ class BIP32Wallet(BaseWallet):
     def get_wallet_id(self):
         return hexlify(self._key_ident).decode('ascii')
 
-    def set_next_index(self, mixdepth, internal, index, force=False):
-        int_type = self._get_internal_type(internal)
-        if not (force or index <= self._index_cache[mixdepth][int_type]):
+    def set_next_index(self, mixdepth, address_type, index, force=False):
+        if not (force or index <= self._index_cache[mixdepth][address_type]):
             raise Exception("cannot advance index without force=True")
-        self._index_cache[mixdepth][int_type] = index
+        self._index_cache[mixdepth][address_type] = index
 
     def get_details(self, path):
         if not self._is_my_bip32_path(path):

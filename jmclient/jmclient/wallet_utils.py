@@ -162,13 +162,13 @@ class WalletViewBase(object):
         return "{0:.08f}".format(self.get_balance(include_unconf))
 
 class WalletViewEntry(WalletViewBase):
-    def __init__(self, wallet_path_repr, account, forchange, aindex, addr, amounts,
+    def __init__(self, wallet_path_repr, account, address_type, aindex, addr, amounts,
                  used = 'new', serclass=str, priv=None, custom_separator=None):
         super(WalletViewEntry, self).__init__(wallet_path_repr, serclass=serclass,
                                               custom_separator=custom_separator)
         self.account = account
-        assert forchange in [0, 1, -1]
-        self.forchange =forchange
+        assert address_type in [0, 1, -1]
+        self.address_type = address_type
         assert isinstance(aindex, Integral)
         assert aindex >= 0
         self.aindex = aindex
@@ -213,14 +213,14 @@ class WalletViewEntry(WalletViewBase):
         return self.serclass(ed)
 
 class WalletViewBranch(WalletViewBase):
-    def __init__(self, wallet_path_repr, account, forchange, branchentries=None,
+    def __init__(self, wallet_path_repr, account, address_type, branchentries=None,
                  xpub=None, serclass=str, custom_separator=None):
         super(WalletViewBranch, self).__init__(wallet_path_repr, children=branchentries,
                                                serclass=serclass,
                                                custom_separator=custom_separator)
         self.account = account
-        assert forchange in [0, 1, -1]
-        self.forchange = forchange
+        assert address_type in [0, 1, -1]
+        self.address_type = address_type
         if xpub:
             assert xpub.startswith('xpub') or xpub.startswith('tpub')
         self.xpub = xpub if xpub else ""
@@ -238,8 +238,8 @@ class WalletViewBranch(WalletViewBase):
             return self.serclass(entryseparator.join(lines))
 
     def serialize_branch_header(self):
-        start = "external addresses" if self.forchange == 0 else "internal addresses"
-        if self.forchange == -1:
+        start = "external addresses" if self.address_type == 0 else "internal addresses"
+        if self.address_type == -1:
             start = "Imported keys"
         return self.serclass(self.separator.join([start, self.wallet_path_repr,
                                                   self.xpub]))
@@ -418,32 +418,33 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True, hexfmt=False)
     for m in range(wallet_service.mixdepth + 1):
         branchlist = []
-        for forchange in [0, 1]:
+        for address_type in [0, 1]:
             entrylist = []
-            if forchange == 0:
+            if address_type == 0:
                 # users would only want to hand out the xpub for externals
-                xpub_key = wallet_service.get_bip32_pub_export(m, forchange)
+                xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
             else:
                 xpub_key = ""
 
-            unused_index = wallet_service.get_next_unused_index(m, forchange)
+            unused_index = wallet_service.get_next_unused_index(m, address_type)
             for k in range(unused_index + wallet_service.gap_limit):
-                path = wallet_service.get_path(m, forchange, k)
+                path = wallet_service.get_path(m, address_type, k)
                 addr = wallet_service.get_address_from_path(path)
                 balance, used = get_addr_status(
-                    path, utxos[m], k >= unused_index, forchange)
+                    path, utxos[m], k >= unused_index, address_type)
                 if showprivkey:
                     privkey = wallet_service.get_wif_path(path)
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
-                        (used == 'new' and forchange == 0)):
+                        (used == 'new' and address_type == 0)):
                     entrylist.append(WalletViewEntry(
-                        wallet_service.get_path_repr(path), m, forchange, k, addr,
+                        wallet_service.get_path_repr(path), m, address_type, k, addr,
                         [balance, balance], priv=privkey, used=used))
-            wallet_service.set_next_index(m, forchange, unused_index)
-            path = wallet_service.get_path_repr(wallet_service.get_path(m, forchange))
-            branchlist.append(WalletViewBranch(path, m, forchange, entrylist,
+
+            wallet_service.set_next_index(m, address_type, unused_index)
+            path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
+            branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
                                                xpub=xpub_key))
         ipb = get_imported_privkey_branch(wallet_service, m, showprivkey)
         if ipb:
@@ -1290,15 +1291,15 @@ if __name__ == "__main__":
     acctlist = []
     for a in accounts:
         branches = []
-        for forchange in range(2):
+        for address_type in range(2):
             entries = []
             for i in range(4):
-                entries.append(WalletViewEntry(rootpath, a, forchange,
+                entries.append(WalletViewEntry(rootpath, a, address_type,
                                        i, "DUMMYADDRESS"+str(i+a),
                                        [i*10000000, i*10000000]))
             branches.append(WalletViewBranch(rootpath,
-                                            a, forchange, branchentries=entries,
-                                            xpub="xpubDUMMYXPUB"+str(a+forchange)))
+                                            a, address_type, branchentries=entries,
+                                            xpub="xpubDUMMYXPUB"+str(a+address_type)))
         acctlist.append(WalletViewAccount(rootpath, a, branches=branches))
     wallet = WalletView(rootpath + "/" + str(walletbranch),
                              accounts=acctlist)

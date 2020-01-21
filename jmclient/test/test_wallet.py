@@ -520,7 +520,7 @@ def test_set_next_index(setup_wallet):
 
 def test_path_repr(setup_wallet):
     wallet = get_populated_wallet()
-    path = wallet.get_path(2, False, 0)
+    path = wallet.get_path(2, BIP32Wallet.ADDRESS_TYPE_EXTERNAL, 0)
     path_repr = wallet.get_path_repr(path)
     path_new = wallet.path_repr_to_path(path_repr)
 

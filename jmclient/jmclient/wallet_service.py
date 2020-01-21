@@ -721,16 +721,16 @@ class WalletService(Service):
 
         for md in range(self.max_mixdepth + 1):
             saved_indices[md] = [0, 0]
-            for internal in (0, 1):
-                next_unused = self.get_next_unused_index(md, internal)
+            for address_type in (0, 1):
+                next_unused = self.get_next_unused_index(md, address_type)
                 for index in range(next_unused):
-                    addresses.add(self.get_addr(md, internal, index))
+                    addresses.add(self.get_addr(md, address_type, index))
                 for index in range(self.gap_limit):
-                    addresses.add(self.get_new_addr(md, internal))
+                    addresses.add(self.get_new_addr(md, address_type))
                 # reset the indices to the value we had before the
                 # new address calls:
-                self.set_next_index(md, internal, next_unused)
-                saved_indices[md][internal] = next_unused
+                self.set_next_index(md, address_type, next_unused)
+                saved_indices[md][address_type] = next_unused
             # include any imported addresses
             for path in self.yield_imported_paths(md):
                 addresses.add(self.get_address_from_path(path))
@@ -742,11 +742,11 @@ class WalletService(Service):
         addresses = set()
 
         for md in range(self.max_mixdepth + 1):
-            for internal in (True, False):
-                old_next = self.get_next_unused_index(md, internal)
+            for address_type in (1, 0):
+                old_next = self.get_next_unused_index(md, address_type)
                 for index in range(gap_limit):
-                    addresses.add(self.get_new_addr(md, internal))
-                self.set_next_index(md, internal, old_next)
+                    addresses.add(self.get_new_addr(md, address_type))
+                self.set_next_index(md, address_type, old_next)
 
         return addresses
 
