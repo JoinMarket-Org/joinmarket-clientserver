@@ -5,10 +5,11 @@ from collections import OrderedDict
 import struct
 
 import jmbitcoin as btc
-from .configure import get_network
+from .configure import get_network, jm_single
 
 
-TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N = range(4)
+TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N, TYPE_TIMELOCK_P2WSH, \
+    TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS = range(6)
 NET_MAINNET, NET_TESTNET = range(2)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET}
 WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef'}
@@ -283,8 +284,61 @@ class BTC_P2WPKH(BTCEngine):
         return btc.sign(btc.serialize(tx), index, privkey,
                         hashcode=hashcode, amount=amount, native=True)
 
+class BTC_Timelocked_P2WSH(BTCEngine):
+
+    """
+    In this class many instances of "privkey" or "pubkey" are actually tuples
+    of (privkey, timelock) or (pubkey, timelock)
+    """
+
+    @classproperty
+    def VBYTE(cls):
+        #slight hack here, network can be either "mainnet" or "testnet"
+        #but we need to distinguish between actual testnet and regtest
+        if get_network() == "mainnet":
+            return btc.BTC_P2PK_VBYTE["mainnet"]
+        else:
+            if jm_single().config.get("BLOCKCHAIN", "blockchain_source")\
+                    == "regtest":
+                return btc.BTC_P2PK_VBYTE["regtest"]
+            else:
+                assert get_network() == "testnet"
+                return btc.BTC_P2PK_VBYTE["testnet"]
+
+    @classmethod
+    def privkey_to_script(cls, privkey_locktime):
+        privkey, locktime = privkey_locktime
+        pub = cls.privkey_to_pubkey(privkey)
+        return cls.pubkey_to_script((pub, locktime))
+
+    @classmethod
+    def pubkey_to_script(cls, pubkey_locktime):
+        redeem_script = cls.pubkey_to_script_code(pubkey_locktime)
+        return btc.redeem_script_to_p2wsh_script(redeem_script)
+
+    @classmethod
+    def pubkey_to_script_code(cls, pubkey_locktime):
+        pubkey, locktime = pubkey_locktime
+        return btc.mk_freeze_script(pubkey, locktime)
+
+    @classmethod
+    def privkey_to_wif(cls, privkey_locktime):
+        priv, locktime = privkey_locktime
+        return btc.bin_to_b58check(priv, cls.WIF_PREFIX)
+
+    @classmethod
+    def sign_transaction(cls, tx, index, privkey, amount,
+                         hashcode=btc.SIGHASH_ALL, **kwargs):
+        raise Exception("not implemented yet")
+
+    @classmethod
+    def sign_transaction(cls, tx, index, privkey, amount,
+                         hashcode=btc.SIGHASH_ALL, **kwargs):
+        raise RuntimeError("Cannot spend from watch-only wallets")
+
 ENGINES = {
     TYPE_P2PKH: BTC_P2PKH,
     TYPE_P2SH_P2WPKH: BTC_P2SH_P2WPKH,
-    TYPE_P2WPKH: BTC_P2WPKH
+    TYPE_P2WPKH: BTC_P2WPKH,
+    TYPE_TIMELOCK_P2WSH: BTC_Timelocked_P2WSH
 }

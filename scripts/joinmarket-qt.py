@@ -1808,7 +1808,8 @@ class JMMainWindow(QMainWindow):
                     enter_wallet_password_callback=self.getPassword,
                     enter_wallet_file_name_callback=self.getWalletFileName,
                     enter_if_use_seed_extension=self.promptUseMnemonicExtension,
-                    enter_seed_extension_callback=self.promptInputMnemonicExtension)
+                    enter_seed_extension_callback=self.promptInputMnemonicExtension,
+                    enter_do_support_fidelity_bonds=lambda: False)
 
                 if not success:
                     JMQtMessageBox(self, "Failed to create new wallet file.",

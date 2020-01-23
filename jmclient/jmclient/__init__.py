@@ -13,7 +13,7 @@ from .old_mnemonic import mn_decode, mn_encode
 from .taker import Taker, P2EPTaker
 from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
-                     SegwitWallet, SegwitLegacyWallet, UTXOManager,
+                     SegwitWallet, SegwitLegacyWallet, FidelityBondMixin, UTXOManager,
                      WALLET_IMPLEMENTATIONS, compute_tx_locktime)
 from .storage import (Argon2Hash, Storage, StorageError, RetryableStorageError,
                       StoragePasswordError, VolatileStorage)
