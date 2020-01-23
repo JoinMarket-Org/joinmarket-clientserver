@@ -534,7 +534,7 @@ def pubkey_to_p2wpkh_address(pub):
     script = pubkey_to_p2wpkh_script(pub)
     return script_to_address(script)
 
-def pubkeys_to_p2wsh_script(pubs):
+def pubkeys_to_p2wsh_multisig_script(pubs):
     """ Given a list of N pubkeys, constructs an N of N
     multisig scriptPubKey of type pay-to-witness-script-hash.
     No other scripts than N-N multisig supported as of now.
@@ -543,12 +543,12 @@ def pubkeys_to_p2wsh_script(pubs):
     script = mk_multisig_script(pubs, N)
     return P2WSH_PRE + bin_sha256(binascii.unhexlify(script))
 
-def pubkeys_to_p2wsh_address(pubs):
+def pubkeys_to_p2wsh_multisig_address(pubs):
     """ Given a list of N pubkeys, constructs an N of N
     multisig address of type pay-to-witness-script-hash.
     No other scripts than N-N multisig supported as of now.
     """
-    script = pubkeys_to_p2wsh_script(pubs)
+    script = pubkeys_to_p2wsh_multisig_script(pubs)
     return script_to_address(script)
 
 def deserialize_script(scriptinp):

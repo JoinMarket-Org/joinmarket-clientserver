@@ -244,8 +244,8 @@ def test_spend_p2wsh(setup_tx_creation):
     privs = [binascii.hexlify(priv).decode('ascii') for priv in privs]
     pubs = [bitcoin.privkey_to_pubkey(priv) for priv in privs]
     redeemScripts = [bitcoin.mk_multisig_script(pubs[i:i+2], 2) for i in [0, 2]]
-    scriptPubKeys = [bitcoin.pubkeys_to_p2wsh_script(pubs[i:i+2]) for i in [0, 2]]
-    addresses = [bitcoin.pubkeys_to_p2wsh_address(pubs[i:i+2]) for i in [0, 2]]
+    scriptPubKeys = [bitcoin.pubkeys_to_p2wsh_multisig_script(pubs[i:i+2]) for i in [0, 2]]
+    addresses = [bitcoin.pubkeys_to_p2wsh_multisig_address(pubs[i:i+2]) for i in [0, 2]]
     #pay into it
     wallet_service = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
     wallet_service.sync_wallet(fast=True)
