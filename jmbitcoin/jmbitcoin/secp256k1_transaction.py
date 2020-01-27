@@ -17,7 +17,7 @@ from jmbitcoin.bech32 import *
 P2PKH_PRE, P2PKH_POST = b'\x76\xa9\x14', b'\x88\xac'
 P2SH_P2WPKH_PRE, P2SH_P2WPKH_POST = b'\xa9\x14', b'\x87'
 P2WPKH_PRE = b'\x00\x14'
-P2WSH_PRE = b'\x00\x16'
+P2WSH_PRE = b'\x00\x20'
 
 # Transaction serialization and deserialization
 
