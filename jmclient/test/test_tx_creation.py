@@ -6,6 +6,8 @@ import time
 import binascii
 import struct
 from commontest import make_wallets, make_sign_and_push
+from binascii import unhexlify
+>>>>>>> c158543... only allow pubkey in bytes for mk_freeze_script()
 
 import jmbitcoin as bitcoin
 import pytest
@@ -190,7 +192,7 @@ def test_spend_p2sh_utxos(setup_tx_creation):
     tx = bitcoin.mktx(ins, outs)
     sigs = []
     for priv in privs[:2]:
-        sigs.append(bitcoin.multisign(tx, 0, script, binascii.hexlify(priv).decode('ascii')))
+        sigs.append(bitcoin.get_p2sh_signature(tx, 0, script, binascii.hexlify(priv).decode('ascii')))
     tx = bitcoin.apply_multisignatures(tx, 0, script, sigs)
     txid = jm_single().bc_interface.pushtx(tx)
     assert txid
@@ -268,7 +270,7 @@ def test_spend_p2wsh(setup_tx_creation):
         sigs = []
         for priv in privs[i*2:i*2+2]:
             # sign input j with each of 2 keys
-            sig = bitcoin.multisign(tx, i, redeemScripts[i], priv, amount=amount)
+            sig = bitcoin.get_p2sh_signature(tx, i, redeemScripts[i], priv, amount=amount)
             sigs.append(sig)
             # check that verify_tx_input correctly validates;
             assert bitcoin.verify_tx_input(tx, i, scriptPubKeys[i], sig,
@@ -278,6 +280,56 @@ def test_spend_p2wsh(setup_tx_creation):
     txid = jm_single().bc_interface.pushtx(tx)
     assert txid
 
+def ensure_bip65_activated():
+    #on regtest bip65 activates on height 1351
+    #https://github.com/bitcoin/bitcoin/blob/1d1f8bbf57118e01904448108a104e20f50d2544/src/chainparams.cpp#L262
+    BIP65Height = 1351
+    current_height = jm_single().bc_interface.rpc("getblockchaininfo", [])["blocks"]
+    until_bip65_activation = BIP65Height - current_height + 1
+    if until_bip65_activation > 0:
+        jm_single().bc_interface.tick_forward_chain(until_bip65_activation)
+
+def test_spend_freeze_script(setup_tx_creation):
+    ensure_bip65_activated()
+
+    wallet_service = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
+    wallet_service.sync_wallet(fast=True)
+
+    mediantime = jm_single().bc_interface.rpc("getblockchaininfo", [])["mediantime"]
+
+    timeoffset_success_tests = [(2, False), (-60*60*24*30, True), (60*60*24*30, False)]
+
+    for timeoffset, required_success in timeoffset_success_tests:
+        #generate keypair
+        priv = "aa"*32 + "01"
+        pub = unhexlify(bitcoin.privkey_to_pubkey(priv))
+        addr_locktime = mediantime + timeoffset
+        redeem_script = bitcoin.mk_freeze_script(pub, addr_locktime)
+        script_pub_key = bitcoin.redeem_script_to_p2wsh_script(redeem_script)
+        regtest_vbyte = 100
+        addr = bitcoin.script_to_address(script_pub_key, vbyte=regtest_vbyte)
+
+        #fund frozen funds address
+        amount = 100000000
+        funding_ins_full = wallet_service.select_utxos(0, amount)
+        funding_txid = make_sign_and_push(funding_ins_full, wallet_service, amount, output_addr=addr)
+        assert funding_txid
+
+        #spend frozen funds
+        frozen_in = funding_txid + ":0"
+        output_addr = wallet_service.get_internal_addr(1)
+        miner_fee = 5000
+        outs = [{'value': amount - miner_fee, 'address': output_addr}]
+        tx = bitcoin.mktx([frozen_in], outs, locktime=addr_locktime+1)
+        i = 0
+        sig = bitcoin.get_p2sh_signature(tx, i, redeem_script, priv, amount)
+
+        assert bitcoin.verify_tx_input(tx, i, script_pub_key, sig, pub,
+            scriptCode=redeem_script, amount=amount)
+        tx = bitcoin.apply_freeze_signature(tx, i, redeem_script, sig)
+        push_success = jm_single().bc_interface.pushtx(tx)
+
+        assert push_success == required_success
 
 @pytest.fixture(scope="module")
 def setup_tx_creation():

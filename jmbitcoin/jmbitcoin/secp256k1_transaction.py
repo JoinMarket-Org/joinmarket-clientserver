@@ -10,6 +10,7 @@ import struct
 import random
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.bech32 import *
+import jmbitcoin as btc
 
 P2PKH_PRE, P2PKH_POST = b'\x76\xa9\x14', b'\x88\xac'
 P2SH_P2WPKH_PRE, P2SH_P2WPKH_POST = b'\xa9\x14', b'\x87'
@@ -541,7 +542,7 @@ def pubkeys_to_p2wsh_multisig_script(pubs):
     """
     N = len(pubs)
     script = mk_multisig_script(pubs, N)
-    return P2WSH_PRE + bin_sha256(binascii.unhexlify(script))
+    return redeem_script_to_p2wsh_script(script)
 
 def pubkeys_to_p2wsh_multisig_address(pubs):
     """ Given a list of N pubkeys, constructs an N of N
@@ -550,6 +551,12 @@ def pubkeys_to_p2wsh_multisig_address(pubs):
     """
     script = pubkeys_to_p2wsh_multisig_script(pubs)
     return script_to_address(script)
+
+def redeem_script_to_p2wsh_script(redeem_script):
+    return P2WSH_PRE + bin_sha256(binascii.unhexlify(redeem_script))
+
+def redeem_script_to_p2wsh_address(redeem_script, vbyte, witver=0):
+    return script_to_address(redeem_script_to_p2wsh_script(redeem_script), vbyte, witver)
 
 def deserialize_script(scriptinp):
     """ Note that this is not used internally, in
@@ -603,10 +610,14 @@ def deserialize_script(scriptinp):
 
 def serialize_script_unit(unit):
     if isinstance(unit, int):
-        if unit < 16:
-            return from_int_to_byte(unit + 80)
-        else:
+        if unit == 0:
             return from_int_to_byte(unit)
+        elif unit < 16:
+            return from_int_to_byte(unit + 80)
+        elif unit < 256:
+            return from_int_to_byte(unit)
+        else:
+            return b'\x04' + struct.pack(b"<I", unit)
     elif unit is None:
         return b'\x00'
     else:
@@ -634,15 +645,30 @@ def serialize_script(script):
     else:
         return result
 
-
 def mk_multisig_script(pubs, k):
     """ Given a list of pubkeys and an integer k,
     construct a multisig script for k of N, where N is
     the length of the list `pubs`; script is returned
     as hex string.
     """
-    return serialize_script([k] + pubs + [len(pubs)]) + 'ae'
+    return serialize_script([k] + pubs + [len(pubs)]) \
+        + 'ae' #OP_CHECKMULTISIG
 
+def mk_freeze_script(pub, locktime):
+    """
+    Given a pubkey and locktime, create a script which can only be spent
+    after the locktime has passed using OP_CHECKLOCKTIMEVERIFY
+    """
+    if not isinstance(locktime, int):
+        raise TypeError("locktime must be int")
+    if not isinstance(pub, bytes):
+        raise TypeError("pubkey must be in bytes")
+    usehex = False
+    if not is_valid_pubkey(pub, usehex, require_compressed=True):
+        raise ValueError("not a valid public key")
+    scr = [locktime, btc.OP_CHECKLOCKTIMEVERIFY, btc.OP_DROP, pub,
+        btc.OP_CHECKSIG]
+    return binascii.hexlify(serialize_script(scr)).decode()
 
 # Signing and verifying
 
@@ -701,8 +727,8 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, usenonce=None, amount=None,
     `amount` flags whether segwit signing is to be done, and the field
     `native` flags that native segwit p2wpkh signing is to be done. Note
     that signing multisig is to be done with the alternative functions
-    multisign or p2wsh_multisign (and non N of N multisig scripthash
-    signing is not currently supported).
+    get_p2sh_signature or get_p2wsh_signature (and non N of N multisig
+    scripthash signing is not currently supported).
     """
     if isinstance(tx, basestring) and not isinstance(tx, bytes):
         tx = binascii.unhexlify(tx)
@@ -762,28 +788,28 @@ def signall(tx, priv):
             tx = sign(tx, i, priv)
     return tx
 
-
-def multisign(tx, i, script, pk, amount=None, hashcode=SIGHASH_ALL):
-    """ Tx is assumed to be serialized. The script passed here is
-    the redeemscript, for example the output of mk_multisig_script.
+def get_p2sh_signature(tx, i, redeem_script, pk, amount=None, hashcode=SIGHASH_ALL):
+    """
+    Tx is assumed to be serialized. redeem_script is for example the
+    output of mk_multisig_script.
     pk is the private key, and must be passed in hex.
-    If amount is not None, the output of p2wsh_multisign is returned.
+    If amount is not None, the output of get_p2wsh_signature is returned.
     What is returned is a single signature.
     """
     if isinstance(tx, str):
         tx = binascii.unhexlify(tx)
-    if isinstance(script, str):
-        script = binascii.unhexlify(script)
+    if isinstance(redeem_script, str):
+        redeem_script = binascii.unhexlify(redeem_script)
     if amount:
-        return p2wsh_multisign(tx, i, script, pk, amount, hashcode)
-    modtx = signature_form(tx, i, script, hashcode)
+        return get_p2wsh_signature(tx, i, redeem_script, pk, amount, hashcode)
+    modtx = signature_form(tx, i, redeem_script, hashcode)
     return ecdsa_tx_sign(modtx, pk, hashcode)
 
-def p2wsh_multisign(tx, i, script, pk, amount, hashcode=SIGHASH_ALL):
+def get_p2wsh_signature(tx, i, redeem_script, pk, amount, hashcode=SIGHASH_ALL):
     """ See note to multisign for the value to pass in as `script`.
     Tx is assumed to be serialized.
     """
-    modtx = segwit_signature_form(deserialize(tx), i, script, amount,
+    modtx = segwit_signature_form(deserialize(tx), i, redeem_script, amount,
                                   hashcode, decoder_func=lambda x: x)
     return ecdsa_tx_sign(modtx, pk, hashcode)
 
@@ -817,6 +843,16 @@ def apply_multisignatures(*args):
 
     txobj = deserialize(tx)
     txobj["ins"][i]["script"] = serialize_script([None] + sigs + [script])
+    return serialize(txobj)
+
+def apply_freeze_signature(tx, i, redeem_script, sig):
+    if isinstance(redeem_script, str):
+        redeem_script = binascii.unhexlify(redeem_script)
+    if isinstance(sig, str):
+        sig = binascii.unhexlify(sig)
+    txobj = deserialize(tx)
+    txobj["ins"][i]["script"] = ""
+    txobj["ins"][i]["txinwitness"] = [sig, redeem_script]
     return serialize(txobj)
 
 def mktx(ins, outs, version=1, locktime=0):
