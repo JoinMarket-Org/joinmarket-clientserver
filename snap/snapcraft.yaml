@@ -1,0 +1,62 @@
+name: joinmarket
+base: core18
+version: git
+summary: Software to assist in creating bitcoin CoinJoin transactions
+description: |
+  JoinMarket is software to create a special kind of bitcoin transaction called
+  a CoinJoin transaction. It's aim is to improve the confidentiality and privacy
+  of bitcoin transactions.
+confinement: strict
+grade: devel
+icon: snap/local/icon.png
+
+apps:
+  joinmarket:
+    extensions:
+      - gnome-3-28
+    command: usr/bin/jm
+    plugs:
+      - network
+      - network-bind
+      - home
+    desktop: usr/share/applications/joinmarket.desktop
+
+parts:
+  joinmarket:
+    plugin: python
+    source: .
+    requirements:
+      - requirements/gui.txt
+    override-build: |
+      snapcraftctl build
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL//opt/joinmarket
+      cp -r $SNAPCRAFT_PART_BUILD/jmbase $SNAPCRAFT_PART_INSTALL/opt/joinmarket
+      cp -r $SNAPCRAFT_PART_BUILD/jmclient $SNAPCRAFT_PART_INSTALL/opt/joinmarket
+      cp -r $SNAPCRAFT_PART_BUILD/jmdaemon $SNAPCRAFT_PART_INSTALL/opt/joinmarket
+      cp -r $SNAPCRAFT_PART_BUILD/jmbitcoin $SNAPCRAFT_PART_INSTALL/opt/joinmarket
+      cp -r $SNAPCRAFT_PART_BUILD/scripts $SNAPCRAFT_PART_INSTALL/opt/joinmarket
+
+      mkdir -p $SNAPCRAFT_PART_INSTALL/opt/joinmarket/snap/local
+      cp $SNAPCRAFT_PART_BUILD/snap/local/jm \
+        $SNAPCRAFT_PART_INSTALL/opt/joinmarket/snap/local
+      cp $SNAPCRAFT_PART_BUILD/snap/local/joinmarket.desktop \
+        $SNAPCRAFT_PART_INSTALL/opt/joinmarket/snap/local
+
+    organize:
+      opt/joinmarket/snap/local/jm: usr/bin/jm
+      opt/joinmarket/snap/local/joinmarket.desktop: usr/share/applications/joinmarket.desktop
+    stage-packages:
+      - python3
+      - libnspr4
+      - libnss3
+      - libnss3-tools
+      - libodbc1
+      - libpq5
+      - libpulse-dev
+      - mime-support
+      - libspeechd2
+      - libxkbcommon-x11-0
+    build-packages:
+      - python3
+      - python3-pip

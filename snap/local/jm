@@ -1,0 +1,59 @@
+#!/bin/bash
+
+SCRIPT_DIR="$SNAP/opt/joinmarket/scripts"
+
+# Run GUI by default.
+CMD="$SCRIPT_DIR/joinmarket-qt.py"
+
+# Try to use WALLET environment variable or use default value
+WALLET_FILE=${WALLET:-wallet.jmdat}
+
+if [ -n "$1" ]; then
+case "$1" in
+    "help" | "--help" | "-h")
+        echo "JoinMarket helper script help"
+        echo ""
+        echo "Run with no arguments to launch GUI."
+        echo "OR use one of the shortcuts to operate on the wallet '$WALLET_FILE'."
+        echo ""
+        echo "Change the wallet to use with shortcut commands with environment variable WALLET."
+        echo "  EX: WALLET=mywallet.jmdat joinmarket display"
+        echo ""
+        echo "Enter the full script name with arguments for normal JoinMarket functionality."
+        echo "  EX: joinmarket wallet-tool.py mywallet.jmdat display"
+        echo ""
+        echo "ls: list scripts which can be run"
+        echo "display, displayall, summary, history, recover, showseed"
+        echo "  importprivkey, dumpprivkey, signmessage, freeze"
+        echo "  : shortcuts to run scripts with default wallet '$WALLET_FILE'"
+        echo "wallet-tool: shortcut to run wallet-tool.py with default wallet '$WALLET_FILE'"
+        echo "sendpayment: shortcut to run sendpayment.py with default wallet '$WALLET_FILE'"
+        echo "help: display this help message"
+        exit 0
+        ;;
+    "ls" )
+        echo "Available scripts:"
+        ls "$SCRIPT_DIR"
+        exit 0
+        ;;
+    "display" | "displayall" | "summary" | "history" | "recover" \
+        | "showseed" | "importprivkey" | "dumpprivkey" | "signmessage" | "freeze" )
+        # Assume using default options for wallet-tool.py
+        CMD=" $SCRIPT_DIR/wallet-tool.py $WALLET_FILE $*"
+        ;;
+    "wallet-tool")
+        CMD=" $SCRIPT_DIR/wallet-tool.py $WALLET_FILE ${*:2}"
+        ;;
+    "sendpayment")
+        CMD=" $SCRIPT_DIR/sendpayment.py $WALLET_FILE ${*:2}"
+        ;;
+    *)
+        END_COMMAND="python3 $SCRIPT_DIR/$*"
+        ;;
+esac; fi
+
+if [ -z "$END_COMMAND" ]; then
+    END_COMMAND="python3 $CMD"
+fi
+
+$END_COMMAND
