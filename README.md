@@ -53,6 +53,7 @@ Alternative to this "quickstart": follow the [install guide](docs/INSTALL.md).
 * [Installation guide for RaspiBolt](https://github.com/kristapsk/raspibolt-extras/blob/master/joinmarket.md).
 * [Installation guide for Qubes+Whonix](https://github.com/qubenix/qubes-whonix-bitcoin/blob/master/1_joinmarket.md).
 * [Youtube video installation tutorial for Ubuntu](https://www.youtube.com/watch?v=zTCC86IUzWo).
+* [Snap install for Ubuntu](docs/SNAP.md#Install)
 
 ### Usage
 
