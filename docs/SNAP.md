@@ -37,4 +37,4 @@ Most users will probably want to run `joinmarket display` and `joinmarket sendpa
 # Known Bugs
 
 - Currently the GUI does not work on Arch Linux. See this [Snapcraft forum thread](https://forum.snapcraft.io/t/python3-qt-application-on-arch-linux-segmentation-fault-core-dumped/15333/6) for details.
-- Running `joinmarket` right after a new version is released will sometimes print a bunch of warning which don't seem to effect JoinMarket but are annoying.
+- Running `joinmarket` right after a new version is released will sometimes print a bunch of warnings which don't seem to effect JoinMarket but are annoying.
