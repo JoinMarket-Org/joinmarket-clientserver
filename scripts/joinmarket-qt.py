@@ -1898,6 +1898,11 @@ def onTabChange(i):
     if i == 4:
         tabWidget.widget(4).updateUtxos()
 
+def createDirIfMissing(d):
+    """ Create directory if it doesn't already exist """
+    if not os.path.exists(d):
+        os.makedirs(d)
+
 #to allow testing of confirm/unconfirm callback for multiple txs
 if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().bc_interface.tick_forward_chain_interval = 10
@@ -1908,8 +1913,7 @@ if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
 
 #prepare for logging
 for dname in ['logs', 'wallets', 'cmtdata']:
-    if not os.path.exists(dname):
-        os.makedirs(dname)
+    createDirIfMissing(os.path.join(os.path.dirname(jm_single().config_location), dname))
 logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
 #tumble log will not always be used, but is made available anyway:
 tumble_log = get_tumble_log(logsdir)
