@@ -70,7 +70,7 @@ class WalletService(Service):
         the right height.
         """
         try:
-            self.current_blockheight = self.bci.rpc("getblockcount", [])
+            self.current_blockheight = self.bci.get_current_block_height()
             assert isinstance(self.current_blockheight, Integral)
         except Exception as e:
             jlog.error("Failure to get blockheight from Bitcoin Core:")
@@ -578,7 +578,7 @@ class WalletService(Service):
     def sync_unspent(self):
         st = time.time()
         # block height needs to be real time for addition to our utxos:
-        current_blockheight = self.bci.rpc("getblockcount", [])
+        current_blockheight = self.bci.get_current_block_height()
         wallet_name = self.get_wallet_name()
         self.reset_utxos()
 

@@ -131,14 +131,8 @@ def restart_wait(txid):
     and confirmed (it must be an in-wallet transaction since it always
     spends coins from the wallet).
     """
-    try:
-        res = jm_single().bc_interface.rpc('gettransaction', [txid, True])
-    except JsonRpcError as e:
-        return False
+    res = jm_single().bc_interface.get_transaction(txid)
     if not res:
-        return False
-    if "confirmations" not in res:
-        log.debug("Malformed gettx result: " + str(res))
         return False
     if res["confirmations"] == 0:
         return False
