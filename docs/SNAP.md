@@ -12,7 +12,7 @@ Run `snap install --dangerous --devmode joinmarket_$VERSION_amd64.snap` to insta
 
 ## Snapcraft store
 
-At some point, JoinMarket will probably become available on the Snapcraft store. At which point, installing will be as easy as `snap install joinmarket` without the need to run the build process.
+The "edge" version of JoinMarket can be install from the Snapcraft store with `snap install --edge joinmarket`. The "edge" is based off of the latest code in the master branch of github.
 
 # Usage
 
