@@ -18,9 +18,11 @@ The github commits to the main repo, above, are signed.
 
 * Other features
 
- * [Sweeps](#sweeps)
+  * [Sweeps](#sweeps)
+
+  * [Coins tab](#coins-tab)
  
- * [Exporting private keys](#export-private-keys)
+  * [Exporting private keys](#export-private-keys)
 
 
 ### Walkthrough
@@ -193,6 +195,16 @@ You'll see your destination addresses in the list, and lots of "INTERNAL" meanin
 
 If you want to send *all* the coins in a specific mixdepth at once, the correct way to do it
 is using the "sweep" feature. To do this, simply set the "Amount" field in the Single Join tab to zero. The program will automatically figure out the right output amount after accounting for the coinjoin and bitcoin transaction fees. If you try to send total amount, you will get a "not enough funds" error. Putting it another way, you'll end up with dust in the wallet if you try to send the total without using this sweep feature, so do use it.
+
+### Coins Tab
+
+You can use the coins tab to (a) check the exact utxos owned by your wallet and (b) freeze or unfreeze certain utxos (coins) to allow coin control.
+
+The latter can be done by right clicking on a utxo and choosing "freeze/unfreeze" (the action toggles).
+
+![](images/JMQCoinsTabregtest.png)
+
+This can be useful if you want to spend from one or more specific utxos. Disable (freeze) the *other* coins in that mixdepth. Remember, Joinmarket will *never* co-spend utxos from different mixdepths (accounts), in any kind of transaction - they are completely isolated accounts.
 
 ### Export private keys
 
