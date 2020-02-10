@@ -129,7 +129,7 @@ If you haven't done so yet, install Bitcoin Core as described [here](https://bit
 Bitcoin Core needs to be configured to allow JoinMarket to connect to it. From the `Settings` menu choose `Options` and click `Open Configuration File`. Add `server=1`, save and close the file. After that restart Bitcoin Core.
 
 #### Configuring JoinMarket
-Lastly we must configure JoinMarket to allow it to connect to Bitcoin Core. Refer to the [this](USAGE.md#zeroth-step-configuring-for-bitcoin-core) section in the usage guide.
+Lastly we must configure JoinMarket to allow it to connect to Bitcoin Core. Refer to [this](USAGE.md#managing-your-joinmarket-data) section in the usage guide to generate a `joinmarket.cfg` file using `scripts/wallet-tool.py`.
 
 Edit your `joinmarket.cfg` file (in Ubuntu) and replace the following lines in the section `[BLOCKCHAIN]`
 
