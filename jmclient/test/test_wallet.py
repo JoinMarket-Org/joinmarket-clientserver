@@ -302,8 +302,10 @@ def test_signing_imported(setup_wallet, wif, keytype, type_check):
     MIXDEPTH = 0
     path = wallet.import_private_key(MIXDEPTH, wif, keytype)
     utxo = fund_wallet_addr(wallet, wallet.get_address_from_path(path))
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])],
-                                  ['00'*17 + ':' + str(10**8 - 9000)]))
+    # The dummy output is constructed as an unspendable p2sh:
+    tx = btc.deserialize(btc.mktx(['{}:{}'.format(
+        hexlify(utxo[0]).decode('ascii'), utxo[1])],
+        [btc.p2sh_scriptaddr(b"\x00",magicbyte=196) + ':' + str(10**8 - 9000)]))
     script = wallet.get_script_from_path(path)
     tx = wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)
@@ -322,11 +324,10 @@ def test_signing_simple(setup_wallet, wallet_cls, type_check):
     wallet_cls.initialize(storage, get_network())
     wallet = wallet_cls(storage)
     utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(0))
-    # The dummy output is of length 25 bytes, because, for SegwitWallet, we else
-    # trigger the tx-size-small DOS limit in Bitcoin Core (82 bytes is the
-    # smallest "normal" transaction size (non-segwit size, ie no witness)
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(hexlify(utxo[0]).decode('ascii'),
-                                utxo[1])], ['00'*25 + ':' + str(10**8 - 9000)]))
+    # The dummy output is constructed as an unspendable p2sh:
+    tx = btc.deserialize(btc.mktx(['{}:{}'.format(
+        hexlify(utxo[0]).decode('ascii'), utxo[1])],
+        [btc.p2sh_scriptaddr(b"\x00",magicbyte=196) + ':' + str(10**8 - 9000)]))
     script = wallet.get_script(0, 1, 0)
     tx = wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)

@@ -113,10 +113,6 @@ def setup(request):
     #start up regtest blockchain
     bitcoin_args = ["-regtest", "-daemon", "-conf=" + bitcoin_conf]
 
-    #for bitcoin-core >= 0.19
-    if not (bitcoind_version[0] == 0 and bitcoind_version[1] < 19):
-        bitcoin_args += ['-acceptnonstdtxn']
-
     btc_proc = subprocess.call([bitcoin_path + "bitcoind"] + bitcoin_args)
     time.sleep(4)
     #generate blocks; segwit activates around block 500-600

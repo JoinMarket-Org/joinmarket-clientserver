@@ -41,7 +41,8 @@ def test_create_p2sh_output_tx(setup_tx_creation, nw, wallet_structures,
         wallet_service = w['wallet']
         ins_full = wallet_service.select_utxos(0, amount)
         script = bitcoin.mk_multisig_script(pubs, k)
-        output_addr = bitcoin.script_to_address(script, vbyte=196)
+        output_addr = bitcoin.p2sh_scriptaddr(bitcoin.safe_from_hex(script),
+                                              magicbyte=196)
         txid = make_sign_and_push(ins_full,
                                   wallet_service,
                                   amount,
