@@ -7,7 +7,6 @@ import time
 import numbers
 from jmbase import get_log, jmprint
 from .configure import jm_single, validate_address
-from .jsonrpc import JsonRpcError
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime

@@ -10,7 +10,7 @@ from numbers import Integral
 from collections import Counter
 from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
-    jm_single, BitcoinCoreInterface, JsonRpcError, WalletError,
+    jm_single, BitcoinCoreInterface, WalletError,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
     LegacyWallet, SegwitWallet, is_native_segwit_mode, load_program_config,
     add_base_options, check_regtest)
