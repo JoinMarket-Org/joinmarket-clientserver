@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 #Proof Of Discrete Logarithm Equivalence
 #For algorithm steps, see https://gist.github.com/AdamISZ/9cbba5e9408d23813ca8
 import os

@@ -1,7 +1,4 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 '''Testing mostly exceptional cases in secp256k1_main.
    Some of these may represent code that should be removed, TODO.'''
 

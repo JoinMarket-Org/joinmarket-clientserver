@@ -33,5 +33,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN ./install.sh --python=python3 --with-qt
+RUN ./install.sh --with-qt
 RUN source jmvenv/bin/activate && ./test/run_tests.sh

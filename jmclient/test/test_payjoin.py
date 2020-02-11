@@ -1,6 +1,3 @@
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 
 """
 Test doing payjoin joins (with message channel layer mocked)

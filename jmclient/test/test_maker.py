@@ -1,9 +1,5 @@
 #!/usr/bin/env python
 
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
-
 import jmbitcoin as btc
 from jmclient import Maker, get_p2sh_vbyte, get_p2pk_vbyte, \
     load_test_config, jm_single, WalletService

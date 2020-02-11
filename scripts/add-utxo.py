@@ -1,7 +1,4 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 from future.utils import iteritems
 """A very simple command line tool to import utxos to be used
 as commitments into joinmarket's commitments.json file, allowing

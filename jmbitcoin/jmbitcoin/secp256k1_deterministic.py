@@ -1,6 +1,3 @@
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import *
 from jmbitcoin.secp256k1_main import *
 import hmac
 import hashlib

@@ -25,28 +25,16 @@ matrix:
              - libsodium18
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=xenial-py2
-    - os: linux
-      services: docker
       env: DOCKER_IMG_JM=xenial-py3
-    - os: linux
-      services: docker
-      env: DOCKER_IMG_JM=bionic-py2
     - os: linux
       services: docker
       env: DOCKER_IMG_JM=bionic-py3
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=stretch-py2
-    - os: linux
-      services: docker
       env: DOCKER_IMG_JM=stretch-py3
     - os: linux
       services: docker
-      env: DOCKER_IMG_JM=centos7-py2
-    - os: linux
-      services: docker
-      env: DOCKER_IMG_JM=fedora27-py2
+      env: DOCKER_IMG_JM=centos7-py3
     - os: linux
       services: docker
       env: DOCKER_IMG_JM=fedora27-py3
@@ -68,7 +56,7 @@ install:
   - mkdir -p "$HOME/downloads"
   - mkdir -p "$TRAVIS_BUILD_DIR/deps/cache/"
   - find "$HOME/downloads" -type f -exec cp -v {} "$TRAVIS_BUILD_DIR/deps/cache/" \;
-  - on_host do_on linux ./install.sh --develop --python=python3 --with-qt
+  - on_host do_on linux ./install.sh --develop --with-qt
   - on_host do_on osx virtualenv --python=python3 jmvenv
   - on_host find "$TRAVIS_BUILD_DIR/deps/cache/" -type f -exec cp -v {} "$HOME/downloads/" \;
 before_script:

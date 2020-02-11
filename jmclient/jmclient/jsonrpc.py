@@ -1,6 +1,3 @@
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 # Copyright (C) 2013,2015 by Daniel Kraft <d@domob.eu>
 # Copyright (C) 2014 by phelix / blockchained.com
 #

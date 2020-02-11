@@ -1,7 +1,4 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 """A simple command line tool to create a bunch
 of utxos from one (thus giving more potential commitments
 for a Joinmarket user, although of course it may be useful
