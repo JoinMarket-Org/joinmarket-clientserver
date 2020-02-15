@@ -1,5 +1,4 @@
-#! /usr/bin/env python
-
+#!/usr/bin/env python3
 import sys
 from twisted.internet import reactor
 from twisted.python.log import startLogging

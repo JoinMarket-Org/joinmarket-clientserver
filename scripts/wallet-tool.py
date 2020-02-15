@@ -1,5 +1,4 @@
-#! /usr/bin/env python
-
+#!/usr/bin/env python3
 from jmbase import jmprint
 from jmclient import wallet_tool_main
 
