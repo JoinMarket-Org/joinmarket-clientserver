@@ -37,8 +37,8 @@ def test_config_get_irc_channel():
 
 def test_net_byte():
     load_test_config()
-    assert struct.unpack(b'B', get_p2pk_vbyte())[0] == 0x6f
-    assert struct.unpack(b'B', get_p2sh_vbyte())[0] == 196
+    assert struct.unpack('B', get_p2pk_vbyte())[0] == 0x6f
+    assert struct.unpack('B', get_p2sh_vbyte())[0] == 196
 
 
 def test_blockchain_sources():

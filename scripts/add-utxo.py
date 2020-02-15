@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-from future.utils import iteritems
 """A very simple command line tool to import utxos to be used
 as commitments into joinmarket's commitments.json file, allowing
 users to retry transactions more often without getting banned by
@@ -205,7 +204,7 @@ def main():
             except:
                 jmprint("Failed to read json from " + options.in_json, "error")
                 sys.exit(EXIT_FAILURE)
-        for u, pva in iteritems(utxo_json):
+        for u, pva in utxo_json.items():
             utxo_data.append((u, pva['privkey']))
     elif len(args) == 1:
         u = args[0]

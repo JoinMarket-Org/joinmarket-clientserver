@@ -167,7 +167,7 @@ def test_create_sighash_txs(setup_tx_creation):
 
 def test_spend_p2sh_utxos(setup_tx_creation):
     #make a multisig address from 3 privs
-    privs = [struct.pack(b'B', x) * 32 + b'\x01' for x in range(1, 4)]
+    privs = [struct.pack('B', x) * 32 + b'\x01' for x in range(1, 4)]
     pubs = [bitcoin.privkey_to_pubkey(binascii.hexlify(priv).decode('ascii')) for priv in privs]
     script = bitcoin.mk_multisig_script(pubs, 2)
     msig_addr = bitcoin.p2sh_scriptaddr(script, magicbyte=196)
@@ -197,7 +197,7 @@ def test_spend_p2sh_utxos(setup_tx_creation):
 
 def test_spend_p2wpkh(setup_tx_creation):
     #make 3 p2wpkh outputs from 3 privs
-    privs = [struct.pack(b'B', x) * 32 + b'\x01' for x in range(1, 4)]
+    privs = [struct.pack('B', x) * 32 + b'\x01' for x in range(1, 4)]
     pubs = [bitcoin.privkey_to_pubkey(
         binascii.hexlify(priv).decode('ascii')) for priv in privs]
     scriptPubKeys = [bitcoin.pubkey_to_p2wpkh_script(pub) for pub in pubs]
@@ -240,7 +240,7 @@ def test_spend_p2wpkh(setup_tx_creation):
 
 def test_spend_p2wsh(setup_tx_creation):
     #make 2 x 2 of 2multisig outputs; will need 4 privs
-    privs = [struct.pack(b'B', x) * 32 + b'\x01' for x in range(1, 5)]
+    privs = [struct.pack('B', x) * 32 + b'\x01' for x in range(1, 5)]
     privs = [binascii.hexlify(priv).decode('ascii') for priv in privs]
     pubs = [bitcoin.privkey_to_pubkey(priv) for priv in privs]
     redeemScripts = [bitcoin.mk_multisig_script(pubs[i:i+2], 2) for i in [0, 2]]

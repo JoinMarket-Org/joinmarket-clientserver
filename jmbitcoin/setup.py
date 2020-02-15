@@ -9,5 +9,5 @@ setup(name='joinmarketbitcoin',
       author_email='',
       license='GPL',
       packages=['jmbitcoin'],
-      install_requires=['future', 'coincurve',],
+      install_requires=['coincurve',],
       zip_safe=False)

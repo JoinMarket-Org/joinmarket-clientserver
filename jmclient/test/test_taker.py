@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from future.utils import iteritems
 from commontest import DummyBlockchainInterface
 import jmbitcoin as bitcoin
 import binascii
@@ -87,7 +86,7 @@ class DummyWallet(SegwitLegacyWallet):
 
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
-        privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,6)]]
+        privs = [x*32 + b"\x01" for x in [struct.pack('B', y) for y in range(1,6)]]
         addrs = {}
         """
         mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ
@@ -98,7 +97,7 @@ class DummyWallet(SegwitLegacyWallet):
         """
         for p in privs:
             addrs[p] = bitcoin.privkey_to_address(p, False, magicbyte=0x6f)
-        for p, a in iteritems(addrs):
+        for p, a in addrs.items():
             if a == addr:
                 return binascii.hexlify(p).decode('ascii')
         raise ValueError("No such keypair")
@@ -307,7 +306,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
         return clean_up()        
     if schedule[0][1] == 199599800:
         #need to force negative fees to make this feasible
-        for k, v in iteritems(taker.orderbook):
+        for k, v in taker.orderbook.items():
             v['cjfee'] = '-0.002'
         #            change_amount = (total_input - self.cjamount -
         #                     self.orderbook[nick]['txfee'] + real_cjfee)
@@ -326,7 +325,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
         #TODO note this test is not adequate, because the code is not;
         #the code does not *DO* anything if a condition is unexpected.
         taker.input_utxos = copy.deepcopy(t_utxos_by_mixdepth)[0]
-        for k,v in iteritems(taker.input_utxos):
+        for k,v in taker.input_utxos.items():
             v["value"] = int(0.999805228 * v["value"])
         res = taker.receive_utxos(maker_response)
         assert res[0]
@@ -398,7 +397,7 @@ def test_on_sig(setup_taker, dummyaddr, schedule):
     #return the right values in query_utxo_set
     
     #create 2 privkey + utxos that are to be ours
-    privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,6)]]
+    privs = [x*32 + b"\x01" for x in [struct.pack('B', y) for y in range(1,6)]]
     utxos = [str(x)*64+":1" for x in range(5)]
     fake_query_results = [{'value': 200000000,
                            'utxo': utxos[x],

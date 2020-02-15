@@ -1,7 +1,4 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 '''Runs a full joinmarket pit (using `nirc` miniircd servers,
 with `nirc` options specified as an option to pytest),in
 bitcoin regtest mode with 3 maker bots and 1 taker bot,

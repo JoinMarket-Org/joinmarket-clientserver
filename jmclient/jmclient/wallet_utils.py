@@ -1,4 +1,3 @@
-from future.utils import iteritems
 import json
 import os
 import sys
@@ -364,7 +363,7 @@ def wallet_showutxos(wallet, showprivkey):
                 unsp[u]['privkey'] = wallet.get_wif_path(av['path'])
 
     used_commitments, external_commitments = podle.get_podle_commitments()
-    for u, ec in iteritems(external_commitments):
+    for u, ec in external_commitments.items():
         tries = podle.get_podle_tries(utxo=u, max_tries=max_tries,
                                           external=True)
         tries_remaining = max(0, max_tries - tries)
@@ -383,7 +382,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     def get_addr_status(addr_path, utxos, is_new, is_internal):
         addr_balance = 0
         status = []
-        for utxo, utxodata in iteritems(utxos):
+        for utxo, utxodata in utxos.items():
             if addr_path != utxodata['path']:
                 continue
             addr_balance += utxodata['value']
@@ -767,7 +766,7 @@ def wallet_fetch_history(wallet, options):
             amount = cj_amount
             delta_balance = out_value - our_input_value
             mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
-            cj_script = list(set([a for a, v in iteritems(output_script_values)
+            cj_script = list(set([a for a, v in output_script_values.items()
                 if v == cj_amount]).intersection(our_output_scripts))[0]
             mixdepth_dst = wallet.get_script_mixdepth(cj_script)
         else:

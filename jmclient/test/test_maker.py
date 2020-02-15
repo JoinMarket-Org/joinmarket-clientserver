@@ -70,7 +70,7 @@ def address_p2sh_generator():
 def get_address_generator(script_pre, script_post, vbyte):
     counter = 0
     while True:
-        script = script_pre + struct.pack(b'=LQQ', 0, 0, counter) + script_post
+        script = script_pre + struct.pack('=LQQ', 0, 0, counter) + script_post
         addr = btc.script_to_address(script, vbyte)
         yield addr, binascii.hexlify(script).decode('ascii')
         counter += 1

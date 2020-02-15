@@ -1,4 +1,3 @@
-from future.utils import iteritems
 from past.builtins import cmp
 from functools import cmp_to_key
 
@@ -11,7 +10,7 @@ import time
 import hashlib
 import os
 import sys
-from future.moves.urllib.parse import parse_qs
+from urllib.parse import parse_qs
 from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
@@ -326,7 +325,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             replacements = {}
             orderbook_fmt = json.dumps(self.create_orderbook_obj())
         orderbook_page = orderbook_fmt
-        for key, rep in iteritems(replacements):
+        for key, rep in replacements.items():
             orderbook_page = orderbook_page.replace(key, rep)
         self.send_response(200)
         if self.path.endswith('.json'):

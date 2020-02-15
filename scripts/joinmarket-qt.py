@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from future.utils import iteritems
 
 '''
 Joinmarket GUI using PyQt for doing coinjoins.
@@ -758,7 +757,7 @@ class SpendTab(QWidget):
         mbinfo.append(" ")
         mbinfo.append("Counterparties chosen:")
         mbinfo.append('Name,     Order id, Coinjoin fee (sat.)')
-        for k, o in iteritems(offers):
+        for k, o in offers.items():
             if o['ordertype'] in ['swreloffer', 'reloffer']:
                 display_fee = int(self.taker.cjamount *
                                   float(o['cjfee'])) - int(o['txfee'])

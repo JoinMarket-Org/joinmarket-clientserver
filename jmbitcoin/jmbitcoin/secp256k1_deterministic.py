@@ -44,7 +44,7 @@ def raw_bip32_ckd(rawtuple, i):
 def bip32_serialize(rawtuple):
     vbytes, depth, fingerprint, i, chaincode, key = rawtuple
     if isinstance(i, int):
-        i = struct.pack(b'>L', i)
+        i = struct.pack('>L', i)
     chaincode = chaincode
     keydata = b'\x00' + key[:-1] if vbytes in PRIVATE else key
     bindata = vbytes + from_int_to_byte(

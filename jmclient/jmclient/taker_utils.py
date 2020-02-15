@@ -1,4 +1,3 @@
-from future.utils import iteritems
 import logging
 import pprint
 import os
@@ -56,7 +55,7 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
             log.error(
                 "There are no utxos in mixdepth: " + str(mixdepth) + ", quitting.")
             return
-        total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
+        total_inputs_val = sum([va['value'] for u, va in utxos.items()])
         fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype)
         outs = [{"address": destaddr, "value": total_inputs_val - fee_est}]
     else:
@@ -67,7 +66,7 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
             fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype)
         else:
             fee_est = initial_fee_est
-        total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
+        total_inputs_val = sum([va['value'] for u, va in utxos.items()])
         changeval = total_inputs_val - fee_est - amount
         outs = [{"value": amount, "address": destaddr}]
         change_addr = wallet_service.get_internal_addr(mixdepth)

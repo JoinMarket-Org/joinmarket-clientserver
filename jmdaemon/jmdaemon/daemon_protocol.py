@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-from future.utils import iteritems
 
 from .message_channel import MessageChannelCollection
 from .orderbookwatch import OrderbookWatch
@@ -239,7 +238,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         #Reset utxo data to null for this new transaction
         self.ioauth_data = {}
         self.active_orders = json.loads(filled_offers)
-        for nick, offer_dict in iteritems(self.active_orders):
+        for nick, offer_dict in self.active_orders.items():
             offer_fill_msg = " ".join([str(offer_dict["oid"]), str(amount),
                 self.kp.hex_pk().decode('ascii'), str(commitment)])
             self.mcc.prepare_privmsg(nick, "fill", offer_fill_msg)

@@ -1,8 +1,6 @@
 #!/usr/bin/python
-from future.utils import native_bytes, bytes_to_native_str
 import binascii
 import hashlib
-import sys
 import base64
 import struct
 import coincurve as secp256k1
@@ -43,12 +41,12 @@ def get_code_string(base):
 
 def bin_to_b58check(inp, magicbyte=b'\x00'):
     if not isinstance(magicbyte, int):
-        magicbyte = struct.unpack(b'B', magicbyte)[0]
+        magicbyte = struct.unpack('B', magicbyte)[0]
     assert(0 <= magicbyte <= 0xff)
     if magicbyte == 0:
-        inp_fmtd = struct.pack(b'B', magicbyte) + inp
+        inp_fmtd = struct.pack('B', magicbyte) + inp
     while magicbyte > 0:
-        inp_fmtd = struct.pack(b'B', magicbyte % 256) + inp
+        inp_fmtd = struct.pack('B', magicbyte % 256) + inp
         magicbyte //= 256
     checksum = bin_dbl_sha256(inp_fmtd)[:4]
     return b58encode(inp_fmtd + checksum)
@@ -57,10 +55,10 @@ def safe_from_hex(s):
     return binascii.unhexlify(s)
 
 def from_int_to_byte(a):
-    return struct.pack(b'B', a)
+    return struct.pack('B', a)
 
 def from_byte_to_int(a):
-    return struct.unpack(b'B', a)[0]
+    return struct.unpack('B', a)[0]
 
 def from_string_to_bytes(a):
     return a if isinstance(a, bytes) else bytes(a, 'utf-8')
@@ -117,9 +115,8 @@ def b58encode(b):
 
     # Encode leading zeros as base58 zeros
     czero = b'\x00'
-    if sys.version_info >= (3,0):
-        # In Python3 indexing a bytes returns numbers, not characters.
-        czero = 0
+    # In Python3 indexing a bytes returns numbers, not characters.
+    czero = 0
     pad = 0
     for c in b:
         if c == czero:
@@ -158,7 +155,7 @@ def b58decode(s):
 def uint256encode(s):
     """Convert bytes to uint256"""
     r = 0
-    t = struct.unpack(b"<IIIIIIII", s[:32])
+    t = struct.unpack("<IIIIIIII", s[:32])
     for i in range(8):
         r += t[i] << (i * 32)
     return r
@@ -166,7 +163,7 @@ def uint256encode(s):
 def uint256decode(u):
     r = b""
     for i in range(8):
-        r += struct.pack(b'<I', u >> (i * 32) & 0xffffffff)
+        r += struct.pack('<I', u >> (i * 32) & 0xffffffff)
     return r
 
 def encode(val, base, minlen=0):
@@ -201,7 +198,7 @@ def decode(string, base):
             if isinstance(d, int):
                 return d
             else:
-                return struct.unpack(b'B', d)[0]
+                return struct.unpack('B', d)[0]
     else:
         def extract(d, cs):
             return cs.find(d if isinstance(d, str) else chr(d))
@@ -249,7 +246,7 @@ def bin_hash160(string):
     return hashlib.new('ripemd160', intermed).digest()
 
 def hash160(string):
-    if not isinstance(string, bytes):
+    if isinstance(string, str):
         string = string.encode('utf-8')
     return safe_hexlify(bin_hash160(string))
 
@@ -262,7 +259,7 @@ def sha256(string):
     return safe_hexlify(bin_sha256(string))
 
 def bin_dbl_sha256(bytes_to_hash):
-    if not isinstance(bytes_to_hash, bytes):
+    if isinstance(bytes_to_hash, str):
         bytes_to_hash = bytes_to_hash.encode('utf-8')
     return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
 
@@ -278,11 +275,11 @@ def num_to_var_int(x):
     if not isinstance(x, int):
         if len(x) == 0:
             return b'\x00'
-        x = struct.unpack(b'B', x)[0]
+        x = struct.unpack('B', x)[0]
     if x < 253: return from_int_to_byte(x)
-    elif x < 65536: return from_int_to_byte(253) + struct.pack(b'<H', x)
-    elif x < 4294967296: return from_int_to_byte(254) + struct.pack(b'<I', x)
-    else: return from_int_to_byte(255) + struct.pack(b'<Q', x)
+    elif x < 65536: return from_int_to_byte(253) + struct.pack('<H', x)
+    elif x < 4294967296: return from_int_to_byte(254) + struct.pack('<I', x)
+    else: return from_int_to_byte(255) + struct.pack('<Q', x)
 
 def message_sig_hash(message):
     """Used for construction of signatures of
@@ -321,7 +318,7 @@ def wif_compressed_privkey(priv, vbyte=b'\x00'):
     """Convert privkey in hex compressed to WIF compressed
     """
     if not isinstance(vbyte, int):
-        vbyte = struct.unpack(b'B', vbyte)[0]
+        vbyte = struct.unpack('B', vbyte)[0]
     if len(priv) != 66:
         raise Exception("Wrong length of compressed private key")
     if priv[-2:] != '01':
@@ -336,7 +333,7 @@ def from_wif_privkey(wif_priv, compressed=True, vbyte=b'\x00'):
     a mismatch an error is thrown. WIF encoding uses 128+ this number.
     """
     if isinstance(vbyte, int):
-        vbyte = struct.pack(b'B', vbyte)
+        vbyte = struct.pack('B', vbyte)
     bin_key = b58check_to_bin(wif_priv)
     claimed_version_byte = get_version_byte(wif_priv)
     if not from_int_to_byte(128+from_byte_to_int(vbyte)) == claimed_version_byte:
@@ -416,10 +413,7 @@ def privkey_to_pubkey_inner(priv, usehex):
     and return compressed/uncompressed public key as appropriate.'''
     compressed, priv = read_privkey(priv)
     #secp256k1 checks for validity of key value.
-    if sys.version_info >= (3,0):
-        newpriv = secp256k1.PrivateKey(secret=native_bytes(priv))
-    else:
-        newpriv = secp256k1.PrivateKey(secret=bytes_to_native_str(priv))
+    newpriv = secp256k1.PrivateKey(secret=bytes(priv))
     return newpriv.public_key.format(compressed)
 
 def privkey_to_pubkey(priv, usehex=True):
@@ -470,10 +464,7 @@ def multiply(s, pub, usehex, rawpub=True, return_serialized=True):
     '''
     newpub = secp256k1.PublicKey(pub)
     #see note to "tweak_mul" function in podle.py
-    if sys.version_info >= (3,0):
-        res = newpub.multiply(native_bytes(s))
-    else:
-        res = newpub.multiply(bytes_to_native_str(s))
+    res = newpub.multiply(bytes(s))
     if not return_serialized:
         return res
     return res.format()

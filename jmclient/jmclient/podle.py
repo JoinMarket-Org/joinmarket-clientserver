@@ -219,9 +219,9 @@ def getNUMS(index=0):
     assert index in range(256)
     nums_point = None
     for G in [getG(True), getG(False)]:
-        seed = G + struct.pack(b'B', index)
+        seed = G + struct.pack('B', index)
         for counter in range(256):
-            seed_c = seed + struct.pack(b'B', counter)
+            seed_c = seed + struct.pack('B', counter)
             hashed_seed = hashlib.sha256(seed_c).digest()
             #Every x-coord on the curve has two y-values, encoded
             #in compressed form with 02/03 parity byte. We just

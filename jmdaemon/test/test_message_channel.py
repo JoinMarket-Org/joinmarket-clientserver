@@ -22,7 +22,7 @@ from dummy_mc import DummyMessageChannel
 jlog = get_log()
 
 def make_valid_nick(i=0):
-    nick_priv = hashlib.sha256(struct.pack(b'B', i)*16).hexdigest() + '01'
+    nick_priv = hashlib.sha256(struct.pack('B', i)*16).hexdigest() + '01'
     nick_pubkey = bitcoin.privtopub(nick_priv)
     nick_pkh_raw = hashlib.sha256(nick_pubkey.encode('ascii')).digest()[:NICK_HASH_LENGTH]
     nick_pkh = bitcoin.b58encode(nick_pkh_raw)

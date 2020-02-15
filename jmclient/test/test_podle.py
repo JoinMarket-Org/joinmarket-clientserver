@@ -113,9 +113,9 @@ def test_external_commitments(setup_podle):
     known_utxos = []
     tries = 3
     for i in range(1, 6):
-        u = binascii.hexlify(struct.pack(b'B', i)*32).decode('ascii')
+        u = binascii.hexlify(struct.pack('B', i)*32).decode('ascii')
         known_utxos.append(u)
-        priv = struct.pack(b'B', i)*32+b"\x01"
+        priv = struct.pack('B', i)*32+b"\x01"
         ecs[u] = {}
         ecs[u]['reveal']={}
         for j in range(tries):
@@ -131,8 +131,8 @@ def test_external_commitments(setup_podle):
     #this should find the remaining one utxo and return from it
     assert generate_podle([], max_tries=tries, allow_external=known_utxos)
     #test commitment removal
-    to_remove = ecs[binascii.hexlify(struct.pack(b'B', 3)*32).decode('ascii')]
-    update_commitments(external_to_remove={binascii.hexlify(struct.pack(b'B', 3)*32).decode('ascii'):to_remove})
+    to_remove = ecs[binascii.hexlify(struct.pack('B', 3)*32).decode('ascii')]
+    update_commitments(external_to_remove={binascii.hexlify(struct.pack('B', 3)*32).decode('ascii'):to_remove})
     #test that an incorrectly formatted file raises
     with open(get_commitment_file(), "rb") as f:
         validjson = json.loads(f.read().decode('utf-8'))

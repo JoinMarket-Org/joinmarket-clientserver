@@ -9,6 +9,6 @@ setup(name='joinmarketdaemon',
       author_email='',
       license='GPL',
       packages=['jmdaemon'],
-      install_requires=['future', 'txtorcon', 'pyopenssl', 'libnacl', 'joinmarketbase==0.6.1'],
+      install_requires=['txtorcon', 'pyopenssl', 'libnacl', 'joinmarketbase==0.6.1'],
       python_requires='>=3.3',
       zip_safe=False)

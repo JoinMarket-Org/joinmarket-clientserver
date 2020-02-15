@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-from future.utils import iteritems
 import base64
 import pprint
 import random
@@ -454,7 +453,7 @@ class P2EPMaker(Maker):
             [x[1] for x in utxo.values()])
 
         total_sender_input = 0
-        for i, u in iteritems(utxo):
+        for i, u in utxo.items():
             if utxo_data[i] is None:
                 return (False, "Proposed transaction contains invalid utxos")
             total_sender_input += utxo_data[i]["value"]
@@ -492,7 +491,7 @@ class P2EPMaker(Maker):
         # a double spend during the process), but is restricted to standard
         # types: p2pkh, p2wpkh, p2sh-p2wpkh only. Double spend is not counted
         # as a risk as this is a payment.
-        for i, u in iteritems(utxo):
+        for i, u in utxo.items():
             if "txinwitness" in tx["ins"][u[0]]:
                 ver_amt = utxo_data[i]["value"]
                 try:
