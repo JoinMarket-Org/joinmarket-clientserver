@@ -6,14 +6,15 @@ Test doing full coinjoins, bypassing IRC
 import os
 import sys
 import pytest
+import copy
 from twisted.internet import reactor
 
-from jmbase import get_log
+from jmbase import get_log, hextobin, bintohex
 from jmclient import load_test_config, jm_single,\
     YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet,\
     NO_ROUNDING
 from jmclient.podle import set_commitment_file
-from commontest import make_wallets, binarize_tx, default_max_cj_fee
+from commontest import make_wallets, default_max_cj_fee
 from test_taker import dummy_filter_orderbook
 import jmbitcoin as btc
 
@@ -85,14 +86,14 @@ def init_coinjoin(taker, makers, orderbook, cj_amount):
         ioauth_data = list(response[1:])
         ioauth_data[0] = list(ioauth_data[0].keys())
         # maker_pk which is set up by jmdaemon
-        ioauth_data.append(None)
+        ioauth_data.append("00")
         maker_data[mid] = ioauth_data
 
         # this is handled by jmdaemon
         active_orders[mid]['utxos'] = response[1]
         active_orders[mid]['cjaddr'] = ioauth_data[2]
         active_orders[mid]['changeaddr'] = ioauth_data[3]
-        active_orders[mid]['offer'] = m.offerlist[0]
+        active_orders[mid]['offer'] = copy.deepcopy(m.offerlist[0])
         active_orders[mid]['amount'] = cj_amount
     return active_orders, maker_data
 
@@ -194,13 +195,12 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
     assert taker_final_result is not False
 
-    tx = btc.deserialize(txdata[2])
-    binarize_tx(tx)
+    tx = btc.CMutableTransaction.deserialize(hextobin(txdata[2]))
 
     wallet_service = wallet_services[-1]
     # TODO change for new tx monitoring:
-    wallet_service.remove_old_utxos_(tx)
-    wallet_service.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
+    wallet_service.remove_old_utxos(tx)
+    wallet_service.add_new_utxos(tx)
 
     balances = wallet_service.get_balance_by_mixdepth()
     assert balances[0] == cj_amount
@@ -250,14 +250,13 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
     assert taker_final_result is not False
 
-    tx = btc.deserialize(txdata[2])
-    binarize_tx(tx)
+    tx = btc.CMutableTransaction.deserialize(hextobin(txdata[2]))
 
     for i in range(MAKER_NUM):
         wallet_service = wallet_services[i]
         # TODO as above re: monitoring
-        wallet_service.remove_old_utxos_(tx)
-        wallet_service.add_new_utxos_(tx, b'\x00' * 32)  # fake txid
+        wallet_service.remove_old_utxos(tx)
+        wallet_service.add_new_utxos(tx)
 
         balances = wallet_service.get_balance_by_mixdepth()
         assert balances[0] == cj_amount

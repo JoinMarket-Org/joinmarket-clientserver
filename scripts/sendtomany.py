@@ -8,10 +8,10 @@ for other reasons).
 from pprint import pformat
 from optparse import OptionParser
 import jmbitcoin as btc
-from jmbase import get_log, jmprint
+from jmbase import get_log, jmprint, bintohex, utxostr_to_utxo
 from jmclient import load_program_config, estimate_tx_fee, jm_single,\
     get_p2pk_vbyte, validate_address, get_utxo_info, add_base_options,\
-    validate_utxo_data, quit
+    validate_utxo_data, quit, BTCEngine, BTC_P2SH_P2WPKH, BTC_P2PKH
 
 
 log = get_log()
@@ -39,10 +39,12 @@ def sign(utxo, priv, destaddrs, segwit=True):
     log.info("Using fee: " + str(fee))
     for i, addr in enumerate(destaddrs):
         outs.append({'address': addr, 'value': share})
-    unsigned_tx = btc.mktx(ins, outs)
+    tx = btc.mktx(ins, outs)
     amtforsign = amt if segwit else None
-    return btc.sign(unsigned_tx, 0, btc.from_wif_privkey(
-        priv, vbyte=get_p2pk_vbyte()), amount=amtforsign)
+    rawpriv, _ = BTCEngine.wif_to_privkey(priv)
+    success, msg = btc.sign(tx, 0, rawpriv, amount=amtforsign)
+    assert success, msg
+    return tx
     
 def main():
     parser = OptionParser(
@@ -106,17 +108,20 @@ def main():
     for d in destaddrs:
         if not validate_address(d):
             quit(parser, "Address was not valid; wrong network?: " + d)
-    txsigned = sign(u, priv, destaddrs, segwit = not options.nonsegwit)
+    success, utxo = utxostr_to_utxo(u)
+    if not success:
+        quit(parser, "Failed to load utxo from string: " + utxo)
+    txsigned = sign(utxo, priv, destaddrs, segwit = not options.nonsegwit)
     if not txsigned:
         log.info("Transaction signing operation failed, see debug messages for details.")
         return
-    log.debug("Got signed transaction:\n" + txsigned)
+    log.info("Got signed transaction:\n" + bintohex(txsigned.serialize()))
     log.debug("Deserialized:")
-    log.debug(pformat(btc.deserialize(txsigned)))
+    log.debug(pformat(str(txsigned)))
     if input('Would you like to push to the network? (y/n):')[0] != 'y':
         log.info("You chose not to broadcast the transaction, quitting.")
         return
-    jm_single().bc_interface.pushtx(txsigned)
+    jm_single().bc_interface.pushtx(txsigned.serialize())
 
 if __name__ == "__main__":
     main()

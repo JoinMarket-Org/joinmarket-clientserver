@@ -75,14 +75,11 @@ def final_checks(wallet_services, amount, txfee, tsb, msb, source_mixdepth=0):
     return True
 
 @pytest.mark.parametrize('wallet_cls, wallet_structures, mean_amt',
-        [([LegacyWallet, LegacyWallet],
-          [[4, 0, 0, 0, 0]] * 2, 1.0),
+        [ # note we have removed LegacyWallet test cases.
          ([SegwitLegacyWallet, SegwitLegacyWallet],
           [[1, 3, 0, 0, 0]] * 2, 2.0),
          ([SegwitWallet, SegwitWallet],
           [[1, 0, 0, 0, 0]] * 2, 4.0),
-         ([LegacyWallet, SegwitWallet],
-          [[4, 0, 0, 0, 0]] * 2, 1.0),
          ([SegwitLegacyWallet, SegwitWallet],
           [[1, 3, 0, 0, 0]] * 2, 2.0),
          ([SegwitWallet, SegwitLegacyWallet],

@@ -1,8 +1,9 @@
 
 import logging, sys
+import binascii
 from getpass import getpass
 from os import path, environ
-
+from functools import wraps
 # JoinMarket version
 JM_CORE_VERSION = '0.7.0dev'
 
@@ -80,6 +81,71 @@ handler = JoinMarketStreamHandler()
 handler.setFormatter(logFormatter)
 log.addHandler(handler)
 
+# hex/binary conversion routines used by dependent packages
+def hextobin(h):
+    """Convert a hex string to bytes"""
+    return binascii.unhexlify(h.encode('utf8'))
+
+
+def bintohex(b):
+    """Convert bytes to a hex string"""
+    return binascii.hexlify(b).decode('utf8')
+
+
+def lehextobin(h):
+    """Convert a little-endian hex string to bytes
+
+    Lets you write uint256's and uint160's the way the Satoshi codebase shows
+    them.
+    """
+    return binascii.unhexlify(h.encode('utf8'))[::-1]
+
+
+def bintolehex(b):
+    """Convert bytes to a little-endian hex string
+
+    Lets you show uint256's and uint160's the way the Satoshi codebase shows
+    them.
+    """
+    return binascii.hexlify(b[::-1]).decode('utf8')
+
+def utxostr_to_utxo(x):
+    if not isinstance(x, str):
+        return (False, "not a string")
+    y = x.split(":")
+    if len(y) != 2:
+        return (False,
+                "string is not two items separated by :")
+    try:
+        n = int(y[1])
+    except:
+        return (False, "utxo index was not an integer.")
+    if n < 0:
+        return (False, "utxo index must not be negative.")
+    if len(y[0]) != 64:
+        return (False, "txid is not 64 hex characters.")
+    try:
+        txid = binascii.unhexlify(y[0])
+    except:
+        return (False, "txid is not hex.")
+    return (True, (txid, n))
+
+def utxo_to_utxostr(u):
+    if not isinstance(u, tuple):
+        return (False, "utxo is not a tuple.")
+    if not len(u) == 2:
+        return (False, "utxo should have two elements.")
+    if not isinstance(u[0], bytes):
+        return (False, "txid should be bytes.")
+    if not isinstance(u[1], int):
+        return (False, "index should be int.")
+    if u[1] < 0:
+        return (False, "index must be a positive integer.")
+    if not len(u[0]) == 32:
+        return (False, "txid must be 32 bytes.")
+    txid = binascii.hexlify(u[0]).decode("ascii")
+    return (True, txid + ":" + str(u[1]))
+
 def jmprint(msg, level="info"):
     """ Provides the ability to print messages
     with consistent formatting, outside the logging system
@@ -150,3 +216,67 @@ def lookup_appdata_folder(appname):
 def print_jm_version(option, opt_str, value, parser):
     print("JoinMarket " + JM_CORE_VERSION)
     sys.exit(EXIT_SUCCESS)
+
+# helper functions for conversions of format between over-the-wire JM
+# and internal. See details in hexbin() docstring.
+
+def cv(x):
+    success, utxo = utxostr_to_utxo(x)
+    if success:
+        return utxo
+    else:
+        try:
+            b = hextobin(x)
+            return b
+        except:
+            return x
+
+def listchanger(l):
+    rlist = []
+    for x in l:
+        if isinstance(x, list):
+            rlist.append(listchanger(x))
+        elif isinstance(x, dict):
+            rlist.append(dictchanger(x))
+        else:
+            rlist.append(cv(x))
+    return rlist
+
+def dictchanger(d):
+    rdict = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            rdict[cv(k)] = dictchanger(v)
+        elif isinstance(v, list):
+            rdict[cv(k)] = listchanger(v)
+        else:
+            rdict[cv(k)] = cv(v)
+    return rdict
+
+def hexbin(func):
+    """ Decorator for functions of taker and maker receiving over
+    the wire AMP arguments that may be in hex or hextxid:n format
+    and converting all to binary.
+    Functions to which this decorator applies should have all arguments
+    be one of:
+    - hex string (keys), converted here to binary
+    - lists of keys or txid:n strings (converted here to binary, or
+      (txidbytes, n))
+    - lists of lists or dicts, to which these rules apply recursively.
+    - any other string (unchanged)
+    - dicts with keys as per above; values are altered recursively according
+      to the rules above.
+    """
+    @wraps(func)
+    def func_wrapper(inst, *args, **kwargs):
+        newargs = []
+        for arg in args:
+            if isinstance(arg, (list, tuple)):
+                newargs.append(listchanger(arg))
+            elif isinstance(arg, dict):
+                newargs.append(dictchanger(arg))
+            else:
+                newargs.append(cv(arg))
+        return func(inst, *newargs, **kwargs)
+
+    return func_wrapper

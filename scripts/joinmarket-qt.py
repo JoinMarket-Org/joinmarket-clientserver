@@ -75,7 +75,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
     get_default_max_relative_fee, RetryableStorageError, add_base_options, \
-    FidelityBondMixin
+    BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -1530,14 +1530,18 @@ class JMMainWindow(QMainWindow):
         done = False
 
         def privkeys_thread():
+            # To explain this (given setting was already done in
+            # load_program_config), see:
+            # https://github.com/Simplexum/python-bitcointx/blob/9f1fa67a5445f8c187ef31015a4008bc5a048eea/bitcointx/__init__.py#L242-L243
+            # note, we ignore the return value as we only want to apply
+            # the chainparams setting logic:
+            get_blockchain_interface_instance(jm_single().config)
             for addr in addresses:
                 time.sleep(0.1)
                 if done:
                     break
                 priv = self.wallet_service.get_key_from_addr(addr)
-                private_keys[addr] = btc.wif_compressed_privkey(
-                    priv,
-                    vbyte=get_p2pk_vbyte())
+                private_keys[addr] = BTCEngine.privkey_to_wif(priv)
                 self.computing_privkeys_signal.emit()
             self.show_privkeys_signal.emit()
 
@@ -1569,10 +1573,13 @@ class JMMainWindow(QMainWindow):
                                    privkeys_fn + '.json'), "wb") as f:
                 for addr, pk in private_keys.items():
                     #sanity check
-                    if not addr == btc.pubkey_to_p2sh_p2wpkh_address(
-                                    btc.privkey_to_pubkey(
-                                        btc.from_wif_privkey(pk, vbyte=get_p2pk_vbyte())
-                                    ), get_p2sh_vbyte()):
+                    rawpriv, keytype = BTCEngine.wif_to_privkey(pk)
+                    if not keytype == BTC_P2SH_P2WPKH:
+                        JMQtMessageBox(None, "Failed to create privkey export, "
+                                       "should be keytype p2sh-p2wpkh but is not.",
+                                       mbtype='crit')
+                        return
+                    if not addr == self.wallet_service._ENGINE.privkey_to_address(rawpriv):
                         JMQtMessageBox(None, "Failed to create privkey export -" +\
                                        " critical error in key parsing.",
                                        mbtype='crit')
@@ -2009,7 +2016,7 @@ if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().bc_interface.simulating = True
     jm_single().maker_timeout_sec = 15
     #trigger start with a fake tx
-    jm_single().bc_interface.pushtx("00"*20)
+    jm_single().bc_interface.pushtx(b"\x00"*20)
 
 #prepare for logging
 for dname in ['logs', 'wallets', 'cmtdata']:

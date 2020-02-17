@@ -39,7 +39,6 @@ def test_address_reuse_freezing(setup_walletservice):
     """
     context = {'cb_called': 0}
     def reuse_callback(utxostr):
-        print("Address reuse freezing callback on utxo: ", utxostr)
         context['cb_called'] += 1
     # we must fund after initial sync (for imports), hence
     # "populated" with no coins

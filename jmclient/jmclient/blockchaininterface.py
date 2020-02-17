@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 import binascii
 from twisted.internet import reactor, task
-
+from jmbase import bintohex, hextobin
 import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
@@ -297,9 +297,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         if not "hex" in rpcretval:
             log.info("Malformed gettransaction output")
             return None
-        #str cast for unicode
-        hexval = str(rpcretval["hex"])
-        return btc.deserialize(hexval)
+        return btc.CMutableTransaction.deserialize(
+            hextobin(rpcretval["hex"]))
 
     def list_transactions(self, num, skip=0):
         """ Return a list of the last `num` transactions seen
@@ -309,20 +308,22 @@ class BitcoinCoreInterface(BlockchainInterface):
         return self.rpc("listtransactions", ["*", num, skip, True])
 
     def get_transaction(self, txid):
-        """ Returns a serialized transaction for txid txid,
+        """ Argument txid is passed in binary.
+        Returns a serialized transaction for txid txid,
         in hex as returned by Bitcoin Core rpc, or None
         if no transaction can be retrieved. Works also for
         watch-only wallets.
         """
+        htxid = bintohex(txid)
         #changed syntax in 0.14.0; allow both syntaxes
         try:
-            res = self.rpc("gettransaction", [txid, True])
-        except:
+            res = self.rpc("gettransaction", [htxid, True])
+        except Exception as e:
             try:
-                res = self.rpc("gettransaction", [txid, 1])
+                res = self.rpc("gettransaction", [htxid, 1])
             except JsonRpcError as e:
                 #This should never happen (gettransaction is a wallet rpc).
-                log.warn("Failed gettransaction call; JsonRpcError")
+                log.warn("Failed gettransaction call; JsonRpcError: " + repr(e))
                 return None
             except Exception as e:
                 log.warn("Failed gettransaction call; unexpected error:")
@@ -333,7 +334,11 @@ class BitcoinCoreInterface(BlockchainInterface):
             return None
         return res
 
-    def pushtx(self, txhex):
+    def pushtx(self, txbin):
+        """ Given a binary serialized valid bitcoin transaction,
+        broadcasts it to the network.
+        """
+        txhex = bintohex(txbin)
         try:
             txid = self.rpc('sendrawtransaction', [txhex])
         except JsonRpcConnectionError as e:
@@ -345,9 +350,9 @@ class BitcoinCoreInterface(BlockchainInterface):
         return True
 
     def query_utxo_set(self, txout, includeconf=False, includeunconf=False):
-        """If txout is either (a) a single string in hex encoded txid:n form,
+        """If txout is either (a) a single utxo in (txidbin, n) form,
         or a list of the same, returns, as a list for each txout item,
-        the result of gettxout from the bitcoind rpc for those utxs;
+        the result of gettxout from the bitcoind rpc for those utxos;
         if any utxo is invalid, None is returned.
         includeconf: if this is True, the current number of confirmations
         of the prescribed utxo is included in the returned result dict.
@@ -360,16 +365,18 @@ class BitcoinCoreInterface(BlockchainInterface):
             txout = [txout]
         result = []
         for txo in txout:
-            if len(txo) < 66:
+            txo_hex = bintohex(txo[0])
+            if len(txo_hex) != 64:
+                log.warn("Invalid utxo format, ignoring: {}".format(txo))
                 result.append(None)
                 continue
             try:
-                txo_idx = int(txo[65:])
+                txo_idx = int(txo[1])
             except ValueError:
                 log.warn("Invalid utxo format, ignoring: {}".format(txo))
                 result.append(None)
                 continue
-            ret = self.rpc('gettxout', [txo[:64], txo_idx, includeunconf])
+            ret = self.rpc('gettxout', [txo_hex, txo_idx, includeunconf])
             if ret is None:
                 result.append(None)
             else:
@@ -380,7 +387,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 result_dict = {'value': int(Decimal(str(ret['value'])) *
                                             Decimal('1e8')),
                                'address': address,
-                               'script': ret['scriptPubKey']['hex']}
+                               'script': hextobin(ret['scriptPubKey']['hex'])}
                 if includeconf:
                     result_dict['confirms'] = int(ret['confirmations'])
                 result.append(result_dict)

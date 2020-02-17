@@ -1,7 +1,8 @@
 #! /usr/bin/env python
 '''test client-protocol interfacae.'''
 
-from jmbase import get_log
+from jmbase import get_log, bintohex, hextobin
+from jmbase.commands import *
 from jmclient import load_test_config, Taker,\
     JMClientProtocolFactory, jm_single, Maker, WalletService
 from jmclient.client_protocol import JMTakerClientProtocol
@@ -14,12 +15,10 @@ from twisted.protocols.amp import UnknownRemoteError
 from twisted.protocols import amp
 from twisted.trial import unittest
 from twisted.test import proto_helpers
-from jmbase.commands import *
 from taker_test_data import t_raw_signed_tx
 from commontest import default_max_cj_fee
 import json
 import jmbitcoin as bitcoin
-
 import twisted
 twisted.internet.base.DelayedCall.debug = True
 
@@ -97,7 +96,7 @@ class DummyMaker(Maker):
 
     def on_auth_received(self, nick, offer, commitment, cr, amount, kphex):
         # success, utxos, auth_pub, cj_addr, change_addr, btc_sig
-        return True, [], '', '', '', ''
+        return True, [], b"", '', '', ''
 
     def on_tx_received(self, nick, txhex, offerinfo):
         # success, sigs
@@ -227,8 +226,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         self.defaultCallbacks(d2)
         #To test, this must include a valid ecdsa sig
         fullmsg = "fullmsgforverify"
-        priv = "aa"*32 + "01"
-        pub = bitcoin.privkey_to_pubkey(priv)
+        priv = b"\xaa"*32 + b"\x01"
+        pub = bintohex(bitcoin.privkey_to_pubkey(priv))
         sig = bitcoin.ecdsa_sign(fullmsg, priv)
         d3 = self.callRemote(JMRequestMsgSigVerify,
                                         msg="msgforverify",
@@ -262,7 +261,7 @@ class JMTestServerProtocolFactory(protocol.ServerFactory):
 
 class DummyClientProtocolFactory(JMClientProtocolFactory):
     def buildProtocol(self, addr):
-        return JMTakerClientProtocol(self, self.client, nick_priv="aa"*32)
+        return JMTakerClientProtocol(self, self.client, nick_priv=b"\xaa"*32 + b"\x01")
 
 
 class TrialTestJMClientProto(unittest.TestCase):
@@ -364,8 +363,8 @@ class TestMakerClientProtocol(unittest.TestCase):
     @inlineCallbacks
     def test_JMRequestMsgSigVerify(self):
         fullmsg = 'fullmsgforverify'
-        priv = 'aa'*32 + '01'
-        pub = bitcoin.privkey_to_pubkey(priv)
+        priv = b"\xaa"*32 + b"\x01"
+        pub = bintohex(bitcoin.privkey_to_pubkey(priv))
         sig = bitcoin.ecdsa_sign(fullmsg, priv)
         yield self.init_client()
         yield self.callClient(

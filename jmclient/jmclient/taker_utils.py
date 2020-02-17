@@ -5,15 +5,13 @@ import os
 import sys
 import time
 import numbers
-
-from jmbase import get_log, jmprint
+from jmbase import get_log, jmprint, bintohex
 from .configure import jm_single, validate_address, is_burn_destination
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime, \
     FidelityBondMixin
-from jmbitcoin import deserialize, make_shuffled_tx, serialize, txhash,\
-    amount_to_str, mk_burn_script, bin_hash160
+from jmbitcoin import make_shuffled_tx, amount_to_str, mk_burn_script
 from jmbase.support import EXIT_SUCCESS
 log = get_log()
 
@@ -136,13 +134,20 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     log.info("Using a fee of : " + amount_to_str(fee_est) + ".")
     if amount != 0:
         log.info("Using a change value of: " + amount_to_str(changeval) + ".")
-    txsigned = sign_tx(wallet_service, make_shuffled_tx(
-        list(utxos.keys()), outs, False, 2, tx_locktime), utxos)
+    tx = make_shuffled_tx(list(utxos.keys()), outs, 2, compute_tx_locktime())
+        list(utxos.keys()), outs, 2, tx_locktime), utxos)
+    inscripts = {}
+    for i, txinp in enumerate(tx.vin):
+        u = (txinp.prevout.hash[::-1], txinp.prevout.n)
+        inscripts[i] = (utxos[u]["script"], utxos[u]["value"])
+    success, msg = wallet_service.sign_tx(tx, inscripts)
+    if not success:
+        log.error("Failed to sign transaction, quitting. Error msg: " + msg)
+        return
     log.info("Got signed transaction:\n")
-    log.info(pformat(txsigned))
-    tx = serialize(txsigned)
+    log.info(pformat(str(tx)))
     log.info("In serialized form (for copy-paste):")
-    log.info(tx)
+    log.info(bintohex(tx.serialize()))
     actual_amount = amount if amount != 0 else total_inputs_val - fee_est
     log.info("Sends: " + amount_to_str(actual_amount) + " to destination: " + destination)
     if not answeryes:
@@ -151,12 +156,12 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 log.info("You chose not to broadcast the transaction, quitting.")
                 return False
         else:
-            accepted = accept_callback(pformat(txsigned), destination, actual_amount,
+            accepted = accept_callback(pformat(str(tx)), destination, actual_amount,
                                        fee_est)
             if not accepted:
                 return False
-    jm_single().bc_interface.pushtx(tx)
-    txid = txhash(tx)
+    jm_single().bc_interface.pushtx(tx.serialize())
+    txid = bintohex(tx.GetTxid()[::-1])
     successmsg = "Transaction sent: " + txid
     cb = log.info if not info_callback else info_callback
     cb(successmsg)

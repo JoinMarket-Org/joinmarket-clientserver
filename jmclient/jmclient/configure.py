@@ -377,33 +377,18 @@ def get_p2pk_vbyte():
 
 def validate_address(addr):
     try:
-        assert len(addr) > 2
-        if addr[:2].lower() in ['bc', 'tb']:
-            # Regtest special case
-            if addr[:4] == 'bcrt':
-                if btc.bech32addr_decode('bcrt', addr)[1]:
-                    return True, 'address validated'
-                return False, 'Invalid bech32 regtest address'
-            #Else, enforce testnet/mainnet per config
-            if get_network() == "testnet":
-                hrpreq = 'tb'
-            else:
-                hrpreq = 'bc'
-            if btc.bech32addr_decode(hrpreq, addr)[1]:
-                return True, 'address validated'
-            return False, 'Invalid bech32 address'
-        #Not bech32; assume b58 from here
-        ver = btc.get_version_byte(addr)
-    except AssertionError:
-        return False, 'Checksum wrong. Typo in address?'
-    except Exception:
-        return False, "Invalid bitcoin address"
-    if ver != get_p2pk_vbyte() and ver != get_p2sh_vbyte():
-        return False, 'Wrong address version. Testnet/mainnet confused?'
-    if len(btc.b58check_to_bin(addr)) != 20:
-        return False, "Address has correct checksum but wrong length."
-    return True, 'address validated'
-
+        # automatically respects the network
+        # as set in btc.select_chain_params(...)
+        x = btc.CCoinAddress(addr)
+    except Exception as e:
+        return False, repr(e)
+    # additional check necessary because python-bitcointx
+    # does not check hash length on p2sh construction.
+    try:
+        x.to_scriptPubKey()
+    except Exception as e:
+        return False, repr(e)
+    return True, "address validated"
 
 _BURN_DESTINATION = "BURN"
 
@@ -565,6 +550,7 @@ def get_blockchain_interface_instance(_config):
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
     testnet = network == 'testnet'
+
     if source in ('bitcoin-rpc', 'regtest', 'bitcoin-rpc-no-history'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
@@ -574,10 +560,20 @@ def get_blockchain_interface_instance(_config):
             rpc_wallet_file)
         if source == 'bitcoin-rpc': #pragma: no cover
             bc_interface = BitcoinCoreInterface(rpc, network)
+            if testnet:
+                btc.select_chain_params("bitcoin/testnet")
+            else:
+                btc.select_chain_params("bitcoin")
         elif source == 'regtest':
             bc_interface = RegtestBitcoinCoreInterface(rpc)
+            btc.select_chain_params("bitcoin/regtest")
         elif source == "bitcoin-rpc-no-history":
             bc_interface = BitcoinCoreNoHistoryInterface(rpc, network)
+            if testnet or network == "regtest":
+                # TODO will not work for bech32 regtest addresses:
+                btc.select_chain_params("bitcoin/testnet")
+            else:
+                btc.select_chain_params("bitcoin")
         else:
             assert 0
     elif source == 'electrum':

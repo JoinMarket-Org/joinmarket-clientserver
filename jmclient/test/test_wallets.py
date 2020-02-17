@@ -8,7 +8,8 @@ from commontest import create_wallet_for_sync, make_sign_and_push
 import json
 
 import pytest
-from jmbase import get_log
+from jmbase import get_log, hextobin
+import jmbitcoin as btc
 from jmclient import (
     load_test_config, jm_single,
     estimate_tx_fee, BitcoinCoreInterface, Mnemonic)
@@ -43,9 +44,10 @@ def test_query_utxo_set(setup_wallets):
     txid = do_tx(wallet_service, 90000000)
     txid2 = do_tx(wallet_service, 20000000)
     print("Got txs: ", txid, txid2)
-    res1 = jm_single().bc_interface.query_utxo_set(txid + ":0", includeunconf=True)
+    res1 = jm_single().bc_interface.query_utxo_set(
+        (txid, 0), includeunconf=True)
     res2 = jm_single().bc_interface.query_utxo_set(
-        [txid + ":0", txid2 + ":1"],
+        [(txid, 0), (txid2, 1)],
         includeconf=True, includeunconf=True)
     assert len(res1) == 1
     assert len(res2) == 2
@@ -53,7 +55,7 @@ def test_query_utxo_set(setup_wallets):
     assert not 'confirms' in res1[0]
     assert 'confirms' in res2[0]
     assert 'confirms' in res2[1]
-    res3 = jm_single().bc_interface.query_utxo_set("ee" * 32 + ":25")
+    res3 = jm_single().bc_interface.query_utxo_set((b"\xee" * 32, 25))
     assert res3 == [None]
 
 
@@ -69,11 +71,11 @@ def test_wrong_network_bci(setup_wallets):
 def test_pushtx_errors(setup_wallets):
     """Ensure pushtx fails return False
     """
-    badtxhex = "aaaa"
-    assert not jm_single().bc_interface.pushtx(badtxhex)
+    badtx = b"\xaa\xaa"
+    assert not jm_single().bc_interface.pushtx(badtx)
     #Break the authenticated jsonrpc and try again
     jm_single().bc_interface.jsonRpc.port = 18333
-    assert not jm_single().bc_interface.pushtx(t_raw_signed_tx)
+    assert not jm_single().bc_interface.pushtx(hextobin(t_raw_signed_tx))
     #rebuild a valid jsonrpc inside the bci
     load_test_config()
 

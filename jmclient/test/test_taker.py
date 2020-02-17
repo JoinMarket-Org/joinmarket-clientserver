@@ -10,12 +10,20 @@ import pytest
 import json
 import struct
 from base64 import b64encode
+from jmbase import (utxostr_to_utxo, utxo_to_utxostr, hextobin,
+                    dictchanger, listchanger)
 from jmclient import load_test_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
-    get_network, WalletService, NO_ROUNDING
+    get_network, WalletService, NO_ROUNDING, BTC_P2PKH
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
     t_maker_response, t_chosen_orders, t_dummy_ext
 from commontest import default_max_cj_fee
+
+def convert_utxos(utxodict):
+    return_dict = {}
+    for uk, val in utxodict.items():
+        return_dict[utxostr_to_utxo(uk)[1]] = val
+    return return_dict
 
 class DummyWallet(SegwitLegacyWallet):
     def __init__(self):
@@ -36,32 +44,30 @@ class DummyWallet(SegwitLegacyWallet):
                 script = self._ENGINE.address_to_script(data['address'])
                 self._script_map[script] = path
 
-    def get_utxos_by_mixdepth(self, verbose=True, includeheight=False):
-        return t_utxos_by_mixdepth
-
-    def get_utxos_by_mixdepth_(self, verbose=True, include_disabled=False,
-                               includeheight=False):
-        utxos = self.get_utxos_by_mixdepth(verbose)
-
-        utxos_conv = {}
-        for md, utxo_data in utxos.items():
-            md_utxo = utxos_conv.setdefault(md, {})
-            for i, (utxo_hex, data) in enumerate(utxo_data.items()):
-                utxo, index = utxo_hex.split(':')
-                data_conv = {
-                    'script': self._ENGINE.address_to_script(data['address']),
-                    'path': (b'dummy', md, i),
-                    'value': data['value']
-                }
-                md_utxo[(binascii.unhexlify(utxo), int(index))] = data_conv
-
-        return utxos_conv
+    def get_utxos_by_mixdepth(self, include_disabled=False, verbose=True,
+                              includeheight=False):
+        # utxostr conversion routines because taker_test_data uses hex:
+        retval = {}
+        for mixdepth, v in t_utxos_by_mixdepth.items():
+            retval[mixdepth] = {}
+            for i, (utxo, val) in enumerate(v.items()):
+                retval[mixdepth][utxostr_to_utxo(utxo)[1]] = val
+                val["script"] = self._ENGINE.address_to_script(val['address'])
+                val["path"] = (b'dummy', mixdepth, i)
+        return retval
 
     def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
-                     maxheight=None):
+                     maxheight=None, includeaddr=False):
         if amount > self.get_balance_by_mixdepth()[mixdepth]:
             raise Exception("Not enough funds")
-        return t_utxos_by_mixdepth[mixdepth]
+        # comment as for get_utxos_by_mixdepth:
+        retval = {}
+        for k, v in t_utxos_by_mixdepth[mixdepth].items():
+            success, u = utxostr_to_utxo(k)
+            assert success
+            retval[u] = v
+            retval[u]["script"] = self.addr_to_script(retval[u]["address"])
+        return retval
 
     def get_internal_addr(self, mixing_depth, bci=None):
         if self.inject_addr_get_failure:
@@ -70,7 +76,7 @@ class DummyWallet(SegwitLegacyWallet):
 
     def sign_tx(self, tx, addrs):
         print("Pretending to sign on addresses: " + str(addrs))
-        return tx
+        return True, None
 
     def sign(self, tx, i, priv, amount):
         """Sign a transaction; the amount field
@@ -97,10 +103,10 @@ class DummyWallet(SegwitLegacyWallet):
         musGZczug3BAbqobmYherywCwL9REgNaNm
         """
         for p in privs:
-            addrs[p] = bitcoin.privkey_to_address(p, False, magicbyte=0x6f)
+            addrs[p] = BTC_P2PKH.privkey_to_address(p)
         for p, a in iteritems(addrs):
             if a == addr:
-                return binascii.hexlify(p).decode('ascii')
+                return p
         raise ValueError("No such keypair")
 
     def _is_my_bip32_path(self, path):
@@ -170,7 +176,7 @@ def test_make_commitment(setup_taker, failquery, external):
     amount = 110000000
     taker = get_taker([(mixdepth, amount, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", NO_ROUNDING)])
     taker.cjamount = amount
-    taker.input_utxos = t_utxos_by_mixdepth[0]
+    taker.input_utxos = convert_utxos(t_utxos_by_mixdepth[0])
     if failquery:
         jm_single().bc_interface.setQUSFail(True)
     taker.make_commitment()
@@ -194,12 +200,13 @@ def test_auth_pub_not_found(setup_taker):
     res = taker.initialize(orderbook)
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
     maker_response = copy.deepcopy(t_maker_response)
-    utxos = ["03243f4a659e278a1333f8308f6aaf32db4692ee7df0340202750fd6c09150f6:1",
-             "498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3:0",
-             "3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c:1"]
+    utxos = [utxostr_to_utxo(x)[1] for x in [
+        "03243f4a659e278a1333f8308f6aaf32db4692ee7df0340202750fd6c09150f6:1",
+        "498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3:0",
+        "3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c:1"]]
     fake_query_results = [{'value': 200000000,
                            'address': "mrKTGvFfYUEqk52qPKUroumZJcpjHLQ6pn",
-                           'script': '76a914767c956efe6092a775fea39a06d1cac9aae956d788ac',
+                           'script': hextobin('76a914767c956efe6092a775fea39a06d1cac9aae956d788ac'),
                            'utxo': utxos[i],
                            'confirms': 20} for i in range(3)]
     jm_single().bc_interface.insert_fake_query_results(fake_query_results)
@@ -223,8 +230,8 @@ def test_auth_pub_not_found(setup_taker):
         ([(0, 199850001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger sub dust change for taker
         #edge case triggers that do fail
-        ([(0, 199850000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
-         2, False, None, None), #trigger negative change        
+        ([(0, 199851000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
+         2, False, None, None), #trigger negative change
         ([(0, 199599800, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger sub dust change for maker
         ([(0, 20000000, 3, "INTERNAL", 0, NO_ROUNDING)], True, False,
@@ -232,7 +239,7 @@ def test_auth_pub_not_found(setup_taker):
         ([(0, 20000000, 3, "INTERNAL", 0, NO_ROUNDING)], False, False,
          7, False, None, None), #test not enough cp
         ([(0, 80000000, 3, "INTERNAL", 0, NO_ROUNDING)], False, False,
-         2, False, None, "30000"), #test failed commit       
+         2, False, None, "30000"), #test failed commit
         ([(0, 20000000, 3, "INTERNAL", 0, NO_ROUNDING)], False, False,
          2, True, None, None), #test unauthed response
         ([(0, 5000000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, True,
@@ -282,14 +289,15 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     if notauthed:
         #Doctor one of the maker response data fields
         maker_response["J659UPUSLLjHJpaB"][1] = "xx" #the auth pub
-    if schedule[0][1] == 199850000:
+    if schedule[0][1] == 199851000:
         #triggers negative change
-        #makers offer 3000 txfee; we estimate ~ 147*10 + 2*34 + 10=1548 bytes
-        #times 30k = 46440, so we pay 43440, plus maker fees = 3*0.0002*200000000
-        #roughly, gives required selected = amt + 163k, hence the above =
-        #2btc - 150k sats = 199850000 (tweaked because of aggressive coin selection)
+        #((109 + 4*64)*ins + 34 * outs + 8)/4. plug in 9 ins and 8 outs gives
+        #tx size estimate = 1101 bytes. Times 30 ~= 33030.
+        #makers offer 3000 txfee, so we pay 30030, plus maker fees = 3*0.0002*200000000
+        #roughly, gives required selected = amt + 120k+30k, hence the above =
+        #2btc - 140k sats = 199851000 (tweaked because of aggressive coin selection)
         #simulate the effect of a maker giving us a lot more utxos
-        taker.utxos["dummy_for_negative_change"] = ["a", "b", "c", "d", "e"]
+        taker.utxos["dummy_for_negative_change"] = [(struct.pack(b"B", a) *32, a+1) for a in range(7,12)]
         with pytest.raises(ValueError) as e_info:
             res = taker.receive_utxos(maker_response)
         return clean_up()
@@ -361,7 +369,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     [
         (7),
     ])
-def test_unconfirm_confirm(schedule_len):
+def test_unconfirm_confirm(setup_taker, schedule_len):
     """These functions are: do-nothing by default (unconfirm, for Taker),
     and merely update schedule index for confirm (useful for schedules/tumbles).
     This tests that the on_finished callback correctly reports the fromtx
@@ -369,20 +377,26 @@ def test_unconfirm_confirm(schedule_len):
     The exception to the above is that the txd passed in must match
     self.latest_tx, so we use a dummy value here for that.
     """
+    class DummyTx(object):
+        pass
     test_unconfirm_confirm.txflag = True
     def finished_for_confirms(res, fromtx=False, waittime=0, txdetails=None):
         assert res #confirmed should always send true
         test_unconfirm_confirm.txflag = fromtx
 
     taker = get_taker(schedule_len=schedule_len, on_finished=finished_for_confirms)
-    taker.latest_tx = {"outs": "blah"}
-    taker.unconfirm_callback({"ins": "foo", "outs": "blah"}, "b")
+    taker.latest_tx = DummyTx()
+    taker.latest_tx.vout = "blah"
+    fake_txd = DummyTx()
+    fake_txd.vin = "foo"
+    fake_txd.vout = "blah"
+    taker.unconfirm_callback(fake_txd, "b")
     for i in range(schedule_len-1):
         taker.schedule_index += 1
-        fromtx = taker.confirm_callback({"ins": "foo", "outs": "blah"}, "b", 1)
+        fromtx = taker.confirm_callback(fake_txd, "b", 1)
         assert test_unconfirm_confirm.txflag
     taker.schedule_index += 1
-    fromtx = taker.confirm_callback({"ins": "foo", "outs": "blah"}, "b", 1)
+    fromtx = taker.confirm_callback(fake_txd, "b", 1)
     assert not test_unconfirm_confirm.txflag
     
 @pytest.mark.parametrize(
@@ -396,16 +410,13 @@ def test_on_sig(setup_taker, dummyaddr, schedule):
     #then, create a signature with various inputs, pass in in b64 to on_sig.
     #in order for it to verify, the DummyBlockchainInterface will have to 
     #return the right values in query_utxo_set
-    
+    utxos = [(struct.pack(b"B", x) * 32, 1) for x in range(5)]
     #create 2 privkey + utxos that are to be ours
     privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,6)]]
-    utxos = [str(x)*64+":1" for x in range(5)]
-    fake_query_results = [{'value': 200000000,
-                           'utxo': utxos[x],
-                        'address': bitcoin.privkey_to_address(privs[x], False, magicbyte=0x6f),
-                        'script': bitcoin.mk_pubkey_script(
-                            bitcoin.privkey_to_address(privs[x], False, magicbyte=0x6f)),
-                        'confirms': 20} for x in range(5)]
+    scripts = [BTC_P2PKH.privkey_to_script(privs[x]) for x in range(5)]
+    addrs = [BTC_P2PKH.privkey_to_address(privs[x]) for x in range(5)]
+    fake_query_results = [{'value': 200000000, 'utxo': utxos[x], 'address': addrs[x],
+                           'script': scripts[x], 'confirms': 20} for x in range(5)]
 
     dbci = DummyBlockchainInterface()
     dbci.insert_fake_query_results(fake_query_results)
@@ -414,47 +425,52 @@ def test_on_sig(setup_taker, dummyaddr, schedule):
     outs = [{'value': 100000000, 'address': dummyaddr},
             {'value': 899990000, 'address': dummyaddr}]
     tx = bitcoin.mktx(utxos, outs)
-    
-    de_tx = bitcoin.deserialize(tx)
+    # since tx will be updated as it is signed, unlike in real life
+    # (where maker signing operation doesn't happen here), we'll create
+    # a second copy without the signatures:
+    tx2 = bitcoin.mktx(utxos, outs)
+
     #prepare the Taker with the right intermediate data
     taker = get_taker(schedule=schedule)
     taker.nonrespondants=["cp1", "cp2", "cp3"]
-    taker.latest_tx = de_tx
+    taker.latest_tx = tx
     #my inputs are the first 2 utxos
     taker.input_utxos = {utxos[0]:
-                        {'address': bitcoin.privkey_to_address(privs[0], False, magicbyte=0x6f),
-                         'script': bitcoin.mk_pubkey_script(
-                            bitcoin.privkey_to_address(privs[0], False, magicbyte=0x6f)),
+                        {'address': addrs[0],
+                         'script': scripts[0],
                          'value': 200000000},
                         utxos[1]:
-                        {'address': bitcoin.privkey_to_address(privs[1], False, magicbyte=0x6f),
-                         'script': bitcoin.mk_pubkey_script(
-                            bitcoin.privkey_to_address(privs[1], False, magicbyte=0x6f)),
+                        {'address': addrs[1],
+                         'script': scripts[1],
                          'value': 200000000}}    
     taker.utxos = {None: utxos[:2], "cp1": [utxos[2]], "cp2": [utxos[3]], "cp3":[utxos[4]]}
     for i in range(2):
         # placeholders required for my inputs
-        taker.latest_tx['ins'][i]['script'] = 'deadbeef' 
+        taker.latest_tx.vin[i].scriptSig = bitcoin.CScript(hextobin('deadbeef'))
+        tx2.vin[i].scriptSig = bitcoin.CScript(hextobin('deadbeef'))
     #to prepare for my signing, need to mark cjaddr:
     taker.my_cj_addr = dummyaddr
     #make signatures for the last 3 fake utxos, considered as "not ours":
-    tx3 = bitcoin.sign(tx, 2, privs[2])
-    sig3 = b64encode(binascii.unhexlify(bitcoin.deserialize(tx3)['ins'][2]['script']))
+    sig, msg = bitcoin.sign(tx2, 2, privs[2])
+    assert sig, "Failed to sign: " + msg
+    sig3 = b64encode(tx2.vin[2].scriptSig)
     taker.on_sig("cp1", sig3)
     #try sending the same sig again; should be ignored
     taker.on_sig("cp1", sig3)
-    tx4 = bitcoin.sign(tx, 3, privs[3])
-    sig4 = b64encode(binascii.unhexlify(bitcoin.deserialize(tx4)['ins'][3]['script']))
+    sig, msg = bitcoin.sign(tx2, 3, privs[3])
+    assert sig, "Failed to sign: " + msg
+    sig4 = b64encode(tx2.vin[3].scriptSig)
     #try sending junk instead of cp2's correct sig
-    taker.on_sig("cp2", str("junk"))
+    assert not taker.on_sig("cp2", str("junk")), "incorrectly accepted junk signature"
     taker.on_sig("cp2", sig4)
-    tx5 = bitcoin.sign(tx, 4, privs[4])
+    sig, msg = bitcoin.sign(tx2, 4, privs[4])
+    assert sig, "Failed to sign: " + msg
     #Before completing with the final signature, which will trigger our own
     #signing, try with an injected failure of query utxo set, which should
     #prevent this signature being accepted.
     dbci.setQUSFail(True)
-    sig5 = b64encode(binascii.unhexlify(bitcoin.deserialize(tx5)['ins'][4]['script']))
-    taker.on_sig("cp3", sig5)
+    sig5 = b64encode(tx2.vin[4].scriptSig)
+    assert not taker.on_sig("cp3", sig5), "incorrectly accepted sig5"
     #allow it to succeed, and try again
     dbci.setQUSFail(False)
     #this should succeed and trigger the we-sign code
@@ -465,7 +481,7 @@ def test_on_sig(setup_taker, dummyaddr, schedule):
     [
         ([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw")]),
     ])
-def test_auth_counterparty(schedule):
+def test_auth_counterparty(setup_taker, schedule):
     taker = get_taker(schedule=schedule)
     first_maker_response = t_maker_response["J659UPUSLLjHJpaB"]
     utxo, auth_pub, cjaddr, changeaddr, sig, maker_pub = first_maker_response

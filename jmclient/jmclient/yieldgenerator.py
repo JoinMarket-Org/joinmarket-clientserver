@@ -132,7 +132,8 @@ class YieldGeneratorBasic(YieldGenerator):
 
         change_addr = self.wallet_service.get_internal_addr(mixdepth)
 
-        utxos = self.wallet_service.select_utxos(mixdepth, total_amount, minconfs=1)
+        utxos = self.wallet_service.select_utxos(mixdepth, total_amount,
+                                        minconfs=1, includeaddr=True)
         my_total_in = sum([va['value'] for va in utxos.values()])
         real_cjfee = calc_cj_fee(offer["ordertype"], offer["cjfee"], amount)
         change_value = my_total_in - amount - offer["txfee"] + real_cjfee
@@ -141,7 +142,8 @@ class YieldGeneratorBasic(YieldGenerator):
                        'finding new utxos').format(change_value))
             try:
                 utxos = self.wallet_service.select_utxos(mixdepth,
-                    total_amount + jm_single().DUST_THRESHOLD, minconfs=1)
+                    total_amount + jm_single().DUST_THRESHOLD,
+                    minconfs=1, includeaddr=True)
             except Exception:
                 jlog.info('dont have the required UTXOs to make a '
                           'output above the dust threshold, quitting')

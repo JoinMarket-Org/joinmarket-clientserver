@@ -6,11 +6,13 @@ import binascii
 import random
 from decimal import Decimal
 
-from jmbase import get_log
+from jmbase import (get_log, hextobin, utxostr_to_utxo,
+                    utxo_to_utxostr, listchanger, dictchanger)
+
 from jmclient import (
     jm_single, open_test_wallet_maybe, estimate_tx_fee,
     BlockchainInterface, get_p2sh_vbyte, BIP32Wallet,
-    SegwitLegacyWallet, WalletService)
+    SegwitLegacyWallet, WalletService, BTC_P2SH_P2WPKH)
 from jmbase.support import chunks
 import jmbitcoin as btc
 
@@ -45,9 +47,11 @@ class DummyBlockchainInterface(BlockchainInterface):
         pass
     def is_address_imported(self, addr):
         pass
-    
+
+    def get_current_block_height(self):
+        return 10**6
+
     def pushtx(self, txhex):
-        print("pushing: " + str(txhex))
         return True
     
     def insert_fake_query_results(self, fqr):
@@ -56,7 +60,7 @@ class DummyBlockchainInterface(BlockchainInterface):
     def setQUSFail(self, state):
         self.qusfail = state
     
-    def query_utxo_set(self, txouts,includeconf=False):
+    def query_utxo_set(self, txouts, includeconf=False):
         if self.qusfail:
             #simulate failure to find the utxo
             return [None]
@@ -72,12 +76,14 @@ class DummyBlockchainInterface(BlockchainInterface):
         known_outs = {"03243f4a659e278a1333f8308f6aaf32db4692ee7df0340202750fd6c09150f6:1": "03a2d1cbe977b1feaf8d0d5cc28c686859563d1520b28018be0c2661cf1ebe4857",
                       "498faa8b22534f3b443c6b0ce202f31e12f21668b4f0c7a005146808f250d4c3:0": "02b4b749d54e96b04066b0803e372a43d6ffa16e75a001ae0ed4b235674ab286be",
                       "3f3ea820d706e08ad8dc1d2c392c98facb1b067ae4c671043ae9461057bd2a3c:1": "023bcbafb4f68455e0d1d117c178b0e82a84e66414f0987453d78da034b299c3a9"}
+        known_outs = dictchanger(known_outs)
         #our wallet utxos, faked, for podle tests: utxos are doctored (leading 'f'),
         #and the lists are (amt, age)
         wallet_outs = {'f34b635ed8891f16c4ec5b8236ae86164783903e8e8bb47fa9ef2ca31f3c2d7a:0': [10000000, 2],
                        'f780d6e5e381bff01a3519997bb4fcba002493103a198fde334fd264f9835d75:1': [20000000, 6],
                        'fe574db96a4d43a99786b3ea653cda9e4388f377848f489332577e018380cff1:0': [50000000, 3],
                        'fd9711a2ef340750db21efb761f5f7d665d94b312332dc354e252c77e9c48349:0': [50000000, 6]}
+        wallet_outs = dictchanger(wallet_outs)
         
         if includeconf and set(txouts).issubset(set(wallet_outs)):
             #includeconf used as a trigger for a podle check;
@@ -88,16 +94,16 @@ class DummyBlockchainInterface(BlockchainInterface):
                                 'confirms': wallet_outs[to][1]})
             return results
         if txouts[0] in known_outs:
-            addr = btc.pubkey_to_p2sh_p2wpkh_address(
-                        known_outs[txouts[0]], get_p2sh_vbyte())
+            scr = BTC_P2SH_P2WPKH.pubkey_to_script(known_outs[txouts[0]])
+            addr = btc.CCoinAddress.from_scriptPubKey(scr)
             return [{'value': 200000000,
                      'address': addr,
-                     'script': btc.address_to_script(addr),
+                     'script': scr,
                      'confirms': 20}]
         for t in txouts:
             result_dict = {'value': 10000000000,
                            'address': "mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
-                           'script': '76a91479b000887626b294a914501a4cd226b58b23598388ac'}
+                           'script': hextobin('76a91479b000887626b294a914501a4cd226b58b23598388ac')}
             if includeconf:
                 result_dict['confirms'] = 20
             result.append(result_dict)        
@@ -110,17 +116,9 @@ class DummyBlockchainInterface(BlockchainInterface):
 def create_wallet_for_sync(wallet_structure, a, **kwargs):
     #We need a distinct seed for each run so as not to step over each other;
     #make it through a deterministic hash
-    seedh = btc.sha256("".join([str(x) for x in a]))[:32]
+    seedh = btc.b2x(btc.Hash("".join([str(x) for x in a]).encode("utf-8")))[:32]
     return make_wallets(
         1, [wallet_structure], fixed_seeds=[seedh], **kwargs)[0]['wallet']
-
-
-def binarize_tx(tx):
-    for o in tx['outs']:
-        o['script'] = binascii.unhexlify(o['script'])
-    for i in tx['ins']:
-        i['outpoint']['hash'] = binascii.unhexlify(i['outpoint']['hash'])
-
 
 def make_sign_and_push(ins_full,
                        wallet_service,
@@ -130,7 +128,12 @@ def make_sign_and_push(ins_full,
                        hashcode=btc.SIGHASH_ALL,
                        estimate_fee = False):
     """Utility function for easily building transactions
-    from wallets
+    from wallets.
+    `ins_full` should be a list of dicts in format returned
+    by wallet.select_utxos:
+    {(txid, index): {"script":..,"value":..,"path":..}}
+    ... although the path is not used.
+    The "script" and "value" data is used to allow signing.
     """
     assert isinstance(wallet_service, WalletService)
     total = sum(x['value'] for x in ins_full.values())
@@ -143,22 +146,21 @@ def make_sign_and_push(ins_full,
              'address': output_addr}, {'value': total - amount - fee_est,
                                        'address': change_addr}]
 
-    de_tx = btc.deserialize(btc.mktx(ins, outs))
+    tx = btc.mktx(ins, outs)
     scripts = {}
-    for index, ins in enumerate(de_tx['ins']):
-        utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-        script = wallet_service.addr_to_script(ins_full[utxo]['address'])
-        scripts[index] = (script, ins_full[utxo]['value'])
-    binarize_tx(de_tx)
-    de_tx = wallet_service.sign_tx(de_tx, scripts, hashcode=hashcode)
+    for i, j in enumerate(ins):
+        scripts[i] = (ins_full[j]["script"], ins_full[j]["value"])
+
+    success, msg = wallet_service.sign_tx(tx, scripts, hashcode=hashcode)
+    if not success:
+        return False
     #pushtx returns False on any error
-    push_succeed = jm_single().bc_interface.pushtx(btc.serialize(de_tx))
+    push_succeed = jm_single().bc_interface.pushtx(tx.serialize())
     if push_succeed:
-        txid = btc.txhash(btc.serialize(de_tx))
         # in normal operation this happens automatically
         # but in some tests there is no monitoring loop:
-        wallet_service.process_new_tx(de_tx, txid)
-        return txid
+        wallet_service.process_new_tx(tx)
+        return tx.GetTxid()[::-1]
     else:
         return False
 

@@ -27,7 +27,7 @@ from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
-from jmbase import JM_WALLET_NAME_PREFIX
+from jmbase import JM_WALLET_NAME_PREFIX, bintohex
 
 
 """
@@ -198,7 +198,8 @@ class UTXOManager(object):
         assert isinstance(index, numbers.Integral)
         assert isinstance(mixdepth, numbers.Integral)
 
-        return self._utxo[mixdepth].pop((txid, index))
+        x = self._utxo[mixdepth].pop((txid, index))
+        return x
 
     def add_utxo(self, txid, index, path, value, mixdepth, height=None):
         # Assumed: that we add a utxo only if we want it enabled,
@@ -433,19 +434,22 @@ class BaseWallet(object):
         Add signatures to transaction for inputs referenced by scripts.
 
         args:
-            tx: transaction dict
+            tx: CMutableTransaction object
             scripts: {input_index: (output_script, amount)}
             kwargs: additional arguments for engine.sign_transaction
         returns:
-            input transaction dict with added signatures, hex-encoded.
+            True, None if success.
+            False, msg if signing failed, with error msg.
         """
         for index, (script, amount) in scripts.items():
             assert amount > 0
             path = self.script_to_path(script)
             privkey, engine = self._get_key_from_path(path)
-            tx = btc.deserialize(engine.sign_transaction(tx, index, privkey,
-                                                         amount, **kwargs))
-        return tx
+            sig, msg = engine.sign_transaction(tx, index, privkey,
+                                                         amount, **kwargs)
+            if not sig:
+                return False, msg
+        return True, None
 
     @deprecated
     def get_key_from_addr(self, addr):
@@ -455,7 +459,7 @@ class BaseWallet(object):
         script = self._ENGINE.address_to_script(addr)
         path = self.script_to_path(script)
         privkey = self._get_key_from_path(path)[0]
-        return hexlify(privkey).decode('ascii')
+        return privkey
 
     def _get_addr_int_ext(self, address_type, mixdepth):
         if address_type == self.ADDRESS_TYPE_EXTERNAL:
@@ -578,32 +582,19 @@ class BaseWallet(object):
         """
         self.save()
 
-    @deprecated
     def remove_old_utxos(self, tx):
-        tx = deepcopy(tx)
-        for inp in tx['ins']:
-            inp['outpoint']['hash'] = unhexlify(inp['outpoint']['hash'])
-
-        ret = self.remove_old_utxos_(tx)
-
-        removed_utxos = {}
-        for (txid, index), val in ret.items():
-            val['address'] = self.get_address_from_path(val['path'])
-            removed_utxos[hexlify(txid).decode('ascii') + ':' + str(index)] = val
-        return removed_utxos
-
-    def remove_old_utxos_(self, tx):
         """
         Remove all own inputs of tx from internal utxo list.
 
         args:
-            tx: transaction dict
+            tx: CMutableTransaction
         returns:
             {(txid, index): {'script': bytes, 'path': str, 'value': int} for all removed utxos
         """
         removed_utxos = {}
-        for inp in tx['ins']:
-            txid, index = inp['outpoint']['hash'], inp['outpoint']['index']
+        for inp in tx.vin:
+            txid = inp.prevout.hash[::-1]
+            index = inp.prevout.n
             md = self._utxos.have_utxo(txid, index)
             if md is False:
                 continue
@@ -614,46 +605,32 @@ class BaseWallet(object):
                                             'value': value}
         return removed_utxos
 
-    @deprecated
-    def add_new_utxos(self, tx, txid, height=None):
-        tx = deepcopy(tx)
-        for out in tx['outs']:
-            out['script'] = unhexlify(out['script'])
-
-        ret = self.add_new_utxos_(tx, unhexlify(txid), height=height)
-
-        added_utxos = {}
-        for (txid_bin, index), val in ret.items():
-            addr = self.get_address_from_path(val['path'])
-            val['address'] = addr
-            added_utxos[txid + ':' + str(index)] = val
-        return added_utxos
-
-    def add_new_utxos_(self, tx, txid, height=None):
+    def add_new_utxos(self, tx, height=None):
         """
         Add all outputs of tx for this wallet to internal utxo list.
-
+        They are also returned in standard dict form.
         args:
-            tx: transaction dict
+            tx: CMutableTransaction
             height: blockheight in which tx was included, or None
                     if unconfirmed.
         returns:
-            {(txid, index): {'script': bytes, 'path': tuple, 'value': int}
+            {(txid, index): {'script': bytes, 'path': tuple, 'value': int,
+            'address': str}
                 for all added utxos
         """
-        assert isinstance(txid, bytes) and len(txid) == self._utxos.TXID_LEN
         added_utxos = {}
-        for index, outs in enumerate(tx['outs']):
+        txid = tx.GetTxid()[::-1]
+        for index, outs in enumerate(tx.vout):
+            spk = outs.scriptPubKey
+            val = outs.nValue
             try:
-                self.add_utxo(txid, index, outs['script'], outs['value'],
-                              height=height)
+                self.add_utxo(txid, index, spk, val, height=height)
             except WalletError:
                 continue
 
-            path = self.script_to_path(outs['script'])
-            added_utxos[(txid, index)] = {'script': outs['script'],
-                                          'path': path,
-                                          'value': outs['value']}
+            path = self.script_to_path(spk)
+            added_utxos[(txid, index)] = {'script': spk, 'path': path, 'value': val,
+                'address': self._ENGINE.script_to_address(spk)}
         return added_utxos
 
     def add_utxo(self, txid, index, script, value, height=None):
@@ -669,9 +646,10 @@ class BaseWallet(object):
         mixdepth = self._get_mixdepth_from_path(path)
         self._utxos.add_utxo(txid, index, path, value, mixdepth, height=height)
 
-    def process_new_tx(self, txd, txid, height=None):
-        """ Given a newly seen transaction, deserialized as txd and
-        with transaction id, process its inputs and outputs and update
+    def process_new_tx(self, txd, height=None):
+        """ Given a newly seen transaction, deserialized as
+        CMutableTransaction txd,
+        process its inputs and outputs and update
         the utxo contents of this wallet accordingly.
         NOTE: this should correctly handle transactions that are not
         actually related to the wallet; it will not add (or remove,
@@ -679,30 +657,15 @@ class BaseWallet(object):
         functions check this condition.
         """
         removed_utxos = self.remove_old_utxos(txd)
-        added_utxos = self.add_new_utxos(txd, txid, height=height)
+        added_utxos = self.add_new_utxos(txd, height=height)
         return (removed_utxos, added_utxos)
 
-    @deprecated
-    def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
-                     maxheight=None):
-        utxo_filter_new = None
-        if utxo_filter:
-            utxo_filter_new = [(unhexlify(utxo[:64]), int(utxo[65:]))
-                               for utxo in utxo_filter]
-        ret = self.select_utxos_(mixdepth, amount, utxo_filter_new, select_fn,
-                                 maxheight=maxheight)
-        ret_conv = {}
-        for utxo, data in ret.items():
-            addr = self.get_address_from_path(data['path'])
-            utxo_txt = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
-            ret_conv[utxo_txt] = {'address': addr, 'value': data['value']}
-        return ret_conv
-
-    def select_utxos_(self, mixdepth, amount, utxo_filter=None,
-                      select_fn=None, maxheight=None):
+    def select_utxos(self, mixdepth, amount, utxo_filter=None,
+                      select_fn=None, maxheight=None, includeaddr=False):
         """
         Select a subset of available UTXOS for a given mixdepth whose value is
-        greater or equal to amount.
+        greater or equal to amount. If `includeaddr` is True, adds an `address`
+        key to the returned dict.
 
         args:
             mixdepth: int, mixdepth to select utxos from, must be smaller or
@@ -713,6 +676,7 @@ class BaseWallet(object):
 
         returns:
             {(txid, index): {'script': bytes, 'path': tuple, 'value': int}}
+
         """
         assert isinstance(mixdepth, numbers.Integral)
         assert isinstance(amount, numbers.Integral)
@@ -728,7 +692,8 @@ class BaseWallet(object):
 
         for data in ret.values():
             data['script'] = self.get_script_from_path(data['path'])
-
+            if includeaddr:
+                data["address"] = self.get_address_from_path(data["path"])
         return ret
 
     def disable_utxo(self, txid, index, disable=True):
@@ -758,21 +723,7 @@ class BaseWallet(object):
                                             include_disabled=include_disabled,
                                             maxheight=maxheight)
 
-    @deprecated
-    def get_utxos_by_mixdepth(self, verbose=True, includeheight=False):
-        # TODO: verbose
-        ret = self.get_utxos_by_mixdepth_(includeheight=includeheight)
-
-        utxos_conv = collections.defaultdict(dict)
-        for md, utxos in ret.items():
-            for utxo, data in utxos.items():
-                utxo_str = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
-                addr = self.get_address_from_path(data['path'])
-                data['address'] = addr
-                utxos_conv[md][utxo_str] = data
-        return utxos_conv
-
-    def get_utxos_by_mixdepth_(self, include_disabled=False, includeheight=False):
+    def get_utxos_by_mixdepth(self, include_disabled=False, includeheight=False):
         """
         Get all UTXOs for active mixdepths.
 
@@ -791,9 +742,11 @@ class BaseWallet(object):
                 if not include_disabled and self._utxos.is_disabled(*utxo):
                     continue
                 script = self.get_script_from_path(path)
+                addr = self.get_address_from_path(path)
                 script_utxos[md][utxo] = {'script': script,
                                           'path': path,
-                                          'value': value}
+                                          'value': value,
+                                          'address': addr}
                 if includeheight:
                     script_utxos[md][utxo]['height'] = height
         return script_utxos
@@ -1101,7 +1054,6 @@ class ImportWalletMixin(object):
             raise WalletError("Unsupported key type for imported keys.")
 
         privkey, key_type_wif = self._ENGINE.wif_to_privkey(wif)
-
         # FIXME: there is no established standard for encoding key type in wif
         #if key_type is not None and key_type_wif is not None and \
         #        key_type != key_type_wif:

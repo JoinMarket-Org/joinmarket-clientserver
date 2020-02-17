@@ -29,8 +29,7 @@ def construct_tx_offerlist(cjaddr, changeaddr, maker_utxos, maker_utxos_value,
         'txfee': 0
     }
 
-    utxos = { utxo['outpoint']['hash'] + ':' + str(utxo['outpoint']['index']):
-                {'utxo': utxo, 'value': maker_utxos_value} for utxo in maker_utxos }
+    utxos = { utxo: {'utxo': utxo, 'value': maker_utxos_value} for utxo in maker_utxos }
 
     offerlist = {
         'utxos': utxos,
@@ -46,59 +45,56 @@ def construct_tx_offerlist(cjaddr, changeaddr, maker_utxos, maker_utxos_value,
 def create_tx_inputs(count=1):
     inp = []
     for i in range(count):
-        inp.append({'outpoint': {'hash': '0'*64, 'index': i},
-                    'script': '',
-                    'sequence': 4294967295})
+        inp.append((b"\x00"*32, i))
     return inp
 
 
-def create_tx_outputs(*scripts_amount):
+def create_tx_outputs(*addrs_amount):
     outp = []
-    for script, amount in scripts_amount:
-        outp.append({'script': script, 'value': amount})
+    for addr, amount in addrs_amount:
+        outp.append({'address': addr, 'value': amount})
     return outp
 
 
 def address_p2pkh_generator():
-    return get_address_generator(b'\x76\xa9\x14', b'\x88\xac', get_p2pk_vbyte())
+    return get_address_generator(b'\x76\xa9\x14', b'\x88\xac')
 
 
 def address_p2sh_generator():
-    return get_address_generator(b'\xa9\x14', b'\x87', get_p2sh_vbyte())
+    return get_address_generator(b'\xa9\x14', b'\x87', p2sh=True)
 
 
-def get_address_generator(script_pre, script_post, vbyte):
+def get_address_generator(script_pre, script_post, p2sh=False):
     counter = 0
     while True:
         script = script_pre + struct.pack(b'=LQQ', 0, 0, counter) + script_post
-        addr = btc.script_to_address(script, vbyte)
-        yield addr, binascii.hexlify(script).decode('ascii')
+        if p2sh:
+            addr = btc.CCoinAddress.from_scriptPubKey(
+                btc.CScript(script).to_p2sh_scriptPubKey())
+        else:
+            addr = btc.CCoinAddress.from_scriptPubKey(btc.CScript(script))
+        yield str(addr), binascii.hexlify(script).decode('ascii')
         counter += 1
 
 
-def create_tx_and_offerlist(cj_addr, cj_change_addr, other_output_scripts,
-                            cj_script=None, cj_change_script=None, offertype='swreloffer'):
-    assert len(other_output_scripts) % 2 == 0, "bug in test"
+def create_tx_and_offerlist(cj_addr, cj_change_addr, other_output_addrs,
+                            offertype='swreloffer'):
+    assert len(other_output_addrs) % 2 == 0, "bug in test"
 
     cj_value = 100000000
     maker_total_value = cj_value*3
 
-    if cj_script is None:
-        cj_script = btc.address_to_script(cj_addr)
-    if cj_change_script is None:
-        cj_change_script = btc.address_to_script(cj_change_addr)
-
     inputs = create_tx_inputs(3)
     outputs = create_tx_outputs(
-        (cj_script, cj_value),
-        (cj_change_script, maker_total_value - cj_value),  # cjfee=0, txfee=0
-        *((script, cj_value + (i%2)*(50000000+i)) \
-            for i, script in enumerate(other_output_scripts))
+        (cj_addr, cj_value),
+        (cj_change_addr, maker_total_value - cj_value),  # cjfee=0, txfee=0
+        *((addr, cj_value + (i%2)*(50000000+i)) \
+            for i, addr in enumerate(other_output_addrs))
     )
 
     maker_utxos = [inputs[0]]
 
-    tx = btc.deserialize(btc.mktx(inputs, outputs))
+    tx = btc.mktx(inputs, outputs)
     offerlist = construct_tx_offerlist(cj_addr, cj_change_addr, maker_utxos,
                                        maker_total_value, cj_value, offertype)
 
@@ -119,21 +115,20 @@ def test_verify_unsigned_tx_sw_valid(setup_env_nodeps):
 
     # test standard cj
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2sh_gen)[1] for s in range(4)], cj_script, cj_change_script)
+        [next(p2sh_gen)[0] for s in range(4)])
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "standard sw cj"
 
     # test cj with mixed outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        list(chain((next(p2sh_gen)[1] for s in range(3)),
-                   (next(p2pkh_gen)[1] for s in range(1)))),
-        cj_script, cj_change_script)
+        list(chain((next(p2sh_gen)[0] for s in range(3)),
+                   (next(p2pkh_gen)[0] for s in range(1)))))
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "sw cj with p2pkh output"
 
     # test cj with only p2pkh outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2pkh_gen)[1] for s in range(4)], cj_script, cj_change_script)
+        [next(p2pkh_gen)[0] for s in range(4)])
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "sw cj with only p2pkh outputs"
 
@@ -152,21 +147,20 @@ def test_verify_unsigned_tx_nonsw_valid(setup_env_nodeps):
 
     # test standard cj
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2pkh_gen)[1] for s in range(4)], cj_script, cj_change_script, 'reloffer')
+        [next(p2pkh_gen)[0] for s in range(4)], offertype='reloffer')
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "standard nonsw cj"
 
     # test cj with mixed outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        list(chain((next(p2sh_gen)[1] for s in range(1)),
-                   (next(p2pkh_gen)[1] for s in range(3)))),
-        cj_script, cj_change_script, 'reloffer')
+        list(chain((next(p2sh_gen)[0] for s in range(1)),
+                   (next(p2pkh_gen)[0] for s in range(3)))), offertype='reloffer')
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "nonsw cj with p2sh output"
 
     # test cj with only p2sh outputs
     tx, offerlist = create_tx_and_offerlist(cj_addr, changeaddr,
-        [next(p2sh_gen)[1] for s in range(4)], cj_script, cj_change_script, 'reloffer')
+        [next(p2sh_gen)[0] for s in range(4)], offertype='reloffer')
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "nonsw cj with only p2sh outputs"
 
@@ -175,4 +169,5 @@ def test_verify_unsigned_tx_nonsw_valid(setup_env_nodeps):
 def setup_env_nodeps(monkeypatch):
     monkeypatch.setattr(jmclient.configure, 'get_blockchain_interface_instance',
                         lambda x: DummyBlockchainInterface())
+    btc.select_chain_params("bitcoin/regtest")
     load_test_config()

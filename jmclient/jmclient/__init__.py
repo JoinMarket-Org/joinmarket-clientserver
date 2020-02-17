@@ -18,7 +18,8 @@ from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportW
                      UTXOManager, WALLET_IMPLEMENTATIONS, compute_tx_locktime)
 from .storage import (Argon2Hash, Storage, StorageError, RetryableStorageError,
                       StoragePasswordError, VolatileStorage)
-from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
+from .cryptoengine import (BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError,
+                           TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH)
 from .configure import (load_test_config,
     load_program_config, get_p2pk_vbyte, jm_single, get_network, update_persist_config,
     validate_address, is_burn_destination, get_irc_mchannels,

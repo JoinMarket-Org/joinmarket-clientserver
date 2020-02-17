@@ -9,16 +9,17 @@ try:
 except ImportError:
     pass
 from jmbase import commands
-
+import binascii
 import json
 import hashlib
 import os
 import sys
-from jmbase import get_log
+from jmbase import (get_log, EXIT_FAILURE, hextobin, bintohex,
+                    utxo_to_utxostr, dictchanger)
 from jmclient import (jm_single, get_irc_mchannels,
                       RegtestBitcoinCoreInterface)
 import jmbitcoin as btc
-from jmbase.support import EXIT_FAILURE
+
 
 jlog = get_log()
 
@@ -30,7 +31,8 @@ class JMClientProtocol(amp.AMP):
             self.client = client
             self.factory = factory
             if not nick_priv:
-                self.nick_priv = hashlib.sha256(os.urandom(16)).hexdigest() + '01'
+                self.nick_priv = hashlib.sha256(
+                    os.urandom(16)).digest() + b"\x01"
             else:
                 self.nick_priv = nick_priv
 
@@ -59,10 +61,18 @@ class JMClientProtocol(amp.AMP):
         self.clientStart()
 
     def set_nick(self):
-        self.nick_pubkey = btc.privtopub(self.nick_priv)
-        self.nick_pkh_raw = btc.bin_sha256(self.nick_pubkey)[
-                    :self.nick_hashlen]
-        self.nick_pkh = btc.b58encode(self.nick_pkh_raw)
+        """ Algorithm: take pubkey and hex-serialized it;
+        then SHA2(hexpub) but truncate output to nick_hashlen.
+        Then encode to a base58 string (no check).
+        Then prepend J and version char (e.g. '5').
+        Finally append padding to nick_maxencoded (+2).
+        """
+        self.nick_pubkey = btc.privkey_to_pubkey(self.nick_priv)
+        # note we use binascii hexlify directly here because input
+        # to hashing must be encoded.
+        self.nick_pkh_raw = hashlib.sha256(binascii.hexlify(
+            self.nick_pubkey)).digest()[:self.nick_hashlen]
+        self.nick_pkh = btc.base58.encode(self.nick_pkh_raw)
         #right pad to maximum possible; b58 is not fixed length.
         #Use 'O' as one of the 4 not included chars in base58.
         self.nick_pkh += 'O' * (self.nick_maxencoded - len(self.nick_pkh))
@@ -93,7 +103,7 @@ class JMClientProtocol(amp.AMP):
     @commands.JMRequestMsgSig.responder
     def on_JM_REQUEST_MSGSIG(self, nick, cmd, msg, msg_to_be_signed, hostid):
         sig = btc.ecdsa_sign(str(msg_to_be_signed), self.nick_priv)
-        msg_to_return = str(msg) + " " + self.nick_pubkey + " " + sig
+        msg_to_return = str(msg) + " " + bintohex(self.nick_pubkey) + " " + sig
         d = self.callRemote(commands.JMMsgSignature,
                             nick=nick,
                             cmd=cmd,
@@ -105,20 +115,21 @@ class JMClientProtocol(amp.AMP):
     @commands.JMRequestMsgSigVerify.responder
     def on_JM_REQUEST_MSGSIG_VERIFY(self, msg, fullmsg, sig, pubkey, nick,
                                     hashlen, max_encoded, hostid):
+        pubkey_bin = hextobin(pubkey)
         verif_result = True
-        if not btc.ecdsa_verify(str(msg), sig, pubkey):
+        if not btc.ecdsa_verify(str(msg), sig, pubkey_bin):
             # workaround for hostid, which sometimes is lowercase-only for some IRC connections
-            if not btc.ecdsa_verify(str(msg[:-len(hostid)] + hostid.lower()), sig, pubkey):
+            if not btc.ecdsa_verify(str(msg[:-len(hostid)] + hostid.lower()), sig, pubkey_bin):
                 jlog.debug("nick signature verification failed, ignoring: " + str(nick))
                 verif_result = False
         #check that nick matches hash of pubkey
-        nick_pkh_raw = btc.bin_sha256(pubkey)[:hashlen]
+        nick_pkh_raw = hashlib.sha256(pubkey.encode("ascii")).digest()[:hashlen]
         nick_stripped = nick[2:2 + max_encoded]
         #strip right padding
         nick_unpadded = ''.join([x for x in nick_stripped if x != 'O'])
-        if not nick_unpadded == btc.b58encode(nick_pkh_raw):
+        if not nick_unpadded == btc.base58.encode(nick_pkh_raw):
             jlog.debug("Nick hash check failed, expected: " + str(nick_unpadded)
-                       + ", got: " + str(btc.b58encode(nick_pkh_raw)))
+                       + ", got: " + str(btc.base58.encode(nick_pkh_raw)))
             verif_result = False
         d = self.callRemote(commands.JMMsgSignatureVerify,
                             verif_result=verif_result,
@@ -234,10 +245,18 @@ class JMMakerClientProtocol(JMClientProtocol):
             jlog.info("Maker refuses to continue on receiving auth.")
         else:
             utxos, auth_pub, cj_addr, change_addr, btc_sig = retval[1:]
+            # json does not allow non-string keys:
+            utxos_strkeyed = {}
+            for k in utxos:
+                success, u = utxo_to_utxostr(k)
+                assert success
+                utxos_strkeyed[u] = {"value": utxos[k]["value"],
+                                     "address": utxos[k]["address"]}
+            auth_pub_hex = bintohex(auth_pub)
             d = self.callRemote(commands.JMIOAuth,
                                 nick=nick,
-                                utxolist=json.dumps(utxos),
-                                pubkey=auth_pub,
+                                utxolist=json.dumps(utxos_strkeyed),
+                                pubkey=auth_pub_hex,
                                 cjaddr=cj_addr,
                                 changeaddr=change_addr,
                                 pubkeysig=btc_sig)
@@ -258,14 +277,14 @@ class JMMakerClientProtocol(JMClientProtocol):
         else:
             sigs = retval[1]
             self.finalized_offers[nick] = offer
-            tx = btc.deserialize(txhex)
+            tx = btc.CMutableTransaction.deserialize(hextobin(txhex))
             self.finalized_offers[nick]["txd"] = tx
-            txid = btc.txhash(btc.serialize(tx))
+            txid = tx.GetTxid()[::-1]
             # we index the callback by the out-set of the transaction,
             # because the txid is not known until all scriptSigs collected
             # (hence this is required for Makers, but not Takers).
             # For more info see WalletService.transaction_monitor():
-            txinfo = tuple((x["script"], x["value"]) for x in tx["outs"])
+            txinfo = tuple((x.scriptPubKey, x.nValue) for x in tx.vout)
             self.client.wallet_service.register_callbacks([self.unconfirm_callback],
                                               txinfo, "unconfirmed")
             self.client.wallet_service.register_callbacks([self.confirm_callback],
@@ -285,8 +304,8 @@ class JMMakerClientProtocol(JMClientProtocol):
 
     def tx_match(self, txd):
         for k,v in iteritems(self.finalized_offers):
-            #Tx considered defined by its output set
-            if v["txd"]["outs"] == txd["outs"]:
+            # Tx considered defined by its output set
+            if v["txd"].vout == txd.vout:
                 offerinfo = v
                 break
         else:
@@ -302,7 +321,7 @@ class JMMakerClientProtocol(JMClientProtocol):
                                                                txid)
         self.client.modify_orders(to_cancel, to_announce)
 
-        txinfo = tuple((x["script"], x["value"]) for x in txd["outs"])
+        txinfo = tuple((x.scriptPubKey, x.nValue) for x in txd.vout)
         confirm_timeout_sec = float(jm_single().config.get(
             "TIMEOUT", "confirm_timeout_hours")) * 3600
         task.deferLater(reactor, confirm_timeout_sec,
