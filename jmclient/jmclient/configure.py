@@ -122,19 +122,6 @@ rpc_password = password
 rpc_wallet_file =
 
 [MESSAGING:server1]
-host = irc.cyberguerrilla.org
-channel = joinmarket-pit
-port = 6697
-usessl = true
-socks5 = false
-socks5_host = localhost
-socks5_port = 9050
-
-#for tor
-#host = epynixtbonxn4odv34z4eqnlamnpuwfz6uwmsamcqd62si7cbix5hqad.onion
-#socks5 = true
-
-[MESSAGING:server2]
 host = irc.darkscience.net
 channel = joinmarket-pit
 port = 6697
@@ -147,15 +134,14 @@ socks5_port = 9050
 #host = darksci3bfoka7tw.onion
 #socks5 = true
 
-#Agora currently seems to be unreliable. Not active by default for that reason.
-#[MESSAGING:server3]
-#host = agora.anarplex.net
-#channel = joinmarket-pit
-#port = 14716
-#usessl = true
-#socks5 = false
-#socks5_host = localhost
-#socks5_port = 9050
+[MESSAGING:server2]
+host = agora.anarplex.net
+channel = joinmarket-pit
+port = 14716
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
 
 #for tor
 #host = cfyfz6afpgfeirst.onion
