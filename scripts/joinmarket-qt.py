@@ -1548,11 +1548,14 @@ class JMMainWindow(QMainWindow):
 
     def recoverWallet(self):
         try:
-            success = wallet_generate_recover_bip39("recover", "wallets",
-                                                    "wallet.jmdat",
-                                                    callbacks=(None, self.seedEntry,
-                                                           self.getPassword,
-                                                           self.getWalletFileName))
+            success = wallet_generate_recover_bip39(
+                "recover", "wallets", "wallet.jmdat",
+                display_seed_callback=None,
+                enter_seed_callback=self.seedEntry,
+                enter_wallet_password_callback=self.getPassword,
+                enter_wallet_file_name_callback=self.getWalletFileName,
+                enter_if_use_seed_extension=None,
+                enter_seed_extension_callback=None)
             if not success:
                 JMQtMessageBox(self,
                            "Failed to recover wallet.",
@@ -1767,15 +1770,15 @@ class JMMainWindow(QMainWindow):
             try:
                 # guaranteed to exist as load_program_config was called on startup:
                 wallets_path = os.path.join(jm_single().datadir, 'wallets')
-                success = wallet_generate_recover_bip39("generate",
-                                                   wallets_path,
-                                                   "wallet.jmdat",
-                                                   callbacks=(self.displayWords,
-                                                              None,
-                                                              self.getPassword,
-                                                              self.getWalletFileName,
-                                                              self.promptUseMnemonicExtension,
-                                                              self.promptInputMnemonicExtension))
+                success = wallet_generate_recover_bip39(
+                    "generate", wallets_path, "wallet.jmdat",
+                    display_seed_callback=self.displayWords,
+                    enter_seed_callback=None,
+                    enter_wallet_password_callback=self.getPassword,
+                    enter_wallet_file_name_callback=self.getWalletFileName,
+                    enter_if_use_seed_extension=self.promptUseMnemonicExtension,
+                    enter_seed_extension_callback=self.promptInputMnemonicExtension)
+
                 if not success:
                     JMQtMessageBox(self, "Failed to create new wallet file.",
                                    title="Error", mbtype="warn")

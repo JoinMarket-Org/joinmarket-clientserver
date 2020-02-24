@@ -500,30 +500,18 @@ def cli_get_mnemonic_extension():
 
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
-                                  mixdepth=DEFAULT_MIXDEPTH,
-                                  callbacks=(cli_display_user_words,
-                                             cli_user_mnemonic_entry,
-                                             cli_get_wallet_passphrase_check,
-                                             cli_get_wallet_file_name,
-                                             cli_do_use_mnemonic_extension,
-                                             cli_get_mnemonic_extension)):
-    """Optionally provide callbacks:
-    0 - display seed
-    1 - enter seed (for recovery)
-    2 - enter wallet password
-    3 - enter wallet file name
-    4 - enter mnemonic extension
-    The defaults are for terminal entry.
-    """
+        display_seed_callback, enter_seed_callback, enter_wallet_password_callback,
+        enter_wallet_file_name_callback, enter_if_use_seed_extension,
+        enter_seed_extension_callback, mixdepth=DEFAULT_MIXDEPTH):
     entropy = None
     mnemonic_extension = None
     if method == "generate":
-        if callbacks[4]():
-            mnemonic_extension = callbacks[5]()
+        if enter_if_use_seed_extension():
+            mnemonic_extension = enter_seed_extension_callback()
             if not mnemonic_extension:
                 return False
     elif method == 'recover':
-        words, mnemonic_extension = callbacks[1]()
+        words, mnemonic_extension = enter_seed_callback()
         mnemonic_extension = mnemonic_extension and mnemonic_extension.strip()
         if not words:
             return False
@@ -535,11 +523,11 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         raise Exception("unknown method for wallet creation: '{}'"
                         .format(method))
 
-    password = callbacks[2]()
+    password = enter_wallet_password_callback()
     if not password:
         return False
 
-    wallet_name = callbacks[3]()
+    wallet_name = enter_wallet_file_name_callback()
     if wallet_name == "cancelled":
         # currently used only by Qt, because user has option
         # to click cancel in dialog.
@@ -552,7 +540,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
                            entropy=entropy,
                            entropy_extension=mnemonic_extension)
     mnemonic, mnext = wallet.get_mnemonic_words()
-    callbacks[0] and callbacks[0](mnemonic, mnext or '')
+    display_seed_callback and display_seed_callback(mnemonic, mnext or '')
     wallet.close()
     return True
 
@@ -562,8 +550,11 @@ def wallet_generate_recover(method, walletspath,
                             mixdepth=DEFAULT_MIXDEPTH):
     if is_segwit_mode():
         #Here using default callbacks for scripts (not used in Qt)
-        return wallet_generate_recover_bip39(
-            method, walletspath, default_wallet_name, mixdepth=mixdepth)
+        return wallet_generate_recover_bip39(method, walletspath,
+            default_wallet_name, cli_display_user_words, cli_user_mnemonic_entry,
+            cli_get_wallet_passphrase_check, cli_get_wallet_file_name,
+            cli_do_use_mnemonic_extension, cli_get_mnemonic_extension,
+            mixdepth=mixdepth)
 
     entropy = None
     if method == 'recover':
