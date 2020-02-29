@@ -66,6 +66,7 @@ JM_CORE_VERSION = '0.6.1'
 JM_GUI_VERSION = '11'
 
 from jmbase import get_log
+from jmbase.support import DUST_THRESHOLD
 from jmclient import load_program_config, get_network, update_persist_config,\
     open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
     jm_single, validate_address, weighted_order_choose, Taker,\
@@ -108,6 +109,22 @@ def checkAddress(parent, addr):
                        "Bitcoin address not valid.\n" + errmsg,
                        mbtype='warn',
                        title="Error")
+
+
+def checkAmount(parent, amount_str):
+    if not amount_str:
+        return False
+    amount_sat = btc.amount_to_sat(amount_str)
+    if amount_sat < DUST_THRESHOLD:
+        JMQtMessageBox(parent,
+                       "Amount " + btc.amount_to_str(amount_sat) +
+                       " is below dust threshold " +
+                       btc.amount_to_str(DUST_THRESHOLD) + ".",
+                       mbtype='warn',
+                       title="Error")
+        return False
+    return True
+
 
 def getSettingsWidgets():
     results = []
@@ -609,11 +626,14 @@ class SpendTab(QWidget):
         if not self.validateSettings():
             return
         destaddr = str(self.widgets[0][1].text())
-        #convert from bitcoins (enforced by QDoubleValidator) to satoshis
-        btc_amount_str = self.widgets[3][1].text()
-        amount = btc.amount_to_sat(btc_amount_str)
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
+        btc_amount_str = self.widgets[3][1].text()
+        # for coinjoin sends no point to send below dust threshold, likely
+        # there will be no makers for such amount.
+        if makercount != 0 and not checkAmount(self, btc_amount_str):
+            return
+        amount = btc.amount_to_sat(btc_amount_str)
         if makercount == 0:
             try:
                 txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
