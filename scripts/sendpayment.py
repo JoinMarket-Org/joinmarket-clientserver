@@ -18,7 +18,7 @@ from jmclient import Taker, P2EPTaker, load_program_config, get_schedule,\
     get_sendpayment_parser, get_max_cj_fee_values, check_regtest
 from twisted.python.log import startLogging
 from jmbase.support import get_log, set_logging_level, jmprint, \
-    EXIT_FAILURE, EXIT_ARGERROR
+    EXIT_FAILURE, EXIT_ARGERROR, DUST_THRESHOLD
 
 import jmbitcoin as btc
 
@@ -71,6 +71,11 @@ def main():
         addr_valid, errormsg = validate_address(destaddr)
         if not addr_valid:
             jmprint('ERROR: Address invalid. ' + errormsg, "error")
+            sys.exit(EXIT_ARGERROR)
+        if amount < DUST_THRESHOLD:
+            jmprint('ERROR: Amount ' + btc.amount_to_str(amount) +
+                ' is below dust threshold ' +
+                btc.amount_to_str(DUST_THRESHOLD) + '.', "error")
             sys.exit(EXIT_ARGERROR)
         schedule = [[options.mixdepth, amount, options.makercount,
                      destaddr, 0.0, NO_ROUNDING, 0]]
