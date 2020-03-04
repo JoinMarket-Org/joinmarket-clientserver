@@ -149,6 +149,20 @@ socks5_port = 9050
 #usessl = false
 #socks5 = true
 
+[MESSAGING:server3]
+host = irc.hackint.org
+channel = joinmarket-pit
+port = 6697
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
+
+#for tor
+#host = ncwkrwxpq2ikcngxq3dy2xctuheniggtqeibvgofixpzvrwpa77tozqd.onion
+#port = 6667
+#usessl = false
+#socks5 = true
 
 
 [LOGGING]
