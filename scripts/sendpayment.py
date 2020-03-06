@@ -72,7 +72,7 @@ def main():
         if not addr_valid:
             jmprint('ERROR: Address invalid. ' + errormsg, "error")
             sys.exit(EXIT_ARGERROR)
-        if amount < DUST_THRESHOLD:
+        if sweeping == False and amount < DUST_THRESHOLD:
             jmprint('ERROR: Amount ' + btc.amount_to_str(amount) +
                 ' is below dust threshold ' +
                 btc.amount_to_str(DUST_THRESHOLD) + '.', "error")
