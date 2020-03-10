@@ -631,7 +631,8 @@ class SpendTab(QWidget):
         btc_amount_str = self.widgets[3][1].text()
         # for coinjoin sends no point to send below dust threshold, likely
         # there will be no makers for such amount.
-        if makercount != 0 and not checkAmount(self, btc_amount_str):
+        if (makercount != 0 and btc_amount_str != '0' and
+            not checkAmount(self, btc_amount_str)):
             return
         amount = btc.amount_to_sat(btc_amount_str)
         if makercount == 0:
