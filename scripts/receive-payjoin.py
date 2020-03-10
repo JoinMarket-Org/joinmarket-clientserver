@@ -53,7 +53,7 @@ def receive_payjoin_main(makerclass):
     # log.info (via P2EPMaker.user_info).
     set_logging_level("INFO")
 
-    wallet_path = get_wallet_path(wallet_name, 'wallets')
+    wallet_path = get_wallet_path(wallet_name, None)
     max_mix_depth = max([options.mixdepth, options.amtmixdepths - 1])
     wallet = open_test_wallet_maybe(
         wallet_path, wallet_name, max_mix_depth,
