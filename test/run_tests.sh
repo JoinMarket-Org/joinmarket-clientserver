@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+check_exists() {
+    command -v "$1" > /dev/null
+}
 
 sha256_verify ()
 {
@@ -8,6 +12,19 @@ sha256_verify ()
     else
         sha256sum -c <<<"$1  $2"
         return "$?"
+    fi
+}
+
+# http_get url filename
+http_get ()
+{
+    if check_exists curl; then
+        curl --retry 5 -L "$1" -o "$2"
+    elif check_exists wget; then
+        wget "$1" -O "$2"
+    else
+        echo "Neither curl nor wget present; please install one of them using your OS package manager."
+        kill $$
     fi
 }
 
@@ -27,7 +44,7 @@ run_jm_tests ()
 
     pushd "${jm_source}"
     if ! sha256_verify 'ce3a4ddc777343645ccd06ca36233b5777e218ee89d887ef529ece86a917fc33' 'miniircd.tar.gz'; then
-        curl --retry 5 -L https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz -o miniircd.tar.gz
+        http_get "https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz" "miniircd.tar.gz"
     fi
     if [[ ! -x ${jm_source}/miniircd/miniircd ]]; then
         rm -rf ./miniircd

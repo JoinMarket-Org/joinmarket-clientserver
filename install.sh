@@ -1,4 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
+
+check_exists() {
+    command -v "$1" > /dev/null
+}
 
 sha256_verify ()
 {
@@ -8,6 +12,19 @@ sha256_verify ()
     else
         sha256sum -c <<<"$1  $2"
         return "$?"
+    fi
+}
+
+# http_get url filename
+http_get ()
+{
+    if check_exists curl; then
+        curl --retry 5 -L "$1" -o "$2"
+    elif check_exists wget; then
+        wget "$1" -O "$2"
+    else
+        echo "Neither curl nor wget present; please install one of them using your OS package manager."
+        kill $$
     fi
 }
 
@@ -95,7 +112,7 @@ dep_get ()
 
     pushd cache
     if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
-        curl --retry 5 -L -O "${pkg_url}/${pkg_name}"
+        http_get "${pkg_url}/${pkg_name}" "${pkg_name}"
     fi
     if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         return 1
