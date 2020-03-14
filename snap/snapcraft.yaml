@@ -55,12 +55,16 @@ parts:
   joinmarket-base:
     plugin: python
     source: jmbase
+    after: [joinmarket]
   joinmarket-bitcoin:
     plugin: python
     source: jmbitcoin
+    after: [joinmarket-base]
   joinmarket-client:
     plugin: python
     source: jmclient
+    after: [joinmarket-base]
   joinmarket-daemon:
     plugin: python
     source: jmdaemon
+    after: [joinmarket-base]
