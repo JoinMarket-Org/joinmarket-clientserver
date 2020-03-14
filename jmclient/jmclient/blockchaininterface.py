@@ -154,8 +154,8 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
             return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
                                                   ))
-        log.debug("Got fee: " + str(fee))
         fee_per_kb_sat = int(float(fee) * 100000000)
+        log.info("Got fee: " + btc.fee_per_kb_to_str(fee_per_kb_sat))
         return fee_per_kb_sat
 
 class BitcoinCoreInterface(BlockchainInterface):
@@ -365,10 +365,12 @@ class BitcoinCoreInterface(BlockchainInterface):
             btc_relayfee = rpc_result.get('relayfee', btc_relayfee)
             if btc_relayfee > 0:
                 relayfee_in_sat = int(Decimal(1e8) * Decimal(btc_relayfee))
-                log.debug("Using this min relay fee as tx fee floor: " + str(relayfee_in_sat))
+                log.info("Using this min relay fee as tx fee floor: " +
+                    btc.fee_per_kb_to_str(relayfee_in_sat))
                 return int(max(relayfee_in_sat, random.uniform(N * float(0.8), N * float(1.2))))
             else:   # cannot get valid relayfee: fall back to 1000 sat/kbyte
-                log.debug("Using this min relay fee as tx fee floor (fallback): 1000")
+                log.info("Using this min relay fee as tx fee floor " +
+                    "(fallback): " + btc.fee_per_kb_to_str(1000))
                 return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
 
         # Special bitcoin core case: sometimes the highest priority
@@ -377,14 +379,19 @@ class BitcoinCoreInterface(BlockchainInterface):
         tries = 2 if N == 1 else 1
 
         estimate = -1
+        retval = -1
         for i in range(tries):
             rpc_result = self.rpc('estimatesmartfee', [N + i])
             estimate = rpc_result.get('feerate', estimate)
             if estimate > 0:
                 break
         else:  # estimate <= 0
-            return 10000
-        return int(Decimal(1e8) * Decimal(estimate))
+            retval = 10000
+
+        if retval == -1:
+            retval = int(Decimal(1e8) * Decimal(estimate))
+        log.info("Using tx fee: " + btc.fee_per_kb_to_str(retval))
+        return retval
 
     def get_current_block_height(self):
         return self.rpc("getblockcount", [])
