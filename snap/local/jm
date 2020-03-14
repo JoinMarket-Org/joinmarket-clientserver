@@ -32,7 +32,7 @@ commands:
 
   help                            display this help message"
 
-SCRIPT_DIR="$SNAP/opt/joinmarket/scripts"
+SCRIPT_DIR="$SNAP/scripts"
 
 # Run GUI by default.
 CMD="joinmarket-qt.py"
