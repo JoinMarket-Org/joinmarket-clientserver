@@ -9,6 +9,7 @@ description: |
 confinement: strict
 grade: stable
 icon: snap/local/icon.png
+architectures: [amd64]
 
 apps:
   joinmarket:
