@@ -53,7 +53,7 @@ install:
   - mkdir -p "$HOME/downloads"
   - mkdir -p "$TRAVIS_BUILD_DIR/deps/cache/"
   - find "$HOME/downloads" -type f -exec cp -v {} "$TRAVIS_BUILD_DIR/deps/cache/" \;
-  - on_host do_on linux ./install_bitcoind.sh
+  - on_host do_on linux ./test/travis/install_bitcoind.sh
   - on_host do_on linux ./install.sh --develop --with-qt
   - on_host do_on osx virtualenv --python=python3 jmvenv
   - on_host find "$TRAVIS_BUILD_DIR/deps/cache/" -type f -exec cp -v {} "$HOME/downloads/" \;
