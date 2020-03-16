@@ -61,9 +61,9 @@ donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
 donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 
 #Underlying joinmarket code version (as per setup.py etc.)
-JM_CORE_VERSION = '0.6.1'
+JM_CORE_VERSION = '0.6.2'
 #Version of this Qt script specifically
-JM_GUI_VERSION = '11'
+JM_GUI_VERSION = '12'
 
 from jmbase import get_log
 from jmbase.support import DUST_THRESHOLD
