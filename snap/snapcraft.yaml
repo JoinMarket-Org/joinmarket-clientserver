@@ -33,7 +33,7 @@ parts:
     source: scripts
     organize:
       "*": /scripts/
-  joinmarket:
+  joinmarket-requirements:
     plugin: python
     source: .
     requirements:
@@ -55,7 +55,7 @@ parts:
   joinmarket-base:
     plugin: python
     source: jmbase
-    after: [joinmarket]
+    after: [joinmarket-requirements]
   joinmarket-bitcoin:
     plugin: python
     source: jmbitcoin
