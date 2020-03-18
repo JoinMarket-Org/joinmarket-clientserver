@@ -62,7 +62,7 @@ deb_deps_check ()
 
 deb_deps_install ()
 {
-    deb_deps=( ${1} )
+    deb_deps=( ${@} )
     if deb_deps_check; then
         clear
         echo "
