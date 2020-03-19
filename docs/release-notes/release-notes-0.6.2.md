@@ -17,7 +17,7 @@ To upgrade (but: read and follow instructions in 0.4.0 if from pre-0.4.0):
 First run the `install.sh` script as mentioned in the README. When prompted to overwrite the directory `jmvenv`, accept.
 **Python 3 is now required; Python 2 is no longer supported as it reached EOL.**
 
-Note that `.install.sh -?` will show the options for installation.
+Note that `./install.sh -?` will show the options for installation.
 
 **Once you have upgraded, please take note of the change mentioned below under `Move user data to home directory`.**
 
