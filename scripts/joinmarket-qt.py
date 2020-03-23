@@ -1570,7 +1570,8 @@ class JMMainWindow(QMainWindow):
     def recoverWallet(self):
         try:
             success = wallet_generate_recover_bip39(
-                "recover", "wallets", "wallet.jmdat",
+                "recover", os.path.join(jm_single().datadir, 'wallets'),
+                "wallet.jmdat",
                 display_seed_callback=None,
                 enter_seed_callback=self.seedEntry,
                 enter_wallet_password_callback=self.getPassword,
