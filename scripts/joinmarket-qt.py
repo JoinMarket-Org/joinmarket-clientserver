@@ -629,11 +629,20 @@ class SpendTab(QWidget):
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
         btc_amount_str = self.widgets[3][1].text()
-        # for coinjoin sends no point to send below dust threshold, likely
-        # there will be no makers for such amount.
-        if (makercount != 0 and btc_amount_str != '0' and
-            not checkAmount(self, btc_amount_str)):
-            return
+        if makercount != 0:
+            # for coinjoin sends no point to send below dust threshold,
+            # there will be no makers for such amount.
+            if (btc_amount_str != '0' and
+                not checkAmount(self, btc_amount_str)):
+                return
+            if makercount < jm_single().config.getint(
+                "POLICY", "minimum_makers"):
+                JMQtMessageBox(self, "Number of counterparties (" + str(
+                    makercount) + ") below minimum_makers (" + str(
+                    jm_single().config.getint("POLICY", "minimum_makers")) +
+                    ") in configuration.",
+                    title="Error", mbtype="warn")
+                return
         amount = btc.amount_to_sat(btc_amount_str)
         if makercount == 0:
             try:
