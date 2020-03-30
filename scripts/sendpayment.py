@@ -77,6 +77,14 @@ def main():
                 ' is below dust threshold ' +
                 btc.amount_to_str(DUST_THRESHOLD) + '.', "error")
             sys.exit(EXIT_ARGERROR)
+        if (options.makercount != 0 and
+            options.makercount < jm_single().config.getint(
+            "POLICY", "minimum_makers")):
+            jmprint('ERROR: Maker count ' + str(options.makercount) +
+                ' below minimum_makers (' + str(jm_single().config.getint(
+                "POLICY", "minimum_makers")) + ') in joinmarket.cfg.',
+                "error")
+            sys.exit(EXIT_ARGERROR)
         schedule = [[options.mixdepth, amount, options.makercount,
                      destaddr, 0.0, NO_ROUNDING, 0]]
     else:
