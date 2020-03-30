@@ -4,6 +4,7 @@ import logging
 import os
 import binascii
 import re
+import sys
 
 from configparser import ConfigParser, NoOptionError
 
@@ -11,7 +12,7 @@ import jmbitcoin as btc
 from jmclient.jsonrpc import JsonRpc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
                             set_logging_level, jmprint, set_logging_color,
-                            JM_APP_NAME, lookup_appdata_folder)
+                            JM_APP_NAME, lookup_appdata_folder, EXIT_FAILURE)
 from jmclient.podle import set_commitment_file
 
 log = get_log()
@@ -456,7 +457,7 @@ def load_program_config(config_path="", bs=None):
             configfile.write(defaultconfig)
         jmprint("Created a new `joinmarket.cfg`. Please review and adopt the "
               "settings and restart joinmarket.", "info")
-        exit(1)
+        sys.exit(EXIT_FAILURE)
 
     #These are left as sanity checks but currently impossible
     #since any edits are overlays to the default, these sections/options will

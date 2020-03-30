@@ -66,7 +66,7 @@ JM_CORE_VERSION = '0.6.2'
 JM_GUI_VERSION = '12'
 
 from jmbase import get_log
-from jmbase.support import DUST_THRESHOLD
+from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE
 from jmclient import load_program_config, get_network, update_persist_config,\
     open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
     jm_single, validate_address, weighted_order_choose, Taker,\
@@ -1868,7 +1868,7 @@ except Exception as e:
              "bitcoin.conf file."
              ])
     JMQtMessageBox(None, config_load_error, mbtype='crit', title='failed to load')
-    exit(1)
+    sys.exit(EXIT_FAILURE)
 # Qt does not currently support any functioning without a Core interface:
 if jm_single().bc_interface is None:
     blockchain_error = ''.join(["Joinmarket-Qt requires Bitcoin Core as a blockchain ",
@@ -1877,7 +1877,7 @@ if jm_single().bc_interface is None:
                                 "'no-blockchain'; see comments for details."])
     JMQtMessageBox(None, blockchain_error, mbtype='crit',
                    title='Invalid blockchain source')
-    exit(1)
+    sys.exit(EXIT_FAILURE)
 #refuse to load non-segwit wallet (needs extra work in wallet-utils).
 if not jm_single().config.get("POLICY", "segwit") == "true":
     wallet_load_error = ''.join(["Joinmarket-Qt only supports segwit based wallets, ",
@@ -1885,7 +1885,7 @@ if not jm_single().config.get("POLICY", "segwit") == "true":
                                  "of the field `segwit` in the `POLICY` section."])
     JMQtMessageBox(None, wallet_load_error, mbtype='crit',
                    title='Incompatible wallet type')
-    exit(1)
+    sys.exit(EXIT_FAILURE)
 
 update_config_for_gui()
 
