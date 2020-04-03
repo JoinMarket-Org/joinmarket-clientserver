@@ -5,13 +5,16 @@ import os
 import sys
 import time
 import numbers
+from binascii import hexlify
+
 from jmbase import get_log, jmprint
-from .configure import jm_single, validate_address
+from .configure import jm_single, validate_address, is_burn_destination
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
-from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime
+from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime, \
+    FidelityBondMixin
 from jmbitcoin import deserialize, make_shuffled_tx, serialize, txhash,\
-    amount_to_str
+    amount_to_str, mk_burn_script, bin_hash160
 from jmbase.support import EXIT_SUCCESS
 log = get_log()
 
@@ -20,7 +23,7 @@ Utility functions for tumbler-style takers;
 Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
 
-def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
+def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 accept_callback=None, info_callback=None):
     """Send coins directly from one mixdepth to one destination address;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
@@ -41,12 +44,29 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
     The txid if transaction is pushed, False otherwise
     """
     #Sanity checks
-    assert validate_address(destaddr)[0]
+    assert validate_address(destination)[0] or is_burn_destination(destination)
     assert isinstance(mixdepth, numbers.Integral)
     assert mixdepth >= 0
     assert isinstance(amount, numbers.Integral)
     assert amount >=0
     assert isinstance(wallet_service.wallet, BaseWallet)
+
+    if is_burn_destination(destination):
+        #Additional checks
+        if not isinstance(wallet_service.wallet, FidelityBondMixin):
+            log.error("Only fidelity bond wallets can burn coins")
+            return
+        if answeryes:
+            log.error("Burning coins not allowed without asking for confirmation")
+            return
+        if mixdepth != FidelityBondMixin.FIDELITY_BOND_MIXDEPTH:
+            log.error("Burning coins only allowed from mixdepth " + str(
+                FidelityBondMixin.FIDELITY_BOND_MIXDEPTH))
+            return
+        if amount != 0:
+            log.error("Only sweeping allowed when burning coins, to keep the tx " +
+                "small. Tip: use the coin control feature to freeze utxos")
+            return
 
     from pprint import pformat
     txtype = wallet_service.get_txtype()
@@ -54,11 +74,35 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
         utxos = wallet_service.get_utxos_by_mixdepth()[mixdepth]
         if utxos == {}:
             log.error(
-                "There are no utxos in mixdepth: " + str(mixdepth) + ", quitting.")
+                "There are no available utxos in mixdepth: " + str(mixdepth) + ", quitting.")
             return
+
         total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
-        fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype)
-        outs = [{"address": destaddr, "value": total_inputs_val - fee_est}]
+
+        if is_burn_destination(destination):
+            if len(utxos) > 1:
+                log.error("Only one input allowed when burning coins, to keep "
+                    + "the tx small. Tip: use the coin control feature to freeze utxos")
+                return
+            address_type = FidelityBondMixin.BIP32_BURN_ID
+            index = wallet_service.wallet.get_next_unused_index(mixdepth, address_type)
+            path = wallet_service.wallet.get_path(mixdepth, address_type, index)
+            privkey, engine = wallet_service.wallet._get_priv_from_path(path)
+            pubkey = engine.privkey_to_pubkey(privkey)
+            pubkeyhash = bin_hash160(pubkey)
+
+            #size of burn output is slightly different from regular outputs
+            burn_script = mk_burn_script(pubkeyhash) #in hex
+            fee_est = estimate_tx_fee(len(utxos), 0, txtype=txtype, extra_bytes=len(burn_script)/2)
+
+            outs = [{"script": burn_script, "value": total_inputs_val - fee_est}]
+            destination = "BURNER OUTPUT embedding pubkey at " \
+                + wallet_service.wallet.get_path_repr(path) \
+                + "\n\nWARNING: This transaction if broadcasted will PERMANENTLY DESTROY your bitcoins\n"
+        else:
+            #regular send (non-burn)
+            fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype)
+            outs = [{"address": destination, "value": total_inputs_val - fee_est}]
     else:
         #8 inputs to be conservative
         initial_fee_est = estimate_tx_fee(8,2, txtype=txtype)
@@ -69,7 +113,7 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
             fee_est = initial_fee_est
         total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
         changeval = total_inputs_val - fee_est - amount
-        outs = [{"value": amount, "address": destaddr}]
+        outs = [{"value": amount, "address": destination}]
         change_addr = wallet_service.get_internal_addr(mixdepth)
         outs.append({"value": changeval, "address": change_addr})
 
@@ -85,14 +129,14 @@ def direct_send(wallet_service, amount, mixdepth, destaddr, answeryes=False,
     log.info("In serialized form (for copy-paste):")
     log.info(tx)
     actual_amount = amount if amount != 0 else total_inputs_val - fee_est
-    log.info("Sends: " + amount_to_str(actual_amount) + " to address: " + destaddr)
+    log.info("Sends: " + amount_to_str(actual_amount) + " to destination: " + destination)
     if not answeryes:
         if not accept_callback:
             if input('Would you like to push to the network? (y/n):')[0] != 'y':
                 log.info("You chose not to broadcast the transaction, quitting.")
                 return False
         else:
-            accepted = accept_callback(pformat(txsigned), destaddr, actual_amount,
+            accepted = accept_callback(pformat(txsigned), destination, actual_amount,
                                        fee_est)
             if not accepted:
                 return False

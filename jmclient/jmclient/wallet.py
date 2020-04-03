@@ -68,7 +68,7 @@ class Mnemonic(MnemonicParent):
     def detect_language(cls, code):
         return "english"
 
-def estimate_tx_fee(ins, outs, txtype='p2pkh'):
+def estimate_tx_fee(ins, outs, txtype='p2pkh', extra_bytes=0):
     '''Returns an estimate of the number of satoshis required
     for a transaction with the given number of inputs and outputs,
     based on information from the blockchain interface.
@@ -81,13 +81,14 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh'):
         raise ValueError("Estimated fee per kB greater than absurd value: " + \
                                      str(absurd_fee) + ", quitting.")
     if txtype in ['p2pkh', 'p2shMofN']:
-        tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype)
+        tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype) + extra_bytes
         return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
     elif txtype in ['p2wpkh', 'p2sh-p2wpkh']:
         witness_estimate, non_witness_estimate = btc.estimate_tx_size(
             ins, outs, txtype)
+        non_witness_estimate += extra_bytes
         return int(int((
-        non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
+            non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
     else:
         raise NotImplementedError("Txtype: " + txtype + " not implemented.")
 
@@ -416,7 +417,8 @@ class BaseWallet(object):
         """
         if self.TYPE == TYPE_P2PKH:
             return 'p2pkh'
-        elif self.TYPE == TYPE_P2SH_P2WPKH:
+        elif self.TYPE in (TYPE_P2SH_P2WPKH,
+                TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS):
             return 'p2sh-p2wpkh'
         elif self.TYPE == TYPE_P2WPKH:
             return 'p2wpkh'

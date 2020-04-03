@@ -670,6 +670,13 @@ def mk_freeze_script(pub, locktime):
         btc.OP_CHECKSIG]
     return binascii.hexlify(serialize_script(scr)).decode()
 
+def mk_burn_script(data):
+    if not isinstance(data, bytes):
+        raise TypeError("data must be in bytes")
+    data = binascii.hexlify(data).decode()
+    scr = [btc.OP_RETURN, data]
+    return serialize_script(scr)
+
 # Signing and verifying
 
 def verify_tx_input(tx, i, script, sig, pub, scriptCode=None, amount=None):
