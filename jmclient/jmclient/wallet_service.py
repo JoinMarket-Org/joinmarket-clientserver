@@ -537,6 +537,46 @@ class WalletService(Service):
                 jmprint(restart_msg, "important")
                 sys.exit(EXIT_SUCCESS)
 
+    def sync_burner_outputs(self, burner_txes):
+        mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+        address_type = FidelityBondMixin.BIP32_BURN_ID
+        self.wallet.set_next_index(mixdepth, address_type, self.wallet.gap_limit,
+            force=True)
+        highest_used_index = 0
+
+        known_burner_outputs = self.wallet.get_burner_outputs()
+        for index in range(self.wallet.gap_limit):
+            path = self.wallet.get_path(mixdepth, address_type, index)
+            path_privkey, engine = self.wallet._get_priv_from_path(path)
+            path_pubkey = engine.privkey_to_pubkey(path_privkey)
+            path_pubkeyhash = btc.bin_hash160(path_pubkey)
+
+            for burner_tx in burner_txes:
+                burner_pubkeyhash, gettx = burner_tx
+                if burner_pubkeyhash != path_pubkeyhash:
+                    continue
+                highest_used_index = index
+                path_repr = self.wallet.get_path_repr(path)
+                if path_repr.encode() in known_burner_outputs:
+                    continue
+                txid = gettx["txid"]
+                jlog.info("Found a burner transaction txid=" + txid + " path = "
+                    + path_repr)
+                try:
+                    merkle_branch = self.bci.get_tx_merkle_branch(txid, gettx["blockhash"])
+                except ValueError as e:
+                    jlog.warning(repr(e))
+                    jlog.warning("Merkle branch likely not available, use "
+                        + "wallet-tool `addtxoutproof`")
+                    merkle_branch = None
+                block_height = self.bci.rpc("getblockheader", [gettx["blockhash"]])["height"]
+                if merkle_branch:
+                    assert self.bci.verify_tx_merkle_branch(txid, block_height, merkle_branch)
+                self.wallet.add_burner_output(path_repr, gettx["hex"], block_height,
+                    merkle_branch, gettx["blockindex"])
+
+        self.wallet.set_next_index(mixdepth, address_type, highest_used_index + 1)
+
     def sync_addresses(self):
         """ Triggered by use of --recoversync option in scripts,
         attempts a full scan of the blockchain without assuming
