@@ -1655,6 +1655,10 @@ class FidelityBondMixin(object):
     #only one mixdepth will have fidelity bonds in it
     FIDELITY_BOND_MIXDEPTH = 0
 
+    MERKLE_BRANCH_UNAVAILABLE = b"mbu"
+
+    _BURNER_OUTPUT_STORAGE_KEY = b"burner-out"
+
     @classmethod
     def _time_number_to_timestamp(cls, timenumber):
         """
@@ -1775,6 +1779,28 @@ class FidelityBondMixin(object):
     def get_addr(self, mixdepth, address_type, index, timenumber=None):
         script = self.get_script(mixdepth, address_type, index, timenumber)
         return self.script_to_addr(script)
+
+    def add_burner_output(self, path, txhex, block_height, merkle_branch,
+            block_index, write=True):
+        """
+        merkle_branch = None means it was unavailable because of pruning
+        """
+        if self._BURNER_OUTPUT_STORAGE_KEY not in self._storage.data:
+            self._storage.data[self._BURNER_OUTPUT_STORAGE_KEY] = {}
+        path = path.encode()
+        txhex = unhexlify(txhex)
+        if not merkle_branch:
+            merkle_branch = self.MERKLE_BRANCH_UNAVAILABLE
+        self._storage.data[self._BURNER_OUTPUT_STORAGE_KEY][path] = [txhex,
+            block_height, merkle_branch, block_index]
+        if write:
+            self._storage.save()
+
+    def get_burner_outputs(self):
+        """
+        Result is a dict {path: [txhex, blockheight, merkleproof, blockindex]}
+        """
+        return self._storage.data.get(self._BURNER_OUTPUT_STORAGE_KEY, {})
 
 #class FidelityBondWatchonlyWallet(ImportWalletMixin, BIP39WalletMixin, FidelityBondMixin):
 

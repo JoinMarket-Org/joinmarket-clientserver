@@ -217,6 +217,12 @@ class WalletViewEntry(WalletViewBase):
             ed += self.separator + self.serclass(self.private_key)
         return self.serclass(ed)
 
+class WalletViewEntryBurnOutput(WalletViewEntry):
+    # balance in burn outputs shouldnt be counted
+    # towards the total balance
+    def get_balance(self, include_unconf=True):
+        return 0
+
 class WalletViewBranch(WalletViewBase):
     def __init__(self, wallet_path_repr, account, address_type, branchentries=None,
                  xpub=None, serclass=str, custom_separator=None):
@@ -261,7 +267,7 @@ class WalletViewAccount(WalletViewBase):
         self.account_name = account_name
         self.xpub = xpub
         if branches:
-            assert len(branches) in [2, 3] #3 if imported keys
+            assert len(branches) in [2, 3, 4] #3 if imported keys, 4 if fidelity bonds
             assert all([isinstance(x, WalletViewBranch) for x in branches])
         self.branches = branches
 
@@ -477,8 +483,49 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                         entrylist.append(WalletViewEntry(
                             wallet_service.get_path_repr(path), m, address_type, k,
                             addr, [balance, balance], priv=privkey, used=status))
-
             #TODO fidelity bond master pub key is this, although it should include burner too
+            xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
+            path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
+            branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
+                xpub=xpub_key))
+
+            entrylist = []
+            address_type = FidelityBondMixin.BIP32_BURN_ID
+            unused_index = wallet_service.get_next_unused_index(m, address_type)
+            burner_outputs = wallet_service.wallet.get_burner_outputs()
+            wallet_service.set_next_index(m, address_type, unused_index +
+                wallet_service.wallet.gap_limit, force=True)
+            for k in range(unused_index + wallet_service.wallet.gap_limit):
+                path = wallet_service.get_path(m, address_type, k)
+                path_repr = wallet_service.get_path_repr(path)
+                path_repr_b = path_repr.encode()
+
+                privkey, engine = wallet_service._get_priv_from_path(path)
+                pubkey = engine.privkey_to_pubkey(privkey)
+                pubkeyhash = btc.bin_hash160(pubkey)
+                output = "BURN-" + binascii.hexlify(pubkeyhash).decode()
+
+                balance = 0
+                status = "no transaction"
+                if path_repr_b in burner_outputs:
+                    txhex, blockheight, merkle_branch, blockindex = burner_outputs[path_repr_b]
+                    txhex = binascii.hexlify(txhex).decode()
+                    txd = btc.deserialize(txhex)
+                    assert len(txd["outs"]) == 1
+                    balance = txd["outs"][0]["value"]
+                    script = binascii.unhexlify(txd["outs"][0]["script"])
+                    assert script[0] == 0x6a #OP_RETURN
+                    tx_pubkeyhash = script[2:]
+                    assert tx_pubkeyhash == pubkeyhash
+                    status = btc.txhash(txhex) + (" [NO MERKLE PROOF]" if
+                        merkle_branch == FidelityBondMixin.MERKLE_BRANCH_UNAVAILABLE else "")
+                privkey = (wallet_service.get_wif_path(path) if showprivkey else "")
+                if displayall or balance > 0:
+                    entrylist.append(WalletViewEntryBurnOutput(path_repr, m,
+                        address_type, k, output, [balance, balance],
+                        priv=privkey, used=status))
+            wallet_service.set_next_index(m, address_type, unused_index)
+
             xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
             path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
             branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
@@ -1293,6 +1340,11 @@ def wallet_tool_main(wallet_root_path):
         wallet_path = get_wallet_path(seed, wallet_root_path)
         method = ('display' if len(args) == 1 else args[1].lower())
         read_only = method in readonly_methods
+
+        #special case needed for fidelity bond burner outputs
+        #maybe theres a better way to do this
+        if options.recoversync:
+            read_only = False
 
         wallet = open_test_wallet_maybe(
             wallet_path, seed, options.mixdepth, read_only=read_only,
