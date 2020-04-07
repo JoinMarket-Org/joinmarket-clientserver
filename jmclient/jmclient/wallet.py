@@ -1802,6 +1802,11 @@ class FidelityBondMixin(object):
         """
         return self._storage.data.get(self._BURNER_OUTPUT_STORAGE_KEY, {})
 
+    def set_burner_output_merkle_branch(self, path, merkle_branch):
+        path = path.encode()
+        self._storage.data[self._BURNER_OUTPUT_STORAGE_KEY][path][2] = \
+            merkle_branch
+
 #class FidelityBondWatchonlyWallet(ImportWalletMixin, BIP39WalletMixin, FidelityBondMixin):
 
 

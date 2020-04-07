@@ -45,7 +45,9 @@ def get_wallettool_parser():
         '(signmessage) Sign a message with the private key from an address in \n'
         'the wallet. Use with -H and specify an HD wallet path for the address.\n'
         '(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.\n'
-        '(gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`')
+        '(gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`\n'
+        '(addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with '
+            '-H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method] [args..]',
                           description=description)
     add_base_options(parser)
@@ -1153,6 +1155,27 @@ def wallet_gettimelockaddress(wallet_service, locktime_string):
     addr = wallet_service.get_address_from_path(path)
     return addr
 
+def wallet_addtxoutproof(wallet_service, hdpath, txoutproof):
+    if not isinstance(wallet_service.wallet, FidelityBondMixin):
+        jmprint("Error: not a fidelity bond wallet", "error")
+        return ""
+    path = hdpath.encode()
+    if path not in wallet_service.wallet.get_burner_outputs():
+        jmprint("Error: unknown burner transaction with on that path", "error")
+        return ""
+    txhex, block_height, old_merkle_branch, block_index = \
+        wallet_service.wallet.get_burner_outputs()[path]
+    new_merkle_branch = jm_single().bc_interface.core_proof_to_merkle_branch(txoutproof)
+    txhex = binascii.hexlify(txhex).decode()
+    txid = btc.txhash(txhex)
+    if not jm_single().bc_interface.verify_tx_merkle_branch(txid, block_height,
+            new_merkle_branch):
+        jmprint("Error: tx out proof invalid", "error")
+        return ""
+    wallet_service.wallet.add_burner_output(hdpath, txhex, block_height,
+        new_merkle_branch, block_index)
+    return "Done"
+
 def get_configured_wallet_type(support_fidelity_bonds):
     configured_type = TYPE_P2PKH
     if is_segwit_mode():
@@ -1316,7 +1339,7 @@ def wallet_tool_main(wallet_root_path):
     wallet_root_path = os.path.join(jm_single().datadir, wallet_root_path)
     noseed_methods = ['generate', 'recover']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
-               'history', 'showutxos', 'freeze', 'gettimelockaddress']
+               'history', 'showutxos', 'freeze', 'gettimelockaddress', 'addtxoutproof']
     methods.extend(noseed_methods)
     noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
     readonly_methods = ['display', 'displayall', 'summary', 'showseed',
@@ -1411,6 +1434,12 @@ def wallet_tool_main(wallet_root_path):
             jmprint('Must have locktime value yyyy-mm. For example 2021-03', "error")
             sys.exit(EXIT_ARGERROR)
         return wallet_gettimelockaddress(wallet_service, args[2])
+    elif method == "addtxoutproof":
+        if len(args) < 3:
+            jmprint('Must have txout proof, which is the output of Bitcoin '
+                + 'Core\'s RPC call gettxoutproof', "error")
+            sys.exit(EXIT_ARGERROR)
+        return wallet_addtxoutproof(wallet_service, options.hd_path, args[2])
     else:
         parser.error("Unknown wallet-tool method: " + method)
         sys.exit(EXIT_ARGERROR)
