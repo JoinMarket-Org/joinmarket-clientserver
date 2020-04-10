@@ -66,7 +66,7 @@ def check_utxo_blacklist(commitment, persist=False):
     If flagged, persist the usage of this commitment to the above file.
     """
     #TODO format error checking?
-    fname = "commitmentlist"
+    fname = os.path.join(jm_single().datadir, "commitmentlist")
     if os.path.isfile(fname):
         with open(fname, "rb") as f:
             blacklisted_commitments = [x.decode('ascii').strip() for x in f.readlines()]
