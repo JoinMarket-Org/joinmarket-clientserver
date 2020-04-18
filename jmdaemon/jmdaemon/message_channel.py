@@ -805,10 +805,11 @@ class MessageChannel(object):
                 else:
                     if self.on_commitment_seen:
                         self.on_commitment_seen(counterparty, commitment)
-            except IndexError as e:
+            except Exception as e:
                 log.debug(e)
-                log.debug('index error parsing chunks, possibly malformed'
-                          'offer by other party. No user action required.')
+                log.debug('Error parsing chunks, possibly malformed'
+                          'commitment by other party. No user action required.')
+                log.debug("the chunks were: " + str(_chunks))
             finally:
                 return True
         return False

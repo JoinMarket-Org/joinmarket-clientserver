@@ -415,22 +415,12 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @maker_only
     def on_commitment_seen(self, nick, commitment):
         """Triggered when we see a commitment for blacklisting
-	appear in the public pit channel. If the policy is set,
-	we blacklist this commitment.
+	appear in the public pit channel.
 	"""
-        if jm_single().config.has_option("POLICY", "accept_commitment_broadcasts"):
-            blacklist_add = jm_single().config.getint("POLICY",
-                                                    "accept_commitment_broadcasts")
-        else:
-            blacklist_add = 0
-        if blacklist_add > 0:
-            #just add if necessary, ignore return value.
-            check_utxo_blacklist(commitment, persist=True)
-            log.msg("Received commitment broadcast by other maker: " + str(
-                commitment) + ", now blacklisted.")
-        else:
-            log.msg("Received commitment broadcast by other maker: " + str(
-                commitment) + ", ignored.")
+        #just add if necessary, ignore return value.
+        check_utxo_blacklist(commitment, persist=True)
+        log.msg("Received commitment broadcast by other maker: " + str(
+            commitment) + ", now blacklisted.")
 
     @maker_only
     def on_commitment_transferred(self, nick, commitment):
