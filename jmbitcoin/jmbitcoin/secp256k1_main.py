@@ -9,6 +9,7 @@ import coincurve as secp256k1
 
 from bitcointx import base58
 from bitcointx.core import Hash
+from bitcointx.core.key import CKeyBase, CPubKey
 from bitcointx.signmessage import BitcoinMessage
 
 #Required only for PoDLE calculation:
@@ -215,3 +216,49 @@ def ecdsa_raw_verify(msg, pub, sig, rawmsg=False):
     except Exception as e:
         return False
     return retval
+
+class JMCKey(bytes, CKeyBase):
+    """An encapsulated private key.
+    This subclasses specifically for JM's own signing code.
+
+    Attributes:
+
+    pub           - The corresponding CPubKey for this private key
+    secret_bytes  - Secret data, 32 bytes (needed because subclasses may have trailing data)
+
+    is_compressed() - True if compressed
+
+    """
+
+    def __init__(self, b):
+        CKeyBase.__init__(self, b, compressed=True)
+
+    def is_compressed(self):
+        return True
+
+    @property
+    def secret_bytes(self):
+        assert isinstance(self, bytes)
+        return self[:32]
+
+    def sign(self, hash):
+        assert isinstance(hash, (bytes, bytearray))
+        if len(hash) != 32:
+            raise ValueError('Hash must be exactly 32 bytes long')
+        # TODO: non default sighash flag.
+        return ecdsa_raw_sign(hash, self.secret_bytes + b"\x01", rawmsg=True)
+
+
+    def verify(self, hash, sig):
+        return self.pub.verify(hash, sig)
+
+    def verify_nonstrict(self, hash, sig):
+        return self.pub.verify_nonstrict(hash, sig)
+
+    @classmethod
+    def from_secret_bytes(cls, secret, compressed=True):
+        return cls(secret, compressed=compressed)
+
+    @classmethod
+    def from_bytes(cls, data):
+        raise NotImplementedError('subclasses must override from_bytes()')

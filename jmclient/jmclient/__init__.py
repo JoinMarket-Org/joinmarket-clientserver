@@ -42,7 +42,7 @@ from .schedule import (get_schedule, get_tumble_schedule, schedule_to_text,
 from .commitment_utils import get_utxo_info, validate_utxo_data, quit
 from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
                              restart_wait, get_tumble_log, direct_send,
-                             tumbler_filter_orders_callback)
+                             tumbler_filter_orders_callback, direct_send)
 from .cli_options import (add_base_options, add_common_options,
                           get_tumbler_parser, get_max_cj_fee_values,
                           check_regtest, get_sendpayment_parser,
