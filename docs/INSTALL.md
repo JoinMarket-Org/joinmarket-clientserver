@@ -64,6 +64,73 @@ Then:
 If you have installed this "full" version of the client, you can use it with the
 command line scripts as explained in the [scripts README](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/scripts).
 
+### Installation on FreeBSD
+
+1) Fetch and extract ports
+    ```
+    portsnap fetch
+    portsnap extract
+    
+2) Install dependencies
+    ```
+    pkg install -y bash python py37-pip py37-openssl py37-gmpy py37-sqlite3 libffi libsodium
+
+3) Build OpenSSL with SSL3 support
+    ```
+    cd /usr/ports/security/openssl/ && make deinstall && make WITH=SSL3 BATCH=1 install clean
+
+4) Decide where to keep the application and settings
+    ```
+    JM_BIN_DIR_PATH=/usr/local/bin/joinmarket
+    JM_ETC_DIR_PATH=/usr/local/etc/joinmarket
+
+4) Clone the joinmarket-clientserver repo and checkout current release tag
+    ```
+    git clone https://github.com/Joinmarket-Org/joinmarket-clientserver $JM_BIN_DIR_PATH
+    cd $JM_BIN_DIR_PATH && git checkout current_release
+
+5) Install python dependencies
+    ```
+    cd $JM_BIN_DIR_PATH && pip install virtualenv && virtualenv --python=python3 jmvenv
+
+6) Configure python virtual environment
+    ```
+    /usr/local/bin/bash -c "source $JM_BIN_DIR_PATH/jmvenv/bin/activate; python setupall.py --daemon"
+    /usr/local/bin/bash -c "source $JM_BIN_DIR_PATH/jmvenv/bin/activate; python setupall.py --client-bitcoin"
+
+7) Generate config file
+    ```
+    $JM_BIN_DIR_PATH/jmvenv/bin/python $JM_BIN_DIR_PATH/scripts/wallet-tool.py --datadir=$INTERNAL_ETC_PATH
+
+8) Install rc.script
+    ```
+    cp $JM_BIN_DIR_PATH/FreeBSD_rc.sh /usr/local/etc/rc.d/joinmarket && chmod +x /usr/local/etc/rc.d/joinmarket
+
+9) Update settings
+    ```
+    $EDITOR $JM_ETC_DIR_PATH/joinmarket.cfg
+    $EDITOR $JM_BIN_DIR_PATH/scripts/yg-privacyenhanced.py
+
+10) Generate wallet
+    ```
+    service joinmarket onegenerate
+
+11) Write password to .secrets file to enable joinmarket to start automatically after booting
+    ```
+    echo REPLACE_THIS_WITH_YOUR_PASSWORD > $JM_ETC_DIR_PATH/.secrets
+
+12) Automate startup
+    ```
+    sysrc joinmarket_enable="YES"
+    service joinmarket start
+
+#### Commands to control joinmarket on FreeBSD
+    ```
+    service joinmarket start    # start joinmarket
+    service joinmarket stop     # stop joinmarket
+    service joinmarket wallet   # list addresses
+    service joinmarket history  # display history
+
 ### Installation on macOS
 
 1) Install Apple Command Line Tools
