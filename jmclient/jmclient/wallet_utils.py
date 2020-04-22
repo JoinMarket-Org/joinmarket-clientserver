@@ -13,8 +13,8 @@ from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, WalletError,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
-    LegacyWallet, SegwitWallet, FidelityBondMixin, is_native_segwit_mode,
-    load_program_config, add_base_options, check_regtest)
+    LegacyWallet, SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
+    is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
 from jmclient.wallet_service import WalletService
 from jmbase.support import get_password, jmprint, EXIT_FAILURE, EXIT_ARGERROR
 
@@ -47,7 +47,8 @@ def get_wallettool_parser():
         '(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.\n'
         '(gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`\n'
         '(addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with '
-            '-H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof')
+            '-H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof\n'
+        '(createwatchonly) Create a watch-only fidelity bond wallet')
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method] [args..]',
                           description=description)
     add_base_options(parser)
@@ -485,7 +486,6 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                         entrylist.append(WalletViewEntry(
                             wallet_service.get_path_repr(path), m, address_type, k,
                             addr, [balance, balance], priv=privkey, used=status))
-            #TODO fidelity bond master pub key is this, although it should include burner too
             xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
             path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
             branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
@@ -556,8 +556,8 @@ def cli_get_wallet_passphrase_check():
         return False
     return password
 
-def cli_get_wallet_file_name():
-    return input('Input wallet file name (default: wallet.jmdat): ')
+def cli_get_wallet_file_name(defaultname="wallet.jmdat"):
+    return input('Input wallet file name (default: ' + defaultname + '): ')
 
 def cli_display_user_words(words, mnemonic_extension):
     text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
@@ -1176,6 +1176,30 @@ def wallet_addtxoutproof(wallet_service, hdpath, txoutproof):
         new_merkle_branch, block_index)
     return "Done"
 
+def wallet_createwatchonly(wallet_root_path, master_pub_key):
+
+    wallet_name = cli_get_wallet_file_name(defaultname="watchonly.jmdat")
+    if not wallet_name:
+        DEFAULT_WATCHONLY_WALLET_NAME = "watchonly.jmdat"
+        wallet_name = DEFAULT_WATCHONLY_WALLET_NAME
+
+    wallet_path = os.path.join(wallet_root_path, wallet_name)
+
+    password = cli_get_wallet_passphrase_check()
+    if not password:
+        return ""
+
+    entropy = FidelityBondMixin.get_xpub_from_fidelity_bond_master_pub_key(master_pub_key)
+    if not entropy:
+        jmprint("Error with provided master pub key", "error")
+        return ""
+    entropy = entropy.encode()
+
+    wallet = create_wallet(wallet_path, password,
+        max_mixdepth=FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
+        wallet_cls=FidelityBondWatchonlyWallet, entropy=entropy)
+    return "Done"
+
 def get_configured_wallet_type(support_fidelity_bonds):
     configured_type = TYPE_P2PKH
     if is_segwit_mode():
@@ -1337,7 +1361,7 @@ def wallet_tool_main(wallet_root_path):
     check_regtest(blockchain_start=False)
     # full path to the wallets/ subdirectory in the user data area:
     wallet_root_path = os.path.join(jm_single().datadir, wallet_root_path)
-    noseed_methods = ['generate', 'recover']
+    noseed_methods = ['generate', 'recover', 'createwatchonly']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
                'history', 'showutxos', 'freeze', 'gettimelockaddress', 'addtxoutproof']
     methods.extend(noseed_methods)
@@ -1440,6 +1464,11 @@ def wallet_tool_main(wallet_root_path):
                 + 'Core\'s RPC call gettxoutproof', "error")
             sys.exit(EXIT_ARGERROR)
         return wallet_addtxoutproof(wallet_service, options.hd_path, args[2])
+    elif method == "createwatchonly":
+        if len(args) < 2:
+            jmprint("args: [master public key]", "error")
+            sys.exit(EXIT_ARGERROR)
+        return wallet_createwatchonly(wallet_root_path, args[1])
     else:
         parser.error("Unknown wallet-tool method: " + method)
         sys.exit(EXIT_ARGERROR)

@@ -7,9 +7,13 @@ import struct
 import jmbitcoin as btc
 from .configure import get_network, jm_single
 
-
+#NOTE: before fidelity bonds and watchonly wallet, each of these types corresponded
+# to one wallet type and one engine, not anymore
+#with fidelity bond wallets and watchonly fidelity bond wallet, the wallet class
+# can have two engines, one for single-sig addresses and the other for timelocked addresses
 TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N, TYPE_TIMELOCK_P2WSH, \
-    TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS = range(6)
+    TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS, TYPE_WATCHONLY_FIDELITY_BONDS, \
+    TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2SH_P2WPKH = range(9)
 NET_MAINNET, NET_TESTNET = range(2)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET}
 WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef'}
@@ -130,6 +134,7 @@ class BTCEngine(object):
 
     @classmethod
     def derive_bip32_pub_export(cls, master_key, path):
+        #in the case of watchonly wallets this priv is actually a pubkey
         priv = cls._walk_bip32_path(master_key, path)
         return btc.bip32_serialize(btc.raw_bip32_privtopub(priv))
 
@@ -336,9 +341,62 @@ class BTC_Timelocked_P2WSH(BTCEngine):
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         raise RuntimeError("Cannot spend from watch-only wallets")
 
+class BTC_Watchonly_Timelocked_P2WSH(BTC_Timelocked_P2WSH):
+
+    @classmethod
+    def get_watchonly_path(cls, path):
+        #given path is something like "m/49'/1'/0'/0/0"
+        #but watchonly wallet already stores the xpub for "m/49'/1'/0'/"
+        #so to make this work we must chop off the first 3 elements
+        return path[3:]
+
+    @classmethod
+    def derive_bip32_privkey(cls, master_key, path):
+        assert len(path) > 1
+        return cls._walk_bip32_path(master_key, cls.get_watchonly_path(
+            path))[-1]
+
+    @classmethod
+    def privkey_to_script(cls, pubkey_locktime):
+        pub, locktime = pubkey_locktime
+        return cls.pubkey_to_script((pub, locktime))
+
+    @classmethod
+    def privkey_to_wif(cls, privkey_locktime):
+        return ""
+
+    @classmethod
+    def sign_transaction(cls, tx, index, privkey, amount,
+                         hashcode=btc.SIGHASH_ALL, **kwargs):
+        raise Exception("not implemented yet")
+
+class BTC_Watchonly_P2SH_P2WPKH(BTC_P2SH_P2WPKH):
+
+    @classmethod
+    def derive_bip32_privkey(cls, master_key, path):
+        return BTC_Watchonly_Timelocked_P2WSH.derive_bip32_privkey(master_key, path)
+
+    @classmethod
+    def privkey_to_wif(cls, privkey_locktime):
+        return BTC_Watchonly_Timelocked_P2WSH.privkey_to_wif(privkey_locktime)
+
+    @staticmethod
+    def privkey_to_pubkey(privkey):
+        #in watchonly wallets there are no privkeys, so functions
+        # like _get_priv_from_path() actually return pubkeys and
+        # this function is a noop
+        return privkey
+
+    @classmethod
+    def derive_bip32_pub_export(cls, master_key, path):
+        return super(BTC_Watchonly_P2SH_P2WPKH, cls).derive_bip32_pub_export(
+            master_key, BTC_Watchonly_Timelocked_P2WSH.get_watchonly_path(path))
+
 ENGINES = {
     TYPE_P2PKH: BTC_P2PKH,
     TYPE_P2SH_P2WPKH: BTC_P2SH_P2WPKH,
     TYPE_P2WPKH: BTC_P2WPKH,
-    TYPE_TIMELOCK_P2WSH: BTC_Timelocked_P2WSH
+    TYPE_TIMELOCK_P2WSH: BTC_Timelocked_P2WSH,
+    TYPE_WATCHONLY_TIMELOCK_P2WSH: BTC_Watchonly_Timelocked_P2WSH,
+    TYPE_WATCHONLY_P2SH_P2WPKH: BTC_Watchonly_P2SH_P2WPKH
 }

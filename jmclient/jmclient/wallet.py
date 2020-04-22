@@ -22,6 +22,7 @@ from .support import select_gradual, select_greedy, select_greediest, \
     select
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
     TYPE_P2WPKH, TYPE_TIMELOCK_P2WSH, TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS,\
+    TYPE_WATCHONLY_FIDELITY_BONDS, TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2SH_P2WPKH,\
     ENGINES
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
@@ -1303,9 +1304,7 @@ class BIP32Wallet(BaseWallet):
 
         # used to verify paths for sanity checking and for wallet id creation
         self._key_ident = b''  # otherwise get_bip32_* won't work
-        self._key_ident = sha256(sha256(
-            self.get_bip32_priv_export(0, 0).encode('ascii')).digest())\
-            .digest()[:3]
+        self._key_ident = self._get_key_ident()
         self._populate_script_map()
         self.disable_new_scripts = False
 
@@ -1346,6 +1345,11 @@ class BIP32Wallet(BaseWallet):
                 md_map[int(t)] = k
 
         self.max_mixdepth = max(0, 0, *self._index_cache.keys())
+
+    def _get_key_ident(self):
+        return sha256(sha256(
+            self.get_bip32_priv_export(0, 0).encode('ascii')).digest())\
+            .digest()[:3]
 
     def _populate_script_map(self):
         for md in self._index_cache:
@@ -1652,12 +1656,16 @@ class FidelityBondMixin(object):
     """
     TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR = 6
 
+    _TIMELOCK_ENGINE = ENGINES[TYPE_TIMELOCK_P2WSH]
+
     #only one mixdepth will have fidelity bonds in it
     FIDELITY_BOND_MIXDEPTH = 0
 
     MERKLE_BRANCH_UNAVAILABLE = b"mbu"
 
     _BURNER_OUTPUT_STORAGE_KEY = b"burner-out"
+
+    _BIP32_PUBKEY_PREFIX = "fbonds-mpk-"
 
     @classmethod
     def _time_number_to_timestamp(cls, timenumber):
@@ -1701,6 +1709,13 @@ class FidelityBondMixin(object):
         pub = engine.privkey_to_pubkey(priv)
         return sha256(sha256(pub).digest()).digest()[:3]
 
+    @classmethod
+    def get_xpub_from_fidelity_bond_master_pub_key(cls, mpk):
+        if mpk.startswith(cls._BIP32_PUBKEY_PREFIX):
+            return mpk[len(cls._BIP32_PUBKEY_PREFIX):]
+        else:
+            return False
+
     def _populate_script_map(self):
         super(FidelityBondMixin, self)._populate_script_map()
         for md in self._index_cache:
@@ -1711,6 +1726,12 @@ class FidelityBondMixin(object):
                     script = self.get_script_from_path(path)
                     self._script_map[script] = path
 
+    def get_bip32_pub_export(self, mixdepth=None, address_type=None):
+        bip32_pub = super(FidelityBondMixin, self).get_bip32_pub_export(mixdepth, address_type)
+        if address_type == None and mixdepth == self.FIDELITY_BOND_MIXDEPTH:
+            bip32_pub = self._BIP32_PUBKEY_PREFIX + bip32_pub
+        return bip32_pub
+
     @classmethod
     def _get_supported_address_types(cls):
         return (cls.BIP32_EXT_ID, cls.BIP32_INT_ID, cls.BIP32_TIMELOCK_ID, cls.BIP32_BURN_ID)
@@ -1719,7 +1740,7 @@ class FidelityBondMixin(object):
         if self._is_timelocked_path(path):
             key_path = path[:-1]
             locktime = path[-1]
-            engine = ENGINES[TYPE_TIMELOCK_P2WSH]
+            engine = self._TIMELOCK_ENGINE
             privkey = engine.derive_bip32_privkey(self._master_key, key_path)
             return (privkey, locktime), engine
         else:
@@ -1807,10 +1828,6 @@ class FidelityBondMixin(object):
         self._storage.data[self._BURNER_OUTPUT_STORAGE_KEY][path][2] = \
             merkle_branch
 
-#class FidelityBondWatchonlyWallet(ImportWalletMixin, BIP39WalletMixin, FidelityBondMixin):
-
-
-
 class BIP49Wallet(BIP32PurposedWallet):
     _PURPOSE = 2**31 + 49
     _ENGINE = ENGINES[TYPE_P2SH_P2WPKH]
@@ -1828,9 +1845,30 @@ class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, BIP84Wallet):
 class SegwitLegacyWalletFidelityBonds(FidelityBondMixin, SegwitLegacyWallet):
     TYPE = TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
 
+
+class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP49Wallet):
+    TYPE = TYPE_WATCHONLY_FIDELITY_BONDS
+    _ENGINE = ENGINES[TYPE_WATCHONLY_P2SH_P2WPKH]
+    _TIMELOCK_ENGINE = ENGINES[TYPE_WATCHONLY_TIMELOCK_P2WSH]
+
+    @classmethod
+    def _verify_entropy(cls, ent):
+        return ent[1:4] == b"pub"
+
+    @classmethod
+    def _derive_bip32_master_key(cls, master_entropy):
+        return btc.bip32_deserialize(master_entropy.decode())
+
+    def _get_bip32_export_path(self, mixdepth=None, address_type=None):
+        path = super(FidelityBondWatchonlyWallet, self)._get_bip32_export_path(
+            mixdepth, address_type)
+        return path
+
+
 WALLET_IMPLEMENTATIONS = {
     LegacyWallet.TYPE: LegacyWallet,
     SegwitLegacyWallet.TYPE: SegwitLegacyWallet,
     SegwitWallet.TYPE: SegwitWallet,
-    SegwitLegacyWalletFidelityBonds.TYPE: SegwitLegacyWalletFidelityBonds
+    SegwitLegacyWalletFidelityBonds.TYPE: SegwitLegacyWalletFidelityBonds,
+    FidelityBondWatchonlyWallet.TYPE: FidelityBondWatchonlyWallet
 }
