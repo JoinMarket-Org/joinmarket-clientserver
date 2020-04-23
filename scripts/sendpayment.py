@@ -190,7 +190,12 @@ def main():
                 .format(exp_tx_fees_ratio))
 
     if options.makercount == 0 and not options.p2ep:
-        direct_send(wallet_service, amount, mixdepth, destaddr, options.answeryes)
+        tx = direct_send(wallet_service, amount, mixdepth, destaddr,
+                         options.answeryes, with_final_psbt=options.with_psbt)
+        if options.with_psbt:
+            log.info("This PSBT is fully signed and can be sent externally for "
+                     "broadcasting:")
+            log.info(tx.to_base64())
         return
 
     if wallet.get_txtype() == 'p2pkh':

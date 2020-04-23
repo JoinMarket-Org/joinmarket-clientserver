@@ -519,6 +519,14 @@ def get_sendpayment_parser():
                       help='specify recipient IRC nick for a '
                       'p2ep style payment, for example:\n'
                       'J5Ehn3EieVZFtm4q ')
+    parser.add_option('--psbt',
+                      action='store_true',
+                      dest='with_psbt',
+                      default=False,
+                      help='output as psbt instead of '
+                      'broadcasting the transaction. '
+                      'Currently only works with direct '
+                      'send (-N 0).')
 
     add_common_options(parser)
     return parser

@@ -11,7 +11,8 @@ from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime, \
     FidelityBondMixin
-from jmbitcoin import make_shuffled_tx, amount_to_str, mk_burn_script
+from jmbitcoin import make_shuffled_tx, amount_to_str, mk_burn_script,\
+                       PartiallySignedTransaction, CMutableTxOut
 from jmbase.support import EXIT_SUCCESS
 log = get_log()
 
@@ -22,7 +23,7 @@ Currently re-used by CLI script tumbler.py and joinmarket-qt
 
 def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 accept_callback=None, info_callback=None,
-                return_transaction=False):
+                return_transaction=False, with_final_psbt=False):
     """Send coins directly from one mixdepth to one destination address;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
     If answeryes is True, callback/command line query is not performed.
@@ -39,8 +40,13 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     pushed), and returns nothing.
 
     This function returns:
-    The txid if transaction is pushed, False otherwise,
-    or the full CMutableTransaction if return_transaction is True.
+    1. False if there is any failure.
+    2. The txid if transaction is pushed, and return_transaction is False,
+       and with_final_psbt is False.
+    3. The full CMutableTransaction is return_transaction is True and
+       with_final_psbt is False.
+    4. The PSBT object if with_final_psbt is True, and in
+       this case the transaction is *NOT* broadcast.
     """
     #Sanity checks
     assert validate_address(destination)[0] or is_burn_destination(destination)
@@ -139,37 +145,53 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     tx = make_shuffled_tx(list(utxos.keys()), outs, 2, tx_locktime)
 
     inscripts = {}
+    spent_outs = []
     for i, txinp in enumerate(tx.vin):
         u = (txinp.prevout.hash[::-1], txinp.prevout.n)
         inscripts[i] = (utxos[u]["script"], utxos[u]["value"])
-    success, msg = wallet_service.sign_tx(tx, inscripts)
-    if not success:
-        log.error("Failed to sign transaction, quitting. Error msg: " + msg)
-        return
-    log.info("Got signed transaction:\n")
-    log.info(pformat(str(tx)))
-    log.info("In serialized form (for copy-paste):")
-    log.info(bintohex(tx.serialize()))
-    actual_amount = amount if amount != 0 else total_inputs_val - fee_est
-    log.info("Sends: " + amount_to_str(actual_amount) + " to destination: " + destination)
-    if not answeryes:
-        if not accept_callback:
-            if input('Would you like to push to the network? (y/n):')[0] != 'y':
-                log.info("You chose not to broadcast the transaction, quitting.")
-                return False
-        else:
-            accepted = accept_callback(pformat(str(tx)), destination, actual_amount,
-                                       fee_est)
-            if not accepted:
-                return False
-    jm_single().bc_interface.pushtx(tx.serialize())
-    txid = bintohex(tx.GetTxid()[::-1])
-    successmsg = "Transaction sent: " + txid
-    cb = log.info if not info_callback else info_callback
-    cb(successmsg)
-    txinfo = txid if not return_transaction else tx
-    return txinfo
-
+        spent_outs.append(CMutableTxOut(utxos[u]["value"],
+                                        utxos[u]["script"]))
+    if with_final_psbt:
+        # here we have the PSBTWalletMixin do the signing stage
+        # for us:
+        new_psbt = wallet_service.create_psbt_from_tx(tx, spent_outs=spent_outs)
+        serialized_psbt, err = wallet_service.sign_psbt(new_psbt.serialize())
+        if err:
+            log.error("Failed to sign PSBT, quitting. Error message: " + err)
+            return False
+        new_psbt_signed = PartiallySignedTransaction.deserialize(serialized_psbt)
+        print("Completed PSBT created: ")
+        print(pformat(new_psbt_signed))
+        # TODO add more readable info here as for case below.
+        return new_psbt_signed
+    else:
+        success, msg = wallet_service.sign_tx(tx, inscripts)
+        if not success:
+            log.error("Failed to sign transaction, quitting. Error msg: " + msg)
+            return
+        log.info("Got signed transaction:\n")
+        log.info(pformat(str(tx)))
+        log.info("In serialized form (for copy-paste):")
+        log.info(bintohex(tx.serialize()))
+        actual_amount = amount if amount != 0 else total_inputs_val - fee_est
+        log.info("Sends: " + amount_to_str(actual_amount) + " to destination: " + destination)
+        if not answeryes:
+            if not accept_callback:
+                if input('Would you like to push to the network? (y/n):')[0] != 'y':
+                    log.info("You chose not to broadcast the transaction, quitting.")
+                    return False
+            else:
+                accepted = accept_callback(pformat(str(tx)), destination, actual_amount,
+                                           fee_est)
+                if not accepted:
+                    return False
+        jm_single().bc_interface.pushtx(tx.serialize())
+        txid = bintohex(tx.GetTxid()[::-1])
+        successmsg = "Transaction sent: " + txid
+        cb = log.info if not info_callback else info_callback
+        cb(successmsg)
+        txinfo = txid if not return_transaction else tx
+        return txinfo
 
 def sign_tx(wallet_service, tx, utxos):
     stx = deserialize(tx)
