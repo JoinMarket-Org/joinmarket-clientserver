@@ -191,7 +191,7 @@ class BTCEngine(object):
     @classmethod
     def pubkey_to_address(cls, pubkey):
         script = cls.pubkey_to_script(pubkey)
-        return str(btc.script_to_address(script, cls.VBYTE))
+        return str(btc.CCoinAddress.from_scriptPubKey(script))
 
     @classmethod
     def pubkey_has_address(cls, pubkey, addr):

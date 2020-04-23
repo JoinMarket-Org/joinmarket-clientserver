@@ -8,7 +8,7 @@ import struct
 import coincurve as secp256k1
 
 from bitcointx import base58
-from bitcointx.core import Hash
+from bitcointx.core import Hash, CBitcoinTransaction
 from bitcointx.core.key import CKeyBase, CPubKey
 from bitcointx.signmessage import BitcoinMessage
 
@@ -166,6 +166,18 @@ def add_privkeys(priv1, priv2):
         res += b'\x01'
     return res
 
+def ecdh(privkey, pubkey):
+    """ Take a privkey in raw byte serialization,
+    and a pubkey serialized in compressed, binary format (33 bytes),
+    and output the shared secret as a 32 byte hash digest output.
+    The exact calculation is:
+    shared_secret = SHA256(privkey * pubkey)
+    .. where * is elliptic curve scalar multiplication.
+    See https://github.com/bitcoin/bitcoin/blob/master/src/secp256k1/src/modules/ecdh/main_impl.h
+    for implementation details.
+    """
+    secp_privkey = secp256k1.PrivateKey(privkey)
+    return secp_privkey.ecdh(pubkey)
 
 def ecdsa_raw_sign(msg,
                    priv,

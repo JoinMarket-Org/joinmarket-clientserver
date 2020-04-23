@@ -5,6 +5,7 @@ import functools
 import collections
 import numbers
 import random
+import base64
 from binascii import hexlify, unhexlify
 from datetime import datetime
 from calendar import timegm
@@ -751,6 +752,18 @@ class BaseWallet(object):
                     script_utxos[md][utxo]['height'] = height
         return script_utxos
 
+
+    def get_all_utxos(self, include_disabled=False):
+        """ Get all utxos in the wallet, format of return
+        is as for get_utxos_by_mixdepth for each mixdepth.
+        """
+        mix_utxos = self.get_utxos_by_mixdepth(
+            include_disabled=include_disabled)
+        all_utxos = {}
+        for d in mix_utxos.values():
+            all_utxos.update(d)
+        return all_utxos
+
     @classmethod
     def _get_merge_algorithm(cls, algorithm_name=None):
         if not algorithm_name:
@@ -1089,6 +1102,31 @@ class PSBTWalletMixin(object):
                 privkeys.append(self._get_priv_from_path(v2[0]))
         jmckeys = list(btc.JMCKey(x[0][:-1]) for x in privkeys)
         new_keystore = DummyKeyStore.from_iterable(jmckeys)
+
+        # for p2sh inputs that we want to sign, the redeem_script
+        # field must be populated by us, as the counterparty did not
+        # know it. If this was set in an earlier create-psbt role,
+        # then overwriting it is harmless (preimage resistance).
+        if isinstance(self, SegwitLegacyWallet):
+            for i, txinput in enumerate(new_psbt.inputs):
+                tu = txinput.utxo
+                if isinstance(tu, btc.CTxOut):
+                    # witness
+                    if tu.scriptPubKey.is_witness_scriptpubkey():
+                        # native segwit; no insertion needed.
+                        continue
+                    elif tu.scriptPubKey.is_p2sh():
+                        try:
+                            path = self.script_to_path(tu.scriptPubKey)
+                        except AssertionError:
+                            # this happens when an input is provided but it's not in
+                            # this wallet; in this case, we cannot set the redeem script.
+                            continue
+                        privkey, _ = self._get_priv_from_path(path)
+                        txinput.redeem_script = btc.pubkey_to_p2wpkh_script(
+                            btc.privkey_to_pubkey(privkey))
+                    # no else branch; any other form of scriptPubKey will just be
+                    # ignored.
         try:
             signresult = new_psbt.sign(new_keystore)
         except Exception as e:
@@ -1097,6 +1135,244 @@ class PSBTWalletMixin(object):
             return new_psbt.serialize(), None
         else:
             return (signresult, new_psbt), None
+
+class SNICKERWalletMixin(object):
+
+    SUPPORTED_SNICKER_VERSIONS = bytes([0, 1])
+
+    def __init__(self, storage, **kwargs):
+        super(SNICKERWalletMixin, self).__init__(storage, **kwargs)
+
+    def create_snicker_proposal(self, our_input, their_input, our_input_utxo,
+                                their_input_utxo, net_transfer, network_fee,
+                                our_priv, their_pub, our_spk, change_spk,
+                                encrypted=True, version_byte=1):
+        """ Creates a SNICKER proposal from the given transaction data.
+        This only applies to existing specification, i.e. SNICKER v 00 or 01.
+        This is only to be used for Joinmarket and only segwit wallets.
+        `our_input`, `their_input` - utxo format used in JM wallets,
+        keyed by (tixd, n), as dicts (currently of single entry).
+        `our_input_utxo`, `their..` - type CTxOut (contains value, scriptPubKey)
+        net_transfer - amount, after bitcoin transaction fee, transferred from
+        Proposer (our) to Receiver (their). May be negative.
+        network_fee - total bitcoin network transaction fee to be paid (so estimates
+        must occur before this function).
+        `our_priv`, `their_pub` - these are the keys to be used in ECDH to derive
+        the tweak as per the BIP. Note `their_pub` may or may not be associated with
+        the input of the receiver, so is specified here separately. Note also that
+        according to the BIP the privkey we use *must* be the one corresponding to
+        the input we provided, else (properly coded) Receivers will reject our
+        proposal.
+        `our_spk` - a scriptPubKey for the Proposer coinjoin output
+        `change_spk` - a change scriptPubkey for the proposer as per BIP
+        `encrypted` - whether or not to return the ECIES encrypted version of the
+        proposal.
+        `version_byte` - which of currently specified Snicker versions is being
+        used, (0 for reused address, 1 for inferred key).
+        returns:
+        if encrypted is True:
+          base 64 encoded encrypted transaction proposal as a string
+        else:
+          binary serialized plaintext SNICKER message.
+        """
+        assert isinstance(self, PSBTWalletMixin)
+        # before constructing the bitcoin transaction we must calculate the output
+        # amounts
+        # TODO investigate arithmetic for negative transfer
+        if our_input_utxo.nValue - their_input_utxo.nValue - network_fee <= 0:
+            raise Exception(
+                "Cannot create SNICKER proposal, Proposer input too small")
+        total_input_amount = our_input_utxo.nValue + their_input_utxo.nValue
+        total_output_amount = total_input_amount - network_fee
+        receiver_output_amount = their_input_utxo.nValue + net_transfer
+        proposer_output_amount = total_output_amount - receiver_output_amount
+
+        # we must also use ecdh to calculate the output scriptpubkey for the
+        # receiver
+        # First, check that `our_priv` corresponds to scriptPubKey in
+        # `our_input_utxo` to prevent callers from making useless proposals.
+        expected_pub = btc.privkey_to_pubkey(our_priv)
+        expected_spk = self.pubkey_to_script(expected_pub)
+        assert our_input_utxo.scriptPubKey == expected_spk
+        # now we create the ecdh based tweak:
+        tweak_bytes = btc.ecdh(our_priv[:-1], their_pub)
+        tweaked_pub = btc.snicker_pubkey_tweak(their_pub, tweak_bytes)
+        # TODO: remove restriction to one scriptpubkey type
+        tweaked_spk = btc.pubkey_to_p2sh_p2wpkh_script(tweaked_pub)
+        tweaked_addr, our_addr, change_addr = [str(
+            btc.CCoinAddress.from_scriptPubKey(x)) for x in (
+                tweaked_spk, expected_spk, change_spk)]
+        # now we must construct the three outputs with correct output amounts.
+        outputs = [{"address": tweaked_addr, "value": receiver_output_amount}]
+        outputs.append({"address": our_addr, "value": receiver_output_amount})
+        outputs.append({"address": change_addr,
+                "value": total_output_amount - 2 * receiver_output_amount})
+        assert all([x["value"] > 0 for x in outputs])
+
+        # version and locktime as currently specified in the BIP
+        # for 0/1 version SNICKER.
+        tx = btc.make_shuffled_tx([our_input, their_input], outputs,
+                              version=2, locktime=0)
+        # we need to know which randomized input is ours:
+        our_index = -1
+        for i, inp in enumerate(tx.vin):
+            if our_input == (inp.prevout.hash[::-1], inp.prevout.n):
+                our_index = i
+        assert our_index in [0, 1], "code error: our input not in tx"
+        spent_outs = [our_input_utxo, their_input_utxo]
+        if our_index == 1:
+            spent_outs = spent_outs[::-1]
+        # create the psbt and then sign our input.
+        snicker_psbt = self.create_psbt_from_tx(tx, spent_outs=spent_outs)
+
+        # having created the PSBT, sign our input
+        # TODO this requires bitcointx updated minor version else fails
+        signed_psbt_and_signresult, err = self.sign_psbt(
+        snicker_psbt.serialize(), with_sign_result=True)
+        assert err is None
+        signresult, partially_signed_psbt = signed_psbt_and_signresult
+        assert signresult.num_inputs_signed == 1
+        assert signresult.num_inputs_final == 1
+        assert not signresult.is_final
+        snicker_serialized_message = btc.SNICKER_MAGIC_BYTES + bytes(
+            [version_byte]) + btc.SNICKER_FLAG_NONE + tweak_bytes + \
+            partially_signed_psbt.serialize()
+
+        if not encrypted:
+            return snicker_serialized_message
+
+        # encryption has been requested;
+        # we apply ECIES in the form given by the BIP.
+        return btc.ecies_encrypt(snicker_serialized_message, their_pub)
+
+    def parse_proposal_to_signed_tx(self, privkey, proposal,
+                                    acceptance_callback):
+        """ Given a candidate privkey (binary and compressed format),
+        and a candidate encrypted SNICKER proposal, attempt to decrypt
+        and validate it in all aspects. If validation fails the first
+        return value is None and the second is the reason as a string.
+
+        If all validation checks pass, the next step is checking
+        acceptance according to financial rules: the acceptance
+        callback must be a function that accepts four arguments:
+        (our_ins, their_ins, our_outs, their_outs), where *ins values
+        are lists of CTxIns and *outs are lists of CTxOuts,
+        and must return only True/False where True means that the
+        transaction should be signed.
+
+        If True is returned from the callback, the following are returned
+        from this function:
+        (raw transaction for broadcasting (serialized),
+        tweak value as bytes,  derived output spk belonging to receiver)
+
+        Note: flags is currently always None as version is only 0 or 1.
+        """
+        assert isinstance(self, PSBTWalletMixin)
+
+        our_pub = btc.privkey_to_pubkey(privkey)
+
+        if len(proposal) < 5:
+            return None, "Invalid proposal, too short."
+
+        if base64.b64decode(proposal)[:4] == btc.ECIES_MAGIC_BYTES:
+            # attempt decryption and reject if fails:
+            try:
+                snicker_message = btc.ecies_decrypt(privkey, proposal)
+            except Exception as e:
+                return None, "Failed to decrypt." + repr(e)
+        else:
+            snicker_message = proposal
+
+        # magic + version,flag + tweak + psbt:
+        # TODO replace '20' with the minimum feasible PSBT.
+        if len(snicker_message) < 7 + 2 + 32 + 20:
+            return None, "Invalid proposal, too short."
+
+        if snicker_message[:7] != btc.SNICKER_MAGIC_BYTES:
+            return None, "Invalid SNICKER magic bytes."
+
+        version_byte = bytes([snicker_message[7]])
+        flag_byte = bytes([snicker_message[8]])
+        if version_byte not in self.SUPPORTED_SNICKER_VERSIONS:
+            return None, "Unrecognized SNICKER version: " + version_byte
+        if flag_byte != btc.SNICKER_FLAG_NONE:
+            return None, "Invalid flag byte for version 0,1: " + flag_byte
+
+        tweak_bytes = snicker_message[9:41]
+        candidate_psbt_serialized = snicker_message[41:]
+        # attempt to validate the PSBT's format:
+        try:
+            cpsbt = btc.PartiallySignedTransaction.from_base64_or_binary(
+                candidate_psbt_serialized)
+        except:
+            return None, "Invalid PSBT format."
+
+        utx = cpsbt.unsigned_tx
+        # validate that it contains one signature, and two inputs.
+        # else the proposal is invalid. To achieve this, we call
+        # PartiallySignedTransaction.sign() with an empty KeyStore,
+        # which populates the 'is_signed' info fields for us. Note that
+        # we do not use the PSBTWalletMixin.sign_psbt() which automatically
+        # signs with our keys.
+        if not len(utx.vin) == 2:
+            return None, "PSBT proposal does not contain 2 inputs."
+        testsignresult = cpsbt.sign(btc.KeyStore(), finalize=False)
+        print("got sign result: ", testsignresult)
+        # Note: "num_inputs_signed" refers to how many *we* signed,
+        # which is obviously none here as we provided no keys.
+        if not (testsignresult.num_inputs_signed == 0 and \
+                testsignresult.num_inputs_final == 1 and \
+                not testsignresult.is_final):
+            return None, "PSBT proposal does not contain 1 signature."
+
+        # Validate that we own one SNICKER style output:
+        spk = btc.verify_snicker_output(utx, our_pub, tweak_bytes)
+
+        if spk[0] == -1:
+            return None, "Tweaked destination not found exactly once."
+        our_output_index = spk[0]
+        our_output_amount = utx.vout[our_output_index].nValue
+
+        # At least one other output must have an amount equal to that at
+        # `our_output_index`, according to the spec.
+        found = 0
+        for i, o in enumerate(utx.vout):
+            if i == our_output_index:
+                continue
+            if o.nValue == our_output_amount:
+                found += 1
+        if found != 1:
+            return None, "Invalid SNICKER, there are not two equal outputs."
+
+        # To allow the acceptance callback to assess validity, we must identify
+        # which input is ours and which is(are) not.
+        # TODO This check may (will) change if we allow non-p2sh-pwpkh inputs:
+        unsigned_index = -1
+        for i, psbtinputsigninfo in enumerate(testsignresult.inputs_info):
+            if psbtinputsigninfo is None:
+                unsigned_index = i
+                break
+        assert unsigned_index != -1
+        # All validation checks passed. We now check whether the
+        #transaction is acceptable according to the caller:
+        if not acceptance_callback([utx.vin[unsigned_index]],
+                [x for i, x in enumerate(utx.vin) if i != unsigned_index],
+                [utx.vout[our_output_index]],
+                [x for i, x in enumerate(utx.vout) if i != our_output_index]):
+            return None, "Caller rejected transaction for signing."
+
+        # Acceptance passed, prepare the deserialized tx for signing by us:
+        signresult_and_signedpsbt, err = self.sign_psbt(cpsbt.serialize(),
+                                                        with_sign_result=True)
+        if err:
+            return None, "Unable to sign proposed PSBT, reason: " + err
+        signresult, signed_psbt = signresult_and_signedpsbt
+        assert signresult.num_inputs_signed == 1
+        assert signresult.num_inputs_final == 2
+        assert signresult.is_final
+        # we now know the transaction is valid and fully signed; return to caller,
+        # along with supporting data for this tx:
+        return (signed_psbt.extract_transaction(), tweak_bytes, spk[1])
 
 class ImportWalletMixin(object):
     """
@@ -1916,10 +2192,10 @@ class BIP84Wallet(BIP32PurposedWallet):
     _PURPOSE = 2**31 + 84
     _ENGINE = ENGINES[TYPE_P2WPKH]
 
-class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, BIP49Wallet):
+class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, SNICKERWalletMixin, BIP49Wallet):
     TYPE = TYPE_P2SH_P2WPKH
 
-class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, BIP84Wallet):
+class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, SNICKERWalletMixin, BIP84Wallet):
     TYPE = TYPE_P2WPKH
 
 class SegwitLegacyWalletFidelityBonds(FidelityBondMixin, SegwitLegacyWallet):

@@ -10,7 +10,7 @@ import time
 import binascii
 import struct
 import copy
-from commontest import make_wallets
+from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
 
 import jmbitcoin as bitcoin
 import pytest
@@ -19,11 +19,6 @@ from jmclient import (load_test_config, jm_single, direct_send,
                       SegwitLegacyWallet, SegwitWallet, LegacyWallet)
 
 log = get_log()
-
-def dummy_accept_callback(tx, destaddr, actual_amount, fee_est):
-    return True
-def dummy_info_callback(msg):
-    pass
 
 def test_create_and_sign_psbt_with_legacy(setup_psbt_wallet):
     """ The purpose of this test is to check that we can create and
