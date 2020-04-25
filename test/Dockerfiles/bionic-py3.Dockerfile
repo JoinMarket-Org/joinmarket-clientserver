@@ -4,7 +4,7 @@ SHELL ["/bin/bash", "-c"]
 # dependencies
 RUN apt-get update
 RUN apt-get install -y \
-    python3-dev python3-pip python-virtualenv libsodium23
+    python3-dev python3-pip virtualenv libsodium23
 
 # curl is a better tool
 RUN apt-get install -y curl

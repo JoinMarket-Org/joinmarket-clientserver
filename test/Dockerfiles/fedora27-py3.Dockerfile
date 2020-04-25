@@ -4,7 +4,7 @@ SHELL ["/bin/bash", "-c"]
 # dependencies
 RUN dnf -y groups install 'Development tools'
 RUN dnf -y install \
-    python3-devel python3-pip python-virtualenv libsodium
+    python3-devel python3-pip python3-virtualenv libsodium
 
 # needed for build time
 # https://stackoverflow.com/questions/34624428/g-error-usr-lib-rpm-redhat-redhat-hardened-cc1-no-such-file-or-directory
@@ -31,5 +31,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN virtualenv --python=python3 jmvenv
+RUN virtualenv-3 --python=python3 jmvenv
 RUN source jmvenv/bin/activate && ./test/run_tests.sh
