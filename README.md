@@ -92,7 +92,7 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 
 + IRC: `#joinmarket` on irc.freenode.net https://webchat.freenode.net/?channels=%23joinmarket
 
-+ IRC on tor: `#joinmarket` on the networks [AgoraIRC](https://anarplex.net/agorairc/) and [Darkscience](https://www.darkscience.net/). These channels are bridged to the above freenode channel.
++ IRC on tor: `#joinmarket` on the networks [Hackint](https://www.hackint.org/) and [Darkscience](https://www.darkscience.net/). These channels are bridged to the above freenode channel.
 
 + Bitcoin wiki page: https://en.bitcoin.it/wiki/JoinMarket
 
