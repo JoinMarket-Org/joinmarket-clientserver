@@ -164,8 +164,167 @@ def test_create_psbt_and_sign(setup_psbt_wallet, unowned_utxo, wallet_cls):
         # transaction extraction must fail for not-fully-signed psbts:
         with pytest.raises(ValueError) as e:
             extracted_tx = signed_psbt.extract_transaction()
-        
-  
+
+@pytest.mark.parametrize('payment_amt, wallet_cls_sender, wallet_cls_receiver', [
+    (0.05, SegwitLegacyWallet, SegwitLegacyWallet),
+    (0.95, SegwitLegacyWallet, SegwitWallet),
+    (0.05, SegwitWallet, SegwitLegacyWallet),
+    (0.95, SegwitWallet, SegwitWallet),
+])
+def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
+                          wallet_cls_receiver):
+    """ Workflow step 1:
+    Create a payment from a wallet, and create a finalized PSBT.
+    This step is fairly trivial as the functionality is built-in to
+    PSBTWalletMixin.
+    Note that only Segwit* wallets are supported for PayJoin.
+
+        Workflow step 2:
+    Receiver creates a new partially signed PSBT with the same amount
+    and at least one more utxo.
+
+        Workflow step 3:
+    Given a partially signed PSBT created by a receiver, here the sender
+    completes (co-signs) the PSBT they are given. Note this code is a PSBT
+    functionality check, and does NOT include the detailed checks that
+    the sender should perform before agreeing to sign (see:
+    https://github.com/btcpayserver/btcpayserver-doc/blob/eaac676866a4d871eda5fd7752b91b88fdf849ff/Payjoin-spec.md#receiver-side
+    ).
+    """
+
+    wallet_r = make_wallets(1, [[3,0,0,0,0]], 1,
+                    wallet_cls=wallet_cls_receiver)[0]["wallet"]
+    wallet_s = make_wallets(1, [[3,0,0,0,0]], 1,
+                        wallet_cls=wallet_cls_sender)[0]["wallet"]
+    for w in [wallet_r, wallet_s]:
+        w.sync_wallet(fast=True)
+
+    # destination address for payment:
+    destaddr = str(bitcoin.CCoinAddress.from_scriptPubKey(
+        bitcoin.pubkey_to_p2wpkh_script(bitcoin.privkey_to_pubkey(b"\x01"*33))))
+
+    payment_amt = bitcoin.coins_to_satoshi(payment_amt)
+
+    # *** STEP 1 ***
+    # **************
+
+    # create a normal tx from the sender wallet:
+    payment_psbt = direct_send(wallet_s, payment_amt, 0, destaddr,
+                    accept_callback=dummy_accept_callback,
+                    info_callback=dummy_info_callback,
+                    with_final_psbt=True)
+
+    # ensure that the payemnt amount is what was intended:
+    out_amts = [x.nValue for x in payment_psbt.unsigned_tx.vout]
+    # NOTE this would have to change for more than 2 outputs:
+    assert any([out_amts[i] == payment_amt for i in [0, 1]])
+
+    # ensure that we can actually broadcast the created tx:
+    # (note that 'extract_transaction' represents an implicit
+    # PSBT finality check).
+    extracted_tx = payment_psbt.extract_transaction().serialize()
+    # don't want to push the tx right now, because of test structure
+    # (in production code this isn't really needed, we will not
+    # produce invalid payment transactions).
+    res = jm_single().bc_interface.rpc('testmempoolaccept',
+                                       [[bintohex(extracted_tx)]])
+    assert res[0]["allowed"], "Payment transaction was rejected from mempool."
+
+    # *** STEP 2 ***
+    # **************
+
+    # This step will not be in Joinmarket code for the first cut,
+    # it will be done by the merchant, but included here for the data flow.
+    # receiver grabs a random utxo here (as per previous sentence, this is
+    # the merchant's responsibility, not ours, but see earlier code in
+    # jmclient.maker.P2EPMaker for possibe heuristics).
+    # for more generality we test with two receiver-utxos, not one.
+    all_receiver_utxos = wallet_r.get_all_utxos()
+    # TODO is there a less verbose way to get any 2 utxos from the dict?
+    receiver_utxos_keys = list(all_receiver_utxos.keys())[:2]
+    receiver_utxos = {k: v for k, v in all_receiver_utxos.items(
+        ) if k in receiver_utxos_keys}
+
+    # receiver will do other checks as discussed above, including payment
+    # amount; as discussed above, this is out of the scope of this PSBT test.
+
+    # construct unsigned tx for payjoin-psbt:
+    payjoin_tx_inputs = [(x.prevout.hash[::-1],
+                x.prevout.n) for x in payment_psbt.unsigned_tx.vin]
+    payjoin_tx_inputs.extend(receiver_utxos.keys())
+    # find payment output and change output
+    pay_out = None
+    change_out = None
+    for o in payment_psbt.unsigned_tx.vout:
+        jm_out_fmt = {"value": o.nValue,
+        "address": str(bitcoin.CCoinAddress.from_scriptPubKey(
+        o.scriptPubKey))}
+        if o.nValue == payment_amt:
+            assert pay_out is None
+            pay_out = jm_out_fmt
+        else:
+            assert change_out is None
+            change_out = jm_out_fmt
+
+    # we now know there were two outputs and know which is payment.
+    # bump payment output with our input:
+    outs = [pay_out, change_out]
+    our_inputs_val = sum([v["value"] for _, v in receiver_utxos.items()])
+    pay_out["value"] += our_inputs_val
+    print("we bumped the payment output value by: ", our_inputs_val)
+    print("It is now: ", pay_out["value"])
+    unsigned_payjoin_tx = bitcoin.make_shuffled_tx(payjoin_tx_inputs, outs,
+                                version=payment_psbt.unsigned_tx.nVersion,
+                                locktime=payment_psbt.unsigned_tx.nLockTime)
+    print("we created this unsigned tx: ")
+    print(unsigned_payjoin_tx)
+    # to create the PSBT we need the spent_outs for each input,
+    # in the right order:
+    spent_outs = []
+    for i, inp in enumerate(unsigned_payjoin_tx.vin):
+        input_found = False
+        for j, inp2 in enumerate(payment_psbt.unsigned_tx.vin):
+            if inp.prevout == inp2.prevout:
+                spent_outs.append(payment_psbt.inputs[j].utxo)
+                input_found = True
+                break
+        if input_found:
+            continue
+        # if we got here this input is ours, we must find
+        # it from our original utxo choice list:
+        for ru in receiver_utxos.keys():
+            if (inp.prevout.hash[::-1], inp.prevout.n) == ru:
+                spent_outs.append(
+                    wallet_r.witness_utxos_to_psbt_utxos(
+                        {ru: receiver_utxos[ru]})[0])
+                input_found = True
+                break
+        # there should be no other inputs:
+        assert input_found
+
+    r_payjoin_psbt = wallet_r.create_psbt_from_tx(unsigned_payjoin_tx,
+                                                  spent_outs=spent_outs)
+    signresultandpsbt, err = wallet_r.sign_psbt(r_payjoin_psbt.serialize(),
+                                                with_sign_result=True)
+    assert not err, err
+    signresult, receiver_signed_psbt = signresultandpsbt
+    assert signresult.num_inputs_final == len(receiver_utxos)
+    assert not signresult.is_final
+
+    # *** STEP 3 ***
+    # **************
+
+    # take the half-signed PSBT, validate and co-sign:
+
+    signresultandpsbt, err = wallet_s.sign_psbt(
+        receiver_signed_psbt.serialize(), with_sign_result=True)
+    assert not err, err
+    signresult, sender_signed_psbt =  signresultandpsbt
+    assert signresult.is_final
+    # broadcast the tx
+    extracted_tx = sender_signed_psbt.extract_transaction().serialize()
+    assert jm_single().bc_interface.pushtx(extracted_tx)
+
 @pytest.fixture(scope="module")
 def setup_psbt_wallet():
     load_test_config()

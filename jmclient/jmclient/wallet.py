@@ -1054,7 +1054,7 @@ class PSBTWalletMixin(object):
             if spent_outs[i] is None:
                 # as above, will not be signable in this case
                 continue
-            if isinstance(spent_outs[i], (btc.CMutableTransaction, btc.CMutableTxOut)):
+            if isinstance(spent_outs[i], (btc.CTransaction, btc.CTxOut)):
                 # note that we trust the caller to choose Tx vs TxOut as according
                 # to non-witness/witness:
                 txinput.utxo = spent_outs[i]
