@@ -54,19 +54,31 @@ def main():
         parser.error("PayJoin requires exactly three arguments: "
                      "wallet, amount and destination address.")
         sys.exit(EXIT_ARGERROR)
-    elif options.schedule == '' and len(args) != 3:
-        parser.error("Joinmarket sendpayment (coinjoin) needs arguments:"
-        " wallet, amount and destination address")
-        sys.exit(EXIT_ARGERROR)
+    elif options.schedule == '':
+        if ((len(args) < 2) or
+            (btc.is_bip21_uri(args[1]) and len(args) != 2) or
+            (not btc.is_bip21_uri(args[1]) and len(args) != 3)):
+                parser.error("Joinmarket sendpayment (coinjoin) needs arguments:"
+                    " wallet, amount, destination address or wallet, bitcoin_uri.")
+                sys.exit(EXIT_ARGERROR)
 
     #without schedule file option, use the arguments to create a schedule
     #of a single transaction
     sweeping = False
     if options.schedule == '':
-        amount = btc.amount_to_sat(args[1])
-        if amount == 0:
-            sweeping = True
-        destaddr = args[2]
+        if btc.is_bip21_uri(args[1]):
+            parsed = btc.decode_bip21_uri(args[1])
+            try:
+                amount = parsed['amount']
+            except KeyError:
+                parser.error("Given BIP21 URI does not contain amount.")
+                sys.exit(EXIT_ARGERROR)
+            destaddr = parsed['address']
+        else:
+            amount = btc.amount_to_sat(args[1])
+            if amount == 0:
+                sweeping = True
+            destaddr = args[2]
         mixdepth = options.mixdepth
         addr_valid, errormsg = validate_address(destaddr)
         if not addr_valid:
