@@ -117,12 +117,28 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
         change_addr = wallet_service.get_internal_addr(mixdepth)
         outs.append({"value": changeval, "address": change_addr})
 
+    #compute transaction locktime, has special case for spending timelocked coins
+    tx_locktime = compute_tx_locktime()
+    if mixdepth == FidelityBondMixin.FIDELITY_BOND_MIXDEPTH and \
+            isinstance(wallet_service.wallet, FidelityBondMixin):
+        for outpoint, utxo in utxos.items():
+            path = wallet_service.script_to_path(
+                wallet_service.addr_to_script(utxo["address"]))
+            if not FidelityBondMixin.is_timelocked_path(path):
+                continue
+            path_locktime = path[-1]
+            tx_locktime = max(tx_locktime, path_locktime+1)
+            #compute_tx_locktime() gives a locktime in terms of block height
+            #timelocked addresses use unix time instead
+            #OP_CHECKLOCKTIMEVERIFY can only compare like with like, so we
+            #must use unix time as the transaction locktime
+
     #Now ready to construct transaction
     log.info("Using a fee of : " + amount_to_str(fee_est) + ".")
     if amount != 0:
         log.info("Using a change value of: " + amount_to_str(changeval) + ".")
     txsigned = sign_tx(wallet_service, make_shuffled_tx(
-        list(utxos.keys()), outs, False, 2, compute_tx_locktime()), utxos)
+        list(utxos.keys()), outs, False, 2, tx_locktime), utxos)
     log.info("Got signed transaction:\n")
     log.info(pformat(txsigned))
     tx = serialize(txsigned)

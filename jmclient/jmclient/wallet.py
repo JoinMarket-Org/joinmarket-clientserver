@@ -1694,7 +1694,7 @@ class FidelityBondMixin(object):
         return timenumber
 
     @classmethod
-    def _is_timelocked_path(cls, path):
+    def is_timelocked_path(cls, path):
         return len(path) > 4 and path[4] == cls.BIP32_TIMELOCK_ID
 
     def get_xpub_from_fidelity_bond_master_pub_key(cls, mpk):
@@ -1737,7 +1737,7 @@ class FidelityBondMixin(object):
         return (cls.BIP32_EXT_ID, cls.BIP32_INT_ID, cls.BIP32_TIMELOCK_ID, cls.BIP32_BURN_ID)
 
     def _get_priv_from_path(self, path):
-        if self._is_timelocked_path(path):
+        if self.is_timelocked_path(path):
             key_path = path[:-1]
             locktime = path[-1]
             engine = self._TIMELOCK_ENGINE
@@ -1766,7 +1766,7 @@ class FidelityBondMixin(object):
     refering to the pubkey plus the timelock value which together are needed to create the address
     """
     def get_path_repr(self, path):
-        if self._is_timelocked_path(path) and len(path) == 7:
+        if self.is_timelocked_path(path) and len(path) == 7:
             return super(FidelityBondMixin, self).get_path_repr(path[:-1]) +\
                  ":" + str(path[-1])
         else:
@@ -1785,7 +1785,7 @@ class FidelityBondMixin(object):
             ))
 
     def get_details(self, path):
-        if self._is_timelocked_path(path):
+        if self.is_timelocked_path(path):
             return self._get_mixdepth_from_path(path), path[-3], path[-2]
         else:
             return super(FidelityBondMixin, self).get_details(path)
