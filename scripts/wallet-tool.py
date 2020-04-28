@@ -1,3 +1,4 @@
+#! /usr/bin/env python
 
 from jmbase import jmprint
 from jmclient import wallet_tool_main
