@@ -1,20 +1,14 @@
 #!/usr/bin/python
-from past.builtins import basestring
-from io import BytesIO
-import binascii
-import copy
-import re
-import os
-import struct
+
 # note, only used for non-cryptographic randomness:
 import random
 from jmbitcoin.secp256k1_main import *
 
 from bitcointx.core import (CMutableTransaction, Hash160, CTxInWitness,
-                            CTxWitness, CMutableOutPoint, CMutableTxIn,
-                            CMutableTxOut, ValidationError, lx, x)
+                            CMutableOutPoint, CMutableTxIn,
+                            CMutableTxOut, ValidationError)
 from bitcointx.core.script import *
-from bitcointx.wallet import P2WPKHBitcoinAddress, CCoinAddress
+from bitcointx.wallet import P2WPKHCoinAddress, CCoinAddress, P2PKHCoinAddress
 from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
                                        SCRIPT_VERIFY_P2SH, SIGVERSION_WITNESS_V0)
 
@@ -74,10 +68,7 @@ def pubkey_to_p2pkh_script(pub, require_compressed=False):
     representing the corresponding pay-to-pubkey-hash
     scriptPubKey.
     """
-    if not is_valid_pubkey(pub, require_compressed=require_compressed):
-        raise Exception("Invalid pubkey")
-    return CScript([OP_DUP, OP_HASH160, Hash160(pub),
-                                          OP_EQUALVERIFY, OP_CHECKSIG])
+    return P2PKHCoinAddress.from_pubkey(pub).to_scriptPubKey()
 
 def pubkey_to_p2wpkh_script(pub):
     """
@@ -85,9 +76,7 @@ def pubkey_to_p2wpkh_script(pub):
     representing the corresponding pay-to-witness-pubkey-hash
     scriptPubKey.
     """
-    if not is_valid_pubkey(pub, True):
-        raise Exception("Invalid pubkey")
-    return CScript([OP_0, Hash160(pub)])
+    return P2WPKHCoinAddress.from_pubkey(pub).to_scriptPubKey()
 
 def pubkey_to_p2sh_p2wpkh_script(pub):
     """
@@ -146,8 +135,7 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
         return None, "Error in signing: " + repr(e)
 
     assert isinstance(tx, CMutableTransaction)
-    # using direct local access to libsecp256k1 binding, because
-    # python-bitcoinlib uses OpenSSL key management:
+
     pub = privkey_to_pubkey(priv)
 
     if not amount:
@@ -175,7 +163,7 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
 
         input_scriptPubKey = pubkey_to_p2wpkh_script(pub)
         # only created for convenience access to scriptCode:
-        input_address = P2WPKHBitcoinAddress.from_scriptPubKey(input_scriptPubKey)
+        input_address = P2WPKHCoinAddress.from_scriptPubKey(input_scriptPubKey)
         # function name is misleading here; redeemScript only applies to p2sh.
         scriptCode = input_address.to_redeemScript()
 

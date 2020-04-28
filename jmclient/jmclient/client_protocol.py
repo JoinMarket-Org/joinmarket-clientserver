@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-from future.utils import iteritems
 from twisted.internet import protocol, reactor, task
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
@@ -15,7 +14,7 @@ import hashlib
 import os
 import sys
 from jmbase import (get_log, EXIT_FAILURE, hextobin, bintohex,
-                    utxo_to_utxostr, dictchanger)
+                    utxo_to_utxostr)
 from jmclient import (jm_single, get_irc_mchannels,
                       RegtestBitcoinCoreInterface)
 import jmbitcoin as btc
@@ -303,7 +302,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         return {"accepted": True}
 
     def tx_match(self, txd):
-        for k,v in iteritems(self.finalized_offers):
+        for k,v in self.finalized_offers.items():
             # Tx considered defined by its output set
             if v["txd"].vout == txd.vout:
                 offerinfo = v

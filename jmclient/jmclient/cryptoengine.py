@@ -1,11 +1,11 @@
 
-
-from binascii import hexlify, unhexlify
 from collections import OrderedDict
 import struct
 
 import jmbitcoin as btc
-from .configure import get_network, jm_single
+from jmbase import bintohex
+from .configure import get_network
+
 
 #NOTE: before fidelity bonds and watchonly wallet, each of these types corresponded
 # to one wallet type and one engine, not anymore
@@ -31,7 +31,7 @@ def detect_script_type(script_str):
     script = btc.CScript(script_str)
     if not script.is_valid():
         raise EngineError("Unknown script type for script '{}'"
-                          .format(hexlify(script_str)))
+                          .format(bintohex(script_str)))
     if script.is_p2pkh():
         return TYPE_P2PKH
     elif script.is_p2sh():
@@ -42,7 +42,7 @@ def detect_script_type(script_str):
     elif script.is_witness_v0_keyhash():
         return TYPE_P2WPKH
     raise EngineError("Unknown script type for script '{}'"
-                      .format(hexlify(script_str)))
+                      .format(bintohex(script_str)))
 
 class classproperty(object):
     """

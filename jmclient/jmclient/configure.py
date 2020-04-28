@@ -379,13 +379,13 @@ def validate_address(addr):
     try:
         # automatically respects the network
         # as set in btc.select_chain_params(...)
-        x = btc.CCoinAddress(addr)
+        dummyaddr = btc.CCoinAddress(addr)
     except Exception as e:
         return False, repr(e)
     # additional check necessary because python-bitcointx
     # does not check hash length on p2sh construction.
     try:
-        x.to_scriptPubKey()
+        dummyaddr.to_scriptPubKey()
     except Exception as e:
         return False, repr(e)
     return True, "address validated"

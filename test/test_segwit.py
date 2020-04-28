@@ -1,13 +1,12 @@
 #! /usr/bin/env python
 '''Test creation of segwit transactions.'''
 
-import binascii
 import json
 from common import make_wallets
 from pprint import pformat
 import jmbitcoin as btc
 import pytest
-from jmbase import get_log, hextobin, bintohex
+from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single, LegacyWallet
 log = get_log()
 
@@ -24,14 +23,6 @@ def test_segwit_valid_txs(setup_segwit):
         assert deserialized_tx.serialize() == hextobin(j[1])
         #TODO use bcinterface to decoderawtransaction
         #and compare the json values
-
-
-def binarize_tx(tx):
-    for o in tx['outs']:
-        o['script'] = binascii.unhexlify(o['script'])
-    for i in tx['ins']:
-        i['outpoint']['hash'] = binascii.unhexlify(i['outpoint']['hash'])
-
 
 @pytest.mark.parametrize(
     "wallet_structure, in_amt, amount, segwit_amt, segwit_ins, o_ins", [

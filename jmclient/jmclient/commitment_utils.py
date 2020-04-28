@@ -1,10 +1,7 @@
 
 import sys
-import jmbitcoin as btc
 from jmbase import jmprint
-from jmclient import (jm_single, get_p2pk_vbyte, get_p2sh_vbyte,
-                      BTCEngine, TYPE_P2PKH, TYPE_P2SH_P2WPKH,
-                      BTC_P2PKH, BTC_P2SH_P2WPKH)
+from jmclient import jm_single, BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH
 from jmbase.support import EXIT_FAILURE, utxostr_to_utxo
 
 

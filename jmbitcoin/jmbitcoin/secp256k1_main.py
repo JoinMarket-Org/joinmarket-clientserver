@@ -1,15 +1,11 @@
 #!/usr/bin/python
-from future.utils import native_bytes, bytes_to_native_str
-import binascii
-import hashlib
-import sys
 import base64
 import struct
 import coincurve as secp256k1
 
 from bitcointx import base58
-from bitcointx.core import Hash, CBitcoinTransaction
-from bitcointx.core.key import CKeyBase, CPubKey
+from bitcointx.core import Hash
+from bitcointx.core.key import CKeyBase
 from bitcointx.signmessage import BitcoinMessage
 
 #Required only for PoDLE calculation:
@@ -60,7 +56,7 @@ def privkey_to_pubkey(priv):
     and return compressed/uncompressed public key as appropriate.'''
     compressed, priv = read_privkey(priv)
     #secp256k1 checks for validity of key value.
-    newpriv = secp256k1.PrivateKey(secret=native_bytes(priv))
+    newpriv = secp256k1.PrivateKey(secret=priv)
     return newpriv.public_key.format(compressed)
 
 # b58check wrapper functions around bitcointx.base58 functions:
@@ -137,7 +133,7 @@ def multiply(s, pub, return_serialized=True):
     '''
     newpub = secp256k1.PublicKey(pub)
     #see note to "tweak_mul" function in podle.py
-    res = newpub.multiply(native_bytes(s))
+    res = newpub.multiply(s)
     if not return_serialized:
         return res
     return res.format()
@@ -245,32 +241,9 @@ class JMCKey(bytes, CKeyBase):
     def __init__(self, b):
         CKeyBase.__init__(self, b, compressed=True)
 
-    def is_compressed(self):
-        return True
-
-    @property
-    def secret_bytes(self):
-        assert isinstance(self, bytes)
-        return self[:32]
-
     def sign(self, hash):
         assert isinstance(hash, (bytes, bytearray))
         if len(hash) != 32:
             raise ValueError('Hash must be exactly 32 bytes long')
         # TODO: non default sighash flag.
         return ecdsa_raw_sign(hash, self.secret_bytes + b"\x01", rawmsg=True)
-
-
-    def verify(self, hash, sig):
-        return self.pub.verify(hash, sig)
-
-    def verify_nonstrict(self, hash, sig):
-        return self.pub.verify_nonstrict(hash, sig)
-
-    @classmethod
-    def from_secret_bytes(cls, secret, compressed=True):
-        return cls(secret, compressed=compressed)
-
-    @classmethod
-    def from_bytes(cls, data):
-        raise NotImplementedError('subclasses must override from_bytes()')

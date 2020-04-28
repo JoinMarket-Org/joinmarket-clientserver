@@ -10,8 +10,7 @@ import pytest
 import json
 import struct
 from base64 import b64encode
-from jmbase import (utxostr_to_utxo, utxo_to_utxostr, hextobin,
-                    dictchanger, listchanger)
+from jmbase import utxostr_to_utxo, hextobin
 from jmclient import load_test_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
     get_network, WalletService, NO_ROUNDING, BTC_P2PKH

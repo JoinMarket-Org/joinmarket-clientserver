@@ -28,7 +28,7 @@ from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
-from jmbase import JM_WALLET_NAME_PREFIX, bintohex
+from jmbase import JM_WALLET_NAME_PREFIX
 
 
 """
@@ -998,23 +998,6 @@ class BaseWallet(object):
     def __del__(self):
         self.close()
 
-class DummyKeyStore(btc.KeyStore):
-    @classmethod
-    def from_iterable(cls, iterable, **kwargs):
-        kstore = cls(**kwargs)
-        for k in iterable:
-            kstore.add_key(k)
-        return kstore
-
-    def add_key(self, k):
-        if isinstance(k, btc.CKeyBase):
-            if k.pub.key_id in self._privkeys:
-                assert self._privkeys[k.pub.key_id] == k
-            else:
-                self._privkeys[k.pub.key_id] = k
-        else:
-            raise ValueError('object supplied to add_key is of unrecognized type')
-
 class PSBTWalletMixin(object):
     """
     Mixin for BaseWallet to provide BIP174
@@ -1062,7 +1045,7 @@ class PSBTWalletMixin(object):
                 assert False, "invalid spent output type passed into PSBT creator"
         # we now insert redeemscripts where that is possible and necessary:
         for i, txinput in enumerate(new_psbt.inputs):
-            if isinstance(txinput.utxo, btc.CMutableTxOut):
+            if isinstance(txinput.utxo, btc.CTxOut):
                 # witness
                 if txinput.utxo.scriptPubKey.is_witness_scriptpubkey():
                     # nothing needs inserting; the scriptSig is empty.
@@ -1094,14 +1077,15 @@ class PSBTWalletMixin(object):
         """
         try:
             new_psbt = btc.PartiallySignedTransaction.from_binary(in_psbt)
-        except:
-            return None, "Unable to deserialize the PSBT object, invalid format."
+        except Exception as e:
+            return None, "Unable to deserialize binary PSBT, error: " + repr(e)
         privkeys = []
         for k, v in self._utxos._utxo.items():
             for k2, v2 in v.items():
                 privkeys.append(self._get_priv_from_path(v2[0]))
         jmckeys = list(btc.JMCKey(x[0][:-1]) for x in privkeys)
-        new_keystore = DummyKeyStore.from_iterable(jmckeys)
+        new_keystore = btc.KeyStore.from_iterable(jmckeys,
+                                                  require_path_templates=False)
 
         # for p2sh inputs that we want to sign, the redeem_script
         # field must be populated by us, as the counterparty did not

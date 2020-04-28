@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-from future.utils import iteritems
 import base64
 import pprint
 import random
@@ -7,8 +6,7 @@ import sys
 import abc
 
 import jmbitcoin as btc
-from jmbase import (bintohex, hextobin, hexbin,
-                    get_log, EXIT_SUCCESS, EXIT_FAILURE)
+from jmbase import bintohex, hexbin, get_log, EXIT_SUCCESS, EXIT_FAILURE
 from jmclient.wallet import estimate_tx_fee, compute_tx_locktime
 from jmclient.wallet_service import WalletService
 from jmclient.configure import jm_single
@@ -470,7 +468,7 @@ class P2EPMaker(Maker):
             [x[1] for x in utxo.values()])
 
         total_sender_input = 0
-        for i, u in iteritems(utxo):
+        for i, u in utxo.items():
             if utxo_data[i] is None:
                 return (False, "Proposed transaction contains invalid utxos")
             total_sender_input += utxo_data[i]["value"]
@@ -505,7 +503,7 @@ class P2EPMaker(Maker):
 
         # Manual verification of the transaction signatures.
         # TODO handle native segwit properly
-        for i, u in iteritems(utxo):
+        for i, u in utxo.items():
             if not btc.verify_tx_input(tx, i,
                                        tx.vin[i].scriptSig,
                                        btc.CScript(utxo_data[i]["script"]),

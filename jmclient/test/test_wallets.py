@@ -9,7 +9,6 @@ import json
 
 import pytest
 from jmbase import get_log, hextobin
-import jmbitcoin as btc
 from jmclient import (
     load_test_config, jm_single,
     estimate_tx_fee, BitcoinCoreInterface, Mnemonic)

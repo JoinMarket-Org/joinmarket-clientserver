@@ -5,7 +5,6 @@ import os
 import sys
 import hashlib
 import json
-import binascii
 import struct
 from pprint import pformat
 from jmbase import jmprint

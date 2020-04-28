@@ -1,18 +1,14 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
-'''Test of unusual transaction types creation and push to
-network to check validity.'''
+'''Test of SNICKER functionality using Joinmarket
+   wallets as defined in jmclient.wallet.'''
 
-import binascii
 from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
 
 import jmbitcoin as btc
 import pytest
-from jmbase import get_log, bintohex, hextobin
-from jmclient import (load_test_config, jm_single,
-     estimate_tx_fee, SNICKERReceiver, direct_send)
+from jmbase import get_log, bintohex
+from jmclient import (load_test_config, estimate_tx_fee, SNICKERReceiver,
+                      direct_send)
 
 log = get_log()
 

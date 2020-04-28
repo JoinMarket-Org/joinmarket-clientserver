@@ -2,10 +2,8 @@
 '''Public and private key validity and formatting tests.'''
 
 import jmbitcoin as btc
-from jmclient import (BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH,
-                      jm_single, load_test_config)
-import binascii
-import struct
+from jmbase import hextobin
+from jmclient import BTCEngine, jm_single, load_test_config
 import json
 import pytest
 import os
@@ -76,7 +74,7 @@ def test_wif_privkeys_valid(setup_keys):
                 # we only handle compressed keys
                 continue
             from_wif_key, keytype = BTCEngine.wif_to_privkey(key)
-            expected_key = binascii.unhexlify(hex_key) + b"\x01"
+            expected_key = hextobin(hex_key) + b"\x01"
             assert from_wif_key == expected_key, "Incorrect key decoding: " + \
                    str(from_wif_key) + ", should be: " + str(expected_key)
     jm_single().config.set("BLOCKCHAIN", "network", "testnet")

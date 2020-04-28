@@ -1,8 +1,5 @@
 #!/usr/bin/python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
-from future.utils import native
+
 import coincurve as secp256k1
 import base64
 import hmac
@@ -19,7 +16,7 @@ class ECIESDecryptionError(Exception):
 # AES primitives. See BIP-SNICKER for specification.
 def aes_encrypt(key, data, iv):
     encrypter = pyaes.Encrypter(
-        pyaes.AESModeOfOperationCBC(key, iv=native(iv)))
+        pyaes.AESModeOfOperationCBC(key, iv=iv))
     enc_data = encrypter.feed(data)
     enc_data += encrypter.feed()
 
@@ -27,7 +24,7 @@ def aes_encrypt(key, data, iv):
 
 def aes_decrypt(key, data, iv):
     decrypter = pyaes.Decrypter(
-        pyaes.AESModeOfOperationCBC(key, iv=native(iv)))
+        pyaes.AESModeOfOperationCBC(key, iv=iv))
     try:
         dec_data = decrypter.feed(data)
         dec_data += decrypter.feed()

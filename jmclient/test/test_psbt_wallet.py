@@ -6,15 +6,12 @@
    BIP174 are tested there, not here.
    '''
 
-import time
-import binascii
-import struct
 import copy
 from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
 
 import jmbitcoin as bitcoin
 import pytest
-from jmbase import get_log, bintohex, hextobin
+from jmbase import get_log, bintohex
 from jmclient import (load_test_config, jm_single, direct_send,
                       SegwitLegacyWallet, SegwitWallet, LegacyWallet)
 

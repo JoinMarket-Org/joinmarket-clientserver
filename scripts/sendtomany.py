@@ -10,9 +10,8 @@ from optparse import OptionParser
 import jmbitcoin as btc
 from jmbase import get_log, jmprint, bintohex, utxostr_to_utxo
 from jmclient import load_program_config, estimate_tx_fee, jm_single,\
-    get_p2pk_vbyte, validate_address, get_utxo_info, add_base_options,\
-    validate_utxo_data, quit, BTCEngine, BTC_P2SH_P2WPKH, BTC_P2PKH
-
+    validate_address, get_utxo_info, add_base_options,\
+    validate_utxo_data, quit, BTCEngine
 
 log = get_log()
 

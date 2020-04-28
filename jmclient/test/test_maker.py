@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
 import jmbitcoin as btc
-from jmclient import Maker, get_p2sh_vbyte, get_p2pk_vbyte, \
-    load_test_config, jm_single, WalletService
+from jmclient import Maker, load_test_config, jm_single, WalletService
 import jmclient
 from commontest import DummyBlockchainInterface
 from test_taker import DummyWallet

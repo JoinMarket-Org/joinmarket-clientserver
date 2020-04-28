@@ -66,7 +66,7 @@ JM_GUI_VERSION = '15dev'
 from jmbase import get_log
 from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, JM_CORE_VERSION
 from jmclient import load_program_config, get_network, update_persist_config,\
-    open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
+    open_test_wallet_maybe, get_wallet_path,\
     jm_single, validate_address, weighted_order_choose, Taker,\
     JMClientProtocolFactory, start_reactor, get_schedule, schedule_to_text,\
     get_blockchain_interface_instance, direct_send, WalletService,\

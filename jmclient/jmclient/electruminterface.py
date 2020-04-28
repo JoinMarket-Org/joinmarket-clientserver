@@ -1,4 +1,3 @@
-from future.utils import iteritems
 import jmbitcoin as btc
 import json
 import queue as Queue
@@ -332,7 +331,7 @@ class ElectrumInterface(BlockchainInterface):
         for m in range(wallet.max_mixdepth):
             for fc in [0, 1]:
                 branch_list = []
-                for k, v in iteritems(self.temp_addr_history[m][fc]):
+                for k, v in self.temp_addr_history[m][fc].items():
                     if k == "finished":
                         continue
                     if v["used"]:

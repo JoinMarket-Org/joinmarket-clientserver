@@ -9,7 +9,7 @@ import pytest
 import copy
 from twisted.internet import reactor
 
-from jmbase import get_log, hextobin, bintohex
+from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single,\
     YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet,\
     NO_ROUNDING

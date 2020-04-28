@@ -6,12 +6,11 @@ import binascii
 import random
 from decimal import Decimal
 
-from jmbase import (get_log, hextobin, utxostr_to_utxo,
-                    utxo_to_utxostr, listchanger, dictchanger)
+from jmbase import (get_log, hextobin, dictchanger)
 
 from jmclient import (
     jm_single, open_test_wallet_maybe, estimate_tx_fee,
-    BlockchainInterface, get_p2sh_vbyte, BIP32Wallet,
+    BlockchainInterface, BIP32Wallet,
     SegwitLegacyWallet, WalletService, BTC_P2SH_P2WPKH)
 from jmbase.support import chunks
 import jmbitcoin as btc

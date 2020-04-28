@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import sys
 import pytest
 
 import binascii
@@ -26,7 +25,7 @@ def test_sign_standard_txs(addrtype):
     # (note that the input utxo is fake so we are really only creating
     # a destination here).
     scriptPubKey = btc.CScript([btc.OP_0, btc.Hash160(pub)])
-    address = btc.P2WPKHBitcoinAddress.from_scriptPubKey(scriptPubKey)
+    address = btc.P2WPKHCoinAddress.from_scriptPubKey(scriptPubKey)
     
     # Create a dummy outpoint; use same 32 bytes for convenience
     txid = priv[:32]
@@ -66,7 +65,7 @@ def test_mk_shuffled_tx():
     # prepare two addresses for the outputs
     pub = btc.privkey_to_pubkey(btc.Hash(b"priv") + b"\x01")
     scriptPubKey = btc.CScript([btc.OP_0, btc.Hash160(pub)])
-    addr1 = btc.P2WPKHBitcoinAddress.from_scriptPubKey(scriptPubKey)
+    addr1 = btc.P2WPKHCoinAddress.from_scriptPubKey(scriptPubKey)
     scriptPubKey_p2sh = scriptPubKey.to_p2sh_scriptPubKey()
     addr2 = btc.CCoinAddress.from_scriptPubKey(scriptPubKey_p2sh)
 

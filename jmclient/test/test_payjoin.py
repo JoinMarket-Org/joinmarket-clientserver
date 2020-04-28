@@ -11,7 +11,7 @@ from jmbase import get_log
 from jmclient import cryptoengine
 from jmclient import (load_test_config, jm_single,
                       P2EPMaker, P2EPTaker,
-                      LegacyWallet, SegwitLegacyWallet, SegwitWallet)
+                      SegwitLegacyWallet, SegwitWallet)
 from commontest import make_wallets
 from test_coinjoin import make_wallets_to_list, create_orderbook, sync_wallets
 

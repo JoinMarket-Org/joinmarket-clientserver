@@ -1,13 +1,9 @@
 #! /usr/bin/env python
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import * # noqa: F401
 
 import sys
-import binascii
 
 import jmbitcoin as btc
-from jmclient.configure import get_p2pk_vbyte, jm_single
+from jmclient.configure import jm_single
 from jmbase import (get_log, EXIT_FAILURE, utxo_to_utxostr,
                     bintohex, hextobin)
 

@@ -5,8 +5,6 @@
    p2(w)sh tests, these have been removed since Joinmarket
    does not use this feature.'''
 
-import time
-import binascii
 import struct
 from binascii import unhexlify
 from commontest import make_wallets, make_sign_and_push, ensure_bip65_activated
@@ -14,8 +12,7 @@ from commontest import make_wallets, make_sign_and_push, ensure_bip65_activated
 import jmbitcoin as bitcoin
 import pytest
 from jmbase import get_log
-from jmclient import load_test_config, jm_single,\
-    get_p2pk_vbyte
+from jmclient import load_test_config, jm_single
 
 log = get_log()
 #just a random selection of pubkeys for receiving multisigs;

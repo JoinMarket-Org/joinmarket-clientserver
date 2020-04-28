@@ -2,7 +2,6 @@
 '''Tests of Proof of discrete log equivalence commitments.'''
 import os
 import jmbitcoin as bitcoin
-import binascii
 import struct
 import json
 import pytest

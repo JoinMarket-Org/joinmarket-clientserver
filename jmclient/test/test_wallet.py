@@ -7,8 +7,7 @@ from binascii import hexlify, unhexlify
 import pytest
 import jmbitcoin as btc
 from commontest import ensure_bip65_activated
-from jmbase import (get_log, utxostr_to_utxo, utxo_to_utxostr,
-                    hextobin, bintohex)
+from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\

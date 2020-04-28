@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 '''test client-protocol interfacae.'''
 
-from jmbase import get_log, bintohex, hextobin
+from jmbase import get_log, bintohex
 from jmbase.commands import *
 from jmclient import load_test_config, Taker,\
     JMClientProtocolFactory, jm_single, Maker, WalletService
