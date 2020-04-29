@@ -31,7 +31,6 @@ http_get ()
 deps_install ()
 {
     common_deps=( \
-        'python-virtualenv' \
         'curl' \
         'build-essential' \
         'automake' \
@@ -39,6 +38,7 @@ deps_install ()
         'libtool' \
         'libgmp-dev' \
         'python3-dev' \
+        'virtualenv' \
         'python3-pip' )
 
     if ! is_python3; then
