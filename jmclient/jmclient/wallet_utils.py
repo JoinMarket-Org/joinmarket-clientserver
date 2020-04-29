@@ -872,7 +872,7 @@ def wallet_showseed(wallet):
     seed, extension = wallet.get_mnemonic_words()
     text = "Wallet mnemonic recovery phrase:\n\n{}\n".format(seed)
     if extension:
-        text += "\nWallet mnemonic extension: {}\n".format(extension)
+        text += "\nWallet mnemonic extension: {}\n".format(extension.decode('utf-8'))
     return text
 
 
