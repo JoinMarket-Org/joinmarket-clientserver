@@ -1135,24 +1135,24 @@ def wallet_freezeutxo(wallet, md, display_callback=None, info_callback=None):
 
 
 
-def wallet_gettimelockaddress(wallet_service, locktime_string):
-    if not isinstance(wallet_service.wallet, FidelityBondMixin):
+def wallet_gettimelockaddress(wallet, locktime_string):
+    if not isinstance(wallet, FidelityBondMixin):
         jmprint("Error: not a fidelity bond wallet", "error")
         return ""
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-    index = wallet_service.get_next_unused_index(m, address_type)
+    index = wallet.get_next_unused_index(m, address_type)
     lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
     timenumber = FidelityBondMixin.timestamp_to_time_number(timegm(
         lock_datetime.timetuple()))
 
-    path = wallet_service.get_path(m, address_type, index, timenumber)
-    jmprint("path = " + wallet_service.get_path_repr(path), "info")
+    path = wallet.get_path(m, address_type, index, timenumber)
+    jmprint("path = " + wallet.get_path_repr(path), "info")
     jmprint("Coins sent to this address will be not be spendable until "
         + lock_datetime.strftime("%B %Y") + ". Full date: "
         + str(lock_datetime))
-    addr = wallet_service.get_address_from_path(path)
+    addr = wallet.get_address_from_path(path)
     return addr
 
 def wallet_addtxoutproof(wallet_service, hdpath, txoutproof):
@@ -1457,7 +1457,7 @@ def wallet_tool_main(wallet_root_path):
         if len(args) < 3:
             jmprint('Must have locktime value yyyy-mm. For example 2021-03', "error")
             sys.exit(EXIT_ARGERROR)
-        return wallet_gettimelockaddress(wallet_service, args[2])
+        return wallet_gettimelockaddress(wallet_service.wallet, args[2])
     elif method == "addtxoutproof":
         if len(args) < 3:
             jmprint('Must have txout proof, which is the output of Bitcoin '

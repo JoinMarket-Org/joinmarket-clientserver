@@ -1672,6 +1672,8 @@ class FidelityBondMixin(object):
         """
         converts a time number to a unix timestamp
         """
+        if not 0 <= timenumber < cls.TIMENUMBERS_PER_PUBKEY:
+            raise ValueError()
         year = cls.TIMELOCK_EPOCH_YEAR + (timenumber*cls.TIMENUMBER_UNIT) // cls.MONTHS_IN_YEAR
         month = cls.TIMELOCK_EPOCH_MONTH + (timenumber*cls.TIMENUMBER_UNIT) % cls.MONTHS_IN_YEAR
         return timegm(datetime(year, month, *cls.TIMELOCK_DAY_AND_SHORTER).timetuple())

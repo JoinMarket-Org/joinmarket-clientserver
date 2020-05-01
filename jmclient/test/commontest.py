@@ -209,3 +209,13 @@ def interact(process, inputs, expected):
     for i, inp in enumerate(inputs):
         process.expect(expected[i])
         process.sendline(inp)
+
+def ensure_bip65_activated():
+    #on regtest bip65 activates on height 1351
+    #https://github.com/bitcoin/bitcoin/blob/1d1f8bbf57118e01904448108a104e20f50d2544/src/chainparams.cpp#L262
+    BIP65Height = 1351
+    current_height = jm_single().bc_interface.rpc("getblockchaininfo", [])["blocks"]
+    until_bip65_activation = BIP65Height - current_height + 1
+    if until_bip65_activation > 0:
+        jm_single().bc_interface.tick_forward_chain(until_bip65_activation)
+

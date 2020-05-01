@@ -13,7 +13,8 @@ from .old_mnemonic import mn_decode, mn_encode
 from .taker import Taker, P2EPTaker
 from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
-                     SegwitWallet, SegwitLegacyWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
+                     SegwitWallet, SegwitLegacyWallet, FidelityBondMixin,
+                     FidelityBondWatchonlyWallet, SegwitLegacyWalletFidelityBonds,
                      UTXOManager, WALLET_IMPLEMENTATIONS, compute_tx_locktime)
 from .storage import (Argon2Hash, Storage, StorageError, RetryableStorageError,
                       StoragePasswordError, VolatileStorage)
@@ -49,7 +50,7 @@ from .cli_options import (add_base_options, add_common_options,
 from .wallet_utils import (
     wallet_tool_main, wallet_generate_recover_bip39, open_wallet,
     open_test_wallet_maybe, create_wallet, get_wallet_cls, get_wallet_path,
-    wallet_display, get_utxos_enabled_disabled)
+    wallet_display, get_utxos_enabled_disabled, wallet_gettimelockaddress)
 from .wallet_service import WalletService
 from .maker import Maker, P2EPMaker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
