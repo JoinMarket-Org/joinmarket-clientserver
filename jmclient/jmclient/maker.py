@@ -130,7 +130,9 @@ class Maker(object):
             tx = btc.CMutableTransaction.deserialize(tx_from_taker)
         except Exception as e:
             return (False, 'malformed txhex. ' + repr(e))
-        jlog.info('obtained tx\n' + bintohex(tx.serialize()))
+        # if the above deserialization was successful, the human readable
+        # parsing will be also:
+        jlog.info('obtained tx\n' + btc.hrt(tx))
         goodtx, errmsg = self.verify_unsigned_tx(tx, offerinfo)
         if not goodtx:
             jlog.info('not a good tx, reason=' + errmsg)

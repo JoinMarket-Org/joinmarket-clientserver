@@ -2,15 +2,80 @@
 
 # note, only used for non-cryptographic randomness:
 import random
+import json
 from jmbitcoin.secp256k1_main import *
-
+from jmbase import bintohex, utxo_to_utxostr
 from bitcointx.core import (CMutableTransaction, Hash160, CTxInWitness,
-                            CMutableOutPoint, CMutableTxIn,
-                            CMutableTxOut, ValidationError)
+                            CMutableOutPoint, CMutableTxIn, CTransaction,
+                            CMutableTxOut, CTxIn, CTxOut, ValidationError)
 from bitcointx.core.script import *
-from bitcointx.wallet import P2WPKHCoinAddress, CCoinAddress, P2PKHCoinAddress
+from bitcointx.wallet import (P2WPKHCoinAddress, CCoinAddress, P2PKHCoinAddress,
+                              CCoinAddressError)
 from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
                                        SCRIPT_VERIFY_P2SH, SIGVERSION_WITNESS_V0)
+
+def hrt(tx, jsonified=True):
+    """ Given a CTransaction object, output a human
+    readable json-formatted string (suitable for terminal
+    output or large GUI textbox display) containing
+    all details of that transaction.
+    If `jsonified` is False, the dict is returned, instead
+    of the json string.
+    """
+    assert isinstance(tx, CTransaction)
+    outdict = {}
+    outdict["hex"] = bintohex(tx.serialize())
+    outdict["inputs"]=[]
+    outdict["outputs"]=[]
+    outdict["txid"]= bintohex(tx.GetTxid()[::-1])
+    outdict["nLockTime"] = tx.nLockTime
+    outdict["nVersion"] = tx.nVersion
+    for i, inp in enumerate(tx.vin):
+        if not tx.wit.vtxinwit:
+            # witness section is not initialized/empty
+            witarg = None
+        else:
+            witarg = tx.wit.vtxinwit[i]
+        outdict["inputs"].append(hrinp(inp, witarg))
+    for i, out in enumerate(tx.vout):
+        outdict["outputs"].append(hrout(out))
+    if not jsonified:
+        return outdict
+    return json.dumps(outdict, indent=4)
+
+def hrinp(txinput, txinput_witness):
+    """ Pass objects of type CTxIn and CTxInWitness (or None)
+    and a dict of human-readable entries for this input
+    is returned.
+    """
+    assert isinstance(txinput, CTxIn)
+    outdict = {}
+    success, u = utxo_to_utxostr((txinput.prevout.hash[::-1],
+                                  txinput.prevout.n))
+    assert success
+    outdict["outpoint"] = u
+    outdict["scriptSig"] = bintohex(txinput.scriptSig)
+    outdict["nSequence"] = txinput.nSequence
+
+    if txinput_witness:
+        outdict["witness"] = bintohex(
+            txinput_witness.scriptWitness.serialize())
+    return outdict
+
+def hrout(txoutput):
+    """ Returns a dict of human-readable entries
+    for this output.
+    """
+    assert isinstance(txoutput, CTxOut)
+    outdict = {}
+    outdict["value_sats"] = txoutput.nValue
+    outdict["scriptPubKey"] = bintohex(txoutput.scriptPubKey)
+    try:
+        addr = CCoinAddress.from_scriptPubKey(txoutput.scriptPubKey)
+        outdict["address"] = str(addr)
+    except CCoinAddressError:
+        pass # non standard script
+    return outdict
 
 def estimate_tx_size(ins, outs, txtype='p2pkh'):
     '''Estimate transaction size.

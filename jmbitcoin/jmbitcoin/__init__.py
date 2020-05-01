@@ -13,5 +13,6 @@ from bitcointx.core import (x, b2x, b2lx, lx, COutPoint, CTxOut, CTxIn,
 from bitcointx.core.key import KeyStore
 from bitcointx.core.script import (CScript, OP_0, SignatureHash, SIGHASH_ALL,
                                    SIGVERSION_WITNESS_V0, CScriptWitness)
-from bitcointx.core.psbt import PartiallySignedTransaction
+from bitcointx.core.psbt import (PartiallySignedTransaction, PSBT_Input,
+                                 PSBT_Output)
 

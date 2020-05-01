@@ -4,6 +4,7 @@ import pytest
 
 import binascii
 import hashlib
+from jmbase import bintohex
 import jmbitcoin as btc
 
 @pytest.mark.parametrize(
@@ -58,8 +59,9 @@ def test_sign_standard_txs(addrtype):
     if not sig:
         print(msg)
         raise
-    print("created signature: ", binascii.hexlify(sig))
-    print("serialized transaction: {}".format(btc.b2x(tx.serialize())))
+    print("created signature: ", bintohex(sig))
+    print("serialized transaction: {}".format(bintohex(tx.serialize())))
+    print("deserialized transaction: {}\n".format(btc.hrt(tx)))
 
 def test_mk_shuffled_tx():
     # prepare two addresses for the outputs

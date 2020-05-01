@@ -499,7 +499,7 @@ class Taker(object):
         self.outputs.append({'address': self.coinjoin_address(),
                              'value': self.cjamount})
         self.latest_tx = btc.make_shuffled_tx(self.utxo_tx, self.outputs)
-        jlog.info('obtained tx\n' + bintohex(self.latest_tx.serialize()))
+        jlog.info('obtained tx\n' + btc.hrt(self.latest_tx))
 
         for index, ins in enumerate(self.latest_tx.vin):
             utxo = (ins.prevout.hash[::-1], ins.prevout.n)
@@ -1008,7 +1008,7 @@ class P2EPTaker(Taker):
         # contains only those.
         tx = btc.make_shuffled_tx(self.input_utxos, self.outputs,
                               version=2, locktime=compute_tx_locktime())
-        jlog.info('Created proposed fallback tx\n' + pprint.pformat(str(tx)))
+        jlog.info('Created proposed fallback tx:\n' + btc.hrt(tx))
         # We now sign as a courtesy, because if we disappear the recipient
         # can still claim his coins with this.
         # sign our inputs before transfer

@@ -6,6 +6,7 @@ import collections
 import numbers
 import random
 import base64
+import json
 from binascii import hexlify, unhexlify
 from datetime import datetime
 from calendar import timegm
@@ -28,7 +29,7 @@ from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
-from jmbase import JM_WALLET_NAME_PREFIX
+from jmbase import JM_WALLET_NAME_PREFIX, bintohex
 
 
 """
@@ -1005,6 +1006,117 @@ class PSBTWalletMixin(object):
     """
     def __init__(self, storage, **kwargs):
         super(PSBTWalletMixin, self).__init__(storage, **kwargs)
+
+    @staticmethod
+    def hr_psbt(in_psbt):
+        """ Returns a jsonified indented string with all relevant
+        information, in human readable form, contained in a PSBT.
+        Warning: the output can be very verbose in certain cases.
+        """
+        assert isinstance(in_psbt, btc.PartiallySignedTransaction)
+        outdict = {}
+        outdict["psbt-version"] = in_psbt.version
+
+        # human readable serialization of these three global fields is for
+        # now on a "best-effort" basis, i.e. just takes the representation
+        # provided by the underlying classes in bitcointx, though this may
+        # not be very readable.
+        # TODO: Improve proprietary/unknown as needed.
+        if in_psbt.xpubs:
+            outdict["xpubs"] = {str(k): bintohex(
+                v.serialize()) for k, v in in_psbt.xpubs.items()}
+        if in_psbt.proprietary_fields:
+            outdict["proprietary-fields"] = str(in_psbt.proprietary_fields)
+        if in_psbt.unknown_fields:
+            outdict["unknown-fields"] = str(in_psbt.unknown_fields)
+
+        outdict["unsigned-tx"] = btc.hrt(in_psbt.unsigned_tx, jsonified=False)
+        outdict["psbt-inputs"] = []
+        for inp in in_psbt.inputs:
+            outdict["psbt-inputs"].append(PSBTWalletMixin.hr_psbt_in(inp))
+        outdict["psbt-outputs"] = []
+        for out in in_psbt.outputs:
+            outdict["psbt-outputs"].append(PSBTWalletMixin.hr_psbt_out(out))
+        return json.dumps(outdict, indent=4)
+
+    @staticmethod
+    def hr_psbt_in(psbt_input):
+        """ Returns a dict containing human readable information
+        about a bitcointx.core.psbt.PSBT_Input object.
+        """
+        assert isinstance(psbt_input, btc.PSBT_Input)
+        outdict = {}
+        if psbt_input.index is not None:
+            outdict["input-index"] = psbt_input.index
+        if psbt_input.utxo:
+            if isinstance(psbt_input.utxo, btc.CTxOut):
+                outdict["utxo"] = btc.hrout(psbt_input.utxo)
+            elif isinstance(psbt_input.utxo, btc.CTransaction):
+                # human readable full transaction is *too* verbose:
+                outdict["utxo"] = bintohex(psbt_input.utxo.serialize())
+            else:
+                assert False, "invalid PSBT Input utxo field."
+        if psbt_input.sighash_type:
+            outdict["sighash-type"] = psbt_input.sighash_type
+        if psbt_input.redeem_script:
+            outdict["redeem-script"] = bintohex(psbt_input.redeem_script)
+        if psbt_input.witness_script:
+            outdict["witness-script"] = bintohex(psbt_input.witness_script)
+        if psbt_input.partial_sigs:
+            # convert the dict entries to hex:
+            outdict["partial-sigs"] = {bintohex(k): bintohex(v) for k,v in \
+                                       psbt_input.partial_sigs.items()}
+        # Note we do not currently add derivation info to our own inputs,
+        # but probably will in future ( TODO ), still this is shown for
+        # externally generated PSBTs:
+        if psbt_input.derivation_map:
+            # TODO it would be more useful to print the indexes of the
+            # derivation path as integers, than 4 byte hex:
+            outdict["derivation-map"] = {bintohex(k): bintohex(v.serialize(
+                )) for k, v in psbt_input.derivation_map.items()}
+
+        # we show these fields on a best-effort basis; same comment as for
+        # globals section as mentioned in hr_psbt()
+        if psbt_input.proprietary_fields:
+            outdict["proprietary-fields"] = str(psbt_input.proprietary_fields)
+        if psbt_input.unknown_fields:
+            outdict["unknown-fields"] = str(psbt_input.unknown_fields)
+        if psbt_input.proof_of_reserves_commitment:
+            outdict["proof-of-reserves-commitment"] = \
+                str(psbt_input.proof_of_reserves_commitment)
+
+        outdict["final-scriptSig"] = bintohex(psbt_input.final_script_sig)
+        outdict["final-scriptWitness"] = bintohex(
+            psbt_input.final_script_witness.serialize())
+
+        return outdict
+
+    @staticmethod
+    def hr_psbt_out(psbt_output):
+        """ Returns a dict containing human readable information
+        about a PSBT_Output object.
+        """
+        assert isinstance(psbt_output, btc.PSBT_Output)
+        outdict = {}
+        if psbt_output.index is not None:
+            outdict["output-index"] = psbt_output.index
+
+        if psbt_output.derivation_map:
+            # See note to derivation map in hr_psbt_in()
+            outdict["derivation-map"] = {bintohex(k): bintohex(v.serialize(
+                )) for k, v in psbt_output.derivation_map.items()}
+
+        if psbt_output.redeem_script:
+            outdict["redeem-script"] = bintohex(psbt_output.redeem_script)
+        if psbt_output.witness_script:
+            outdict["witness-script"] = bintohex(psbt_output.witness_script)
+
+        if psbt_output.proprietary_fields:
+            outdict["proprietary-fields"] = str(psbt_output.proprietary_fields)
+        if psbt_output.unknown_fields:
+            outdict["unknown-fields"] = str(psbt_output.unknown_fields)
+
+        return outdict
 
     @staticmethod
     def witness_utxos_to_psbt_utxos(utxos):
