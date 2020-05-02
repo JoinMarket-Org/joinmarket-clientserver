@@ -103,6 +103,21 @@ def update_config_for_gui():
             jm_single().config.set("GUI", gcn, gcv)
 
 def checkAddress(parent, addr):
+    addr = addr.strip()
+    if btc.is_bip21_uri(addr):
+        try:
+            parsed = btc.decode_bip21_uri(addr)
+        except ValueError as e:
+            JMQtMessageBox(parent,
+                "Bitcoin URI not valid.\n" + str(e),
+                mbtype='warn',
+                title="Error")
+            return
+        addr = parsed['address']
+        if 'amount' in parsed:
+            parent.widgets[3][1].setText(
+                str(btc.sat_to_btc(parsed['amount'])))
+    parent.widgets[0][1].setText(addr)
     valid, errmsg = validate_address(str(addr))
     if not valid:
         JMQtMessageBox(parent,
@@ -625,7 +640,7 @@ class SpendTab(QWidget):
             log.info("Cannot start join, already running.")
         if not self.validateSettings():
             return
-        destaddr = str(self.widgets[0][1].text())
+        destaddr = str(self.widgets[0][1].text()).strip()
         makercount = int(self.widgets[1][1].text())
         mixdepth = int(self.widgets[2][1].text())
         btc_amount_str = self.widgets[3][1].text()
@@ -961,7 +976,8 @@ class SpendTab(QWidget):
         self.tumbler_destaddrs = None
 
     def validateSettings(self):
-        valid, errmsg = validate_address(str(self.widgets[0][1].text()))
+        valid, errmsg = validate_address(str(
+            self.widgets[0][1].text().strip()))
         if not valid:
             JMQtMessageBox(self, errmsg, mbtype='warn', title="Error")
             return False
