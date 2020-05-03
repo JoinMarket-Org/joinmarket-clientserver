@@ -328,10 +328,16 @@ class P2EPMaker(Maker):
             self.receiving_amount) + " satoshis.")
         self.user_info("The sender also needs to know your ephemeral "
                   "nickname: " + jm_single().nickname)
-        self.user_info("This information has been stored in a file payjoin.txt;"
+        receive_uri = btc.encode_bip21_uri(self.destination_addr, {
+            'amount': btc.sat_to_btc(self.receiving_amount),
+            'jmnick': jm_single().nickname
+        })
+        self.user_info("Receive URI: " + receive_uri)
+        self.user_info("This information has also been stored in a file payjoin.txt;"
                   " send it to your counterparty when you are ready.")
         with open("payjoin.txt", "w") as f:
             f.write("Payjoin transfer details:\n\n")
+            f.write("Receive URI: " + receive_uri + "\n")
             f.write("Address: " + self.destination_addr + "\n")
             f.write("Amount (in sats): " + str(self.receiving_amount) + "\n")
             f.write("Receiver nick: " + jm_single().nickname + "\n")

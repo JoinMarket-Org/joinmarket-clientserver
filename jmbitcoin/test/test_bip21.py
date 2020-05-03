@@ -2,7 +2,7 @@ import jmbitcoin as btc
 import pytest
 
 
-def test_bip21():
+def test_bip21_decode():
 
     # These should raise exception because of not being valid BIP21 URI's
     with pytest.raises(ValueError):
@@ -56,3 +56,61 @@ def test_bip21():
     assert(parsed['somethingyoudontunderstand'] == '50')
     assert(parsed['somethingelseyoudontget'] == '999')
 
+
+def test_bip21_encode():
+    assert(
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {}) ==
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'
+    )
+    assert(
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'label': 'Luke-Jr'
+        }) ==
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr'
+    )
+    assert(
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'amount': 20.3,
+            'label': 'Luke-Jr'
+        }) ==
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&label=Luke-Jr'
+    )
+    assert(
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'amount': 50,
+            'label': 'Luke-Jr',
+            'message': 'Donation for project xyz'
+        }) ==
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=50&label=Luke-Jr&message=Donation%20for%20project%20xyz'
+    )
+    assert(
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'req-somethingyoudontunderstand': 50,
+            'req-somethingelseyoudontget': 999
+        }) ==
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?req-somethingyoudontunderstand=50&req-somethingelseyoudontget=999'
+    )
+    assert(
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'somethingyoudontunderstand': 50,
+            'somethingelseyoudontget': 999
+        }) ==
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?somethingyoudontunderstand=50&somethingelseyoudontget=999'
+    )
+    # Invalid amounts must raise ValueError
+    with pytest.raises(ValueError):
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'amount': ''
+        })
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'amount': 'XYZ'
+        })
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'amount': '100\'000'
+        })
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'amount': '100,000'
+        })
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
+            'amount': '100000000'
+        })

@@ -4,7 +4,7 @@
 # this are expected to do address validation independently anyway.
 
 from jmbitcoin import amount_to_sat
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import quote, parse_qs, urlencode, urlparse
 from url_decode import urldecode
 import re
 
@@ -15,7 +15,12 @@ def is_bip21_uri(uri):
 
 
 def is_bip21_amount_str(amount):
-    return re.compile("^[0-9]{1,8}(\.[0-9]{1,8})?$").match(amount) != None
+    return re.compile("^[0-9]{1,8}(\.[0-9]{1,8})?$").match(str(amount)) != None
+
+
+def validate_bip21_amount(amount):
+    if not is_bip21_amount_str(amount):
+        raise ValueError("Invalid BTC amount " + str(amount))
 
 
 def decode_bip21_uri(uri):
@@ -31,11 +36,18 @@ def decode_bip21_uri(uri):
                 " in BIP21 URI.")
         if key == 'amount':
             amount_str = params['amount'][0]
-            if not is_bip21_amount_str(amount_str):
-                raise ValueError("Invalid BTC amount " + amount_str +
-                    " vs. " + str(amount_to_sat(amount_str)) + " sat")
+            validate_bip21_amount(amount_str)
             # Convert amount to sats, as used internally by JM
             result['amount'] = amount_to_sat(amount_str + "btc")
         else:
             result[key] = urldecode(params[key][0])
     return result
+
+
+def encode_bip21_uri(address, params):
+    uri = 'bitcoin:' + address
+    if len(params) > 0:
+        if 'amount' in params:
+            validate_bip21_amount(params['amount'])
+        uri += '?' + urlencode(params, quote_via=quote)
+    return uri
