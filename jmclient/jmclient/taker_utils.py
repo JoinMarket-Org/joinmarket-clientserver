@@ -22,10 +22,12 @@ Currently re-used by CLI script tumbler.py and joinmarket-qt
 
 def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 accept_callback=None, info_callback=None,
-                return_transaction=False, with_final_psbt=False):
+                return_transaction=False, with_final_psbt=False,
+                optin_rbf=False):
     """Send coins directly from one mixdepth to one destination address;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
     If answeryes is True, callback/command line query is not performed.
+    If optin_rbf is True, the nSequence values are changed as appropriate.
     If accept_callback is None, command line input for acceptance is assumed,
     else this callback is called:
     accept_callback:
@@ -141,6 +143,10 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     if amount != 0:
         log.info("Using a change value of: " + amount_to_str(changeval) + ".")
     tx = make_shuffled_tx(list(utxos.keys()), outs, 2, tx_locktime)
+
+    if optin_rbf:
+        for inp in tx.vin:
+            inp.nSequence = 0xffffffff - 2
 
     inscripts = {}
     spent_outs = []

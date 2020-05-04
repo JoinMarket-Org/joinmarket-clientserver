@@ -6,6 +6,7 @@ from .support import (get_log, chunks, debug_silence, jmprint,
                       hextobin, lehextobin, utxostr_to_utxo,
                       utxo_to_utxostr, EXIT_ARGERROR, EXIT_FAILURE,
                       EXIT_SUCCESS, hexbin, dictchanger, listchanger,
-                      cv, JM_WALLET_NAME_PREFIX, JM_APP_NAME)
+                      JM_WALLET_NAME_PREFIX, JM_APP_NAME)
+from .bytesprod import BytesProducer
 from .commands import *
 

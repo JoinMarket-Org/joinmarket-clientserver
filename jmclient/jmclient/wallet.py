@@ -1008,6 +1008,30 @@ class PSBTWalletMixin(object):
         super(PSBTWalletMixin, self).__init__(storage, **kwargs)
 
     @staticmethod
+    def get_fee_from_psbt(in_psbt):
+        assert isinstance(in_psbt, btc.PartiallySignedTransaction)
+        spent = sum(in_psbt.get_input_amounts())
+        paid = sum((x.nValue for x in in_psbt.unsigned_tx.vout))
+        return spent - paid
+
+    def is_input_finalized(self, psbt_input):
+        """ This should be a convenience method in python-bitcointx.
+        However note: this is not a static method and tacitly
+        assumes that the input under examination is of the wallet's
+        type.
+        """
+        assert isinstance(psbt_input, btc.PSBT_Input)
+        if not psbt_input.utxo:
+            return False
+        if isinstance(self, (LegacyWallet, SegwitLegacyWallet)):
+            if not psbt_input.final_script_sig:
+                return False
+        if isinstance(self, (SegwitLegacyWallet, SegwitWallet)):
+            if not psbt_input.final_script_witness:
+                return False
+        return True
+
+    @staticmethod
     def hr_psbt(in_psbt):
         """ Returns a jsonified indented string with all relevant
         information, in human readable form, contained in a PSBT.
@@ -1196,8 +1220,7 @@ class PSBTWalletMixin(object):
             for k2, v2 in v.items():
                 privkeys.append(self._get_priv_from_path(v2[0]))
         jmckeys = list(btc.JMCKey(x[0][:-1]) for x in privkeys)
-        new_keystore = btc.KeyStore.from_iterable(jmckeys,
-                                                  require_path_templates=False)
+        new_keystore = btc.KeyStore.from_iterable(jmckeys)
 
         # for p2sh inputs that we want to sign, the redeem_script
         # field must be populated by us, as the counterparty did not

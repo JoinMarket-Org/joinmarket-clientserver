@@ -56,7 +56,7 @@ from .wallet_service import WalletService
 from .maker import Maker, P2EPMaker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
 from .snicker_receiver import SNICKERError, SNICKERReceiver
-
+from .payjoin import parse_payjoin_setup, send_payjoin
 # Set default logging handler to avoid "No handler found" warnings.
 
 try:
