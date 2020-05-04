@@ -74,6 +74,8 @@ def main():
                 parser.error("Given BIP21 URI does not contain amount.")
                 sys.exit(EXIT_ARGERROR)
             destaddr = parsed['address']
+            if 'jmnick' in parsed:
+                options.p2ep = parsed['jmnick']
         else:
             amount = btc.amount_to_sat(args[1])
             if amount == 0:

@@ -10,4 +10,5 @@ setup(name='joinmarketbitcoin',
       license='GPL',
       packages=['jmbitcoin'],
       install_requires=['future', 'coincurve', 'urldecode'],
+      python_requires='>=3.5',
       zip_safe=False)
