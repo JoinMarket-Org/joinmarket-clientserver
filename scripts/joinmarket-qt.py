@@ -1131,27 +1131,37 @@ class CoinsTab(QWidget):
                         seq_item.addChild(item)
                     m_item.setExpanded(True)
 
-    def toggle_utxo_disable(self, txid, idx):
-        txid_bytes = btc.safe_from_hex(txid)
-        mainWindow.wallet_service.toggle_disable_utxo(txid_bytes, idx)
+    def toggle_utxo_disable(self, txids, idxs):
+        for i in range(0, len(txids)):
+            txid = txids[i]
+            txid_bytes = btc.safe_from_hex(txid)
+            mainWindow.wallet_service.toggle_disable_utxo(txid_bytes, idxs[i])
         self.updateUtxos()
 
     def create_menu(self, position):
-        item = self.cTW.currentItem()
-        if not item:
+        # all selected items
+        selected_items = self.cTW.selectedItems()
+        txids = []
+        idxs = []
+        if len(selected_items) == 0:
             return
         try:
-            txidn = item.text(0)
-            txid, idx = txidn.split(":")
-            assert len(txid) == 64
-            idx = int(idx)
-            assert idx >= 0
+            for item in selected_items:
+                txid, idx = item.text(0).split(":")
+                assert len(txid) == 64
+                idx = int(idx)
+                assert idx >= 0
+                txids.append(txid)
+                idxs.append(idx)
         except:
             return
+        # current item
+        item = self.cTW.currentItem()
+        txid, idx = item.text(0).split(":")
 
         menu = QMenu()
-        menu.addAction("Freeze/un-freeze utxo (toggle)",
-                           lambda: self.toggle_utxo_disable(txid, idx))
+        menu.addAction("Freeze/un-freeze utxo(s) (toggle)",
+                           lambda: self.toggle_utxo_disable(txids, idxs))
         menu.addAction("Copy transaction id to clipboard",
                        lambda: app.clipboard().setText(txid))
         menu.exec_(self.cTW.viewport().mapToGlobal(position))
