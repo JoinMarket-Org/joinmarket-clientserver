@@ -294,7 +294,7 @@ def mktx(ins, outs, version=1, locktime=0):
         out = CMutableTxOut(o["value"],
                     CCoinAddress(o["address"]).to_scriptPubKey())
         vout.append(out)
-    return CMutableTransaction(vin, vout, nLockTime=locktime)
+    return CMutableTransaction(vin, vout, nLockTime=locktime, nVersion=version)
 
 def make_shuffled_tx(ins, outs, version=1, locktime=0):
     """ Simple wrapper to ensure transaction

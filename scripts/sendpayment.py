@@ -66,7 +66,7 @@ def main():
     #without schedule file option, use the arguments to create a schedule
     #of a single transaction
     sweeping = False
-    bip79 = False
+    payjoinurl = None
     if options.schedule == '':
         if btc.is_bip21_uri(args[1]):
             parsed = btc.decode_bip21_uri(args[1])
@@ -78,14 +78,22 @@ def main():
             destaddr = parsed['address']
             if 'jmnick' in parsed:
                 if "pj" in parsed:
-                    parser.error("Cannot specify both BIP79 and Joinmarket "
+                    parser.error("Cannot specify both BIP79++ and Joinmarket "
                                  "peer-to-peer payjoin at the same time!")
                     sys.exit(EXIT_ARGERROR)
                 options.p2ep = parsed['jmnick']
             elif "pj" in parsed:
                 # note that this is a URL; its validity
                 # checking is deferred to twisted.web.client.Agent
-                bip79 = parsed["pj"]
+                payjoinurl = parsed["pj"]
+                # setting makercount only for fee sanity check.
+                # note we ignore any user setting and enforce N=0,
+                # as this is a flag in the code for a non-JM coinjoin;
+                # for the fee sanity check, note that BIP79++ currently
+                # will only allow very small fee changes, so N=0 won't
+                # be very inaccurate.
+                jmprint("Attempting to pay via payjoin.", "info")
+                options.makercount = 0
         else:
             amount = btc.amount_to_sat(args[1])
             if amount == 0:
@@ -159,13 +167,13 @@ def main():
         fee_per_cp_guess))
 
     maxcjfee = (1, float('inf'))
-    if not (options.p2ep or bip79) and not options.pickorders and \
+    if not options.p2ep and not options.pickorders and \
        options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
         log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
                  "".format(maxcjfee[0], btc.amount_to_str(maxcjfee[1])))
 
-    log.debug('starting sendpayment')
+    log.info('starting sendpayment')
 
     max_mix_depth = max([mixdepth, options.amtmixdepths - 1])
 
@@ -203,7 +211,7 @@ def main():
             log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
                 .format(exp_tx_fees_ratio))
 
-    if options.makercount == 0 and not options.p2ep and not bip79:
+    if options.makercount == 0 and not options.p2ep and not payjoinurl:
         tx = direct_send(wallet_service, amount, mixdepth, destaddr,
                          options.answeryes, with_final_psbt=options.with_psbt)
         if options.with_psbt:
@@ -314,10 +322,10 @@ def main():
         taker = P2EPTaker(options.p2ep, wallet_service, schedule,
                           callbacks=(None, None, p2ep_on_finished_callback))
 
-    elif bip79:
+    elif payjoinurl:
         # TODO sanity check wallet type is segwit
         manager = parse_payjoin_setup(args[1], wallet_service, options.mixdepth)
-        reactor.callWhenRunning(send_payjoin, manager)
+        reactor.callWhenRunning(send_payjoin, manager, tls_whitelist=["127.0.0.1"])
         reactor.run()
         return
 
