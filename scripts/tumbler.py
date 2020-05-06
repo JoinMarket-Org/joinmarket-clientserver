@@ -140,7 +140,7 @@ def main():
             raise ValueError("No confirmed coins in the selected mixdepth(s). Quitting")
     exp_tx_fees_ratio = (involved_parties * options['txfee']) \
         / total_tumble_amount
-    if exp_tx_fees_ratio > 0.05:
+    if exp_tx_fees_ratio > 0.05 and options['txfee'] != 1000:
         jmprint('WARNING: Expected bitcoin network miner fees for the whole '
             'tumbling run are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
         if not options['restart'] and input('You might want to modify your tx_fee'

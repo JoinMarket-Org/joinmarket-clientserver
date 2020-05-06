@@ -177,7 +177,7 @@ def main():
             if total_cj_amount == 0:
                 raise ValueError("No confirmed coins in the selected mixdepth. Quitting")
         exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / total_cj_amount
-        if exp_tx_fees_ratio > 0.05:
+        if exp_tx_fees_ratio > 0.05 and options.txfee != 1000:
             jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
                 ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
             if input('You might want to modify your tx_fee'
