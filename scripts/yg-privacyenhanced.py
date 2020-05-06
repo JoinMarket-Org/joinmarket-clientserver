@@ -21,7 +21,7 @@ cjfee_r = '0.00002'       # [percent, any str between 0-1] / relative offer fee 
 cjfee_factor = 0.1        # [percent, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
 txfee = 100               # [satoshis, any integer] / the average transaction fee you're adding to coinjoin transactions
 txfee_factor = 0.3        # [percent, 0-1] / variance around the average fee. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
-minsize = 1000000         # [satoshis, any integer] / minimum size of your cj offer. Lower cj amounts will be disregarded
+minsize = 100000          # [satoshis, any integer] / minimum size of your cj offer. Lower cj amounts will be disregarded
 size_factor = 0.1         # [percent, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
 gaplimit = 6
 
