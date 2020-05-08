@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python3
 """A simple command line tool to create a bunch
 of utxos from one (thus giving more potential commitments
 for a Joinmarket user, although of course it may be useful
