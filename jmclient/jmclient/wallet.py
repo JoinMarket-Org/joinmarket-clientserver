@@ -439,7 +439,7 @@ class BaseWallet(object):
         for index, (script, amount) in scripts.items():
             assert amount > 0
             path = self.script_to_path(script)
-            privkey, engine = self._get_priv_from_path(path)
+            privkey, engine = self._get_key_from_path(path)
             tx = btc.deserialize(engine.sign_transaction(tx, index, privkey,
                                                          amount, **kwargs))
         return tx
@@ -451,7 +451,7 @@ class BaseWallet(object):
         """
         script = self._ENGINE.address_to_script(addr)
         path = self.script_to_path(script)
-        privkey = self._get_priv_from_path(path)[0]
+        privkey = self._get_key_from_path(path)[0]
         return hexlify(privkey).decode('ascii')
 
     def _get_addr_int_ext(self, address_type, mixdepth):
@@ -499,7 +499,7 @@ class BaseWallet(object):
     def script_to_addr(self, script):
         assert self.is_known_script(script)
         path = self.script_to_path(script)
-        engine = self._get_priv_from_path(path)[1]
+        engine = self._get_key_from_path(path)[1]
         return engine.script_to_address(script)
 
     def get_script_code(self, script):
@@ -511,7 +511,7 @@ class BaseWallet(object):
         For non-segwit wallets, raises EngineError.
         """
         path = self.script_to_path(script)
-        priv, engine = self._get_priv_from_path(path)
+        priv, engine = self._get_key_from_path(path)
         pub = engine.privkey_to_pubkey(priv)
         return engine.pubkey_to_script_code(pub)
 
@@ -549,7 +549,7 @@ class BaseWallet(object):
         return self.get_wif_path(self.get_path(mixdepth, address_type, index))
 
     def get_wif_path(self, path):
-        priv, engine = self._get_priv_from_path(path)
+        priv, engine = self._get_key_from_path(path)
         return engine.privkey_to_wif(priv)
 
     def get_path(self, mixdepth=None, address_type=None, index=None):
@@ -830,7 +830,7 @@ class BaseWallet(object):
         path = self.get_path(mixdepth, address_type, index)
         return self.get_script_from_path(path)
 
-    def _get_priv_from_path(self, path):
+    def _get_key_from_path(self, path):
         raise NotImplementedError()
 
     def get_path_repr(self, path):
@@ -885,7 +885,7 @@ class BaseWallet(object):
         returns:
             signature as base64-encoded string
         """
-        priv, engine = self._get_priv_from_path(path)
+        priv, engine = self._get_key_from_path(path)
         return engine.sign_message(priv, message)
 
     def get_wallet_name(self):
@@ -1110,7 +1110,7 @@ class ImportWalletMixin(object):
             #key_type = key_type_wif if key_type_wif is not None else self.TYPE
         engine = self._ENGINES[key_type]
 
-        if engine.privkey_to_script(privkey) in self._script_map:
+        if engine.key_to_script(privkey) in self._script_map:
             raise WalletError("Cannot import key, already in wallet: {}"
                               "".format(wif))
 
@@ -1155,7 +1155,7 @@ class ImportWalletMixin(object):
         engine = self._ENGINES[key_type]
         path = (self._IMPORTED_ROOT_PATH, mixdepth, index)
 
-        self._script_map[engine.privkey_to_script(privkey)] = path
+        self._script_map[engine.key_to_script(privkey)] = path
 
         return path
 
@@ -1166,9 +1166,9 @@ class ImportWalletMixin(object):
         assert len(path) == 3
         return path[1]
 
-    def _get_priv_from_path(self, path):
+    def _get_key_from_path(self, path):
         if not self._is_imported_path(path):
-            return super(ImportWalletMixin, self)._get_priv_from_path(path)
+            return super(ImportWalletMixin, self)._get_key_from_path(path)
 
         assert len(path) == 3
         md, i = path[1], path[2]
@@ -1220,8 +1220,8 @@ class ImportWalletMixin(object):
         if not self._is_imported_path(path):
             return super(ImportWalletMixin, self).get_script_from_path(path)
 
-        priv, engine = self._get_priv_from_path(path)
-        return engine.privkey_to_script(priv)
+        priv, engine = self._get_key_from_path(path)
+        return engine.key_to_script(priv)
 
 
 class BIP39WalletMixin(object):
@@ -1410,8 +1410,8 @@ class BIP32Wallet(BaseWallet):
             #concept of a "next address" cant be used
             return self.get_new_script_override_disable(md, address_type)
 
-        priv, engine = self._get_priv_from_path(path)
-        script = engine.privkey_to_script(priv)
+        priv, engine = self._get_key_from_path(path)
+        script = engine.key_to_script(priv)
 
         return script
 
@@ -1478,7 +1478,7 @@ class BIP32Wallet(BaseWallet):
 
         return path[len(self._get_bip32_base_path())]
 
-    def _get_priv_from_path(self, path):
+    def _get_key_from_path(self, path):
         if not self._is_my_bip32_path(path):
             raise WalletError("Invalid path, unknown root: {}".format(path))
 
@@ -1707,7 +1707,7 @@ class FidelityBondMixin(object):
 
     def _get_key_ident(self):
         first_path = self.get_path(0, 0)
-        priv, engine = self._get_priv_from_path(first_path)
+        priv, engine = self._get_key_from_path(first_path)
         pub = engine.privkey_to_pubkey(priv)
         return sha256(sha256(pub).digest()).digest()[:3]
 
@@ -1738,7 +1738,7 @@ class FidelityBondMixin(object):
     def _get_supported_address_types(cls):
         return (cls.BIP32_EXT_ID, cls.BIP32_INT_ID, cls.BIP32_TIMELOCK_ID, cls.BIP32_BURN_ID)
 
-    def _get_priv_from_path(self, path):
+    def _get_key_from_path(self, path):
         if self.is_timelocked_path(path):
             key_path = path[:-1]
             locktime = path[-1]
@@ -1746,7 +1746,7 @@ class FidelityBondMixin(object):
             privkey = engine.derive_bip32_privkey(self._master_key, key_path)
             return (privkey, locktime), engine
         else:
-            return super(FidelityBondMixin, self)._get_priv_from_path(path)
+            return super(FidelityBondMixin, self)._get_key_from_path(path)
 
     def get_path(self, mixdepth=None, address_type=None, index=None, timenumber=None):
         if address_type == None or address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID,

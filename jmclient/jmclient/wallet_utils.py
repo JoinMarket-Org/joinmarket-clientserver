@@ -502,7 +502,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                 path_repr = wallet_service.get_path_repr(path)
                 path_repr_b = path_repr.encode()
 
-                privkey, engine = wallet_service._get_priv_from_path(path)
+                privkey, engine = wallet_service._get_key_from_path(path)
                 pubkey = engine.privkey_to_pubkey(privkey)
                 pubkeyhash = btc.bin_hash160(pubkey)
                 output = "BURN-" + binascii.hexlify(pubkeyhash).decode()

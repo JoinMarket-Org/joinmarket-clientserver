@@ -155,7 +155,7 @@ class BTCEngine(object):
         return key
 
     @classmethod
-    def privkey_to_script(cls, privkey):
+    def key_to_script(cls, privkey):
         pub = cls.privkey_to_pubkey(privkey)
         return cls.pubkey_to_script(pub)
 
@@ -165,7 +165,7 @@ class BTCEngine(object):
 
     @classmethod
     def privkey_to_address(cls, privkey):
-        script = cls.privkey_to_script(privkey)
+        script = cls.key_to_script(privkey)
         return btc.script_to_address(script, cls.VBYTE)
 
     @classmethod
@@ -311,7 +311,7 @@ class BTC_Timelocked_P2WSH(BTCEngine):
                 return btc.BTC_P2PK_VBYTE["testnet"]
 
     @classmethod
-    def privkey_to_script(cls, privkey_locktime):
+    def key_to_script(cls, privkey_locktime):
         privkey, locktime = privkey_locktime
         pub = cls.privkey_to_pubkey(privkey)
         return cls.pubkey_to_script((pub, locktime))
@@ -362,7 +362,7 @@ class BTC_Watchonly_Timelocked_P2WSH(BTC_Timelocked_P2WSH):
             path))[-1]
 
     @classmethod
-    def privkey_to_script(cls, pubkey_locktime):
+    def key_to_script(cls, pubkey_locktime):
         pub, locktime = pubkey_locktime
         return cls.pubkey_to_script((pub, locktime))
 
@@ -388,7 +388,7 @@ class BTC_Watchonly_P2SH_P2WPKH(BTC_P2SH_P2WPKH):
     @staticmethod
     def privkey_to_pubkey(privkey):
         #in watchonly wallets there are no privkeys, so functions
-        # like _get_priv_from_path() actually return pubkeys and
+        # like _get_key_from_path() actually return pubkeys and
         # this function is a noop
         return privkey
 

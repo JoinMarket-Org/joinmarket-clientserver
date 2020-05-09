@@ -565,7 +565,7 @@ class WalletService(Service):
             index += 1
             self.wallet.set_next_index(mixdepth, address_type, index, force=True)
             path = self.wallet.get_path(mixdepth, address_type, index)
-            path_privkey, engine = self.wallet._get_priv_from_path(path)
+            path_privkey, engine = self.wallet._get_key_from_path(path)
             path_pubkey = engine.privkey_to_pubkey(path_privkey)
             path_pubkeyhash = btc.bin_hash160(path_pubkey)
             for burner_tx in burner_txes:

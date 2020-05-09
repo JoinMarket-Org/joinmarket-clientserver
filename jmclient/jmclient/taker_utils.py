@@ -87,7 +87,7 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             address_type = FidelityBondMixin.BIP32_BURN_ID
             index = wallet_service.wallet.get_next_unused_index(mixdepth, address_type)
             path = wallet_service.wallet.get_path(mixdepth, address_type, index)
-            privkey, engine = wallet_service.wallet._get_priv_from_path(path)
+            privkey, engine = wallet_service.wallet._get_key_from_path(path)
             pubkey = engine.privkey_to_pubkey(privkey)
             pubkeyhash = bin_hash160(pubkey)
 

@@ -795,7 +795,7 @@ def test_watchonly_wallet(setup_wallet):
 
     scripts = [wallet.get_script_from_path(wallet.path_repr_to_path(path))
         for path in paths]
-    privkey, engine = wallet._get_priv_from_path(wallet.path_repr_to_path(burn_path))
+    privkey, engine = wallet._get_key_from_path(wallet.path_repr_to_path(burn_path))
     burn_pubkey = engine.privkey_to_pubkey(privkey)
 
     master_pub_key = wallet.get_bip32_pub_export(
@@ -809,7 +809,7 @@ def test_watchonly_wallet(setup_wallet):
 
     watchonly_scripts = [watchonly_wallet.get_script_from_path(
         watchonly_wallet.path_repr_to_path(path)) for path in paths]
-    privkey, engine = wallet._get_priv_from_path(wallet.path_repr_to_path(burn_path))
+    privkey, engine = wallet._get_key_from_path(wallet.path_repr_to_path(burn_path))
     watchonly_burn_pubkey = engine.privkey_to_pubkey(privkey)
 
     for script, watchonly_script in zip(scripts, watchonly_scripts):
