@@ -41,6 +41,7 @@ else:
     MONOSPACE_FONT = 'monospace'
 
 import jmbitcoin as btc
+from jmbase.support import JM_CORE_VERSION
 
 # This is required to change the decimal separator
 # to '.' regardless of the locale; TODO don't require
@@ -60,8 +61,6 @@ donation_address = "1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL"
 donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
 donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 
-#Underlying joinmarket code version (as per setup.py etc.)
-JM_CORE_VERSION = '0.6.2'
 #Version of this Qt script specifically
 JM_GUI_VERSION = '12'
 
