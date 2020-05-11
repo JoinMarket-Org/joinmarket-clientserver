@@ -362,23 +362,29 @@ def get_imported_privkey_branch(wallet_service, m, showprivkey):
         return WalletViewBranch("m/0", m, -1, branchentries=entries)
     return None
 
-def wallet_showutxos(wallet, showprivkey):
+def wallet_showutxos(wallet_service, showprivkey):
     unsp = {}
     max_tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
-    utxos = wallet.get_utxos_by_mixdepth(includeconfs=True)
+    utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True,
+        includeconfs=True)
     for md in utxos:
+        (enabled, disabled) = get_utxos_enabled_disabled(wallet_service, md)
+        utxo_d = []
+        for k, v in disabled.items():
+            utxo_d.append(k)
         for u, av in utxos[md].items():
             success, us = utxo_to_utxostr(u)
             assert success
-            key = wallet.get_key_from_addr(av['address'])
+            key = wallet_service.get_key_from_addr(av['address'])
             tries = podle.get_podle_tries(u, key, max_tries)
             tries_remaining = max(0, max_tries - tries)
             unsp[us] = {'address': av['address'], 'value': av['value'],
                        'tries': tries, 'tries_remaining': tries_remaining,
                        'external': False,
-                       'confirmations': av['confs']}
+                       'confirmations': av['confs'],
+                       'frozen': True if u in utxo_d else False}
             if showprivkey:
-                unsp[us]['privkey'] = wallet.get_wif_path(av['path'])
+                unsp[us]['privkey'] = wallet_service.get_wif_path(av['path'])
 
     used_commitments, external_commitments = podle.get_podle_commitments()
     for u, ec in external_commitments.items():
