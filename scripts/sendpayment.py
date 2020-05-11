@@ -133,15 +133,12 @@ def main():
     if int(options.txfee) > 0:
         jm_single().config.set("POLICY", "tx_fees", str(options.txfee))
 
-    # Dynamically estimate a realistic fee if it currently is the default value.
+    # Dynamically estimate a realistic fee.
     # At this point we do not know even the number of our own inputs, so
     # we guess conservatively with 2 inputs and 2 outputs each.
-    if options.txfee == -1:
-        options.txfee = max(options.txfee, estimate_tx_fee(2, 2,
-                                        txtype="p2sh-p2wpkh"))
-        log.debug("Estimated miner/tx fee for each cj participant: " + str(
-            options.txfee))
-    assert (options.txfee >= 0)
+    fee_per_cp_guess = estimate_tx_fee(2, 2, txtype="p2sh-p2wpkh")
+    log.debug("Estimated miner/tx fee for each cj participant: " + str(
+        fee_per_cp_guess))
 
     maxcjfee = (1, float('inf'))
     if not options.p2ep and not options.pickorders and options.makercount != 0:
@@ -176,7 +173,7 @@ def main():
             total_cj_amount = wallet_service.get_balance_by_mixdepth()[options.mixdepth]
             if total_cj_amount == 0:
                 raise ValueError("No confirmed coins in the selected mixdepth. Quitting")
-        exp_tx_fees_ratio = ((1 + options.makercount) * options.txfee) / total_cj_amount
+        exp_tx_fees_ratio = ((1 + options.makercount) * fee_per_cp_guess) / total_cj_amount
         if exp_tx_fees_ratio > 0.05:
             jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
                 ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
