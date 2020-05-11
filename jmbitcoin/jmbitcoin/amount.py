@@ -39,7 +39,7 @@ def amount_to_sat_str(amount_str):
 
 
 def amount_to_btc_str(amount_str):
-    return str(amount_to_btc(amount_str)) + " BTC"
+    return '%.8f' % amount_to_btc(amount_str) + " BTC"
 
 
 def amount_to_str(amount_str):
