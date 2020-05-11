@@ -119,12 +119,9 @@ def main():
 
     # Dynamically estimate an expected tx fee for the whole tumbling run.
     # This is very rough: we guess with 2 inputs and 2 outputs each.
-    if options['txfee'] == -1:
-        options['txfee'] = max(options['txfee'], estimate_tx_fee(2, 2,
-                                        txtype="p2sh-p2wpkh"))
-        log.debug("Estimated miner/tx fee for each cj participant: " + str(
-            options['txfee']))
-    assert (options['txfee'] >= 0)
+    fee_per_cp_guess = estimate_tx_fee(2, 2, txtype="p2sh-p2wpkh")
+    log.debug("Estimated miner/tx fee for each cj participant: " + str(
+            fee_per_cp_guess))
 
     # From the estimated tx fees, check if the expected amount is a
     # significant value compared the the cj amount
@@ -138,7 +135,7 @@ def main():
         total_tumble_amount += wallet_service.get_balance_by_mixdepth()[i]
         if total_tumble_amount == 0:
             raise ValueError("No confirmed coins in the selected mixdepth(s). Quitting")
-    exp_tx_fees_ratio = (involved_parties * options['txfee']) \
+    exp_tx_fees_ratio = (involved_parties * fee_per_cp_guess) \
         / total_tumble_amount
     if exp_tx_fees_ratio > 0.05:
         jmprint('WARNING: Expected bitcoin network miner fees for the whole '
