@@ -250,46 +250,55 @@ def tumbler_taker_finished_update(taker, schedulefile, tumble_log, options,
             tumble_log.info(waiting_message)
             log.info(waiting_message)
         else:
-            #a transaction failed, either because insufficient makers
-            #(acording to minimum_makers) responded in Phase 1, or not all
-            #makers responded in Phase 2. We'll first try to repeat without the
-            #troublemakers.
+            # a transaction failed, either because insufficient makers
+            # (acording to minimum_makers) responded in Phase 1, or not all
+            # makers responded in Phase 2, or the tx was a mempool conflict.
+            # If the tx was a mempool conflict, we should restart with random
+            # maker choice as usual. If someone didn't respond, we'll try to
+            # repeat without the troublemakers.
             log.info("Schedule entry: " + str(
                 taker.schedule[taker.schedule_index]) + \
                      " failed after timeout, trying again")
             taker.add_ignored_makers(taker.nonrespondants)
             #Is the failure in Phase 2?
             if not taker.latest_tx is None:
-                #Now we have to set the specific group we want to use, and hopefully
-                #they will respond again as they showed honesty last time.
-                #Note that we must wipe the list first; other honest makers needn't
-                #have the right settings (e.g. max cjamount), so can't be carried
-                #over from earlier transactions.
-                taker.honest_makers = []
-                taker.add_honest_makers(list(set(
-                    taker.maker_utxo_data.keys()).symmetric_difference(
-                        set(taker.nonrespondants))))
-                #If insufficient makers were honest, we can only tweak the schedule.
-                #If enough were, we prefer the restart with them only:
-                log.info("Inside a Phase 2 failure; number of honest respondants was: " + str(len(taker.honest_makers)))
-                log.info("They were: " + str(taker.honest_makers))
-                if len(taker.honest_makers) >= jm_single().config.getint(
-                    "POLICY", "minimum_makers"):
-                    tumble_log.info("Transaction attempt failed, attempting to "
-                                    "restart with subset.")
-                    tumble_log.info("The paramaters of the failed attempt: ")
-                    tumble_log.info(str(taker.schedule[taker.schedule_index]))
-                    #we must reset the number of counterparties, as well as fix who they
-                    #are; this is because the number is used to e.g. calculate fees.
-                    #cleanest way is to reset the number in the schedule before restart.
-                    taker.schedule[taker.schedule_index][2] = len(taker.honest_makers)
-                    retry_str = "Retrying with: " + str(taker.schedule[
-                        taker.schedule_index][2]) + " counterparties."
-                    tumble_log.info(retry_str)
-                    log.info(retry_str)
-                    taker.set_honest_only(True)
-                    taker.schedule_index -= 1
-                    return
+                if len(taker.nonrespondants) == 0:
+                    # transaction was created validly but conflicted in the
+                    # mempool; just try again without honest settings;
+                    # i.e. fallback to same as Phase 1 failure.
+                    log.info("Invalid transaction; possible mempool conflict.")
+                else:
+                    #Now we have to set the specific group we want to use, and hopefully
+                    #they will respond again as they showed honesty last time.
+                    #Note that we must wipe the list first; other honest makers needn't
+                    #have the right settings (e.g. max cjamount), so can't be carried
+                    #over from earlier transactions.
+                    taker.honest_makers = []
+                    taker.add_honest_makers(list(set(
+                        taker.maker_utxo_data.keys()).symmetric_difference(
+                            set(taker.nonrespondants))))
+                    #If insufficient makers were honest, we can only tweak the schedule.
+                    #If enough were, we prefer to restart with them only:
+                    log.info("Inside a Phase 2 failure; number of honest "
+                             "respondants was: " + str(len(taker.honest_makers)))
+                    log.info("They were: " + str(taker.honest_makers))
+                    if len(taker.honest_makers) >= jm_single().config.getint(
+                        "POLICY", "minimum_makers"):
+                        tumble_log.info("Transaction attempt failed, attempting to "
+                                        "restart with subset.")
+                        tumble_log.info("The paramaters of the failed attempt: ")
+                        tumble_log.info(str(taker.schedule[taker.schedule_index]))
+                        #we must reset the number of counterparties, as well as fix who they
+                        #are; this is because the number is used to e.g. calculate fees.
+                        #cleanest way is to reset the number in the schedule before restart.
+                        taker.schedule[taker.schedule_index][2] = len(taker.honest_makers)
+                        retry_str = "Retrying with: " + str(taker.schedule[
+                            taker.schedule_index][2]) + " counterparties."
+                        tumble_log.info(retry_str)
+                        log.info(retry_str)
+                        taker.set_honest_only(True)
+                        taker.schedule_index -= 1
+                        return
 
             #There were not enough honest counterparties.
             #Tumbler is aggressive in trying to complete; we tweak the schedule
