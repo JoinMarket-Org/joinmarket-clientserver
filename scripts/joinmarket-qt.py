@@ -128,7 +128,11 @@ def checkAddress(parent, addr):
 def checkAmount(parent, amount_str):
     if not amount_str:
         return False
-    amount_sat = btc.amount_to_sat(amount_str)
+    try:
+        amount_sat = btc.amount_to_sat(amount_str)
+    except ValueError as e:
+        JMQtMessageBox(parent, e.args[0], title="Error", mbtype="warn")
+        return False
     if amount_sat < DUST_THRESHOLD:
         JMQtMessageBox(parent,
                        "Amount " + btc.amount_to_str(amount_sat) +
@@ -644,7 +648,11 @@ class SpendTab(QWidget):
             return
 
         destaddr = str(self.addressInput.text().strip())
-        amount = btc.amount_to_sat(self.amountInput.text())
+        try:
+            amount = btc.amount_to_sat(self.amountInput.text())
+        except ValueError as e:
+            JMQtMessageBox(parent, e.args[0], title="Error", mbtype="warn")
+            return
         makercount = int(self.numCPInput.text())
         mixdepth = int(self.mixdepthInput.text())
 
