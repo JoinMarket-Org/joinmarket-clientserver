@@ -1728,6 +1728,19 @@ class FidelityBondMixin(object):
                     script = self.get_script_from_path(path)
                     self._script_map[script] = path
 
+    def add_utxo(self, txid, index, script, value, height=None):
+        super(FidelityBondMixin, self).add_utxo(txid, index, script, value,
+            height)
+        #dont use coin control freeze if wallet readonly
+        if self._storage.read_only:
+            return
+        path = self.script_to_path(script)
+        if not self.is_timelocked_path(path):
+            return
+        if datetime.utcfromtimestamp(path[-1]) > datetime.now():
+            #freeze utxo if its timelock is in the future
+            self.disable_utxo(txid, index, disable=True)
+
     def get_bip32_pub_export(self, mixdepth=None, address_type=None):
         bip32_pub = super(FidelityBondMixin, self).get_bip32_pub_export(mixdepth, address_type)
         if address_type == None and mixdepth == self.FIDELITY_BOND_MIXDEPTH:
