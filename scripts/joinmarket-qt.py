@@ -76,7 +76,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     get_tumble_log, restart_wait, tumbler_filter_orders_callback,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
-    get_default_max_relative_fee, RetryableStorageError, add_base_options
+    get_default_max_relative_fee, RetryableStorageError, add_base_options, \
+    FidelityBondMixin
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -1658,6 +1659,8 @@ class JMMainWindow(QMainWindow):
                 return False
             # only used for GUI display on regtest:
             self.testwalletname = wallet.seed = str(firstarg)
+        if isinstance(wallet, FidelityBondMixin):
+            raise Exception("Fidelity bond wallets not supported by Qt")
         if 'listunspent_args' not in jm_single().config.options('POLICY'):
             jm_single().config.set('POLICY', 'listunspent_args', '[0]')
         assert wallet, "No wallet loaded"
