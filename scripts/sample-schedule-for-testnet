@@ -19,9 +19,12 @@
 # in the tumbler, to prompt the user for a new address.
 #index 4: waittime: a decimal value in minutes to wait, after confirmation of this
 # transaction, before continuing to the next.
-#index 5: completion flag: 0 until the transaction is seen on the network, when it
+#index 5: rounding: how many significant figures to round the coinjoin amount to.
+# For example a rounding of `2` means that `0.12498733` will be rounded to `0.1200000`.
+# A rounding value of `16` means no rounding. Sweep coinjoin amounts are never rounded.
+#index 6: completion flag: 0 until the transaction is seen on the network, when it
 # is changed to the txid. This is particularly useful for the `--restart` feature
 # of tumbler. Then changes to 1 when tx is confirmed.
 #==========================
-1, 110000000, 3, INTERNAL, 0.8, 0
-0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 0
+1, 110000000, 3, INTERNAL, 0.8, 16, 0
+0, 20000011, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 0, 16, 0
