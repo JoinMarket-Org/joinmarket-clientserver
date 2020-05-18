@@ -933,7 +933,8 @@ def wallet_signmessage(wallet, hdpath, message):
     retval = "Signature: {}\nTo verify this in Bitcoin Core".format(sig)
     return retval + " use the RPC command 'verifymessage'"
 
-def display_utxos_for_disable_choice_default(utxos_enabled, utxos_disabled):
+def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
+        utxos_disabled):
     """ CLI implementation of the callback required as described in
     wallet_disableutxo
     """
@@ -957,8 +958,10 @@ def display_utxos_for_disable_choice_default(utxos_enabled, utxos_disabled):
     def output_utxos(utxos, status, start=0):
         for (txid, idx), v in utxos.items():
             value = v['value']
-            jmprint("{:4}: {:68}: {} sats, -- {}".format(
-                start, fmt_utxo((txid, idx)), value, status))
+            jmprint("{:4}: {} ({}): {} -- {}".format(
+                start, fmt_utxo((txid, idx)),
+                wallet_service.wallet.script_to_addr(v["script"]),
+                btc.amount_to_str(value), status))
             start += 1
             yield txid, idx
 
@@ -986,7 +989,7 @@ def get_utxos_enabled_disabled(wallet_service, md):
         utxos_disabled[u] = utxos_all[u]
     return utxos_enabled, utxos_disabled
 
-def wallet_freezeutxo(wallet, md, display_callback=None, info_callback=None):
+def wallet_freezeutxo(wallet_service, md, display_callback=None, info_callback=None):
     """ Given a wallet and a mixdepth, display to the user
     the set of available utxos, indexed by integer, and accept a choice
     of index to "freeze", then commit this disabling to the wallet storage,
@@ -997,8 +1000,9 @@ def wallet_freezeutxo(wallet, md, display_callback=None, info_callback=None):
 
     ** display_callback signature:
     args:
-    1. utxos_enabled ; dict of utxos as format in wallet.py.
-    2. utxos_disabled ; as above, for disabled
+    1. wallet_service
+    2. utxos_enabled ; dict of utxos as format in wallet.py.
+    3. utxos_disabled ; as above, for disabled
     returns:
     1.((txid(str), index(int)), disabled(bool)) of chosen utxo
     for freezing/unfreezing, or None for no action/cancel.
@@ -1016,16 +1020,18 @@ def wallet_freezeutxo(wallet, md, display_callback=None, info_callback=None):
         info_callback("Specify the mixdepth with the -m flag", "error")
         return "Failed"
     while True:
-        utxos_enabled, utxos_disabled = get_utxos_enabled_disabled(wallet, md)
+        utxos_enabled, utxos_disabled = get_utxos_enabled_disabled(
+            wallet_service, md)
         if utxos_disabled == {} and utxos_enabled == {}:
             info_callback("The mixdepth: " + str(md) + \
                 " contains no utxos to freeze/unfreeze.", "error")
             return "Failed"
-        display_ret = display_callback(utxos_enabled, utxos_disabled)
+        display_ret = display_callback(wallet_service,
+            utxos_enabled, utxos_disabled)
         if display_ret is None:
             break
         (txid, index), disable = display_ret
-        wallet.disable_utxo(txid, index, disable)
+        wallet_service.disable_utxo(txid, index, disable)
         if disable:
             info_callback("Utxo: {} is now frozen and unavailable for spending."
                           .format(fmt_utxo((txid, index))))
