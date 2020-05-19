@@ -17,12 +17,12 @@ Qt files for the wizard for initiating a tumbler run.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-import math, re, logging
+import math, re, logging, string
 from PySide2 import QtCore
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-
+from jmbitcoin.amount import amount_to_sat, btc_to_sat, sat_to_btc
 from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
 
@@ -53,8 +53,9 @@ config_types = {'rpc_port': int,
                 'check_high_fee': int,
                 'max_mix_depth': int,
                 'order_wait_time': int,
-                "no_daemon": int,
-                "daemon_port": int,}
+                'no_daemon': int,
+                'daemon_port': int,
+                'absurd_fee_per_kb': 'amount'}
 config_tips = {
     'blockchain_source': 'options: bitcoin-rpc, regtest (for testing)',
     'network': 'one of "testnet" or "mainnet"',
@@ -99,7 +100,7 @@ config_tips = {
     "native": "NOT currently supported, except for PayJoin (command line only)",
     "console_log_level": "one of INFO, DEBUG, WARN, ERROR; INFO is least noisy;\n" +
     "consider switching to DEBUG in case of problems.",
-    "absurd_fee_per_kb": "maximum satoshis/kilobyte you are willing to pay,\n" +
+    "absurd_fee_per_kb": "maximum amount per kilobyte you are willing to pay,\n" +
     "whatever the fee estimate currently says.",
     "tx_broadcast": "Options: self, random-peer, not-self (note: random-maker\n" +
     "is not currently supported).\n" +
@@ -507,20 +508,115 @@ class MyTreeWidget(QTreeWidget):
             item.setHidden(all([unicode(item.text(column)).lower().find(p) == -1
                                 for column in columns]))
 
-""" TODO implement this option
-class SchStaticPage(QWizardPage):
-    def __init__(self, parent):
-        super(SchStaticPage, self).__init__(parent)
-        self.setTitle("Manually create a schedule entry")
+# TODO implement this option
+#class SchStaticPage(QWizardPage):
+#    def __init__(self, parent):
+#        super(SchStaticPage, self).__init__(parent)
+#        self.setTitle("Manually create a schedule entry")
+#        layout = QGridLayout()
+#        wdgts = getSettingsWidgets()
+#        for i, x in enumerate(wdgts):
+#            layout.addWidget(x[0], i + 1, 0)
+#            layout.addWidget(x[1], i + 1, 1, 1, 2)
+#        wdgts[0][1].editingFinished.connect(
+#                    lambda: checkAddress(self, wdgts[0][1].text()))
+#        self.setLayout(layout)
+
+
+class BitcoinAmountBTCValidator(QDoubleValidator):
+
+    def __init__(self):
+        super().__init__(0.00000000, 20999999.9769, 8)
+        self.setLocale(QtCore.QLocale.c())
+        # Only numbers and "." as a decimal separator must be allowed,
+        # no thousands separators, as per BIP21
+        self.allowed = set(string.digits + ".")
+
+    def validate(self, arg__1, arg__2):
+        if not arg__1:
+            return QValidator.Intermediate
+        if not set(arg__1) <= self.allowed:
+            return QValidator.Invalid
+        return super().validate(arg__1, arg__2)
+
+
+class BitcoinAmountSatValidator(QIntValidator):
+
+    def __init__(self):
+        super().__init__(0, 2147483647)
+        self.setLocale(QtCore.QLocale.c())
+        self.allowed = set(string.digits)
+
+    def validate(self, arg__1, arg__2):
+        if not arg__1:
+            return QValidator.Intermediate
+        if not set(arg__1) <= self.allowed:
+            return QValidator.Invalid
+        return super().validate(arg__1, arg__2)
+
+
+class BitcoinAmountEdit(QWidget):
+
+    def __init__(self, default_value):
+        super().__init__()
         layout = QGridLayout()
-        wdgts = getSettingsWidgets()
-        for i, x in enumerate(wdgts):
-            layout.addWidget(x[0], i + 1, 0)
-            layout.addWidget(x[1], i + 1, 1, 1, 2)
-        wdgts[0][1].editingFinished.connect(
-                    lambda: checkAddress(self, wdgts[0][1].text()))
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+        self.valueInputBox = QLineEdit()
+        self.editingFinished = self.valueInputBox.editingFinished
+        layout.addWidget(self.valueInputBox, 0, 0)
+        self.unitChooser = QComboBox()
+        self.unitChooser.setInsertPolicy(QComboBox.NoInsert)
+        self.unitChooser.addItems(["BTC", "sat"])
+        self.unitChooser.currentIndexChanged.connect(self.onUnitChanged)
+        self.BTCValidator = BitcoinAmountBTCValidator()
+        self.SatValidator = BitcoinAmountSatValidator()
+        self.setModeBTC()
+        layout.addWidget(self.unitChooser, 0, 1)
+        if default_value:
+            self.valueInputBox.setText(str(sat_to_btc(amount_to_sat(
+                default_value))))
         self.setLayout(layout)
-"""
+
+    def setModeBTC(self):
+        self.valueInputBox.setPlaceholderText("0.00000000")
+        self.valueInputBox.setMaxLength(17)
+        self.valueInputBox.setValidator(self.BTCValidator)
+
+    def setModeSat(self):
+        self.valueInputBox.setPlaceholderText("0")
+        self.valueInputBox.setMaxLength(16)
+        self.valueInputBox.setValidator(self.SatValidator)
+
+    # index: 0 - BTC, 1 - sat
+    def onUnitChanged(self, index):
+        if index == 0:
+            # switch from sat to BTC
+            sat_amount = self.valueInputBox.text()
+            self.setModeBTC()
+            if sat_amount:
+                self.valueInputBox.setText('%.8f' % sat_to_btc(sat_amount))
+        else:
+            # switch from BTC to sat
+            btc_amount = self.valueInputBox.text()
+            self.setModeSat()
+            if btc_amount:
+                self.valueInputBox.setText(str(btc_to_sat(btc_amount)))
+
+    def setText(self, text):
+        if self.unitChooser.currentIndex() == 0:
+            self.valueInputBox.setText(str(sat_to_btc(text)))
+        else:
+            self.valueInputBox.setText(str(text))
+
+    def text(self):
+        if len(self.valueInputBox.text()) == 0:
+            return ''
+        elif self.unitChooser.currentIndex() == 0:
+            return str(btc_to_sat(self.valueInputBox.text()))
+        else:
+            return self.valueInputBox.text()
+
 
 class SchDynamicPage1(QWizardPage):
     def __init__(self, parent):

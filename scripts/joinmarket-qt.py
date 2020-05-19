@@ -79,7 +79,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
-    donation_more_message
+    donation_more_message, BitcoinAmountEdit
 
 from twisted.internet import task
 
@@ -101,6 +101,7 @@ def update_config_for_gui():
         if gcn not in [_[0] for _ in gui_items]:
             jm_single().config.set("GUI", gcn, gcv)
 
+
 def checkAddress(parent, addr):
     addr = addr.strip()
     if btc.is_bip21_uri(addr):
@@ -114,9 +115,8 @@ def checkAddress(parent, addr):
             return
         addr = parsed['address']
         if 'amount' in parsed:
-            parent.widgets[3][1].setText(
-                str(btc.sat_to_btc(parsed['amount'])))
-    parent.widgets[0][1].setText(addr)
+            parent.amountInput.setText(parsed['amount'])
+    parent.addressInput.setText(addr)
     valid, errmsg = validate_address(str(addr))
     if not valid:
         JMQtMessageBox(parent,
@@ -138,37 +138,6 @@ def checkAmount(parent, amount_str):
                        title="Error")
         return False
     return True
-
-
-def getSettingsWidgets():
-    results = []
-    sN = ['Recipient address', 'Number of counterparties', 'Mixdepth',
-          'Amount (BTC or sat)']
-    sH = ['The address you want to send the payment to',
-          'How many other parties to send to; if you enter 4\n' +
-          ', there will be 5 participants, including you.\n' +
-          'Enter 0 to send direct without coinjoin.',
-          'The mixdepth of the wallet to send the payment from',
-          'The amount to send, either BTC (if contains dot) or satoshis.\n' +
-          'If you enter 0, a SWEEP transaction\nwill be performed,' +
-          ' spending all the coins \nin the given mixdepth.']
-    sT = [str, int, int, float]
-    #todo maxmixdepth
-    sMM = ['', (2, 20),
-           (0, jm_single().config.getint("GUI", "max_mix_depth") - 1),
-           (0.00000001, 100.0, 8)]
-    sD = ['', '9', '0', '']
-    for x in zip(sN, sH, sT, sD, sMM):
-        ql = QLabel(x[0])
-        ql.setToolTip(x[1])
-        qle = QLineEdit(x[3])
-        if x[2] == int:
-            qle.setValidator(QIntValidator(*x[4]))
-        if x[2] == float:
-            qdv = QDoubleValidator(*x[4])
-            qle.setValidator(qdv)
-        results.append((ql, qle))
-    return results
 
 
 handler = QtHandler()
@@ -295,6 +264,8 @@ class SettingsTab(QDialog):
                     qt = QCheckBox()
                     if val == 'testnet' or val.lower() == 'true':
                         qt.setChecked(True)
+                elif t == 'amount':
+                    qt = BitcoinAmountEdit(val)
                 elif not t:
                     continue
                 else:
@@ -506,12 +477,44 @@ class SpendTab(QWidget):
 
         donateLayout = self.getDonateLayout()
         innerTopLayout.addLayout(donateLayout, 0, 0, 1, 2)
-        self.widgets = getSettingsWidgets()
-        for i, x in enumerate(self.widgets):
-            innerTopLayout.addWidget(x[0], i + 1, 0)
-            innerTopLayout.addWidget(x[1], i + 1, 1, 1, 2)
-        self.widgets[0][1].editingFinished.connect(
-            lambda: checkAddress(self, self.widgets[0][1].text()))
+
+        recipientLabel = QLabel('Recipient address')
+        recipientLabel.setToolTip(
+            'The address you want to send the payment to')
+        self.addressInput = QLineEdit()
+        self.addressInput.editingFinished.connect(
+            lambda: checkAddress(self, self.addressInput.text()))
+        innerTopLayout.addWidget(recipientLabel, 1, 0)
+        innerTopLayout.addWidget(self.addressInput, 1, 1, 1, 2)
+
+        numCPLabel = QLabel('Number of counterparties')
+        numCPLabel.setToolTip(
+            'How many other parties to send to; if you enter 4\n' +
+            ', there will be 5 participants, including you.\n' +
+            'Enter 0 to send direct without coinjoin.')
+        self.numCPInput = QLineEdit('9')
+        self.numCPInput.setValidator(QIntValidator(0, 20))
+        innerTopLayout.addWidget(numCPLabel, 2, 0)
+        innerTopLayout.addWidget(self.numCPInput, 2, 1, 1, 2)
+
+        mixdepthLabel = QLabel('Mixdepth')
+        mixdepthLabel.setToolTip(
+            'The mixdepth of the wallet to send the payment from')
+        self.mixdepthInput = QLineEdit('0')
+        self.mixdepthInput.setValidator(QIntValidator(
+            0, jm_single().config.getint("GUI", "max_mix_depth") - 1))
+        innerTopLayout.addWidget(mixdepthLabel, 3, 0)
+        innerTopLayout.addWidget(self.mixdepthInput, 3, 1, 1, 2)
+
+        amountLabel = QLabel('Amount')
+        amountLabel.setToolTip(
+            'The amount to send.\n' +
+            'If you enter 0, a SWEEP transaction\nwill be performed,' +
+            ' spending all the coins \nin the given mixdepth.')
+        self.amountInput = BitcoinAmountEdit('')
+        innerTopLayout.addWidget(amountLabel, 4, 0)
+        innerTopLayout.addWidget(self.amountInput, 4, 1, 1, 2)
+
         self.startButton = QPushButton('Start')
         self.startButton.setToolTip(
             'If "checktx" is selected in the Settings, you will be \n'
@@ -527,7 +530,7 @@ class SpendTab(QWidget):
         buttons.addWidget(self.startButton)
         buttons.addWidget(self.abortButton)
         self.abortButton.clicked.connect(self.abortTransactions)
-        innerTopLayout.addLayout(buttons, len(self.widgets) + 1, 0, 1, 2)
+        innerTopLayout.addLayout(buttons, 5, 0, 1, 2)
         splitter1 = QSplitter(QtCore.Qt.Vertical)
         self.textedit = QTextEdit()
         self.textedit.verticalScrollBar().rangeChanged.connect(
@@ -639,25 +642,12 @@ class SpendTab(QWidget):
             log.info("Cannot start join, already running.")
         if not self.validateSettings():
             return
-        destaddr = str(self.widgets[0][1].text()).strip()
-        makercount = int(self.widgets[1][1].text())
-        mixdepth = int(self.widgets[2][1].text())
-        btc_amount_str = self.widgets[3][1].text()
-        if makercount != 0:
-            # for coinjoin sends no point to send below dust threshold,
-            # there will be no makers for such amount.
-            if (btc_amount_str != '0' and
-                not checkAmount(self, btc_amount_str)):
-                return
-            if makercount < jm_single().config.getint(
-                "POLICY", "minimum_makers"):
-                JMQtMessageBox(self, "Number of counterparties (" + str(
-                    makercount) + ") below minimum_makers (" + str(
-                    jm_single().config.getint("POLICY", "minimum_makers")) +
-                    ") in configuration.",
-                    title="Error", mbtype="warn")
-                return
-        amount = btc.amount_to_sat(btc_amount_str)
+
+        destaddr = str(self.addressInput.text().strip())
+        amount = btc.amount_to_sat(self.amountInput.text())
+        makercount = int(self.numCPInput.text())
+        mixdepth = int(self.mixdepthInput.text())
+
         if makercount == 0:
             try:
                 txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
@@ -682,6 +672,20 @@ class SpendTab(QWidget):
                                                     txid, cb_type="confirmed")
                 self.persistTxToHistory(destaddr, self.direct_send_amount, txid)
                 self.cleanUp()
+            return
+
+        # for coinjoin sends no point to send below dust threshold, likely
+        # there will be no makers for such amount.
+        if amount != 0 and not checkAmount(self, amount):
+            return
+
+        if makercount < jm_single().config.getint(
+            "POLICY", "minimum_makers"):
+            JMQtMessageBox(self, "Number of counterparties (" + str(
+                makercount) + ") below minimum_makers (" + str(
+                jm_single().config.getint("POLICY", "minimum_makers")) +
+                ") in configuration.",
+                title="Error", mbtype="warn")
             return
 
         #note 'amount' is integer, so not interpreted as fraction
@@ -975,18 +979,28 @@ class SpendTab(QWidget):
         self.tumbler_destaddrs = None
 
     def validateSettings(self):
-        valid, errmsg = validate_address(str(
-            self.widgets[0][1].text().strip()))
+        valid, errmsg = validate_address(
+            str(self.addressInput.text().strip()))
         if not valid:
             JMQtMessageBox(self, errmsg, mbtype='warn', title="Error")
             return False
-        errs = ["Non-zero number of counterparties must be provided.",
+        if len(self.numCPInput.text()) == 0:
+            JMQtMessageBox(
+                self,
+                "Non-zero number of counterparties must be provided.",
+                mbtype='warn', title="Error")
+            return False
+        if len(self.mixdepthInput.text()) == 0:
+            JMQtMessageBox(
+                self,
                 "Mixdepth must be chosen.",
-                "Amount, in bitcoins, must be provided."]
-        for i in range(1, 4):
-            if len(self.widgets[i][1].text()) == 0:
-                JMQtMessageBox(self, errs[i - 1], mbtype='warn', title="Error")
-                return False
+                mbtype='warn', title="Error")
+            return False
+        if len(self.amountInput.text()) == 0:
+            JMQtMessageBox(
+                self,
+                "Amount, in bitcoins, must be provided.",
+                mbtype='warn', title="Error")
         if not mainWindow.wallet_service:
             JMQtMessageBox(self,
                            "There is no wallet loaded.",
