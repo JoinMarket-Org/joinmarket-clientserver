@@ -372,8 +372,12 @@ class HTTPDThread(threading.Thread):
 
     def run(self):
         # hostport = ('localhost', 62601)
-        httpd = http.server.HTTPServer(self.hostport,
+        try:
+            httpd = http.server.HTTPServer(self.hostport,
                                           OrderbookPageRequestHeader)
+        except Exception as e:
+            print("Failed to start HTTP server: " + str(e))
+            os._exit(EXIT_FAILURE)
         httpd.taker = self.taker
         print('\nstarted http server, visit http://{0}:{1}/\n'.format(
                 *self.hostport))
