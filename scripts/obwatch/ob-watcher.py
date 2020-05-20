@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from future.utils import iteritems
 from past.builtins import cmp
 from functools import cmp_to_key
