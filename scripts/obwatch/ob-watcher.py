@@ -271,7 +271,8 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         pages = ['/', '/ordersize', '/depth', '/orderbook.json']
         if self.path not in pages:
             return
-        fd = open('orderbook.html', 'r')
+        fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+            'orderbook.html'), 'r')
         orderbook_fmt = fd.read()
         fd.close()
         alert_msg = ''
