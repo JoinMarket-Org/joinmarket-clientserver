@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from future.utils import iteritems
 from past.builtins import cmp
 from functools import cmp_to_key
@@ -271,7 +272,8 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         pages = ['/', '/ordersize', '/depth', '/orderbook.json']
         if self.path not in pages:
             return
-        fd = open('orderbook.html', 'r')
+        fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+            'orderbook.html'), 'r')
         orderbook_fmt = fd.read()
         fd.close()
         alert_msg = ''
@@ -372,8 +374,12 @@ class HTTPDThread(threading.Thread):
 
     def run(self):
         # hostport = ('localhost', 62601)
-        httpd = http.server.HTTPServer(self.hostport,
+        try:
+            httpd = http.server.HTTPServer(self.hostport,
                                           OrderbookPageRequestHeader)
+        except Exception as e:
+            print("Failed to start HTTP server: " + str(e))
+            os._exit(EXIT_FAILURE)
         httpd.taker = self.taker
         print('\nstarted http server, visit http://{0}:{1}/\n'.format(
                 *self.hostport))
