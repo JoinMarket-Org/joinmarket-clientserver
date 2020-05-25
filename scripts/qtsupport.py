@@ -559,12 +559,13 @@ class BitcoinAmountEdit(QWidget):
 
     def __init__(self, default_value):
         super().__init__()
-        layout = QGridLayout()
+        layout = QHBoxLayout()
+        layout.setSizeConstraint(QLayout.SetMaximumSize)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(1)
         self.valueInputBox = QLineEdit()
         self.editingFinished = self.valueInputBox.editingFinished
-        layout.addWidget(self.valueInputBox, 0, 0)
+        layout.addWidget(self.valueInputBox)
         self.unitChooser = QComboBox()
         self.unitChooser.setInsertPolicy(QComboBox.NoInsert)
         self.unitChooser.addItems(["BTC", "sat"])
@@ -572,7 +573,7 @@ class BitcoinAmountEdit(QWidget):
         self.BTCValidator = BitcoinAmountBTCValidator()
         self.SatValidator = BitcoinAmountSatValidator()
         self.setModeBTC()
-        layout.addWidget(self.unitChooser, 0, 1)
+        layout.addWidget(self.unitChooser)
         if default_value:
             self.valueInputBox.setText(str(sat_to_btc(amount_to_sat(
                 default_value))))
