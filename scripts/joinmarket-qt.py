@@ -271,7 +271,13 @@ class SettingsTab(QDialog):
                 else:
                     qt = QLineEdit(val)
                     if t == int:
-                        qt.setValidator(QIntValidator(0, 65535))
+                        if name in ["rpc_port", "socks5_port", "daemon_port"]:
+                            qt.setValidator(QIntValidator(0, 65535))
+                        elif name == "tx_fees":
+                            # must account for both tx_fees settings type,
+                            # and we set upper limit well above default absurd
+                            # check just in case a high value is needed:
+                            qt.setValidator(QIntValidator(1, 1000000))
             else:
                 qt = QLineEdit(val)
             label = 'Testnet' if name == 'network' else name
