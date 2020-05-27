@@ -12,7 +12,7 @@ from jmclient import Maker, jm_single, load_program_config, \
     JMClientProtocolFactory, start_reactor, calc_cj_fee, \
     WalletService, add_base_options
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
-from jmbase.support import EXIT_ARGERROR
+from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE
 
 jlog = get_log()
 
@@ -238,6 +238,11 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='swreloffe
     nickserv_password = options.password
 
     load_program_config(config_path=options.datadir)
+
+    if jm_single().bc_interface is None:
+        jlog.error("Running yield generator requires configured " +
+            "blockchain source.")
+        sys.exit(EXIT_FAILURE)
 
     wallet_path = get_wallet_path(wallet_name, None)
     wallet = open_test_wallet_maybe(

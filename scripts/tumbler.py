@@ -31,6 +31,10 @@ def main():
         sys.exit(EXIT_ARGERROR)
     load_program_config(config_path=options['datadir'])
 
+    if jm_single().bc_interface is None:
+        jmprint('Error: Needs a blockchain source', "error")
+        sys.exit(EXIT_FAILURE)
+
     check_regtest()
 
     #Load the wallet
