@@ -84,7 +84,8 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            initdata="none")
+                            offers="{}",
+                            fidelity_bond=b'')
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -110,7 +111,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         self.defaultCallbacks(d)
 
     @JMOffers.responder
-    def on_JM_OFFERS(self, orderbook):
+    def on_JM_OFFERS(self, orderbook, fidelitybonds):
         if end_early:
             return {'accepted': True}
         jlog.debug("JMOFFERS" + str(orderbook))

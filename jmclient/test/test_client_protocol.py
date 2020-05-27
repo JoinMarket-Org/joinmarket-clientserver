@@ -184,8 +184,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, initdata):
-        show_receipt("JMSETUP", role, initdata)
+    def on_JM_SETUP(self, role, offers, fidelity_bond):
+        show_receipt("JMSETUP", role, offers, fidelity_bond)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}

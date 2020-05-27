@@ -2400,6 +2400,23 @@ class FidelityBondMixin(object):
         a = max(0, min(1, exp(r*T) - 1) - min(1, exp(r*max(0, t-L)) - 1))
         return utxo_value*utxo_value*a*a
 
+    @classmethod
+    def get_validated_timelocked_fidelity_bond_utxo(cls, utxo, utxo_pubkey, locktime,
+            cert_expiry, current_block_height):
+
+        utxo_data = jm_single().bc_interface.query_utxo_set(utxo, includeconf=True)
+        if utxo_data[0] == None:
+            return None
+        if utxo_data[0]["confirms"] <= 0:
+            return None
+        RETARGET_INTERVAL = 2016
+        if current_block_height > cert_expiry*RETARGET_INTERVAL:
+            return None
+        implied_spk = btc.redeem_script_to_p2wsh_script(btc.mk_freeze_script(utxo_pubkey, locktime))
+        if utxo_data[0]["script"] != implied_spk:
+            return None
+        return utxo_data[0]
+
 class BIP49Wallet(BIP32PurposedWallet):
     _PURPOSE = 2**31 + 49
     _ENGINE = ENGINES[TYPE_P2SH_P2WPKH]

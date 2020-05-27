@@ -3,8 +3,9 @@ Commands defining client-server (daemon)
 messaging protocol (*not* Joinmarket p2p protocol).
 Used for AMP asynchronous messages.
 """
-from twisted.protocols.amp import Boolean, Command, Integer, Unicode
+from twisted.protocols.amp import Boolean, Command, Integer, Unicode, String
 from .bigstring import BigUnicode
+
 
 class DaemonNotReady(Exception):
     pass
@@ -45,7 +46,8 @@ class JMSetup(JMCommand):
     role, passes initial offers for announcement (for TAKER, this data is "none")
     """
     arguments = [(b'role', Unicode()),
-                 (b'initdata', Unicode())]
+                 (b'offers', Unicode()),
+                 (b'fidelity_bond', String())]
 
 class JMMsgSignature(JMCommand):
     """A response to a request for a bitcoin signature

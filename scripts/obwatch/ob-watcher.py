@@ -128,7 +128,6 @@ def create_choose_units_form(selected_btc, selected_rel):
             '<option selected="selected">' + selected_rel)
     return choose_units_form
 
-
 class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
     def __init__(self, request, client_address, base_server):
         self.taker = base_server.taker
@@ -244,6 +243,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             return 0, result
         #print("len rows before filter: " + str(len(rows)))
         rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
+
         order_keys_display = (('ordertype', ordertype_display),
                               ('counterparty', do_nothing), ('oid', order_str),
                               ('cjfee', cjfee_display), ('txfee', satoshi_to_unit),
