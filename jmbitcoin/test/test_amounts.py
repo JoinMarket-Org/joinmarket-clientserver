@@ -24,6 +24,10 @@ def test_amount_to_sat():
     assert(btc.amount_to_sat("1.12300000sat") == 1)
     assert(btc.amount_to_sat("1btc") == 100000000)
     assert(btc.amount_to_sat("1BTC") == 100000000)
+    with pytest.raises(ValueError):
+        btc.amount_to_sat("")
+        btc.amount_to_sat("invalidamount")
+        btc.amount_to_sat("123inv")
 
 
 def test_amount_to_btc():
@@ -37,6 +41,10 @@ def test_amount_to_btc():
     assert(btc.amount_to_btc("1.12300000sat") == Decimal("0.00000001"))
     assert(btc.amount_to_btc("1btc") == 1)
     assert(btc.amount_to_btc("1BTC") == 1)
+    with pytest.raises(ValueError):
+        btc.amount_to_btc("")
+        btc.amount_to_btc("invalidamount")
+        btc.amount_to_btc("123inv")
 
 
 def test_amount_to_sat_str():
@@ -50,6 +58,10 @@ def test_amount_to_sat_str():
     assert(btc.amount_to_sat_str("1.12300000sat") == "1 sat")
     assert(btc.amount_to_sat_str("1btc") == "100000000 sat")
     assert(btc.amount_to_sat_str("1BTC") == "100000000 sat")
+    with pytest.raises(ValueError):
+        btc.amount_to_sat_str("")
+        btc.amount_to_sat_str("invalidamount")
+        btc.amount_to_sat_str("123inv")
 
 
 def test_amount_to_btc_str():
@@ -63,6 +75,10 @@ def test_amount_to_btc_str():
     assert(btc.amount_to_btc_str("1.12300000sat") == "0.00000001 BTC")
     assert(btc.amount_to_btc_str("1btc") == "1.00000000 BTC")
     assert(btc.amount_to_btc_str("1BTC") == "1.00000000 BTC")
+    with pytest.raises(ValueError):
+        btc.amount_to_btc_str("")
+        btc.amount_to_btc_str("invalidamount")
+        btc.amount_to_btc_str("123inv")
 
 
 def test_amount_to_str():
@@ -76,6 +92,10 @@ def test_amount_to_str():
     assert(btc.amount_to_str("1.12300000sat") == "0.00000001 BTC (1 sat)")
     assert(btc.amount_to_str("1btc") == "1.00000000 BTC (100000000 sat)")
     assert(btc.amount_to_str("1BTC") == "1.00000000 BTC (100000000 sat)")
+    with pytest.raises(ValueError):
+        btc.amount_to_str("")
+        btc.amount_to_str("invalidamount")
+        btc.amount_to_str("123inv")
 
 
 def test_sat_to_str():
