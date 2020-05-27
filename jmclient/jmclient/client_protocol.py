@@ -392,14 +392,10 @@ class JMMakerClientProtocol(JMClientProtocol):
         if not self.client.offerlist:
             return
         self.offers_ready_loop.stop()
-        if self.client.fidelity_bond:
-            fidelity_bond_data = self.client.fidelity_bond.serialize()
-        else:
-            fidelity_bond_data = b''
         d = self.callRemote(commands.JMSetup,
                             role="MAKER",
                             offers=json.dumps(self.client.offerlist),
-                            fidelity_bond=fidelity_bond_data)
+                            use_fidelity_bond=(self.client.fidelity_bond != None))
         self.defaultCallbacks(d)
 
     @commands.JMSetupDone.responder
@@ -431,6 +427,17 @@ class JMMakerClientProtocol(JMClientProtocol):
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec)
         self.defaultCallbacks(d)
+
+    @commands.JMFidelityBondProofRequest.responder
+    def on_JM_FIDELITY_BOND_PROOF_REQUEST(self, takernick, makernick):
+        proof_msg = (self.client.fidelity_bond
+            .create_proof(makernick, takernick)
+            .create_proof_msg(self.client.fidelity_bond.cert_privkey))
+        d = self.callRemote(commands.JMFidelityBondProof,
+                nick=takernick,
+                proof=proof_msg)
+        self.defaultCallbacks(d)
+        return {"accepted": True}
 
     @commands.JMAuthReceived.responder
     def on_JM_AUTH_RECEIVED(self, nick, offer, commitment, revelation, amount,

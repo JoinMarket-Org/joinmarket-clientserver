@@ -4,15 +4,19 @@ import datetime
 import os
 import time
 import abc
+import base64
 from twisted.python.log import startLogging
 from optparse import OptionParser
 from jmbase import get_log
 from jmclient import (Maker, jm_single, load_program_config,
                       JMClientProtocolFactory, start_reactor, calc_cj_fee,
                       WalletService, add_base_options, SNICKERReceiver,
-                      SNICKERClientProtocolFactory)
+                      SNICKERClientProtocolFactory, FidelityBondMixin,
+                      get_interest_rate, fmt_utxo)
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
 from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE, get_jm_version_str
+import jmbitcoin as btc
+from jmclient.fidelity_bond import FidelityBond
 
 jlog = get_log()
 
@@ -66,7 +70,6 @@ class YieldGenerator(Maker):
 
         return to_cancel, to_announce
 
-
 class YieldGeneratorBasic(YieldGenerator):
     """A simplest possible instantiation of a yieldgenerator.
     It will often (but not always) reannounce orders after transactions,
@@ -111,6 +114,50 @@ class YieldGeneratorBasic(YieldGenerator):
             return []
 
         return [order]
+
+    def get_fidelity_bond_template(self):
+        if not isinstance(self.wallet_service.wallet, FidelityBondMixin):
+            jlog.info("Not a fidelity bond wallet, not announcing fidelity bond")
+            return None
+        blocks = jm_single().bc_interface.get_current_block_height()
+        mediantime = jm_single().bc_interface.get_best_block_median_time()
+
+        BLOCK_COUNT_SAFETY = 2 #use this safety number to reduce chances of the proof expiring
+                               #before the taker gets a chance to verify it
+        RETARGET_INTERVAL = 2016
+        CERT_MAX_VALIDITY_TIME = 1
+        cert_expiry = ((blocks + BLOCK_COUNT_SAFETY) // RETARGET_INTERVAL) + CERT_MAX_VALIDITY_TIME
+
+        utxos = self.wallet_service.wallet.get_utxos_by_mixdepth(include_disabled=True,
+            includeheight=True)[FidelityBondMixin.FIDELITY_BOND_MIXDEPTH]
+        timelocked_utxos = [(outpoint, info) for outpoint, info in utxos.items()
+            if FidelityBondMixin.is_timelocked_path(info["path"])]
+        if len(timelocked_utxos) == 0:
+            jlog.info("No timelocked coins in wallet, not announcing fidelity bond")
+            return
+        timelocked_utxos_with_confirmation_time = [(outpoint, info,
+            jm_single().bc_interface.get_block_time(
+                jm_single().bc_interface.get_block_hash(info["height"])
+            ))
+            for (outpoint, info) in timelocked_utxos]
+
+        interest_rate = get_interest_rate()
+        max_valued_bond = max(timelocked_utxos_with_confirmation_time, key=lambda x:
+            FidelityBondMixin.calculate_timelocked_fidelity_bond_value(x[1]["value"], x[2],
+                x[1]["path"][-1], mediantime, interest_rate)
+        )
+        (utxo_priv, locktime), engine = self.wallet_service.wallet._get_key_from_path(
+            max_valued_bond[1]["path"])
+        utxo_pub = engine.privkey_to_pubkey(utxo_priv)
+        cert_priv = os.urandom(32) + b"\x01"
+        cert_pub = btc.privkey_to_pubkey(cert_priv)
+        cert_msg = b"fidelity-bond-cert|" + cert_pub + b"|" + str(cert_expiry).encode("ascii")
+        cert_sig = base64.b64decode(btc.ecdsa_sign(cert_msg, utxo_priv))
+        utxo = (max_valued_bond[0][0], max_valued_bond[0][1])
+        fidelity_bond = FidelityBond(utxo, utxo_pub, locktime, cert_expiry,
+                                     cert_priv, cert_pub, cert_sig)
+        jlog.info("Announcing fidelity bond coin {}".format(fmt_utxo(utxo)))
+        return fidelity_bond
 
     def oid_to_order(self, offer, amount):
         total_amount = amount + offer["txfee"]

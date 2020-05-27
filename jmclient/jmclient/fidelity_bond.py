@@ -2,7 +2,7 @@ import struct
 import base64
 import json
 from jmbitcoin import ecdsa_sign, ecdsa_verify
-from jmdaemon import import fidelity_bond_sanity_check
+from jmdaemon import fidelity_bond_sanity_check
 
 
 def assert_is_utxo(utxo):

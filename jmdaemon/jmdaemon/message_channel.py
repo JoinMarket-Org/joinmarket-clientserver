@@ -291,6 +291,7 @@ class MessageChannelCollection(object):
         message channels, if nick=None,
         or to an individual counterparty nick, as
         privmsg, on a specific mc.
+        Fidelity bonds can only be announced over privmsg, nick must be nonNone
         """
         order_keys = ['oid', 'minsize', 'maxsize', 'txfee', 'cjfee']
         orderlines = []
