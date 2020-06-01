@@ -281,7 +281,8 @@ class Storage(object):
     def _create_lock(self):
         if self.read_only:
             return
-        lock_filename = '{}.lock'.format(self.path)
+        (path_head, path_tail) = os.path.split(self.path)
+        lock_filename = os.path.join(path_head, '.' + path_tail + '.lock')
         self._lock_file = lock_filename
         if os.path.exists(self._lock_file):
             with open(self._lock_file, 'r') as f:
