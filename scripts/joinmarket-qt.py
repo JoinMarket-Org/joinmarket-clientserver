@@ -79,7 +79,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
-    donation_more_message, BitcoinAmountEdit
+    donation_more_message, BitcoinAmountEdit, JMIntValidator
 
 from twisted.internet import task
 
@@ -265,21 +265,28 @@ class SettingsTab(QDialog):
             if name in config_types:
                 t = config_types[name]
                 if t == bool:
-                    qt = QCheckBox()
+                    sf = QCheckBox()
                     if val == 'testnet' or val.lower() == 'true':
-                        qt.setChecked(True)
+                        sf.setChecked(True)
                 elif t == 'amount':
-                    qt = BitcoinAmountEdit(val)
+                    sf = BitcoinAmountEdit(val)
                 elif not t:
                     continue
                 else:
-                    qt = QLineEdit(val)
+                    sf = QLineEdit(val)
                     if t == int:
-                        qt.setValidator(QIntValidator(0, 65535))
+                        if name in ["port", "rpc_port", "socks5_port",
+                                    "daemon_port"]:
+                            sf.setValidator(JMIntValidator(1, 65535))
+                        elif name == "tx_fees":
+                            # must account for both tx_fees settings type,
+                            # and we set upper limit well above default absurd
+                            # check just in case a high value is needed:
+                            sf.setValidator(JMIntValidator(1, 1000000))
             else:
-                qt = QLineEdit(val)
+                sf = QLineEdit(val)
             label = 'Testnet' if name == 'network' else name
-            results.append((QLabel(label), qt))
+            results.append((QLabel(label), sf))
         return results
 
 class SpendStateMgr(object):
