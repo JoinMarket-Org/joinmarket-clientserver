@@ -12,8 +12,8 @@ from twisted.internet import reactor
 import pprint
 
 from jmclient import Taker, P2EPTaker, load_program_config, get_schedule,\
-    JMClientProtocolFactory, start_reactor, validate_address, jm_single,\
-    estimate_tx_fee, direct_send, WalletService,\
+    JMClientProtocolFactory, start_reactor, validate_address, is_burn_destination, \
+    jm_single, estimate_tx_fee, direct_send, WalletService,\
     open_test_wallet_maybe, get_wallet_path, NO_ROUNDING, \
     get_sendpayment_parser, get_max_cj_fee_values, check_regtest
 from twisted.python.log import startLogging
@@ -83,8 +83,13 @@ def main():
             destaddr = args[2]
         mixdepth = options.mixdepth
         addr_valid, errormsg = validate_address(destaddr)
-        if not addr_valid:
+        command_to_burn = (is_burn_destination(destaddr) and sweeping and
+            options.makercount == 0 and not options.p2ep)
+        if not addr_valid and not command_to_burn:
             jmprint('ERROR: Address invalid. ' + errormsg, "error")
+            if is_burn_destination(destaddr):
+                jmprint("The required options for burning coins are zero makers"
+                    + " (-N 0), sweeping (amount = 0) and not using P2EP", "info")
             sys.exit(EXIT_ARGERROR)
         if sweeping == False and amount < DUST_THRESHOLD:
             jmprint('ERROR: Amount ' + btc.amount_to_str(amount) +

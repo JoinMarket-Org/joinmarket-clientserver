@@ -447,7 +447,7 @@ def get_tumbler_parser():
 def get_sendpayment_parser():
     parser = OptionParser(
         usage=
-        'usage: %prog [options] wallet_file amount destaddr\n' +
+        'usage: %prog [options] wallet_file amount destination\n' +
         '       %prog [options] wallet_file bitcoin_uri',
         description='Sends a single payment from a given mixing depth of your '
         +

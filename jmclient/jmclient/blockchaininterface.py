@@ -4,6 +4,7 @@ import random
 import sys
 import time
 from decimal import Decimal
+import binascii
 from twisted.internet import reactor, task
 
 import jmbitcoin as btc
@@ -406,6 +407,30 @@ class BitcoinCoreInterface(BlockchainInterface):
         except JsonRpcError:
             return self.rpc('getblock', [blockhash])['time']
 
+    def get_tx_merkle_branch(self, txid, blockhash=None):
+        if not blockhash:
+            tx = self.rpc("gettransaction", [txid])
+            if tx["confirmations"] < 1:
+                raise ValueError("Transaction not in block")
+            blockhash = tx["blockhash"]
+        try:
+            core_proof = self.rpc("gettxoutproof", [[txid], blockhash])
+        except JsonRpcError:
+            raise ValueError("Block containing transaction is pruned")
+        return self.core_proof_to_merkle_branch(core_proof)
+
+    def core_proof_to_merkle_branch(self, core_proof):
+        core_proof = binascii.unhexlify(core_proof)
+        #first 80 bytes of a proof given by core are just a block header
+        #so we can save space by replacing it with a 4-byte block height
+        return core_proof[80:]
+
+    def verify_tx_merkle_branch(self, txid, block_height, merkle_branch):
+        block_hash = self.rpc("getblockhash", [block_height])
+        core_proof = self.rpc("getblockheader", [block_hash, False]) + \
+            binascii.hexlify(merkle_branch).decode()
+        ret = self.rpc("verifytxoutproof", [core_proof])
+        return len(ret) == 1 and ret[0] == txid
 
 class RegtestBitcoinCoreMixin():
     """

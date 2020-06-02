@@ -6,12 +6,13 @@ from binascii import hexlify, unhexlify
 
 import pytest
 import jmbitcoin as btc
-from commontest import binarize_tx
+from commontest import binarize_tx, ensure_bip65_activated
 from jmbase import get_log
 from jmclient import load_test_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
-    SegwitWallet, WalletService
+    SegwitWallet, WalletService, SegwitLegacyWalletFidelityBonds,\
+    FidelityBondMixin, FidelityBondWatchonlyWallet, wallet_gettimelockaddress
 from test_blockchaininterface import sync_test_wallet
 
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -239,6 +240,72 @@ def test_bip32_addresses_p2sh_p2wpkh(setup_wallet, mixdepth, internal, index, ad
     assert wif == wallet.get_wif(mixdepth, internal, index)
     assert address == wallet.get_addr(mixdepth, internal, index)
 
+@pytest.mark.parametrize('index,timenumber,address,wif', [
+    [0, 0, 'bcrt1qndcqwedwa4lu77ryqpvp738d6p034a2fv8mufw3pw5smfcn39sgqpesn76', 'cST4g5R3mKp44K4J8PRVyys4XJu6EFavZyssq67PJKCnbhjdEdBY'],
+    [0, 50, 'bcrt1q73zhrfcu0ttkk4er9esrmvnpl6wpzhny5aly97jj9nw52agf8ncqjv8rda', 'cST4g5R3mKp44K4J8PRVyys4XJu6EFavZyssq67PJKCnbhjdEdBY'],
+    [5, 0, 'bcrt1qz5208jdm6399ja309ra28d0a34qlt0859u77uxc94v5mgk7auhtssau4pw', 'cRnUaBYTmyZURPe72YCrtvgxpBMvLKPZaCoXvKuWRPMryeJeAZx2'],
+    [9, 1, 'bcrt1qa7pd6qnadpmlm29vtvqnykalc34tr33eclaz7eeqal59n4gwr28qwnka2r', 'cQCxEPCWMwXVB16zCikDBTXMUccx6ioHQipPhYEp1euihkJUafyD']
+])
+def test_bip32_timelocked_addresses(setup_wallet, index, timenumber, address, wif):
+    jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
+
+    entropy = unhexlify('2e0339ba89b4a1272cdf78b27ee62669ee01992a59e836e2807051be128ca817')
+    storage = VolatileStorage()
+    SegwitLegacyWalletFidelityBonds.initialize(
+        storage, get_network(), entropy=entropy, max_mixdepth=1)
+    wallet = SegwitLegacyWalletFidelityBonds(storage)
+    mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+    address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
+
+    #wallet needs to know about the script beforehand
+    wallet.get_script_and_update_map(mixdepth, address_type, index, timenumber)
+
+    assert address == wallet.get_addr(mixdepth, address_type, index, timenumber)
+    assert wif == wallet.get_wif_path(wallet.get_path(mixdepth, address_type, index, timenumber))
+
+@pytest.mark.parametrize('timenumber,locktime_string', [
+    [0, "2020-01"],
+    [20, "2021-09"],
+    [100, "2028-05"],
+    [150, "2032-07"],
+    [350, "2049-03"]
+])
+def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
+    storage = VolatileStorage()
+    SegwitLegacyWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitLegacyWalletFidelityBonds(storage)
+
+    m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+    address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
+    index = wallet.get_next_unused_index(m, address_type)
+    script = wallet.get_script_and_update_map(m, address_type, index,
+        timenumber)
+    addr = wallet.script_to_addr(script)
+
+    addr_from_method = wallet_gettimelockaddress(wallet, locktime_string)
+
+    assert addr == addr_from_method
+
+@pytest.mark.parametrize('index,wif', [
+    [0, 'cMg9eH3fW2JDSyggvXucjmECRwiheCMDo2Qik8y1keeYaxynzrYa'],
+    [9, 'cURA1Qgxhd7QnhhwxCnCHD4pZddVrJdu2BkTdzNaTp9owRSkUvPy'],
+    [50, 'cRTaHZ1eezb8s6xsT2V7EAevYToQMi7cxQD9vgFZzaJZDfhMhf3c']
+])
+def test_bip32_burn_keys(setup_wallet, index, wif):
+    jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
+
+    entropy = unhexlify('2e0339ba89b4a1272cdf78b27ee62669ee01992a59e836e2807051be128ca817')
+    storage = VolatileStorage()
+    SegwitLegacyWalletFidelityBonds.initialize(
+        storage, get_network(), entropy=entropy, max_mixdepth=1)
+    wallet = SegwitLegacyWalletFidelityBonds(storage)
+    mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+    address_type = FidelityBondMixin.BIP32_BURN_ID
+
+    #advance index_cache enough
+    wallet.set_next_index(mixdepth, address_type, index, force=True)
+
+    assert wif == wallet.get_wif_path(wallet.get_path(mixdepth, address_type, index))
 
 def test_import_key(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
@@ -328,6 +395,29 @@ def test_signing_simple(setup_wallet, wallet_cls, type_check):
     script = wallet.get_script(0, 1, 0)
     tx = wallet.sign_tx(tx, {0: (script, 10**8)})
     type_check(tx)
+    txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
+    assert txout
+
+def test_timelocked_output_signing(setup_wallet):
+    jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
+    ensure_bip65_activated()
+    storage = VolatileStorage()
+    SegwitLegacyWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitLegacyWalletFidelityBonds(storage)
+
+    index = 0
+    timenumber = 0
+    script = wallet.get_script_and_update_map(
+        FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
+        FidelityBondMixin.BIP32_TIMELOCK_ID, index, timenumber)
+    utxo = fund_wallet_addr(wallet, wallet.script_to_addr(script))
+    timestamp = wallet._time_number_to_timestamp(timenumber)
+
+    tx = btc.deserialize(btc.mktx(['{}:{}'.format(
+        hexlify(utxo[0]).decode('ascii'), utxo[1])],
+        [btc.p2sh_scriptaddr(b"\x00",magicbyte=196) + ':' + str(10**8 - 9000)],
+        locktime=timestamp+1))
+    tx = wallet.sign_tx(tx, {0: (script, 10**8)})
     txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
     assert txout
 
@@ -520,7 +610,7 @@ def test_set_next_index(setup_wallet):
 
 def test_path_repr(setup_wallet):
     wallet = get_populated_wallet()
-    path = wallet.get_path(2, False, 0)
+    path = wallet.get_path(2, BIP32Wallet.ADDRESS_TYPE_EXTERNAL, 0)
     path_repr = wallet.get_path_repr(path)
     path_new = wallet.path_repr_to_path(path_repr)
 
@@ -537,6 +627,37 @@ def test_path_repr_imported(setup_wallet):
 
     assert path_new == path
 
+@pytest.mark.parametrize('timenumber,timestamp', [
+    [0, 1577836800],
+    [50, 1709251200],
+    [300, 2366841600],
+    [400, None], #too far in the future
+    [-1, None] #before epoch
+])
+def test_timenumber_to_timestamp(setup_wallet, timenumber, timestamp):
+    try:
+        implied_timestamp = FidelityBondMixin._time_number_to_timestamp(
+            timenumber)
+        assert implied_timestamp == timestamp
+    except ValueError:
+        #None means the timenumber is intentionally invalid
+        assert timestamp == None
+
+@pytest.mark.parametrize('timestamp,timenumber', [
+    [1577836800, 0],
+    [1709251200, 50],
+    [2366841600, 300],
+    [1577836801, None], #not exactly midnight on first of month
+    [2629670400, None], #too far in future
+    [1575158400, None] #before epoch
+])
+def test_timestamp_to_timenumber(setup_wallet, timestamp, timenumber):
+    try:
+        implied_timenumber = FidelityBondMixin.timestamp_to_time_number(
+            timestamp)
+        assert implied_timenumber == timenumber
+    except ValueError:
+        assert timenumber == None
 
 def test_wrong_wallet_cls(setup_wallet):
     storage = VolatileStorage()
@@ -658,6 +779,42 @@ def test_wallet_mixdepth_decrease(setup_wallet):
     # because we explicitly ask for a specific mixdepth
     assert utxo in new_wallet.select_utxos_(max_mixdepth, 10**7)
 
+def test_watchonly_wallet(setup_wallet):
+    jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
+    storage = VolatileStorage()
+    SegwitLegacyWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitLegacyWalletFidelityBonds(storage)
+
+    paths = [
+        "m/49'/1'/0'/0/0",
+        "m/49'/1'/0'/1/0",
+        "m/49'/1'/0'/2/0:1577836800",
+        "m/49'/1'/0'/2/0:2314051200"
+    ]
+    burn_path = "m/49'/1'/0'/3/0"
+
+    scripts = [wallet.get_script_from_path(wallet.path_repr_to_path(path))
+        for path in paths]
+    privkey, engine = wallet._get_key_from_path(wallet.path_repr_to_path(burn_path))
+    burn_pubkey = engine.privkey_to_pubkey(privkey)
+
+    master_pub_key = wallet.get_bip32_pub_export(
+        FidelityBondMixin.FIDELITY_BOND_MIXDEPTH)
+    watchonly_storage = VolatileStorage()
+    entropy = FidelityBondMixin.get_xpub_from_fidelity_bond_master_pub_key(
+        master_pub_key).encode()
+    FidelityBondWatchonlyWallet.initialize(watchonly_storage, get_network(),
+        entropy=entropy)
+    watchonly_wallet = FidelityBondWatchonlyWallet(watchonly_storage)
+
+    watchonly_scripts = [watchonly_wallet.get_script_from_path(
+        watchonly_wallet.path_repr_to_path(path)) for path in paths]
+    privkey, engine = wallet._get_key_from_path(wallet.path_repr_to_path(burn_path))
+    watchonly_burn_pubkey = engine.privkey_to_pubkey(privkey)
+
+    for script, watchonly_script in zip(scripts, watchonly_scripts):
+        assert script == watchonly_script
+    assert burn_pubkey == watchonly_burn_pubkey
 
 @pytest.fixture(scope='module')
 def setup_wallet():

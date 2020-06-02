@@ -5,6 +5,7 @@ import time
 import ast
 import binascii
 import sys
+import itertools
 from decimal import Decimal
 from copy import deepcopy
 from twisted.internet import reactor
@@ -15,7 +16,9 @@ from jmclient.configure import jm_single, get_log
 from jmclient.output import fmt_tx_data
 from jmclient.blockchaininterface import (INF_HEIGHT, BitcoinCoreInterface,
     BitcoinCoreNoHistoryInterface)
+from jmclient.wallet import FidelityBondMixin
 from jmbase.support import jmprint, EXIT_SUCCESS
+import jmbitcoin as btc
 """Wallet service
 
 The purpose of this independent service is to allow
@@ -516,6 +519,19 @@ class WalletService(Service):
         # index:
         self.bci.import_addresses(self.collect_addresses_gap(), self.get_wallet_name(),
                                   self.restart_callback)
+
+        if isinstance(self.wallet, FidelityBondMixin):
+            mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+            address_type = FidelityBondMixin.BIP32_BURN_ID
+
+            burner_outputs = self.wallet.get_burner_outputs()
+            max_index = 0
+            for path_repr in burner_outputs:
+                index = self.wallet.path_repr_to_path(path_repr.decode())[-1]
+                max_index = max(index+1, max_index)
+            self.wallet.set_next_index(mixdepth, address_type, max_index,
+                force=True)
+
         self.synced = True
 
     def display_rescan_message_and_system_exit(self, restart_cb):
@@ -536,6 +552,48 @@ class WalletService(Service):
                 jmprint(restart_msg, "important")
                 sys.exit(EXIT_SUCCESS)
 
+    def sync_burner_outputs(self, burner_txes):
+        mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+        address_type = FidelityBondMixin.BIP32_BURN_ID
+        self.wallet.set_next_index(mixdepth, address_type, self.wallet.gap_limit,
+            force=True)
+        highest_used_index = 0
+        known_burner_outputs = self.wallet.get_burner_outputs()
+
+        index = -1
+        while index - highest_used_index < self.wallet.gap_limit:
+            index += 1
+            self.wallet.set_next_index(mixdepth, address_type, index, force=True)
+            path = self.wallet.get_path(mixdepth, address_type, index)
+            path_privkey, engine = self.wallet._get_key_from_path(path)
+            path_pubkey = engine.privkey_to_pubkey(path_privkey)
+            path_pubkeyhash = btc.bin_hash160(path_pubkey)
+            for burner_tx in burner_txes:
+                burner_pubkeyhash, gettx = burner_tx
+                if burner_pubkeyhash != path_pubkeyhash:
+                    continue
+                highest_used_index = index
+                path_repr = self.wallet.get_path_repr(path)
+                if path_repr.encode() in known_burner_outputs:
+                    continue
+                txid = gettx["txid"]
+                jlog.info("Found a burner transaction txid=" + txid + " path = "
+                    + path_repr)
+                try:
+                    merkle_branch = self.bci.get_tx_merkle_branch(txid, gettx["blockhash"])
+                except ValueError as e:
+                    jlog.warning(repr(e))
+                    jlog.warning("Merkle branch likely not available, use "
+                        + "wallet-tool `addtxoutproof`")
+                    merkle_branch = None
+                block_height = self.bci.rpc("getblockheader", [gettx["blockhash"]])["height"]
+                if merkle_branch:
+                    assert self.bci.verify_tx_merkle_branch(txid, block_height, merkle_branch)
+                self.wallet.add_burner_output(path_repr, gettx["hex"], block_height,
+                    merkle_branch, gettx["blockindex"])
+
+        self.wallet.set_next_index(mixdepth, address_type, highest_used_index + 1)
+
     def sync_addresses(self):
         """ Triggered by use of --recoversync option in scripts,
         attempts a full scan of the blockchain without assuming
@@ -552,9 +610,35 @@ class WalletService(Service):
             self.display_rescan_message_and_system_exit(self.restart_callback)
             return
 
-        used_addresses_gen = (tx['address']
-                              for tx in self.bci._yield_transactions(wallet_name)
-                              if tx['category'] == 'receive')
+        if isinstance(self.wallet, FidelityBondMixin):
+            tx_receive = []
+            burner_txes = []
+            for tx in self.bci._yield_transactions(wallet_name):
+                if tx['category'] == 'receive':
+                    tx_receive.append(tx)
+                elif tx["category"] == "send":
+                    gettx = self.bci.get_transaction(tx["txid"])
+                    txd = self.bci.get_deser_from_gettransaction(gettx)
+                    if len(txd["outs"]) > 1:
+                        continue
+                    #must be mined into a block to sync
+                    #otherwise there's no merkleproof or block index
+                    if gettx["confirmations"] < 1:
+                        continue
+                    script = binascii.unhexlify(txd["outs"][0]["script"])
+                    if script[0] != 0x6a: #OP_RETURN
+                        continue
+                    pubkeyhash = script[2:]
+                    burner_txes.append((pubkeyhash, gettx))
+
+            self.sync_burner_outputs(burner_txes)
+            used_addresses_gen = (tx["address"] for tx in tx_receive)
+        else:
+            #not fidelity bond wallet, significantly faster sync
+            used_addresses_gen = (tx['address']
+                                  for tx in self.bci._yield_transactions(wallet_name)
+                                  if tx['category'] == 'receive')
+
         used_indices = self.get_used_indices(used_addresses_gen)
         jlog.debug("got used indices: {}".format(used_indices))
         gap_limit_used = not self.check_gap_indices(used_indices)
@@ -721,19 +805,35 @@ class WalletService(Service):
 
         for md in range(self.max_mixdepth + 1):
             saved_indices[md] = [0, 0]
-            for internal in (0, 1):
-                next_unused = self.get_next_unused_index(md, internal)
+            for address_type in (0, 1):
+                next_unused = self.get_next_unused_index(md, address_type)
                 for index in range(next_unused):
-                    addresses.add(self.get_addr(md, internal, index))
+                    addresses.add(self.get_addr(md, address_type, index))
                 for index in range(self.gap_limit):
-                    addresses.add(self.get_new_addr(md, internal))
+                    addresses.add(self.get_new_addr(md, address_type))
                 # reset the indices to the value we had before the
                 # new address calls:
-                self.set_next_index(md, internal, next_unused)
-                saved_indices[md][internal] = next_unused
+                self.set_next_index(md, address_type, next_unused)
+                saved_indices[md][address_type] = next_unused
             # include any imported addresses
             for path in self.yield_imported_paths(md):
                 addresses.add(self.get_address_from_path(path))
+
+        if isinstance(self.wallet, FidelityBondMixin):
+            md = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+            address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
+            saved_indices[md] += [0]
+            next_unused = self.get_next_unused_index(md, address_type)
+            for index in range(next_unused):
+                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
+                    addresses.add(self.get_addr(md, address_type, index, timenumber))
+            for index in range(self.gap_limit // FidelityBondMixin.TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR):
+                index += next_unused
+                assert self.wallet.get_index_cache_and_increment(md, address_type) == index
+                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
+                    self.wallet.get_script_and_update_map(md, address_type, index, timenumber)
+                    addresses.add(self.get_addr(md, address_type, index, timenumber))
+            self.wallet.set_next_index(md, address_type, next_unused)
 
         return addresses, saved_indices
 
@@ -742,11 +842,22 @@ class WalletService(Service):
         addresses = set()
 
         for md in range(self.max_mixdepth + 1):
-            for internal in (True, False):
-                old_next = self.get_next_unused_index(md, internal)
+            for address_type in (1, 0):
+                old_next = self.get_next_unused_index(md, address_type)
                 for index in range(gap_limit):
-                    addresses.add(self.get_new_addr(md, internal))
-                self.set_next_index(md, internal, old_next)
+                    addresses.add(self.get_new_addr(md, address_type))
+                self.set_next_index(md, address_type, old_next)
+
+        if isinstance(self.wallet, FidelityBondMixin):
+            md = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+            address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
+            old_next = self.get_next_unused_index(md, address_type)
+            for ii in range(gap_limit // FidelityBondMixin.TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR):
+                index = self.wallet.get_index_cache_and_increment(md, address_type)
+                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
+                    self.wallet.get_script_and_update_map(md, address_type, index, timenumber)
+                    addresses.add(self.get_addr(md, address_type, index, timenumber))
+            self.set_next_index(md, address_type, old_next)
 
         return addresses
 

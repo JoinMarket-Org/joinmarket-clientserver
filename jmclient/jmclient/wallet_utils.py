@@ -5,6 +5,7 @@ import sys
 import sqlite3
 import binascii
 from datetime import datetime
+from calendar import timegm
 from optparse import OptionParser
 from numbers import Integral
 from collections import Counter
@@ -12,12 +13,13 @@ from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, WalletError,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
-    LegacyWallet, SegwitWallet, is_native_segwit_mode, load_program_config,
-    add_base_options, check_regtest)
+    LegacyWallet, SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
+    is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
 from jmclient.wallet_service import WalletService
 from jmbase.support import get_password, jmprint, EXIT_FAILURE, EXIT_ARGERROR
 
-from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH
+from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
+    TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
 from .output import fmt_utxo
 import jmbitcoin as btc
 
@@ -42,8 +44,12 @@ def get_wallettool_parser():
         '(dumpprivkey) Export a single private key, specify an hd wallet path\n'
         '(signmessage) Sign a message with the private key from an address in \n'
         'the wallet. Use with -H and specify an HD wallet path for the address.\n'
-        '(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.')
-    parser = OptionParser(usage='usage: %prog [options] [wallet file] [method]',
+        '(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.\n'
+        '(gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`\n'
+        '(addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with '
+            '-H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof\n'
+        '(createwatchonly) Create a watch-only fidelity bond wallet')
+    parser = OptionParser(usage='usage: %prog [options] [wallet file] [method] [args..]',
                           description=description)
     add_base_options(parser)
     parser.add_option('-p',
@@ -162,13 +168,15 @@ class WalletViewBase(object):
         return "{0:.08f}".format(self.get_balance(include_unconf))
 
 class WalletViewEntry(WalletViewBase):
-    def __init__(self, wallet_path_repr, account, forchange, aindex, addr, amounts,
+    def __init__(self, wallet_path_repr, account, address_type, aindex, addr, amounts,
                  used = 'new', serclass=str, priv=None, custom_separator=None):
         super(WalletViewEntry, self).__init__(wallet_path_repr, serclass=serclass,
                                               custom_separator=custom_separator)
         self.account = account
-        assert forchange in [0, 1, -1]
-        self.forchange =forchange
+        assert address_type in [SegwitWallet.BIP32_EXT_ID,
+            SegwitWallet.BIP32_INT_ID, -1, FidelityBondMixin.BIP32_TIMELOCK_ID,
+            FidelityBondMixin.BIP32_BURN_ID]
+        self.address_type = address_type
         assert isinstance(aindex, Integral)
         assert aindex >= 0
         self.aindex = aindex
@@ -212,15 +220,23 @@ class WalletViewEntry(WalletViewBase):
             ed += self.separator + self.serclass(self.private_key)
         return self.serclass(ed)
 
+class WalletViewEntryBurnOutput(WalletViewEntry):
+    # balance in burn outputs shouldnt be counted
+    # towards the total balance
+    def get_balance(self, include_unconf=True):
+        return 0
+
 class WalletViewBranch(WalletViewBase):
-    def __init__(self, wallet_path_repr, account, forchange, branchentries=None,
+    def __init__(self, wallet_path_repr, account, address_type, branchentries=None,
                  xpub=None, serclass=str, custom_separator=None):
         super(WalletViewBranch, self).__init__(wallet_path_repr, children=branchentries,
                                                serclass=serclass,
                                                custom_separator=custom_separator)
         self.account = account
-        assert forchange in [0, 1, -1]
-        self.forchange = forchange
+        assert address_type in [SegwitWallet.BIP32_EXT_ID,
+            SegwitWallet.BIP32_INT_ID, -1, FidelityBondMixin.BIP32_TIMELOCK_ID,
+            FidelityBondMixin.BIP32_BURN_ID]
+        self.address_type = address_type
         if xpub:
             assert xpub.startswith('xpub') or xpub.startswith('tpub')
         self.xpub = xpub if xpub else ""
@@ -238,8 +254,8 @@ class WalletViewBranch(WalletViewBase):
             return self.serclass(entryseparator.join(lines))
 
     def serialize_branch_header(self):
-        start = "external addresses" if self.forchange == 0 else "internal addresses"
-        if self.forchange == -1:
+        start = "external addresses" if self.address_type == 0 else "internal addresses"
+        if self.address_type == -1:
             start = "Imported keys"
         return self.serclass(self.separator.join([start, self.wallet_path_repr,
                                                   self.xpub]))
@@ -254,7 +270,7 @@ class WalletViewAccount(WalletViewBase):
         self.account_name = account_name
         self.xpub = xpub
         if branches:
-            assert len(branches) in [2, 3] #3 if imported keys
+            assert len(branches) in [2, 3, 4] #3 if imported keys, 4 if fidelity bonds
             assert all([isinstance(x, WalletViewBranch) for x in branches])
         self.branches = branches
 
@@ -418,33 +434,105 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True, hexfmt=False)
     for m in range(wallet_service.mixdepth + 1):
         branchlist = []
-        for forchange in [0, 1]:
+        for address_type in [0, 1]:
             entrylist = []
-            if forchange == 0:
+            if address_type == 0:
                 # users would only want to hand out the xpub for externals
-                xpub_key = wallet_service.get_bip32_pub_export(m, forchange)
+                xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
             else:
                 xpub_key = ""
 
-            unused_index = wallet_service.get_next_unused_index(m, forchange)
+            unused_index = wallet_service.get_next_unused_index(m, address_type)
             for k in range(unused_index + wallet_service.gap_limit):
-                path = wallet_service.get_path(m, forchange, k)
+                path = wallet_service.get_path(m, address_type, k)
                 addr = wallet_service.get_address_from_path(path)
                 balance, used = get_addr_status(
-                    path, utxos[m], k >= unused_index, forchange)
+                    path, utxos[m], k >= unused_index, address_type)
                 if showprivkey:
                     privkey = wallet_service.get_wif_path(path)
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
-                        (used == 'new' and forchange == 0)):
+                        (used == 'new' and address_type == 0)):
                     entrylist.append(WalletViewEntry(
-                        wallet_service.get_path_repr(path), m, forchange, k, addr,
+                        wallet_service.get_path_repr(path), m, address_type, k, addr,
                         [balance, balance], priv=privkey, used=used))
-            wallet_service.set_next_index(m, forchange, unused_index)
-            path = wallet_service.get_path_repr(wallet_service.get_path(m, forchange))
-            branchlist.append(WalletViewBranch(path, m, forchange, entrylist,
+            wallet_service.set_next_index(m, address_type, unused_index)
+            path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
+            branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
                                                xpub=xpub_key))
+
+        if m == FidelityBondMixin.FIDELITY_BOND_MIXDEPTH and \
+                isinstance(wallet_service.wallet, FidelityBondMixin):
+            address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
+            unused_index = wallet_service.get_next_unused_index(m, address_type)
+            timelocked_gaplimit = (wallet_service.wallet.gap_limit
+                    // FidelityBondMixin.TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR)
+            entrylist = []
+            for k in range(unused_index + timelocked_gaplimit):
+                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
+                    path = wallet_service.get_path(m, address_type, k, timenumber)
+                    addr = wallet_service.get_address_from_path(path)
+                    timelock = datetime.utcfromtimestamp(path[-1])
+
+                    balance = sum([utxodata["value"] for utxo, utxodata in
+                        iteritems(utxos[m]) if path == utxodata["path"]])
+                    status = timelock.strftime("%Y-%m-%d") + " [" + (
+                        "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
+                    privkey = ""
+                    if showprivkey:
+                        privkey = wallet_service.get_wif_path(path)
+                    if displayall or balance > 0:
+                        entrylist.append(WalletViewEntry(
+                            wallet_service.get_path_repr(path), m, address_type, k,
+                            addr, [balance, balance], priv=privkey, used=status))
+            xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
+            path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
+            branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
+                xpub=xpub_key))
+
+            entrylist = []
+            address_type = FidelityBondMixin.BIP32_BURN_ID
+            unused_index = wallet_service.get_next_unused_index(m, address_type)
+            burner_outputs = wallet_service.wallet.get_burner_outputs()
+            wallet_service.set_next_index(m, address_type, unused_index +
+                wallet_service.wallet.gap_limit, force=True)
+            for k in range(unused_index + wallet_service.wallet.gap_limit):
+                path = wallet_service.get_path(m, address_type, k)
+                path_repr = wallet_service.get_path_repr(path)
+                path_repr_b = path_repr.encode()
+
+                privkey, engine = wallet_service._get_key_from_path(path)
+                pubkey = engine.privkey_to_pubkey(privkey)
+                pubkeyhash = btc.bin_hash160(pubkey)
+                output = "BURN-" + binascii.hexlify(pubkeyhash).decode()
+
+                balance = 0
+                status = "no transaction"
+                if path_repr_b in burner_outputs:
+                    txhex, blockheight, merkle_branch, blockindex = burner_outputs[path_repr_b]
+                    txhex = binascii.hexlify(txhex).decode()
+                    txd = btc.deserialize(txhex)
+                    assert len(txd["outs"]) == 1
+                    balance = txd["outs"][0]["value"]
+                    script = binascii.unhexlify(txd["outs"][0]["script"])
+                    assert script[0] == 0x6a #OP_RETURN
+                    tx_pubkeyhash = script[2:]
+                    assert tx_pubkeyhash == pubkeyhash
+                    status = btc.txhash(txhex) + (" [NO MERKLE PROOF]" if
+                        merkle_branch == FidelityBondMixin.MERKLE_BRANCH_UNAVAILABLE else "")
+                privkey = (wallet_service.get_wif_path(path) if showprivkey else "")
+                if displayall or balance > 0:
+                    entrylist.append(WalletViewEntryBurnOutput(path_repr, m,
+                        address_type, k, output, [balance, balance],
+                        priv=privkey, used=status))
+            wallet_service.set_next_index(m, address_type, unused_index)
+
+            xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
+            path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
+            branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
+                xpub=xpub_key))
+
         ipb = get_imported_privkey_branch(wallet_service, m, showprivkey)
         if ipb:
             branchlist.append(ipb)
@@ -468,8 +556,8 @@ def cli_get_wallet_passphrase_check():
         return False
     return password
 
-def cli_get_wallet_file_name():
-    return input('Input wallet file name (default: wallet.jmdat): ')
+def cli_get_wallet_file_name(defaultname="wallet.jmdat"):
+    return input('Input wallet file name (default: ' + defaultname + '): ')
 
 def cli_display_user_words(words, mnemonic_extension):
     text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
@@ -498,11 +586,19 @@ def cli_get_mnemonic_extension():
             "info")
     return input("Enter mnemonic extension: ")
 
+def cli_do_support_fidelity_bonds():
+    uin = input("Would you like this wallet to support fidelity bonds? "
+            "write 'n' if you don't know what this is (y/n): ")
+    if len(uin) == 0 or uin[0] != 'y':
+        jmprint("Not supporting fidelity bonds", "info")
+        return False
+    else:
+        return True
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         display_seed_callback, enter_seed_callback, enter_wallet_password_callback,
         enter_wallet_file_name_callback, enter_if_use_seed_extension,
-        enter_seed_extension_callback, mixdepth=DEFAULT_MIXDEPTH):
+        enter_seed_extension_callback, enter_do_support_fidelity_bonds, mixdepth=DEFAULT_MIXDEPTH):
     entropy = None
     mnemonic_extension = None
     if method == "generate":
@@ -536,7 +632,13 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         wallet_name = default_wallet_name
     wallet_path = os.path.join(walletspath, wallet_name)
 
-    wallet = create_wallet(wallet_path, password, mixdepth,
+    # disable creating fidelity bond wallets for now until the
+    # rest of the fidelity bond feature is created
+    #support_fidelity_bonds = enter_do_support_fidelity_bonds()
+    support_fidelity_bonds = False
+    wallet_cls = get_wallet_cls(get_configured_wallet_type(support_fidelity_bonds))
+
+    wallet = create_wallet(wallet_path, password, mixdepth, wallet_cls,
                            entropy=entropy,
                            entropy_extension=mnemonic_extension)
     mnemonic, mnext = wallet.get_mnemonic_words()
@@ -554,7 +656,7 @@ def wallet_generate_recover(method, walletspath,
             default_wallet_name, cli_display_user_words, cli_user_mnemonic_entry,
             cli_get_wallet_passphrase_check, cli_get_wallet_file_name,
             cli_do_use_mnemonic_extension, cli_get_mnemonic_extension,
-            mixdepth=mixdepth)
+            cli_do_support_fidelity_bonds, mixdepth=mixdepth)
 
     entropy = None
     if method == 'recover':
@@ -1040,29 +1142,99 @@ def wallet_freezeutxo(wallet_service, md, display_callback=None, info_callback=N
                           .format(fmt_utxo((txid, index))))
     return "Done"
 
-def get_wallet_type():
+
+
+def wallet_gettimelockaddress(wallet, locktime_string):
+    if not isinstance(wallet, FidelityBondMixin):
+        jmprint("Error: not a fidelity bond wallet", "error")
+        return ""
+
+    m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+    address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
+    index = wallet.get_next_unused_index(m, address_type)
+    lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
+    timenumber = FidelityBondMixin.timestamp_to_time_number(timegm(
+        lock_datetime.timetuple()))
+
+    path = wallet.get_path(m, address_type, index, timenumber)
+    jmprint("path = " + wallet.get_path_repr(path), "info")
+    jmprint("Coins sent to this address will be not be spendable until "
+        + lock_datetime.strftime("%B %Y") + ". Full date: "
+        + str(lock_datetime))
+    addr = wallet.get_address_from_path(path)
+    return addr
+
+def wallet_addtxoutproof(wallet_service, hdpath, txoutproof):
+    if not isinstance(wallet_service.wallet, FidelityBondMixin):
+        jmprint("Error: not a fidelity bond wallet", "error")
+        return ""
+    path = hdpath.encode()
+    if path not in wallet_service.wallet.get_burner_outputs():
+        jmprint("Error: unknown burner transaction with on that path", "error")
+        return ""
+    txhex, block_height, old_merkle_branch, block_index = \
+        wallet_service.wallet.get_burner_outputs()[path]
+    new_merkle_branch = jm_single().bc_interface.core_proof_to_merkle_branch(txoutproof)
+    txhex = binascii.hexlify(txhex).decode()
+    txid = btc.txhash(txhex)
+    if not jm_single().bc_interface.verify_tx_merkle_branch(txid, block_height,
+            new_merkle_branch):
+        jmprint("Error: tx out proof invalid", "error")
+        return ""
+    wallet_service.wallet.add_burner_output(hdpath, txhex, block_height,
+        new_merkle_branch, block_index)
+    return "Done"
+
+def wallet_createwatchonly(wallet_root_path, master_pub_key):
+
+    wallet_name = cli_get_wallet_file_name(defaultname="watchonly.jmdat")
+    if not wallet_name:
+        DEFAULT_WATCHONLY_WALLET_NAME = "watchonly.jmdat"
+        wallet_name = DEFAULT_WATCHONLY_WALLET_NAME
+
+    wallet_path = os.path.join(wallet_root_path, wallet_name)
+
+    password = cli_get_wallet_passphrase_check()
+    if not password:
+        return ""
+
+    entropy = FidelityBondMixin.get_xpub_from_fidelity_bond_master_pub_key(master_pub_key)
+    if not entropy:
+        jmprint("Error with provided master pub key", "error")
+        return ""
+    entropy = entropy.encode()
+
+    wallet = create_wallet(wallet_path, password,
+        max_mixdepth=FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
+        wallet_cls=FidelityBondWatchonlyWallet, entropy=entropy)
+    return "Done"
+
+def get_configured_wallet_type(support_fidelity_bonds):
+    configured_type = TYPE_P2PKH
     if is_segwit_mode():
         if is_native_segwit_mode():
-            return TYPE_P2WPKH
-        return TYPE_P2SH_P2WPKH
-    return TYPE_P2PKH
+            configured_type = TYPE_P2WPKH
+        else:
+            configured_type = TYPE_P2SH_P2WPKH
 
+    if not support_fidelity_bonds:
+        return configured_type
 
-def get_wallet_cls(wtype=None):
-    if wtype is None:
-        wtype = get_wallet_type()
+    if configured_type == TYPE_P2SH_P2WPKH:
+        return TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
+    else:
+        raise ValueError("Fidelity bonds not supported with the configured "
+            "options of segwit and native. Edit joinmarket.cfg")
 
+def get_wallet_cls(wtype):
     cls = WALLET_IMPLEMENTATIONS.get(wtype)
-
     if not cls:
         raise WalletError("No wallet implementation found for type {}."
                           "".format(wtype))
     return cls
 
-
-def create_wallet(path, password, max_mixdepth, wallet_cls=None, **kwargs):
+def create_wallet(path, password, max_mixdepth, wallet_cls, **kwargs):
     storage = Storage(path, password, create=True)
-    wallet_cls = wallet_cls or get_wallet_cls()
     wallet_cls.initialize(storage, get_network(), max_mixdepth=max_mixdepth,
                           **kwargs)
     storage.save()
@@ -1198,13 +1370,14 @@ def wallet_tool_main(wallet_root_path):
     check_regtest(blockchain_start=False)
     # full path to the wallets/ subdirectory in the user data area:
     wallet_root_path = os.path.join(jm_single().datadir, wallet_root_path)
-    noseed_methods = ['generate', 'recover']
+    noseed_methods = ['generate', 'recover', 'createwatchonly']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
-               'history', 'showutxos', 'freeze']
+               'history', 'showutxos', 'freeze', 'gettimelockaddress', 'addtxoutproof']
     methods.extend(noseed_methods)
     noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
     readonly_methods = ['display', 'displayall', 'summary', 'showseed',
-                        'history', 'showutxos', 'dumpprivkey', 'signmessage']
+                        'history', 'showutxos', 'dumpprivkey', 'signmessage',
+                        'gettimelockaddress']
 
     if len(args) < 1:
         parser.error('Needs a wallet file or method')
@@ -1223,6 +1396,11 @@ def wallet_tool_main(wallet_root_path):
         wallet_path = get_wallet_path(seed, wallet_root_path)
         method = ('display' if len(args) == 1 else args[1].lower())
         read_only = method in readonly_methods
+
+        #special case needed for fidelity bond burner outputs
+        #maybe theres a better way to do this
+        if options.recoversync:
+            read_only = False
 
         wallet = open_test_wallet_maybe(
             wallet_path, seed, options.mixdepth, read_only=read_only,
@@ -1278,9 +1456,28 @@ def wallet_tool_main(wallet_root_path):
                              map_key_type(options.key_type))
         return "Key import completed."
     elif method == "signmessage":
+        if len(args) < 3:
+            jmprint('Must provide message to sign', "error")
+            sys.exit(EXIT_ARGERROR)
         return wallet_signmessage(wallet_service, options.hd_path, args[2])
     elif method == "freeze":
         return wallet_freezeutxo(wallet_service, options.mixdepth)
+    elif method == "gettimelockaddress":
+        if len(args) < 3:
+            jmprint('Must have locktime value yyyy-mm. For example 2021-03', "error")
+            sys.exit(EXIT_ARGERROR)
+        return wallet_gettimelockaddress(wallet_service.wallet, args[2])
+    elif method == "addtxoutproof":
+        if len(args) < 3:
+            jmprint('Must have txout proof, which is the output of Bitcoin '
+                + 'Core\'s RPC call gettxoutproof', "error")
+            sys.exit(EXIT_ARGERROR)
+        return wallet_addtxoutproof(wallet_service, options.hd_path, args[2])
+    elif method == "createwatchonly":
+        if len(args) < 2:
+            jmprint("args: [master public key]", "error")
+            sys.exit(EXIT_ARGERROR)
+        return wallet_createwatchonly(wallet_root_path, args[1])
     else:
         parser.error("Unknown wallet-tool method: " + method)
         sys.exit(EXIT_ARGERROR)
@@ -1296,15 +1493,15 @@ if __name__ == "__main__":
     acctlist = []
     for a in accounts:
         branches = []
-        for forchange in range(2):
+        for address_type in range(2):
             entries = []
             for i in range(4):
-                entries.append(WalletViewEntry(rootpath, a, forchange,
+                entries.append(WalletViewEntry(rootpath, a, address_type,
                                        i, "DUMMYADDRESS"+str(i+a),
                                        [i*10000000, i*10000000]))
             branches.append(WalletViewBranch(rootpath,
-                                            a, forchange, branchentries=entries,
-                                            xpub="xpubDUMMYXPUB"+str(a+forchange)))
+                                            a, address_type, branchentries=entries,
+                                            xpub="xpubDUMMYXPUB"+str(a+address_type)))
         acctlist.append(WalletViewAccount(rootpath, a, branches=branches))
     wallet = WalletView(rootpath + "/" + str(walletbranch),
                              accounts=acctlist)

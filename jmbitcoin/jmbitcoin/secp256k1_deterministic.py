@@ -65,6 +65,8 @@ def bip32_deserialize(data):
 
 def raw_bip32_privtopub(rawtuple):
     vbytes, depth, fingerprint, i, chaincode, key = rawtuple
+    if vbytes in PUBLIC:
+        return rawtuple
     newvbytes = MAINNET_PUBLIC if vbytes == MAINNET_PRIVATE else TESTNET_PUBLIC
     return (newvbytes, depth, fingerprint, i, chaincode, privtopub(key, False))
 

@@ -405,6 +405,11 @@ def validate_address(addr):
     return True, 'address validated'
 
 
+_BURN_DESTINATION = "BURN"
+
+def is_burn_destination(destination):
+    return destination == _BURN_DESTINATION
+
 def donation_address(reusable_donation_pubkey=None): #pragma: no cover
     #Donation code currently disabled, so not tested.
     if not reusable_donation_pubkey:
