@@ -522,6 +522,22 @@ class MyTreeWidget(QTreeWidget):
 #                    lambda: checkAddress(self, wdgts[0][1].text()))
 #        self.setLayout(layout)
 
+class JMIntValidator(QIntValidator):
+    def __init__(self, minval, maxval):
+        super().__init__(minval, maxval)
+        self.minval = minval
+        self.maxval = maxval
+        self.allowed = set(string.digits)
+
+    def validate(self, arg__1, arg__2):
+        if not arg__1:
+            return QValidator.Intermediate
+        if not set(arg__1) <= self.allowed:
+            return QValidator.Invalid
+        # above guarantees integer
+        if not (int(arg__1) <= self.maxval and int(arg__1) >= self.minval):
+            return QValidator.Invalid
+        return super().validate(arg__1, arg__2)
 
 class BitcoinAmountBTCValidator(QDoubleValidator):
 
@@ -540,20 +556,10 @@ class BitcoinAmountBTCValidator(QDoubleValidator):
         return super().validate(arg__1, arg__2)
 
 
-class BitcoinAmountSatValidator(QIntValidator):
+class BitcoinAmountSatValidator(JMIntValidator):
 
     def __init__(self):
         super().__init__(0, 2147483647)
-        self.setLocale(QtCore.QLocale.c())
-        self.allowed = set(string.digits)
-
-    def validate(self, arg__1, arg__2):
-        if not arg__1:
-            return QValidator.Intermediate
-        if not set(arg__1) <= self.allowed:
-            return QValidator.Invalid
-        return super().validate(arg__1, arg__2)
-
 
 class BitcoinAmountEdit(QWidget):
 
