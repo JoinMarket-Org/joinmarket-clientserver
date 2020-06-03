@@ -42,7 +42,11 @@ class WalletService(Service):
         self.bci = jm_single().bc_interface
         # keep track of the quasi-real-time blockheight
         # (updated in main monitor loop)
-        self.update_blockheight()
+        if self.bci is not None:
+            self.update_blockheight()
+        else:
+            jlog.warning("No blockchain source available, " +
+                "wallet tools will not show correct balances.")
         self.wallet = wallet
         self.synced = False
 
@@ -111,8 +115,9 @@ class WalletService(Service):
         """ Ensures wallet sync is complete
         before the main event loop starts.
         """
-        d = task.deferLater(reactor, 0.0, self.sync_wallet)
-        d.addCallback(self.start_wallet_monitoring)
+        if self.bci is not None:
+            d = task.deferLater(reactor, 0.0, self.sync_wallet)
+            d.addCallback(self.start_wallet_monitoring)
 
     def register_callbacks(self, callbacks, txinfo, cb_type="all"):
         """ Register callbacks that will be called by the

@@ -74,6 +74,9 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh', extra_bytes=0):
     for a transaction with the given number of inputs and outputs,
     based on information from the blockchain interface.
     '''
+    if jm_single().bc_interface is None:
+        raise RuntimeError("Cannot estimate transaction fee " +
+            "without blockchain source.")
     fee_per_kb = jm_single().bc_interface.estimate_fee_per_kb(
                 jm_single().config.getint("POLICY","tx_fees"))
     absurd_fee = jm_single().config.getint("POLICY", "absurd_fee_per_kb")

@@ -580,6 +580,9 @@ class SpendTab(QWidget):
             self.startJoin()
 
     def startMultiple(self):
+        if jm_single().bc_interface is None:
+            log.info("Cannot start join, blockchain source not available.")
+            return
         if not self.spendstate.runstate == 'ready':
             log.info("Cannot start join, already running.")
             return
@@ -659,7 +662,7 @@ class SpendTab(QWidget):
         try:
             amount = btc.amount_to_sat(self.amountInput.text())
         except ValueError as e:
-            JMQtMessageBox(parent, e.args[0], title="Error", mbtype="warn")
+            JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
             return
         makercount = int(self.numCPInput.text())
         mixdepth = int(self.mixdepthInput.text())
@@ -995,6 +998,12 @@ class SpendTab(QWidget):
         self.tumbler_destaddrs = None
 
     def validateSettings(self):
+        if jm_single().bc_interface is None:
+            JMQtMessageBox(
+                self,
+                "Sending coins not possible without blockchain source.",
+                mbtype='warn', title="Error")
+            return False
         valid, errmsg = validate_address(
             str(self.addressInput.text().strip()))
         if not valid:
@@ -1318,10 +1327,16 @@ class JMWalletTab(QWidget):
                 self.wallet_name = os.path.basename(
                     mainWindow.wallet_service.get_storage_location())
             if total_bal is None:
-                total_bal = " (syncing..)"
+                if jm_single().bc_interface is not None:
+                    total_bal = " (syncing..)"
+                else:
+                    total_bal = " (unknown, no blockchain source available)"
             self.label1.setText("CURRENT WALLET: " + self.wallet_name +
                                 ', total balance: ' + total_bal)
             l.show()
+
+        if jm_single().bc_interface is None and self.wallet_name != 'NONE':
+            return
 
         for i in range(nm):
             if walletinfo:
@@ -1728,6 +1743,12 @@ class JMMainWindow(QMainWindow):
             self.walletRefresh.stop()
 
         self.wallet_service = WalletService(wallet)
+
+        if jm_single().bc_interface is None:
+            self.centralWidget().widget(0).updateWalletInfo(
+                get_wallet_printout(self.wallet_service))
+            return True
+
         # add information callbacks:
         self.wallet_service.add_restart_callback(self.restartWithMsg)
         self.wallet_service.autofreeze_warning_cb = self.autofreeze_warning_cb
@@ -1936,15 +1957,16 @@ except Exception as e:
              ])
     JMQtMessageBox(None, config_load_error, mbtype='crit', title='failed to load')
     sys.exit(EXIT_FAILURE)
-# Qt does not currently support any functioning without a Core interface:
+# Only partial functionality (see wallet info, change config) is possible
+# without a blockchain interface.
 if jm_single().bc_interface is None:
-    blockchain_error = ''.join(["Joinmarket-Qt requires Bitcoin Core as a blockchain ",
-                                "interface; change the setting of 'blockchain_source' ",
-                                "in the joinmarket.cfg file to a value not equal to ",
-                                "'no-blockchain'; see comments for details."])
-    JMQtMessageBox(None, blockchain_error, mbtype='crit',
-                   title='Invalid blockchain source')
-    sys.exit(EXIT_FAILURE)
+    blockchain_warning = ''.join([
+        "No blockchain source currently configured. ",
+        "You will be able to see wallet information and change configuration ",
+        "but other functionality will be limited. ",
+        "Go to the 'Settings' tab and configure blockchain settings there."])
+    JMQtMessageBox(None, blockchain_warning, mbtype='warn',
+        title='No blockchain source')
 #refuse to load non-segwit wallet (needs extra work in wallet-utils).
 if not jm_single().config.get("POLICY", "segwit") == "true":
     wallet_load_error = ''.join(["Joinmarket-Qt only supports segwit based wallets, ",

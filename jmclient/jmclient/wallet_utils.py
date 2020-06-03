@@ -1410,7 +1410,7 @@ def wallet_tool_main(wallet_root_path):
         # the service will not be started since this is a synchronous script:
         wallet_service = WalletService(wallet)
 
-        if method not in noscan_methods:
+        if method not in noscan_methods and jm_single().bc_interface is not None:
             # if nothing was configured, we override bitcoind's options so that
             # unconfirmed balance is included in the wallet display by default
             if 'listunspent_args' not in jm_single().config.options('POLICY'):
