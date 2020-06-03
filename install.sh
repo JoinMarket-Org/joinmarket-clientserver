@@ -276,13 +276,24 @@ joinmarket_install ()
 {
     reqs=( 'base.txt' )
 
-    if [[ ${with_qt} = "1" ]]; then
+    if [[ ${with_qt} == "1" ]]; then
         reqs+=( 'gui.txt' )
     fi
 
     for req in ${reqs[@]}; do
         pip install -r "requirements/${req}" || return 1
     done
+
+    if [[ ${with_qt} == "1" ]]; then
+        if check_exists xdg-open; then
+            echo "Installing XDG desktop entry"
+            cp -f "$(dirname "$0")/docs/images/joinmarket_logo.png" \
+                ~/.local/share/icons/
+            cat "$(dirname "$0")/joinmarket-qt.desktop" | \
+                sed "s/\\\$JMHOME/$(dirname "$(realpath "$0")" | sed 's/\//\\\//g')/" > \
+                    ~/.local/share/applications/joinmarket-qt.desktop
+        fi
+    fi
 }
 
 parse_flags ()
