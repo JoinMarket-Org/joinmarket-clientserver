@@ -3,6 +3,7 @@ from future.utils import iteritems
 
 import base64
 import pprint
+import os
 import random
 from twisted.internet import reactor, task
 from binascii import hexlify, unhexlify
@@ -22,6 +23,8 @@ from .schedule import NO_ROUNDING
 
 
 jlog = get_log()
+logsdir = os.path.join(os.path.dirname(
+    jm_single().config_location), "logs")
 
 
 class JMTakerError(Exception):
@@ -753,7 +756,7 @@ class Taker(object):
                         jm_single().config.get("POLICY", "taker_utxo_age"),
                         jm_single().config.get("POLICY", "taker_utxo_amtpercent"))
 
-            with open("commitments_debug.txt", "wb") as f:
+            with open(os.path.join(logsdir, "commitments_debug.txt"), "wb") as f:
                 errmsgfileheader = (b"THIS IS A TEMPORARY FILE FOR DEBUGGING; "
                         b"IT CAN BE SAFELY DELETED ANY TIME.\n")
                 errmsgfileheader += (b"***\n")

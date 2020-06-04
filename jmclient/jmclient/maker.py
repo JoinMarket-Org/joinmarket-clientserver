@@ -3,6 +3,7 @@ from future.utils import iteritems
 import base64
 import pprint
 import random
+import os
 import sys
 import abc
 from binascii import unhexlify
@@ -20,6 +21,8 @@ from twisted.internet import task, reactor
 from .cryptoengine import EngineError
 
 jlog = get_log()
+logsdir = os.path.join(os.path.dirname(
+    jm_single().config_location), "logs")
 
 class Maker(object):
     def __init__(self, wallet_service):
@@ -335,7 +338,7 @@ class P2EPMaker(Maker):
         self.user_info("Receive URI: " + receive_uri)
         self.user_info("This information has also been stored in a file payjoin.txt;"
                   " send it to your counterparty when you are ready.")
-        with open("payjoin.txt", "w") as f:
+        with open(os.path.join(logsdir, "payjoin.txt"), "w") as f:
             f.write("Payjoin transfer details:\n\n")
             f.write("Receive URI: " + receive_uri + "\n")
             f.write("Address: " + self.destination_addr + "\n")

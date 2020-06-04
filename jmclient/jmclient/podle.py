@@ -7,11 +7,14 @@ import hashlib
 import json
 import binascii
 import struct
+from jmclient.configure import jm_single
 from jmbase import jmprint
 from jmbitcoin import multiply, add_pubkeys, getG, podle_PublicKey,\
     podle_PrivateKey, encode, decode, N, podle_PublicKey_class
 from jmbase.support import EXIT_FAILURE
 
+logsdir = os.path.join(os.path.dirname(
+    jm_single().config_location), "logs")
 
 PODLE_COMMIT_FILE = None
 
@@ -246,7 +249,7 @@ def verify_all_NUMS(write=False):
     for i in range(256):
         nums_points[i] = binascii.hexlify(getNUMS(i).format()).decode('ascii')
     if write:
-        with open("nums_basepoints.txt", "wb") as f:
+        with open(os.path.join(logsdir, "nums_basepoints.txt"), "wb") as f:
             from pprint import pformat
             f.write(pformat(nums_points).encode('utf-8'))
     assert nums_points == precomp_NUMS, "Precomputed NUMS points are not valid!"
