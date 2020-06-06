@@ -412,7 +412,7 @@ def test_on_sig(setup_taker, dummyaddr, schedule):
     utxos = [(struct.pack(b"B", x) * 32, 1) for x in range(5)]
     #create 2 privkey + utxos that are to be ours
     privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,6)]]
-    scripts = [BTC_P2PKH.privkey_to_script(privs[x]) for x in range(5)]
+    scripts = [BTC_P2PKH.key_to_script(privs[x]) for x in range(5)]
     addrs = [BTC_P2PKH.privkey_to_address(privs[x]) for x in range(5)]
     fake_query_results = [{'value': 200000000, 'utxo': utxos[x], 'address': addrs[x],
                            'script': scripts[x], 'confirms': 20} for x in range(5)]

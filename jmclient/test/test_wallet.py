@@ -416,12 +416,12 @@ def test_timelocked_output_signing(setup_wallet):
     utxo = fund_wallet_addr(wallet, wallet.script_to_addr(script))
     timestamp = wallet._time_number_to_timestamp(timenumber)
 
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(
-        hexlify(utxo[0]).decode('ascii'), utxo[1])],
-        [btc.p2sh_scriptaddr(b"\x00",magicbyte=196) + ':' + str(10**8 - 9000)],
-        locktime=timestamp+1))
-    tx = wallet.sign_tx(tx, {0: (script, 10**8)})
-    txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
+    tx = btc.mktx([utxo], [{"address": str(btc.CCoinAddress.from_scriptPubKey(
+        btc.standard_scripthash_scriptpubkey(btc.Hash160(b"\x00")))),
+        "value":10**8 - 9000}], locktime=timestamp+1)
+    success, msg = wallet.sign_tx(tx, {0: (script, 10**8)})
+    assert success, msg
+    txout = jm_single().bc_interface.pushtx(tx.serialize())
     assert txout
 
 def test_get_bbm(setup_wallet):

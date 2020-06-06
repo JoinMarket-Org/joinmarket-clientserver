@@ -6,7 +6,6 @@
    does not use this feature.'''
 
 import struct
-from binascii import unhexlify
 from commontest import make_wallets, make_sign_and_push, ensure_bip65_activated
 
 import jmbitcoin as bitcoin
@@ -132,7 +131,7 @@ def test_spend_p2wpkh(setup_tx_creation):
     for i, priv in enumerate(privs):
         # sign each of 3 inputs; note that bitcoin.sign
         # automatically validates each signature it creates.
-        sig, msg = bitcoin.sign(tx, i, priv, amount=amount, native=True)
+        sig, msg = bitcoin.sign(tx, i, priv, amount=amount, native="p2wpkh")
         if not sig:
             assert False, msg
     txid = jm_single().bc_interface.pushtx(tx.serialize())
@@ -150,13 +149,14 @@ def test_spend_freeze_script(setup_tx_creation):
 
     for timeoffset, required_success in timeoffset_success_tests:
         #generate keypair
-        priv = "aa"*32 + "01"
-        pub = unhexlify(bitcoin.privkey_to_pubkey(priv))
+        priv = b"\xaa"*32 + b"\x01"
+        pub = bitcoin.privkey_to_pubkey(priv)
         addr_locktime = mediantime + timeoffset
         redeem_script = bitcoin.mk_freeze_script(pub, addr_locktime)
         script_pub_key = bitcoin.redeem_script_to_p2wsh_script(redeem_script)
-        regtest_vbyte = 100
-        addr = bitcoin.script_to_address(script_pub_key, vbyte=regtest_vbyte)
+        # cannot convert to address within wallet service, as not known
+        # to wallet; use engine directly:
+        addr = wallet_service._ENGINE.script_to_address(script_pub_key)
 
         #fund frozen funds address
         amount = 100000000
@@ -165,20 +165,18 @@ def test_spend_freeze_script(setup_tx_creation):
         assert funding_txid
 
         #spend frozen funds
-        frozen_in = funding_txid + ":0"
+        frozen_in = (funding_txid, 0)
         output_addr = wallet_service.get_internal_addr(1)
         miner_fee = 5000
         outs = [{'value': amount - miner_fee, 'address': output_addr}]
         tx = bitcoin.mktx([frozen_in], outs, locktime=addr_locktime+1)
         i = 0
-        sig = bitcoin.get_p2sh_signature(tx, i, redeem_script, priv, amount)
-
-        assert bitcoin.verify_tx_input(tx, i, script_pub_key, sig, pub,
-            scriptCode=redeem_script, amount=amount)
-        tx = bitcoin.apply_freeze_signature(tx, i, redeem_script, sig)
-        push_success = jm_single().bc_interface.pushtx(tx)
-
+        sig, success = bitcoin.sign(tx, i, priv, amount=amount,
+                                    native=redeem_script)
+        assert success
+        push_success = jm_single().bc_interface.pushtx(tx.serialize())
         assert push_success == required_success
+
 @pytest.fixture(scope="module")
 def setup_tx_creation():
     load_test_config()

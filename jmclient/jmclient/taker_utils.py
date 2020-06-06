@@ -11,7 +11,7 @@ from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
 from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime, \
     FidelityBondMixin
 from jmbitcoin import make_shuffled_tx, amount_to_str, mk_burn_script,\
-                       PartiallySignedTransaction, CMutableTxOut, hrt
+                       PartiallySignedTransaction, CMutableTxOut, hrt, Hash160
 from jmbase.support import EXIT_SUCCESS
 log = get_log()
 
@@ -94,10 +94,10 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             path = wallet_service.wallet.get_path(mixdepth, address_type, index)
             privkey, engine = wallet_service.wallet._get_key_from_path(path)
             pubkey = engine.privkey_to_pubkey(privkey)
-            pubkeyhash = bin_hash160(pubkey)
+            pubkeyhash = Hash160(pubkey)
 
             #size of burn output is slightly different from regular outputs
-            burn_script = mk_burn_script(pubkeyhash) #in hex
+            burn_script = mk_burn_script(pubkeyhash)
             fee_est = estimate_tx_fee(len(utxos), 0, txtype=txtype, extra_bytes=len(burn_script)/2)
 
             outs = [{"script": burn_script, "value": total_inputs_val - fee_est}]

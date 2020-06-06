@@ -49,7 +49,7 @@ def test_sign_standard_txs(addrtype):
     # Calculate the signature hash for the transaction. This is then signed by the
     # private key that controls the UTXO being spent here at this txin_index.
     if addrtype == "p2wpkh":
-        sig, msg = btc.sign(tx, 0, priv, amount=amount, native=True)
+        sig, msg = btc.sign(tx, 0, priv, amount=amount, native="p2wpkh")
     elif addrtype == "p2sh-p2wpkh":
         sig, msg = btc.sign(tx, 0, priv, amount=amount, native=False)
     elif addrtype == "p2pkh":

@@ -1193,7 +1193,7 @@ class PSBTWalletMixin(object):
                         # this happens when an input is provided but it's not in
                         # this wallet; in this case, we cannot set the redeem script.
                         continue
-                    privkey, _ = self._get_priv_from_path(path)
+                    privkey, _ = self._get_key_from_path(path)
                     txinput.redeem_script = btc.pubkey_to_p2wpkh_script(
                         btc.privkey_to_pubkey(privkey))
         return new_psbt
@@ -1218,7 +1218,7 @@ class PSBTWalletMixin(object):
         privkeys = []
         for k, v in self._utxos._utxo.items():
             for k2, v2 in v.items():
-                privkeys.append(self._get_priv_from_path(v2[0]))
+                privkeys.append(self._get_key_from_path(v2[0]))
         jmckeys = list(btc.JMCKey(x[0][:-1]) for x in privkeys)
         new_keystore = btc.KeyStore.from_iterable(jmckeys)
 
@@ -1241,7 +1241,7 @@ class PSBTWalletMixin(object):
                             # this happens when an input is provided but it's not in
                             # this wallet; in this case, we cannot set the redeem script.
                             continue
-                        privkey, _ = self._get_priv_from_path(path)
+                        privkey, _ = self._get_key_from_path(path)
                         txinput.redeem_script = btc.pubkey_to_p2wpkh_script(
                             btc.privkey_to_pubkey(privkey))
                     # no else branch; any other form of scriptPubKey will just be

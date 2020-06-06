@@ -314,7 +314,7 @@ class BTC_P2WPKH(BTCEngine):
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         assert amount is not None
         return btc.sign(tx, index, privkey,
-                        hashcode=hashcode, amount=amount, native=True)
+                        hashcode=hashcode, amount=amount, native="p2wpkh")
 
 class BTC_Timelocked_P2WSH(BTCEngine):
 
@@ -362,16 +362,10 @@ class BTC_Timelocked_P2WSH(BTCEngine):
     def sign_transaction(cls, tx, index, privkey_locktime, amount,
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         assert amount is not None
-
-        privkey, locktime = privkey_locktime
-        privkey = hexlify(privkey).decode()
-        pubkey = btc.privkey_to_pubkey(privkey)
-        pubkey = unhexlify(pubkey)
-        redeem_script = cls.pubkey_to_script_code((pubkey, locktime))
-        tx = btc.serialize(tx)
-        sig = btc.get_p2sh_signature(tx, index, redeem_script, privkey,
-            amount)
-        return btc.apply_freeze_signature(tx, index, redeem_script, sig)
+        priv, locktime = privkey_locktime
+        pub = cls.privkey_to_pubkey(priv)
+        redeem_script = cls.pubkey_to_script_code((pub, locktime))
+        return btc.sign(tx, index, priv, amount=amount, native=redeem_script)
 
 class BTC_Watchonly_Timelocked_P2WSH(BTC_Timelocked_P2WSH):
 

@@ -3,6 +3,10 @@
 # note, only used for non-cryptographic randomness:
 import random
 import json
+# needed for single sha256 evaluation, which is used
+# in bitcoin (p2wsh) but not exposed in python-bitcointx:
+import hashlib
+
 from jmbitcoin.secp256k1_main import *
 from jmbase import bintohex, utxo_to_utxostr
 from bitcointx.core import (CMutableTransaction, Hash160, CTxInWitness,
@@ -154,10 +158,12 @@ def pubkey_to_p2sh_p2wpkh_script(pub):
     return pubkey_to_p2wpkh_script(pub).to_p2sh_scriptPubKey()
 
 def redeem_script_to_p2wsh_script(redeem_script):
-    return P2WSH_PRE + bin_sha256(binascii.unhexlify(redeem_script))
-
-def redeem_script_to_p2wsh_address(redeem_script, vbyte, witver=0):
-    return script_to_address(redeem_script_to_p2wsh_script(redeem_script), vbyte, witver)
+    """ Given redeem script of type CScript (or bytes)
+    returns the corresponding segwit v0 scriptPubKey as
+    for the case pay-to-witness-scripthash.
+    """
+    return standard_witness_v0_scriptpubkey(
+        hashlib.sha256(redeem_script).digest())
 
 def mk_freeze_script(pub, locktime):
     """
@@ -169,27 +175,30 @@ def mk_freeze_script(pub, locktime):
     if not isinstance(pub, bytes):
         raise TypeError("pubkey must be in bytes")
     usehex = False
-    if not is_valid_pubkey(pub, usehex, require_compressed=True):
+    if not is_valid_pubkey(pub, require_compressed=True):
         raise ValueError("not a valid public key")
-    scr = [locktime, btc.OP_CHECKLOCKTIMEVERIFY, btc.OP_DROP, pub,
-        btc.OP_CHECKSIG]
-    return binascii.hexlify(serialize_script(scr)).decode()
+    return CScript([locktime, OP_CHECKLOCKTIMEVERIFY, OP_DROP, pub,
+                    OP_CHECKSIG])
 
 def mk_burn_script(data):
+    """ For a given bytestring (data),
+    returns a scriptPubKey which is an OP_RETURN
+    of that data.
+    """
     if not isinstance(data, bytes):
         raise TypeError("data must be in bytes")
-    data = binascii.hexlify(data).decode()
-    scr = [btc.OP_RETURN, data]
-    return serialize_script(scr)
+    return CScript([btc.OP_RETURN, data])
 
 def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
     """
     Given a transaction tx of type CMutableTransaction, an input index i,
     and a raw privkey in bytes, updates the CMutableTransaction to contain
     the newly appended signature.
-    Only three scriptPubKey types supported: p2pkh, p2wpkh, p2sh-p2wpkh.
+    Only four scriptPubKey types supported: p2pkh, p2wpkh, p2sh-p2wpkh, p2wsh.
     Note that signing multisig must be done outside this function, using
     the wrapped library.
+    If native is not the default (False), and if native != "p2wpkh",
+    then native must be a CScript object containing the redeemscript needed to sign.
     Returns: (signature, "signing succeeded")
     or: (None, errormsg) in case of failure
     """
@@ -226,11 +235,17 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
         # see line 1256 of bitcointx.core.scripteval.py:
         flags.add(SCRIPT_VERIFY_P2SH)
 
-        input_scriptPubKey = pubkey_to_p2wpkh_script(pub)
-        # only created for convenience access to scriptCode:
-        input_address = P2WPKHCoinAddress.from_scriptPubKey(input_scriptPubKey)
-        # function name is misleading here; redeemScript only applies to p2sh.
-        scriptCode = input_address.to_redeemScript()
+        if native and native != "p2wpkh":
+            scriptCode = native
+            input_scriptPubKey = redeem_script_to_p2wsh_script(native)
+        else:
+            # this covers both p2wpkh and p2sh-p2wpkh case:
+            input_scriptPubKey = pubkey_to_p2wpkh_script(pub)
+            # only created for convenience access to scriptCode:
+            input_address = P2WPKHCoinAddress.from_scriptPubKey(
+                input_scriptPubKey)
+            # function name is misleading here; redeemScript only applies to p2sh.
+            scriptCode = input_address.to_redeemScript()
 
         sighash = SignatureHash(scriptCode, tx, i, hashcode, amount=amount,
                                 sigversion=SIGVERSION_WITNESS_V0)
@@ -243,7 +258,10 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
         else:
             tx.vin[i].scriptSig = CScript([input_scriptPubKey])
 
-        witness = [sig, pub]
+        if native and native != "p2wpkh":
+            witness = [sig, scriptCode]
+        else:
+            witness = [sig, pub]
         ctxwitness = CTxInWitness(CScriptWitness(witness))
         tx.wit.vtxinwit[i] = ctxwitness
         # Verify the signature worked.
@@ -268,7 +286,9 @@ def apply_freeze_signature(tx, i, redeem_script, sig):
 def mktx(ins, outs, version=1, locktime=0):
     """ Given a list of input tuples (txid(bytes), n(int)),
     and a list of outputs which are dicts with
-    keys "address" (value should be *str* not CCoinAddress),
+    keys "address" (value should be *str* not CCoinAddress) (
+    or alternately "script" (for nonstandard outputs, value
+    should be CScript)),
     "value" (value should be integer satoshis), outputs a
     CMutableTransaction object.
     Tx version and locktime are optionally set, for non-default
@@ -289,10 +309,13 @@ def mktx(ins, outs, version=1, locktime=0):
         inp = CMutableTxIn(prevout=outpoint, nSequence=sequence)
         vin.append(inp)
     for o in outs:
-        # note the to_scriptPubKey method is only available for standard
-        # address types
-        out = CMutableTxOut(o["value"],
-                    CCoinAddress(o["address"]).to_scriptPubKey())
+        if "script" in o:
+            sPK = o["script"]
+        else:
+            # note the to_scriptPubKey method is only available for standard
+            # address types
+            sPK = CCoinAddress(o["address"]).to_scriptPubKey()
+        out = CMutableTxOut(o["value"], sPK)
         vout.append(out)
     return CMutableTransaction(vin, vout, nLockTime=locktime, nVersion=version)
 
