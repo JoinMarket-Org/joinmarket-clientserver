@@ -1,4 +1,15 @@
 import coincurve as secp256k1
+
+# If user has compiled and installed libsecp256k1 via
+# JM installation script install.sh, use that;
+# if not, it is assumed to be present at the system level
+# See: https://github.com/Simplexum/python-bitcointx/commit/79333106eeb55841df2935781646369b186d99f7#diff-1ea6586127522e62d109ec5893a18850R301-R310
+import os, sys
+expected_secp_location = os.path.join(sys.prefix, "lib", "libsecp256k1.so")
+if os.path.exists(expected_secp_location):
+    import bitcointx
+    bitcointx.set_custom_secp256k1_path(expected_secp_location)
+
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.secp256k1_transaction import *
 from jmbitcoin.secp256k1_deterministic import *

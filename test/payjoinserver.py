@@ -98,7 +98,7 @@ class PayjoinServer(Resource):
                                     version=payment_psbt.unsigned_tx.nVersion,
                                     locktime=payment_psbt.unsigned_tx.nLockTime)
         print("we created this unsigned tx: ")
-        print(btc.hrt(unsigned_payjoin_tx))
+        print(btc.human_readable_transaction(unsigned_payjoin_tx))
         # to create the PSBT we need the spent_outs for each input,
         # in the right order:
         spent_outs = []
@@ -126,7 +126,7 @@ class PayjoinServer(Resource):
         r_payjoin_psbt = self.wallet_service.create_psbt_from_tx(unsigned_payjoin_tx,
                                                       spent_outs=spent_outs)
         print("Receiver created payjoin PSBT:\n{}".format(
-            self.wallet_service.hr_psbt(r_payjoin_psbt)))
+            self.wallet_service.human_readable_psbt(r_payjoin_psbt)))
     
         signresultandpsbt, err = self.wallet_service.sign_psbt(r_payjoin_psbt.serialize(),
                                                     with_sign_result=True)
@@ -136,7 +136,7 @@ class PayjoinServer(Resource):
         assert not signresult.is_final
     
         print("Receiver signing successful. Payjoin PSBT is now:\n{}".format(
-            self.wallet_service.hr_psbt(receiver_signed_psbt)))
+            self.wallet_service.human_readable_psbt(receiver_signed_psbt)))
         content = receiver_signed_psbt.to_base64()
         request.setHeader(b"content-length", ("%d" % len(content)).encode("ascii"))
         return content.encode("ascii")

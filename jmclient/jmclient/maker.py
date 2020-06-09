@@ -132,7 +132,7 @@ class Maker(object):
             return (False, 'malformed txhex. ' + repr(e))
         # if the above deserialization was successful, the human readable
         # parsing will be also:
-        jlog.info('obtained tx\n' + btc.hrt(tx))
+        jlog.info('obtained tx\n' + btc.human_readable_transaction(tx))
         goodtx, errmsg = self.verify_unsigned_tx(tx, offerinfo)
         if not goodtx:
             jlog.info('not a good tx, reason=' + errmsg)

@@ -2,14 +2,16 @@
 '''Test of SNICKER functionality using Joinmarket
    wallets as defined in jmclient.wallet.'''
 
-from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
-
-import jmbitcoin as btc
 import pytest
+import os
+
+from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
+import jmbitcoin as btc
 from jmbase import get_log, bintohex
 from jmclient import (load_test_config, estimate_tx_fee, SNICKERReceiver,
                       direct_send)
 
+TEST_PROPOSALS_FILE = "test_proposals.txt"
 log = get_log()
 
 @pytest.mark.parametrize(
@@ -45,7 +47,7 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     
     assert tx, "Failed to spend from receiver wallet"
     print("Parent transaction OK. It was: ")
-    print(btc.hrt(tx))
+    print(btc.human_readable_transaction(tx))
     wallet_r.process_new_tx(tx)
     # we must identify the receiver's output we're going to use;
     # it can be destination or change, that's up to the proposer
@@ -97,10 +99,10 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
             prop_utxo['script'],
             change_spk,
             version_byte=1) + b"," + bintohex(p).encode('utf-8'))
-    with open("test_proposals.txt", "wb") as f:
+    with open(TEST_PROPOSALS_FILE, "wb") as f:
         f.write(b"\n".join(encrypted_proposals))
     sR = SNICKERReceiver(wallet_r)
-    sR.proposals_source = "test_proposals.txt" # avoid clashing with mainnet
+    sR.proposals_source = TEST_PROPOSALS_FILE # avoid clashing with mainnet
     sR.poll_for_proposals()
     assert len(sR.successful_txs) == 1
     wallet_r.process_new_tx(sR.successful_txs[0])
@@ -110,5 +112,9 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     assert receiver_end_bal == receiver_start_bal + net_transfer
 
 @pytest.fixture(scope="module")
-def setup_snicker():
+def setup_snicker(request):
     load_test_config()
+    def teardown():
+        if os.path.exists(TEST_PROPOSALS_FILE):
+            os.remove(TEST_PROPOSALS_FILE)
+    request.addfinalizer(teardown)

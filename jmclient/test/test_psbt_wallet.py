@@ -131,7 +131,7 @@ def test_create_psbt_and_sign(setup_psbt_wallet, unowned_utxo, wallet_cls):
         newpsbt.inputs[-1].redeem_script = redeem_script
     print(bintohex(newpsbt.serialize()))
     print("human readable: ")
-    print(wallet_service.hr_psbt(newpsbt))
+    print(wallet_service.human_readable_psbt(newpsbt))
     # we cannot compare with a fixed expected result due to wallet randomization, but we can
     # check psbt structure:
     expected_inputs_length = 3 if unowned_utxo else 2
@@ -213,8 +213,8 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
                     info_callback=dummy_info_callback,
                     with_final_psbt=True)
 
-    print("Initial payment PSBT created:\n{}".format(wallet_s.hr_psbt(
-        payment_psbt)))
+    print("Initial payment PSBT created:\n{}".format(
+        wallet_s.human_readable_psbt(payment_psbt)))
     # ensure that the payemnt amount is what was intended:
     out_amts = [x.nValue for x in payment_psbt.unsigned_tx.vout]
     # NOTE this would have to change for more than 2 outputs:
@@ -278,7 +278,7 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
                                 version=payment_psbt.unsigned_tx.nVersion,
                                 locktime=payment_psbt.unsigned_tx.nLockTime)
     print("we created this unsigned tx: ")
-    print(bitcoin.hrt(unsigned_payjoin_tx))
+    print(bitcoin.human_readable_transaction(unsigned_payjoin_tx))
     # to create the PSBT we need the spent_outs for each input,
     # in the right order:
     spent_outs = []
@@ -306,7 +306,7 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
     r_payjoin_psbt = wallet_r.create_psbt_from_tx(unsigned_payjoin_tx,
                                                   spent_outs=spent_outs)
     print("Receiver created payjoin PSBT:\n{}".format(
-        wallet_r.hr_psbt(r_payjoin_psbt)))
+        wallet_r.human_readable_psbt(r_payjoin_psbt)))
 
     signresultandpsbt, err = wallet_r.sign_psbt(r_payjoin_psbt.serialize(),
                                                 with_sign_result=True)
@@ -316,7 +316,7 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
     assert not signresult.is_final
 
     print("Receiver signing successful. Payjoin PSBT is now:\n{}".format(
-        wallet_r.hr_psbt(receiver_signed_psbt)))
+        wallet_r.human_readable_psbt(receiver_signed_psbt)))
 
     # *** STEP 3 ***
     # **************
@@ -328,7 +328,7 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
     assert not err, err
     signresult, sender_signed_psbt =  signresultandpsbt
     print("Sender's final signed PSBT is:\n{}".format(
-        wallet_s.hr_psbt(sender_signed_psbt)))
+        wallet_s.human_readable_psbt(sender_signed_psbt)))
     assert signresult.is_final
 
     # broadcast the tx
@@ -367,7 +367,7 @@ hr_test_vectors = {
 def test_hr_psbt(setup_psbt_wallet):
     bitcoin.select_chain_params("bitcoin")
     for k, v in hr_test_vectors.items():
-        print(PSBTWalletMixin.hr_psbt(
+        print(PSBTWalletMixin.human_readable_psbt(
             bitcoin.PartiallySignedTransaction.from_binary(hextobin(v))))
     bitcoin.select_chain_params("bitcoin/regtest")
 

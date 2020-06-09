@@ -61,7 +61,8 @@ def test_sign_standard_txs(addrtype):
         raise
     print("created signature: ", bintohex(sig))
     print("serialized transaction: {}".format(bintohex(tx.serialize())))
-    print("deserialized transaction: {}\n".format(btc.hrt(tx)))
+    print("deserialized transaction: {}\n".format(
+        btc.human_readable_transaction(tx)))
 
 def test_mk_shuffled_tx():
     # prepare two addresses for the outputs

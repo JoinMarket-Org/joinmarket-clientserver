@@ -18,7 +18,7 @@ from bitcointx.wallet import (P2WPKHCoinAddress, CCoinAddress, P2PKHCoinAddress,
 from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
                                        SCRIPT_VERIFY_P2SH, SIGVERSION_WITNESS_V0)
 
-def hrt(tx, jsonified=True):
+def human_readable_transaction(tx, jsonified=True):
     """ Given a CTransaction object, output a human
     readable json-formatted string (suitable for terminal
     output or large GUI textbox display) containing
@@ -40,14 +40,14 @@ def hrt(tx, jsonified=True):
             witarg = None
         else:
             witarg = tx.wit.vtxinwit[i]
-        outdict["inputs"].append(hrinp(inp, witarg))
+        outdict["inputs"].append(human_readable_input(inp, witarg))
     for i, out in enumerate(tx.vout):
-        outdict["outputs"].append(hrout(out))
+        outdict["outputs"].append(human_readable_output(out))
     if not jsonified:
         return outdict
     return json.dumps(outdict, indent=4)
 
-def hrinp(txinput, txinput_witness):
+def human_readable_input(txinput, txinput_witness):
     """ Pass objects of type CTxIn and CTxInWitness (or None)
     and a dict of human-readable entries for this input
     is returned.
@@ -66,7 +66,7 @@ def hrinp(txinput, txinput_witness):
             txinput_witness.scriptWitness.serialize())
     return outdict
 
-def hrout(txoutput):
+def human_readable_output(txoutput):
     """ Returns a dict of human-readable entries
     for this output.
     """
@@ -232,7 +232,7 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
     else:
         # segwit case; we currently support p2wpkh native or under p2sh.
 
-        # see line 1256 of bitcointx.core.scripteval.py:
+        # https://github.com/Simplexum/python-bitcointx/blob/648ad8f45ff853bf9923c6498bfa0648b3d7bcbd/bitcointx/core/scripteval.py#L1250-L1252
         flags.add(SCRIPT_VERIFY_P2SH)
 
         if native and native != "p2wpkh":
@@ -272,16 +272,6 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
             return return_err(e)
 
         return sig, "signing succeeded"
-
-def apply_freeze_signature(tx, i, redeem_script, sig):
-    if isinstance(redeem_script, str):
-        redeem_script = binascii.unhexlify(redeem_script)
-    if isinstance(sig, str):
-        sig = binascii.unhexlify(sig)
-    txobj = deserialize(tx)
-    txobj["ins"][i]["script"] = ""
-    txobj["ins"][i]["txinwitness"] = [sig, redeem_script]
-    return serialize(txobj)
 
 def mktx(ins, outs, version=1, locktime=0):
     """ Given a list of input tuples (txid(bytes), n(int)),

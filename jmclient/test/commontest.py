@@ -6,7 +6,7 @@ import binascii
 import random
 from decimal import Decimal
 
-from jmbase import (get_log, hextobin, dictchanger)
+from jmbase import (get_log, hextobin, bintohex, dictchanger)
 
 from jmclient import (
     jm_single, open_test_wallet_maybe, estimate_tx_fee,
@@ -120,8 +120,10 @@ class DummyBlockchainInterface(BlockchainInterface):
 
 def create_wallet_for_sync(wallet_structure, a, **kwargs):
     #We need a distinct seed for each run so as not to step over each other;
-    #make it through a deterministic hash
-    seedh = btc.b2x(btc.Hash("".join([str(x) for x in a]).encode("utf-8")))[:32]
+    #make it through a deterministic hash of all parameters including optionals.
+    preimage = "".join([str(x) for x in a] + [str(y) for y in kwargs.values()]).encode("utf-8")
+    print("using preimage: ", preimage)
+    seedh = bintohex(btc.Hash(preimage))[:32]
     return make_wallets(
         1, [wallet_structure], fixed_seeds=[seedh], **kwargs)[0]['wallet']
 
@@ -191,8 +193,9 @@ def make_wallets(n,
     if len(wallet_structures) != n:
         raise Exception("Number of wallets doesn't match wallet structures")
     if not fixed_seeds:
-        seeds = chunks(binascii.hexlify(os.urandom(BIP32Wallet.ENTROPY_BYTES * n)).decode('ascii'),
-                       BIP32Wallet.ENTROPY_BYTES * 2)
+        seeds = chunks(bintohex(os.urandom(
+            BIP32Wallet.ENTROPY_BYTES * n)),
+            BIP32Wallet.ENTROPY_BYTES * 2)
     else:
         seeds = fixed_seeds
     wallets = {}

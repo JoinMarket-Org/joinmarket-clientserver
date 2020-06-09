@@ -21,13 +21,12 @@ from .storage import (Argon2Hash, Storage, StorageError, RetryableStorageError,
 from .cryptoengine import (BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError,
                            TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH)
 from .configure import (load_test_config,
-    load_program_config, get_p2pk_vbyte, jm_single, get_network, update_persist_config,
+    load_program_config, jm_single, get_network, update_persist_config,
     validate_address, is_burn_destination, get_irc_mchannels,
-    get_blockchain_interface_instance, get_p2sh_vbyte, set_config, is_segwit_mode,
+    get_blockchain_interface_instance, set_config, is_segwit_mode,
     is_native_segwit_mode)
 from .blockchaininterface import (BlockchainInterface,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
-from .electruminterface import ElectrumInterface
 from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
                               start_reactor)
 from .podle import (set_commitment_file, get_commitment_file,

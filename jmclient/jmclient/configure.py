@@ -366,15 +366,6 @@ def get_network():
     """Returns network name"""
     return global_singleton.config.get("BLOCKCHAIN", "network")
 
-
-def get_p2sh_vbyte():
-    return btc.BTC_P2SH_VBYTE[get_network()]
-
-
-def get_p2pk_vbyte():
-    return btc.BTC_P2PK_VBYTE[get_network()]
-
-
 def validate_address(addr):
     try:
         # automatically respects the network
@@ -570,7 +561,8 @@ def get_blockchain_interface_instance(_config):
         elif source == "bitcoin-rpc-no-history":
             bc_interface = BitcoinCoreNoHistoryInterface(rpc, network)
             if testnet or network == "regtest":
-                # TODO will not work for bech32 regtest addresses:
+                # in tests, for bech32 regtest addresses, for bc-no-history,
+                # this will have to be reset manually:
                 btc.select_chain_params("bitcoin/testnet")
             else:
                 btc.select_chain_params("bitcoin")

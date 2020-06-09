@@ -1007,13 +1007,6 @@ class PSBTWalletMixin(object):
     def __init__(self, storage, **kwargs):
         super(PSBTWalletMixin, self).__init__(storage, **kwargs)
 
-    @staticmethod
-    def get_fee_from_psbt(in_psbt):
-        assert isinstance(in_psbt, btc.PartiallySignedTransaction)
-        spent = sum(in_psbt.get_input_amounts())
-        paid = sum((x.nValue for x in in_psbt.unsigned_tx.vout))
-        return spent - paid
-
     def is_input_finalized(self, psbt_input):
         """ This should be a convenience method in python-bitcointx.
         However note: this is not a static method and tacitly
@@ -1032,7 +1025,7 @@ class PSBTWalletMixin(object):
         return True
 
     @staticmethod
-    def hr_psbt(in_psbt):
+    def human_readable_psbt(in_psbt):
         """ Returns a jsonified indented string with all relevant
         information, in human readable form, contained in a PSBT.
         Warning: the output can be very verbose in certain cases.
@@ -1054,17 +1047,20 @@ class PSBTWalletMixin(object):
         if in_psbt.unknown_fields:
             outdict["unknown-fields"] = str(in_psbt.unknown_fields)
 
-        outdict["unsigned-tx"] = btc.hrt(in_psbt.unsigned_tx, jsonified=False)
+        outdict["unsigned-tx"] = btc.human_readable_transaction(
+            in_psbt.unsigned_tx, jsonified=False)
         outdict["psbt-inputs"] = []
         for inp in in_psbt.inputs:
-            outdict["psbt-inputs"].append(PSBTWalletMixin.hr_psbt_in(inp))
+            outdict["psbt-inputs"].append(
+                PSBTWalletMixin.human_readable_psbt_in(inp))
         outdict["psbt-outputs"] = []
         for out in in_psbt.outputs:
-            outdict["psbt-outputs"].append(PSBTWalletMixin.hr_psbt_out(out))
+            outdict["psbt-outputs"].append(
+                PSBTWalletMixin.human_readable_psbt_out(out))
         return json.dumps(outdict, indent=4)
 
     @staticmethod
-    def hr_psbt_in(psbt_input):
+    def human_readable_psbt_in(psbt_input):
         """ Returns a dict containing human readable information
         about a bitcointx.core.psbt.PSBT_Input object.
         """
@@ -1074,7 +1070,7 @@ class PSBTWalletMixin(object):
             outdict["input-index"] = psbt_input.index
         if psbt_input.utxo:
             if isinstance(psbt_input.utxo, btc.CTxOut):
-                outdict["utxo"] = btc.hrout(psbt_input.utxo)
+                outdict["utxo"] = btc.human_readable_output(psbt_input.utxo)
             elif isinstance(psbt_input.utxo, btc.CTransaction):
                 # human readable full transaction is *too* verbose:
                 outdict["utxo"] = bintohex(psbt_input.utxo.serialize())
@@ -1116,7 +1112,7 @@ class PSBTWalletMixin(object):
         return outdict
 
     @staticmethod
-    def hr_psbt_out(psbt_output):
+    def human_readable_psbt_out(psbt_output):
         """ Returns a dict containing human readable information
         about a PSBT_Output object.
         """
@@ -1175,13 +1171,15 @@ class PSBTWalletMixin(object):
                 continue
             if isinstance(spent_outs[i], (btc.CTransaction, btc.CTxOut)):
                 # note that we trust the caller to choose Tx vs TxOut as according
-                # to non-witness/witness:
-                txinput.utxo = spent_outs[i]
+                # to non-witness/witness. Note also that for now this mixin does
+                # not attempt to provide unsigned-tx(second argument) for witness
+                # case.
+                txinput.set_utxo(spent_outs[i], None)
             else:
                 assert False, "invalid spent output type passed into PSBT creator"
         # we now insert redeemscripts where that is possible and necessary:
         for i, txinput in enumerate(new_psbt.inputs):
-            if isinstance(txinput.utxo, btc.CTxOut):
+            if isinstance(txinput.witness_utxo, btc.CTxOut):
                 # witness
                 if txinput.utxo.scriptPubKey.is_witness_scriptpubkey():
                     # nothing needs inserting; the scriptSig is empty.
@@ -1228,7 +1226,7 @@ class PSBTWalletMixin(object):
         # then overwriting it is harmless (preimage resistance).
         if isinstance(self, SegwitLegacyWallet):
             for i, txinput in enumerate(new_psbt.inputs):
-                tu = txinput.utxo
+                tu = txinput.witness_utxo
                 if isinstance(tu, btc.CTxOut):
                     # witness
                     if tu.scriptPubKey.is_witness_scriptpubkey():
