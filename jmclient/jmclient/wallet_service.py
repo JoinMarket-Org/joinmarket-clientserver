@@ -91,9 +91,12 @@ class WalletService(Service):
 
     def stopService(self):
         """ Encapsulates shut down actions.
-        Here shut down main tx monitoring loop.
+        Note that after the service is stopped, it
+        should *not* be restarted, instead a new
+        WalletService instance should be created.
         """
         self.monitor_loop.stop()
+        self.wallet.close()
         super(WalletService, self).stopService()
 
     def isRunning(self):
