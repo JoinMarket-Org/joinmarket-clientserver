@@ -79,6 +79,12 @@ class WalletService(Service):
         False, otherwise return True (means self.current_blockheight
         has been correctly updated).
         """
+
+        def critical_error():
+            jlog.error("Failure to get blockheight from Bitcoin Core.")
+            self.stopService()
+            return False
+
         if self.current_blockheight:
             old_blockheight = self.current_blockheight
         else:
@@ -88,13 +94,9 @@ class WalletService(Service):
         except Exception as e:
             # This should never happen now, as we are catching every
             # possible Exception in jsonrpc or bci.rpc:
-            jlog.error("Failure to get blockheight from Bitcoin Core:")
-            jlog.error(repr(e))
-            if reactor.running:
-                reactor.stop()
-            return False
+            return critical_error()
         if not self.current_blockheight:
-            return False
+            return critical_error()
 
         # We have received a new blockheight from Core, sanity check it:
         assert isinstance(self.current_blockheight, Integral)
@@ -191,7 +193,9 @@ class WalletService(Service):
         """
         if not syncresult:
             jlog.error("Failed to sync the bitcoin wallet. Shutting down.")
-            reactor.stop()
+            self.stopService()
+            if reactor.running:
+                reactor.stop()
             return
         jlog.info("Starting transaction monitor in walletservice")
         self.monitor_loop = task.LoopingCall(
