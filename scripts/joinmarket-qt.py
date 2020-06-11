@@ -1754,6 +1754,7 @@ class JMMainWindow(QMainWindow):
         self.wallet_service.autofreeze_warning_cb = self.autofreeze_warning_cb
 
         self.wallet_service.startService()
+        self.syncmsg = ""
         self.walletRefresh = task.LoopingCall(self.updateWalletInfo)
         self.walletRefresh.start(5.0)
 
