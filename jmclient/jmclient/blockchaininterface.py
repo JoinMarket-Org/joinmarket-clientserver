@@ -168,8 +168,10 @@ class BitcoinCoreInterface(BlockchainInterface):
         if not blockchainInfo:
             # see note in BitcoinCoreInterface.rpc - here
             # we have to create this object before reactor start,
-            # so sys.exit *is* the right call:
-            sys.exit(EXIT_FAILURE)
+            # so reactor is not stopped, so we override the 'swallowing'
+            # of the Exception that happened in self.rpc():
+            raise JsonRpcConnectionError("RPC connection to Bitcoin Core "
+                                         "was not established successfully.")
         actualNet = blockchainInfo['chain']
 
         netmap = {'main': 'mainnet', 'test': 'testnet', 'regtest': 'regtest'}

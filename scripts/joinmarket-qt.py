@@ -1753,7 +1753,6 @@ class JMMainWindow(QMainWindow):
         # add information callbacks:
         self.wallet_service.add_restart_callback(self.restartWithMsg)
         self.wallet_service.autofreeze_warning_cb = self.autofreeze_warning_cb
-
         self.wallet_service.startService()
         self.syncmsg = ""
         self.walletRefresh = task.LoopingCall(self.updateWalletInfo)

@@ -41,16 +41,27 @@ class WalletService(Service):
         # the JM wallet object.
         self.bci = jm_single().bc_interface
 
+        # main loop used to check for transactions, instantiated
+        # after wallet is synced:
+        self.monitor_loop = None
+        self.wallet = wallet
+        self.synced = False
+
         # keep track of the quasi-real-time blockheight
         # (updated in main monitor loop)
         self.current_blockheight = None
         if self.bci is not None:
-            self.update_blockheight()
+            if not self.update_blockheight():
+                # this accounts for the unusual case
+                # where the application started up with
+                # a functioning blockchain interface, but
+                # that bci is now failing when we are starting
+                # the wallet service.
+                raise Exception("WalletService failed to start "
+                                "due to inability to query block height.")
         else:
             jlog.warning("No blockchain source available, " +
                 "wallet tools will not show correct balances.")
-        self.wallet = wallet
-        self.synced = False
 
         # Dicts of registered callbacks, by type
         # and then by txinfo, for events
@@ -119,7 +130,8 @@ class WalletService(Service):
         should *not* be restarted, instead a new
         WalletService instance should be created.
         """
-        self.monitor_loop.stop()
+        if self.monitor_loop:
+            self.monitor_loop.stop()
         self.wallet.close()
         super(WalletService, self).stopService()
 
