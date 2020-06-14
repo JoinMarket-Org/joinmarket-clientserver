@@ -1403,7 +1403,8 @@ class JMMainWindow(QMainWindow):
             event.accept()
             if self.reactor.threadpool is not None:
                 self.reactor.threadpool.stop()
-            self.reactor.stop()
+            if reactor.running:
+                self.reactor.stop()
         else:
             event.ignore()
 
@@ -1752,7 +1753,6 @@ class JMMainWindow(QMainWindow):
         # add information callbacks:
         self.wallet_service.add_restart_callback(self.restartWithMsg)
         self.wallet_service.autofreeze_warning_cb = self.autofreeze_warning_cb
-
         self.wallet_service.startService()
         self.syncmsg = ""
         self.walletRefresh = task.LoopingCall(self.updateWalletInfo)
@@ -1765,10 +1765,25 @@ class JMMainWindow(QMainWindow):
         t = self.centralWidget().widget(0)
         if not self.wallet_service:  #failure to sync in constructor means object is not created
             newsyncmsg = "Unable to sync wallet - see error in console."
+        elif not self.wallet_service.isRunning():
+            JMQtMessageBox(self,
+                           "The Joinmarket wallet service has stopped; this is usually caused "
+                           "by a Bitcoin Core RPC connection failure. Is your node running?",
+                           mbtype='crit',
+                           title="Error")
+            qApp.exit(EXIT_FAILURE)
+            return
         elif not self.wallet_service.synced:
             return
         else:
-            t.updateWalletInfo(get_wallet_printout(self.wallet_service))
+            try:
+                t.updateWalletInfo(get_wallet_printout(self.wallet_service))
+            except Exception:
+                # this is very likely to happen in case Core RPC connection goes
+                # down (but, order of events means it is not deterministic).
+                log.debug("Failed to get wallet information, is there a problem with "
+                          "the blockchain interface?")
+                return
             newsyncmsg = "Wallet synced successfully."
         if newsyncmsg != self.syncmsg:
             self.syncmsg = newsyncmsg

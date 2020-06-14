@@ -40,15 +40,28 @@ class WalletService(Service):
         # could be more flexible in future, and
         # the JM wallet object.
         self.bci = jm_single().bc_interface
+
+        # main loop used to check for transactions, instantiated
+        # after wallet is synced:
+        self.monitor_loop = None
+        self.wallet = wallet
+        self.synced = False
+
         # keep track of the quasi-real-time blockheight
         # (updated in main monitor loop)
+        self.current_blockheight = None
         if self.bci is not None:
-            self.update_blockheight()
+            if not self.update_blockheight():
+                # this accounts for the unusual case
+                # where the application started up with
+                # a functioning blockchain interface, but
+                # that bci is now failing when we are starting
+                # the wallet service.
+                raise Exception("WalletService failed to start "
+                                "due to inability to query block height.")
         else:
             jlog.warning("No blockchain source available, " +
                 "wallet tools will not show correct balances.")
-        self.wallet = wallet
-        self.synced = False
 
         # Dicts of registered callbacks, by type
         # and then by txinfo, for events
@@ -73,14 +86,36 @@ class WalletService(Service):
         but will be called as part of main monitoring
         loop to ensure new transactions are added at
         the right height.
+        Any failure of the RPC call must result in this returning
+        False, otherwise return True (means self.current_blockheight
+        has been correctly updated).
         """
+
+        def critical_error():
+            jlog.error("Failure to get blockheight from Bitcoin Core.")
+            self.stopService()
+            return False
+
+        if self.current_blockheight:
+            old_blockheight = self.current_blockheight
+        else:
+            old_blockheight = -1
         try:
             self.current_blockheight = self.bci.get_current_block_height()
-            assert isinstance(self.current_blockheight, Integral)
         except Exception as e:
-            jlog.error("Failure to get blockheight from Bitcoin Core:")
-            jlog.error(repr(e))
-            return
+            # This should never happen now, as we are catching every
+            # possible Exception in jsonrpc or bci.rpc:
+            return critical_error()
+        if not self.current_blockheight:
+            return critical_error()
+
+        # We have received a new blockheight from Core, sanity check it:
+        assert isinstance(self.current_blockheight, Integral)
+        assert self.current_blockheight >= 0
+        if self.current_blockheight < old_blockheight:
+            jlog.warn("Bitcoin Core is reporting a lower blockheight, "
+                      "possibly a reorg.")
+        return True
 
     def startService(self):
         """ Encapsulates start up actions.
@@ -95,7 +130,8 @@ class WalletService(Service):
         should *not* be restarted, instead a new
         WalletService instance should be created.
         """
-        self.monitor_loop.stop()
+        if self.monitor_loop:
+            self.monitor_loop.stop()
         self.wallet.close()
         super(WalletService, self).stopService()
 
@@ -169,7 +205,9 @@ class WalletService(Service):
         """
         if not syncresult:
             jlog.error("Failed to sync the bitcoin wallet. Shutting down.")
-            reactor.stop()
+            self.stopService()
+            if reactor.running:
+                reactor.stop()
             return
         jlog.info("Starting transaction monitor in walletservice")
         self.monitor_loop = task.LoopingCall(
@@ -240,9 +278,13 @@ class WalletService(Service):
         Service is constantly in near-realtime sync with the blockchain.
         """
 
-        self.update_blockheight()
+        if not self.update_blockheight():
+            return
 
         txlist = self.bci.list_transactions(100)
+        if not txlist:
+            return
+
         new_txs = []
         for x in txlist:
             # process either (a) a completely new tx or
