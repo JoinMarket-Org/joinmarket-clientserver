@@ -650,8 +650,11 @@ class SpendTab(QWidget):
         else:
             return False
 
-    def infoDirectSend(self, txid):
-        JMQtMessageBox(self, "Tx sent: " + str(txid), title="Success")
+    def infoDirectSend(self, msg):
+        JMQtMessageBox(self, msg, title="Success")
+
+    def errorDirectSend(self, msg):
+        JMQtMessageBox(self, msg, mbtype="warn", title="Error")
 
     def startSingle(self):
         if not self.spendstate.runstate == 'ready':
@@ -672,7 +675,8 @@ class SpendTab(QWidget):
             try:
                 txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
                                   destaddr, accept_callback=self.checkDirectSend,
-                                  info_callback=self.infoDirectSend)
+                                  info_callback=self.infoDirectSend,
+                                  error_callback=self.errorDirectSend)
             except Exception as e:
                 JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
                 return
