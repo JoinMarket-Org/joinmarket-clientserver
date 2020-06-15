@@ -120,7 +120,7 @@ class WalletService(Service):
         """ Encapsulates start up actions.
         Here wallet sync.
         """
-        super(WalletService, self).startService()
+        super().startService()
         self.request_sync_wallet()
 
     def stopService(self):
@@ -132,7 +132,7 @@ class WalletService(Service):
         if self.monitor_loop:
             self.monitor_loop.stop()
         self.wallet.close()
-        super(WalletService, self).stopService()
+        super().stopService()
 
     def isRunning(self):
         if self.running == 1:

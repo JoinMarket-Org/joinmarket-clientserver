@@ -176,7 +176,7 @@ class HelpLabel(QLabel):
 class SettingsTab(QDialog):
 
     def __init__(self):
-        super(SettingsTab, self).__init__()
+        super().__init__()
         self.initUI()
 
     def initUI(self):
@@ -319,7 +319,7 @@ class SpendStateMgr(object):
 class SpendTab(QWidget):
 
     def __init__(self):
-        super(SpendTab, self).__init__()
+        super().__init__()
         self.initUI()
         self.taker = None
         self.filter_offers_response = None
@@ -1042,7 +1042,7 @@ class SpendTab(QWidget):
 class TxHistoryTab(QWidget):
 
     def __init__(self):
-        super(TxHistoryTab, self).__init__()
+        super().__init__()
         self.initUI()
 
     def initUI(self):
@@ -1117,7 +1117,7 @@ class TxHistoryTab(QWidget):
 class CoinsTab(QWidget):
 
     def __init__(self):
-        super(CoinsTab, self).__init__()
+        super().__init__()
         self.initUI()
 
     def initUI(self):
@@ -1231,7 +1231,7 @@ class CoinsTab(QWidget):
 class BitcoinQRCodePopup(QDialog):
 
     def __init__(self, parent, address):
-        super(BitcoinQRCodePopup, self).__init__(parent)
+        super().__init__(parent)
         self.address = address
         self.setWindowTitle(address)
         img = qrcode.make('bitcoin:' + address)
@@ -1249,7 +1249,7 @@ class BitcoinQRCodePopup(QDialog):
 class JMWalletTab(QWidget):
 
     def __init__(self):
-        super(JMWalletTab, self).__init__()
+        super().__init__()
         self.wallet_name = 'NONE'
         self.initUI()
 
@@ -1388,7 +1388,7 @@ class JMMainWindow(QMainWindow):
     show_privkeys_signal = QtCore.Signal()
 
     def __init__(self, reactor):
-        super(JMMainWindow, self).__init__()
+        super().__init__()
         # the wallet service that encapsulates
         # the wallet we will interact with
         self.wallet_service = None

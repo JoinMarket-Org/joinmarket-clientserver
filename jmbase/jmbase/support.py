@@ -67,7 +67,7 @@ DUST_THRESHOLD = 2730
 class JoinMarketStreamHandler(ColorizingStreamHandler):
 
     def __init__(self):
-        super(JoinMarketStreamHandler, self).__init__(colorizer=jm_colorizer)
+        super().__init__(colorizer=jm_colorizer)
 
     def emit(self, record):
         if joinmarket_alert[0]:
@@ -75,7 +75,7 @@ class JoinMarketStreamHandler(ColorizingStreamHandler):
         if core_alert[0]:
             print('Core Alert Message: ' + core_alert[0])
         if not debug_silence[0]:
-            super(JoinMarketStreamHandler, self).emit(record)
+            super().emit(record)
 
 handler = JoinMarketStreamHandler()
 handler.setFormatter(logFormatter)

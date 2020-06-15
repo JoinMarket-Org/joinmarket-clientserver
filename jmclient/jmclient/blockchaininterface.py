@@ -76,7 +76,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
     """
 
     def __init__(self, testnet=False):
-        super(ElectrumWalletInterface, self).__init__()
+        super().__init__()
         self.last_sync_unspent = 0
 
     def set_wallet(self, wallet):
@@ -150,7 +150,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         return result
 
     def estimate_fee_per_kb(self, N):
-        if super(ElectrumWalletInterface, self).fee_per_kb_has_been_manually_set(N):
+        if super().fee_per_kb_has_been_manually_set(N):
             # use a floor of 1000 to not run into node relay problems
             return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
@@ -162,7 +162,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 class BitcoinCoreInterface(BlockchainInterface):
 
     def __init__(self, jsonRpc, network):
-        super(BitcoinCoreInterface, self).__init__()
+        super().__init__()
         self.jsonRpc = jsonRpc
         blockchainInfo = self.rpc("getblockchaininfo", [])
         if not blockchainInfo:
@@ -394,7 +394,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         return result
 
     def estimate_fee_per_kb(self, N):
-        if super(BitcoinCoreInterface, self).fee_per_kb_has_been_manually_set(N):
+        if super().fee_per_kb_has_been_manually_set(N):
             # use the local bitcoin core relay fee as floor to avoid relay problems
             btc_relayfee = -1
             rpc_result = self.rpc('getnetworkinfo', None)
@@ -516,7 +516,7 @@ class RegtestBitcoinCoreMixin():
 class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin):
 
     def __init__(self, jsonRpc, network):
-        super(BitcoinCoreNoHistoryInterface, self).__init__(jsonRpc, network)
+        super().__init__(jsonRpc, network)
         self.import_addresses_call_count = 0
         self.wallet_name = None
         self.scan_result = None
@@ -575,7 +575,7 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
                 "amount": u["amount"]
                 } for u in self.scan_result["unspents"]]
         else:
-            return super(BitcoinCoreNoHistoryInterface, self).rpc(method, args)
+            return super().rpc(method, args)
 
     def set_wallet_no_history(self, wallet):
         #make wallet-tool not display any new addresses
@@ -588,7 +588,7 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
 
     def tick_forward_chain(self, n):
         self.destn_addr = self.rpc("getnewaddress", [])
-        super(BitcoinCoreNoHistoryInterface, self).tick_forward_chain(n)
+        super().tick_forward_chain(n)
 
 # class for regtest chain access
 # running on local daemon. Only
@@ -597,7 +597,7 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
 class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin): #pragma: no cover
 
     def __init__(self, jsonRpc):
-        super(RegtestBitcoinCoreInterface, self).__init__(jsonRpc, 'regtest')
+        super().__init__(jsonRpc, 'regtest')
         self.pushtx_failure_prob = 0
         self.tick_forward_chain_interval = -1
         self.absurd_fees = False
@@ -607,8 +607,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
 
     def estimate_fee_per_kb(self, N):
         if not self.absurd_fees:
-            return super(RegtestBitcoinCoreInterface,
-                         self).estimate_fee_per_kb(N)
+            return super().estimate_fee_per_kb(N)
         else:
             return jm_single().config.getint("POLICY",
                                              "absurd_fee_per_kb") + 100
@@ -635,7 +634,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
                       (self.pushtx_failure_prob * 100))
             return True
 
-        ret = super(RegtestBitcoinCoreInterface, self).pushtx(txhex)
+        ret = super().pushtx(txhex)
         if not self.simulating and self.tick_forward_chain_interval > 0:
             log.debug('will call tfc after ' + str(self.tick_forward_chain_interval) + ' seconds.')
             reactor.callLater(self.tick_forward_chain_interval,

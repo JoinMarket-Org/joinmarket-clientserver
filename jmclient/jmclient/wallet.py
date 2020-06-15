@@ -1005,7 +1005,7 @@ class PSBTWalletMixin(object):
     functions.
     """
     def __init__(self, storage, **kwargs):
-        super(PSBTWalletMixin, self).__init__(storage, **kwargs)
+        super().__init__(storage, **kwargs)
 
     def is_input_finalized(self, psbt_input):
         """ This should be a convenience method in python-bitcointx.
@@ -1258,7 +1258,7 @@ class SNICKERWalletMixin(object):
     SUPPORTED_SNICKER_VERSIONS = bytes([0, 1])
 
     def __init__(self, storage, **kwargs):
-        super(SNICKERWalletMixin, self).__init__(storage, **kwargs)
+        super().__init__(storage, **kwargs)
 
     def create_snicker_proposal(self, our_input, their_input, our_input_utxo,
                                 their_input_utxo, net_transfer, network_fee,
@@ -1502,10 +1502,10 @@ class ImportWalletMixin(object):
         # {mixdepth: [(privkey, type)]}
         self._imported = None
         # path is (_IMPORTED_ROOT_PATH, mixdepth, key_index)
-        super(ImportWalletMixin, self).__init__(storage, **kwargs)
+        super().__init__(storage, **kwargs)
 
     def _load_storage(self):
-        super(ImportWalletMixin, self)._load_storage()
+        super()._load_storage()
         self._imported = collections.defaultdict(list)
         for md, keys in self._storage.data[self._IMPORTED_STORAGE_KEY].items():
             md = int(md)
@@ -1522,7 +1522,7 @@ class ImportWalletMixin(object):
         for md in self._imported:
             import_data[_int_to_bytestr(md)] = self._imported[md]
         self._storage.data[self._IMPORTED_STORAGE_KEY] = import_data
-        super(ImportWalletMixin, self).save()
+        super().save()
 
     @classmethod
     def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
@@ -1621,14 +1621,14 @@ class ImportWalletMixin(object):
 
     def _get_mixdepth_from_path(self, path):
         if not self._is_imported_path(path):
-            return super(ImportWalletMixin, self)._get_mixdepth_from_path(path)
+            return super()._get_mixdepth_from_path(path)
 
         assert len(path) == 3
         return path[1]
 
     def _get_key_from_path(self, path):
         if not self._is_imported_path(path):
-            return super(ImportWalletMixin, self)._get_key_from_path(path)
+            return super()._get_key_from_path(path)
 
         assert len(path) == 3
         md, i = path[1], path[2]
@@ -1652,13 +1652,13 @@ class ImportWalletMixin(object):
     def path_repr_to_path(self, pathstr):
         spath = pathstr.encode('ascii').split(b'/')
         if not self._is_imported_path(spath):
-            return super(ImportWalletMixin, self).path_repr_to_path(pathstr)
+            return super().path_repr_to_path(pathstr)
 
         return self._IMPORTED_ROOT_PATH, int(spath[1]), int(spath[2])
 
     def get_path_repr(self, path):
         if not self._is_imported_path(path):
-            return super(ImportWalletMixin, self).get_path_repr(path)
+            return super().get_path_repr(path)
 
         assert len(path) == 3
         return 'imported/{}/{}'.format(*path[1:])
@@ -1673,12 +1673,12 @@ class ImportWalletMixin(object):
 
     def get_details(self, path):
         if not self._is_imported_path(path):
-            return super(ImportWalletMixin, self).get_details(path)
+            return super().get_details(path)
         return path[1], 'imported', path[2]
 
     def get_script_from_path(self, path):
         if not self._is_imported_path(path):
-            return super(ImportWalletMixin, self).get_script_from_path(path)
+            return super().get_script_from_path(path)
 
         priv, engine = self._get_key_from_path(path)
         return engine.key_to_script(priv)
@@ -1692,7 +1692,7 @@ class BIP39WalletMixin(object):
     MNEMONIC_LANG = 'english'
 
     def _load_storage(self):
-        super(BIP39WalletMixin, self)._load_storage()
+        super()._load_storage()
         self._entropy_extension = self._storage.data.get(self._BIP39_EXTENSION_KEY)
 
     @classmethod
@@ -1722,7 +1722,7 @@ class BIP39WalletMixin(object):
         return ent and len(ent) % 4 == 0
 
     def get_mnemonic_words(self):
-        entropy = super(BIP39WalletMixin, self)._create_master_key()
+        entropy = super()._create_master_key()
         m = Mnemonic(self.MNEMONIC_LANG)
         return m.to_mnemonic(entropy), self._entropy_extension
 
@@ -1757,7 +1757,7 @@ class BIP32Wallet(BaseWallet):
         # path is a tuple of BIP32 levels,
         # m is the master key's fingerprint
         # other levels are ints
-        super(BIP32Wallet, self).__init__(storage, **kwargs)
+        super().__init__(storage, **kwargs)
         assert self._index_cache is not None
         assert self._verify_entropy(self._entropy)
 
@@ -1796,7 +1796,7 @@ class BIP32Wallet(BaseWallet):
             storage.save()
 
     def _load_storage(self):
-        super(BIP32Wallet, self)._load_storage()
+        super()._load_storage()
         self._entropy = self._storage.data[self._STORAGE_ENTROPY_KEY]
 
         self._index_cache = collections.defaultdict(
@@ -1833,7 +1833,7 @@ class BIP32Wallet(BaseWallet):
 
             self._storage.data[self._STORAGE_INDEX_CACHE][str_md] = str_data
 
-        super(BIP32Wallet, self).save()
+        super().save()
 
     def _create_master_key(self):
         """
@@ -2177,7 +2177,7 @@ class FidelityBondMixin(object):
             return False
 
     def _populate_script_map(self):
-        super(FidelityBondMixin, self)._populate_script_map()
+        super()._populate_script_map()
         for md in self._index_cache:
             address_type = self.BIP32_TIMELOCK_ID
             for i in range(self._index_cache[md][address_type]):
@@ -2187,8 +2187,7 @@ class FidelityBondMixin(object):
                     self._script_map[script] = path
 
     def add_utxo(self, txid, index, script, value, height=None):
-        super(FidelityBondMixin, self).add_utxo(txid, index, script, value,
-            height)
+        super().add_utxo(txid, index, script, value, height)
         #dont use coin control freeze if wallet readonly
         if self._storage.read_only:
             return
@@ -2200,7 +2199,7 @@ class FidelityBondMixin(object):
             self.disable_utxo(txid, index, disable=True)
 
     def get_bip32_pub_export(self, mixdepth=None, address_type=None):
-        bip32_pub = super(FidelityBondMixin, self).get_bip32_pub_export(mixdepth, address_type)
+        bip32_pub = super().get_bip32_pub_export(mixdepth, address_type)
         if address_type == None and mixdepth == self.FIDELITY_BOND_MIXDEPTH:
             bip32_pub = self._BIP32_PUBKEY_PREFIX + bip32_pub
         return bip32_pub
@@ -2217,12 +2216,12 @@ class FidelityBondMixin(object):
             privkey = engine.derive_bip32_privkey(self._master_key, key_path)
             return (privkey, locktime), engine
         else:
-            return super(FidelityBondMixin, self)._get_key_from_path(path)
+            return super()._get_key_from_path(path)
 
     def get_path(self, mixdepth=None, address_type=None, index=None, timenumber=None):
         if address_type == None or address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID,
                 self.BIP32_BURN_ID) or index == None:
-            return super(FidelityBondMixin, self).get_path(mixdepth, address_type, index)
+            return super().get_path(mixdepth, address_type, index)
         elif address_type == self.BIP32_TIMELOCK_ID:
             assert timenumber != None
             timestamp = self._time_number_to_timestamp(timenumber)
@@ -2240,28 +2239,25 @@ class FidelityBondMixin(object):
     """
     def get_path_repr(self, path):
         if self.is_timelocked_path(path) and len(path) == 7:
-            return super(FidelityBondMixin, self).get_path_repr(path[:-1]) +\
-                 ":" + str(path[-1])
+            return super().get_path_repr(path[:-1]) + ":" + str(path[-1])
         else:
-            return super(FidelityBondMixin, self).get_path_repr(path)
+            return super().get_path_repr(path)
 
     def path_repr_to_path(self, pathstr):
         if pathstr.find(":") == -1:
-            return super(FidelityBondMixin, self).path_repr_to_path(pathstr)
+            return super().path_repr_to_path(pathstr)
         else:
             colon_chunks = pathstr.split(":")
             if len(colon_chunks) != 2:
                 raise WalletError("Not a valid wallet timelock path: {}".format(pathstr))
             return tuple(chain(
-                super(FidelityBondMixin, self).path_repr_to_path(colon_chunks[0]),
-                (int(colon_chunks[1]),)
-            ))
+                super().path_repr_to_path(colon_chunks[0]), (int(colon_chunks[1]),)))
 
     def get_details(self, path):
         if self.is_timelocked_path(path):
             return self._get_mixdepth_from_path(path), path[-3], path[-2]
         else:
-            return super(FidelityBondMixin, self).get_details(path)
+            return super().get_details(path)
 
     def _get_default_used_indices(self):
         return {x: [0, 0, 0, 0] for x in range(self.max_mixdepth + 1)}
@@ -2333,8 +2329,7 @@ class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP49Wallet):
         return btc.bip32_deserialize(master_entropy.decode())
 
     def _get_bip32_export_path(self, mixdepth=None, address_type=None):
-        path = super(FidelityBondWatchonlyWallet, self)._get_bip32_export_path(
-            mixdepth, address_type)
+        path = super()._get_bip32_export_path(mixdepth, address_type)
         return path
 
 

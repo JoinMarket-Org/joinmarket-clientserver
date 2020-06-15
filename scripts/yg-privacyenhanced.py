@@ -32,7 +32,7 @@ jlog = get_log()
 class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
 
     def __init__(self, wallet_service, offerconfig):
-        super(YieldGeneratorPrivacyEnhanced, self).__init__(wallet_service, offerconfig)
+        super().__init__(wallet_service, offerconfig)
 
     def create_my_orders(self):
         mix_balance = self.get_available_mixdepths()

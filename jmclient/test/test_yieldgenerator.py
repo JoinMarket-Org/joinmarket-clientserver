@@ -20,9 +20,8 @@ class CustomUtxoWallet(SegwitLegacyWallet):
         load_test_config()
 
         storage = VolatileStorage()
-        super(CustomUtxoWallet, self).initialize(storage, get_network(),
-                                                 max_mixdepth=len(balances)-1)
-        super(CustomUtxoWallet, self).__init__(storage)
+        super().initialize(storage, get_network(), max_mixdepth=len(balances)-1)
+        super().__init__(storage)
 
         for m, b in enumerate(balances):
             self.add_utxo_at_mixdepth(m, b)

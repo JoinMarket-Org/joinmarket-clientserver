@@ -302,7 +302,7 @@ class P2EPMaker(Maker):
     is not possible.
     """
     def __init__(self, wallet_service, mixdepth, amount):
-        super(P2EPMaker, self).__init__(wallet_service)
+        super().__init__(wallet_service)
         self.receiving_amount = amount
         self.mixdepth = mixdepth
         # destination mixdepth must be different from that

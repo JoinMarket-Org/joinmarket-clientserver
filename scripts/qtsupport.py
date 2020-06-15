@@ -167,7 +167,7 @@ def JMQtMessageBox(obj, msg, mbtype='info', title='', detailed_text= None):
                     self.setMaximumHeight(16777215)
                     self.setMinimumWidth(0)
                     self.setMaximumWidth(16777215)
-                    result = super(JMQtDMessageBox, self).resizeEvent(event)
+                    result = super().resizeEvent(event)
                     details_box = self.findChild(QTextEdit)
                     if details_box is not None:
                         details_box.setMinimumHeight(0)
@@ -366,7 +366,7 @@ def make_password_dialog(self, msg, new_pass=True):
 class PasswordDialog(QDialog):
 
     def __init__(self):
-        super(PasswordDialog, self).__init__()
+        super().__init__()
         self.initUI()
 
     def initUI(self):
@@ -511,7 +511,7 @@ class MyTreeWidget(QTreeWidget):
 # TODO implement this option
 #class SchStaticPage(QWizardPage):
 #    def __init__(self, parent):
-#        super(SchStaticPage, self).__init__(parent)
+#        super().__init__(parent)
 #        self.setTitle("Manually create a schedule entry")
 #        layout = QGridLayout()
 #        wdgts = getSettingsWidgets()
@@ -627,7 +627,7 @@ class BitcoinAmountEdit(QWidget):
 
 class SchDynamicPage1(QWizardPage):
     def __init__(self, parent):
-        super(SchDynamicPage1, self).__init__(parent)
+        super().__init__(parent)
         self.setTitle("Tumble schedule generation")
         self.setSubTitle("Set parameters for the sequence of transactions in the tumble.")
         results = []
@@ -702,7 +702,7 @@ class SchDynamicPage2(QWizardPage):
         self.setLayout(self.layout)
 
     def __init__(self, parent):
-        super(SchDynamicPage2, self).__init__(parent)
+        super().__init__(parent)
         self.setTitle("Destination addresses")
         self.setSubTitle("Enter destination addresses for coins; "
                         "minimum 3 for privacy. You may leave later ones blank.")
@@ -712,7 +712,7 @@ class SchDynamicPage2(QWizardPage):
 
 class SchFinishPage(QWizardPage):
     def __init__(self, parent):
-        super(SchFinishPage, self).__init__(parent)
+        super().__init__(parent)
         self.setTitle("Advanced options")
         self.setSubTitle("(the default values are usually sufficient)")
         layout = QGridLayout()
@@ -781,7 +781,7 @@ class SchFinishPage(QWizardPage):
 
 class SchIntroPage(QWizardPage):
     def __init__(self, parent):
-        super(SchIntroPage, self).__init__(parent)
+        super().__init__(parent)
         self.setTitle("Generate a join transaction schedule")
         self.rbgroup = QButtonGroup(self)
         self.r0 = QRadioButton("Define schedule manually (not yet implemented)")
@@ -808,7 +808,7 @@ class SchIntroPage(QWizardPage):
 
 class ScheduleWizard(QWizard):
     def __init__(self):
-        super(ScheduleWizard, self).__init__()
+        super().__init__()
         self.setWindowTitle("Joinmarket schedule generator")
         self.setPage(0, SchIntroPage(self))
         self.setPage(1, SchDynamicPage1(self))
@@ -858,7 +858,7 @@ class ScheduleWizard(QWizard):
 
 class TumbleRestartWizard(QWizard):
     def __init__(self):
-        super(TumbleRestartWizard, self).__init__()
+        super().__init__()
         self.setWindowTitle("Restart tumbler schedule")
         self.setPage(0, RestartSettingsPage(self))
 
@@ -875,7 +875,7 @@ class TumbleRestartWizard(QWizard):
 class RestartSettingsPage(QWizardPage):
 
     def __init__(self, parent):
-        super(RestartSettingsPage, self).__init__(parent)
+        super().__init__(parent)
         self.setTitle("Tumbler options")
         self.setSubTitle("Options settings that can be varied on restart")
         layout = QGridLayout()

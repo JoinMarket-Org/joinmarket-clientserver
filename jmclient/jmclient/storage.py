@@ -321,8 +321,7 @@ class VolatileStorage(Storage):
 
     def __init__(self, password=None, data=None):
         self.file_data = None
-        super(VolatileStorage, self).__init__('VOLATILE', password,
-                                              create=True)
+        super().__init__('VOLATILE', password, create=True)
         if data:
             self.file_data = data
             self._load_file(password)
