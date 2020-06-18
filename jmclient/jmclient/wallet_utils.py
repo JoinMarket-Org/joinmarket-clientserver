@@ -36,6 +36,7 @@ def get_wallettool_parser():
         '(displayall) Shows ALL addresses and balances.\n'
         '(summary) Shows a summary of mixing depth balances.\n'
         '(generate) Generates a new wallet.\n'
+        '(changepass) Changes the encryption passphrase of the wallet.\n'
         '(history) Show all historical transaction details. Requires Bitcoin Core.'
         '(recover) Recovers a wallet from the 12 word recovery seed.\n'
         '(showutxos) Shows all utxos in the wallet.\n'
@@ -557,9 +558,10 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     else:
         return walletview
 
-def cli_get_wallet_passphrase_check():
-    password = get_password('Enter wallet file encryption passphrase: ')
-    password2 = get_password('Reenter wallet file encryption passphrase: ')
+def cli_get_wallet_passphrase_check(changing_passphrase=False):
+    new_string = "new " if changing_passphrase else ""
+    password = get_password("Enter " + new_string + "passphrase to encrypt wallet: ")
+    password2 = get_password("Reenter " + new_string + "passphrase to encrypt wallet: ")
     if password != password2:
         jmprint('ERROR. Passwords did not match', "error")
         return False
@@ -694,6 +696,13 @@ def wallet_generate_recover(method, walletspath,
     jmprint("Write down and safely store this wallet recovery seed\n\n{}\n"
           .format(wallet.get_mnemonic_words()[0]), "important")
     wallet.close()
+    return True
+
+
+def wallet_change_passphrase(walletservice,
+                             enter_wallet_passphrase_callback=cli_get_wallet_passphrase_check):
+    passphrase = enter_wallet_passphrase_callback(changing_passphrase=True)
+    walletservice.change_wallet_passphrase(passphrase)
     return True
 
 
@@ -1331,7 +1340,7 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
         while True:
             try:
                 # do not try empty password, assume unencrypted on empty password
-                pwd = get_password("Enter wallet decryption passphrase: ") or None
+                pwd = get_password("Enter passphrase to decrypt wallet: ") or None
                 storage = Storage(path, password=pwd, read_only=read_only)
             except StoragePasswordError:
                 jmprint("Wrong password, try again.", "warning")
@@ -1382,9 +1391,11 @@ def wallet_tool_main(wallet_root_path):
     wallet_root_path = os.path.join(jm_single().datadir, wallet_root_path)
     noseed_methods = ['generate', 'recover', 'createwatchonly']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
-               'history', 'showutxos', 'freeze', 'gettimelockaddress', 'addtxoutproof']
+               'history', 'showutxos', 'freeze', 'gettimelockaddress',
+               'addtxoutproof', 'changepass']
     methods.extend(noseed_methods)
-    noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage']
+    noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage',
+                      'changepass']
     readonly_methods = ['display', 'displayall', 'summary', 'showseed',
                         'history', 'showutxos', 'dumpprivkey', 'signmessage',
                         'gettimelockaddress']
@@ -1452,6 +1463,9 @@ def wallet_tool_main(wallet_root_path):
         retval = wallet_generate_recover("recover", wallet_root_path,
                                          mixdepth=options.mixdepth)
         return "Recovered wallet OK" if retval else "Failed"
+    elif method == "changepass":
+        retval = wallet_change_passphrase(wallet_service)
+        return "Changed encryption passphrase OK" if retval else "Failed"
     elif method == "showutxos":
         return wallet_showutxos(wallet_service, options.showprivkey)
     elif method == "showseed":
