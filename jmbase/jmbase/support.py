@@ -4,7 +4,7 @@ from getpass import getpass
 from os import path, environ
 
 # JoinMarket version
-JM_CORE_VERSION = '0.6.2'
+JM_CORE_VERSION = '0.6.3'
 
 # global Joinmarket constants
 JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
