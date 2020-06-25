@@ -41,7 +41,6 @@ else:
     MONOSPACE_FONT = 'monospace'
 
 import jmbitcoin as btc
-from jmbase.support import JM_CORE_VERSION
 
 # This is required to change the decimal separator
 # to '.' regardless of the locale; TODO don't require
@@ -62,10 +61,10 @@ donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
 donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 
 #Version of this Qt script specifically
-JM_GUI_VERSION = '12'
+JM_GUI_VERSION = '13'
 
 from jmbase import get_log
-from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE
+from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, JM_CORE_VERSION
 from jmclient import load_program_config, get_network, update_persist_config,\
     open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
     jm_single, validate_address, weighted_order_choose, Taker,\
