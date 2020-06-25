@@ -120,7 +120,7 @@ def setup(request):
                        "-rpcuser=" + bitcoin_rpcusername,
                        "-rpcpassword=" + bitcoin_rpcpassword]
     for i in range(2):
-        destn_addr = local_command(root_cmd + ["getnewaddress"])
+        destn_addr = local_command(root_cmd + ["getnewaddress"])[:-1].decode('utf-8')
         local_command(root_cmd + ["generatetoaddress", "301", destn_addr])
         time.sleep(1)
     
