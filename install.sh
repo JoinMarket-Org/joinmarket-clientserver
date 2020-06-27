@@ -285,7 +285,7 @@ joinmarket_install ()
     done
 
     if [[ ${with_qt} == "1" ]]; then
-        if check_exists xdg-open; then
+        if [[ -d ~/.local/share/icons ]] && [[ -d ~/.local/share/applications ]]; then
             echo "Installing XDG desktop entry"
             cp -f "$(dirname "$0")/docs/images/joinmarket_logo.png" \
                 ~/.local/share/icons/
