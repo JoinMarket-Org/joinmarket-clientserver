@@ -562,7 +562,8 @@ def cli_get_wallet_file_name(defaultname="wallet.jmdat"):
 def cli_display_user_words(words, mnemonic_extension):
     text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
     if mnemonic_extension:
-        text += '\nAnd this mnemonic extension: ' + mnemonic_extension + '\n'
+        text += '\nAnd this mnemonic extension: ' + mnemonic_extension.decode(
+            'utf-8') + '\n'
     jmprint(text, "important")
 
 def cli_user_mnemonic_entry():

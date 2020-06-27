@@ -1245,7 +1245,11 @@ class BIP39WalletMixin(object):
             storage, network, max_mixdepth, timestamp, entropy,
             write=False, **kwargs)
         if entropy_extension:
-            storage.data[cls._BIP39_EXTENSION_KEY] = entropy_extension
+            # Note: future reads from storage will retrieve this data
+            # as binary, so set it as binary on initialization for consistency.
+            # Note that this is in contrast to the mnemonic wordlist, which is
+            # handled by the mnemonic package, which returns the words as a string.
+            storage.data[cls._BIP39_EXTENSION_KEY] = entropy_extension.encode("utf-8")
 
         if write:
             storage.save()
