@@ -17,8 +17,10 @@ from .taker_utils import direct_send
 
 """
 For some documentation see:
+    https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki
+    and an earlier document:
     https://github.com/btcpayserver/btcpayserver-doc/blob/master/Payjoin-spec.md
-    which is a delta to:
+    and even earlier:
     https://github.com/bitcoin/bips/blob/master/bip-0079.mediawiki
 """
 log = get_log()
@@ -69,7 +71,7 @@ class JMPayjoinManager(object):
     pj_state = JM_PJ_NONE
 
     def __init__(self, wallet_service, mixdepth, destination,
-                 amount, server):
+                 amount, server, output_sub_allowed=True):
         assert isinstance(wallet_service, WalletService)
         # payjoin is not supported for non-segwit wallets:
         assert isinstance(wallet_service.wallet,
@@ -86,6 +88,7 @@ class JMPayjoinManager(object):
         assert amount > 0
         self.amount = amount
         self.server = server
+        self.output_sub_allowed = output_sub_allowed
         self.pj_state = self.JM_PJ_INIT
         self.payment_tx = None
         self.initial_psbt = None
@@ -364,8 +367,11 @@ def parse_payjoin_setup(bip21_uri, wallet_service, mixdepth):
     # this will throw for any invalid address:
     destaddr = btc.CCoinAddress(destaddr)
     server = decoded["pj"]
-
-    return JMPayjoinManager(wallet_service, mixdepth, destaddr, amount, server)
+    os_allowed = True
+    if "pjos" in decoded and decoded["pjos"] == "0":
+        os_allowed = False
+    return JMPayjoinManager(wallet_service, mixdepth, destaddr, amount, server,
+                            output_sub_allowed=os_allowed)
 
 def send_payjoin(manager, accept_callback=None,
                  info_callback=None, tls_whitelist=None):
