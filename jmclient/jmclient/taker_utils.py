@@ -5,7 +5,6 @@ import os
 import sys
 import time
 import numbers
-from binascii import hexlify
 
 from jmbase import get_log, jmprint
 from .configure import jm_single, validate_address, is_burn_destination

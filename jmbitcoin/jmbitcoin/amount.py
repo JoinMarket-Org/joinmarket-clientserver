@@ -21,7 +21,7 @@ def sat_to_btc(sat):
 
 def amount_to_sat(amount_str):
     amount_str = str(amount_str).strip()
-    if re.compile("^[0-9]{1,8}(\.)?([0-9]{1,8})?(btc|sat)?$").match(
+    if re.compile(r"^[0-9]{1,8}(\.)?([0-9]{1,8})?(btc|sat)?$").match(
                   amount_str.lower()) is None:
         raise ValueError("Invalid BTC amount string " + amount_str)
     if amount_str.lower().endswith("btc"):

@@ -5,7 +5,6 @@ import time
 import ast
 import binascii
 import sys
-import itertools
 from decimal import Decimal
 from copy import deepcopy
 from twisted.internet import reactor

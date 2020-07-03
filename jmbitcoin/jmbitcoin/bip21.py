@@ -15,7 +15,7 @@ def is_bip21_uri(uri):
 
 
 def is_bip21_amount_str(amount):
-    return re.compile("^[0-9]{1,8}(\.[0-9]{1,8})?$").match(str(amount)) != None
+    return re.compile(r"^[0-9]{1,8}(\.[0-9]{1,8})?$").match(str(amount)) != None
 
 
 def validate_bip21_amount(amount):

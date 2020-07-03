@@ -1706,12 +1706,6 @@ class FidelityBondMixin(object):
     def is_timelocked_path(cls, path):
         return len(path) > 4 and path[4] == cls.BIP32_TIMELOCK_ID
 
-    def get_xpub_from_fidelity_bond_master_pub_key(cls, mpk):
-        if mpk.startswith(cls._BIP32_PUBKEY_PREFIX):
-            return mpk[len(cls._BIP32_PUBKEY_PREFIX):]
-        else:
-            return False
-
     def _get_key_ident(self):
         first_path = self.get_path(0, 0)
         priv, engine = self._get_key_from_path(first_path)
