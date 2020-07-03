@@ -1,4 +1,5 @@
 -r base.txt
+pywin32; platform_system == "Windows"
 PySide2
 PyQt5==5.14.2
 qrcode[pil]
