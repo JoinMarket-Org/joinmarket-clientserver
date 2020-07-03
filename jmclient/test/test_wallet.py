@@ -70,7 +70,7 @@ def test_bip39_seeds(monkeypatch, setup_wallet, entropy, mnemonic, key, xpriv):
     storage = VolatileStorage()
     SegwitLegacyWallet.initialize(
         storage, get_network(), entropy=created_entropy,
-        entropy_extension=b'TREZOR', max_mixdepth=4)
+        entropy_extension='TREZOR', max_mixdepth=4)
     wallet = SegwitLegacyWallet(storage)
     assert (mnemonic, b'TREZOR') == wallet.get_mnemonic_words()
     assert key == hexlify(wallet._create_master_key()).decode('ascii')
