@@ -68,37 +68,47 @@ def test_bip21_encode():
         }) ==
         'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr'
     )
+    # Both dictionary and list of tuples should work
     assert(
-        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
-            'amount': 20.3,
-            'label': 'Luke-Jr'
-        }) ==
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('label', 'Luke-Jr')
+        ]) ==
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr'
+    )
+    # Use list of tuples version for multiple parameter tests, as dicts don't
+    # have guaranteed ordering.
+    assert(
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('amount', 20.3),
+            ('label', 'Luke-Jr')
+        ]) ==
         'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&label=Luke-Jr'
     )
     assert(
-        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
-            'amount': 50,
-            'label': 'Luke-Jr',
-            'message': 'Donation for project xyz'
-        }) ==
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('amount', 50),
+            ('label', 'Luke-Jr'),
+            ('message', 'Donation for project xyz')
+        ]) ==
         'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=50&label=Luke-Jr&message=Donation%20for%20project%20xyz'
     )
     assert(
-        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
-            'req-somethingyoudontunderstand': 50,
-            'req-somethingelseyoudontget': 999
-        }) ==
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('req-somethingyoudontunderstand', 50),
+            ('req-somethingelseyoudontget', 999)
+        ]) ==
         'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?req-somethingyoudontunderstand=50&req-somethingelseyoudontget=999'
     )
     assert(
-        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
-            'somethingyoudontunderstand': 50,
-            'somethingelseyoudontget': 999
-        }) ==
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('somethingyoudontunderstand', 50),
+            ('somethingelseyoudontget', 999)
+        ]) ==
         'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?somethingyoudontunderstand=50&somethingelseyoudontget=999'
     )
     # Invalid amounts must raise ValueError
     with pytest.raises(ValueError):
+        # test dicts
         btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
             'amount': ''
         })
@@ -114,3 +124,20 @@ def test_bip21_encode():
         btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', {
             'amount': '100000000'
         })
+        # test list of tuples
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('amount', '')
+        ])
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('amount', 'XYZ')
+        ])
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('amount', '100\'000')
+        ])
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('amount', '100,000')
+        ])
+        btc.encode_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W', [
+            ('amount', '100000000')
+        ])
+
