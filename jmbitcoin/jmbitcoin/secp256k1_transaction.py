@@ -16,7 +16,9 @@ from bitcointx.core.script import *
 from bitcointx.wallet import (P2WPKHCoinAddress, CCoinAddress, P2PKHCoinAddress,
                               CCoinAddressError)
 from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
-                                       SCRIPT_VERIFY_P2SH, SIGVERSION_WITNESS_V0)
+                                       SCRIPT_VERIFY_P2SH,
+                                       SCRIPT_VERIFY_STRICTENC,
+                                       SIGVERSION_WITNESS_V0)
 
 def human_readable_transaction(tx, jsonified=True):
     """ Given a CTransaction object, output a human
@@ -203,7 +205,7 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
     or: (None, errormsg) in case of failure
     """
     # script verification flags
-    flags = set()
+    flags = set([SCRIPT_VERIFY_STRICTENC])
 
     def return_err(e):
         return None, "Error in signing: " + repr(e)
@@ -320,7 +322,7 @@ def make_shuffled_tx(ins, outs, version=1, locktime=0):
 
 def verify_tx_input(tx, i, scriptSig, scriptPubKey, amount=None,
                     witness=None, native=False):
-    flags = set()
+    flags = set([SCRIPT_VERIFY_STRICTENC])
     if witness:
         flags.add(SCRIPT_VERIFY_P2SH)
     if native:
