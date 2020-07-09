@@ -74,28 +74,41 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
     ```
     /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
     ```
-3) Install python3 and libsodium
+3) Install automake, libtool, and libsodium
     ```
-    brew install python libsodium
+    brew install automake libtool libsodium
     ```
-4) Create virtualenv "jmvenv"
-    ```sh
-    pip3 install virtualenv
-    virtualenv jmvenv
-    source jmvenv/bin/activate
+4) Build secp256k1
     ```
-    At this point you should see `(jmvenv)` at the beginning of your command prompt.
-
+    git clone https://github.com/bitcoin-core/secp256k1
+    cd secp256k1
+    git checkout 0d9540b13ffcd7cd44cc361b8744b93d88aa76ba
+    ./autogen.sh
+    ./configure --enable-module-recovery --disable-jni --enable-experimental --enable-module-ecdh --enable-benchmark=no
+    make
+    make check
+    sudo make install
+    cd ..
+    rm -rf secp256k1
+    ```
 5) Clone the joinmarket-clientserver repo.
     ```
     git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
     cd joinmarket-clientserver
     ```
-6) Setup joinmarket-qt
+6) Create virtualenv "jmvenv"
+    ```sh
+    sudo pip3 install virtualenv
+    virtualenv jmvenv
+    source jmvenv/bin/activate
+    ```
+    At this point you should see `(jmvenv)` at the beginning of your command prompt.
+
+7) Setup joinmarket-qt
     ```
     pip install -r requirements/gui.txt
     ```
-7) Start joinmarket-qt
+8) Start joinmarket-qt
     ```
     cd scripts
     python joinmarket-qt.py

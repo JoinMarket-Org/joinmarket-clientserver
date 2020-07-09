@@ -50,7 +50,7 @@ First thing to do: go into `scripts/`, and run:
 This *should* quit with an error, because the connection to Bitcoin Core is not configured; we'll cover that in the next section.
 However, this first run will have automatically created a data directory.
 Locate the newly created file `joinmarket.cfg` which will be in your user home directory under `.joinmarket/`.
-So on Linux you should find it under `/home/username/.joinmarket/joinmarket.cfg`, and similarly for MacOS and Windows.
+So on Linux you should find it under `/home/username/.joinmarket/joinmarket.cfg`, and similarly for macOS and Windows.
 You should see the following files and folders for an initial setup:
 
 ```

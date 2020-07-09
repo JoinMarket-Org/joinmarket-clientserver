@@ -24,12 +24,14 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 * PayJoin - both [BIP78](https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki) to pay users of other wallets (e.g. merchants), as well as between two JM wallet users. This is a way to boost fungibility/privacy while paying.
 * Protection from [forced address reuse](https://en.bitcoin.it/wiki/Privacy#Forced_address_reuse) attacks.
 
-### Quickstart - RECOMMENDED INSTALLATION METHOD (Linux only)
+### Quickstart - RECOMMENDED INSTALLATION METHOD (Linux and macOS only)
 
 Once you've downloaded this repo, either as a tar/zip file, and extracted it, or via `git clone`:
 
 Make sure to validate the signature on the tar/zip file provided on the [release page](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases),
 or check the signature in git if you install that way using `git log --show-signature`.
+
+**macOS users**: Make sure that you have Homebrew and Apple's Command Line Tools installed.
 
     ./install.sh
     (follow instructions on screen; provide sudo password when prompted)
@@ -48,7 +50,7 @@ Alternative to this "quickstart": follow the [install guide](docs/INSTALL.md).
 
 ### More installation guides
 
-* Installation on MacOS or Windows. Follow [this install guide](docs/INSTALL.md).
+* Installation on macOS or Windows. Follow [this install guide](docs/INSTALL.md).
 * [Installation guide for RaspiBlitz](https://github.com/openoms/bitcoin-tutorials/blob/master/joinmarket/README.md).
 * [Installation guide for RaspiBolt](https://github.com/kristapsk/raspibolt-extras/blob/master/joinmarket.md).
 * [Installation guide for Qubes+Whonix](https://github.com/qubenix/qubes-whonix-bitcoin/blob/master/1_joinmarket.md).

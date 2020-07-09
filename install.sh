@@ -30,7 +30,7 @@ http_get ()
 
 deps_install ()
 {
-    common_deps=( \
+    debian_deps=( \
         'curl' \
         'build-essential' \
         'automake' \
@@ -41,13 +41,20 @@ deps_install ()
         'virtualenv' \
         'python3-pip' )
 
+    darwin_deps=( \
+        'automake' \
+        'libtool' )
+
     if ! is_python3; then
         echo "Python 2 is no longer supported. Please use a compatible Python 3 version."
         return 1
     fi
 
     if [[ ${install_os} == 'debian' ]]; then
-        deb_deps_install "${common_deps[@]}"
+        deb_deps_install "${debian_deps[@]}"
+        return "$?"
+    elif [[ ${install_os} == 'darwin' ]]; then
+        dar_deps_install "${darwin_deps[@]}"
         return "$?"
     else
         echo "OS can not be determined. Trying to build."
@@ -73,6 +80,22 @@ deb_deps_install ()
         if ! sudo apt-get install ${deb_deps[@]}; then
             return 1
         fi
+    fi
+}
+
+dar_deps_install ()
+{
+    dar_deps=( ${@} )
+    if ! brew install ${dar_deps[@]}; then
+        return 1
+    fi
+    echo "
+        sudo password required to run :
+
+        \`sudo pip3 install virtualenv\`
+        "
+    if ! sudo pip3 install virtualenv; then
+        return 1
     fi
 }
 
@@ -394,6 +417,11 @@ os_is_deb ()
     ( which apt-get && which dpkg-query ) 2>/dev/null 1>&2
 }
 
+os_is_dar ()
+{
+    [[ "$(uname)" == "Darwin" ]]
+}
+
 is_python3 ()
 {
     if [[ ${python} == python3* ]]; then
@@ -409,6 +437,8 @@ install_get_os ()
 {
     if os_is_deb; then
         echo 'debian'
+    elif os_is_dar; then
+        echo 'darwin'
     else
         echo 'unknown'
     fi
