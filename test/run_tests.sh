@@ -9,6 +9,9 @@ sha256_verify ()
     if [[ "$(uname)" == "Darwin" ]]; then
         shasum -a 256 -c <<<"$1  $2"
         return "$?"
+    elif [[ "$(uname)" == "FreeBSD" ]]; then
+        sha256 -c "$1" "$2"
+        return "$?"
     else
         sha256sum -c <<<"$1  $2"
         return "$?"
