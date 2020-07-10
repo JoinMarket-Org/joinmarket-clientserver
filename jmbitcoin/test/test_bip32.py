@@ -103,9 +103,9 @@ def test_ckd_pubkeys():
 def test_bip32_descend():
     master = btc.bip32_master_key(b'\x07'*32)
     end_key = btc.bip32_descend(master, [2, 3, 10000])
-    assert end_key=="6856ef965940a1a7b1311dc041050ac0013e326c7ff4e2c677a7694b4f0405c901"
+    assert end_key==binascii.unhexlify("6856ef965940a1a7b1311dc041050ac0013e326c7ff4e2c677a7694b4f0405c901")
     end_key = btc.bip32_descend(master, 2, 5, 4, 5)
-    assert end_key=="d2d816b6485103c0d7ff95482788f0e8e73fa11817079e006d47979d8196c4b101"
+    assert end_key==binascii.unhexlify("d2d816b6485103c0d7ff95482788f0e8e73fa11817079e006d47979d8196c4b101")
 
     
 

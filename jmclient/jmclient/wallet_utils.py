@@ -1,4 +1,3 @@
-from future.utils import iteritems
 import json
 import os
 import sys
@@ -16,7 +15,8 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     LegacyWallet, SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
     is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
 from jmclient.wallet_service import WalletService
-from jmbase.support import get_password, jmprint, EXIT_FAILURE, EXIT_ARGERROR
+from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
+                            EXIT_ARGERROR, utxo_to_utxostr, hextobin)
 
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
     TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
@@ -323,9 +323,8 @@ def get_tx_info(txid):
     """
     rpctx = jm_single().bc_interface.get_transaction(txid)
     txhex = str(rpctx['hex'])
-    txd = btc.deserialize(txhex)
-    output_script_values = {binascii.unhexlify(sv['script']): sv['value']
-                            for sv in txd['outs']}
+    tx = btc.CMutableTransaction.deserialize(hextobin(txhex))
+    output_script_values = {x.scriptPubKey: x.nValue for x in tx.vout}
     value_freq_list = sorted(
         Counter(output_script_values.values()).most_common(),
         key=lambda x: -x[1])
@@ -337,7 +336,7 @@ def get_tx_info(txid):
     cj_amount = value_freq_list[0][0]
     cj_n = value_freq_list[0][1]
     return is_coinjoin, cj_amount, cj_n, output_script_values,\
-        rpctx.get('blocktime', 0), txd
+        rpctx.get('blocktime', 0), tx
 
 
 def get_imported_privkey_branch(wallet_service, m, showprivkey):
@@ -346,8 +345,8 @@ def get_imported_privkey_branch(wallet_service, m, showprivkey):
         addr = wallet_service.get_address_from_path(path)
         script = wallet_service.get_script_from_path(path)
         balance = 0.0
-        for data in wallet_service.get_utxos_by_mixdepth(include_disabled=True,
-                                             hexfmt=False)[m].values():
+        for data in wallet_service.get_utxos_by_mixdepth(
+            include_disabled=True)[m].values():
             if script == data['script']:
                 balance += data['value']
         used = ('used' if balance > 0.0 else 'empty')
@@ -369,22 +368,26 @@ def wallet_showutxos(wallet, showprivkey):
     utxos = wallet.get_utxos_by_mixdepth(includeconfs=True)
     for md in utxos:
         for u, av in utxos[md].items():
+            success, us = utxo_to_utxostr(u)
+            assert success
             key = wallet.get_key_from_addr(av['address'])
             tries = podle.get_podle_tries(u, key, max_tries)
             tries_remaining = max(0, max_tries - tries)
-            unsp[u] = {'address': av['address'], 'value': av['value'],
+            unsp[us] = {'address': av['address'], 'value': av['value'],
                        'tries': tries, 'tries_remaining': tries_remaining,
                        'external': False,
                        'confirmations': av['confs']}
             if showprivkey:
-                unsp[u]['privkey'] = wallet.get_wif_path(av['path'])
+                unsp[us]['privkey'] = wallet.get_wif_path(av['path'])
 
     used_commitments, external_commitments = podle.get_podle_commitments()
-    for u, ec in iteritems(external_commitments):
+    for u, ec in external_commitments.items():
+        success, us = utxo_to_utxostr(u)
+        assert success
         tries = podle.get_podle_tries(utxo=u, max_tries=max_tries,
                                           external=True)
         tries_remaining = max(0, max_tries - tries)
-        unsp[u] = {'tries': tries, 'tries_remaining': tries_remaining,
+        unsp[us] = {'tries': tries, 'tries_remaining': tries_remaining,
                    'external': True}
 
     return json.dumps(unsp, indent=4)
@@ -399,7 +402,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     def get_addr_status(addr_path, utxos, is_new, is_internal):
         addr_balance = 0
         status = []
-        for utxo, utxodata in iteritems(utxos):
+        for utxo, utxodata in utxos.items():
             if addr_path != utxodata['path']:
                 continue
             addr_balance += utxodata['value']
@@ -410,7 +413,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             # to bci
             if jm_single().bc_interface.__class__ == BitcoinCoreInterface:
                 is_coinjoin, cj_amount, cj_n = \
-                    get_tx_info(binascii.hexlify(utxo[0]).decode('ascii'))[:3]
+                    get_tx_info(utxo[0])[:3]
                 if is_coinjoin and utxodata['value'] == cj_amount:
                     status.append('cj-out')
                 elif is_coinjoin:
@@ -431,7 +434,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     acctlist = []
     # TODO - either optionally not show disabled utxos, or
     # mark them differently in display (labels; colors)
-    utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True, hexfmt=False)
+    utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True)
     for m in range(wallet_service.mixdepth + 1):
         branchlist = []
         for address_type in [0, 1]:
@@ -769,7 +772,7 @@ def wallet_fetch_history(wallet, options):
     tx_number = 0
     for tx in txes:
         is_coinjoin, cj_amount, cj_n, output_script_values, blocktime, txd =\
-            get_tx_info(tx['txid'])
+            get_tx_info(hextobin(tx['txid']))
 
         # unconfirmed transactions don't have blocktime, get_tx_info() returns
         # 0 in that case
@@ -779,21 +782,21 @@ def wallet_fetch_history(wallet, options):
             output_script_values.keys())
 
         rpc_inputs = []
-        for ins in txd['ins']:
+        for ins in txd.vin:
             wallet_tx = jm_single().bc_interface.get_transaction(
-                ins['outpoint']['hash'])
+                ins.prevout.hash[::-1])
             if wallet_tx is None:
                 continue
-            input_dict = btc.deserialize(str(wallet_tx['hex']))['outs'][ins[
-                'outpoint']['index']]
+            inp = btc.CMutableTransaction.deserialize(hextobin(
+                wallet_tx['hex'])).vout[ins.prevout.n]
+            input_dict = {"script": inp.scriptPubKey, "value": inp.nValue}
             rpc_inputs.append(input_dict)
 
-        rpc_input_scripts = set(binascii.unhexlify(ind['script'])
-                                for ind in rpc_inputs)
+        rpc_input_scripts = set(ind['script'] for ind in rpc_inputs)
         our_input_scripts = wallet_script_set.intersection(rpc_input_scripts)
         our_input_values = [
             ind['value'] for ind in rpc_inputs
-            if binascii.unhexlify(ind['script']) in our_input_scripts]
+            if ind['script'] in our_input_scripts]
         our_input_value = sum(our_input_values)
         utxos_consumed = len(our_input_values)
 
@@ -861,7 +864,7 @@ def wallet_fetch_history(wallet, options):
             amount = cj_amount
             delta_balance = out_value - our_input_value
             mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
-            cj_script = list(set([a for a, v in iteritems(output_script_values)
+            cj_script = list(set([a for a, v in output_script_values.items()
                 if v == cj_amount]).intersection(our_output_scripts))[0]
             mixdepth_dst = wallet.get_script_mixdepth(cj_script)
         else:
@@ -959,7 +962,7 @@ def wallet_fetch_history(wallet, options):
             'history (%s)') % (btc.sat_to_str(total_wallet_balance),
                 btc.sat_to_str(balance)))
     wallet_utxo_count = sum(map(len, wallet.get_utxos_by_mixdepth(
-        include_disabled=True, hexfmt=False).values()))
+        include_disabled=True).values()))
     if utxo_count + unconfirmed_utxo_count != wallet_utxo_count:
         jmprint(('BUG ERROR: wallet utxo count (%d) does not match utxo count from ' +
             'history (%s)') % (wallet_utxo_count, utxo_count))
@@ -1084,8 +1087,8 @@ def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
 def get_utxos_enabled_disabled(wallet_service, md):
     """ Returns dicts for enabled and disabled separately
     """
-    utxos_enabled = wallet_service.get_utxos_by_mixdepth(hexfmt=False)[md]
-    utxos_all = wallet_service.get_utxos_by_mixdepth(include_disabled=True, hexfmt=False)[md]
+    utxos_enabled = wallet_service.get_utxos_by_mixdepth()[md]
+    utxos_all = wallet_service.get_utxos_by_mixdepth(include_disabled=True)[md]
     utxos_disabled_keyset = set(utxos_all).difference(set(utxos_enabled))
     utxos_disabled = {}
     for u in utxos_disabled_keyset:

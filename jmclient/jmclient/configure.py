@@ -294,6 +294,35 @@ accept_commitment_broadcasts = 1
 #Location of your commitments.json file (stores commitments you've used
 #and those you want to use in future), relative to the scripts directory.
 commit_file_location = cmtdata/commitments.json
+
+[PAYJOIN]
+# for the majority of situations, the defaults
+# need not be altered - they will ensure you don't pay
+# a significantly higher fee.
+# MODIFICATION OF THESE SETTINGS IS DISADVISED.
+
+# Payjoin protocol version; currently only '1' is supported.
+payjoin_version = 1
+
+# servers can change their destination address by default (0).
+# if '1', they cannot. Note that servers can explicitly request
+# that this is activated, in which case we respect that choice.
+disable_output_substitution = 0
+
+# "default" here indicates that we will allow the receiver to
+# increase the fee we pay by:
+# 1.2 * (our_fee_rate_per_vbyte * vsize_of_our_input_type)
+# (see https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki#span_idfeeoutputspanFee_output)
+# (and 1.2 to give breathing room)
+# which indicates we are allowing roughly one extra input's fee.
+# If it is instead set to an integer, then that many satoshis are allowed.
+# Additionally, note that we will also set the parameter additionafeeoutputindex
+# to that of our change output, unless there is none in which case this is disabled.
+max_additional_fee_contribution = default
+
+# this is the minimum satoshis per vbyte we allow in the payjoin
+# transaction; note it is decimal, not integer.
+min_fee_rate = 1.1
 """
 
 #This allows use of the jmclient package with a
@@ -366,44 +395,20 @@ def get_network():
     """Returns network name"""
     return global_singleton.config.get("BLOCKCHAIN", "network")
 
-
-def get_p2sh_vbyte():
-    return btc.BTC_P2SH_VBYTE[get_network()]
-
-
-def get_p2pk_vbyte():
-    return btc.BTC_P2PK_VBYTE[get_network()]
-
-
 def validate_address(addr):
     try:
-        assert len(addr) > 2
-        if addr[:2].lower() in ['bc', 'tb']:
-            # Regtest special case
-            if addr[:4] == 'bcrt':
-                if btc.bech32addr_decode('bcrt', addr)[1]:
-                    return True, 'address validated'
-                return False, 'Invalid bech32 regtest address'
-            #Else, enforce testnet/mainnet per config
-            if get_network() == "testnet":
-                hrpreq = 'tb'
-            else:
-                hrpreq = 'bc'
-            if btc.bech32addr_decode(hrpreq, addr)[1]:
-                return True, 'address validated'
-            return False, 'Invalid bech32 address'
-        #Not bech32; assume b58 from here
-        ver = btc.get_version_byte(addr)
-    except AssertionError:
-        return False, 'Checksum wrong. Typo in address?'
-    except Exception:
-        return False, "Invalid bitcoin address"
-    if ver != get_p2pk_vbyte() and ver != get_p2sh_vbyte():
-        return False, 'Wrong address version. Testnet/mainnet confused?'
-    if len(btc.b58check_to_bin(addr)) != 20:
-        return False, "Address has correct checksum but wrong length."
-    return True, 'address validated'
-
+        # automatically respects the network
+        # as set in btc.select_chain_params(...)
+        dummyaddr = btc.CCoinAddress(addr)
+    except Exception as e:
+        return False, repr(e)
+    # additional check necessary because python-bitcointx
+    # does not check hash length on p2sh construction.
+    try:
+        dummyaddr.to_scriptPubKey()
+    except Exception as e:
+        return False, repr(e)
+    return True, "address validated"
 
 _BURN_DESTINATION = "BURN"
 
@@ -565,6 +570,7 @@ def get_blockchain_interface_instance(_config):
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
     testnet = network == 'testnet'
+
     if source in ('bitcoin-rpc', 'regtest', 'bitcoin-rpc-no-history'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
@@ -574,10 +580,21 @@ def get_blockchain_interface_instance(_config):
             rpc_wallet_file)
         if source == 'bitcoin-rpc': #pragma: no cover
             bc_interface = BitcoinCoreInterface(rpc, network)
+            if testnet:
+                btc.select_chain_params("bitcoin/testnet")
+            else:
+                btc.select_chain_params("bitcoin")
         elif source == 'regtest':
             bc_interface = RegtestBitcoinCoreInterface(rpc)
+            btc.select_chain_params("bitcoin/regtest")
         elif source == "bitcoin-rpc-no-history":
             bc_interface = BitcoinCoreNoHistoryInterface(rpc, network)
+            if testnet or network == "regtest":
+                # in tests, for bech32 regtest addresses, for bc-no-history,
+                # this will have to be reset manually:
+                btc.select_chain_params("bitcoin/testnet")
+            else:
+                btc.select_chain_params("bitcoin")
         else:
             assert 0
     elif source == 'electrum':

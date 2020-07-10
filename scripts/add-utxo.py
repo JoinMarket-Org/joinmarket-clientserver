@@ -11,13 +11,12 @@ import os
 import json
 import binascii
 from pprint import pformat
-
 from optparse import OptionParser
-import jmbitcoin as btc
-from jmclient import load_program_config, jm_single, get_p2pk_vbyte,\
+
+from jmclient import load_program_config, jm_single,\
     open_wallet, WalletService, add_external_commitments, update_commitments,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
-    get_wallet_path, add_base_options
+    get_wallet_path, add_base_options, BTCEngine, BTC_P2SH_P2WPKH
 from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR, jmprint
 
 
@@ -32,9 +31,10 @@ def add_ext_commitments(utxo_datas):
         This calls the underlying 'raw' code based on the class PoDLE, not the
         library 'generate_podle' which intelligently searches and updates commitments.
         """
-        #Convert priv to hex
-        hexpriv = btc.from_wif_privkey(priv, vbyte=get_p2pk_vbyte())
-        podle = PoDLE(u, hexpriv)
+        #Convert priv from wif; require P2SH-P2WPKH keys
+        rawpriv, keytype = BTCEngine.wif_to_privkey(priv)
+        assert keytype == BTC_P2SH_P2WPKH
+        podle = PoDLE(u, rawpriv)
         r = podle.generate_podle(i)
         return (r['P'], r['P2'], r['sig'],
                 r['e'], r['commit'])

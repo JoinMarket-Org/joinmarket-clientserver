@@ -15,6 +15,7 @@ import base64
 import struct
 import traceback
 import threading
+import binascii
 import jmbitcoin as bitcoin
 from dummy_mc import DummyMessageChannel
 
@@ -22,10 +23,11 @@ from dummy_mc import DummyMessageChannel
 jlog = get_log()
 
 def make_valid_nick(i=0):
-    nick_priv = hashlib.sha256(struct.pack(b'B', i)*16).hexdigest() + '01'
-    nick_pubkey = bitcoin.privtopub(nick_priv)
-    nick_pkh_raw = hashlib.sha256(nick_pubkey.encode('ascii')).digest()[:NICK_HASH_LENGTH]
-    nick_pkh = bitcoin.b58encode(nick_pkh_raw)
+    nick_priv = hashlib.sha256(struct.pack(b'B', i)*16).digest() + b"\x01"
+    nick_pubkey = bitcoin.privkey_to_pubkey(nick_priv)
+    nick_pkh_raw = hashlib.sha256(binascii.hexlify(
+        nick_pubkey)).digest()[:NICK_HASH_LENGTH]
+    nick_pkh = bitcoin.base58.encode(nick_pkh_raw)
     #right pad to maximum possible; b58 is not fixed length.
     #Use 'O' as one of the 4 not included chars in base58.
     nick_pkh += 'O' * (NICK_MAX_ENCODED - len(nick_pkh))

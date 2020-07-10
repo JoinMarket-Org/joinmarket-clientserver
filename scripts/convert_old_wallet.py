@@ -7,10 +7,9 @@ from binascii import hexlify, unhexlify
 from collections import defaultdict
 from pyaes import AESModeOfOperationCBC, Decrypter
 from jmbase import JM_APP_NAME
-from jmclient import Storage, load_program_config
+from jmclient import Storage, load_program_config, BTCEngine
 from jmclient.wallet_utils import get_password, get_wallet_cls,\
     cli_get_wallet_passphrase_check, get_wallet_path
-from jmbitcoin import wif_compressed_privkey
 
 
 class ConvertException(Exception):
@@ -99,7 +98,7 @@ def new_wallet_from_data(data, file_name):
         for md in data['imported']:
             for privkey in data['imported'][md]:
                 privkey += b'\x01'
-                wif = wif_compressed_privkey(hexlify(privkey).decode('ascii'))
+                wif = BTCEngine.privkey_to_wif(privkey)
                 wallet.import_private_key(md, wif)
 
     wallet.save()

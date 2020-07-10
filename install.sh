@@ -234,6 +234,40 @@ libffi_install ()
     popd
 }
 
+libsecp256k1_build()
+{
+    make clean
+    ./autogen.sh
+    ./configure \
+    --enable-module-recovery \
+    --disable-jni \
+    --prefix "${jm_root}" \
+    --enable-experimental \
+    --enable-module-ecdh \
+    --enable-benchmark=no
+    make
+    if ! make check; then
+        return 1
+    fi
+}
+
+libsecp256k1_install()
+{
+    secp256k1_lib_tar='0d9540b13ffcd7cd44cc361b8744b93d88aa76ba'
+    secp256k1_lib_sha="0803d2dddbf6dd702c379118f066f638bcef6b07eea959f12d31ad2f4721fbe1"
+    secp256k1_lib_url='https://github.com/bitcoin-core/secp256k1/archive'
+    if ! dep_get "${secp256k1_lib_tar}.tar.gz" "${secp256k1_lib_sha}" "${secp256k1_lib_url}"; then
+        return 1
+    fi
+    pushd "secp256k1-${secp256k1_lib_tar}"
+    if libsecp256k1_build; then
+        make install
+    else
+        return 1
+    fi
+    popd
+}
+
 libsodium_build ()
 {
     make uninstall
@@ -419,6 +453,10 @@ main ()
 #        echo "Openssl was not built. Exiting."
 #        return 1
 #    fi
+    if ! libsecp256k1_install; then
+        echo "libsecp256k1 was not built. Exiting."
+        return 1
+    fi
     if ! libffi_install; then
         echo "Libffi was not built. Exiting."
         return 1

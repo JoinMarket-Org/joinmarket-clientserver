@@ -1,19 +1,18 @@
-from future.utils import iteritems
 import logging
 import pprint
 import os
 import sys
 import time
 import numbers
-
-from jmbase import get_log, jmprint
+from jmbase import get_log, jmprint, bintohex, hextobin
 from .configure import jm_single, validate_address, is_burn_destination
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime, \
     FidelityBondMixin
-from jmbitcoin import deserialize, make_shuffled_tx, serialize, txhash,\
-    amount_to_str, mk_burn_script, bin_hash160
+from jmbitcoin import make_shuffled_tx, amount_to_str, mk_burn_script,\
+                       PartiallySignedTransaction, CMutableTxOut,\
+                       human_readable_transaction, Hash160
 from jmbase.support import EXIT_SUCCESS
 log = get_log()
 
@@ -23,10 +22,13 @@ Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
 
 def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
-                accept_callback=None, info_callback=None):
+                accept_callback=None, info_callback=None,
+                return_transaction=False, with_final_psbt=False,
+                optin_rbf=False):
     """Send coins directly from one mixdepth to one destination address;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
     If answeryes is True, callback/command line query is not performed.
+    If optin_rbf is True, the nSequence values are changed as appropriate.
     If accept_callback is None, command line input for acceptance is assumed,
     else this callback is called:
     accept_callback:
@@ -40,7 +42,13 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     pushed), and returns nothing.
 
     This function returns:
-    The txid if transaction is pushed, False otherwise
+    1. False if there is any failure.
+    2. The txid if transaction is pushed, and return_transaction is False,
+       and with_final_psbt is False.
+    3. The full CMutableTransaction is return_transaction is True and
+       with_final_psbt is False.
+    4. The PSBT object if with_final_psbt is True, and in
+       this case the transaction is *NOT* broadcast.
     """
     #Sanity checks
     assert validate_address(destination)[0] or is_burn_destination(destination)
@@ -75,8 +83,7 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             log.error(
                 "There are no available utxos in mixdepth: " + str(mixdepth) + ", quitting.")
             return
-
-        total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
+        total_inputs_val = sum([va['value'] for u, va in utxos.items()])
 
         if is_burn_destination(destination):
             if len(utxos) > 1:
@@ -88,10 +95,10 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             path = wallet_service.wallet.get_path(mixdepth, address_type, index)
             privkey, engine = wallet_service.wallet._get_key_from_path(path)
             pubkey = engine.privkey_to_pubkey(privkey)
-            pubkeyhash = bin_hash160(pubkey)
+            pubkeyhash = Hash160(pubkey)
 
             #size of burn output is slightly different from regular outputs
-            burn_script = mk_burn_script(pubkeyhash) #in hex
+            burn_script = mk_burn_script(pubkeyhash)
             fee_est = estimate_tx_fee(len(utxos), 0, txtype=txtype, extra_bytes=len(burn_script)/2)
 
             outs = [{"script": burn_script, "value": total_inputs_val - fee_est}]
@@ -110,7 +117,7 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype)
         else:
             fee_est = initial_fee_est
-        total_inputs_val = sum([va['value'] for u, va in iteritems(utxos)])
+        total_inputs_val = sum([va['value'] for u, va in utxos.items()])
         changeval = total_inputs_val - fee_est - amount
         outs = [{"value": amount, "address": destination}]
         change_addr = wallet_service.get_internal_addr(mixdepth)
@@ -136,42 +143,57 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     log.info("Using a fee of : " + amount_to_str(fee_est) + ".")
     if amount != 0:
         log.info("Using a change value of: " + amount_to_str(changeval) + ".")
-    txsigned = sign_tx(wallet_service, make_shuffled_tx(
-        list(utxos.keys()), outs, False, 2, tx_locktime), utxos)
-    log.info("Got signed transaction:\n")
-    log.info(pformat(txsigned))
-    tx = serialize(txsigned)
-    log.info("In serialized form (for copy-paste):")
-    log.info(tx)
-    actual_amount = amount if amount != 0 else total_inputs_val - fee_est
-    log.info("Sends: " + amount_to_str(actual_amount) + " to destination: " + destination)
-    if not answeryes:
-        if not accept_callback:
-            if input('Would you like to push to the network? (y/n):')[0] != 'y':
-                log.info("You chose not to broadcast the transaction, quitting.")
-                return False
-        else:
-            accepted = accept_callback(pformat(txsigned), destination, actual_amount,
-                                       fee_est)
-            if not accepted:
-                return False
-    jm_single().bc_interface.pushtx(tx)
-    txid = txhash(tx)
-    successmsg = "Transaction sent: " + txid
-    cb = log.info if not info_callback else info_callback
-    cb(successmsg)
-    return txid
+    tx = make_shuffled_tx(list(utxos.keys()), outs, 2, tx_locktime)
 
+    if optin_rbf:
+        for inp in tx.vin:
+            inp.nSequence = 0xffffffff - 2
 
-def sign_tx(wallet_service, tx, utxos):
-    stx = deserialize(tx)
-    our_inputs = {}
-    for index, ins in enumerate(stx['ins']):
-        utxo = ins['outpoint']['hash'] + ':' + str(ins['outpoint']['index'])
-        script = wallet_service.addr_to_script(utxos[utxo]['address'])
-        amount = utxos[utxo]['value']
-        our_inputs[index] = (script, amount)
-    return wallet_service.sign_tx(stx, our_inputs)
+    inscripts = {}
+    spent_outs = []
+    for i, txinp in enumerate(tx.vin):
+        u = (txinp.prevout.hash[::-1], txinp.prevout.n)
+        inscripts[i] = (utxos[u]["script"], utxos[u]["value"])
+        spent_outs.append(CMutableTxOut(utxos[u]["value"],
+                                        utxos[u]["script"]))
+    if with_final_psbt:
+        # here we have the PSBTWalletMixin do the signing stage
+        # for us:
+        new_psbt = wallet_service.create_psbt_from_tx(tx, spent_outs=spent_outs)
+        serialized_psbt, err = wallet_service.sign_psbt(new_psbt.serialize())
+        if err:
+            log.error("Failed to sign PSBT, quitting. Error message: " + err)
+            return False
+        new_psbt_signed = PartiallySignedTransaction.deserialize(serialized_psbt)
+        print("Completed PSBT created: ")
+        print(wallet_service.human_readable_psbt(new_psbt_signed))
+        return new_psbt_signed
+    else:
+        success, msg = wallet_service.sign_tx(tx, inscripts)
+        if not success:
+            log.error("Failed to sign transaction, quitting. Error msg: " + msg)
+            return
+        log.info("Got signed transaction:\n")
+        log.info(human_readable_transaction(tx))
+        actual_amount = amount if amount != 0 else total_inputs_val - fee_est
+        log.info("Sends: " + amount_to_str(actual_amount) + " to destination: " + destination)
+        if not answeryes:
+            if not accept_callback:
+                if input('Would you like to push to the network? (y/n):')[0] != 'y':
+                    log.info("You chose not to broadcast the transaction, quitting.")
+                    return False
+            else:
+                accepted = accept_callback(human_readable_transaction(tx),
+                                           destination, actual_amount, fee_est)
+                if not accepted:
+                    return False
+        jm_single().bc_interface.pushtx(tx.serialize())
+        txid = bintohex(tx.GetTxid()[::-1])
+        successmsg = "Transaction sent: " + txid
+        cb = log.info if not info_callback else info_callback
+        cb(successmsg)
+        txinfo = txid if not return_transaction else tx
+        return txinfo
 
 def get_tumble_log(logsdir):
     tumble_log = logging.getLogger('tumbler')
@@ -188,7 +210,7 @@ def restart_wait(txid):
     and confirmed (it must be an in-wallet transaction since it always
     spends coins from the wallet).
     """
-    res = jm_single().bc_interface.get_transaction(txid)
+    res = jm_single().bc_interface.get_transaction(hextobin(txid))
     if not res:
         return False
     if res["confirmations"] == 0:

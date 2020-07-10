@@ -1,11 +1,11 @@
 
-
-from binascii import hexlify, unhexlify
 from collections import OrderedDict
 import struct
 
 import jmbitcoin as btc
-from .configure import get_network, jm_single
+from jmbase import bintohex
+from .configure import get_network
+
 
 #NOTE: before fidelity bonds and watchonly wallet, each of these types corresponded
 # to one wallet type and one engine, not anymore
@@ -19,20 +19,30 @@ NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET}
 WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef'}
 BIP44_COIN_MAP = {'mainnet': 2**31, 'testnet': 2**31 + 1}
 
-def detect_script_type(script):
-    if script.startswith(btc.P2PKH_PRE) and script.endswith(btc.P2PKH_POST) and\
-       len(script) == 0x14 + len(btc.P2PKH_PRE) + len(btc.P2PKH_POST):
+def detect_script_type(script_str):
+    """ Given a scriptPubKey, decide which engine
+    to use, one of: p2pkh, p2sh-p2wpkh, p2wpkh.
+    Note that for the p2sh case, we are assuming the nature
+    of the redeem script (p2wpkh wrapped) because that is what
+    we support; but we can't know for sure, from the sPK only.
+    Raises EngineError if the type cannot be detected, so
+    callers MUST handle this exception to avoid crashes.
+    """
+    script = btc.CScript(script_str)
+    if not script.is_valid():
+        raise EngineError("Unknown script type for script '{}'"
+                          .format(bintohex(script_str)))
+    if script.is_p2pkh():
         return TYPE_P2PKH
-    elif (script.startswith(btc.P2SH_P2WPKH_PRE) and
-          script.endswith(btc.P2SH_P2WPKH_POST) and
-          len(script) == 0x14 + len(btc.P2SH_P2WPKH_PRE) + len(
-              btc.P2SH_P2WPKH_POST)):
+    elif script.is_p2sh():
+        # see note above.
+        # note that is_witness_v0_nested_keyhash does not apply,
+        # since that picks up scriptSigs not scriptPubKeys.
         return TYPE_P2SH_P2WPKH
-    elif script.startswith(btc.P2WPKH_PRE) and\
-            len(script) == 0x14 + len(btc.P2WPKH_PRE):
+    elif script.is_witness_v0_keyhash():
         return TYPE_P2WPKH
     raise EngineError("Unknown script type for script '{}'"
-                      .format(hexlify(script)))
+                      .format(bintohex(script_str)))
 
 class classproperty(object):
     """
@@ -97,28 +107,38 @@ class BTCEngine(object):
 
     @staticmethod
     def privkey_to_pubkey(privkey):
-        return btc.privkey_to_pubkey(privkey, False)
+        return btc.privkey_to_pubkey(privkey)
 
     @staticmethod
     def address_to_script(addr):
-        return unhexlify(btc.address_to_script(addr))
+        return btc.CCoinAddress(addr).to_scriptPubKey()
 
     @classmethod
     def wif_to_privkey(cls, wif):
-        raw = btc.b58check_to_bin(wif)
+        raw = btc.b58check_to_bin(wif)[1]
+        # see note to `privkey_to_wif`; same applies here.
+        # We only handle valid private keys, not any byte string.
+        btc.read_privkey(raw)
+
         vbyte = struct.unpack('B', btc.get_version_byte(wif))[0]
 
-        if (struct.unpack('B', btc.BTC_P2PK_VBYTE[get_network()])[0] + struct.unpack('B', cls.WIF_PREFIX)[0]) & 0xff == vbyte:
+        if (struct.unpack('B', btc.BTC_P2PK_VBYTE[get_network()])[0] + \
+            struct.unpack('B', cls.WIF_PREFIX)[0]) & 0xff == vbyte:
             key_type = TYPE_P2PKH
-        elif (struct.unpack('B', btc.BTC_P2SH_VBYTE[get_network()])[0] + struct.unpack('B', cls.WIF_PREFIX)[0]) & 0xff == vbyte:
+        elif (struct.unpack('B', btc.BTC_P2SH_VBYTE[get_network()])[0] + \
+              struct.unpack('B', cls.WIF_PREFIX)[0]) & 0xff == vbyte:
             key_type = TYPE_P2SH_P2WPKH
         else:
             key_type = None
-
         return raw, key_type
 
     @classmethod
     def privkey_to_wif(cls, priv):
+        # refuse to WIF-ify something that we don't recognize
+        # as a private key; ignoring the return value of this
+        # function as we only want to raise whatever Exception
+        # it does:
+        btc.read_privkey(priv)
         return btc.bin_to_b58check(priv, cls.WIF_PREFIX)
 
     @classmethod
@@ -166,12 +186,12 @@ class BTCEngine(object):
     @classmethod
     def privkey_to_address(cls, privkey):
         script = cls.key_to_script(privkey)
-        return btc.script_to_address(script, cls.VBYTE)
+        return str(btc.CCoinAddress.from_scriptPubKey(script))
 
     @classmethod
     def pubkey_to_address(cls, pubkey):
         script = cls.pubkey_to_script(pubkey)
-        return btc.script_to_address(script, cls.VBYTE)
+        return str(btc.CCoinAddress.from_scriptPubKey(script))
 
     @classmethod
     def pubkey_has_address(cls, pubkey, addr):
@@ -203,7 +223,12 @@ class BTCEngine(object):
 
     @classmethod
     def script_to_address(cls, script):
-        return btc.script_to_address(script, vbyte=cls.VBYTE)
+        """ a script passed in as binary converted to a
+        Bitcoin address of the appropriate type.
+        """
+        s = btc.CScript(script)
+        assert s.is_valid()
+        return str(btc.CCoinAddress.from_scriptPubKey(s))
 
 
 class BTC_P2PKH(BTCEngine):
@@ -213,6 +238,7 @@ class BTC_P2PKH(BTCEngine):
 
     @classmethod
     def pubkey_to_script(cls, pubkey):
+        # this call does not enforce compressed:
         return btc.pubkey_to_p2pkh_script(pubkey)
 
     @classmethod
@@ -222,7 +248,7 @@ class BTC_P2PKH(BTCEngine):
     @classmethod
     def sign_transaction(cls, tx, index, privkey, *args, **kwargs):
         hashcode = kwargs.get('hashcode') or btc.SIGHASH_ALL
-        return btc.sign(btc.serialize(tx), index, privkey,
+        return btc.sign(tx, index, privkey,
                         hashcode=hashcode, amount=None, native=False)
 
 
@@ -250,8 +276,9 @@ class BTC_P2SH_P2WPKH(BTCEngine):
     def sign_transaction(cls, tx, index, privkey, amount,
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         assert amount is not None
-        return btc.sign(btc.serialize(tx), index, privkey,
+        a, b = btc.sign(tx, index, privkey,
                         hashcode=hashcode, amount=amount, native=False)
+        return a, b
 
 class BTC_P2WPKH(BTCEngine):
 
@@ -286,8 +313,8 @@ class BTC_P2WPKH(BTCEngine):
     def sign_transaction(cls, tx, index, privkey, amount,
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         assert amount is not None
-        return btc.sign(btc.serialize(tx), index, privkey,
-                        hashcode=hashcode, amount=amount, native=True)
+        return btc.sign(tx, index, privkey,
+                        hashcode=hashcode, amount=amount, native="p2wpkh")
 
 class BTC_Timelocked_P2WSH(BTCEngine):
 
@@ -335,16 +362,10 @@ class BTC_Timelocked_P2WSH(BTCEngine):
     def sign_transaction(cls, tx, index, privkey_locktime, amount,
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         assert amount is not None
-
-        privkey, locktime = privkey_locktime
-        privkey = hexlify(privkey).decode()
-        pubkey = btc.privkey_to_pubkey(privkey)
-        pubkey = unhexlify(pubkey)
-        redeem_script = cls.pubkey_to_script_code((pubkey, locktime))
-        tx = btc.serialize(tx)
-        sig = btc.get_p2sh_signature(tx, index, redeem_script, privkey,
-            amount)
-        return btc.apply_freeze_signature(tx, index, redeem_script, sig)
+        priv, locktime = privkey_locktime
+        pub = cls.privkey_to_pubkey(priv)
+        redeem_script = cls.pubkey_to_script_code((pub, locktime))
+        return btc.sign(tx, index, priv, amount=amount, native=redeem_script)
 
 class BTC_Watchonly_Timelocked_P2WSH(BTC_Timelocked_P2WSH):
 

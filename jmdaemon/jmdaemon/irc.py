@@ -17,7 +17,6 @@ def wlog(*x):
     """Simplifier to add lists to the debug log
     """
     def conv(s):
-        # note: this only works because of the future package
         if isinstance(s, str):
             return s
         elif isinstance(s, bytes):

@@ -5,6 +5,8 @@ import functools
 import collections
 import numbers
 import random
+import base64
+import json
 from binascii import hexlify, unhexlify
 from datetime import datetime
 from calendar import timegm
@@ -27,7 +29,7 @@ from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
-from jmbase import JM_WALLET_NAME_PREFIX
+from jmbase import JM_WALLET_NAME_PREFIX, bintohex
 
 
 """
@@ -198,7 +200,8 @@ class UTXOManager(object):
         assert isinstance(index, numbers.Integral)
         assert isinstance(mixdepth, numbers.Integral)
 
-        return self._utxo[mixdepth].pop((txid, index))
+        x = self._utxo[mixdepth].pop((txid, index))
+        return x
 
     def add_utxo(self, txid, index, path, value, mixdepth, height=None):
         # Assumed: that we add a utxo only if we want it enabled,
@@ -433,19 +436,22 @@ class BaseWallet(object):
         Add signatures to transaction for inputs referenced by scripts.
 
         args:
-            tx: transaction dict
+            tx: CMutableTransaction object
             scripts: {input_index: (output_script, amount)}
             kwargs: additional arguments for engine.sign_transaction
         returns:
-            input transaction dict with added signatures, hex-encoded.
+            True, None if success.
+            False, msg if signing failed, with error msg.
         """
         for index, (script, amount) in scripts.items():
             assert amount > 0
             path = self.script_to_path(script)
             privkey, engine = self._get_key_from_path(path)
-            tx = btc.deserialize(engine.sign_transaction(tx, index, privkey,
-                                                         amount, **kwargs))
-        return tx
+            sig, msg = engine.sign_transaction(tx, index, privkey,
+                                                         amount, **kwargs)
+            if not sig:
+                return False, msg
+        return True, None
 
     @deprecated
     def get_key_from_addr(self, addr):
@@ -455,7 +461,7 @@ class BaseWallet(object):
         script = self._ENGINE.address_to_script(addr)
         path = self.script_to_path(script)
         privkey = self._get_key_from_path(path)[0]
-        return hexlify(privkey).decode('ascii')
+        return privkey
 
     def _get_addr_int_ext(self, address_type, mixdepth):
         if address_type == self.ADDRESS_TYPE_EXTERNAL:
@@ -578,32 +584,19 @@ class BaseWallet(object):
         """
         self.save()
 
-    @deprecated
     def remove_old_utxos(self, tx):
-        tx = deepcopy(tx)
-        for inp in tx['ins']:
-            inp['outpoint']['hash'] = unhexlify(inp['outpoint']['hash'])
-
-        ret = self.remove_old_utxos_(tx)
-
-        removed_utxos = {}
-        for (txid, index), val in ret.items():
-            val['address'] = self.get_address_from_path(val['path'])
-            removed_utxos[hexlify(txid).decode('ascii') + ':' + str(index)] = val
-        return removed_utxos
-
-    def remove_old_utxos_(self, tx):
         """
         Remove all own inputs of tx from internal utxo list.
 
         args:
-            tx: transaction dict
+            tx: CMutableTransaction
         returns:
             {(txid, index): {'script': bytes, 'path': str, 'value': int} for all removed utxos
         """
         removed_utxos = {}
-        for inp in tx['ins']:
-            txid, index = inp['outpoint']['hash'], inp['outpoint']['index']
+        for inp in tx.vin:
+            txid = inp.prevout.hash[::-1]
+            index = inp.prevout.n
             md = self._utxos.have_utxo(txid, index)
             if md is False:
                 continue
@@ -614,46 +607,32 @@ class BaseWallet(object):
                                             'value': value}
         return removed_utxos
 
-    @deprecated
-    def add_new_utxos(self, tx, txid, height=None):
-        tx = deepcopy(tx)
-        for out in tx['outs']:
-            out['script'] = unhexlify(out['script'])
-
-        ret = self.add_new_utxos_(tx, unhexlify(txid), height=height)
-
-        added_utxos = {}
-        for (txid_bin, index), val in ret.items():
-            addr = self.get_address_from_path(val['path'])
-            val['address'] = addr
-            added_utxos[txid + ':' + str(index)] = val
-        return added_utxos
-
-    def add_new_utxos_(self, tx, txid, height=None):
+    def add_new_utxos(self, tx, height=None):
         """
         Add all outputs of tx for this wallet to internal utxo list.
-
+        They are also returned in standard dict form.
         args:
-            tx: transaction dict
+            tx: CMutableTransaction
             height: blockheight in which tx was included, or None
                     if unconfirmed.
         returns:
-            {(txid, index): {'script': bytes, 'path': tuple, 'value': int}
+            {(txid, index): {'script': bytes, 'path': tuple, 'value': int,
+            'address': str}
                 for all added utxos
         """
-        assert isinstance(txid, bytes) and len(txid) == self._utxos.TXID_LEN
         added_utxos = {}
-        for index, outs in enumerate(tx['outs']):
+        txid = tx.GetTxid()[::-1]
+        for index, outs in enumerate(tx.vout):
+            spk = outs.scriptPubKey
+            val = outs.nValue
             try:
-                self.add_utxo(txid, index, outs['script'], outs['value'],
-                              height=height)
+                self.add_utxo(txid, index, spk, val, height=height)
             except WalletError:
                 continue
 
-            path = self.script_to_path(outs['script'])
-            added_utxos[(txid, index)] = {'script': outs['script'],
-                                          'path': path,
-                                          'value': outs['value']}
+            path = self.script_to_path(spk)
+            added_utxos[(txid, index)] = {'script': spk, 'path': path, 'value': val,
+                'address': self._ENGINE.script_to_address(spk)}
         return added_utxos
 
     def add_utxo(self, txid, index, script, value, height=None):
@@ -669,9 +648,10 @@ class BaseWallet(object):
         mixdepth = self._get_mixdepth_from_path(path)
         self._utxos.add_utxo(txid, index, path, value, mixdepth, height=height)
 
-    def process_new_tx(self, txd, txid, height=None):
-        """ Given a newly seen transaction, deserialized as txd and
-        with transaction id, process its inputs and outputs and update
+    def process_new_tx(self, txd, height=None):
+        """ Given a newly seen transaction, deserialized as
+        CMutableTransaction txd,
+        process its inputs and outputs and update
         the utxo contents of this wallet accordingly.
         NOTE: this should correctly handle transactions that are not
         actually related to the wallet; it will not add (or remove,
@@ -679,30 +659,15 @@ class BaseWallet(object):
         functions check this condition.
         """
         removed_utxos = self.remove_old_utxos(txd)
-        added_utxos = self.add_new_utxos(txd, txid, height=height)
+        added_utxos = self.add_new_utxos(txd, height=height)
         return (removed_utxos, added_utxos)
 
-    @deprecated
-    def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
-                     maxheight=None):
-        utxo_filter_new = None
-        if utxo_filter:
-            utxo_filter_new = [(unhexlify(utxo[:64]), int(utxo[65:]))
-                               for utxo in utxo_filter]
-        ret = self.select_utxos_(mixdepth, amount, utxo_filter_new, select_fn,
-                                 maxheight=maxheight)
-        ret_conv = {}
-        for utxo, data in ret.items():
-            addr = self.get_address_from_path(data['path'])
-            utxo_txt = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
-            ret_conv[utxo_txt] = {'address': addr, 'value': data['value']}
-        return ret_conv
-
-    def select_utxos_(self, mixdepth, amount, utxo_filter=None,
-                      select_fn=None, maxheight=None):
+    def select_utxos(self, mixdepth, amount, utxo_filter=None,
+                      select_fn=None, maxheight=None, includeaddr=False):
         """
         Select a subset of available UTXOS for a given mixdepth whose value is
-        greater or equal to amount.
+        greater or equal to amount. If `includeaddr` is True, adds an `address`
+        key to the returned dict.
 
         args:
             mixdepth: int, mixdepth to select utxos from, must be smaller or
@@ -713,6 +678,7 @@ class BaseWallet(object):
 
         returns:
             {(txid, index): {'script': bytes, 'path': tuple, 'value': int}}
+
         """
         assert isinstance(mixdepth, numbers.Integral)
         assert isinstance(amount, numbers.Integral)
@@ -728,7 +694,8 @@ class BaseWallet(object):
 
         for data in ret.values():
             data['script'] = self.get_script_from_path(data['path'])
-
+            if includeaddr:
+                data["address"] = self.get_address_from_path(data["path"])
         return ret
 
     def disable_utxo(self, txid, index, disable=True):
@@ -758,21 +725,7 @@ class BaseWallet(object):
                                             include_disabled=include_disabled,
                                             maxheight=maxheight)
 
-    @deprecated
-    def get_utxos_by_mixdepth(self, verbose=True, includeheight=False):
-        # TODO: verbose
-        ret = self.get_utxos_by_mixdepth_(includeheight=includeheight)
-
-        utxos_conv = collections.defaultdict(dict)
-        for md, utxos in ret.items():
-            for utxo, data in utxos.items():
-                utxo_str = hexlify(utxo[0]).decode('ascii') + ':' + str(utxo[1])
-                addr = self.get_address_from_path(data['path'])
-                data['address'] = addr
-                utxos_conv[md][utxo_str] = data
-        return utxos_conv
-
-    def get_utxos_by_mixdepth_(self, include_disabled=False, includeheight=False):
+    def get_utxos_by_mixdepth(self, include_disabled=False, includeheight=False):
         """
         Get all UTXOs for active mixdepths.
 
@@ -791,12 +744,26 @@ class BaseWallet(object):
                 if not include_disabled and self._utxos.is_disabled(*utxo):
                     continue
                 script = self.get_script_from_path(path)
+                addr = self.get_address_from_path(path)
                 script_utxos[md][utxo] = {'script': script,
                                           'path': path,
-                                          'value': value}
+                                          'value': value,
+                                          'address': addr}
                 if includeheight:
                     script_utxos[md][utxo]['height'] = height
         return script_utxos
+
+
+    def get_all_utxos(self, include_disabled=False):
+        """ Get all utxos in the wallet, format of return
+        is as for get_utxos_by_mixdepth for each mixdepth.
+        """
+        mix_utxos = self.get_utxos_by_mixdepth(
+            include_disabled=include_disabled)
+        all_utxos = {}
+        for d in mix_utxos.values():
+            all_utxos.update(d)
+        return all_utxos
 
     @classmethod
     def _get_merge_algorithm(cls, algorithm_name=None):
@@ -1032,6 +999,497 @@ class BaseWallet(object):
     def __del__(self):
         self.close()
 
+class PSBTWalletMixin(object):
+    """
+    Mixin for BaseWallet to provide BIP174
+    functions.
+    """
+    def __init__(self, storage, **kwargs):
+        super(PSBTWalletMixin, self).__init__(storage, **kwargs)
+
+    def is_input_finalized(self, psbt_input):
+        """ This should be a convenience method in python-bitcointx.
+        However note: this is not a static method and tacitly
+        assumes that the input under examination is of the wallet's
+        type.
+        """
+        assert isinstance(psbt_input, btc.PSBT_Input)
+        if not psbt_input.utxo:
+            return False
+        if isinstance(self, (LegacyWallet, SegwitLegacyWallet)):
+            if not psbt_input.final_script_sig:
+                return False
+        if isinstance(self, (SegwitLegacyWallet, SegwitWallet)):
+            if not psbt_input.final_script_witness:
+                return False
+        return True
+
+    @staticmethod
+    def human_readable_psbt(in_psbt):
+        """ Returns a jsonified indented string with all relevant
+        information, in human readable form, contained in a PSBT.
+        Warning: the output can be very verbose in certain cases.
+        """
+        assert isinstance(in_psbt, btc.PartiallySignedTransaction)
+        outdict = {}
+        outdict["psbt-version"] = in_psbt.version
+
+        # human readable serialization of these three global fields is for
+        # now on a "best-effort" basis, i.e. just takes the representation
+        # provided by the underlying classes in bitcointx, though this may
+        # not be very readable.
+        # TODO: Improve proprietary/unknown as needed.
+        if in_psbt.xpubs:
+            outdict["xpubs"] = {str(k): bintohex(
+                v.serialize()) for k, v in in_psbt.xpubs.items()}
+        if in_psbt.proprietary_fields:
+            outdict["proprietary-fields"] = str(in_psbt.proprietary_fields)
+        if in_psbt.unknown_fields:
+            outdict["unknown-fields"] = str(in_psbt.unknown_fields)
+
+        outdict["unsigned-tx"] = btc.human_readable_transaction(
+            in_psbt.unsigned_tx, jsonified=False)
+        outdict["psbt-inputs"] = []
+        for inp in in_psbt.inputs:
+            outdict["psbt-inputs"].append(
+                PSBTWalletMixin.human_readable_psbt_in(inp))
+        outdict["psbt-outputs"] = []
+        for out in in_psbt.outputs:
+            outdict["psbt-outputs"].append(
+                PSBTWalletMixin.human_readable_psbt_out(out))
+        return json.dumps(outdict, indent=4)
+
+    @staticmethod
+    def human_readable_psbt_in(psbt_input):
+        """ Returns a dict containing human readable information
+        about a bitcointx.core.psbt.PSBT_Input object.
+        """
+        assert isinstance(psbt_input, btc.PSBT_Input)
+        outdict = {}
+        if psbt_input.index is not None:
+            outdict["input-index"] = psbt_input.index
+        if psbt_input.utxo:
+            if isinstance(psbt_input.utxo, btc.CTxOut):
+                outdict["utxo"] = btc.human_readable_output(psbt_input.utxo)
+            elif isinstance(psbt_input.utxo, btc.CTransaction):
+                # human readable full transaction is *too* verbose:
+                outdict["utxo"] = bintohex(psbt_input.utxo.serialize())
+            else:
+                assert False, "invalid PSBT Input utxo field."
+        if psbt_input.sighash_type:
+            outdict["sighash-type"] = psbt_input.sighash_type
+        if psbt_input.redeem_script:
+            outdict["redeem-script"] = bintohex(psbt_input.redeem_script)
+        if psbt_input.witness_script:
+            outdict["witness-script"] = bintohex(psbt_input.witness_script)
+        if psbt_input.partial_sigs:
+            # convert the dict entries to hex:
+            outdict["partial-sigs"] = {bintohex(k): bintohex(v) for k,v in \
+                                       psbt_input.partial_sigs.items()}
+        # Note we do not currently add derivation info to our own inputs,
+        # but probably will in future ( TODO ), still this is shown for
+        # externally generated PSBTs:
+        if psbt_input.derivation_map:
+            # TODO it would be more useful to print the indexes of the
+            # derivation path as integers, than 4 byte hex:
+            outdict["derivation-map"] = {bintohex(k): bintohex(v.serialize(
+                )) for k, v in psbt_input.derivation_map.items()}
+
+        # we show these fields on a best-effort basis; same comment as for
+        # globals section as mentioned in hr_psbt()
+        if psbt_input.proprietary_fields:
+            outdict["proprietary-fields"] = str(psbt_input.proprietary_fields)
+        if psbt_input.unknown_fields:
+            outdict["unknown-fields"] = str(psbt_input.unknown_fields)
+        if psbt_input.proof_of_reserves_commitment:
+            outdict["proof-of-reserves-commitment"] = \
+                str(psbt_input.proof_of_reserves_commitment)
+
+        outdict["final-scriptSig"] = bintohex(psbt_input.final_script_sig)
+        outdict["final-scriptWitness"] = bintohex(
+            psbt_input.final_script_witness.serialize())
+
+        return outdict
+
+    @staticmethod
+    def human_readable_psbt_out(psbt_output):
+        """ Returns a dict containing human readable information
+        about a PSBT_Output object.
+        """
+        assert isinstance(psbt_output, btc.PSBT_Output)
+        outdict = {}
+        if psbt_output.index is not None:
+            outdict["output-index"] = psbt_output.index
+
+        if psbt_output.derivation_map:
+            # See note to derivation map in hr_psbt_in()
+            outdict["derivation-map"] = {bintohex(k): bintohex(v.serialize(
+                )) for k, v in psbt_output.derivation_map.items()}
+
+        if psbt_output.redeem_script:
+            outdict["redeem-script"] = bintohex(psbt_output.redeem_script)
+        if psbt_output.witness_script:
+            outdict["witness-script"] = bintohex(psbt_output.witness_script)
+
+        if psbt_output.proprietary_fields:
+            outdict["proprietary-fields"] = str(psbt_output.proprietary_fields)
+        if psbt_output.unknown_fields:
+            outdict["unknown-fields"] = str(psbt_output.unknown_fields)
+
+        return outdict
+
+    @staticmethod
+    def witness_utxos_to_psbt_utxos(utxos):
+        """ Given a dict of utxos as returned from select_utxos,
+        convert them to the format required to populate PSBT inputs,
+        namely CTxOut. Note that the non-segwit case is different, there
+        you should provide an entire CMutableTransaction object instead.
+        """
+        return [btc.CMutableTxOut(v["value"],
+                                  v["script"]) for _, v in utxos.items()]
+
+    def create_psbt_from_tx(self, tx, spent_outs=None):
+        """ Given a CMutableTransaction object, which should not currently
+        contain signatures, we create and return a new PSBT object of type
+        btc.PartiallySignedTransaction.
+        Optionally the information about the spent outputs that is stored
+        in PSBT_IN_NONWITNESS_UTXO, PSBT_IN_WITNESS_UTXO and PSBT_IN_REDEEM_SCRIPT
+        can also be provided, one item per input, in the tuple (spent_outs).
+        These objects should be either CMutableTransaction, CTxOut or None,
+        Note that redeem script information cannot be provided for inputs which
+        we don't own.
+        """
+        # TODO: verify tx contains no signatures as a sanity check?
+        new_psbt = btc.PartiallySignedTransaction(unsigned_tx=tx)
+        if spent_outs is None:
+            # user has not provided input script information; psbt
+            # will not yet be usable for signing.
+            return new_psbt
+        for i, txinput in enumerate(new_psbt.inputs):
+            if spent_outs[i] is None:
+                # as above, will not be signable in this case
+                continue
+            if isinstance(spent_outs[i], (btc.CTransaction, btc.CTxOut)):
+                # note that we trust the caller to choose Tx vs TxOut as according
+                # to non-witness/witness. Note also that for now this mixin does
+                # not attempt to provide unsigned-tx(second argument) for witness
+                # case.
+                txinput.set_utxo(spent_outs[i], None)
+            else:
+                assert False, "invalid spent output type passed into PSBT creator"
+        # we now insert redeemscripts where that is possible and necessary:
+        for i, txinput in enumerate(new_psbt.inputs):
+            if isinstance(txinput.witness_utxo, btc.CTxOut):
+                # witness
+                if txinput.utxo.scriptPubKey.is_witness_scriptpubkey():
+                    # nothing needs inserting; the scriptSig is empty.
+                    continue
+                elif txinput.utxo.scriptPubKey.is_p2sh():
+                    try:
+                        path = self.script_to_path(txinput.utxo.scriptPubKey)
+                    except AssertionError:
+                        # this happens when an input is provided but it's not in
+                        # this wallet; in this case, we cannot set the redeem script.
+                        continue
+                    privkey, _ = self._get_key_from_path(path)
+                    txinput.redeem_script = btc.pubkey_to_p2wpkh_script(
+                        btc.privkey_to_pubkey(privkey))
+        return new_psbt
+
+    def sign_psbt(self, in_psbt, with_sign_result=False):
+        """ Given a serialized PSBT in raw binary format,
+        iterate over the inputs and sign all that we can sign with this wallet.
+        NB IT IS UP TO CALLERS TO ENSURE THAT THEY ACTUALLY WANT TO SIGN
+        THIS TRANSACTION!
+        The above is important especially in coinjoin scenarios.
+        Return: (psbt, msg)
+        msg: error message or None
+        if not `with_sign_result`:
+        psbt: signed psbt in binary serialization, or None if error.
+        if `with_sign_result` True:
+        psbt: (PSBT_SignResult object, psbt (deserialized) object)
+        """
+        try:
+            new_psbt = btc.PartiallySignedTransaction.from_binary(in_psbt)
+        except Exception as e:
+            return None, "Unable to deserialize binary PSBT, error: " + repr(e)
+        privkeys = []
+        for k, v in self._utxos._utxo.items():
+            for k2, v2 in v.items():
+                privkeys.append(self._get_key_from_path(v2[0]))
+        jmckeys = list(btc.JMCKey(x[0][:-1]) for x in privkeys)
+        new_keystore = btc.KeyStore.from_iterable(jmckeys)
+
+        # for p2sh inputs that we want to sign, the redeem_script
+        # field must be populated by us, as the counterparty did not
+        # know it. If this was set in an earlier create-psbt role,
+        # then overwriting it is harmless (preimage resistance).
+        if isinstance(self, SegwitLegacyWallet):
+            for i, txinput in enumerate(new_psbt.inputs):
+                tu = txinput.witness_utxo
+                if isinstance(tu, btc.CTxOut):
+                    # witness
+                    if tu.scriptPubKey.is_witness_scriptpubkey():
+                        # native segwit; no insertion needed.
+                        continue
+                    elif tu.scriptPubKey.is_p2sh():
+                        try:
+                            path = self.script_to_path(tu.scriptPubKey)
+                        except AssertionError:
+                            # this happens when an input is provided but it's not in
+                            # this wallet; in this case, we cannot set the redeem script.
+                            continue
+                        privkey, _ = self._get_key_from_path(path)
+                        txinput.redeem_script = btc.pubkey_to_p2wpkh_script(
+                            btc.privkey_to_pubkey(privkey))
+                    # no else branch; any other form of scriptPubKey will just be
+                    # ignored.
+        try:
+            signresult = new_psbt.sign(new_keystore)
+        except Exception as e:
+            return None, repr(e)
+        if not with_sign_result:
+            return new_psbt.serialize(), None
+        else:
+            return (signresult, new_psbt), None
+
+class SNICKERWalletMixin(object):
+
+    SUPPORTED_SNICKER_VERSIONS = bytes([0, 1])
+
+    def __init__(self, storage, **kwargs):
+        super(SNICKERWalletMixin, self).__init__(storage, **kwargs)
+
+    def create_snicker_proposal(self, our_input, their_input, our_input_utxo,
+                                their_input_utxo, net_transfer, network_fee,
+                                our_priv, their_pub, our_spk, change_spk,
+                                encrypted=True, version_byte=1):
+        """ Creates a SNICKER proposal from the given transaction data.
+        This only applies to existing specification, i.e. SNICKER v 00 or 01.
+        This is only to be used for Joinmarket and only segwit wallets.
+        `our_input`, `their_input` - utxo format used in JM wallets,
+        keyed by (tixd, n), as dicts (currently of single entry).
+        `our_input_utxo`, `their..` - type CTxOut (contains value, scriptPubKey)
+        net_transfer - amount, after bitcoin transaction fee, transferred from
+        Proposer (our) to Receiver (their). May be negative.
+        network_fee - total bitcoin network transaction fee to be paid (so estimates
+        must occur before this function).
+        `our_priv`, `their_pub` - these are the keys to be used in ECDH to derive
+        the tweak as per the BIP. Note `their_pub` may or may not be associated with
+        the input of the receiver, so is specified here separately. Note also that
+        according to the BIP the privkey we use *must* be the one corresponding to
+        the input we provided, else (properly coded) Receivers will reject our
+        proposal.
+        `our_spk` - a scriptPubKey for the Proposer coinjoin output
+        `change_spk` - a change scriptPubkey for the proposer as per BIP
+        `encrypted` - whether or not to return the ECIES encrypted version of the
+        proposal.
+        `version_byte` - which of currently specified Snicker versions is being
+        used, (0 for reused address, 1 for inferred key).
+        returns:
+        if encrypted is True:
+          base 64 encoded encrypted transaction proposal as a string
+        else:
+          binary serialized plaintext SNICKER message.
+        """
+        assert isinstance(self, PSBTWalletMixin)
+        # before constructing the bitcoin transaction we must calculate the output
+        # amounts
+        # TODO investigate arithmetic for negative transfer
+        if our_input_utxo.nValue - their_input_utxo.nValue - network_fee <= 0:
+            raise Exception(
+                "Cannot create SNICKER proposal, Proposer input too small")
+        total_input_amount = our_input_utxo.nValue + their_input_utxo.nValue
+        total_output_amount = total_input_amount - network_fee
+        receiver_output_amount = their_input_utxo.nValue + net_transfer
+        proposer_output_amount = total_output_amount - receiver_output_amount
+
+        # we must also use ecdh to calculate the output scriptpubkey for the
+        # receiver
+        # First, check that `our_priv` corresponds to scriptPubKey in
+        # `our_input_utxo` to prevent callers from making useless proposals.
+        expected_pub = btc.privkey_to_pubkey(our_priv)
+        expected_spk = self.pubkey_to_script(expected_pub)
+        assert our_input_utxo.scriptPubKey == expected_spk
+        # now we create the ecdh based tweak:
+        tweak_bytes = btc.ecdh(our_priv[:-1], their_pub)
+        tweaked_pub = btc.snicker_pubkey_tweak(their_pub, tweak_bytes)
+        # TODO: remove restriction to one scriptpubkey type
+        tweaked_spk = btc.pubkey_to_p2sh_p2wpkh_script(tweaked_pub)
+        tweaked_addr, our_addr, change_addr = [str(
+            btc.CCoinAddress.from_scriptPubKey(x)) for x in (
+                tweaked_spk, expected_spk, change_spk)]
+        # now we must construct the three outputs with correct output amounts.
+        outputs = [{"address": tweaked_addr, "value": receiver_output_amount}]
+        outputs.append({"address": our_addr, "value": receiver_output_amount})
+        outputs.append({"address": change_addr,
+                "value": total_output_amount - 2 * receiver_output_amount})
+        assert all([x["value"] > 0 for x in outputs])
+
+        # version and locktime as currently specified in the BIP
+        # for 0/1 version SNICKER.
+        tx = btc.make_shuffled_tx([our_input, their_input], outputs,
+                              version=2, locktime=0)
+        # we need to know which randomized input is ours:
+        our_index = -1
+        for i, inp in enumerate(tx.vin):
+            if our_input == (inp.prevout.hash[::-1], inp.prevout.n):
+                our_index = i
+        assert our_index in [0, 1], "code error: our input not in tx"
+        spent_outs = [our_input_utxo, their_input_utxo]
+        if our_index == 1:
+            spent_outs = spent_outs[::-1]
+        # create the psbt and then sign our input.
+        snicker_psbt = self.create_psbt_from_tx(tx, spent_outs=spent_outs)
+
+        # having created the PSBT, sign our input
+        # TODO this requires bitcointx updated minor version else fails
+        signed_psbt_and_signresult, err = self.sign_psbt(
+        snicker_psbt.serialize(), with_sign_result=True)
+        assert err is None
+        signresult, partially_signed_psbt = signed_psbt_and_signresult
+        assert signresult.num_inputs_signed == 1
+        assert signresult.num_inputs_final == 1
+        assert not signresult.is_final
+        snicker_serialized_message = btc.SNICKER_MAGIC_BYTES + bytes(
+            [version_byte]) + btc.SNICKER_FLAG_NONE + tweak_bytes + \
+            partially_signed_psbt.serialize()
+
+        if not encrypted:
+            return snicker_serialized_message
+
+        # encryption has been requested;
+        # we apply ECIES in the form given by the BIP.
+        return btc.ecies_encrypt(snicker_serialized_message, their_pub)
+
+    def parse_proposal_to_signed_tx(self, privkey, proposal,
+                                    acceptance_callback):
+        """ Given a candidate privkey (binary and compressed format),
+        and a candidate encrypted SNICKER proposal, attempt to decrypt
+        and validate it in all aspects. If validation fails the first
+        return value is None and the second is the reason as a string.
+
+        If all validation checks pass, the next step is checking
+        acceptance according to financial rules: the acceptance
+        callback must be a function that accepts four arguments:
+        (our_ins, their_ins, our_outs, their_outs), where *ins values
+        are lists of CTxIns and *outs are lists of CTxOuts,
+        and must return only True/False where True means that the
+        transaction should be signed.
+
+        If True is returned from the callback, the following are returned
+        from this function:
+        (raw transaction for broadcasting (serialized),
+        tweak value as bytes,  derived output spk belonging to receiver)
+
+        Note: flags is currently always None as version is only 0 or 1.
+        """
+        assert isinstance(self, PSBTWalletMixin)
+
+        our_pub = btc.privkey_to_pubkey(privkey)
+
+        if len(proposal) < 5:
+            return None, "Invalid proposal, too short."
+
+        if base64.b64decode(proposal)[:4] == btc.ECIES_MAGIC_BYTES:
+            # attempt decryption and reject if fails:
+            try:
+                snicker_message = btc.ecies_decrypt(privkey, proposal)
+            except Exception as e:
+                return None, "Failed to decrypt." + repr(e)
+        else:
+            snicker_message = proposal
+
+        # magic + version,flag + tweak + psbt:
+        # TODO replace '20' with the minimum feasible PSBT.
+        if len(snicker_message) < 7 + 2 + 32 + 20:
+            return None, "Invalid proposal, too short."
+
+        if snicker_message[:7] != btc.SNICKER_MAGIC_BYTES:
+            return None, "Invalid SNICKER magic bytes."
+
+        version_byte = bytes([snicker_message[7]])
+        flag_byte = bytes([snicker_message[8]])
+        if version_byte not in self.SUPPORTED_SNICKER_VERSIONS:
+            return None, "Unrecognized SNICKER version: " + version_byte
+        if flag_byte != btc.SNICKER_FLAG_NONE:
+            return None, "Invalid flag byte for version 0,1: " + flag_byte
+
+        tweak_bytes = snicker_message[9:41]
+        candidate_psbt_serialized = snicker_message[41:]
+        # attempt to validate the PSBT's format:
+        try:
+            cpsbt = btc.PartiallySignedTransaction.from_base64_or_binary(
+                candidate_psbt_serialized)
+        except:
+            return None, "Invalid PSBT format."
+
+        utx = cpsbt.unsigned_tx
+        # validate that it contains one signature, and two inputs.
+        # else the proposal is invalid. To achieve this, we call
+        # PartiallySignedTransaction.sign() with an empty KeyStore,
+        # which populates the 'is_signed' info fields for us. Note that
+        # we do not use the PSBTWalletMixin.sign_psbt() which automatically
+        # signs with our keys.
+        if not len(utx.vin) == 2:
+            return None, "PSBT proposal does not contain 2 inputs."
+        testsignresult = cpsbt.sign(btc.KeyStore(), finalize=False)
+        print("got sign result: ", testsignresult)
+        # Note: "num_inputs_signed" refers to how many *we* signed,
+        # which is obviously none here as we provided no keys.
+        if not (testsignresult.num_inputs_signed == 0 and \
+                testsignresult.num_inputs_final == 1 and \
+                not testsignresult.is_final):
+            return None, "PSBT proposal does not contain 1 signature."
+
+        # Validate that we own one SNICKER style output:
+        spk = btc.verify_snicker_output(utx, our_pub, tweak_bytes)
+
+        if spk[0] == -1:
+            return None, "Tweaked destination not found exactly once."
+        our_output_index = spk[0]
+        our_output_amount = utx.vout[our_output_index].nValue
+
+        # At least one other output must have an amount equal to that at
+        # `our_output_index`, according to the spec.
+        found = 0
+        for i, o in enumerate(utx.vout):
+            if i == our_output_index:
+                continue
+            if o.nValue == our_output_amount:
+                found += 1
+        if found != 1:
+            return None, "Invalid SNICKER, there are not two equal outputs."
+
+        # To allow the acceptance callback to assess validity, we must identify
+        # which input is ours and which is(are) not.
+        # TODO This check may (will) change if we allow non-p2sh-pwpkh inputs:
+        unsigned_index = -1
+        for i, psbtinputsigninfo in enumerate(testsignresult.inputs_info):
+            if psbtinputsigninfo is None:
+                unsigned_index = i
+                break
+        assert unsigned_index != -1
+        # All validation checks passed. We now check whether the
+        #transaction is acceptable according to the caller:
+        if not acceptance_callback([utx.vin[unsigned_index]],
+                [x for i, x in enumerate(utx.vin) if i != unsigned_index],
+                [utx.vout[our_output_index]],
+                [x for i, x in enumerate(utx.vout) if i != our_output_index]):
+            return None, "Caller rejected transaction for signing."
+
+        # Acceptance passed, prepare the deserialized tx for signing by us:
+        signresult_and_signedpsbt, err = self.sign_psbt(cpsbt.serialize(),
+                                                        with_sign_result=True)
+        if err:
+            return None, "Unable to sign proposed PSBT, reason: " + err
+        signresult, signed_psbt = signresult_and_signedpsbt
+        assert signresult.num_inputs_signed == 1
+        assert signresult.num_inputs_final == 2
+        assert signresult.is_final
+        # we now know the transaction is valid and fully signed; return to caller,
+        # along with supporting data for this tx:
+        return (signed_psbt.extract_transaction(), tweak_bytes, spk[1])
 
 class ImportWalletMixin(object):
     """
@@ -1101,7 +1559,6 @@ class ImportWalletMixin(object):
             raise WalletError("Unsupported key type for imported keys.")
 
         privkey, key_type_wif = self._ENGINE.wif_to_privkey(wif)
-
         # FIXME: there is no established standard for encoding key type in wif
         #if key_type is not None and key_type_wif is not None and \
         #        key_type != key_type_wif:
@@ -1591,7 +2048,7 @@ class BIP32Wallet(BaseWallet):
         return self._get_mixdepth_from_path(path), path[-2], path[-1]
 
 
-class LegacyWallet(ImportWalletMixin, BIP32Wallet):
+class LegacyWallet(ImportWalletMixin, PSBTWalletMixin, BIP32Wallet):
     TYPE = TYPE_P2PKH
     _ENGINE = ENGINES[TYPE_P2PKH]
 
@@ -1852,10 +2309,10 @@ class BIP84Wallet(BIP32PurposedWallet):
     _PURPOSE = 2**31 + 84
     _ENGINE = ENGINES[TYPE_P2WPKH]
 
-class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, BIP49Wallet):
+class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, SNICKERWalletMixin, BIP49Wallet):
     TYPE = TYPE_P2SH_P2WPKH
 
-class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, BIP84Wallet):
+class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, SNICKERWalletMixin, BIP84Wallet):
     TYPE = TYPE_P2WPKH
 
 class SegwitLegacyWalletFidelityBonds(FidelityBondMixin, SegwitLegacyWallet):

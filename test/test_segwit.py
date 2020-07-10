@@ -1,13 +1,12 @@
 #! /usr/bin/env python
 '''Test creation of segwit transactions.'''
 
-import binascii
 import json
 from common import make_wallets
 from pprint import pformat
 import jmbitcoin as btc
 import pytest
-from jmbase import get_log
+from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single, LegacyWallet
 log = get_log()
 
@@ -19,19 +18,11 @@ def test_segwit_valid_txs(setup_segwit):
     for j in valid_txs:
         if len(j) < 2:
             continue
-        deserialized_tx = btc.deserialize(str(j[1]))
+        deserialized_tx = btc.CMutableTransaction.deserialize(hextobin(j[1]))
         print(pformat(deserialized_tx))
-        assert btc.serialize(deserialized_tx) == str(j[1])
+        assert deserialized_tx.serialize() == hextobin(j[1])
         #TODO use bcinterface to decoderawtransaction
         #and compare the json values
-
-
-def binarize_tx(tx):
-    for o in tx['outs']:
-        o['script'] = binascii.unhexlify(o['script'])
-    for i in tx['ins']:
-        i['outpoint']['hash'] = binascii.unhexlify(i['outpoint']['hash'])
-
 
 @pytest.mark.parametrize(
     "wallet_structure, in_amt, amount, segwit_amt, segwit_ins, o_ins", [
@@ -63,8 +54,8 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     sw_wallet_service = make_wallets(1, [[len(segwit_ins), 0, 0, 0, 0]], segwit_amt)[0]['wallet']
     sw_wallet_service.sync_wallet(fast=True)
 
-    nsw_utxos = nsw_wallet_service.get_utxos_by_mixdepth(hexfmt=False)[MIXDEPTH]
-    sw_utxos = sw_wallet_service.get_utxos_by_mixdepth(hexfmt=False)[MIXDEPTH]
+    nsw_utxos = nsw_wallet_service.get_utxos_by_mixdepth()[MIXDEPTH]
+    sw_utxos = sw_wallet_service.get_utxos_by_mixdepth()[MIXDEPTH]
     assert len(o_ins) <= len(nsw_utxos), "sync failed"
     assert len(segwit_ins) <= len(sw_utxos), "sync failed"
 
@@ -92,8 +83,8 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
 
     # FIXME: encoding mess, mktx should accept binary input formats
     tx_ins = []
-    for i, (txid, data) in sorted(all_ins.items(), key=lambda x: x[0]):
-        tx_ins.append('{}:{}'.format(binascii.hexlify(txid[0]).decode('ascii'), txid[1]))
+    for i, (txin, data) in sorted(all_ins.items(), key=lambda x: x[0]):
+        tx_ins.append(txin)
 
     # create outputs
     FEE = 50000
@@ -104,11 +95,11 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     change_amt = total_amt_in_sat - amount - FEE
 
     tx_outs = [
-        {'script': binascii.hexlify(cj_script).decode('ascii'),
+        {'address': nsw_wallet_service.script_to_addr(cj_script),
          'value': amount},
-        {'script': binascii.hexlify(change_script).decode('ascii'),
+        {'address': nsw_wallet_service.script_to_addr(change_script),
          'value': change_amt}]
-    tx = btc.deserialize(btc.mktx(tx_ins, tx_outs))
+    tx = btc.mktx(tx_ins, tx_outs)
 
     # import new addresses to bitcoind
     jm_single().bc_interface.import_addresses(
@@ -120,18 +111,20 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     for nsw_in_index in o_ins:
         inp = nsw_ins[nsw_in_index][1]
         scripts[nsw_in_index] = (inp['script'], inp['value'])
-    tx = nsw_wallet_service.sign_tx(tx, scripts)
+    success, msg = nsw_wallet_service.sign_tx(tx, scripts)
+    assert success, msg
 
     scripts = {}
     for sw_in_index in segwit_ins:
         inp = sw_ins[sw_in_index][1]
         scripts[sw_in_index] = (inp['script'], inp['value'])
-    tx = sw_wallet_service.sign_tx(tx, scripts)
+    success, msg = sw_wallet_service.sign_tx(tx, scripts)
+    assert success, msg
 
     print(tx)
 
     # push and verify
-    txid = jm_single().bc_interface.pushtx(btc.serialize(tx))
+    txid = jm_single().bc_interface.pushtx(tx.serialize())
     assert txid
 
     balances = jm_single().bc_interface.get_received_by_addr(

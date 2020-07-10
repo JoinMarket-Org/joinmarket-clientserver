@@ -6,12 +6,13 @@ from binascii import hexlify, unhexlify
 
 import pytest
 import jmbitcoin as btc
-from commontest import binarize_tx, ensure_bip65_activated
-from jmbase import get_log
+from commontest import ensure_bip65_activated
+from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
     SegwitWallet, WalletService, SegwitLegacyWalletFidelityBonds,\
+    BTC_P2PKH, BTC_P2SH_P2WPKH,\
     FidelityBondMixin, FidelityBondWatchonlyWallet, wallet_gettimelockaddress
 from test_blockchaininterface import sync_test_wallet
 
@@ -20,10 +21,7 @@ log = get_log()
 
 
 def signed_tx_is_segwit(tx):
-    for inp in tx['ins']:
-        if 'txinwitness' not in inp:
-            return False
-    return True
+    return tx.has_witness()
 
 
 def assert_segwit(tx):
@@ -47,10 +45,11 @@ def get_populated_wallet(amount=10**8, num=3):
 
 
 def fund_wallet_addr(wallet, addr, value_btc=1):
-    txin_id = jm_single().bc_interface.grab_coins(addr, value_btc)
+    # special case, grab_coins returns hex from rpc:
+    txin_id = hextobin(jm_single().bc_interface.grab_coins(addr, value_btc))
     txinfo = jm_single().bc_interface.get_transaction(txin_id)
-    txin = btc.deserialize(unhexlify(txinfo['hex']))
-    utxo_in = wallet.add_new_utxos_(txin, unhexlify(txin_id), 1)
+    txin = btc.CMutableTransaction.deserialize(btc.x(txinfo["hex"]))
+    utxo_in = wallet.add_new_utxos(txin, 1)
     assert len(utxo_in) == 1
     return list(utxo_in.keys())[0]
 
@@ -367,13 +366,15 @@ def test_signing_imported(setup_wallet, wif, keytype, type_check):
     path = wallet.import_private_key(MIXDEPTH, wif, keytype)
     utxo = fund_wallet_addr(wallet, wallet.get_address_from_path(path))
     # The dummy output is constructed as an unspendable p2sh:
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(
-        hexlify(utxo[0]).decode('ascii'), utxo[1])],
-        [btc.p2sh_scriptaddr(b"\x00",magicbyte=196) + ':' + str(10**8 - 9000)]))
+    tx = btc.mktx([utxo],
+                [{"address": str(btc.CCoinAddress.from_scriptPubKey(
+                    btc.CScript(b"\x00").to_p2sh_scriptPubKey())),
+                  "value": 10**8 - 9000}])    
     script = wallet.get_script_from_path(path)
-    tx = wallet.sign_tx(tx, {0: (script, 10**8)})
+    success, msg = wallet.sign_tx(tx, {0: (script, 10**8)})
+    assert success, msg
     type_check(tx)
-    txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
+    txout = jm_single().bc_interface.pushtx(tx.serialize())
     assert txout
 
 
@@ -385,17 +386,19 @@ def test_signing_imported(setup_wallet, wif, keytype, type_check):
 def test_signing_simple(setup_wallet, wallet_cls, type_check):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
     storage = VolatileStorage()
-    wallet_cls.initialize(storage, get_network())
+    wallet_cls.initialize(storage, get_network(), entropy=b"\xaa"*16)
     wallet = wallet_cls(storage)
     utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(0))
     # The dummy output is constructed as an unspendable p2sh:
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(
-        hexlify(utxo[0]).decode('ascii'), utxo[1])],
-        [btc.p2sh_scriptaddr(b"\x00",magicbyte=196) + ':' + str(10**8 - 9000)]))
+    tx = btc.mktx([utxo],
+            [{"address": str(btc.CCoinAddress.from_scriptPubKey(
+                btc.CScript(b"\x00").to_p2sh_scriptPubKey())),
+              "value": 10**8 - 9000}])    
     script = wallet.get_script(0, 1, 0)
-    tx = wallet.sign_tx(tx, {0: (script, 10**8)})
+    success, msg = wallet.sign_tx(tx, {0: (script, 10**8)})
+    assert success, msg
     type_check(tx)
-    txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
+    txout = jm_single().bc_interface.pushtx(tx.serialize())
     assert txout
 
 def test_timelocked_output_signing(setup_wallet):
@@ -413,12 +416,12 @@ def test_timelocked_output_signing(setup_wallet):
     utxo = fund_wallet_addr(wallet, wallet.script_to_addr(script))
     timestamp = wallet._time_number_to_timestamp(timenumber)
 
-    tx = btc.deserialize(btc.mktx(['{}:{}'.format(
-        hexlify(utxo[0]).decode('ascii'), utxo[1])],
-        [btc.p2sh_scriptaddr(b"\x00",magicbyte=196) + ':' + str(10**8 - 9000)],
-        locktime=timestamp+1))
-    tx = wallet.sign_tx(tx, {0: (script, 10**8)})
-    txout = jm_single().bc_interface.pushtx(btc.serialize(tx))
+    tx = btc.mktx([utxo], [{"address": str(btc.CCoinAddress.from_scriptPubKey(
+        btc.standard_scripthash_scriptpubkey(btc.Hash160(b"\x00")))),
+        "value":10**8 - 9000}], locktime=timestamp+1)
+    success, msg = wallet.sign_tx(tx, {0: (script, 10**8)})
+    assert success, msg
+    txout = jm_single().bc_interface.pushtx(tx.serialize())
     assert txout
 
 def test_get_bbm(setup_wallet):
@@ -450,18 +453,18 @@ def test_add_utxos(setup_wallet):
     for md in range(1, wallet.max_mixdepth + 1):
         assert balances[md] == 0
 
-    utxos = wallet.get_utxos_by_mixdepth_()
+    utxos = wallet.get_utxos_by_mixdepth()
     assert len(utxos[0]) == num_tx
     for md in range(1, wallet.max_mixdepth + 1):
         assert not utxos[md]
 
     with pytest.raises(Exception):
         # no funds in mixdepth
-        wallet.select_utxos_(1, amount)
+        wallet.select_utxos(1, amount)
 
     with pytest.raises(Exception):
         # not enough funds
-        wallet.select_utxos_(0, amount * (num_tx + 1))
+        wallet.select_utxos(0, amount * (num_tx + 1))
 
     wallet.reset_utxos()
     assert wallet.get_balance_by_mixdepth()[0] == 0
@@ -472,12 +475,12 @@ def test_select_utxos(setup_wallet):
     amount = 10**8
 
     wallet = get_populated_wallet(amount)
-    utxos = wallet.select_utxos_(0, amount // 2)
+    utxos = wallet.select_utxos(0, amount // 2)
 
     assert len(utxos) == 1
     utxos = list(utxos.keys())
 
-    more_utxos = wallet.select_utxos_(0, int(amount * 1.5), utxo_filter=utxos)
+    more_utxos = wallet.select_utxos(0, int(amount * 1.5), utxo_filter=utxos)
     assert len(more_utxos) == 2
     assert utxos[0] not in more_utxos
 
@@ -488,14 +491,11 @@ def test_add_new_utxos(setup_wallet):
 
     scripts = [wallet.get_new_script(x, True) for x in range(3)]
     tx_scripts = list(scripts)
-    tx_scripts.append(b'\x22'*17)
-
-    tx = btc.deserialize(btc.mktx(
-        ['0'*64 + ':2'], [{'script': hexlify(s).decode('ascii'), 'value': 10**8}
-                          for s in tx_scripts]))
-    binarize_tx(tx)
-    txid = b'\x01' * 32
-    added = wallet.add_new_utxos_(tx, txid, 1)
+    tx = btc.mktx(
+            [(b"\x00"*32, 2)],
+            [{"address": wallet.script_to_addr(s),
+              "value": 10**8} for s in tx_scripts])
+    added = wallet.add_new_utxos(tx, 1)
     assert len(added) == len(scripts)
 
     added_scripts = {x['script'] for x in added.values()}
@@ -517,21 +517,20 @@ def test_remove_old_utxos(setup_wallet):
     for i in range(3):
         txin = jm_single().bc_interface.grab_coins(
             wallet.get_internal_addr(1), 1)
-        wallet.add_utxo(unhexlify(txin), 0, wallet.get_script(1, 1, i), 10**8, 1)
+        wallet.add_utxo(btc.x(txin), 0, wallet.get_script(1, 1, i), 10**8, 1)
 
-    inputs = wallet.select_utxos_(0, 10**8)
-    inputs.update(wallet.select_utxos_(1, 2 * 10**8))
+    inputs = wallet.select_utxos(0, 10**8)
+    inputs.update(wallet.select_utxos(1, 2 * 10**8))
     assert len(inputs) == 3
 
     tx_inputs = list(inputs.keys())
     tx_inputs.append((b'\x12'*32, 6))
 
-    tx = btc.deserialize(btc.mktx(
-        ['{}:{}'.format(hexlify(txid).decode('ascii'), i) for txid, i in tx_inputs],
-        ['0' * 36 + ':' + str(3 * 10**8 - 1000)]))
-    binarize_tx(tx)
+    tx = btc.mktx(tx_inputs,
+        [{"address": "2N9gfkUsFW7Kkb1Eurue7NzUxUt7aNJiS1U",
+          "value": 3 * 10**8 - 1000}])
 
-    removed = wallet.remove_old_utxos_(tx)
+    removed = wallet.remove_old_utxos(tx)
     assert len(removed) == len(inputs)
 
     for txid in removed:
@@ -760,6 +759,14 @@ def test_wallet_mixdepth_decrease(setup_wallet):
     max_mixdepth = wallet.max_mixdepth
     assert max_mixdepth >= 1, "bad default value for mixdepth for this test"
     utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(max_mixdepth), 1)
+    bci = jm_single().bc_interface
+    unspent_list = bci.rpc('listunspent', [0])
+    # filter on label, but note (a) in certain circumstances (in-
+    # wallet transfer) it is possible for the utxo to be labeled
+    # with the external label, and (b) the wallet will know if it
+    # belongs or not anyway (is_known_addr):
+    our_unspent_list = [x for x in unspent_list if (
+        bci.is_address_labeled(x, wallet.get_wallet_name()))]
     assert wallet.get_balance_by_mixdepth()[max_mixdepth] == 10**8
     wallet.close()
     storage_data = wallet._storage.file_data
@@ -777,7 +784,7 @@ def test_wallet_mixdepth_decrease(setup_wallet):
 
     # wallet.select_utxos will still return utxos from higher mixdepths
     # because we explicitly ask for a specific mixdepth
-    assert utxo in new_wallet.select_utxos_(max_mixdepth, 10**7)
+    assert utxo in new_wallet.select_utxos(max_mixdepth, 10**7)
 
 def test_watchonly_wallet(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
@@ -819,6 +826,7 @@ def test_watchonly_wallet(setup_wallet):
 @pytest.fixture(scope='module')
 def setup_wallet():
     load_test_config()
+    btc.select_chain_params("bitcoin/regtest")
     #see note in cryptoengine.py:
     cryptoengine.BTC_P2WPKH.VBYTE = 100
     jm_single().bc_interface.tick_forward_chain_interval = 2

@@ -64,9 +64,10 @@ donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 JM_GUI_VERSION = '15dev'
 
 from jmbase import get_log
-from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, JM_CORE_VERSION
+from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, utxo_to_utxostr,\
+    bintohex, hextobin, JM_CORE_VERSION
 from jmclient import load_program_config, get_network, update_persist_config,\
-    open_test_wallet_maybe, get_wallet_path, get_p2sh_vbyte, get_p2pk_vbyte,\
+    open_test_wallet_maybe, get_wallet_path,\
     jm_single, validate_address, weighted_order_choose, Taker,\
     JMClientProtocolFactory, start_reactor, get_schedule, schedule_to_text,\
     get_blockchain_interface_instance, direct_send, WalletService,\
@@ -75,7 +76,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
     get_default_max_relative_fee, RetryableStorageError, add_base_options, \
-    FidelityBondMixin
+    BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -627,6 +628,7 @@ class SpendTab(QWidget):
                 self.waitingtxid=txid
                 self.restartTimer.timeout.connect(self.restartWaitWrap)
                 self.restartTimer.start(5000)
+                self.updateSchedView()
                 return
             self.updateSchedView()
         self.startJoin()
@@ -1174,7 +1176,9 @@ class CoinsTab(QWidget):
                 else:
                     for k, v in um.items():
                         # txid:index, btc, address
-                        t = btc.safe_hexlify(k[0])+":"+str(k[1])
+                        success, t = utxo_to_utxostr(k)
+                        # keys must be utxo format else a coding error:
+                        assert success
                         s = "{0:.08f}".format(v['value']/1e8)
                         a = mainWindow.wallet_service.script_to_addr(v["script"])
                         item = QTreeWidgetItem([t, s, a])
@@ -1187,7 +1191,7 @@ class CoinsTab(QWidget):
     def toggle_utxo_disable(self, txids, idxs):
         for i in range(0, len(txids)):
             txid = txids[i]
-            txid_bytes = btc.safe_from_hex(txid)
+            txid_bytes = hextobin(txid)
             mainWindow.wallet_service.toggle_disable_utxo(txid_bytes, idxs[i])
         self.updateUtxos()
 
@@ -1206,7 +1210,8 @@ class CoinsTab(QWidget):
                 assert idx >= 0
                 txids.append(txid)
                 idxs.append(idx)
-        except:
+        except Exception as e:
+            log.error("Error retrieving txids in Coins tab: " + repr(e))
             return
         # current item
         item = self.cTW.currentItem()
@@ -1530,14 +1535,18 @@ class JMMainWindow(QMainWindow):
         done = False
 
         def privkeys_thread():
+            # To explain this (given setting was already done in
+            # load_program_config), see:
+            # https://github.com/Simplexum/python-bitcointx/blob/9f1fa67a5445f8c187ef31015a4008bc5a048eea/bitcointx/__init__.py#L242-L243
+            # note, we ignore the return value as we only want to apply
+            # the chainparams setting logic:
+            get_blockchain_interface_instance(jm_single().config)
             for addr in addresses:
                 time.sleep(0.1)
                 if done:
                     break
                 priv = self.wallet_service.get_key_from_addr(addr)
-                private_keys[addr] = btc.wif_compressed_privkey(
-                    priv,
-                    vbyte=get_p2pk_vbyte())
+                private_keys[addr] = BTCEngine.privkey_to_wif(priv)
                 self.computing_privkeys_signal.emit()
             self.show_privkeys_signal.emit()
 
@@ -1569,10 +1578,13 @@ class JMMainWindow(QMainWindow):
                                    privkeys_fn + '.json'), "wb") as f:
                 for addr, pk in private_keys.items():
                     #sanity check
-                    if not addr == btc.pubkey_to_p2sh_p2wpkh_address(
-                                    btc.privkey_to_pubkey(
-                                        btc.from_wif_privkey(pk, vbyte=get_p2pk_vbyte())
-                                    ), get_p2sh_vbyte()):
+                    rawpriv, keytype = BTCEngine.wif_to_privkey(pk)
+                    if not keytype == BTC_P2SH_P2WPKH:
+                        JMQtMessageBox(None, "Failed to create privkey export, "
+                                       "should be keytype p2sh-p2wpkh but is not.",
+                                       mbtype='crit')
+                        return
+                    if not addr == self.wallet_service._ENGINE.privkey_to_address(rawpriv):
                         JMQtMessageBox(None, "Failed to create privkey export -" +\
                                        " critical error in key parsing.",
                                        mbtype='crit')
@@ -2009,7 +2021,7 @@ if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     jm_single().bc_interface.simulating = True
     jm_single().maker_timeout_sec = 15
     #trigger start with a fake tx
-    jm_single().bc_interface.pushtx("00"*20)
+    jm_single().bc_interface.pushtx(b"\x00"*20)
 
 #prepare for logging
 for dname in ['logs', 'wallets', 'cmtdata']:

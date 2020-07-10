@@ -12,25 +12,23 @@ vectors = None
 
 def test_valid_sigs(setup_ecc):
     for v in vectors['vectors']:
-        msg = v['msg']
-        sig = v['sig']
-        priv = v['privkey']
-        assert sig == btc.ecdsa_raw_sign(msg, priv, True, rawmsg=True)+'01'
-        #check that the signature verifies against the key(pair)
-        pubkey = btc.privtopub(priv)
-        assert btc.ecdsa_raw_verify(msg, pubkey, sig[:-2], True, rawmsg=True)
-        #check that it fails to verify against corrupted signatures
+        msg, sig, priv = (binascii.unhexlify(
+            v[a]) for a in ["msg", "sig", "privkey"])
+        assert sig == btc.ecdsa_raw_sign(msg, priv, rawmsg=True)+ b'\x01'
+        # check that the signature verifies against the key(pair)
+        pubkey = btc.privkey_to_pubkey(priv)
+        assert btc.ecdsa_raw_verify(msg, pubkey, sig[:-1], rawmsg=True)
+        # check that it fails to verify against corrupted signatures
         for i in [0,1,2,4,7,25,55]:
-            #corrupt one byte
-            binsig = binascii.unhexlify(sig)
-            checksig = binascii.hexlify(binsig[:i] + btc.from_string_to_bytes(chr(
-                (ord(binsig[i:i+1])+1) %256)) + binsig[i+1:-1]).decode('ascii')
+            # corrupt one byte
+            checksig = sig[:i] + chr(
+                (ord(sig[i:i+1])+1) %256).encode() + sig[i+1:-1]
             
-            #this kind of corruption will sometimes lead to an assert
-            #failure (if the DER format is corrupted) and sometimes lead
-            #to a signature verification failure.
+            # this kind of corruption will sometimes lead to an assert
+            # failure (if the DER format is corrupted) and sometimes lead
+            # to a signature verification failure.
             try:
-                res = btc.ecdsa_raw_verify(msg, pubkey, checksig, True, rawmsg=True)
+                res = btc.ecdsa_raw_verify(msg, pubkey, checksig, rawmsg=True)
             except:
                 continue
             assert res==False

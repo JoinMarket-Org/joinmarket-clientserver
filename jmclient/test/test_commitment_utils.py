@@ -4,11 +4,14 @@ import pytest
 
 from jmclient import (load_test_config, jm_single)
 from jmclient.commitment_utils import get_utxo_info, validate_utxo_data
-
+from jmbitcoin import select_chain_params
 
 def test_get_utxo_info():
     load_test_config()
+    # this test tests mainnet keys, so temporarily switch network
+    select_chain_params("bitcoin")
     jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
+
     dbci = DummyBlockchainInterface()
     privkey = "L1RrrnXkcKut5DEMwtDthjwRcTTwED36thyL1DebVrKuwvohjMNi"
     #to verify use from_wif_privkey and privkey_to_address
@@ -28,7 +31,7 @@ def test_get_utxo_info():
     with pytest.raises(Exception) as e_info:
         u, priv = get_utxo_info(fakeutxo + privkey)
     #invalid index
-    fu2 = "ab"*32 + ":00004"
+    fu2 = "ab"*32 + ":-1"
     with pytest.raises(Exception) as e_info:
         u, priv = get_utxo_info(fu2 + "," + privkey)
     #invalid privkey
@@ -53,3 +56,5 @@ def test_get_utxo_info():
     retval = validate_utxo_data(utxodatas, False)
     assert not retval
     dbci.setQUSFail(False)
+    select_chain_params("bitcoin/regtest")
+    jm_single().config.set("BLOCKCHAIN", "network", "mainnet")

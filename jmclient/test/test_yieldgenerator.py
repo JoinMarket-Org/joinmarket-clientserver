@@ -1,6 +1,6 @@
 
 import unittest
-
+from jmbitcoin import CMutableTxOut, CMutableTransaction
 from jmclient import load_test_config, jm_single,\
     SegwitLegacyWallet, VolatileStorage, YieldGeneratorBasic, \
     get_network, WalletService
@@ -28,14 +28,12 @@ class CustomUtxoWallet(SegwitLegacyWallet):
             self.add_utxo_at_mixdepth(m, b)
 
     def add_utxo_at_mixdepth(self, mixdepth, balance):
-        tx = {'outs': [{'script': self.get_internal_script(mixdepth),
-                        'value': balance}]}
-        # We need to generate a fake "txid" that has to be unique for all the
-        # UTXOs that are added to the wallet.  For that, we simply use the
-        # script, and make it fit the required length (32 bytes).
-        txid = tx['outs'][0]['script'] + b'x' * 32
-        txid = txid[:32]
-        self.add_new_utxos_(tx, txid, 1)
+        txout = CMutableTxOut(balance, self.get_internal_script(mixdepth))
+        tx = CMutableTransaction()
+        tx.vout = [txout]
+        # (note: earlier requirement that txid be generated uniquely is now
+        # automatic; tx.GetTxid() functions correctly within the wallet).
+        self.add_new_utxos(tx, 1)
 
     def assert_utxos_from_mixdepth(self, utxos, expected):
         """Asserts that the list of UTXOs (as returned from UTXO selection

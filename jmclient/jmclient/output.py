@@ -61,7 +61,7 @@ def generate_podle_error_string(priv_utxo_pairs, to, ts, wallet_service, cjamoun
                "with 'python add-utxo.py --help'\n\n")
     errmsg += ("***\nFor reference, here are the utxos in your wallet:\n")
 
-    for md, utxos in wallet_service.get_utxos_by_mixdepth(hexfmt=False).items():
+    for md, utxos in wallet_service.get_utxos_by_mixdepth().items():
         if not utxos:
             continue
         errmsg += ("\nmixdepth {}:\n{}".format(

@@ -23,6 +23,7 @@ miniircd/
 miniircd.tar.gz
 nums_basepoints.txt
 schedulefortesting
+test_proposals.txt
 scripts/commitmentlist
 tmp/
 wallets/

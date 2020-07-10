@@ -2,7 +2,6 @@
 '''Tests of Proof of discrete log equivalence commitments.'''
 import os
 import jmbitcoin as bitcoin
-import binascii
 import struct
 import json
 import pytest
@@ -28,8 +27,8 @@ def test_commitment_retries(setup_podle):
     """
     allowed = jm_single().config.getint("POLICY", "taker_utxo_retries")
     #make some pretend commitments
-    dummy_priv_utxo_pairs = [(bitcoin.sha256(os.urandom(10)),
-           bitcoin.sha256(os.urandom(10))+":0") for _ in range(10)]
+    dummy_priv_utxo_pairs = [(bitcoin.Hash(os.urandom(10)),
+           bitcoin.b2x(bitcoin.Hash(os.urandom(10)))+":0") for _ in range(10)]
     #test a single commitment request of all 10
     for x in dummy_priv_utxo_pairs:
         p = generate_podle([x], allowed)
@@ -46,15 +45,15 @@ def generate_single_podle_sig(priv, i):
     This calls the underlying 'raw' code based on the class PoDLE, not the
     library 'generate_podle' which intelligently searches and updates commitments.
     """
-    dummy_utxo = bitcoin.sha256(priv) + ":3"
-    podle = PoDLE(dummy_utxo, binascii.hexlify(priv).decode('ascii'))
+    dummy_utxo = bitcoin.b2x(bitcoin.Hash(priv)) + ":3"
+    podle = PoDLE(dummy_utxo, priv)
     r = podle.generate_podle(i)
     return (r['P'], r['P2'], r['sig'],
             r['e'], r['commit'])
 
 def test_rand_commitments(setup_podle):
     for i in range(20):
-        priv = os.urandom(32)
+        priv = os.urandom(32)+b"\x01"
         Pser, P2ser, s, e, commitment = generate_single_podle_sig(priv, 1 + i%5)
         assert verify_podle(Pser, P2ser, s, e, commitment)
         #tweak commitments to verify failure
@@ -90,7 +89,7 @@ def test_external_commitments(setup_podle):
     tries = jm_single().config.getint("POLICY","taker_utxo_retries")
     for i in range(10):
         priv = os.urandom(32)
-        dummy_utxo = bitcoin.sha256(priv)+":2"
+        dummy_utxo = (bitcoin.Hash(priv), 2)
         ecs[dummy_utxo] = {}
         ecs[dummy_utxo]['reveal']={}
         for j in range(tries):
@@ -104,16 +103,16 @@ def test_external_commitments(setup_podle):
         assert external[u]['P'] == ecs[u]['P']
         for i in range(tries):
             for x in ['P2', 's', 'e']:
-                assert external[u]['reveal'][str(i)][x] == ecs[u]['reveal'][i][x]
+                assert external[u]['reveal'][i][x] == ecs[u]['reveal'][i][x]
     
     #add a dummy used commitment, then try again
-    update_commitments(commitment="ab"*32)
+    update_commitments(commitment=b"\xab"*32)
     ecs = {}
     known_commits = []
     known_utxos = []
     tries = 3
     for i in range(1, 6):
-        u = binascii.hexlify(struct.pack(b'B', i)*32).decode('ascii')
+        u = (struct.pack(b'B', i)*32, i+3)
         known_utxos.append(u)
         priv = struct.pack(b'B', i)*32+b"\x01"
         ecs[u] = {}
@@ -131,8 +130,9 @@ def test_external_commitments(setup_podle):
     #this should find the remaining one utxo and return from it
     assert generate_podle([], max_tries=tries, allow_external=known_utxos)
     #test commitment removal
-    to_remove = ecs[binascii.hexlify(struct.pack(b'B', 3)*32).decode('ascii')]
-    update_commitments(external_to_remove={binascii.hexlify(struct.pack(b'B', 3)*32).decode('ascii'):to_remove})
+    tru = (struct.pack(b"B", 3)*32, 3+3)
+    to_remove = {tru: ecs[tru]}
+    update_commitments(external_to_remove=to_remove)
     #test that an incorrectly formatted file raises
     with open(get_commitment_file(), "rb") as f:
         validjson = json.loads(f.read().decode('utf-8'))
@@ -152,14 +152,14 @@ def test_podle_constructor(setup_podle):
     """Tests rules about construction of PoDLE object
     are conformed to.
     """
-    priv  = "aa"*32
+    priv  = b"\xaa"*32
     #pub and priv together not allowed
     with pytest.raises(PoDLEError) as e_info:
         p = PoDLE(priv=priv, P="dummypub")
     #no pub or priv is allowed, i forget if this is useful for something
     p = PoDLE()
     #create from priv
-    p = PoDLE(priv=priv+"01", u="dummyutxo")
+    p = PoDLE(priv=priv+b"\x01", u=(struct.pack(b"B", 7)*32, 4))
     pdict = p.generate_podle(2)
     assert all([k in pdict for k in ['used', 'utxo', 'P', 'P2', 'commit', 'sig', 'e']])
     #using the valid data, serialize/deserialize test
@@ -181,7 +181,7 @@ def test_podle_constructor(setup_podle):
     with pytest.raises(PoDLEError) as e_info:
         p.generate_podle(0)
     #Test construction from pubkey
-    pub = bitcoin.privkey_to_pubkey(priv+"01")
+    pub = bitcoin.privkey_to_pubkey(priv+b"\x01")
     p = PoDLE(P=pub)
     with pytest.raises(PoDLEError) as e_info:
         p.get_commitment()

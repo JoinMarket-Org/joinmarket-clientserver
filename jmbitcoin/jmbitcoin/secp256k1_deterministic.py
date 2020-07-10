@@ -2,6 +2,8 @@ from jmbitcoin.secp256k1_main import *
 import hmac
 import hashlib
 import struct
+from bitcointx.core import Hash160, Hash
+from bitcointx import base58
 
 # Below code ASSUMES binary inputs and compressed pubkeys
 MAINNET_PRIVATE = b'\x04\x88\xAD\xE4'
@@ -11,6 +13,8 @@ TESTNET_PUBLIC = b'\x04\x35\x87\xCF'
 PRIVATE = [MAINNET_PRIVATE, TESTNET_PRIVATE]
 PUBLIC = [MAINNET_PUBLIC, TESTNET_PUBLIC]
 
+privtopub = privkey_to_pubkey
+
 # BIP32 child key derivation
 
 def raw_bip32_ckd(rawtuple, i):
@@ -19,25 +23,25 @@ def raw_bip32_ckd(rawtuple, i):
 
     if vbytes in PRIVATE:
         priv = key
-        pub = privtopub(key, False)
+        pub = privtopub(key)
     else:
         pub = key
 
     if i >= 2**31:
         if vbytes in PUBLIC:
             raise Exception("Can't do private derivation on public key!")
-        I = hmac.new(chaincode, b'\x00' + priv[:32] + encode(i, 256, 4),
+        I = hmac.new(chaincode, b'\x00' + priv[:32] + struct.pack(b'>L', i),
                      hashlib.sha512).digest()
     else:
-        I = hmac.new(chaincode, pub + encode(i, 256, 4),
+        I = hmac.new(chaincode, pub + struct.pack(b'>L', i),
                      hashlib.sha512).digest()
 
     if vbytes in PRIVATE:
-        newkey = add_privkeys(I[:32] + b'\x01', priv, False)
-        fingerprint = bin_hash160(privtopub(key, False))[:4]
+        newkey = add_privkeys(I[:32] + b'\x01', priv)
+        fingerprint = Hash160(privtopub(key))[:4]
     if vbytes in PUBLIC:
-        newkey = add_pubkeys([privtopub(I[:32] + b'\x01', False), key], False)
-        fingerprint = bin_hash160(key)[:4]
+        newkey = add_pubkeys([privtopub(I[:32] + b'\x01'), key])
+        fingerprint = Hash160(key)[:4]
 
     return (vbytes, depth + 1, fingerprint, i, I[32:], newkey)
 
@@ -47,18 +51,17 @@ def bip32_serialize(rawtuple):
         i = struct.pack(b'>L', i)
     chaincode = chaincode
     keydata = b'\x00' + key[:-1] if vbytes in PRIVATE else key
-    bindata = vbytes + from_int_to_byte(
-        depth % 256) + fingerprint + i + chaincode + keydata
-    return b58encode(bindata + bin_dbl_sha256(bindata)[:4])
+    bindata = vbytes + struct.pack(b'B',depth % 256) + fingerprint + i + chaincode + keydata
+    return base58.encode(bindata + Hash(bindata)[:4])
 
 def bip32_deserialize(data):
-    dbin = b58decode(data)
-    if bin_dbl_sha256(dbin[:-4])[:4] != dbin[-4:]:
+    dbin = base58.decode(data)
+    if Hash(dbin[:-4])[:4] != dbin[-4:]:
         raise Exception("Invalid checksum")
     vbytes = dbin[0:4]
     depth = dbin[4]
     fingerprint = dbin[5:9]
-    i = decode(dbin[9:13], 256)
+    i = struct.unpack(b'>L',dbin[9:13])[0]
     chaincode = dbin[13:45]
     key = dbin[46:78] + b'\x01' if vbytes in PRIVATE else dbin[45:78]
     return (vbytes, depth, fingerprint, i, chaincode, key)
@@ -68,7 +71,7 @@ def raw_bip32_privtopub(rawtuple):
     if vbytes in PUBLIC:
         return rawtuple
     newvbytes = MAINNET_PUBLIC if vbytes == MAINNET_PRIVATE else TESTNET_PUBLIC
-    return (newvbytes, depth, fingerprint, i, chaincode, privtopub(key, False))
+    return (newvbytes, depth, fingerprint, i, chaincode, privtopub(key))
 
 def bip32_privtopub(data):
     return bip32_serialize(raw_bip32_privtopub(bip32_deserialize(data)))
@@ -77,13 +80,12 @@ def bip32_ckd(data, i):
     return bip32_serialize(raw_bip32_ckd(bip32_deserialize(data), i))
 
 def bip32_master_key(seed, vbytes=MAINNET_PRIVATE):
-    I = hmac.new(
-        from_string_to_bytes("Bitcoin seed"), seed, hashlib.sha512).digest()
+    I = hmac.new("Bitcoin seed".encode("utf-8"), seed, hashlib.sha512).digest()
     return bip32_serialize((vbytes, 0, b'\x00' * 4, 0, I[32:], I[:32] + b'\x01'
                            ))
 
 def bip32_extract_key(data):
-    return safe_hexlify(bip32_deserialize(data)[-1])
+    return bip32_deserialize(data)[-1]
 
 def bip32_descend(*args):
     if len(args) == 2:

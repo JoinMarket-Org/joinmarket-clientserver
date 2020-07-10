@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-from future.utils import iteritems
 
 import datetime
 import os
@@ -78,7 +77,7 @@ class YieldGeneratorBasic(YieldGenerator):
 
     def create_my_orders(self):
         mix_balance = self.get_available_mixdepths()
-        if len([b for m, b in iteritems(mix_balance) if b > 0]) == 0:
+        if len([b for m, b in mix_balance.items() if b > 0]) == 0:
             jlog.error('do not have any coins left')
             return []
 
@@ -115,7 +114,7 @@ class YieldGeneratorBasic(YieldGenerator):
         mix_balance = self.get_available_mixdepths()
 
         filtered_mix_balance = {m: b
-                                for m, b in iteritems(mix_balance)
+                                for m, b in mix_balance.items()
                                 if b >= total_amount}
         if not filtered_mix_balance:
             return None, None, None
@@ -132,7 +131,8 @@ class YieldGeneratorBasic(YieldGenerator):
 
         change_addr = self.wallet_service.get_internal_addr(mixdepth)
 
-        utxos = self.wallet_service.select_utxos(mixdepth, total_amount, minconfs=1)
+        utxos = self.wallet_service.select_utxos(mixdepth, total_amount,
+                                        minconfs=1, includeaddr=True)
         my_total_in = sum([va['value'] for va in utxos.values()])
         real_cjfee = calc_cj_fee(offer["ordertype"], offer["cjfee"], amount)
         change_value = my_total_in - amount - offer["txfee"] + real_cjfee
@@ -141,7 +141,8 @@ class YieldGeneratorBasic(YieldGenerator):
                        'finding new utxos').format(change_value))
             try:
                 utxos = self.wallet_service.select_utxos(mixdepth,
-                    total_amount + jm_single().DUST_THRESHOLD, minconfs=1)
+                    total_amount + jm_single().DUST_THRESHOLD,
+                    minconfs=1, includeaddr=True)
             except Exception:
                 jlog.info('dont have the required UTXOs to make a '
                           'output above the dust threshold, quitting')
@@ -175,7 +176,7 @@ class YieldGeneratorBasic(YieldGenerator):
         inputs.  available is a mixdepth/balance dict of all the mixdepths
         that can be chosen from, i.e. have enough balance.  If there is no
         suitable input, the function can return None to abort the order."""
-        available = sorted(iteritems(available), key=lambda entry: entry[0])
+        available = sorted(available.items(), key=lambda entry: entry[0])
         return available[0][0]
 
     def select_output_address(self, input_mixdepth, offer, amount):

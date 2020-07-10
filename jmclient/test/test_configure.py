@@ -3,8 +3,8 @@
 import pytest
 import struct
 from jmclient import load_test_config, jm_single, get_irc_mchannels
-from jmclient.configure import (get_config_irc_channel, get_p2sh_vbyte,
-                                get_p2pk_vbyte, get_blockchain_interface_instance)
+from jmclient.configure import (get_config_irc_channel,
+                                get_blockchain_interface_instance)
 
 
 def test_attribute_dict():
@@ -33,12 +33,6 @@ def test_config_get_irc_channel():
     assert get_config_irc_channel(channel) == "#dummy"
     get_irc_mchannels()
     load_test_config()
-
-
-def test_net_byte():
-    load_test_config()
-    assert struct.unpack(b'B', get_p2pk_vbyte())[0] == 0x6f
-    assert struct.unpack(b'B', get_p2sh_vbyte())[0] == 196
 
 
 def test_blockchain_sources():

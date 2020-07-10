@@ -5,13 +5,13 @@ import os
 import sys
 import hashlib
 import json
-import binascii
 import struct
+from pprint import pformat
 from jmbase import jmprint
 from jmbitcoin import multiply, add_pubkeys, getG, podle_PublicKey,\
-    podle_PrivateKey, encode, decode, N, podle_PublicKey_class
-from jmbase.support import EXIT_FAILURE
-
+    podle_PrivateKey, N, podle_PublicKey_class
+from jmbase import (EXIT_FAILURE, utxostr_to_utxo,
+                    utxo_to_utxostr, hextobin, bintohex)
 
 PODLE_COMMIT_FILE = None
 
@@ -45,33 +45,31 @@ class PoDLE(object):
                  used=False):
         #This class allows storing of utxo in format "txid:n" only for
         #convenience of storage/access; it doesn't check or use the data.
-        #Arguments must be provided in hex.
+        #Arguments must be provided in binary not hex.
         self.u = u
         if not priv:
             if P:
-                #Construct a pubkey from raw hex
-                self.P = podle_PublicKey(binascii.unhexlify(P))
+                self.P = podle_PublicKey(P)
             else:
                 self.P = None
         else:
             if P:
                 raise PoDLEError("Pubkey should not be provided with privkey")
             #any other formatting abnormality will just throw in PrivateKey
-            if len(priv) == 66 and priv[-2:] == '01':
-                priv = priv[:-2]
-            self.priv = podle_PrivateKey(binascii.unhexlify(priv))
+            if len(priv) == 33 and priv[-1:] == b"\x01":
+                priv = priv[:-1]
+            self.priv = podle_PrivateKey(priv)
             self.P = self.priv.public_key
         if P2:
-            self.P2 = podle_PublicKey(binascii.unhexlify(P2))
+            self.P2 = podle_PublicKey(P2)
         else:
             self.P2 = None
-        #These sig values should be passed in hex.
         self.s = None
         self.e = None
         if s:
-            self.s = binascii.unhexlify(s)
+            self.s = s
         if e:
-            self.e = binascii.unhexlify(e)
+            self.e = e
         #Optionally maintain usage state (boolean)
         self.used = used
         #the H(P2) value
@@ -79,14 +77,13 @@ class PoDLE(object):
 
     def get_commitment(self):
         """Set the commitment to sha256(serialization of public key P2)
-        Return in hex to calling function
         """
         if not self.P2:
             raise PoDLEError("Cannot construct commitment, no P2 available")
         if not isinstance(self.P2, podle_PublicKey_class):
             raise PoDLEError("Cannot construct commitment, P2 is not a pubkey")
         self.commitment = hashlib.sha256(self.P2.format()).digest()
-        return binascii.hexlify(self.commitment).decode('ascii')
+        return self.commitment
 
     def generate_podle(self, index=0, k=None):
         """Given a raw private key, in hex format,
@@ -117,79 +114,85 @@ class PoDLE(object):
         and the associated signature data that can be used to open
         the commitment.
         """
+        self.i = index
         #TODO nonce could be rfc6979?
         if not k:
             k = os.urandom(32)
-        J = getNUMS(index)
+        J = getNUMS(self.i)
         KG = podle_PrivateKey(k).public_key
-        KJ = multiply(k, J.format(), False, return_serialized=False)
+        KJ = multiply(k, J.format(), return_serialized=False)
         self.P2 = getP2(self.priv, J)
         self.get_commitment()
         self.e = hashlib.sha256(b''.join([x.format(
         ) for x in [KG, KJ, self.P, self.P2]])).digest()
-        k_int = decode(k, 256)
-        priv_int = decode(self.priv.secret, 256)
-        e_int = decode(self.e, 256)
+        k_int, priv_int, e_int = (int.from_bytes(x,
+            byteorder="big") for x in [k, self.priv.secret, self.e])
         sig_int = (k_int + priv_int * e_int) % N
-        self.s = encode(sig_int, 256, minlen=32)
+        self.s = (sig_int).to_bytes(32, byteorder="big")
         return self.reveal()
 
     def reveal(self):
         """Encapsulate all the data representing the proof
-        in a dict for client functions. Data output in hex.
+        in a dict for client functions.
         """
         if not all([self.u, self.P, self.P2, self.s, self.e]):
             raise PoDLEError("Cannot generate proof, data is missing")
         if not self.commitment:
             self.get_commitment()
-        Phex, P2hex, shex, ehex, commit = [
-            binascii.hexlify(x).decode('ascii')
-            for x in [self.P.format(), self.P2.format(), self.s, self.e,
-                      self.commitment]
-        ]
-        return {'used': str(self.used),
+        return {'used': self.used,
                 'utxo': self.u,
-                'P': Phex,
-                'P2': P2hex,
-                'commit': commit,
-                'sig': shex,
-                'e': ehex}
+                'P': self.P.format(),
+                'P2': self.P2.format(),
+                'commit': self.commitment,
+                'sig': self.s,
+                'e': self.e}
 
     def serialize_revelation(self, separator='|'):
+        """ Outputs the over-the-wire format as used in
+        Joinmarket communication protocol.
+        """
         state_dict = self.reveal()
-        ser_list = []
-        for k in ['utxo', 'P', 'P2', 'sig', 'e']:
-            ser_list += [state_dict[k]]
+        success, utxo = utxo_to_utxostr(state_dict["utxo"])
+        assert success, "invalid utxo in PoDLE"
+        ser_list = [utxo]
+        ser_list += [bintohex(state_dict[x]) for x in ["P", "P2", "sig", "e"]]
         ser_string = separator.join(ser_list)
         return ser_string
 
     @classmethod
     def deserialize_revelation(cls, ser_rev, separator='|'):
+        """ Reads the over-the-wire format as used in
+        Joinmarket communication protocol.
+        """
         ser_list = ser_rev.split(separator)
         if len(ser_list) != 5:
             raise PoDLEError("Failed to deserialize, wrong format")
-        utxo, P, P2, s, e = ser_list
-        return {'utxo': utxo, 'P': P, 'P2': P2, 'sig': s, 'e': e}
+        utxostr, P, P2, s, e = ser_list
+        success, utxo = utxostr_to_utxo(utxostr)
+        assert success, "invalid utxo format in PoDLE."
+        return {'utxo': utxo, 'P': hextobin(P),
+                'P2': hextobin(P2), 'sig': hextobin(s), 'e': hextobin(e)}
 
     def verify(self, commitment, index_range):
         """For an object created without a private key,
         check that the opened commitment verifies for at least
-        one NUMS point as defined by the range in index_range
+        one NUMS point as defined by the range in index_range.
         """
         if not all([self.P, self.P2, self.s, self.e]):
             raise PoDLEError("Verify called without sufficient data")
         if not self.get_commitment() == commitment:
             return False
+
         for J in [getNUMS(i) for i in index_range]:
             sig_priv = podle_PrivateKey(self.s)
             sG = sig_priv.public_key
-            sJ = multiply(self.s, J.format(), False)
-            e_int = decode(self.e, 256)
-            minus_e = encode(-e_int % N, 256, minlen=32)
-            minus_e_P = multiply(minus_e, self.P.format(), False)
-            minus_e_P2 = multiply(minus_e, self.P2.format(), False)
-            KGser = add_pubkeys([sG.format(), minus_e_P], False)
-            KJser = add_pubkeys([sJ, minus_e_P2], False)
+            sJ = multiply(self.s, J.format())
+            e_int = int.from_bytes(self.e, byteorder="big")
+            minus_e = (-e_int % N).to_bytes(32, byteorder="big")
+            minus_e_P = multiply(minus_e, self.P.format())
+            minus_e_P2 = multiply(minus_e, self.P2.format())
+            KGser = add_pubkeys([sG.format(), minus_e_P])
+            KJser = add_pubkeys([sJ, minus_e_P2])
             #check 2: e =?= H(K_G || K_J || P || P2)
             e_check = hashlib.sha256(KGser + KJser + self.P.format() +
                                      self.P2.format()).digest()
@@ -198,6 +201,20 @@ class PoDLE(object):
         #commitment fails for any NUMS in the provided range
         return False
 
+    def __repr__(self):
+        """ Specified here to allow logging.
+        """
+        # note: will throw if not fully initalised
+        r = self.reveal()
+        success, utxo = utxo_to_utxostr(r["utxo"])
+        assert success, "invalid utxo in PoDLE."
+        return pformat({'used': r["used"],
+                'utxo': utxo,
+                'P': bintohex(r["P"]),
+                'P2': bintohex(r["P2"]),
+                'commit': bintohex(r["commit"]),
+                'sig': bintohex(r["sig"]),
+                'e': bintohex(r["e"])})
 
 def getNUMS(index=0):
     """Taking secp256k1's G as a seed,
@@ -244,7 +261,7 @@ def verify_all_NUMS(write=False):
     """
     nums_points = {}
     for i in range(256):
-        nums_points[i] = binascii.hexlify(getNUMS(i).format()).decode('ascii')
+        nums_points[i] = bintohex(getNUMS(i).format())
     if write:
         with open("nums_basepoints.txt", "wb") as f:
             from pprint import pformat
@@ -263,13 +280,82 @@ def getP2(priv, nums_pt):
     priv_raw = priv.secret
     return multiply(priv_raw,
                     nums_pt.format(),
-                    False,
                     return_serialized=False)
 
+# functions which interact with the external persistence of podle data:
+
+def switch_external_dict_format(ed, utxo_converter, hexbinconverter):
+    """External dict has structure:
+    {txid:N:{'P':pubkey, 'reveal':{1:{'P2':P2,'s':s,'e':e}, 2:{..},..}}}
+    This function switches between readable/writable in file (strings, hex)
+    and that used internally.
+    """
+    retval = {}
+    for u in ed:
+        success, u2 = utxo_converter(u)
+        assert success, "invalid utxo format in external dict parsing."
+        retval[u2] = {"P": hexbinconverter(ed[u]["P"])}
+        retval[u2]["reveal"] = {}
+        for i in ed[u]["reveal"]:
+            # hack: python json does not allow int dict keys, they must
+            # be str, so when reading from file, we convert back to int:
+            if not isinstance(i, int):
+                j = int(i)
+            else:
+                j = i
+            retval[u2]["reveal"][j] = {
+                "P2": hexbinconverter(ed[u]["reveal"][i]["P2"]),
+                "s": hexbinconverter(ed[u]["reveal"][i]["s"]),
+                "e": hexbinconverter(ed[u]["reveal"][i]["e"])}
+    return retval
+
+def external_dict_to_file(ed):
+    """ Converts internal format of dict to one writable/readable
+    in file.
+    """
+    return switch_external_dict_format(ed, utxo_to_utxostr, bintohex)
+
+def external_dict_from_file(ed):
+    """ Takes the external dict extracted through json deserialization
+    from a file and converts it to internal format:
+    {txid:N:{'P':pubkey, 'reveal':{1:{'P2':P2,'s':s,'e':e}, 2:{..},..}}}
+    """
+    return switch_external_dict_format(ed, utxostr_to_utxo, hextobin)
+
+def write_to_podle_file(used, external):
+    """ Update persisted commitment data in PODLE_COMMIT_FILE.
+    """
+    to_write = {}
+    to_write['used'] = [bintohex(x) for x in used]
+    externalfmt = external_dict_to_file(external)
+    to_write['external'] = externalfmt
+    with open(PODLE_COMMIT_FILE, "wb") as f:
+        f.write(json.dumps(to_write, indent=4).encode('utf-8'))
+
+def read_from_podle_file():
+    """ Returns used commitment list and external commitments dict
+    struct currently stored in PODLE_COMMIT_FILE.
+    """
+    if os.path.isfile(PODLE_COMMIT_FILE):
+        with open(PODLE_COMMIT_FILE, "rb") as f:
+            try:
+                c = json.loads(f.read().decode('utf-8'))
+            except ValueError: #pragma: no cover
+                #Exit conditions cannot be included in tests.
+                jmprint("the file: " + PODLE_COMMIT_FILE + " is not valid json.",
+                        "error")
+                sys.exit(EXIT_FAILURE)
+            if 'used' not in c.keys() or 'external' not in c.keys():
+                raise PoDLEError("Incorrectly formatted file: " + PODLE_COMMIT_FILE)
+
+        used = [hextobin(x) for x in c["used"]]
+        external = external_dict_from_file(c["external"])
+        return (used, external)
+    return ([], {})
 
 def get_podle_commitments():
     """Returns set of commitments used as a list:
-    [H(P2),..] (hex) and a dict of all existing external commitments.
+    [H(P2),..] and a dict of all existing external commitments.
     It is presumed that each H(P2) can
     be used only once (this may not literally be true, but represents
     good joinmarket "citizenship").
@@ -280,18 +366,11 @@ def get_podle_commitments():
     """
     if not os.path.isfile(PODLE_COMMIT_FILE):
         return ([], {})
-    with open(PODLE_COMMIT_FILE, "rb") as f:
-        c = json.loads(f.read().decode('utf-8'))
-    if 'used' not in c.keys() or 'external' not in c.keys():
-        raise PoDLEError("Incorrectly formatted file: " + PODLE_COMMIT_FILE)
-    return (c['used'], c['external'])
-
+    return read_from_podle_file()
 
 def add_external_commitments(ecs):
     """To allow external functions to add
-    PoDLE commitments that were calculated elsewhere;
-    the format of each entry in ecs must be:
-    {txid:N:{'P':pubkey, 'reveal':{1:{'P2':P2,'s':s,'e':e}, 2:{..},..}}}
+    PoDLE commitments that were calculated elsewhere.
     """
     update_commitments(external_to_add=ecs)
 
@@ -304,25 +383,7 @@ def update_commitments(commitment=None,
     whose key value is the utxo in external_to_remove,
     persist updated entries to disk.
     """
-    c = {}
-    if os.path.isfile(PODLE_COMMIT_FILE):
-        with open(PODLE_COMMIT_FILE, "rb") as f:
-            try:
-                c = json.loads(f.read().decode('utf-8'))
-            except ValueError: #pragma: no cover
-                #Exit conditions cannot be included in tests.
-                jmprint("the file: " + PODLE_COMMIT_FILE + " is not valid json.",
-                        "error")
-                sys.exit(EXIT_FAILURE)
-
-    if 'used' in c:
-        commitments = c['used']
-    else:
-        commitments = []
-    if 'external' in c:
-        external = c['external']
-    else:
-        external = {}
+    commitments, external = read_from_podle_file()
     if commitment:
         commitments.append(commitment)
         #remove repeats
@@ -334,11 +395,7 @@ def update_commitments(commitment=None,
         }
     if external_to_add:
         external.update(external_to_add)
-    to_write = {}
-    to_write['used'] = commitments
-    to_write['external'] = external
-    with open(PODLE_COMMIT_FILE, "wb") as f:
-        f.write(json.dumps(to_write, indent=4).encode('utf-8'))
+    write_to_podle_file(commitments, external)
 
 def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
     used_commitments, external_commitments = get_podle_commitments()
@@ -349,9 +406,8 @@ def get_podle_tries(utxo, priv=None, max_tries=1, external=False):
             #use as many as were provided in the file, up to a max of max_tries
             m = min([len(ec['reveal'].keys()), max_tries])
             for i in reversed(range(m)):
-                key = str(i)
-                p = PoDLE(u=utxo,P=ec['P'],P2=ec['reveal'][key]['P2'],
-                          s=ec['reveal'][key]['s'], e=ec['reveal'][key]['e'])
+                p = PoDLE(u=utxo, P=ec["P"], P2=ec["reveal"][i]["P2"],
+                          s=ec["reveal"][i]["s"], e=ec["reveal"][i]["e"])
                 if p.get_commitment() in used_commitments:
                     return i+1
     else:
@@ -387,10 +443,10 @@ def generate_podle(priv_utxo_pairs, max_tries=1, allow_external=None, k=None):
         #which is still available.
         index = tries
         p = PoDLE(u=utxo, priv=priv)
-        c = p.generate_podle(index)
+        p.generate_podle(index)
         #persist for future checks
-        update_commitments(commitment=c['commit'])
-        return c
+        update_commitments(commitment=p.commitment)
+        return p
     if allow_external:
         for u in allow_external:
             tries = get_podle_tries(utxo=u, max_tries=max_tries, external=True)
@@ -400,19 +456,17 @@ def generate_podle(priv_utxo_pairs, max_tries=1, allow_external=None, k=None):
                 #remove this entry
                 update_commitments(external_to_remove=u)
                 continue
-            index = str(tries)
             ec = external_commitments[u]
-            p = PoDLE(u=u,P=ec['P'],P2=ec['reveal'][index]['P2'],
-                      s=ec['reveal'][index]['s'], e=ec['reveal'][index]['e'])
+            ecri = ec["reveal"][tries]
+            p = PoDLE(u=u, P=ec["P"], P2=ecri["P2"], s=ecri["s"], e=ecri["e"])
             update_commitments(commitment=p.get_commitment())
-            return p.reveal()
+            return p
     #Failed to find any non-used valid commitment:
     return None
 
 
 def verify_podle(Pser, P2ser, sig, e, commitment, index_range=range(10)):
     verifying_podle = PoDLE(P=Pser, P2=P2ser, s=sig, e=e)
-    #check 1: Hash(P2ser) =?= commitment
     if not verifying_podle.verify(commitment, index_range):
         return False
     return True

@@ -18,15 +18,15 @@ from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportW
                      UTXOManager, WALLET_IMPLEMENTATIONS, compute_tx_locktime)
 from .storage import (Argon2Hash, Storage, StorageError, RetryableStorageError,
                       StoragePasswordError, VolatileStorage)
-from .cryptoengine import BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError
+from .cryptoengine import (BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, EngineError,
+                           TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH)
 from .configure import (load_test_config,
-    load_program_config, get_p2pk_vbyte, jm_single, get_network, update_persist_config,
+    load_program_config, jm_single, get_network, update_persist_config,
     validate_address, is_burn_destination, get_irc_mchannels,
-    get_blockchain_interface_instance, get_p2sh_vbyte, set_config, is_segwit_mode,
+    get_blockchain_interface_instance, set_config, is_segwit_mode,
     is_native_segwit_mode)
 from .blockchaininterface import (BlockchainInterface,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
-from .electruminterface import ElectrumInterface
 from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
                               start_reactor)
 from .podle import (set_commitment_file, get_commitment_file,
@@ -41,7 +41,7 @@ from .schedule import (get_schedule, get_tumble_schedule, schedule_to_text,
 from .commitment_utils import get_utxo_info, validate_utxo_data, quit
 from .taker_utils import (tumbler_taker_finished_update, restart_waiter,
                              restart_wait, get_tumble_log, direct_send,
-                             tumbler_filter_orders_callback)
+                             tumbler_filter_orders_callback, direct_send)
 from .cli_options import (add_base_options, add_common_options,
                           get_tumbler_parser, get_max_cj_fee_values,
                           check_regtest, get_sendpayment_parser,
@@ -54,7 +54,8 @@ from .wallet_utils import (
 from .wallet_service import WalletService
 from .maker import Maker, P2EPMaker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
-
+from .snicker_receiver import SNICKERError, SNICKERReceiver
+from .payjoin import parse_payjoin_setup, send_payjoin
 # Set default logging handler to avoid "No handler found" warnings.
 
 try:
