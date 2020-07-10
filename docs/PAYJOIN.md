@@ -6,9 +6,28 @@ reading this).
 This document does **not** discuss why PayJoin is interesting or the general concept.
 For that, see [this](https://joinmarket.me/blog/blog/payjoin/) post.
 
-Some instructions here will be redundant with the introductory [usage guide](USAGE.md);
-this guide is aimed at users who have not/ will not use Joinmarket for ordinary coinjoins.
-So just skip redundant info if you already know it.
+### Contents
+
+1. [Preparatory step: configuring for Bitcoin Core](#preparatory)
+
+2. [Before I put funds in; how do I spend them/sweep them out?](#before)
+
+3. [Make and fund the wallet](#makefund)
+
+4. [Doing a PayJoin payment](#doing)
+
+   a. [Using BIP78 payjoins to pay a merchant](#bip78)
+
+   b. [Using Joinmarket-wallet-to-Joinmarket-wallet payjoins](#jmtojm)
+
+5. [What if I wanted bech32 native segwit addresses?](#native)
+
+6. [Sample testnet wallet display output](#sample)
+
+Some instructions here will be redundant with the introductory [usage guide](USAGE.md); sections 1-3 are aimed at users who have not/ will not use Joinmarket for ordinary coinjoins.
+So just skip those sections if you already know it.
+
+<a name="preparatory" />
 
 ### Preparatory step: configuring for Bitcoin Core.
 
@@ -35,6 +54,8 @@ If you use Bitcoin Core's multiwallet feature, you can edit the value of `rpc_wa
 Then retry the same `generate` command; it should now not error - continue the generate process as per steps below.
 
 However, if you still get rpc connection errors, make sure you can connect to your Core node using the command line first.
+
+<a name="before" />
 
 ### Before I put funds in; how do I spend them/sweep them out?
 
@@ -82,6 +103,8 @@ use the mnemonic phrase in some other wallets, e.g. Electrum.)
 
 So now we know that, let's continue doing the `generate` command to make a new wallet ... :
 
+<a name="makefund" />
+
 ### Make and fund the wallet
 
 Continue/complete the wallet generation with the above (`generate`) method.
@@ -115,7 +138,70 @@ that if you don't bother to do anything special, the coins in those two mixdepth
 (The new standard (BIP49) *should* be compatible with TREZOR, Ledger, Electrum, Samourai and some others,
 including the 12 word seed, although consider privacy concerns when sending addresses to remote servers!).
 
+<a name="doing" />
+
 ### Doing a PayJoin payment.
+
+<a name="bip78" />
+
+#### Using BIP78 payjoins to pay a merchant.
+
+The process here is to use the syntax of sendpayment.py:
+
+```
+(jmvenv)a$ python sendpayment.py -m 0 walletname.jmdat "bitcoin:bc1qxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?amount=0.05933201&pj=https://some/url/payjoin"
+```
+
+Notes on this:
+* Payjoins BIP78 style are done using the `sendpayment` script (there is no Qt support yet, but it will come later).
+* They are done using BIP21 URIs. These can be copy/pasted from a website (e.g. a btcpayserver invoice page), note that double quotes are required because the string contains special characters. Note also that you must see `pj=` in the URI, otherwise payjoin is not supported by that server.
+* Don't forget to specify the mixdepth you are spending from with `-m 0`. The payment amount is of course in the URI, along with the address.
+* Pay attention to address type; this point is complicated, but: some servers will not be able to match the address type of the sender, and so won't be able to construct sensible Payjoin transactions. In that case they may fallback to the non-Payjoin payment (which is not a disaster). If you want to do a Payjoin with a server that only supports bech32, you will have to create a new Joinmarket wallet, specifying `native=true` in the `POLICY` section of `joinmarket.cfg` before you generate the wallet.
+
+Before you do such coinjoins, you may want to:
+* regenerate `joinmarket.cfg`. First, rename your current `joinmarket.cfg` (in `~/.joinmarket` on Linux), then run a script once to have it regenerated from defaults. Then reapply your custom changes.
+* once you have done this, you will see a new section:
+
+```
+[PAYJOIN]
+# for the majority of situations, the defaults
+# need not be altered - they will ensure you don't pay
+# a significantly higher fee.
+# MODIFICATION OF THESE SETTINGS IS DISADVISED.
+
+# Payjoin protocol version; currently only '1' is supported.
+payjoin_version = 1
+
+# servers can change their destination address by default (0).
+# if '1', they cannot. Note that servers can explicitly request
+# that this is activated, in which case we respect that choice.
+disable_output_substitution = 0
+
+# "default" here indicates that we will allow the receiver to
+# increase the fee we pay by:
+# 1.2 * (our_fee_rate_per_vbyte * vsize_of_our_input_type)
+# (see https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki#span_idfeeoutputspanFee_output)
+# (and 1.2 to give breathing room)
+# which indicates we are allowing roughly one extra input's fee.
+# If it is instead set to an integer, then that many satoshis are allowed.
+# Additionally, note that we will also set the parameter additionafeeoutputindex
+# to that of our change output, unless there is none in which case this is disabled.
+max_additional_fee_contribution = default
+
+# this is the minimum satoshis per vbyte we allow in the payjoin
+# transaction; note it is decimal, not integer.
+min_fee_rate = 1.1
+```
+
+As the notes mention, you should probably find the defaults here are absolutely fine, and
+modifying them probably isn't needed. But read the comments for what they are; the main point
+is that you as a payer have control over how much additional fee you are prepared to pay to allow
+the server to participate in a Payjoin transaction with you. By default we only allow them to
+bump the fee enough to add one input to the transaction, and this should be fine in almost all cases.
+
+<a name="jmtojm" />
+
+#### Using Joinmarket-wallet-to-Joinmarket-wallet payjoins
 
 (At the end of this file are full terminal outputs from a regtest run of the process,
 you can read it after this to see that it makes sense; there's also a video
@@ -124,7 +210,7 @@ you can read it after this to see that it makes sense; there's also a video
 * Receiver needs to start: run (still in scripts/ directory):
 
 ```
-python receive-payjoin.py -m 1 receiver-wallet-name.jmdat amount
+(jmvenv)a$ python receive-payjoin.py -m 1 receiver-wallet-name.jmdat amount
 ```
 
 Note : `-m 1` is choosing the *mixdepth* (see above) to *spend* coins from: in a payjoin,
@@ -154,7 +240,7 @@ This data is stored in the file payjoin.txt but not currently using any encoding
 * Sender starts up the sendpayment script:
 
 ```
-python sendpayment.py -m 1 sender-wallet.jmdat 27000000 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS -T J5AFezpsuV95CBCH
+(jmvenv)a$ python sendpayment.py -m 1 sender-wallet.jmdat 27000000 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS -T J5AFezpsuV95CBCH
 ```
 
 Notice that the user has specified the three pieces of data given; using the `-T` flags this as a PayJoin; if you don't do this you will be
@@ -213,7 +299,7 @@ would fail to even start the process without knowing the payment amount and addr
 around everywhere (especially not the amount and ephemeral nickname), and even if they knew that, the worst
 they can do is learn at least 1 utxo of the receiver. The receiver won't pay attention to non-PayJoin messages, either.
 
-### Controlling fees
+##### Controlling fees
 
 **The fees are paid by the sender of funds; note that the fees are going to be a bit higher than a normal payment** (typically
 about 2-3x higher); this may be changed to share the fee, in a future version. There are controls to make sure the fee
@@ -230,10 +316,13 @@ about 5-10 sats/byte, which nowadays is a reasonable fee. The exact amount is ra
 watermarking all your transactions. So don't use < 1200 because then you might be using less than 1 sat/byte which is
 difficult to relay on the Bitcoin network.
 
+<a name="native" />
+
 #### What if I wanted bech32 native segwit addresses?
 
-You can do this, but bear in mind: PayJoin only gives its full effect if you and your receiver are using
-the same kind of addresses; so do this only if you and your receiver(s)/sender(s) agree on it.
+You can do this, but bear in mind: PayJoin only gives its full effect if you and your receiver are using the same kind of addresses; so do this only if you and your receiver(s)/sender(s) agree on it.
+
+As was noted in the BIP78 section, it may be therefore that you *need* to do this (albeit that the worst that can happen is a fallback to non-payjoin payment, which isn't a disaster).
 
 Also note: you *cannot* do Joinmarket coinjoins if you choose a bech32 wallet (this may change in future).
 
@@ -252,6 +341,8 @@ the default (and the one used in Joinmarket itself).
 
 Note that the bech32 style wallet is written to conform to [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki),
 analogous to the BIP49 case for p2sh.
+
+<a name="sample" />
 
 #### Sample testnet wallet display output
 
