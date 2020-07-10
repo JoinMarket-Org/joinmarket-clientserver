@@ -22,7 +22,7 @@ Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
 
 def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
-                accept_callback=None, info_callback=None,
+                accept_callback=None, info_callback=None, error_callback=None,
                 return_transaction=False, with_final_psbt=False,
                 optin_rbf=False):
     """Send coins directly from one mixdepth to one destination address;
@@ -38,8 +38,8 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     returns:
     True if accepted, False if not
     ====
-    The info_callback takes one parameter, the information message (when tx is
-    pushed), and returns nothing.
+    info_callback and error_callback takes one parameter, the information
+    message (when tx is pushed or error occured), and returns nothing.
 
     This function returns:
     1. False if there is any failure.
@@ -187,13 +187,18 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                                            destination, actual_amount, fee_est)
                 if not accepted:
                     return False
-        jm_single().bc_interface.pushtx(tx.serialize())
-        txid = bintohex(tx.GetTxid()[::-1])
-        successmsg = "Transaction sent: " + txid
-        cb = log.info if not info_callback else info_callback
-        cb(successmsg)
-        txinfo = txid if not return_transaction else tx
-        return txinfo
+        if jm_single().bc_interface.pushtx(tx.serialize()):
+            txid = bintohex(tx.GetTxid()[::-1])
+            successmsg = "Transaction sent: " + txid
+            cb = log.info if not info_callback else info_callback
+            cb(successmsg)
+            txinfo = txid if not return_transaction else tx
+            return txinfo
+        else:
+            errormsg = "Transaction broadcast failed!"
+            cb = log.error if not error_callback else error_callback
+            cb(errormsg)
+            return False
 
 def get_tumble_log(logsdir):
     tumble_log = logging.getLogger('tumbler')
