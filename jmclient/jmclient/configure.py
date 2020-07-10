@@ -294,6 +294,35 @@ accept_commitment_broadcasts = 1
 #Location of your commitments.json file (stores commitments you've used
 #and those you want to use in future), relative to the scripts directory.
 commit_file_location = cmtdata/commitments.json
+
+[PAYJOIN]
+# for the majority of situations, the defaults
+# need not be altered - they will ensure you don't pay
+# a significantly higher fee.
+# MODIFICATION OF THESE SETTINGS IS DISADVISED.
+
+# Payjoin protocol version; currently only '1' is supported.
+payjoin_version = 1
+
+# servers can change their destination address by default (0).
+# if '1', they cannot. Note that servers can explicitly request
+# that this is activated, in which case we respect that choice.
+disable_output_substitution = 0
+
+# "default" here indicates that we will allow the receiver to
+# increase the fee we pay by:
+# 1.2 * (our_fee_rate_per_vbyte * vsize_of_our_input_type)
+# (see https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki#span_idfeeoutputspanFee_output)
+# (and 1.2 to give breathing room)
+# which indicates we are allowing roughly one extra input's fee.
+# If it is instead set to an integer, then that many satoshis are allowed.
+# Additionally, note that we will also set the parameter additionafeeoutputindex
+# to that of our change output, unless there is none in which case this is disabled.
+max_additional_fee_contribution = default
+
+# this is the minimum satoshis per vbyte we allow in the payjoin
+# transaction; note it is decimal, not integer.
+min_fee_rate = 1.1
 """
 
 #This allows use of the jmclient package with a

@@ -22,7 +22,7 @@ if __name__ == "__main__":
             pjurl = "http://127.0.0.1:8080"
         else:
             pjurl = "https://127.0.0.1:8080"
-            bip21uri = "bitcoin:2N7CAdEUjJW9tUHiPhDkmL9ukPtcukJMoxK?amount=0.3&pj=" + pjurl
+        bip21uri = "bitcoin:2N7CAdEUjJW9tUHiPhDkmL9ukPtcukJMoxK?amount=0.3&pj=" + pjurl
     wallet_path = get_wallet_path(wallet_name, None)
     if jm_single().config.get("POLICY", "native") == "true":
         walletclass = SegwitWallet

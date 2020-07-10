@@ -66,7 +66,7 @@ def main():
     #without schedule file option, use the arguments to create a schedule
     #of a single transaction
     sweeping = False
-    payjoinurl = None
+    bip78url = None
     if options.schedule == '':
         if btc.is_bip21_uri(args[1]):
             parsed = btc.decode_bip21_uri(args[1])
@@ -78,19 +78,19 @@ def main():
             destaddr = parsed['address']
             if 'jmnick' in parsed:
                 if "pj" in parsed:
-                    parser.error("Cannot specify both BIP79++ and Joinmarket "
+                    parser.error("Cannot specify both BIP78 and Joinmarket "
                                  "peer-to-peer payjoin at the same time!")
                     sys.exit(EXIT_ARGERROR)
                 options.p2ep = parsed['jmnick']
             elif "pj" in parsed:
                 # note that this is a URL; its validity
                 # checking is deferred to twisted.web.client.Agent
-                payjoinurl = parsed["pj"]
+                bip78url = parsed["pj"]
                 # setting makercount only for fee sanity check.
                 # note we ignore any user setting and enforce N=0,
                 # as this is a flag in the code for a non-JM coinjoin;
-                # for the fee sanity check, note that BIP79++ currently
-                # will only allow very small fee changes, so N=0 won't
+                # for the fee sanity check, note that BIP78 currently
+                # will only allow small fee changes, so N=0 won't
                 # be very inaccurate.
                 jmprint("Attempting to pay via payjoin.", "info")
                 options.makercount = 0
@@ -211,7 +211,7 @@ def main():
             log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
                 .format(exp_tx_fees_ratio))
 
-    if options.makercount == 0 and not options.p2ep and not payjoinurl:
+    if options.makercount == 0 and not options.p2ep and not bip78url:
         tx = direct_send(wallet_service, amount, mixdepth, destaddr,
                          options.answeryes, with_final_psbt=options.with_psbt)
         if options.with_psbt:
@@ -322,7 +322,7 @@ def main():
         taker = P2EPTaker(options.p2ep, wallet_service, schedule,
                           callbacks=(None, None, p2ep_on_finished_callback))
 
-    elif payjoinurl:
+    elif bip78url:
         # TODO sanity check wallet type is segwit
         manager = parse_payjoin_setup(args[1], wallet_service, options.mixdepth)
         reactor.callWhenRunning(send_payjoin, manager, tls_whitelist=["127.0.0.1"])
