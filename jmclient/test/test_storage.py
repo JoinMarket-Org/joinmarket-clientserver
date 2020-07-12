@@ -7,7 +7,7 @@ class MockStorage(storage.Storage):
     def __init__(self, data, *args, **kwargs):
         self.file_data = data
         self.locked = False
-        super(type(self), self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def _read_file(self):
         if hasattr(self, 'file_data'):

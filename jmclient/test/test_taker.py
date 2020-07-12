@@ -27,9 +27,8 @@ def convert_utxos(utxodict):
 class DummyWallet(SegwitLegacyWallet):
     def __init__(self):
         storage = VolatileStorage()
-        super(DummyWallet, self).initialize(storage, get_network(),
-                                            max_mixdepth=5)
-        super(DummyWallet, self).__init__(storage)
+        super().initialize(storage, get_network(), max_mixdepth=5)
+        super().__init__(storage)
         self._add_utxos()
         self.inject_addr_get_failure = False
 

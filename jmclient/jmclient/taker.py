@@ -886,7 +886,8 @@ class P2EPTaker(Taker):
     """
 
     def __init__(self, counterparty, wallet_service, schedule, callbacks):
-        super(P2EPTaker, self).__init__(wallet_service, schedule, (1, float('inf')), callbacks=callbacks)
+        super().__init__(wallet_service, schedule, (1, float('inf')),
+                         callbacks=callbacks)
         self.p2ep_receiver_nick = counterparty
         # Callback to request user permission (for e.g. GUI)
         # args: (1) message, as string

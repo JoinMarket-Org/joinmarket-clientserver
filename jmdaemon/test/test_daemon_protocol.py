@@ -187,15 +187,13 @@ def end_test():
 class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
 
     def __init__(self, factory):
-        super(JMDaemonTestServerProtocol, self).__init__(factory)
+        super().__init__(factory)
         #respondtoioauths should do nothing unless jmstate = 2
         self.respondToIoauths(True)
         #calling on_JM_MAKE_TX should also do nothing in wrong state
-        assert super(JMDaemonTestServerProtocol, self).on_JM_MAKE_TX(
-            1, 2) == {'accepted': False}
+        assert super().on_JM_MAKE_TX(1, 2) == {'accepted': False}
         #calling on_JM_FILL with negative amount should reject
-        assert super(JMDaemonTestServerProtocol, self).on_JM_FILL(
-            -1000, 2, 3, 4) == {'accepted': False}
+        assert super().on_JM_FILL(-1000, 2, 3, 4) == {'accepted': False}
         #checkutxos also does nothing for rejection at the moment
         self.checkUtxosAccepted(False)
         #None should be returned requesting a cryptobox for an unknown cp
@@ -210,7 +208,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
             self.on_order_seen(o["counterparty"], o["oid"], o["ordertype"],
                                  o["minsize"], o["maxsize"],
                                  o["txfee"], o["cjfee"])
-        return super(JMDaemonTestServerProtocol, self).on_JM_REQUEST_OFFERS()
+        return super().on_JM_REQUEST_OFFERS()
         
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
@@ -257,15 +255,13 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
             reactor.callLater(1, self.on_pubkey, k, dummypub)
             reactor.callLater(2, self.on_ioauth, k, ['a', 'b'], "auth_pub",
                               "cj_addr", "change_addr", "btc_sig")
-        return super(JMDaemonTestServerProtocol, self).on_JM_FILL(amount,
-                                            commitment, revelation, filled_offers)
+        return super().on_JM_FILL(amount, commitment, revelation, filled_offers)
 
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
         for n in json.loads(nick_list):
             reactor.callLater(1, self.on_sig, n, "dummytxsig")
-        return super(JMDaemonTestServerProtocol, self).on_JM_MAKE_TX(nick_list,
-                                                                     txhex)
+        return super().on_JM_MAKE_TX(nick_list, txhex)
 
 
 

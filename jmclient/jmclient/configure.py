@@ -52,7 +52,7 @@ class AttributeDict(object):
             fileHandler.setFormatter(logFormatter)
             log.addHandler(fileHandler)
 
-        super(AttributeDict, self).__setattr__(name, value)
+        super().__setattr__(name, value)
 
     def __getitem__(self, key):
         """

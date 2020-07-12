@@ -170,8 +170,8 @@ class WalletViewBase(object):
 class WalletViewEntry(WalletViewBase):
     def __init__(self, wallet_path_repr, account, address_type, aindex, addr, amounts,
                  used = 'new', serclass=str, priv=None, custom_separator=None):
-        super(WalletViewEntry, self).__init__(wallet_path_repr, serclass=serclass,
-                                              custom_separator=custom_separator)
+        super().__init__(wallet_path_repr, serclass=serclass,
+                         custom_separator=custom_separator)
         self.account = account
         assert address_type in [SegwitWallet.BIP32_EXT_ID,
             SegwitWallet.BIP32_INT_ID, -1, FidelityBondMixin.BIP32_TIMELOCK_ID,
@@ -229,9 +229,8 @@ class WalletViewEntryBurnOutput(WalletViewEntry):
 class WalletViewBranch(WalletViewBase):
     def __init__(self, wallet_path_repr, account, address_type, branchentries=None,
                  xpub=None, serclass=str, custom_separator=None):
-        super(WalletViewBranch, self).__init__(wallet_path_repr, children=branchentries,
-                                               serclass=serclass,
-                                               custom_separator=custom_separator)
+        super().__init__(wallet_path_repr, children=branchentries,
+                         serclass=serclass, custom_separator=custom_separator)
         self.account = account
         assert address_type in [SegwitWallet.BIP32_EXT_ID,
             SegwitWallet.BIP32_INT_ID, -1, FidelityBondMixin.BIP32_TIMELOCK_ID,
@@ -263,9 +262,8 @@ class WalletViewBranch(WalletViewBase):
 class WalletViewAccount(WalletViewBase):
     def __init__(self, wallet_path_repr, account, branches=None, account_name="mixdepth",
                  serclass=str, custom_separator=None, xpub=None):
-        super(WalletViewAccount, self).__init__(wallet_path_repr, children=branches,
-                                                serclass=serclass,
-                                                custom_separator=custom_separator)
+        super().__init__(wallet_path_repr, children=branches, serclass=serclass,
+                         custom_separator=custom_separator)
         self.account = account
         self.account_name = account_name
         self.xpub = xpub
@@ -290,9 +288,8 @@ class WalletViewAccount(WalletViewBase):
 class WalletView(WalletViewBase):
     def __init__(self, wallet_path_repr, accounts, wallet_name="JM wallet",
                  serclass=str, custom_separator=None):
-        super(WalletView, self).__init__(wallet_path_repr, children=accounts,
-                                         serclass=serclass,
-                                         custom_separator=custom_separator)
+        super().__init__(wallet_path_repr, children=accounts, serclass=serclass,
+                         custom_separator=custom_separator)
         self.wallet_name = wallet_name
         assert all([isinstance(x, WalletViewAccount) for x in accounts])
         self.accounts = accounts

@@ -13,7 +13,7 @@ class DummyDaemon(object):
 
 class DummyMC(IRCMessageChannel):
     def __init__(self, configdata, nick, daemon):
-        super(DummyMC, self).__init__(configdata, daemon=daemon)
+        super().__init__(configdata, daemon=daemon)
         self.daemon = daemon
         self.set_nick(nick)
 
