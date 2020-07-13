@@ -4,6 +4,7 @@ from twisted.web.client import (Agent, readBody, ResponseFailed,
                                 BrowserLikePolicyForHTTPS)
 from twisted.web.iweb import IPolicyForHTTPS
 from twisted.internet.ssl import CertificateOptions
+from twisted.internet.error import ConnectionRefusedError
 from twisted.web.http_headers import Headers
 import urllib.parse as urlparse
 from urllib.parse import urlencode
@@ -444,7 +445,9 @@ def send_payjoin(manager, accept_callback=None,
         return (False, "could not create non-payjoin payment")
 
     manager.set_payment_tx_and_psbt(payment_psbt)
-    # TODO add delayed call to broadcast this after 1 minute
+
+    # add delayed call to broadcast this after 1 minute
+    reactor.callLater(60, fallback_nonpayjoin_broadcast, manager, b"timeout")
 
     # Now we send the request to the server, with the encoded
     # payment PSBT
@@ -484,9 +487,7 @@ def send_payjoin(manager, accept_callback=None,
 
     destination_url = manager.server.encode("utf-8")
     url_parts = list(urlparse.urlparse(destination_url))
-    print("From destination url: ", destination_url, " got urlparts: ", url_parts)
     url_parts[4] = urlencode(params).encode("utf-8")
-    print("after insertion, url_parts is: ", url_parts)
     destination_url = urlparse.urlunparse(url_parts)
     # TODO what to use as user agent?
     d = agent.request(b"POST", destination_url,
@@ -499,22 +500,35 @@ def send_payjoin(manager, accept_callback=None,
     # by a server rejection (which is accompanied by a non-200
     # status code returned), but by failure to communicate.
     def noResponse(failure):
-        failure.trap(ResponseFailed)
-        log.error(failure.value.reasons[0].getTraceback())
-        reactor.stop()
+        failure.trap(ResponseFailed, ConnectionRefusedError)
+        log.error(failure.value)
+        fallback_nonpayjoin_broadcast(manager, b"connection refused")
     d.addErrback(noResponse)
     return (True, None)
 
 def fallback_nonpayjoin_broadcast(manager, err):
+    """ Sends the non-coinjoin payment onto the network,
+    assuming that the payjoin failed. The reason for failure is
+    `err` and will usually be communicated by the server, and must
+    be a bytestring.
+    Note that the reactor is shutdown after sending the payment (one-shot
+    processing).
+    """
     assert isinstance(manager, JMPayjoinManager)
+    def quit():
+        for dc in reactor.getDelayedCalls():
+            dc.cancel()
+        reactor.stop()
     log.warn("Payjoin did not succeed, falling back to non-payjoin payment.")
     log.warn("Error message was: " + err.decode("utf-8"))
     original_tx = manager.initial_psbt.extract_transaction()
     if not jm_single().bc_interface.pushtx(original_tx.serialize()):
         log.error("Unable to broadcast original payment. The payment is NOT made.")
+        quit()
+        return
     log.info("We paid without coinjoin. Transaction: ")
     log.info(btc.human_readable_transaction(original_tx))
-    reactor.stop()
+    quit()
 
 def receive_payjoin_proposal_from_server(response, manager):
     assert isinstance(manager, JMPayjoinManager)
