@@ -24,6 +24,29 @@ import jmbitcoin as btc
 from jmclient import load_test_config, jm_single,\
      SegwitWallet, SegwitLegacyWallet, cryptoengine
 
+import txtorcon
+
+def setup_failed(arg):
+    print("SETUP FAILED", arg)
+    reactor.stop()
+
+def create_onion_ep(t, hs_public_port):
+    return t.create_onion_endpoint(hs_public_port)
+
+def onion_listen(onion_ep, site):
+    return onion_ep.listen(site)
+
+def print_host(ep):
+    # required so tester can connect:
+    jmprint(str(ep.getHost()))
+
+def start_tor(site, hs_public_port):
+    d = txtorcon.connect(reactor)
+    d.addCallback(create_onion_ep, hs_public_port)
+    d.addErrback(setup_failed)
+    d.addCallback(onion_listen, site)
+    d.addCallback(print_host)
+
 # TODO change test for arbitrary payment requests
 payment_amt = 30000000
 
@@ -43,6 +66,8 @@ class PayjoinServer(Resource):
         super().__init__()
     isLeaf = True
     def render_GET(self, request):
+        # can be used e.g. to check if an ephemeral HS is up
+        # on Tor Browser:
         return "<html>Only for testing.</html>".encode("utf-8")
     def render_POST(self, request):
         """ The sender will use POST to send the initial
@@ -66,9 +91,10 @@ class PayjoinServer(Resource):
         receiver_utxos = {k: v for k, v in all_receiver_utxos.items(
             ) if k in receiver_utxos_keys}
     
-        # receiver will do other checks as discussed above, including payment
-        # amount; as discussed above, this is out of the scope of this PSBT test.
-    
+        # receiver will do other checks but this is out of scope,
+        # since we only created this server (currently) to test our
+        # BIP78 client.
+
         # construct unsigned tx for payjoin-psbt:
         payjoin_tx_inputs = [(x.prevout.hash[::-1],
                     x.prevout.n) for x in payment_psbt.unsigned_tx.vin]
@@ -160,13 +186,19 @@ def test_start_payjoin_server(setup_payjoin_server):
     jmprint("\n\nTaker wallet seed : " + wallet_services[1]['seed'])
     jmprint("\n")
     server_wallet_service.sync_wallet(fast=True)
-    
     site = Site(PayjoinServer(server_wallet_service))
-    # TODO for now, just sticking with TLS test as non-encrypted
-    # is unlikely to be used, but add that option.
-    reactor.listenSSL(8080, site, contextFactory=get_ssl_context())
-    #endpoint = endpoints.TCP4ServerEndpoint(reactor, 8080)
-    #endpoint.listen(site)
+    # TODO: this is just hardcoded manually for now:
+    use_tor = False
+    if use_tor:
+        jmprint("Attempting to start Tor HS ...")
+        # port is hardcoded for test:
+        start_tor(site, 7081)
+    else:
+        # TODO for now, just sticking with TLS test as non-encrypted
+        # is unlikely to be used, but add that option.
+        reactor.listenSSL(8080, site, contextFactory=get_ssl_context())
+        #endpoint = endpoints.TCP4ServerEndpoint(reactor, 8080)
+        #endpoint.listen(site)
     reactor.run()
 
 @pytest.fixture(scope="module")

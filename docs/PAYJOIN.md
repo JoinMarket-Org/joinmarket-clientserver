@@ -155,6 +155,7 @@ The process here is to use the syntax of sendpayment.py:
 Notes on this:
 * Payjoins BIP78 style are done using the `sendpayment` script (there is no Qt support yet, but it will come later).
 * They are done using BIP21 URIs. These can be copy/pasted from a website (e.g. a btcpayserver invoice page), note that double quotes are required because the string contains special characters. Note also that you must see `pj=` in the URI, otherwise payjoin is not supported by that server.
+* If the url in `pj=` is `****.onion` it means you must be using Tor, remember to have Tor running on your system and change the configuration (see below) for sock5 port if necessary. If you are running the Tor browser the port is 9150 instead of 9050.
 * Don't forget to specify the mixdepth you are spending from with `-m 0`. The payment amount is of course in the URI, along with the address.
 * Pay attention to address type; this point is complicated, but: some servers will not be able to match the address type of the sender, and so won't be able to construct sensible Payjoin transactions. In that case they may fallback to the non-Payjoin payment (which is not a disaster). If you want to do a Payjoin with a server that only supports bech32, you will have to create a new Joinmarket wallet, specifying `native=true` in the `POLICY` section of `joinmarket.cfg` before you generate the wallet.
 
@@ -191,6 +192,15 @@ max_additional_fee_contribution = default
 # this is the minimum satoshis per vbyte we allow in the payjoin
 # transaction; note it is decimal, not integer.
 min_fee_rate = 1.1
+
+
+# for payjoins to hidden service endpoints, the socks5 configuration:
+onion_socks5_host = localhost
+onion_socks5_port = 9050
+# in some exceptional case the HS may be SSL configured,
+# this feature is not yet implemented in code, but here for the
+# future:
+hidden_service_ssl = false
 ```
 
 As the notes mention, you should probably find the defaults here are absolutely fine, and
