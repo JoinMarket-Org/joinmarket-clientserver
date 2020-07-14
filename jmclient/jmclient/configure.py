@@ -323,6 +323,14 @@ max_additional_fee_contribution = default
 # this is the minimum satoshis per vbyte we allow in the payjoin
 # transaction; note it is decimal, not integer.
 min_fee_rate = 1.1
+
+# for payjoins to hidden service endpoints, the socks5 configuration:
+onion_socks5_host = localhost
+onion_socks5_port = 9050
+# in some exceptional case the HS may be SSL configured,
+# this feature is not yet implemented in code, but here for the
+# future:
+hidden_service_ssl = false
 """
 
 #This allows use of the jmclient package with a
