@@ -102,16 +102,60 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
     ```
 
 ### Installation on Windows
-> note: Installing JoinMarket on Windows using the following method requires Windows 10 version 1607 or later.
 
-#### Enable Windows Subsystem for Linux
+Before starting, note you need either (a) Bitcoin Core installed on Windows or (b) use a remote connection to Bitcoin Core specified in the `joinmarket.cfg` (explained at the end of this section).
+
+If (a), then note the following two points:
+
+##### Installing Bitcoin Core
+If you haven't done so yet, install Bitcoin Core as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
+
+##### Configuring Bitcoin Core
+Bitcoin Core needs to be configured to allow JoinMarket to connect to it. From the `Settings` menu choose `Options` and click `Open Configuration File`. Add `server=1`, save and close the file. After that restart Bitcoin Core.
+
+There are currently two choices for installing on Windows; one, directly installing on Windows, requiring the manual addition of a libsodium dependency, or, two, using Ubuntu via the WSL mechanism (which may require additional setup to make the Qt GUI work).
+
+1) [Installation directly on Windows](#installation-directly-on-windows)
+
+2) [Installation using WSL](#installation-using-wsl)
+
+#### Installation directly on Windows
+
+First, if you have not done so, install [Python](https://www.python.org/downloads/windows/) - specifically, the latest Python 3 version. Make sure to choose to install `pip` during the installation (it should be included automatically, but you can choose the custom installation option to choose it).
+
+Be sure to choose the option that allows `python` to be in your PATH variable (you are prompted to do this at the end of the install).
+
+Install Joinmarket, choosing the zip file of the latest [release](https://github.com/JoinMarket-Org/joinmarket-clientserver/releases). You should check the .asc signature file on the zip that you download.
+
+Unzip the `joinmarket-clientserver-x.x.x` (where `x.x.x` is the release number) in any appropriate location.
+
+Using the command prompt in Administrator mode, go to that directory and run the commands:
+
+`pip install -r requirements\base.txt`
+`pip install -r requirements\gui.txt`
+
+(the latter is needed for Joinmarket-Qt).
+
+The final step is to manually add the libsodium dependency, as mentioned. Do the following:
+
+Download the file at `https://www.nuget.org/api/v2/package/libsodium` and rename it to `.zip` so that you can unzip it. Once unzipped, find the `libsodium.dll` file at `runtimes\win-x64\native\libsodium.dll` and copy it into `C:\Windows\System` (note this will require Admin rights).
+
+At this point Joinmarket should be ready to run both in command line and Joinmarket-Qt form (using `python joinmarket-qt.py` from the `\scripts` subdirectory of `joinmarket-clientserver`).
+
+From here, go to `Configuring Joinmarket` below.
+
+#### Installation using WSL
+
+> note: The following method requires Windows 10 version 1607 or later.
+
+##### Enable Windows Subsystem for Linux
 > note: a more detailed guide can be found [here](https://github.com/michaeltreat/Windows-Subsystem-For-Linux-Setup-Guide/blob/master/readmes/02_WSL_Ubuntu_setup.md).
 
  1. Open the `Control Panel` and navigate to `Programs`, `Programs and Features`, `Turn Windows features on or off`.
  2. Select `Windows Subsystem for Linux` and click `OK`.
  3. When asked, choose to restart.
 
-#### Install Ubuntu from the Microsoft Store
+##### Install Ubuntu from the Microsoft Store
 1. Open the `Microsoft Store`, search for `Ubuntu 18.04 LTS` and click `Get`.
 > note: other distributions are available, but this is the only one tested
 2. When finished downloading click `Launch`.
@@ -119,19 +163,15 @@ command line scripts as explained in the [scripts README](https://github.com/Ada
 4. After installation is done, you'll be asked to provide a `UNIX username` and `UNIX password`. This will be the administrator account for the Ubuntu installation.
 5. Finish the installation with updating the software within Ubuntu by typing the command `sudo apt update && sudo apt upgrade -y`. When asked, type the password provided earlier.
 
-#### Installing JoinMarket
+##### Installing JoinMarket
 At this point you have an (almost) fully featured Linux installation on Windows and you can install JoinMarket using the instructions in the [readme file](../README.md#quickstart) or [Installation on Linux](#installation-on-linux) section of this file.
 
-#### Installing Bitcoin Core
-If you haven't done so yet, install Bitcoin Core as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
-
-#### Configuring Bitcoin Core
-Bitcoin Core needs to be configured to allow JoinMarket to connect to it. From the `Settings` menu choose `Options` and click `Open Configuration File`. Add `server=1`, save and close the file. After that restart Bitcoin Core.
+Once you have finished installing the program via one of the two above methods for Windows, the final step is to configure Joinmarket:
 
 #### Configuring JoinMarket
 Lastly we must configure JoinMarket to allow it to connect to Bitcoin Core. Refer to [this](USAGE.md#managing-your-joinmarket-data) section in the usage guide to generate a `joinmarket.cfg` file using `scripts/wallet-tool.py`.
 
-Edit your `joinmarket.cfg` file (in Ubuntu) and replace the following lines in the section `[BLOCKCHAIN]`
+Edit your `joinmarket.cfg` file (at `~/.joinmarket` in Ubuntu if you used WSL, or in `C:\Users\<your username>\AppData\Roaming\joinmarket` if not) and replace the following lines in the section `[BLOCKCHAIN]`
 
 ```
 rpc_user = bitcoin
@@ -153,6 +193,11 @@ rpc_cookie_file = /mnt/c/Users/Alice/AppData/Roaming/Bitcoin/.cookie
 ```
 
 #### Running JoinMarket-Qt
+
+If you installed directly on Windows, this should work normally, as explained in the [usage guide](USAGE.md)
+
+If you installed using WSL, the following configuration is necessary:
+
 > note: you need to have installed JoinMarket with Qt support (see [this](../README.md#joinmarket-qt) section in the readme file)
 1. In Ubuntu, install additional dependencies `sudo apt install libgl1-mesa-glx`.
 2. Download and install [MobaXterm](https://mobaxterm.mobatek.net). This program needs to be running before you can start JoinMarket-Qt. It requires no additional configuration.
