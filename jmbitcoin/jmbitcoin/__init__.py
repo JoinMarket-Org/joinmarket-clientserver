@@ -4,12 +4,17 @@ import coincurve as secp256k1
 # JM installation script install.sh, use that;
 # if not, it is assumed to be present at the system level
 # See: https://github.com/Simplexum/python-bitcointx/commit/79333106eeb55841df2935781646369b186d99f7#diff-1ea6586127522e62d109ec5893a18850R301-R310
+# note that the Windows finding mechanism is specific to pre-built binaries (PyInstaller) and will not work
+# for a from-source installation; for that, add libsecp256k1-0.dll to the system path.
 import os, sys
-if sys.platform == "darwin":
-    secp_name = "libsecp256k1.dylib"
+if sys.platform in ('windows', 'win32'):
+    expected_secp_location = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'libsecp256k1-0.dll')
 else:
-    secp_name = "libsecp256k1.so"
-expected_secp_location = os.path.join(sys.prefix, "lib", secp_name)
+    if sys.platform == "darwin":
+        secp_name = "libsecp256k1.dylib"
+    else:
+        secp_name = "libsecp256k1.so"
+    expected_secp_location = os.path.join(sys.prefix, "lib", secp_name)
 if os.path.exists(expected_secp_location):
     import bitcointx
     bitcointx.set_custom_secp256k1_path(expected_secp_location)
