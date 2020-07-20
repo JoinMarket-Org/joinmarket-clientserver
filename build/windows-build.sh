@@ -10,6 +10,8 @@
 # (but it is not for users; if you use it you are on your own.)
 # TODO improve it!
 
+# build dependencies: see docs/INSTALL.md ; also mingw-w64 for building the Windows 32 bit dll target.
+
 set -e
 
 function download_if_not_exist() {
