@@ -873,6 +873,9 @@ class BaseWallet(object):
         """
         raise NotImplementedError()
 
+    def change_wallet_passphrase(self, passphrase):
+        self._storage.change_password(passphrase)
+
     def yield_imported_paths(self, mixdepth):
         """
         Get an iterator for all imported keys in given mixdepth.
