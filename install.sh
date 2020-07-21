@@ -4,10 +4,20 @@ check_exists() {
     command -v "$1" > /dev/null
 }
 
+# This is needed for systems where GNU is not the default make, like FreeBSD.
+if check_exists gmake; then
+    make=gmake
+else
+    make=make
+fi
+
 sha256_verify ()
 {
     if [[ "$(uname)" == "Darwin" ]]; then
         shasum -a 256 -c <<<"$1  $2"
+        return "$?"
+    elif [[ "$(uname)" == "FreeBSD" ]]; then
+        sha256 -c "$1" "$2"
         return "$?"
     else
         sha256sum -c <<<"$1  $2"
@@ -147,7 +157,7 @@ dep_get ()
 openssl_build ()
 {
     ./config shared --prefix="${jm_root}"
-    make
+    $make
     rm -rf "${jm_root}/ssl" \
         "${jm_root}/lib/engines" \
         "${jm_root}/lib/pkgconfig/openssl.pc" \
@@ -156,7 +166,7 @@ openssl_build ()
         "${jm_root}/include/openssl" \
         "${jm_root}/bin/c_rehash" \
         "${jm_root}/bin/openssl"
-    if ! make test; then
+    if ! $make test; then
         return 1
     fi
 }
@@ -176,7 +186,7 @@ openssl_install ()
     fi
     pushd "${openssl_version}"
     if openssl_build; then
-        make install_sw
+        $make install_sw
     else
         return 1
     fi
@@ -225,9 +235,9 @@ libffi_build ()
 {
     ./autogen.sh
     ./configure --disable-docs --enable-shared --prefix="${jm_root}"
-    make uninstall
-    make
-    if ! make check; then
+    $make uninstall
+    $make
+    if ! $make check; then
         return 1
     fi
 }
@@ -250,7 +260,7 @@ libffi_install ()
         return 1
     fi
     if libffi_build; then
-        make install
+        $make install
     else
         return 1
     fi
@@ -293,16 +303,16 @@ libsecp256k1_install()
 
 libsodium_build ()
 {
-    make uninstall
-    make distclean
+    $make uninstall
+    $make distclean
     ./autogen.sh
     ./configure \
         --enable-minimal \
         --enable-shared \
         --prefix="${jm_root}"
-    make uninstall
-    make
-    if ! make check; then
+    $make uninstall
+    $make
+    if ! $make check; then
         return 1
     fi
 }
@@ -322,7 +332,7 @@ libsodium_install ()
     fi
     pushd "${sodium_version}"
     if libsodium_build; then
-        make install
+        $make install
     else
         return 1
     fi
