@@ -265,6 +265,9 @@ class txIRC_Client(irc.IRCClient, object):
 
     def joined(self, channel):
         wlog("INFO", "joined: " + str(channel) + " " + str(self.hostname))
+        # for admin purposes, IRC servers *usually* require bots to identify
+        # themselves as such:
+        self.sendLine("MODE " + self.nickname + " +B")
         #Use as trigger for start to mcc:
         reactor.callLater(0.0, self.wrapper.on_welcome, self.wrapper)
 
