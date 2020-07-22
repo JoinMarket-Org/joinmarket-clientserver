@@ -315,7 +315,7 @@ def update_password_strength(pw_strength_label, password):
     pw_strength_label.setText(label)
 
 
-def make_password_dialog(self, msg, new_pass=True):
+def make_password_dialog(self, msg):
 
     self.new_pw = QLineEdit()
     self.new_pw.setEchoMode(QLineEdit.EchoMode(2))
@@ -345,10 +345,10 @@ def make_password_dialog(self, msg, new_pass=True):
     grid.setColumnMinimumWidth(0, 250)
     grid.setColumnStretch(1, 1)
 
-    grid.addWidget(QLabel('New Password' if new_pass else 'Password'), 1, 0)
+    grid.addWidget(QLabel('New Passphrase'), 1, 0)
     grid.addWidget(self.new_pw, 1, 1)
 
-    grid.addWidget(QLabel('Confirm Password'), 2, 0)
+    grid.addWidget(QLabel('Confirm Passphrase'), 2, 0)
     grid.addWidget(self.conf_pw, 2, 1)
     vbox.addLayout(grid)
 
@@ -370,8 +370,8 @@ class PasswordDialog(QDialog):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('Create a new password')
-        msg = "Enter a new password"
+        self.setWindowTitle('Create a new passphrase')
+        msg = "Enter a new passphrase"
         self.setLayout(make_password_dialog(self, msg))
         self.show()
 
