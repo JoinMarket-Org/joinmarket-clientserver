@@ -115,6 +115,9 @@ class Storage(object):
         """
         return self._data_checksum != self._get_data_checksum()
 
+    def check_password(self, password):
+        return self._hash.hash == self._hash_password(password, self._hash.salt).hash
+
     def change_password(self, password):
         if self.read_only:
             raise StorageError("Cannot change password of read-only file.")

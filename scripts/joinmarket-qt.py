@@ -1817,12 +1817,28 @@ class JMMainWindow(QMainWindow):
         else:
             self.initWallet()
 
+    def checkPassphrase(self):
+        match = False
+        while not match:
+            text, ok = QInputDialog.getText(self, 'Passphrase check',
+                                            'Enter your passphrase:',
+                                            echo=QLineEdit.Password)
+            if not ok:
+                return False
+            pwd = str(text).strip().encode('utf-8')
+            match = self.wallet_service.check_wallet_passphrase(pwd)
+            if not match:
+                JMQtMessageBox(self,
+                               "Wrong passphrase.", mbtype='warn', title="Error")
+        return True
+
     def changePassphrase(self):
         if not self.wallet_service:
             JMQtMessageBox(self, "Cannot change passphrase without loaded wallet.",
                            mbtype="crit", title="Error")
             return
-        if not wallet_change_passphrase(self.wallet_service, self.getPassword):
+        if not (self.checkPassphrase()
+                and wallet_change_passphrase(self.wallet_service, self.getPassword)):
             JMQtMessageBox(self, "Failed to change passphrase.",
                            title="Error", mbtype="warn")
             return

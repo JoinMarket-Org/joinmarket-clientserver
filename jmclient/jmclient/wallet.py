@@ -873,6 +873,9 @@ class BaseWallet(object):
         """
         raise NotImplementedError()
 
+    def check_wallet_passphrase(self, passphrase):
+        return self._storage.check_password(passphrase)
+
     def change_wallet_passphrase(self, passphrase):
         self._storage.change_password(passphrase)
 
