@@ -5,7 +5,10 @@ from twisted.web.client import (Agent, readBody, ResponseFailed,
 from twisted.web.iweb import IPolicyForHTTPS
 from twisted.internet.ssl import CertificateOptions
 from twisted.internet.error import ConnectionRefusedError
+from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.web.http_headers import Headers
+from txtorcon.web import tor_agent
+from txtorcon.socks import HostUnreachableError
 import urllib.parse as urlparse
 from urllib.parse import urlencode
 import json
@@ -451,11 +454,30 @@ def send_payjoin(manager, accept_callback=None,
 
     # Now we send the request to the server, with the encoded
     # payment PSBT
-    if not tls_whitelist:
-        agent = Agent(reactor)
+
+    # First we create a twisted web Agent object:
+
+    # TODO genericize/move out/use library function:
+    def is_hs_uri(s):
+        x = urlparse.urlparse(s)
+        if x.hostname.endswith(".onion"):
+            return (x.scheme, x.hostname, x.port)
+        return False
+
+    tor_url_data = is_hs_uri(manager.server)
+    if tor_url_data:
+        # note the return value is currently unused here
+        socks5_host = jm_single().config.get("PAYJOIN", "onion_socks5_host")
+        socks5_port = int(jm_single().config.get("PAYJOIN", "onion_socks5_port"))
+        # note: SSL not supported at the moment:
+        torEndpoint = TCP4ClientEndpoint(reactor, socks5_host, socks5_port)
+        agent = tor_agent(reactor, torEndpoint)
     else:
-        agent = Agent(reactor,
-            contextFactory=WhitelistContextFactory(tls_whitelist))
+        if not tls_whitelist:
+            agent = Agent(reactor)
+        else:
+            agent = Agent(reactor,
+                contextFactory=WhitelistContextFactory(tls_whitelist))
 
     body = BytesProducer(payment_psbt.to_base64().encode("utf-8"))
 
@@ -500,7 +522,7 @@ def send_payjoin(manager, accept_callback=None,
     # by a server rejection (which is accompanied by a non-200
     # status code returned), but by failure to communicate.
     def noResponse(failure):
-        failure.trap(ResponseFailed, ConnectionRefusedError)
+        failure.trap(ResponseFailed, ConnectionRefusedError, HostUnreachableError)
         log.error(failure.value)
         fallback_nonpayjoin_broadcast(manager, b"connection refused")
     d.addErrback(noResponse)
@@ -532,7 +554,6 @@ def fallback_nonpayjoin_broadcast(manager, err):
 
 def receive_payjoin_proposal_from_server(response, manager):
     assert isinstance(manager, JMPayjoinManager)
-
     # if the response code is not 200 OK, we must assume payjoin
     # attempt has failed, and revert to standard payment.
     if int(response.code) != 200:
@@ -554,7 +575,7 @@ def process_payjoin_proposal_from_server(response_body, manager):
             btc.PartiallySignedTransaction.from_base64(response_body)
     except Exception as e:
         log.error("Payjoin tx from server could not be parsed: " + repr(e))
-        fallback_nonpayjoin_broadcast(manager, err="Server sent invalid psbt")
+        fallback_nonpayjoin_broadcast(manager, err=b"Server sent invalid psbt")
         return
 
     log.debug("Receiver sent us this PSBT: ")
@@ -571,7 +592,7 @@ def process_payjoin_proposal_from_server(response_body, manager):
         payjoin_proposal_psbt.serialize(), with_sign_result=True)
     if err:
         log.error("Failed to sign PSBT from the receiver, error: " + err)
-        fallback_nonpayjoin_broadcast(manager, err="Failed to sign receiver PSBT")
+        fallback_nonpayjoin_broadcast(manager, err=b"Failed to sign receiver PSBT")
         return
 
     signresult, sender_signed_psbt = signresultandpsbt
@@ -579,7 +600,7 @@ def process_payjoin_proposal_from_server(response_body, manager):
     success, msg = manager.set_payjoin_psbt(payjoin_proposal_psbt, sender_signed_psbt)
     if not success:
         log.error(msg)
-        fallback_nonpayjoin_broadcast(manager, err="Receiver PSBT checks failed.")
+        fallback_nonpayjoin_broadcast(manager, err=b"Receiver PSBT checks failed.")
         return
     # All checks have passed. We can use the already signed transaction in
     # sender_signed_psbt.
