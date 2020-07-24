@@ -40,13 +40,13 @@ or from the JoinmarketQt app in the "Multiple Joins" tab (see [the guide](JOINMA
 
 Tumbler is a JoinMarket bot which attempts to completely break the link between addresses. It is used to restore privacy where it has been damaged. It creates many many coinjoins to bounce coins around in different amounts and times.
 
-Examples of users might be people who bought bitcoins with a very privacy-invading method, such as buying from an exchange, and wish to have privacy in all their purchases again. Some bitcoin users also just need it as a simple medium of exchange, buying bitcoins with traceable fiat and immediately spending them on goods and services. Example would be an anonymous buyer of a domain name, VPS hosting, email or VPN provisions. Users also might be those who engage in capital flight or want to store bitcoins without anyone knowing, tumbling them into cold storage. If bitcoin fungibility is ever attacked the messages "Your coins are rejected because they were used for illegal or immoral activity X transactions ago" then this bot can probably be used to solve the problem.
+Examples of users might be people who bought bitcoins with a very privacy-invading method, such as buying from an exchange, and wish to have privacy in all their purchases again. Some bitcoin users also just need it as a simple medium of exchange, buying bitcoins with traceable fiat and immediately spending them on goods and services. Example would be an anonymous buyer of a domain name, VPS hosting, email or VPN provisions. Users also might be those who engage in capital flight or want to store bitcoins without anyone knowing, tumbling them into cold storage. If bitcoin fungibility is ever attacked, leading to users being faced with messages like "Your coins are rejected because they were used for illegal or immoral activity X transactions ago" then the tumbler app can probably solve the problem.
 
 <a name="a-note-on-fees" />
 
 ### A note on fees
 
-Because coinjoin transactions are larger than "normal" Bitcoin transactions, mining fees can get as high (or higher) as 50-100 satoshis per vbyte. Hence for 10 transactions, which is a realistic number when using default parameters and three destination addresses, you could end up paying tens or even hundreds(!) of dollars just in Bitcoin transaction fees. Coinjoin fees are most likely negligible compared to this.
+Because coinjoin transactions are larger than "normal" Bitcoin transactions, mining fees can get as high (or higher) as 0.002-0.004 BTC in times of high fees (estimate based on 4kB transaction, 50-100 sats/vbyte). Hence for 10 transactions, which is a realistic number when using default parameters and three destination addresses, you could end up paying tens or even hundreds(!) of dollars just in Bitcoin transaction fees. Coinjoin fees are most likely negligible compared to this.
 
 That $50 total mining fee (example figure) is independent of the amount of bitcoin you are tumbling, so you have to consider whether it will be worth it for amounts much smaller than, say, $500 (10% fee!). Note that you can pay smaller bitcoin mining fees by setting the field `tx_fees` in the `joinmarket.cfg` (see both the [usage guide](USAGE.md#fee-settings) and the comments in `joinmarket.cfg`). This can of course slow things down - which may not be a bad thing.
 
@@ -70,7 +70,7 @@ The `tumbler.py` script can be made to ask you for a new address just before it 
 
 **Warning: The above step is very important. You CANNOT use just a single address and expect good privacy.**
 
-Run tumbler.py with your wallet file and at least one OUTPUT address. Ex:
+Run `tumbler.py` with your wallet file and at least one OUTPUT address. Ex:
 
 ```
 (jmvenv)a@~/joinmarket-clientserver/scripts$ python tumbler.py wallet.jmdat addr1 addr2 addr3
@@ -86,7 +86,7 @@ tumble with these tx? (y/n):
 
 Type 'y' if you're happy to tumble. Bot will then connect to the JoinMarket pit and start doing transactions.
 
-When tumbler.py needs another destination address, it will ask for a new address.
+When `tumbler.py` needs another destination address, it will ask for a new address.
 
 ```
 insert new address: 3Axxxxxxxxxxxxxxxxxxxxxxxxxxxxxxfr
@@ -136,7 +136,7 @@ In this implementation, each coinjoin has an associated "schedule" of format lik
 
 For the `sendpayment.py` script, this schedule can indeed be simply written in a file and passed as a parameter (for this reason it's likely the tumbler and sendpayment scripts can merge in future).
 
-As you can imagine, the idea for the `tumbler.py` script, and the MultiJoin wizard in [JoinmarketQt](JOINMARKET-QT-GUIDE.md#tumbler) is simply that a tumbler *schedule* is generated, according to the algorithm introduced in [this PR](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/387) ([code](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/77422231207c7c3e984a88e944b6c715cece46b5/jmclient/jmclient/schedule.py#L87), however here it is persisted - see the next section.
+As you can imagine, the idea for the `tumbler.py` script, and the MultiJoin wizard in [JoinmarketQt](JOINMARKET-QT-GUIDE.md#tumbler) is simply that a tumbler *schedule* is generated, according to the algorithm introduced in [this PR](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/387) ([code](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/77422231207c7c3e984a88e944b6c715cece46b5/jmclient/jmclient/schedule.py#L87)), however here it is persisted - see the next section.
 
 <a name="logging" />
 
