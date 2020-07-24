@@ -48,7 +48,6 @@ deps_install ()
         'libtool' \
         'libgmp-dev' \
         'python3-dev' \
-        'virtualenv' \
         'python3-pip' )
 
     darwin_deps=( \
@@ -91,6 +90,9 @@ deb_deps_install ()
             return 1
         fi
     fi
+    if ! "${python}" -m pip install virtualenv; then
+        return 1
+    fi
 }
 
 dar_deps_install ()
@@ -99,12 +101,7 @@ dar_deps_install ()
     if ! brew install ${dar_deps[@]}; then
         return 1
     fi
-    echo "
-        sudo password required to run :
-
-        \`sudo pip3 install virtualenv\`
-        "
-    if ! sudo pip3 install virtualenv; then
+    if ! "${python}" -m pip install virtualenv; then
         return 1
     fi
 }
@@ -132,7 +129,7 @@ venv_setup ()
     else
         reinstall='true'
     fi
-    virtualenv -p "${python}" "${jm_source}/jmvenv" || return 1
+    "${python}" -m virtualenv -p "${python}" "${jm_source}/jmvenv" || return 1
     source "${jm_source}/jmvenv/bin/activate" || return 1
     pip install --upgrade pip
     pip install --upgrade setuptools
