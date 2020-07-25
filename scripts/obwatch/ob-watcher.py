@@ -439,7 +439,7 @@ def get_dummy_nick():
     privacy, a conformant nick is created based on a random
     pseudo-pubkey."""
     nick_pkh_raw = hashlib.sha256(os.urandom(10)).digest()[:NICK_HASH_LENGTH]
-    nick_pkh = btc.b58encode(nick_pkh_raw)
+    nick_pkh = btc.base58.encode(nick_pkh_raw)
     #right pad to maximum possible; b58 is not fixed length.
     #Use 'O' as one of the 4 not included chars in base58.
     nick_pkh += 'O' * (NICK_MAX_ENCODED - len(nick_pkh))
