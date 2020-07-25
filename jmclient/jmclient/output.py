@@ -34,20 +34,20 @@ def generate_podle_error_string(priv_utxo_pairs, to, ts, wallet_service, cjamoun
         errmsg += ("None\n")
     else:
         for p, u in priv_utxo_pairs:
-            errmsg += (str(u) + "\n")
+            errmsg += (fmt_utxo(u) + "\n")
     errmsg += "2: Utxos that have less than " + taker_utxo_age + " confirmations:\n"
     if len(to) == 0:
         errmsg += ("None\n")
     else:
         for t in to:
-            errmsg += (str(t) + "\n")
+            errmsg += (fmt_utxo(t) + "\n")
     errmsg += ("3: Utxos that were not at least " + taker_utxo_amtpercent + \
                "% of the size of the coinjoin amount " + str(cjamount) + "\n")
     if len(ts) == 0:
         errmsg += ("None\n")
     else:
         for t in ts:
-            errmsg += (str(t) + "\n")
+            errmsg += (fmt_utxo(t) + "\n")
     errmsg += ('***\n')
     errmsg += ("Utxos that appeared in item 1 cannot be used again.\n")
     errmsg += ("Utxos only in item 2 can be used by waiting for more "
