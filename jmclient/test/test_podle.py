@@ -6,7 +6,7 @@ import struct
 import json
 import pytest
 import copy
-from jmbase import get_log
+from jmbase import get_log, bintohex
 from jmclient import load_test_config, jm_single, generate_podle,\
     generate_podle_error_string, get_commitment_file, PoDLE,\
     get_podle_commitments, add_external_commitments, update_commitments
@@ -189,10 +189,11 @@ def test_podle_constructor(setup_podle):
         p.verify("dummycommitment", range(3))
 
 def test_podle_error_string(setup_podle):
-    priv_utxo_pairs = [('fakepriv1', 'fakeutxo1'),
-                             ('fakepriv2', 'fakeutxo2')]
-    to = ['tooold1', 'tooold2']
-    ts = ['toosmall1', 'toosmall2']
+    example_utxos = [(b"\x00"*32, i) for i in range(6)]
+    priv_utxo_pairs = [('fakepriv1', example_utxos[0]),
+                             ('fakepriv2', example_utxos[1])]
+    to = example_utxos[2:4]
+    ts = example_utxos[4:6]
     wallet_service = make_wallets(1, [[1, 0, 0, 0, 0]])[0]['wallet']
     cjamt = 100
     tua = "3"
@@ -206,8 +207,8 @@ def test_podle_error_string(setup_podle):
                                                        tuamtper)
     assert errmgsheader == ("Failed to source a commitment; this debugging information"
                             " may help:\n\n")
-    y = [x[1] for x in priv_utxo_pairs]
-    assert all([errmsg.find(x) != -1 for x in to + ts + y])
+    y = [bintohex(x[0]) for x in example_utxos]
+    assert all([errmsg.find(x) != -1 for x in y])
     #ensure OK with nothing
     errmgsheader, errmsg = generate_podle_error_string([], [], [], wallet_service,
                                                        cjamt, tua, tuamtper)

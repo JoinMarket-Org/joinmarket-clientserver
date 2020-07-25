@@ -1,4 +1,4 @@
-from binascii import hexlify
+from jmbase import utxo_to_utxostr
 
 
 def fmt_utxos(utxos, wallet_service, prefix=''):
@@ -9,10 +9,10 @@ def fmt_utxos(utxos, wallet_service, prefix=''):
         output.append(utxo_str)
     return '\n'.join(output)
 
-
 def fmt_utxo(utxo):
-    return '{}:{}'.format(hexlify(utxo[0]).decode('ascii'), utxo[1])
-
+    success, utxostr = utxo_to_utxostr(utxo)
+    assert success
+    return utxostr
 
 def fmt_tx_data(tx_data, wallet_service):
     return 'path: {}, address: {}, value: {}'.format(
