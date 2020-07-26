@@ -1985,7 +1985,7 @@ except Exception as e:
             ["Errors about failed RPC connections usually mean an incorrectly ",
              "configured instance of Bitcoin Core (e.g. it hasn't been started ",
              "or the rpc ports are not correct in your joinmarket.cfg or your ",
-             "bitcoin.conf file."
+             "bitcoin.conf file)."
              ])
     JMQtMessageBox(None, config_load_error, mbtype='crit', title='failed to load')
     sys.exit(EXIT_FAILURE)
