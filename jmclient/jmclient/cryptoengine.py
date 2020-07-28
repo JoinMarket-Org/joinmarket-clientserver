@@ -115,6 +115,10 @@ class BTCEngine(object):
 
     @classmethod
     def wif_to_privkey(cls, wif):
+        """ Note July 2020: the `key_type` construction below is
+        custom and is not currently used. Future code should
+        not use this returned `key_type` variable.
+        """
         raw = btc.b58check_to_bin(wif)[1]
         # see note to `privkey_to_wif`; same applies here.
         # We only handle valid private keys, not any byte string.

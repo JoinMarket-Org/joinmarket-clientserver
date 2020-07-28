@@ -31,9 +31,9 @@ def add_ext_commitments(utxo_datas):
         This calls the underlying 'raw' code based on the class PoDLE, not the
         library 'generate_podle' which intelligently searches and updates commitments.
         """
-        #Convert priv from wif; require P2SH-P2WPKH keys
-        rawpriv, keytype = BTCEngine.wif_to_privkey(priv)
-        assert keytype == BTC_P2SH_P2WPKH
+        # Convert priv from wif; note that wallet type
+        # isn't relevant since we only work with pubkeys in PoDLE:
+        rawpriv, _ = BTCEngine.wif_to_privkey(priv)
         podle = PoDLE(u, rawpriv)
         r = podle.generate_podle(i)
         return (r['P'], r['P2'], r['sig'],

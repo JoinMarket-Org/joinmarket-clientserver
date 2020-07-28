@@ -1581,13 +1581,8 @@ class JMMainWindow(QMainWindow):
             with open(os.path.join(jm_single().datadir,
                                    privkeys_fn + '.json'), "wb") as f:
                 for addr, pk in private_keys.items():
-                    #sanity check
-                    rawpriv, keytype = BTCEngine.wif_to_privkey(pk)
-                    if not keytype == BTC_P2SH_P2WPKH:
-                        JMQtMessageBox(None, "Failed to create privkey export, "
-                                       "should be keytype p2sh-p2wpkh but is not.",
-                                       mbtype='crit')
-                        return
+                    # sanity check
+                    rawpriv, _ = BTCEngine.wif_to_privkey(pk)
                     if not addr == self.wallet_service._ENGINE.privkey_to_address(rawpriv):
                         JMQtMessageBox(None, "Failed to create privkey export -" +\
                                        " critical error in key parsing.",
