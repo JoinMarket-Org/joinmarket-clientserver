@@ -236,6 +236,7 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
 
         # https://github.com/Simplexum/python-bitcointx/blob/648ad8f45ff853bf9923c6498bfa0648b3d7bcbd/bitcointx/core/scripteval.py#L1250-L1252
         flags.add(SCRIPT_VERIFY_P2SH)
+        flags.add(SCRIPT_VERIFY_WITNESS)
 
         if native and native != "p2wpkh":
             scriptCode = native
@@ -255,10 +256,9 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
             sig = ecdsa_raw_sign(sighash, priv, rawmsg=True) + bytes([hashcode])
         except Exception as e:
             return return_err(e)
-        if native:
-            flags.add(SCRIPT_VERIFY_WITNESS)
-        else:
+        if not native:
             tx.vin[i].scriptSig = CScript([input_scriptPubKey])
+            input_scriptPubKey = pubkey_to_p2sh_p2wpkh_script(pub)
 
         if native and native != "p2wpkh":
             witness = [sig, scriptCode]
@@ -320,12 +320,11 @@ def make_shuffled_tx(ins, outs, version=1, locktime=0):
     random.shuffle(outs)
     return mktx(ins, outs, version=version, locktime=locktime)
 
-def verify_tx_input(tx, i, scriptSig, scriptPubKey, amount=None,
-                    witness=None, native=False):
+def verify_tx_input(tx, i, scriptSig, scriptPubKey, amount=None, witness=None):
     flags = set([SCRIPT_VERIFY_STRICTENC])
     if witness:
+        # https://github.com/Simplexum/python-bitcointx/blob/648ad8f45ff853bf9923c6498bfa0648b3d7bcbd/bitcointx/core/scripteval.py#L1250-L1252
         flags.add(SCRIPT_VERIFY_P2SH)
-    if native:
         flags.add(SCRIPT_VERIFY_WITNESS)
     try:
         VerifyScript(scriptSig, scriptPubKey, tx, i,

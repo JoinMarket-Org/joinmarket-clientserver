@@ -577,42 +577,38 @@ class Taker(object):
                 jlog.debug("Junk signature: " + str(sig_deserialized) + \
                           ", not attempting to verify")
                 break
+            # The second case here is kept for backwards compatibility.
             if len(sig_deserialized) == 2:
                 ver_sig, ver_pub = sig_deserialized
-                scriptCode = None
             elif len(sig_deserialized) == 3:
-                ver_sig, ver_pub, scriptCode =  sig_deserialized
+                ver_sig, ver_pub, _ = sig_deserialized
             else:
                 jlog.debug("Invalid signature message - not 2 or 3 items")
                 break
 
-            ver_amt = utxo_data[i]['value'] if scriptCode else None
+            scriptPubKey = btc.CScript(utxo_data[i]['script'])
+            is_witness_input = scriptPubKey.is_p2sh() or scriptPubKey.is_witness_v0_keyhash()
+            ver_amt = utxo_data[i]['value'] if is_witness_input else None
             witness = btc.CScriptWitness(
-                [ver_sig, ver_pub]) if scriptCode else None
+                [ver_sig, ver_pub]) if is_witness_input else None
 
             # don't attempt to parse `pub` as pubkey unless it's valid.
-            if scriptCode:
+            if scriptPubKey.is_p2sh():
                 try:
                     s = btc.pubkey_to_p2wpkh_script(ver_pub)
                 except:
                     jlog.debug("Junk signature message, invalid pubkey, ignoring.")
                     break
-            scriptSig = btc.CScript([ver_sig, ver_pub]) if not scriptCode else btc.CScript([s])
 
-            # Pre-Feb 2020, we used the third field scriptCode differently in
-            # pre- and post-0.5.0; now the scriptCode is implicit (i.e. calculated
-            # by underlying library, so that exceptional case is covered.
+            if scriptPubKey.is_witness_v0_keyhash():
+                scriptSig = btc.CScript(b'')
+            elif scriptPubKey.is_p2sh():
+                scriptSig = btc.CScript([s])
+            else:
+                scriptSig = btc.CScript([ver_sig, ver_pub])
+
             sig_good = btc.verify_tx_input(self.latest_tx, u[0], scriptSig,
-                    btc.CScript(utxo_data[i]['script']), amount=ver_amt, witness=witness)
-
-            # verification for the native case is functionally identical but
-            # adds another flag; so we can allow it here:
-            if not sig_good:
-                sig_good = btc.verify_tx_input(self.latest_tx, u[0], scriptSig,
-                                    btc.CScript(utxo_data[i]['script']), amount=ver_amt,
-                                    witness=witness, native=True)
-                # if passes, below code executes, and we should change for native:
-                scriptSig = btc.CScript([b""])
+                    scriptPubKey, amount=ver_amt, witness=witness)
 
             if sig_good:
                 jlog.debug('found good sig at index=%d' % (u[0]))
@@ -622,7 +618,7 @@ class Taker(object):
                 # there is an assumption of p2sh-p2wpkh or p2wpkh, for the segwit
                 # case.
                 self.latest_tx.vin[u[0]].scriptSig = scriptSig
-                if ver_amt:
+                if is_witness_input:
                     self.latest_tx.wit.vtxinwit[u[0]] = btc.CTxInWitness(
                     btc.CScriptWitness(witness))
                 inserted_sig = True
@@ -647,8 +643,9 @@ class Taker(object):
             # other guy sent a failed signature
 
         tx_signed = True
-        for ins in self.latest_tx.vin:
-            if ins.scriptSig == b"":
+        for input, witness in zip(self.latest_tx.vin, self.latest_tx.wit.vtxinwit):
+            if input.scriptSig == b"" \
+               and witness == btc.CTxInWitness(btc.CScriptWitness([])):
                 tx_signed = False
         if not tx_signed:
             return False
@@ -774,7 +771,8 @@ class Taker(object):
             utxo = (ins.prevout.hash[::-1], ins.prevout.n)
             if utxo not in self.input_utxos.keys():
                 continue
-            script = self.input_utxos[utxo]["script"]
+            self.latest_tx.vin[index].scriptSig = btc.CScript(b'')
+            script = self.input_utxos[utxo]['script']
             amount = self.input_utxos[utxo]['value']
             our_inputs[index] = (script, amount)
         success, msg = self.wallet_service.sign_tx(self.latest_tx, our_inputs)

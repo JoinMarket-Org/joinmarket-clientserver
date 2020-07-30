@@ -11,7 +11,7 @@ from twisted.internet import reactor
 
 from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single,\
-    YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet,\
+    YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet, SegwitWallet,\
     NO_ROUNDING
 from jmclient.podle import set_commitment_file
 from commontest import make_wallets, default_max_cj_fee
@@ -118,7 +118,7 @@ def do_tx_signing(taker, makers, active_orders, txdata):
     return taker_final_result
 
 
-@pytest.mark.parametrize('wallet_cls', (LegacyWallet, SegwitLegacyWallet))
+@pytest.mark.parametrize('wallet_cls', (LegacyWallet, SegwitLegacyWallet, SegwitWallet))
 def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
     def raise_exit(i):
         raise Exception("sys.exit called")
