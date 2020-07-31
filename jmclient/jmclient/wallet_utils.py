@@ -555,10 +555,9 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     else:
         return walletview
 
-def cli_get_wallet_passphrase_check(changing_passphrase=False):
-    new_string = "new " if changing_passphrase else ""
-    password = get_password("Enter " + new_string + "passphrase to encrypt wallet: ")
-    password2 = get_password("Reenter " + new_string + "passphrase to encrypt wallet: ")
+def cli_get_wallet_passphrase_check():
+    password = get_password("Enter new passphrase to encrypt wallet: ")
+    password2 = get_password("Reenter new passphrase to encrypt wallet: ")
     if password != password2:
         jmprint('ERROR. Passwords did not match', "error")
         return False
@@ -698,9 +697,10 @@ def wallet_generate_recover(method, walletspath,
 
 def wallet_change_passphrase(walletservice,
                              enter_wallet_passphrase_callback=cli_get_wallet_passphrase_check):
-    passphrase = enter_wallet_passphrase_callback(changing_passphrase=True)
-    walletservice.change_wallet_passphrase(passphrase)
-    return True
+    passphrase = enter_wallet_passphrase_callback()
+    if passphrase:
+        walletservice.change_wallet_passphrase(passphrase)
+        return True
 
 
 def dict_factory(cursor, row):

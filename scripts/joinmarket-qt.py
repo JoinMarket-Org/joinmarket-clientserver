@@ -76,7 +76,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
     get_default_max_relative_fee, RetryableStorageError, add_base_options, \
-    BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin
+    BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin, wallet_change_passphrase
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -1434,6 +1434,9 @@ class JMMainWindow(QMainWindow):
         exportPrivAction = QAction('&Export keys', self)
         exportPrivAction.setStatusTip('Export all private keys to a  file')
         exportPrivAction.triggered.connect(self.exportPrivkeysJson)
+        changePassAction = QAction('&Change passphrase...', self)
+        changePassAction.setStatusTip('Change wallet encryption passphrase')
+        changePassAction.triggered.connect(self.changePassphrase)
         quitAction = QAction(QIcon('exit.png'), '&Quit', self)
         quitAction.setShortcut('Ctrl+Q')
         quitAction.setStatusTip('Quit application')
@@ -1449,6 +1452,7 @@ class JMMainWindow(QMainWindow):
         walletMenu.addAction(recoverAction)
         walletMenu.addAction(showSeedAction)
         walletMenu.addAction(exportPrivAction)
+        walletMenu.addAction(changePassAction)
         walletMenu.addAction(quitAction)
         aboutMenu = menubar.addMenu('&About')
         aboutMenu.addAction(aboutAction)
@@ -1808,6 +1812,34 @@ class JMMainWindow(QMainWindow):
         else:
             self.initWallet()
 
+    def checkPassphrase(self):
+        match = False
+        while not match:
+            text, ok = QInputDialog.getText(self, 'Passphrase check',
+                                            'Enter your passphrase:',
+                                            echo=QLineEdit.Password)
+            if not ok:
+                return False
+            pwd = str(text).strip().encode('utf-8')
+            match = self.wallet_service.check_wallet_passphrase(pwd)
+            if not match:
+                JMQtMessageBox(self,
+                               "Wrong passphrase.", mbtype='warn', title="Error")
+        return True
+
+    def changePassphrase(self):
+        if not self.wallet_service:
+            JMQtMessageBox(self, "Cannot change passphrase without loaded wallet.",
+                           mbtype="crit", title="Error")
+            return
+        if not (self.checkPassphrase()
+                and wallet_change_passphrase(self.wallet_service, self.getPassword)):
+            JMQtMessageBox(self, "Failed to change passphrase.",
+                           title="Error", mbtype="warn")
+            return
+        JMQtMessageBox(self, "Passphrase changed successfully.",
+                       title="Passphrase changed")
+
     def getTestnetSeed(self):
         text, ok = QInputDialog.getText(
             self, 'Testnet seed', 'Enter a 32 char hex string as seed:')
@@ -1837,18 +1869,21 @@ class JMMainWindow(QMainWindow):
     def getPassword(self):
         pd = PasswordDialog()
         while True:
+            for child in pd.findChildren(QLineEdit):
+                child.clear()
+            pd.findChild(QLineEdit).setFocus()
             pd_return = pd.exec_()
             if pd_return == QDialog.Rejected:
                 return None
             elif pd.new_pw.text() != pd.conf_pw.text():
                 JMQtMessageBox(self,
-                               "Passwords don't match.",
+                               "Passphrases don't match.",
                                mbtype='warn',
                                title="Error")
                 continue
             elif pd.new_pw.text() == "":
                 JMQtMessageBox(self,
-                               "Password must not be empty.",
+                               "Passphrase must not be empty.",
                                mbtype='warn',
                                title="Error")
                 continue
