@@ -1001,7 +1001,7 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
           "word mnemonic phrase. Make sure you have backups.", "warning")
     jmprint("WARNING: Make sure that the type of the public address previously "
           "derived from this private key matches the wallet type you are "
-          "currently using.")
+          "currently using.", "warning")
     jmprint("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
           "non-intuitive behaviour and loss of funds.\n  Recommended instead "
           "is to use the \'sweep\' feature of sendpayment.py.", "warning")
@@ -1263,7 +1263,7 @@ def create_wallet(path, password, max_mixdepth, wallet_cls, **kwargs):
 
 
 def open_test_wallet_maybe(path, seed, max_mixdepth,
-                           test_wallet_cls=SegwitLegacyWallet, wallet_password_stdin=False, **kwargs):
+                           test_wallet_cls=SegwitWallet, wallet_password_stdin=False, **kwargs):
     """
     Create a volatile test wallet if path is a hex-encoded string of length 64,
     otherwise run open_wallet().
@@ -1279,8 +1279,8 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
     """
     # If the native flag is set in the config, it overrides the argument
     # test_wallet_cls
-    if jm_single().config.get("POLICY", "native") == "true":
-        test_wallet_cls = SegwitWallet
+    if jm_single().config.get("POLICY", "native") == "false":
+        test_wallet_cls = SegwitLegacyWallet
     if len(seed) == test_wallet_cls.ENTROPY_BYTES * 2:
         try:
             seed = binascii.unhexlify(seed)

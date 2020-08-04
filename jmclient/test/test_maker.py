@@ -77,7 +77,7 @@ def get_address_generator(script_pre, script_post, p2sh=False):
 
 
 def create_tx_and_offerlist(cj_addr, cj_change_addr, other_output_addrs,
-                            offertype='swreloffer'):
+                            offertype='sw0reloffer'):
     assert len(other_output_addrs) % 2 == 0, "bug in test"
 
     cj_value = 100000000

@@ -9,7 +9,7 @@ from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
 import jmbitcoin as btc
 from jmbase import get_log, bintohex
 from jmclient import (load_test_config, estimate_tx_fee, SNICKERReceiver,
-                      direct_send)
+                      direct_send, SegwitLegacyWallet)
 
 TEST_PROPOSALS_FILE = "test_proposals.txt"
 log = get_log()
@@ -31,7 +31,10 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     LoopingCall) and processes them.
     5. Check for valid final transaction with broadcast.
     """
-    wallets = make_wallets(nw, wallet_structures, mean_amt, sdev_amt)
+
+    # TODO: Make this test work with native segwit wallets
+    wallets = make_wallets(nw, wallet_structures, mean_amt, sdev_amt,
+                           wallet_cls=SegwitLegacyWallet)
     for w in wallets.values():
         w['wallet'].sync_wallet(fast=True)
     print(wallets)

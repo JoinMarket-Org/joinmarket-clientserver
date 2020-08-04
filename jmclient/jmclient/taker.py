@@ -250,8 +250,12 @@ class Taker(object):
         if sweep:
             self.orderbook = orderbook #offers choosing deferred to next step
         else:
-            allowed_types = ["reloffer", "absoffer"] if jm_single().config.get(
-                "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
+            if jm_single().config.get("POLICY", "segwit") == "false":
+                allowed_types = ["reloffer", "absoffer"]
+            elif jm_single().config.get("POLICY", "native") == "false":
+                allowed_types = ["swreloffer", "swabsoffer"]
+            else:
+                allowed_types = ["sw0reloffer", "sw0absoffer"]
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
                 self.ignored_makers, allowed_types=allowed_types,
@@ -320,8 +324,12 @@ class Taker(object):
                                             txtype=self.wallet_service.get_txtype())
             jlog.debug("We have a fee estimate: "+str(self.total_txfee))
             total_value = sum([va['value'] for va in self.input_utxos.values()])
-            allowed_types = ["reloffer", "absoffer"] if jm_single().config.get(
-                "POLICY", "segwit") == "false" else ["swreloffer", "swabsoffer"]
+            if jm_single().config.get("POLICY", "segwit") == "false":
+                allowed_types = ["reloffer", "absoffer"]
+            elif jm_single().config.get("POLICY", "native") == "false":
+                allowed_types = ["swreloffer", "swabsoffer"]
+            else:
+                allowed_types = ["sw0reloffer", "sw0absoffer"]
             self.orderbook, self.cjamount, self.total_cj_fee = choose_sweep_orders(
                 self.orderbook, total_value, self.total_txfee,
                 self.n_counterparties, self.order_chooser,

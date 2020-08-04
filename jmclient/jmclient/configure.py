@@ -185,10 +185,11 @@ confirm_timeout_hours = 6
 # Only set to false for old wallets, Joinmarket is now segwit only.
 segwit = true
 
-# Use native segwit (bech32) wallet. This is NOT
-# currently supported in Joinmarket coinjoins. Only set to "true"
-# if specifically advised to do so.
-native = false
+# Use native segwit (bech32) wallet. If set to false, p2sh-p2wkh
+# will be used when generating the addresses for this wallet.
+# Notes: 1. The default joinmarket pit is native segwit.
+#        2. You cannot change the type of a pre-existing wallet.
+native = true
 
 # for dust sweeping, try merge_algorithm = gradual
 # for more rapid dust sweeping, try merge_algorithm = greedy

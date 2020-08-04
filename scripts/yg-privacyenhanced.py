@@ -15,7 +15,7 @@ from jmclient import YieldGeneratorBasic, ygmain, jm_single
 """THESE SETTINGS CAN SIMPLY BE EDITED BY HAND IN THIS FILE:
 """
 
-ordertype = 'swreloffer'  # [string, 'swreloffer' or 'swabsoffer'] / which fee type to actually use
+ordertype = 'swreloffer'  # [string, 'swreloffer', 'swabsoffer', 'sw0reloffer', 'sw0absoffer'] / which fee type to actually use
 cjfee_a = 500             # [satoshis, any integer] / absolute offer fee you wish to receive for coinjoins (cj)
 cjfee_r = '0.00002'       # [percent, any str between 0-1] / relative offer fee you wish to receive based on a cj's amount
 cjfee_factor = 0.1        # [percent, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
@@ -39,9 +39,9 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         # We publish ONLY the maximum amount and use minsize for lower bound;
         # leave it to oid_to_order to figure out the right depth to use.
         f = '0'
-        if ordertype == 'swreloffer':
+        if ordertype in ['swreloffer', 'sw0reloffer']:
             f = self.cjfee_r
-        elif ordertype == 'swabsoffer':
+        elif ordertype in ['swabsoffer', 'sw0absoffer']:
             f = str(self.txfee + self.cjfee_a)
         mix_balance = dict([(m, b) for m, b in iteritems(mix_balance)
                             if b > self.minsize])
@@ -80,7 +80,7 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         assert order['minsize'] >= 0
         assert order['maxsize'] > 0
         assert order['minsize'] <= order['maxsize']
-        if order['ordertype'] == 'swreloffer':
+        if order['ordertype'] in ['swreloffer', 'sw0reloffer']:
             while order['txfee'] >= (float(order['cjfee']) * order['minsize']):
                 order['txfee'] = int(order['txfee'] / 2)
                 jlog.info('Warning: too high txfee to be profitable, halfing it to: ' + str(order['txfee']))

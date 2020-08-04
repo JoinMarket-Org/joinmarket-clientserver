@@ -70,15 +70,16 @@ def do_nothing(arg, order, btc_unit, rel_unit):
 
 
 def ordertype_display(ordertype, order, btc_unit, rel_unit):
-    ordertypes = {'swabsoffer': 'SW Absolute Fee', 'swreloffer': 'SW Relative Fee',
+    ordertypes = {'sw0absoffer': 'Native SW Absolute Fee', 'sw0reloffer': 'Native SW Relative Fee',
+                  'swabsoffer': 'SW Absolute Fee', 'swreloffer': 'SW Relative Fee',
                   'absoffer': 'Absolute Fee', 'reloffer': 'Relative Fee'}
     return ordertypes[ordertype]
 
 
 def cjfee_display(cjfee, order, btc_unit, rel_unit):
-    if order['ordertype'] in ['absoffer', 'swabsoffer']:
+    if order['ordertype'] in ['absoffer', 'swabsoffer', 'sw0absoffer']:
         return satoshi_to_unit(cjfee, order, btc_unit, rel_unit)
-    elif order['ordertype'] in ['reloffer', 'swreloffer']:
+    elif order['ordertype'] in ['reloffer', 'swreloffer', 'sw0reloffer']:
         return str(Decimal(cjfee) * rel_unit_to_factor[rel_unit]) + rel_unit
 
 

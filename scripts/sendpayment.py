@@ -147,13 +147,6 @@ def main():
     if int(options.txfee) > 0:
         jm_single().config.set("POLICY", "tx_fees", str(options.txfee))
 
-    # Dynamically estimate a realistic fee.
-    # At this point we do not know even the number of our own inputs, so
-    # we guess conservatively with 2 inputs and 2 outputs each.
-    fee_per_cp_guess = estimate_tx_fee(2, 2, txtype="p2sh-p2wpkh")
-    log.debug("Estimated miner/tx fee for each cj participant: " + str(
-        fee_per_cp_guess))
-
     maxcjfee = (1, float('inf'))
     if not options.pickorders and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
@@ -179,6 +172,12 @@ def main():
     # the sync call here will now be a no-op:
     wallet_service.startService()
 
+    # Dynamically estimate a realistic fee.
+    # At this point we do not know even the number of our own inputs, so
+    # we guess conservatively with 2 inputs and 2 outputs each.
+    fee_per_cp_guess = estimate_tx_fee(2, 2, txtype=wallet_service.get_txtype())
+    log.debug("Estimated miner/tx fee for each cj participant: " + str(
+        fee_per_cp_guess))
 
     # From the estimated tx fees, check if the expected amount is a
     # significant value compared the the cj amount; currently enabled

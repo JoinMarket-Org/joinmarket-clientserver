@@ -118,7 +118,7 @@ class DummyMaker(Maker):
             'maxsize': 100000000,
             'minsize': 75000,
             'oid': 0,
-            'ordertype': 'swreloffer',
+            'ordertype': 'sw0reloffer',
             'txfee': 0
         }]
 

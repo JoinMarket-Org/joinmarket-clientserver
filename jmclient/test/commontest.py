@@ -11,7 +11,7 @@ from jmbase import (get_log, hextobin, bintohex, dictchanger)
 from jmclient import (
     jm_single, open_test_wallet_maybe, estimate_tx_fee,
     BlockchainInterface, BIP32Wallet,
-    SegwitLegacyWallet, WalletService, BTC_P2SH_P2WPKH)
+    SegwitWallet, WalletService, BTC_P2SH_P2WPKH)
 from jmbase.support import chunks
 import jmbitcoin as btc
 
@@ -177,7 +177,7 @@ def make_wallets(n,
                  sdev_amt=0,
                  start_index=0,
                  fixed_seeds=None,
-                 wallet_cls=SegwitLegacyWallet,
+                 wallet_cls=SegwitWallet,
                  mixdepths=5,
                  populate_internal=False):
     '''n: number of wallets to be created

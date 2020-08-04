@@ -125,7 +125,7 @@ def main():
 
     # Dynamically estimate an expected tx fee for the whole tumbling run.
     # This is very rough: we guess with 2 inputs and 2 outputs each.
-    fee_per_cp_guess = estimate_tx_fee(2, 2, txtype="p2sh-p2wpkh")
+    fee_per_cp_guess = estimate_tx_fee(2, 2, txtype=wallet_service.get_txtype())
     log.debug("Estimated miner/tx fee for each cj participant: " + str(
             fee_per_cp_guess))
 

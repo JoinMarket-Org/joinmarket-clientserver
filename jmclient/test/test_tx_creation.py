@@ -68,7 +68,7 @@ def test_verify_tx_input(setup_tx_creation):
     scriptSig = tx.vin[0].scriptSig
     tx2 = bitcoin.mktx(ins, outs)
     res = bitcoin.verify_tx_input(tx2, 0, scriptSig,
-                            bitcoin.pubkey_to_p2sh_p2wpkh_script(pub),
+                            bitcoin.pubkey_to_p2wpkh_script(pub),
                             amount = bitcoin.coins_to_satoshi(1),
                             witness = bitcoin.CScriptWitness([sig, pub]))
     assert res

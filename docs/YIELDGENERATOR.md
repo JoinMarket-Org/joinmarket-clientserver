@@ -24,14 +24,14 @@ Open one of the two built-in yield generators: `yield-generator-basic.py` or `yg
 	txfee = 1000
 	cjfee_a = 2000
 	cjfee_r = '0.0002' # 0.02% fee
-	ordertype = 'swreloffer'
+	ordertype = 'sw0reloffer'
 	minsize = int(1.2 * txfee / float(cjfee)) #minimum size is such that you always net profit at least 20% of the miner fee
 
 Meaning of fields:
 + txfee. The yield generators contribution to the miner fee.
-+ ordertype. One of 'swreloffer' or 'swabsoffer'.
-+ cjfee_r. Your offered coinjoin fee as a fraction of the coinjoin amount (for 'swreloffer'). Takers pay this to you.
-+ cjfee_a. Your offered coinjoin fee as an absolute number of satoshis (for 'swabsoffer')
++ ordertype. One of 'swreloffer', 'swabsoffer', 'sw0reloffer', 'sw0absoffer'.
++ cjfee_r. Your offered coinjoin fee as a fraction of the coinjoin amount (for 'swreloffer', 'sw0reloffer'). Takers pay this to you.
++ cjfee_a. Your offered coinjoin fee as an absolute number of satoshis (for 'swabsoffer', 'sw0absoffer')
 
 ## Keeping Track of Returns
 

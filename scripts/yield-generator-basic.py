@@ -8,7 +8,7 @@ from jmclient import YieldGeneratorBasic, ygmain
 txfee = 100
 cjfee_a = 500
 cjfee_r = '0.00002'
-ordertype = 'swreloffer' #'swreloffer' or 'swabsoffer'
+ordertype = 'sw0reloffer' # [string, 'swreloffer', 'sw0reloffer', 'swabsoffer', 'sw0absoffer']
 nickserv_password = ''
 max_minsize = 100000
 gaplimit = 6

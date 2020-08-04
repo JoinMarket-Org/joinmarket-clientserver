@@ -85,10 +85,10 @@ class CreateMyOrdersTests(unittest.TestCase):
     def test_rel_fee(self):
         jm_single().DUST_THRESHOLD = 10
         yg = create_yg_basic([0, 2000000, 1000000], txfee=1000, cjfee_r=0.1,
-                             ordertype='swreloffer', minsize=10)
+                             ordertype='sw0reloffer', minsize=10)
         self.assertEqual(yg.create_my_orders(), [
           {'oid': 0,
-           'ordertype': 'swreloffer',
+           'ordertype': 'sw0reloffer',
            'minsize': 15000,
            'maxsize': 1999000,
            'txfee': 1000,
