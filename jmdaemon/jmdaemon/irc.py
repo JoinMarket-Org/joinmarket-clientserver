@@ -105,6 +105,10 @@ class IRCMessageChannel(MessageChannel):
         self.tx_irc_client = None
         #TODO can be configuration var, how long between reconnect attempts:
         self.reconnect_interval = 10
+
+        # service is used to wrap endpoints for Tor connections:
+        self.reconnecting_service = None
+
     #implementation of abstract base class methods;
     #these are mostly but not exclusively acting as pass through
     #to the wrapped twisted IRC client protocol
@@ -115,6 +119,8 @@ class IRCMessageChannel(MessageChannel):
     def shutdown(self):
         self.tx_irc_client.quit()
         self.give_up = True
+        if self.reconnecting_service:
+            self.reconnecting_service.stopService()
 
     def _pubmsg(self, msg):
         self.tx_irc_client._pubmsg(msg)
@@ -157,8 +163,8 @@ class IRCMessageChannel(MessageChannel):
                 use_tls = False
             ircEndpoint = TorSocksEndpoint(torEndpoint, self.serverport[0],
                                            self.serverport[1], tls=use_tls)
-            myRS = ClientService(ircEndpoint, factory)
-            myRS.startService()
+            self.reconnecting_service = ClientService(ircEndpoint, factory)
+            self.reconnecting_service.startService()
         else:
             try:
                 factory = TxIRCFactory(self)
@@ -203,7 +209,7 @@ class txIRC_Client(irc.IRCClient, object):
     def connectionLost(self, reason=protocol.connectionDone):
         wlog("INFO", "Lost IRC connection to: " + str(self.hostname)
             + " . Should reconnect automatically soon.")
-        if self.wrapper.on_disconnect:
+        if not self.wrapper.give_up and self.wrapper.on_disconnect:
             reactor.callLater(0.0, self.wrapper.on_disconnect, self.wrapper)
         return irc.IRCClient.connectionLost(self, reason)
 

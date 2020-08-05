@@ -6,6 +6,7 @@ import time
 import abc
 import base64
 from twisted.python.log import startLogging
+from twisted.application.service import Service
 from optparse import OptionParser
 from jmbase import get_log
 from jmclient import (Maker, jm_single, load_program_config,
@@ -263,6 +264,39 @@ class YieldGeneratorBasic(YieldGenerator):
         cjoutmix = (input_mixdepth + 1) % (self.wallet_service.mixdepth + 1)
         return self.wallet_service.get_internal_addr(cjoutmix)
 
+class YieldGeneratorService(Service):
+    def __init__(self, wallet_service, daemon_host, daemon_port, yg_config):
+        self.wallet_service = wallet_service
+        self.daemon_host = daemon_host
+        self.daemon_port = daemon_port
+        self.yg_config = yg_config
+        self.yieldgen = None
+
+    def startService(self):
+        """ We instantiate the Maker class only
+        here as its constructor will automatically
+        create orders based on the wallet.
+        Note makers already intrinsically handle
+        not-yet-synced wallet services, so there is
+        no need to check this here.
+        """
+        # TODO genericise to any YG class:
+        self.yieldgen = YieldGeneratorBasic(self.wallet_service, self.yg_config)
+        self.clientfactory = JMClientProtocolFactory(self.yieldgen, proto_type="MAKER")
+        # here 'start_reactor' does not start the reactor but instantiates
+        # the connection to the daemon backend; note daemon=False, i.e. the daemon
+        # backend is assumed to be started elsewhere; we just connect to it with a client.
+        start_reactor(self.daemon_host, self.daemon_port, self.clientfactory, rs=False)
+        super().startService()
+
+    def stopService(self):
+        """ TODO need a method exposed to gracefully
+        shut down a maker bot.
+        """
+        if self.running:
+            jlog.info("Shutting down YieldGenerator service.")
+            self.clientfactory.proto_client.request_mc_shutdown()
+            super().stopService()
 
 def ygmain(ygclass, nickserv_password='', gaplimit=6):
     import sys
