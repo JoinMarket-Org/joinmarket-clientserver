@@ -178,6 +178,12 @@ class WalletViewEntry(WalletViewBase):
         extradata = self.serialize_extra_data()
         return self.serclass(self.separator.join([left, addr, amounts, extradata]))
 
+    def serialize_json(self):
+        return {"hd_path": self.wallet_path_repr,
+                "address": self.serialize_address(),
+                "amount": self.serialize_amounts(),
+                "labels": self.serialize_extra_data()}
+
     def serialize_wallet_position(self):
         return self.wallet_path_repr.ljust(20)
 
@@ -230,6 +236,14 @@ class WalletViewBranch(WalletViewBase):
             lines.append(footer)
             return self.serclass(entryseparator.join(lines))
 
+    def serialize_json(self, summarize=False):
+        if summarize:
+            return {}
+        else:
+            return {"branch": self.serialize_branch_header(),
+                    "balance": self.get_fmt_balance(),
+             "entries": [x.serialize_json() for x in self.branchentries]}
+
     def serialize_branch_header(self):
         start = "external addresses" if self.address_type == 0 else "internal addresses"
         if self.address_type == -1:
@@ -264,6 +278,14 @@ class WalletViewAccount(WalletViewBase):
             return self.serclass(entryseparator.join([header] + [
                 x.serialize(entryseparator) for x in self.branches] + [footer]))
 
+    def serialize_json(self, summarize=False):
+        result = {"account": str(self.account),
+                    "account_balance": self.get_fmt_balance()}
+        if summarize:
+            return result
+        result["branches"] = [x.serialize_json() for x in self.branches]
+        return result
+
 class WalletView(WalletViewBase):
     def __init__(self, wallet_path_repr, accounts, wallet_name="JM wallet",
                  serclass=str, custom_separator=None):
@@ -287,6 +309,10 @@ class WalletView(WalletViewBase):
             return self.serclass(entryseparator.join([header] + [
                 x.serialize(entryseparator, summarize=False) for x in self.accounts] + [footer]))
 
+    def serialize_json(self, summarize=False):
+        return {"wallet_name": self.wallet_name,
+                "total_balance": self.get_fmt_balance(),
+                "accounts": [x.serialize_json(summarize=summarize) for x in self.accounts]}
 
 def get_tx_info(txid, tx_cache=None):
     """
@@ -394,7 +420,7 @@ def wallet_showutxos(wallet_service, showprivkey):
 
 
 def wallet_display(wallet_service, showprivkey, displayall=False,
-        serialized=True, summarized=False, mixdepth=None):
+        serialized=True, summarized=False, mixdepth=None, jsonified=False):
     """build the walletview object,
     then return its serialization directly if serialized,
     else return the WalletView object.
@@ -547,7 +573,10 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     path = wallet_service.get_path_repr(wallet_service.get_path())
     walletview = WalletView(path, acctlist)
     if serialized:
-        return walletview.serialize(summarize=summarized)
+        if jsonified:
+            return walletview.serialize_json(summarize=summarized)
+        else:
+            return walletview.serialize(summarize=summarized)
     else:
         return walletview
 
