@@ -76,7 +76,8 @@ class JMPayjoinManager(object):
     pj_state = JM_PJ_NONE
 
     def __init__(self, wallet_service, mixdepth, destination,
-                 amount, server, disable_output_substitution=False):
+                 amount, server, disable_output_substitution=False,
+                 mode="command-line"):
         assert isinstance(wallet_service, WalletService)
         # payjoin is not supported for non-segwit wallets:
         assert isinstance(wallet_service.wallet,
@@ -103,6 +104,13 @@ class JMPayjoinManager(object):
         # in case there is no change:
         self.change_out = None
         self.change_out_index = None
+        # payment mode is "command-line" for one-shot
+        # processing, shutting down on completion.
+        self.mode = mode
+
+        # to be able to cancel the timeout fallback broadcast
+        # in case of success:
+        self.timeout_fallback_dc = None
 
     def set_payment_tx_and_psbt(self, in_psbt):
         assert isinstance(in_psbt, btc.PartiallySignedTransaction)
@@ -373,7 +381,7 @@ class JMPayjoinManager(object):
         else:
             return reportdict
 
-def parse_payjoin_setup(bip21_uri, wallet_service, mixdepth):
+def parse_payjoin_setup(bip21_uri, wallet_service, mixdepth, mode="command-line"):
     """ Takes the payment request data from the uri and returns a
     JMPayjoinManager object initialised for that payment.
     """
@@ -393,7 +401,8 @@ def parse_payjoin_setup(bip21_uri, wallet_service, mixdepth):
     if "pjos" in decoded and decoded["pjos"] == "0":
         disable_output_substitution = True
     return JMPayjoinManager(wallet_service, mixdepth, destaddr, amount, server,
-                        disable_output_substitution=disable_output_substitution)
+                        disable_output_substitution=disable_output_substitution,
+                        mode=mode)
 
 def get_max_additional_fee_contribution(manager):
     """ See definition of maxadditionalfeecontribution in BIP 78.
@@ -450,7 +459,8 @@ def send_payjoin(manager, accept_callback=None,
     manager.set_payment_tx_and_psbt(payment_psbt)
 
     # add delayed call to broadcast this after 1 minute
-    reactor.callLater(60, fallback_nonpayjoin_broadcast, manager, b"timeout")
+    manager.timeout_fallback_dc = reactor.callLater(60, fallback_nonpayjoin_broadcast,
+                                                    manager, b"timeout")
 
     # Now we send the request to the server, with the encoded
     # payment PSBT
@@ -538,9 +548,10 @@ def fallback_nonpayjoin_broadcast(manager, err):
     """
     assert isinstance(manager, JMPayjoinManager)
     def quit():
-        for dc in reactor.getDelayedCalls():
-            dc.cancel()
-        reactor.stop()
+        if manager.mode == "command-line" and reactor.running:
+            for dc in reactor.getDelayedCalls():
+                dc.cancel()
+            reactor.stop()
     log.warn("Payjoin did not succeed, falling back to non-payjoin payment.")
     log.warn("Error message was: " + err.decode("utf-8"))
     original_tx = manager.initial_psbt.extract_transaction()
@@ -616,4 +627,8 @@ def process_payjoin_proposal_from_server(response_body, manager):
         log.info("The above transaction failed to broadcast.")
     else:
         log.info("Payjoin transaction broadcast successfully.")
-    reactor.stop()
+        # if transaction is succesfully broadcast, remove the
+        # timeout fallback to avoid confusing error messages:
+        manager.timeout_fallback_dc.cancel()
+    if manager.mode == "command-line" and reactor.running:
+        reactor.stop()
