@@ -213,7 +213,7 @@ The BIP32 derivation paths are also shown; for Joinmarket they are defined by [B
 **Bitcoins should be sent to empty external addresses** (sometimes known as receive addresses). You'll notice in
 the above that while there are fields also for *internal addresses*, they are empty. That's because zero-balance internal addresses (also known as change addresses) are hidden by default. Using 'displayall' as the second argument will show all addresses in wallet, including empty used ones.
 
-Read the instructions [here](https://github.com/JoinMarket-Org/joinmarket/wiki/Sourcing-commitments-for-joins) before funding the wallet.
+Read the instructions [here](SOURCING-COMMITMENTS.md) before funding the wallet.
 
 Once you've funded it, run `python wallet-tool.py wallet.jmdat` again, enter your passphrase, and you should see the deposited coins.
 
