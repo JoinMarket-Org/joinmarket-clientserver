@@ -313,16 +313,13 @@ def test_import_key(setup_wallet):
     wallet = SegwitLegacyWallet(storage)
 
     wallet.import_private_key(
-        0, 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM',
-        cryptoengine.TYPE_P2SH_P2WPKH)
+        0, 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM')
     wallet.import_private_key(
-        1, 'cVqtSSoVxFyPqTRGfeESi31uCYfgTF4tGWRtGeVs84fzybiX5TPk',
-        cryptoengine.TYPE_P2PKH)
+        1, 'cVqtSSoVxFyPqTRGfeESi31uCYfgTF4tGWRtGeVs84fzybiX5TPk')
 
     with pytest.raises(WalletError):
         wallet.import_private_key(
-            1, 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM',
-            cryptoengine.TYPE_P2SH_P2WPKH)
+            1, 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM')
 
     # test persist imported keys
     wallet.save()
@@ -341,7 +338,7 @@ def test_import_key(setup_wallet):
 
     # verify imported addresses
     assert wallet.get_address_from_path(imported_paths_md0[0]) == '2MzY5yyonUY7zpHspg7jB7WQs1uJxKafQe4'
-    assert wallet.get_address_from_path(imported_paths_md1[0]) == 'mpCX9EbdXpcrKMtjEe1fqFhvzctkfzMYTX'
+    assert wallet.get_address_from_path(imported_paths_md1[0]) == '2MwbXnJrPP4rnwpgRhvNPP44J6tMokDexZB'
 
     # test remove key
     wallet.remove_imported_key(path=imported_paths_md0[0])
@@ -350,20 +347,17 @@ def test_import_key(setup_wallet):
     assert wallet.get_details(imported_paths_md1[0]) == (1, 'imported', 0)
 
 
-@pytest.mark.parametrize('wif,keytype,type_check', [
-    ['cVqtSSoVxFyPqTRGfeESi31uCYfgTF4tGWRtGeVs84fzybiX5TPk',
-     cryptoengine.TYPE_P2PKH, assert_not_segwit],
-    ['cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM',
-     cryptoengine.TYPE_P2SH_P2WPKH, assert_segwit]
+@pytest.mark.parametrize('wif, type_check', [
+    ['cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM', assert_segwit]
 ])
-def test_signing_imported(setup_wallet, wif, keytype, type_check):
+def test_signing_imported(setup_wallet, wif, type_check):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
     storage = VolatileStorage()
     SegwitLegacyWallet.initialize(storage, get_network())
     wallet = SegwitLegacyWallet(storage)
 
     MIXDEPTH = 0
-    path = wallet.import_private_key(MIXDEPTH, wif, keytype)
+    path = wallet.import_private_key(MIXDEPTH, wif)
     utxo = fund_wallet_addr(wallet, wallet.get_address_from_path(path))
     # The dummy output is constructed as an unspendable p2sh:
     tx = btc.mktx([utxo],
@@ -619,8 +613,7 @@ def test_path_repr(setup_wallet):
 def test_path_repr_imported(setup_wallet):
     wallet = get_populated_wallet(num=0)
     path = wallet.import_private_key(
-        0, 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM',
-        cryptoengine.TYPE_P2SH_P2WPKH)
+        0, 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM')
     path_repr = wallet.get_path_repr(path)
     path_new = wallet.path_repr_to_path(path_repr)
 
@@ -708,13 +701,12 @@ def test_addr_script_conversion(setup_wallet):
 
 def test_imported_key_removed(setup_wallet):
     wif = 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM'
-    key_type = cryptoengine.TYPE_P2SH_P2WPKH
 
     storage = VolatileStorage()
     SegwitLegacyWallet.initialize(storage, get_network())
     wallet = SegwitLegacyWallet(storage)
 
-    path = wallet.import_private_key(1, wif, key_type)
+    path = wallet.import_private_key(1, wif)
     script = wallet.get_script_from_path(path)
     assert wallet.is_known_script(script)
 

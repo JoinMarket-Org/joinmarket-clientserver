@@ -195,8 +195,7 @@ class SNICKERReceiver(object):
                     # scriptPubKey type as the wallet, this has been implicitly
                     # checked above by deriving the scriptPubKey.
                     self.wallet_service.import_private_key(self.import_branch,
-                            self.wallet_service._ENGINE.privkey_to_wif(tweaked_privkey),
-                            key_type=self.wallet_service.TYPE)
+                            self.wallet_service._ENGINE.privkey_to_wif(tweaked_privkey))
 
 
                     # TODO condition on automatic brdcst or not
