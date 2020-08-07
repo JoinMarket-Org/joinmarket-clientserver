@@ -1540,7 +1540,7 @@ class ImportWalletMixin(object):
         if write:
             storage.save()
 
-    def import_private_key(self, mixdepth, wif, key_type=None):
+    def import_private_key(self, mixdepth, wif):
         """
         Import a private key in WIF format.
 
@@ -1561,8 +1561,6 @@ class ImportWalletMixin(object):
         if not 0 <= mixdepth <= self.max_mixdepth:
             raise WalletError("Mixdepth must be positive and at most {}."
                               "".format(self.max_mixdepth))
-        if key_type is not None and key_type not in self._ENGINES:
-            raise WalletError("Unsupported key type for imported keys.")
 
         privkey, key_type_wif = self._ENGINE.wif_to_privkey(wif)
         # FIXME: there is no established standard for encoding key type in wif
@@ -1570,10 +1568,8 @@ class ImportWalletMixin(object):
         #        key_type != key_type_wif:
         #    raise WalletError("Expected key type does not match WIF type.")
 
-        # default to wallet key type if not told otherwise
-        if key_type is None:
-            key_type = self.TYPE
-            #key_type = key_type_wif if key_type_wif is not None else self.TYPE
+        # default to wallet key type
+        key_type = self.TYPE
         engine = self._ENGINES[key_type]
 
         if engine.key_to_script(privkey) in self._script_map:

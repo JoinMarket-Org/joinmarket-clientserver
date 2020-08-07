@@ -997,6 +997,9 @@ def wallet_showseed(wallet):
 def wallet_importprivkey(wallet, mixdepth, key_type):
     jmprint("WARNING: This imported key will not be recoverable with your 12 "
           "word mnemonic phrase. Make sure you have backups.", "warning")
+    jmprint("WARNING: Make sure that the type of the public address previously "
+          "derived from this private key matches the wallet type you are "
+          "currently using.")
     jmprint("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
           "non-intuitive behaviour and loss of funds.\n  Recommended instead "
           "is to use the \'sweep\' feature of sendpayment.py.", "warning")
@@ -1009,7 +1012,7 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
         # TODO is there any point in only accepting wif format? check what
         # other wallets do
         try:
-            path = wallet.import_private_key(mixdepth, wif, key_type=key_type)
+            path = wallet.import_private_key(mixdepth, wif)
         except WalletError as e:
             print("Failed to import key {}: {}".format(wif, e))
             import_failed += 1

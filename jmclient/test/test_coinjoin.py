@@ -263,56 +263,6 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
         assert balances[4] == 4 * 10**8 - cj_amount + cj_fee
 
 
-@pytest.mark.parametrize('wallet_cls,wallet_cls_sec', (
-    (SegwitLegacyWallet, LegacyWallet),
-    #(LegacyWallet, SegwitLegacyWallet)
-))
-def test_coinjoin_mixed_maker_addresses(monkeypatch, tmpdir, setup_cj,
-                                        wallet_cls, wallet_cls_sec):
-    set_commitment_file(str(tmpdir.join('commitments.json')))
-
-    MAKER_NUM = 2
-    wallet_services = make_wallets_to_list(make_wallets(
-        MAKER_NUM + 1,
-        wallet_structures=[[1, 0, 0, 0, 0]] * MAKER_NUM + [[3, 0, 0, 0, 0]],
-        mean_amt=1, wallet_cls=wallet_cls))
-    wallet_services_sec = make_wallets_to_list(make_wallets(
-        MAKER_NUM,
-        wallet_structures=[[1, 0, 0, 0, 0]] * MAKER_NUM,
-        mean_amt=1, wallet_cls=wallet_cls_sec))
-
-    for i in range(MAKER_NUM):
-        wif = wallet_services_sec[i].get_wif(0, False, 0)
-        wallet_services[i].wallet.import_private_key(0, wif,
-                            key_type=wallet_services_sec[i].wallet.TYPE)
-
-    jm_single().bc_interface.tickchain()
-    jm_single().bc_interface.tickchain()
-
-    sync_wallets(wallet_services, fast=False)
-
-    makers = [YieldGeneratorBasic(
-        wallet_services[i],
-        [0, 2000, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
-
-    orderbook = create_orderbook(makers)
-
-    cj_amount = int(1.1 * 10**8)
-    # mixdepth, amount, counterparties, dest_addr, waittime, rounding
-    schedule = [(0, cj_amount, MAKER_NUM, 'INTERNAL', 0, NO_ROUNDING)]
-    taker = create_taker(wallet_services[-1], schedule, monkeypatch)
-
-    active_orders, maker_data = init_coinjoin(taker, makers,
-                                              orderbook, cj_amount)
-
-    txdata = taker.receive_utxos(maker_data)
-    assert txdata[0], "taker.receive_utxos error"
-
-    taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
-    assert taker_final_result is not False
-    assert taker.on_finished_callback.status is not False
-
-
 @pytest.fixture(scope='module')
 def setup_cj():
     load_test_config()
