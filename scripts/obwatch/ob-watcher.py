@@ -20,15 +20,16 @@ from twisted.internet import reactor
 from jmbase.support import EXIT_FAILURE
 
 
-# https://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
 try:
     import matplotlib
-    matplotlib.use('Agg')
-    import matplotlib.pyplot as plt
 except:
     print("matplotlib not found; do `pip install matplotlib` "
           "in the joinmarket virtualenv.")
     sys.exit(EXIT_FAILURE)
+
+# https://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 from jmbase import get_log
 from jmclient import jm_single, load_program_config, calc_cj_fee, \
