@@ -1,53 +1,60 @@
 ### Test instructions (for developers):
 
-This is a rough sketch, some more background is found in [JM wiki](https://github.com/Joinmarket-Org/joinmarket/wiki/Testing)
+Work in your `jmvenv` virtualenv as for all Joinmarket work. Make sure to have [bitcoind](https://bitcoin.org/en/full-node) 0.17 or newer installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
 
-Make sure to have [bitcoind](https://bitcoin.org/en/full-node) 0.17 or newer installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
+    (jmvenv)$ cd /path/to/joinmarket-clientserver
+    (jmvenv)$ git clone https://github.com/Joinmarket-Org/miniircd
 
-    cd ~/joinmarket-clientserver
-    git clone https://github.com/Joinmarket-Org/miniircd
+Install the test requirements:
 
-Install the test requirements (still in your virtualenv as mentioned above):
+    (jmvenv)$ pip install -r requirements/testing.txt
 
-    pip install -r requirements/testing.txt
+#### Running the test suite.
 
-Running the test suite should be done something like (advisable to wipe ~/.bitcoin/regtest first):
+Have a `bitcoin.conf` ready in some location, whose contents only need to be:
 
-    pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=whatever --nirc=2 --ignore test/test_full_coinjoin.py -p no:warnings
-    
-(you'll first want to copy the regtest_joinmarket.cfg file from the test/ directory to the root directory,
-this file will need minor edits for your btc configuration).
+```
+rpcuser=bitcoinrpc
+rpcpassword=123456abcdef
+fallbackfee=0.0002
+```
 
-### Running tests of sendpayment and tumbler (including with malicious makers)
+(any random password is fine of course). It is also advisable to wipe ~/.bitcoin/regtest first, in case it gets large and slow to process.
 
-(As well as the below, there is a rudimentary "single, automatic, end-to-end coinjoin test" in the file test/test_full_coinjoin.py. Recommended to run it
-with -s to see log output; what's "rudimentary" here is that errors may simply result in the process hanging, so you'll want to investigate in that case.
-Use command line:
+Then copy the `regtest_joinmarket.cfg` file from the `test/` directory to the `joinmarket-clientserver/` directory and rename it to `joinmarket.cfg`; you probably won't need to change anything in the file except perhaps the above password, and the `native` setting if you're doing bech32 wallet tests.
 
-    pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=whatever --nirc=2 test/test_full_coinjoin.py -s
+Run the test suite via pytest:
 
-)
+    (jmvenv)$ pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 --ignore test/test_full_coinjoin.py -p no:warnings
+
+#### Running tests of sendpayment and tumbler (including with malicious makers)
 
 The file `test/ygrunner.py` provides the ability to spin up a set of yieldgenerator
 bots against the local IRC instance with the local regtest blockchain. It can be
 started with
 
-    pytest --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 test/ygrunner.py -s
+    (jmvenv)$ pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 test/ygrunner.py -s
 
-Here the `-s` flag is useful because it prints log output to the console. If you
+Here the `-s` flag is necessary because it prints log output to the console. If you
 keep the logging level at the default `INFO` only a minimum amount will come out, if
-you want more then enter this into the `joinmarket.cfg` in the root directory:
+you want more then enter this into the `joinmarket.cfg` in the `joinmarket-clientserver/` directory:
 
     [LOGGING]
     console_log_level = DEBUG
 
-It will print out a hex seed for a wallet you can use for tumble/sendpayment. Next,
-go into the `scripts/` directory and make sure you have copied the `regtest_joinmarket.cfg`
+It will print out a hex seed for a wallet you can use for tumble/sendpayment (just set the walletname to that hex value).
+Next, go into the `scripts/` directory and make sure you have copied the `joinmarket.cfg` (from `test/regtest_joinmarket.cfg`, as above)
 file into that directory also, make any changes needed (like the LOGGING one above),
-and run either sendpayment or tumbler with whatever parameters you choose.
+and run either sendpayment or tumbler with whatever parameters you choose, BUT: remember to add the `--datadir=.` argument so that your test `joinmarket.cfg` file gets picked up, not the one in `~/.joinmarket`.
+
+So for example:
+
+```
+(jmvenv)$ python sendpayment.py -N2 -m1 5c88acf2546bd7b083b9cfb2e0af7f2d --datadir=. 30000000 2Address
+```
 
 To change the parameters of the yieldgenerators you can edit the parametrization of
-the function `test_start_ygs` in [this file](https://github.com/AdamISZ/joinmarket-clientserver/blob/master/test/ygrunner.py).
+the function `test_start_ygs` in [this file](https://github.com/Joinmarket-Org/joinmarket-clientserver/blob/master/test/ygrunner.py).
 
 There are two changes that may be of special interest:
 * to change the number of yg
@@ -64,9 +71,13 @@ the add-utxo tool so external commitments usage can be tested.
 
 ### Testing Joinmarket-Qt with regtest
 
-You can follow the process above using `test/ygrunner.py` to set up the environment, and then just run `python joinmarket-qt.py` from within the `scripts` directory.
-Note that you can load a random/empty wallet with a 32 char hex string, or more usefully,
-use the provided wallet with coins in it, as described above.
+You can follow the process above using `test/ygrunner.py` to set up the environment, and then just run:
+
+```
+(jmvenv)$ python joinmarket-qt.py --datadir=.
+```
+
+When loading a wallet here, regtest will be detected and will request a hex seed as described above.
 
 The 'generate' and 'recover' functions will not work like this on regtest, but you can generate a file-based wallet on regtest from the command line,
 and then load it with a one line hack to the joinmarket-qt.py file (I'll let you work that out, if you got this far :) ).
