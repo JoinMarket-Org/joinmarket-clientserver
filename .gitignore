@@ -27,3 +27,4 @@ test_proposals.txt
 scripts/commitmentlist
 tmp/
 wallets/
+scripts/jm-tx-history.txt
