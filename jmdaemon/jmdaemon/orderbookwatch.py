@@ -105,7 +105,7 @@ class OrderbookWatch(object):
                        "from {}").format
                 log.debug(fmt(minsize, maxsize, counterparty))
                 return
-            if ordertype in ['swabsoffer', 'absoffer']\
+            if ordertype in ['sw0absoffer', 'swabsoffer', 'absoffer']\
                     and not isinstance(cjfee, Integral):
                 try:
                     cjfee = int(cjfee)

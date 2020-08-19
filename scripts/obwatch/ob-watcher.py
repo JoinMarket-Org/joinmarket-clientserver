@@ -41,11 +41,11 @@ import jmbitcoin as btc
 from jmdaemon.protocol import *
 
 #Initial state: allow only SW offer types
-swoffers = list(filter(lambda x: x[0:2] == 'sw', offername_list))
-pkoffers = list(filter(lambda x: x[0:2] != 'sw', offername_list))
-filtered_offername_list = swoffers
+sw0offers = list(filter(lambda x: x[0:3] == 'sw0', offername_list))
+swoffers = list(filter(lambda x: x[0:3] == 'swa' or x[0:3] == 'swr', offername_list))
+filtered_offername_list = sw0offers
 
-toggleSWform = '<form action="toggleSW" method="post"><input type="submit" value="Toggle non-segwit" /></form>'
+rotateObform = '<form action="rotateOb" method="post"><input type="submit" value="Rotate orderbooks"/></form>'
 refresh_orderbook_form = '<form action="refreshorderbook" method="post"><input type="submit" value="Check for timed-out counterparties" /></form>'
 sorted_units = ('BTC', 'mBTC', '&#956;BTC', 'satoshi')
 unit_to_power = {'BTC': 8, 'mBTC': 5, '&#956;BTC': 2, 'satoshi': 0}
@@ -71,13 +71,12 @@ def do_nothing(arg, order, btc_unit, rel_unit):
 
 def ordertype_display(ordertype, order, btc_unit, rel_unit):
     ordertypes = {'sw0absoffer': 'Native SW Absolute Fee', 'sw0reloffer': 'Native SW Relative Fee',
-                  'swabsoffer': 'SW Absolute Fee', 'swreloffer': 'SW Relative Fee',
-                  'absoffer': 'Absolute Fee', 'reloffer': 'Relative Fee'}
+                  'swabsoffer': 'SW Absolute Fee', 'swreloffer': 'SW Relative Fee'}
     return ordertypes[ordertype]
 
 
 def cjfee_display(cjfee, order, btc_unit, rel_unit):
-    if order['ordertype'] in ['absoffer', 'swabsoffer', 'sw0absoffer']:
+    if order['ordertype'] in ['swabsoffer', 'sw0absoffer']:
         return satoshi_to_unit(cjfee, order, btc_unit, rel_unit)
     elif order['ordertype'] in ['reloffer', 'swreloffer', 'sw0reloffer']:
         return str(Decimal(cjfee) * rel_unit_to_factor[rel_unit]) + rel_unit
@@ -146,8 +145,11 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         for row in rows:
             o = dict(row)
             if 'cjfee' in o:
-                o['cjfee'] = int(o['cjfee']) if o['ordertype']\
-                             == 'swabsoffer' else str(Decimal(o['cjfee']))
+                if o['ordertype'] == 'swabsoffer'\
+                   or o['ordertype'] == 'sw0absoffer':
+                    o['cjfee'] = int(o['cjfee'])
+                else:
+                    o['cjfee'] = str(Decimal(o['cjfee']))
             result.append(o)
         return result
 
@@ -306,7 +308,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                     (str(ordercount) + ' orders found by ' +
                      self.get_counterparty_count() + ' counterparties' + alert_msg),
                 'MAINBODY': (
-                    toggleSWform + refresh_orderbook_form + choose_units_form +
+                    rotateObform + refresh_orderbook_form + choose_units_form +
                     table_heading + ordertable + '</table>\n')
             }
         elif self.path == '/ordersize':
@@ -347,7 +349,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         global filtered_offername_list
-        pages = ['/refreshorderbook', '/toggleSW']
+        pages = ['/refreshorderbook', '/rotateOb']
         if self.path not in pages:
             return
         if self.path == '/refreshorderbook':
@@ -355,11 +357,13 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             time.sleep(5)
             self.path = '/'
             self.do_GET()
-        elif self.path == '/toggleSW':
-            if filtered_offername_list == swoffers:
-                filtered_offername_list = pkoffers
-            else:
+        elif self.path == '/rotateOb':
+            if filtered_offername_list == sw0offers:
+                log.debug('Showing nested segwit orderbook')
                 filtered_offername_list = swoffers
+            elif filtered_offername_list == swoffers:
+                log.debug('Showing native segwit orderbook')
+                filtered_offername_list = sw0offers
             self.path = '/'
             self.do_GET()
 
