@@ -19,6 +19,7 @@ import jmbitcoin as btc
 from .wallet import PSBTWalletMixin, SegwitLegacyWallet, SegwitWallet
 from .wallet_service import WalletService
 from .taker_utils import direct_send
+from jmclient import RegtestBitcoinCoreInterface
 
 """
 For some documentation see:
@@ -426,7 +427,7 @@ def get_max_additional_fee_contribution(manager):
     return max_additional_fee_contribution
 
 def send_payjoin(manager, accept_callback=None,
-                 info_callback=None, tls_whitelist=None):
+                 info_callback=None):
     """ Given a JMPayjoinManager object `manager`, initialised with the
     payment request data from the server, use its wallet_service to construct
     a payment transaction, with coins sourced from mixdepth `mixdepth`,
@@ -434,10 +435,6 @@ def send_payjoin(manager, accept_callback=None,
     The info and accept callbacks are to ask the user to confirm the creation of
     the original payment transaction (None defaults to terminal/CLI processing),
     and are as defined in `taker_utils.direct_send`.
-
-    If `tls_whitelist` is a list of bytestrings, they are treated as hostnames
-    for which tls certificate verification is ignored. Obviously this is ONLY for
-    testing.
 
     Returns:
     (True, None) in case of payment setup successful (response will be delivered
@@ -455,6 +452,12 @@ def send_payjoin(manager, accept_callback=None,
                              with_final_psbt=True)
     if not payment_psbt:
         return (False, "could not create non-payjoin payment")
+
+    # TLS whitelist is for regtest testing, it is treated as hostnames for
+    # which tls certificate verification is ignored.
+    tls_whitelist = None
+    if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
+        tls_whitelist = ["127.0.0.1"]
 
     manager.set_payment_tx_and_psbt(payment_psbt)
 

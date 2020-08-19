@@ -59,9 +59,5 @@ if __name__ == "__main__":
     # the sync call here will now be a no-op:
     wallet_service.startService()
     manager = parse_payjoin_setup(bip21uri, wallet_service, mixdepth)
-    if usessl == 0:
-        tlshostnames = None
-    else:
-        tlshostnames = [b"127.0.0.1"]
-    reactor.callWhenRunning(send_payjoin, manager, tls_whitelist=tlshostnames)
+    reactor.callWhenRunning(send_payjoin, manager)
     reactor.run()

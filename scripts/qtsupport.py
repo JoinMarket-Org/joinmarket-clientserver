@@ -611,10 +611,17 @@ class BitcoinAmountEdit(QWidget):
                 self.valueInputBox.setText(str(btc_to_sat(btc_amount)))
 
     def setText(self, text):
-        if self.unitChooser.currentIndex() == 0:
-            self.valueInputBox.setText(str(sat_to_btc(text)))
+        if text:
+            if self.unitChooser.currentIndex() == 0:
+                self.valueInputBox.setText(str(sat_to_btc(text)))
+            else:
+                self.valueInputBox.setText(str(text))
         else:
-            self.valueInputBox.setText(str(text))
+            self.valueInputBox.setText('')
+
+    def setEnabled(self, enabled):
+        self.valueInputBox.setEnabled(enabled)
+        self.unitChooser.setEnabled(enabled)
 
     def text(self):
         if len(self.valueInputBox.text()) == 0:

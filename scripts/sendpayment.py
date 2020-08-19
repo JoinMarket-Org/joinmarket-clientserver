@@ -325,7 +325,7 @@ def main():
     elif bip78url:
         # TODO sanity check wallet type is segwit
         manager = parse_payjoin_setup(args[1], wallet_service, options.mixdepth)
-        reactor.callWhenRunning(send_payjoin, manager, tls_whitelist=["127.0.0.1"])
+        reactor.callWhenRunning(send_payjoin, manager)
         reactor.run()
         return
 
