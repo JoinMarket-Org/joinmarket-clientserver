@@ -457,7 +457,7 @@ def send_payjoin(manager, accept_callback=None,
     # which tls certificate verification is ignored.
     tls_whitelist = None
     if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
-        tls_whitelist = ["127.0.0.1"]
+        tls_whitelist = [b"127.0.0.1"]
 
     manager.set_payment_tx_and_psbt(payment_psbt)
 
