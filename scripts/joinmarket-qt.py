@@ -76,7 +76,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
     get_default_max_relative_fee, RetryableStorageError, add_base_options, \
-    BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin, wallet_change_passphrase
+    BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin, wallet_change_passphrase, \
+    parse_payjoin_setup, send_payjoin
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -102,47 +103,6 @@ def update_config_for_gui():
         if gcn not in [_[0] for _ in gui_items]:
             jm_single().config.set("GUI", gcn, gcv)
 
-
-def checkAddress(parent, addr):
-    addr = addr.strip()
-    if btc.is_bip21_uri(addr):
-        try:
-            parsed = btc.decode_bip21_uri(addr)
-        except ValueError as e:
-            JMQtMessageBox(parent,
-                "Bitcoin URI not valid.\n" + str(e),
-                mbtype='warn',
-                title="Error")
-            return
-        addr = parsed['address']
-        if 'amount' in parsed:
-            parent.amountInput.setText(parsed['amount'])
-    parent.addressInput.setText(addr)
-    valid, errmsg = validate_address(str(addr))
-    if not valid:
-        JMQtMessageBox(parent,
-                       "Bitcoin address not valid.\n" + errmsg,
-                       mbtype='warn',
-                       title="Error")
-
-
-def checkAmount(parent, amount_str):
-    if not amount_str:
-        return False
-    try:
-        amount_sat = btc.amount_to_sat(amount_str)
-    except ValueError as e:
-        JMQtMessageBox(parent, e.args[0], title="Error", mbtype="warn")
-        return False
-    if amount_sat < DUST_THRESHOLD:
-        JMQtMessageBox(parent,
-                       "Amount " + btc.amount_to_str(amount_sat) +
-                       " is below dust threshold " +
-                       btc.amount_to_str(DUST_THRESHOLD) + ".",
-                       mbtype='warn',
-                       title="Error")
-        return False
-    return True
 
 
 handler = QtHandler()
@@ -332,6 +292,86 @@ class SpendTab(QWidget):
         #tracks which mode the spend tab is run in
         self.spendstate = SpendStateMgr(self.toggleButtons)
         self.spendstate.reset() #trigger callback to 'ready' state
+        # needed to be saved for parse_payjoin_setup()
+        self.bip21_uri = None
+
+    def switchToBIP78Payjoin(self, endpoint_url):
+        self.numCPLabel.setVisible(False)
+        self.numCPInput.setVisible(False)
+        self.pjEndpointInput.setText(endpoint_url)
+        self.pjEndpointLabel.setVisible(True)
+        self.pjEndpointInput.setVisible(True)
+
+        # while user is attempting a payjoin, address
+        # cannot be edited; to back out, they hit Abort.
+        self.addressInput.setEnabled(False)
+        self.abortButton.setEnabled(True)
+
+    def switchToJoinmarket(self):
+        self.pjEndpointLabel.setVisible(False)
+        self.pjEndpointInput.setVisible(False)
+        self.pjEndpointInput.setText('')
+        self.numCPLabel.setVisible(True)
+        self.numCPInput.setVisible(True)
+
+    def clearFields(self, ignored):
+        self.switchToJoinmarket()
+        self.addressInput.setText('')
+        self.amountInput.setText('')
+        self.addressInput.setEnabled(True)
+        self.pjEndpointInput.setEnabled(True)
+        self.mixdepthInput.setEnabled(True)
+        self.amountInput.setEnabled(True)
+        self.startButton.setEnabled(True)
+        self.abortButton.setEnabled(False)
+
+    def checkAddress(self, addr):
+        addr = addr.strip()
+        if btc.is_bip21_uri(addr):
+            try:
+                parsed = btc.decode_bip21_uri(addr)
+            except ValueError as e:
+                JMQtMessageBox(self,
+                    "Bitcoin URI not valid.\n" + str(e),
+                    mbtype='warn',
+                    title="Error")
+                return
+            self.bip21_uri = addr
+            addr = parsed['address']
+            if 'amount' in parsed:
+                self.amountInput.setText(parsed['amount'])
+            if 'pj' in parsed:
+                self.switchToBIP78Payjoin(parsed['pj'])
+            else:
+                self.switchToJoinmarket()
+        else:
+            self.bip21_uri = None
+
+        self.addressInput.setText(addr)
+        valid, errmsg = validate_address(str(addr))
+        if not valid:
+            JMQtMessageBox(self,
+                       "Bitcoin address not valid.\n" + errmsg,
+                       mbtype='warn',
+                       title="Error")
+
+    def checkAmount(self, amount_str):
+        if not amount_str:
+            return False
+        try:
+            amount_sat = btc.amount_to_sat(amount_str)
+        except ValueError as e:
+            JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
+            return False
+        if amount_sat < DUST_THRESHOLD:
+            JMQtMessageBox(self,
+                       "Amount " + btc.amount_to_str(amount_sat) +
+                       " is below dust threshold " +
+                       btc.amount_to_str(DUST_THRESHOLD) + ".",
+                       mbtype='warn',
+                       title="Error")
+            return False
+        return True
 
     def generateTumbleSchedule(self):
         if not mainWindow.wallet_service:
@@ -490,24 +530,31 @@ class SpendTab(QWidget):
         donateLayout = self.getDonateLayout()
         innerTopLayout.addLayout(donateLayout, 0, 0, 1, 2)
 
-        recipientLabel = QLabel('Recipient address')
+        recipientLabel = QLabel('Recipient address / URI')
         recipientLabel.setToolTip(
-            'The address you want to send the payment to')
+            'The address or bitcoin: URI you want to send the payment to')
         self.addressInput = QLineEdit()
         self.addressInput.editingFinished.connect(
-            lambda: checkAddress(self, self.addressInput.text()))
+            lambda: self.checkAddress(self.addressInput.text()))
         innerTopLayout.addWidget(recipientLabel, 1, 0)
         innerTopLayout.addWidget(self.addressInput, 1, 1, 1, 2)
 
-        numCPLabel = QLabel('Number of counterparties')
-        numCPLabel.setToolTip(
+        self.numCPLabel = QLabel('Number of counterparties')
+        self.numCPLabel.setToolTip(
             'How many other parties to send to; if you enter 4\n' +
             ', there will be 5 participants, including you.\n' +
             'Enter 0 to send direct without coinjoin.')
         self.numCPInput = QLineEdit('9')
         self.numCPInput.setValidator(QIntValidator(0, 20))
-        innerTopLayout.addWidget(numCPLabel, 2, 0)
+        innerTopLayout.addWidget(self.numCPLabel, 2, 0)
         innerTopLayout.addWidget(self.numCPInput, 2, 1, 1, 2)
+
+        self.pjEndpointLabel = QLabel('PayJoin endpoint')
+        self.pjEndpointLabel.setVisible(False)
+        self.pjEndpointInput = QLineEdit()
+        self.pjEndpointInput.setVisible(False)
+        innerTopLayout.addWidget(self.pjEndpointLabel, 2, 0)
+        innerTopLayout.addWidget(self.pjEndpointInput, 2, 1, 1, 2)
 
         mixdepthLabel = QLabel('Mixdepth')
         mixdepthLabel.setToolTip(
@@ -670,8 +717,9 @@ class SpendTab(QWidget):
             return
         makercount = int(self.numCPInput.text())
         mixdepth = int(self.mixdepthInput.text())
+        bip78url = self.pjEndpointInput.text()
 
-        if makercount == 0:
+        if makercount == 0 and not bip78url:
             try:
                 txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
                                   destaddr, accept_callback=self.checkDirectSend,
@@ -698,9 +746,24 @@ class SpendTab(QWidget):
                 self.cleanUp()
             return
 
+        if bip78url:
+            manager = parse_payjoin_setup(self.bip21_uri,
+                mainWindow.wallet_service, mixdepth, "joinmarket-qt")
+            # disable form fields until payment is done
+            self.addressInput.setEnabled(False)
+            self.pjEndpointInput.setEnabled(False)
+            self.mixdepthInput.setEnabled(False)
+            self.amountInput.setEnabled(False)
+            self.startButton.setEnabled(False)
+            d = task.deferLater(reactor, 0.0, send_payjoin, manager,
+                    accept_callback=self.checkDirectSend,
+                    info_callback=self.infoDirectSend)
+            d.addCallback(self.clearFields)
+            return
+
         # for coinjoin sends no point to send below dust threshold, likely
         # there will be no makers for such amount.
-        if amount != 0 and not checkAmount(self, amount):
+        if amount != 0 and not self.checkAmount(amount):
             return
 
         if makercount < jm_single().config.getint(
@@ -974,8 +1037,11 @@ class SpendTab(QWidget):
             b.setEnabled(s)
 
     def abortTransactions(self):
-        self.taker.aborted = True
-        self.giveUp()
+        if self.pjEndpointInput.isVisible():
+            self.clearFields(None)
+        else:
+            self.taker.aborted = True
+            self.giveUp()
 
     def giveUp(self):
         """Inform the user that the transaction failed, then reset state.
