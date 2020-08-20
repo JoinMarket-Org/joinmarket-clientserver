@@ -61,7 +61,7 @@ donation_address_sw = "bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5"
 donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 
 #Version of this Qt script specifically
-JM_GUI_VERSION = '15dev'
+JM_GUI_VERSION = '15'
 
 from jmbase import get_log
 from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, utxo_to_utxostr,\
