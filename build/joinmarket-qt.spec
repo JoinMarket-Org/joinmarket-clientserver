@@ -9,13 +9,16 @@ block_cipher = None
 binaries = []
 
 # Workaround for "Retro Look":
-#binaries += [b for b in collect_dynamic_libs('PyQt5') if 'qwindowsvista' in b[0]]
+binaries += [b for b in collect_dynamic_libs('PyQt5') if 'qwindowsvista' in b[0]]
 binaries += [('C:/tmp/libsecp256k1-0.dll', '.')]
 binaries += [('C:/tmp/libsodium.dll','.')]
 binaries += collect_dynamic_libs('coincurve')
 
 datas = []
 datas += collect_data_files('mnemonic')
+# See https://github.com/pyinstaller/pyinstaller/issues/4044#issuecomment-643807665
+datas += [('C:/python3/Lib/site-packages/shiboken2','shiboken2')]
+
 hiddenimports=['chromalog.mark.helpers', 'PySide2']
 # see https://github.com/pypa/setuptools/issues/1963
 hiddenimports.extend(collect_submodules('pkg_resources'))
@@ -31,7 +34,7 @@ a = Analysis(['../scripts/joinmarket-qt.py'],
              win_private_assemblies=False,
              cipher=block_cipher,
              noarchive=False)
-             
+
 # Strip out parts of Qt that we never use. Reduces binary size by tens of MBs. see #4815
 qt_bins2remove=('qt5web', 'qt53d', 'qt5game', 'qt5designer', 'qt5quick',
                 'qt5location', 'qt5test', 'qt5xml', r'pyqt5\qt\qml\qtquick')

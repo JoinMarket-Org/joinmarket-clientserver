@@ -114,7 +114,8 @@ PYINSTALLER_COMMIT="e934539374e30d1500fcdbe8e4eb0860413935b2"
 # (see Electrum docs)
 
 # using this version to match Electrum's pyinstaller workflow:
-PYTHON_VERSION=3.7.7
+# update: shifted to py3.8 because of PySide2
+PYTHON_VERSION=3.8.3
 
 export WINEPREFIX=~/.wine
 export WINEDEBUG=-all
@@ -149,7 +150,10 @@ for msifile in core dev exe lib pip tools; do
 done
 
 echo "Installing build dependencies."
+#for some bizarre reason pip didn't show up after above in py3.8 but did after calling ensurepip
+$PYTHON -m pip install -U pip
 $PYTHON -m pip install pywin32
+$PYTHON -m pip install pywin32-ctypes
 $PYTHON -m pip install --no-dependencies --no-warn-script-location -r "$CONTRIB"/requirements/wine-build.txt
 
 # BUILD DLLs:
@@ -277,11 +281,13 @@ echo "Building PyInstaller."
     [[ -e PyInstaller/bootloader/Windows-32bit/runw.exe ]] || fail "Could not find runw.exe in target dir!"
 ) || fail "PyInstaller build failed"
 echo "Installing PyInstaller."
-#$PYTHON -m pip install --no-dependencies --no-warn-script-location ./pyinstaller
+$PYTHON -m pip install --no-dependencies --no-warn-script-location ./pyinstaller
 
 echo "Wine is configured."
 
 cd "$CONTRIB"
+# I don't know why pypi installation doesn't work, but: https://www.lfd.uci.edu/~gohlke/pythonlibs/#twisted
+$PYTHON -m pip install "$here/Twisted-20.3.0-cp38-cp38-win32.whl"
 $PYTHON -m pip install  -r requirements/gui.txt
 
 # TODO : Can this step be made non-manually on the Wine instance?:

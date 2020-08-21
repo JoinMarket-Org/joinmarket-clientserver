@@ -1,7 +1,7 @@
 -r base.txt
 pywin32; platform_system == "Windows"
-# https://bugreports.qt.io/browse/QTBUG-88688
-PySide2!=5.15.0,!=5.15.1,!=5.15.2,!=6.0
-PyQt5!=5.15.0,!=5.15.1,!=5.15.2,!=6.0
+pywin32-ctypes; platform_system == "Windows"
+PySide2==5.14.2
+PyQt5==5.14.2
 qrcode[pil]
 https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip#egg=qt5reactor
