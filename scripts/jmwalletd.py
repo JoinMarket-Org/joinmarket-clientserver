@@ -20,6 +20,26 @@ from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE
 
 jlog = get_log()
 
+# only serving single concurrent user for now; cookie global:
+cookie = None
+wallet_service = None
+
+# for debugging; twisted.web.server.Request objects do not easily serialize:
+def print_req(request):
+    print(request)
+    print(request.method)
+    print(request.uri)
+    print(request.args)
+    print(request.path)
+    print(request.content)
+    print(list(request.requestHeaders.getAllRawHeaders()))
+
+class NotAuthorized(Exception):
+    pass
+
+class NoWalletFound(Exception):
+    pass
+
 def get_ssl_context(cert_directory):
     """Construct an SSL context factory from the user's privatekey/cert.
     TODO:
@@ -39,6 +59,12 @@ def response(request, succeed=True, status=200, **kwargs):
     return json.dumps(
         [{'succeed': succeed, 'status': status, **kwargs}])
 
+def check_cookie(request):
+    request_cookie = request.getHeader(b"JMCookie")
+    if cookie != request_cookie:
+        print("Invalid cookie: ", request_cookie)
+        raise NotAuthorized()
+
 def start_REST_server(port):
     app = Klein()
     reactor.listenSSL(port, Site(app.resource()), contextFactory=get_ssl_context("."))
@@ -46,7 +72,6 @@ def start_REST_server(port):
 
 def jmwalletd_main():
     import sys
-    wallet_service = None
     parser = OptionParser(usage='usage: %prog [options] [wallet file]')
     parser.add_option('-p', '--port', action='store', type='int',
                       dest='port', default=28183,
@@ -60,50 +85,92 @@ def jmwalletd_main():
 
     app = start_REST_server(options.port)
 
+    @app.handle_errors(NotAuthorized)
+    def not_authorized(request, failure):
+        request.setResponseCode(401)
+        return "Invalid credentials."
+
+    @app.handle_errors(NoWalletFound)
+    def no_wallet_found(request, failure):
+        request.setResponseCode(404)
+        return "No wallet loaded."
+
     @app.route('/wallet/<string:walletname>/display', methods=['GET'])
     def displaywallet(request, walletname):
-        print(request)
-        nonlocal wallet_service
+        print_req(request)
+        check_cookie(request)
         if not wallet_service:
-            #todo return a specific error
-            print('called display but no wallet loaded.')
+            print("called display but no wallet loaded")
+            raise NoWalletFound()
         else:
             walletinfo = wallet_display(wallet_service, False, jsonified=True)
             return response(request, walletname=walletname, walletinfo=walletinfo)
 
-    # handling CORS preflight:
-    #@app.route('/', branch=True, methods=['OPTIONS'])
-    @app.route('/wallet/<string:walletname>/unlock', methods=['OPTIONS'])
-    def preflight(request, walletname):
-        print(request)
+    # handling CORS preflight for any route:
+    @app.route('/', branch=True, methods=['OPTIONS'])
+    def preflight(request):
+        print_req(request)
         request.setHeader("Access-Control-Allow-Origin", "*")
         request.setHeader("Access-Control-Allow-Methods", "POST")
-        request.setHeader("Access-Control-Allow-Headers", "Content-Type")
+        # "Cookie" is reserved so we specifically allow our custom cookie using
+        # name "JMCookie".
+        request.setHeader("Access-Control-Allow-Headers", "Content-Type, JMCookie")
 
-    @app.route('/wallet/<string:walletname>/display', methods=['OPTIONS'])
-    def preflight2(request, walletname):
-        print(request)
-        request.setHeader("Access-Control-Allow-Origin", "*")
-        request.setHeader("Access-Control-Allow-Methods", "GET")
-        request.setHeader("Access-Control-Allow-Headers", "Content-Type")
+    @app.route('/wallet/<string:walletname>/lock', methods=['GET'])
+    def lockwallet(request, walletname):
+        global wallet_service
+        print_req(request)
+        check_cookie(request)
+        if not wallet_service:
+            print("called lock but no wallet loaded")
+            raise NoWalletFound()
+        else:
+            wallet_service.stopService()
+            # reset local reference to null
+            wallet_service = None
+            # success status implicit:
+            return response(request, walletname=walletname)
 
     @app.route('/wallet/<string:walletname>/unlock', methods=['POST'])
     def unlockwallet(request, walletname):
-        print(request)
+        global wallet_service
+        global cookie
+        print_req(request)
         assert isinstance(request.content, BytesIO)
-        passwordjson = request.content.read().decode("utf-8")
-        password = json.loads(passwordjson)["password"]
-        nonlocal wallet_service
+        auth_json = json.loads(request.content.read().decode("utf-8"))
+        password = auth_json["password"]
         if wallet_service is None:
             wallet_path = get_wallet_path(walletname, None)
-            wallet = open_test_wallet_maybe(
-                    wallet_path, walletname, 4,
-                    password=password.encode("utf-8"),
-                    ask_for_password=False)
+            try:
+                wallet = open_test_wallet_maybe(
+                        wallet_path, walletname, 4,
+                        password=password.encode("utf-8"),
+                        ask_for_password=False)
+            except StoragePasswordError:
+                raise NotAuthorized("invalid password")
+            except StorageError as e:
+                # e.g. .lock file exists:
+                raise NotAuthorized(repr(e))
+
+            # since wallet loaded correctly, authorization is passed, so set
+            # cookie for this wallet (currently THE wallet, daemon does not
+            # yet support multiple). This is maintained for as long as the
+            # daemon is active (i.e. no expiry currently implemented),
+            # or until the user switches to a new wallet.
+            cookie = request.getHeader(b"JMCookie")
+            if cookie is None:
+                # TODO different error class? this could mislead:
+                raise NotAuthorized()
+
+            # the daemon blocks here until the wallet synchronization
+            # from the blockchain interface completes; currently this is
+            # fine as long as the client handles the response asynchronously:
             wallet_service = WalletService(wallet)
             while not wallet_service.synced:
                 wallet_service.sync_wallet(fast=True)
             wallet_service.startService()
+            # now that the WalletService instance is active and ready to
+            # respond to requests, we return the status to the client:
             return response(request, walletname=walletname, already_loaded=False)
         else:
             print('wallet was already unlocked.')
