@@ -781,6 +781,27 @@ class Taker(object):
         if not success:
             jlog.error("Failed to sign transaction: " + msg)
 
+    def handle_unbroadcast_transaction(self, txid, tx):
+        """ The wallet service will handle dangling
+        callbacks for transactions but we want to reattempt
+        broadcast in case the cause of the problem is a
+        counterparty who refused to broadcast it for us.
+        """
+        if not self.wallet_service.check_callback_called(
+            self.txid, self.unconfirm_callback, "unconfirmed",
+            "transaction with txid: " + str(self.txid) + " not broadcast."):
+            # we now know the transaction was not pushed, so we reinstigate
+            # the cancelledcallback with the same logic as explained
+            # in Taker.push():
+            self.wallet_service.register_callbacks([self.unconfirm_callback],
+                                                   txid, "unconfirmed")
+            if not self.push_ourselves():
+                jlog.error("Failed to broadcast transaction: ")
+                jlog.info(btc.human_readable_transaction(tx))
+
+    def push_ourselves(self):
+        return jm_single().bc_interface.pushtx(self.latest_tx.serialize())
+
     def push(self):
         jlog.debug('\n' + bintohex(self.latest_tx.serialize()))
         self.txid = bintohex(self.latest_tx.GetTxid()[::-1])
@@ -802,15 +823,12 @@ class Taker(object):
         task.deferLater(reactor,
                         float(jm_single().config.getint(
                             "TIMEOUT", "unconfirm_timeout_sec")),
-                        self.wallet_service.check_callback_called,
-                        self.txid, self.unconfirm_callback,
-                        "unconfirmed",
-        "transaction with txid: " + str(self.txid) + " not broadcast.")
+                        self.handle_unbroadcast_transaction, self.txid, self.latest_tx)
 
         tx_broadcast = jm_single().config.get('POLICY', 'tx_broadcast')
         nick_to_use = None
         if tx_broadcast == 'self':
-            pushed = jm_single().bc_interface.pushtx(self.latest_tx.serialize())
+            pushed = self.push_ourselves()
         elif tx_broadcast in ['random-peer', 'not-self']:
             n = len(self.maker_utxo_data)
             if tx_broadcast == 'random-peer':
@@ -818,14 +836,14 @@ class Taker(object):
             else:
                 i = random.randrange(n)
             if i == n:
-                pushed = jm_single().bc_interface.pushtx(self.latest_tx.serialize())
+                pushed = self.push_ourselves()
             else:
                 nick_to_use = list(self.maker_utxo_data.keys())[i]
                 pushed = True
         else:
             jlog.info("Only self, random-peer and not-self broadcast "
                       "methods supported. Reverting to self-broadcast.")
-            pushed = jm_single().bc_interface.pushtx(self.latest_tx.serialize())
+            pushed = self.push_ourselves()
         if not pushed:
             self.on_finished_callback(False, fromtx=True)
         else:

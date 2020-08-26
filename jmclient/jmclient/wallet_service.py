@@ -377,6 +377,7 @@ class WalletService(Service):
         """ Intended to be a deferred Task to be scheduled some
         set time after the callback was registered. "all" type
         callbacks do not expire and are not included.
+        If the callback was previously called, return True, otherwise False.
         """
         assert cbtype in ["unconfirmed", "confirmed"]
         if txinfo in self.callbacks[cbtype]:
@@ -389,8 +390,10 @@ class WalletService(Service):
                 # this never occurs, although their presence should
                 # not cause a functional error.
                 jlog.info("Timed out: " + msg)
-                # if callback is not in the list, it was already
-                # processed and so do nothing.
+                return False
+            # if callback is not in the list, it was already
+            # processed and so do nothing.
+        return True
 
     def log_new_tx(self, removed_utxos, added_utxos, txid):
         """ Changes to the wallet are logged at INFO level by
