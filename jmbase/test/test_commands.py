@@ -111,7 +111,9 @@ class JMTestServerProtocol(JMBaseProtocol):
                                         hashlen=4,
                                         max_encoded=5,
                                         hostid="hostid2")
-        self.defaultCallbacks(d3)        
+        self.defaultCallbacks(d3)
+        d4 = self.callRemote(JMTXBroadcast, txhex="deadbeef")
+        self.defaultCallbacks(d4)
         return {'accepted': True}
             
 
@@ -215,6 +217,11 @@ class JMTestClientProtocol(JMBaseProtocol):
                             hostid=hostid)
         self.defaultCallbacks(d)
         return {'accepted': True}
+
+    @JMTXBroadcast.responder
+    def on_JM_TX_BROADCAST(self, txhex):
+        show_receipt("JMTXBROADCAST", txhex)
+        return {"accepted": True}
 
 class JMTestClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTestClientProtocol

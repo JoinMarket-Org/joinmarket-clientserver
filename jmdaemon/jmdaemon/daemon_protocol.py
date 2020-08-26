@@ -9,6 +9,7 @@ from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        COMMITMENT_PREFIXES)
 from .irc import IRCMessageChannel
 
+from jmbase import hextobin
 from jmbase.commands import *
 from twisted.protocols import amp
 from twisted.internet import reactor, ssl
@@ -432,9 +433,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @maker_only
     def on_push_tx(self, nick, txhex):
-        """Not yet implemented; ignore rather than raise.
+        """Broadcast unquestioningly, except checking
+        hex format.
 	"""
-        log.msg('received pushtx message, ignoring, TODO')
+        try:
+            dummy = hextobin(txhex)
+        except:
+            return
+        d = self.callRemote(JMTXBroadcast,
+                            txhex=txhex)
+        self.defaultCallbacks(d)
 
     @maker_only
     def on_seen_tx(self, nick, txhex):

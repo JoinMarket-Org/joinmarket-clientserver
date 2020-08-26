@@ -830,8 +830,7 @@ class Taker(object):
             self.on_finished_callback(False, fromtx=True)
         else:
             if nick_to_use:
-                # TODO option not currently functional
-                return (nick_to_use, self.latest_tx.serialize())
+                return (nick_to_use, bintohex(self.latest_tx.serialize()))
         #if push was not successful, return None
 
     def self_sign_and_push(self):
