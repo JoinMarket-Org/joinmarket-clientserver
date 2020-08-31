@@ -30,7 +30,8 @@ from .blockchaininterface import (BlockchainInterface,
 from .snicker_receiver import SNICKERError, SNICKERReceiver
 from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
                               start_reactor, SNICKERClientProtocolFactory,
-                              BIP78ClientProtocolFactory)
+                              BIP78ClientProtocolFactory,
+                              get_daemon_serving_params)
 from .podle import (set_commitment_file, get_commitment_file,
                     add_external_commitments,
                     PoDLE, generate_podle, get_podle_commitments,
@@ -58,7 +59,8 @@ from .wallet_utils import (
 from .wallet_service import WalletService
 from .maker import Maker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
-from .payjoin import (parse_payjoin_setup, send_payjoin,
+from .snicker_receiver import SNICKERError, SNICKERReceiver, SNICKERReceiverService
+from .payjoin import (parse_payjoin_setup, send_payjoin, PayjoinServer,
                       JMBIP78ReceiverManager)
 # Set default logging handler to avoid "No handler found" warnings.
 
