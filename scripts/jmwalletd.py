@@ -5,6 +5,7 @@ import os
 import time
 import abc
 import json
+import atexit
 from io import BytesIO
 from twisted.python.log import startLogging
 from twisted.internet import endpoints, reactor, ssl, task
@@ -18,7 +19,7 @@ from jmclient import Maker, jm_single, load_program_config, \
     JMClientProtocolFactory, start_reactor, calc_cj_fee, \
     WalletService, add_base_options, get_wallet_path, \
     open_test_wallet_maybe, wallet_display, YieldGenerator, \
-    get_daemon_serving_params, YieldGeneratorBasic, \
+    get_daemon_serving_params, YieldGeneratorService, \
     SNICKERReceiverService, SNICKERReceiver
 from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE
 
@@ -74,28 +75,56 @@ def response(request, succeed=True, status=200, **kwargs):
         [{'succeed': succeed, 'status': status, **kwargs}])
 
 class JMWalletDaemon(Service):
+    """ This class functions as an HTTP/TLS server,
+    with acccess control, allowing a single client(user)
+    to control functioning of encapsulated Joinmarket services.
+    """
+
     app = Klein()
-    def __init__(self, port, wallet_service=None):
-        # only serving single concurrent user for now;
-        # cookie tracks that single user's state.
+    def __init__(self, port):
+        """ Port is the port to serve this daemon
+        (using HTTP/TLS).
+        """
+        # cookie tracks single user's state.
         self.cookie = None
         self.port = port
-        self.wallet_service = wallet_service
-        # Client may start snicker service, but only
+        # the collection of services which this
+        # daemon may switch on and off:
+        self.services = {}
+        # master single wallet service which we
+        # allow the client to start/stop.
+        self.services["wallet"] = None
+        # label for convenience:
+        self.wallet_service = self.services["wallet"]
+        # Client may start other services, but only
         # one instance.
-        self.snicker_service = None
+        self.services["snicker"] = None
+        self.services["maker"] = None
+        # ensure shut down does not leave dangling services:
+        atexit.register(self.stopService)
 
     def startService(self):
         """ Encapsulates start up actions.
         Here starting the TLS server.
         """
         super().startService()
+        # we do not auto-start any service, including the base
+        # wallet service, since the client must actively request
+        # that with the appropriate credential (password).
         reactor.listenSSL(self.port, Site(self.app.resource()),
                           contextFactory=get_ssl_context("."))
 
     def stopService(self):
         """ Encapsulates shut down actions.
         """
+        # Currently valid authorization tokens must be removed
+        # from the daemon:
+        self.cookie = None
+        # if the wallet-daemon is shut down, all services
+        # it encapsulates must also be shut down.
+        for name, service in self.services.items():
+            if service:
+                service.stopService()
         super().stopService()
 
     @app.handle_errors(NotAuthorized)
@@ -130,7 +159,8 @@ class JMWalletDaemon(Service):
     def check_cookie(self, request):
         request_cookie = request.getHeader(b"JMCookie")
         if self.cookie != request_cookie:
-            print("Invalid cookie: ", request_cookie)
+            jlog.warn("Invalid cookie: " + str(
+                request_cookie) + ", request rejected.")
             raise NotAuthorized()
 
     @app.route('/wallet/<string:walletname>/display', methods=['GET'])
@@ -156,24 +186,26 @@ class JMWalletDaemon(Service):
 
     @app.route('/wallet/<string:walletname>/snicker/start', methods=['GET'])
     def start_snicker(self, request, walletname):
+        self.check_cookie(request)
         if not self.wallet_service:
             raise NoWalletFound()
-        if self.snicker_service and self.snicker_service.isRunning():
+        if self.services["snicker"] and self.services["snicker"].isRunning():
             raise ServiceAlreadyStarted()
         # TODO: allow client to inject acceptance callbacks to Receiver
-        self.snicker_service = SNICKERReceiverService(
+        self.services["snicker"] = SNICKERReceiverService(
             SNICKERReceiver(self.wallet_service))
-        self.snicker_service.startService()
+        self.services["snicker"].startService()
         # TODO waiting for startup seems perhaps not needed here?
         return response(request, walletname=walletname)
 
     @app.route('/wallet/<string:walletname>/snicker/stop', methods=['GET'])
     def stop_snicker(self, request, walletname):
+        self.check_cookie(request)
         if not self.wallet_service:
             raise NoWalletFound()
-        if not self.snicker_service:
+        if not self.services["snicker"]:
             raise ServiceNotStarted()
-        self.snicker_service.stopService()
+        self.services["snicker"].stopService()
         return response(request, walletname=walletname)
 
     @app.route('/wallet/<string:walletname>/maker/start', methods=['POST'])
@@ -187,16 +219,26 @@ class JMWalletDaemon(Service):
             raise InvalidRequestFormat()
         if not self.wallet_service:
             raise NoWalletFound()
-        maker = YieldGeneratorBasic(self.wallet_service,
-                               [config_json[x] for x in ["txfee", "cjfee_a",
-                                "cjfee_r", "ordertype", "minsize"]])
-        jlog.info('starting yield generator')
-        clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
+
+        # daemon must be up before this is started; check:
         daemon_serving_host, daemon_serving_port = get_daemon_serving_params()
-        print("host and port in use: ", daemon_serving_host, daemon_serving_port)
         if daemon_serving_port == -1 or daemon_serving_host == "":
             raise BackendNotReady()
-        reactor.connectTCP(daemon_serving_host, daemon_serving_port, clientfactory)
+
+        self.services["maker"] = YieldGeneratorService(self.wallet_service,
+                                [config_json[x] for x in ["txfee", "cjfee_a",
+                                "cjfee_r", "ordertype", "minsize"]])
+        self.services["maker"].startService()
+        return response(request, walletname=walletname)
+
+    @app.route('/wallet/<string:walletname>/maker/stop', methods=['GET'])
+    def stop_maker(self, request, walletname):
+        self.check_cookie(request)
+        if not self.wallet_service:
+            raise NoWalletFound()
+        if not self.services["maker"]:
+            raise ServiceNotStarted()
+        self.services["maker"].stopService()
         return response(request, walletname=walletname)
 
     @app.route('/wallet/<string:walletname>/lock', methods=['GET'])

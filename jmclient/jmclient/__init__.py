@@ -58,7 +58,8 @@ from .wallet_utils import (
     wallet_change_passphrase)
 from .wallet_service import WalletService
 from .maker import Maker
-from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain
+from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain, \
+     YieldGeneratorService
 from .snicker_receiver import SNICKERError, SNICKERReceiver, SNICKERReceiverService
 from .payjoin import (parse_payjoin_setup, send_payjoin, PayjoinServer,
                       JMBIP78ReceiverManager)
