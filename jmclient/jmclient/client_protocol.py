@@ -144,35 +144,6 @@ class JMClientProtocol(amp.AMP):
                             txhex=txhex)
         self.defaultCallbacks(d)
 
-    def on_p2ep_tx_received(self, nick, txhex):
-        """ This is called by both "maker" and "taker"
-        in the p2ep protocol; taker sends signed fallback
-        non-coinjoin transaction to maker, then maker sends
-        partially signed payjoin to taker.
-        Processing at client protocol level is the
-        same, business logic deferred to the P2EPMaker,Taker
-        classes.
-        """
-        retval = self.client.on_tx_received(nick, txhex)
-        if not retval[0]:
-            if retval[1] == "OK":
-                jlog.info("Transaction broadcast OK.")
-            else:
-                jlog.info("We refused to continue on receiving tx")
-                jlog.info("Reason: " + retval[1])
-        else:
-            # This will only be called on the "maker"/receiver
-            # side, who will pass back the new partially signed
-            # version; on Taker side, we stop above, since we
-            # just sign and push within the P2EPTaker.
-            nick, txhex = retval[1:]
-            # make_tx is slightly misnamed; it just transfers
-            # the transaction to the given counterparties (here
-            # only one) over the message channel, via the
-            # AMP command JMMakeTx.
-            self.make_tx([nick], txhex)
-        return {"accepted": True}
-
 class JMMakerClientProtocol(JMClientProtocol):
     def __init__(self, factory, maker, nick_priv=None):
         self.factory = factory
@@ -264,11 +235,6 @@ class JMMakerClientProtocol(JMClientProtocol):
 
     @commands.JMTXReceived.responder
     def on_JM_TX_RECEIVED(self, nick, txhex, offer):
-        # "none" flags p2ep protocol; pass through to the generic
-        # on_tx handler for that:
-        if offer == "none":
-            return self.on_p2ep_tx_received(nick, txhex)
-
         offer = json.loads(offer)
         retval = self.client.on_tx_received(nick, txhex, offer)
         if not retval[0]:
@@ -504,16 +470,6 @@ class JMTakerClientProtocol(JMClientProtocol):
             self.push_tx(nick_to_use, txhex)
         return {'accepted': True}
 
-    @commands.JMTXReceived.responder
-    def on_JM_TX_RECEIVED(self, nick, txhex, offer):
-        """ Only used in the P2EP protocol.
-        """
-        if not offer == "none":
-            # Protocol error; this message should only ever
-            # be received, Taker side, in the P2EP protocol.
-            raise JMProtocolError("Taker received unexpected JMTXReceived")
-        return self.on_p2ep_tx_received(nick, txhex)
-
     def get_offers(self):
         d = self.callRemote(commands.JMRequestOffers)
         self.defaultCallbacks(d)
@@ -542,25 +498,21 @@ class JMClientProtocolFactory(protocol.ClientFactory):
         return self.protocol(self, self.client)
 
 def start_reactor(host, port, factory, ish=True, daemon=False, rs=True,
-                  gui=False, p2ep=False): #pragma: no cover
+                  gui=False): #pragma: no cover
     #(Cannot start the reactor in tests)
     #Not used in prod (twisted logging):
     #startLogging(stdout)
     usessl = True if jm_single().config.get("DAEMON", "use_ssl") != 'false' else False
     if daemon:
         try:
-            from jmdaemon import JMDaemonServerProtocolFactory, start_daemon,\
-                 P2EPDaemonServerProtocolFactory
+            from jmdaemon import JMDaemonServerProtocolFactory, start_daemon
         except ImportError:
             jlog.error("Cannot start daemon without jmdaemon package; "
                        "either install it, and restart, or, if you want "
                        "to run the daemon separately, edit the DAEMON "
                        "section of the config. Quitting.")
             return
-        if not p2ep:
-            dfactory = JMDaemonServerProtocolFactory()
-        else:
-            dfactory = P2EPDaemonServerProtocolFactory()
+        dfactory = JMDaemonServerProtocolFactory()
         orgport = port
         while True:
             try:
@@ -574,11 +526,6 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True,
                     jlog.error("Tried 100 ports but cannot listen on any of them. Quitting.")
                     sys.exit(EXIT_FAILURE)
                 port += 1
-    else:
-        # if daemon run separately, and we do p2ep, we are using
-        # the protocol server at port+1
-        if p2ep:
-            port += 1
     if usessl:
         ctx = ClientContextFactory()
         reactor.connectSSL(host, port, factory, ctx)

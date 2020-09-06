@@ -921,3 +921,153 @@ class RestartSettingsPage(QWizardPage):
         self.registerField("mincjamount", results[0][1])
         self.registerField("maxrelfee", results[1][1])
         self.registerField("maxabsfee", results[2][1])
+
+class CopyOnClickLineEdit(QLineEdit):
+    """ Small wrapper class around QLineEdit
+        to support copy-to-clipboard-on-click.
+    """
+    def __init__(self, s):
+        # This is needed to prevent
+        # infinite loop, but
+        # TODO: This is very suboptimal
+        # since the copy can only be done once.
+        self.was_copied = False
+        super().__init__(s)
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self.selectAll()
+        self.copy()
+        if not self.was_copied:
+            JMQtMessageBox(self,
+                "URI copied to clipboard", mbtype="info")
+        self.was_copied = True
+
+class ReceiveBIP78Dialog(QDialog):
+
+    parameter_names = ['Amount to receive', 'Mixdepth']
+    parameter_tooltips = [
+     "How much you should receive (after any fees) in BTC or sats.",
+     "The mixdepth you source coins from to create inputs for the "
+     "payjoin. Note your receiving address will be chosen from the "
+     "*next* mixdepth after this (or 0 if last)."]
+    parameter_types = ["btc", int]
+    parameter_settings = ["", 0]
+
+    def __init__(self, action_fn, cancel_fn, parameter_settings=None):
+        """ Parameter action_fn:
+        each time the user opens the dialog they will
+        pass a function to be connected to the action-button.
+        Signature: no arguments, return value False if action initiation
+        is aborted, otherwise True.
+        """
+        super().__init__()
+        if parameter_settings:
+            self.parameter_settings = parameter_settings
+        # these QLineEdit or QLabel objects will contain the
+        # settings for the receiver as chosen by the user:
+        self.receiver_settings_ql = []
+        self.action_fn = action_fn
+        # callback for actions to take when closing this dialog:
+        self.cancel_fn = cancel_fn
+        self.updates_final = False
+        self.initUI()
+
+    def initUI(self):
+        self.setModal(1)
+        self.setWindowTitle("Receive Payjoin")
+        self.setLayout(self.get_receive_bip78_dialog())
+        self.show()
+
+    def info_update(self, msg):
+        """ Sets update text in the dialog to the str
+        parameter msg, but does not overwrite after that,
+        if the message ends with ":FINAL".
+        TODO: Info updates need to be richer, supporting
+        multiple messages.
+        """
+        if not self.updates_final:
+            if msg.endswith(":FINAL"):
+                self.updates_final = True
+                msg = msg.split(":FINAL")[0]
+            self.updates_label.setText(msg)
+
+    def get_amount_text(self):
+        return self.receiver_settings_ql[0][1].text()
+
+    def get_mixdepth(self):
+        return int(self.receiver_settings_ql[1][1].text())
+
+    def update_uri(self, uri):
+        self.bip21_widget.setDisabled(False)
+        self.bip21_widget.setText(uri)
+        self.bip21_widget.was_copied = False
+
+    def shutdown_actions(self):
+        self.cancel_fn()
+        self.close()
+
+    def start_generate(self):
+        """ Before starting up the
+        hidden service and initiating the payment
+        workflow, disallow starting again; user
+        will need to close and reopen to restart.
+        If the 'start generate request' action is
+        aborted, we reset the generate button.
+        """
+        self.btnbox.buttons()[1].setDisabled(True)
+        if not self.action_fn():
+            self.btnbox.buttons()[1].setDisabled(False)
+
+    def get_receive_bip78_dialog(self):
+        """ Displays editable parameters and
+        BIP21 URI once the receiver is ready.
+        """
+        # TODO: allow custom mixdepths
+        valid_ranges = [None, (0, 4)]
+
+        # note that this iteration is not currently helpful,
+        # if anything making the code *more* verbose, but could be
+        # if we add several more fields:
+        for x in zip(self.parameter_names, self.parameter_tooltips,
+                     self.parameter_types, self.parameter_settings,
+                     valid_ranges):
+            ql = QLabel(x[0])
+            ql.setToolTip(x[1])
+            editfield = BitcoinAmountEdit if x[2] == "btc" else QLineEdit
+            ql2 = editfield(str(x[3]))
+            if x[4]:
+                if x[2] == int:
+                    ql2.setValidator(QIntValidator(*x[4]))
+                elif x[2] == float:
+                    ql2.setValidator(QDoubleValidator(*x[4]))
+                # note no validators for the btc type as that
+                # has its own internal validation.
+            self.receiver_settings_ql.append((ql, ql2))
+        layout = QGridLayout(self)
+        layout.setSpacing(4)
+        for i, x in enumerate(self.receiver_settings_ql):
+            layout.addWidget(x[0], i + 1, 0)
+            layout.addWidget(x[1], i + 1, 1, 1, 2)
+
+        # As well as editable settings, we also need two more
+        # fields: one for information updates, and one for the
+        # final (copyable) URI:
+        self.updates_label = QLabel("Waiting ...")
+        self.bip21_widget = CopyOnClickLineEdit("")
+        self.bip21_widget.setReadOnly(True)
+        # Note that the initial state is disabled, meaning
+        # click events won't register and it won't look editable:
+        self.bip21_widget.setDisabled(True)
+        layout.addWidget(self.updates_label, i+2, 0, 1, 2)
+        layout.addWidget(self.bip21_widget, i+3, 0, 1, 2)
+
+        # Buttons for start/cancel:
+        self.btnbox = QDialogButtonBox()
+        self.btnbox.setStandardButtons(QDialogButtonBox.Cancel)
+        btnname = "Generate request"
+        self.btnbox.addButton(btnname, QDialogButtonBox.ActionRole)
+        layout.addWidget(self.btnbox, i+4, 0)
+        self.btnbox.rejected.connect(self.shutdown_actions)
+        self.btnbox.buttons()[1].clicked.connect(self.start_generate)
+        return layout

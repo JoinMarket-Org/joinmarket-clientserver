@@ -11,7 +11,7 @@ import sys
 from twisted.internet import reactor
 import pprint
 
-from jmclient import Taker, P2EPTaker, load_program_config, get_schedule,\
+from jmclient import Taker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, validate_address, is_burn_destination, \
     jm_single, estimate_tx_fee, direct_send, WalletService,\
     open_test_wallet_maybe, get_wallet_path, NO_ROUNDING, \
@@ -51,11 +51,8 @@ def main():
     parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
     load_program_config(config_path=options.datadir)
-    if options.p2ep and len(args) != 3:
-        parser.error("Joinmarket peer-to-peer PayJoin requires exactly three "
-                     "arguments: wallet, amount and destination address.")
-        sys.exit(EXIT_ARGERROR)
-    elif options.schedule == '':
+
+    if options.schedule == '':
         if ((len(args) < 2) or
             (btc.is_bip21_uri(args[1]) and len(args) != 2) or
             (not btc.is_bip21_uri(args[1]) and len(args) != 3)):
@@ -76,13 +73,7 @@ def main():
                 parser.error("Given BIP21 URI does not contain amount.")
                 sys.exit(EXIT_ARGERROR)
             destaddr = parsed['address']
-            if 'jmnick' in parsed:
-                if "pj" in parsed:
-                    parser.error("Cannot specify both BIP78 and Joinmarket "
-                                 "peer-to-peer payjoin at the same time!")
-                    sys.exit(EXIT_ARGERROR)
-                options.p2ep = parsed['jmnick']
-            elif "pj" in parsed:
+            if "pj" in parsed:
                 # note that this is a URL; its validity
                 # checking is deferred to twisted.web.client.Agent
                 bip78url = parsed["pj"]
@@ -102,12 +93,12 @@ def main():
         mixdepth = options.mixdepth
         addr_valid, errormsg = validate_address(destaddr)
         command_to_burn = (is_burn_destination(destaddr) and sweeping and
-            options.makercount == 0 and not options.p2ep)
+            options.makercount == 0)
         if not addr_valid and not command_to_burn:
             jmprint('ERROR: Address invalid. ' + errormsg, "error")
             if is_burn_destination(destaddr):
                 jmprint("The required options for burning coins are zero makers"
-                    + " (-N 0), sweeping (amount = 0) and not using P2EP", "info")
+                    + " (-N 0), sweeping (amount = 0) and not using BIP78 Payjoin", "info")
             sys.exit(EXIT_ARGERROR)
         if sweeping == False and amount < DUST_THRESHOLD:
             jmprint('ERROR: Amount ' + btc.amount_to_str(amount) +
@@ -128,9 +119,6 @@ def main():
         if btc.is_bip21_uri(args[1]):
             parser.error("Schedule files are not compatible with bip21 uris.")
             sys.exit(EXIT_ARGERROR)
-        if options.p2ep:
-            parser.error("Schedule files are not compatible with PayJoin")
-            sys.exit(EXIT_FAILURE)
         result, schedule = get_schedule(options.schedule)
         if not result:
             log.error("Failed to load schedule file, quitting. Check the syntax.")
@@ -167,8 +155,7 @@ def main():
         fee_per_cp_guess))
 
     maxcjfee = (1, float('inf'))
-    if not options.p2ep and not options.pickorders and \
-       options.makercount != 0:
+    if not options.pickorders and options.makercount != 0:
         maxcjfee = get_max_cj_fee_values(jm_single().config, options)
         log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} "
                  "".format(maxcjfee[0], btc.amount_to_str(maxcjfee[1])))
@@ -211,7 +198,7 @@ def main():
             log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
                 .format(exp_tx_fees_ratio))
 
-    if options.makercount == 0 and not options.p2ep and not bip78url:
+    if options.makercount == 0 and not bip78url:
         tx = direct_send(wallet_service, amount, mixdepth, destaddr,
                          options.answeryes, with_final_psbt=options.with_psbt)
         if options.with_psbt:
@@ -307,22 +294,7 @@ def main():
                 log.info("All transactions completed correctly")
             reactor.stop()
 
-    if options.p2ep:
-        # This workflow requires command line reading; we force info level logging
-        # to remove noise, and mostly communicate to the user with the fn
-        # log.info (directly or via default taker_info_callback).
-        set_logging_level("INFO")
-        # in the case where the payment just hangs for a long period, allow
-        # it to fail gracefully with an information message; this is triggered
-        # only by the stallMonitor, which gives up after 20*maker_timeout_sec:
-        def p2ep_on_finished_callback(res, fromtx=False, waittime=0.0,
-                                      txdetails=None):
-            log.error("PayJoin payment was NOT made, timed out.")
-            reactor.stop()
-        taker = P2EPTaker(options.p2ep, wallet_service, schedule,
-                          callbacks=(None, None, p2ep_on_finished_callback))
-
-    elif bip78url:
+    if bip78url:
         # TODO sanity check wallet type is segwit
         manager = parse_payjoin_setup(args[1], wallet_service, options.mixdepth)
         reactor.callWhenRunning(send_payjoin, manager)
@@ -338,12 +310,11 @@ def main():
     clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
     daemon = True if nodaemon == 1 else False
-    p2ep = True if options.p2ep != "" else False
     if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
         startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
-                  clientfactory, daemon=daemon, p2ep=p2ep)
+                  clientfactory, daemon=daemon)
 
 if __name__ == "__main__":
     main()

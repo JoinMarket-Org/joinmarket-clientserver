@@ -1154,6 +1154,27 @@ class PSBTWalletMixin(object):
         return [btc.CMutableTxOut(v["value"],
                                   v["script"]) for _, v in utxos.items()]
 
+    @staticmethod
+    def check_finalized_input_type(psbt_input):
+        """ Given an input of a PSBT which is already finalized,
+        return its type as either "sw-legacy" or "sw" or False
+        if not one of these two types.
+        TODO: can be extented to other types.
+        """
+        assert isinstance(psbt_input, btc.PSBT_Input)
+        # TODO: cleanly check that this PSBT Input is finalized.
+        if psbt_input.utxo.scriptPubKey.is_p2sh():
+            # Note: p2sh does not prove the redeemscript;
+            # we check the finalscriptSig is p2wpkh:
+            fss = btc.CScript(next(btc.CScript(
+                psbt_input.final_script_sig).raw_iter())[1])
+            if fss.is_witness_v0_keyhash():
+                return "sw-legacy"
+        elif psbt_input.utxo.scriptPubKey.is_witness_v0_keyhash():
+            return "sw"
+        else:
+            return False
+
     def create_psbt_from_tx(self, tx, spent_outs=None):
         """ Given a CMutableTransaction object, which should not currently
         contain signatures, we create and return a new PSBT object of type
