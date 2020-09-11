@@ -342,10 +342,10 @@ class BitcoinCoreInterface(BlockchainInterface):
         try:
             txid = self.rpc('sendrawtransaction', [txhex])
         except JsonRpcConnectionError as e:
-            log.debug('error pushing = ' + repr(e))
+            log.warning('error pushing = ' + repr(e))
             return False
         except JsonRpcError as e:
-            log.debug('error pushing = ' + str(e.code) + " " + str(e.message))
+            log.warning('error pushing = ' + str(e.code) + " " + str(e.message))
             return False
         return True
 
