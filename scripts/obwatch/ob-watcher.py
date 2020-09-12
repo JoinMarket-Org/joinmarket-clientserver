@@ -19,26 +19,26 @@ from twisted.internet import reactor
 
 from jmbase.support import EXIT_FAILURE
 
+from jmbase import get_log
+log = get_log()
 
 try:
     import matplotlib
 except:
-    print("matplotlib not found; do `pip install matplotlib` "
-          "in the joinmarket virtualenv.")
-    sys.exit(EXIT_FAILURE)
+    log.warning("matplotlib not found, charts will not be available. "
+                "Do `pip install matplotlib` in the joinmarket virtualenv.")
 
-# https://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+if 'matplotlib' in sys.modules:
+    # https://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
 
-from jmbase import get_log
 from jmclient import jm_single, load_program_config, calc_cj_fee, \
      get_irc_mchannels, add_base_options
 from jmdaemon import OrderbookWatch, MessageChannelCollection, IRCMessageChannel
 #TODO this is only for base58, find a solution for a client without jmbitcoin
 import jmbitcoin as btc
 from jmdaemon.protocol import *
-log = get_log()
 
 #Initial state: allow only SW offer types
 swoffers = list(filter(lambda x: x[0:2] == 'sw', offername_list))
@@ -153,6 +153,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         return result
 
     def create_depth_chart(self, cj_amount, args=None):
+        if 'matplotlib' not in sys.modules:
+            return 'matplotlib not installed, charts not available'
+
         if args is None:
             args = {}
         try:
@@ -196,6 +199,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         return get_graph_html(fig)
 
     def create_size_histogram(self, args):
+        if 'matplotlib' not in sys.modules:
+            return 'matplotlib not installed, charts not available'
+
         try:
             self.taker.dblock.acquire(True)
             rows = self.taker.db.execute('SELECT maxsize, ordertype FROM orderbook;').fetchall()
