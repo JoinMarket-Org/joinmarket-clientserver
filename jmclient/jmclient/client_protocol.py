@@ -301,6 +301,22 @@ class JMMakerClientProtocol(JMClientProtocol):
             self.defaultCallbacks(d)
         return {"accepted": True}
 
+    @commands.JMTXBroadcast.responder
+    def on_JM_TX_BROADCAST(self, txhex):
+        """ Makers have no issue broadcasting anything,
+        so only need to prevent crashes.
+        Note in particular we don't check the return value,
+        since the transaction being accepted or not is not
+        our (maker)'s concern.
+        """
+        try:
+            txbin = hextobin(txhex)
+            jm_single().bc_interface.pushtx(txbin)
+        except:
+            jlog.info("We received an invalid transaction broadcast "
+                      "request: " + txhex)
+        return {"accepted": True}
+
     def tx_match(self, txd):
         for k,v in self.finalized_offers.items():
             # Tx considered defined by its output set

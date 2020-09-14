@@ -220,3 +220,11 @@ class JMTXReceived(JMCommand):
     arguments = [(b'nick', Unicode()),
                  (b'txhex', Unicode()),
                  (b'offer', Unicode())]
+
+class JMTXBroadcast(JMCommand):
+    """ Accept a bitcoin transaction
+    sent over the wire by a counterparty
+    and relay it to the client for network
+    broadcast.
+    """
+    arguments = [(b'txhex', Unicode())]
