@@ -376,9 +376,11 @@ def wallet_showutxos(wallet_service, showprivkey):
             key = wallet_service.get_key_from_addr(av['address'])
             tries = podle.get_podle_tries(u, key, max_tries)
             tries_remaining = max(0, max_tries - tries)
+            mixdepth = wallet_service.wallet.get_details(av['path'])[0]
             unsp[us] = {'address': av['address'], 'value': av['value'],
                        'tries': tries, 'tries_remaining': tries_remaining,
                        'external': False,
+                       'mixdepth': mixdepth,
                        'confirmations': av['confs'],
                        'frozen': True if u in utxo_d else False}
             if showprivkey:
