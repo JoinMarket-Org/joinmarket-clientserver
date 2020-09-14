@@ -18,9 +18,9 @@ from jmbase import get_log
 from jmclient import Maker, jm_single, load_program_config, \
     JMClientProtocolFactory, start_reactor, calc_cj_fee, \
     WalletService, add_base_options, get_wallet_path, \
-    open_test_wallet_maybe, wallet_display, YieldGenerator, \
-    get_daemon_serving_params, YieldGeneratorService, \
-    SNICKERReceiverService, SNICKERReceiver
+    open_test_wallet_maybe, wallet_display, SegwitLegacyWallet, \
+    SegwitWallet, get_daemon_serving_params, YieldGeneratorService, \
+    SNICKERReceiverService, SNICKERReceiver, create_wallet, StorageError
 from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE
 
 jlog = get_log()
@@ -50,6 +50,10 @@ class BackendNotReady(Exception):
 # error class for services which are only
 # started once:
 class ServiceAlreadyStarted(Exception):
+    pass
+
+# for the special case of the wallet service:
+class WalletAlreadyUnlocked(Exception):
     pass
 
 class ServiceNotStarted(Exception):
@@ -151,6 +155,11 @@ class JMWalletDaemon(Service):
     def service_already_started(self, request, failure):
         request.setResponseCode(401)
         return "Service already started."
+
+    @app.handle_errors(WalletAlreadyUnlocked)
+    def wallet_already_unlocked(self, request, failure):
+        request.setResponseCode(401)
+        return "Wallet already unlocked."
 
     def service_not_started(self, request, failure):
         request.setResponseCode(401)
@@ -270,6 +279,64 @@ class JMWalletDaemon(Service):
                 return False
         return retval
 
+    @app.route('/wallet/create', methods=["POST"])
+    def createwallet(self, request):
+        print_req(request)
+
+        # we only handle one wallet at a time;
+        # if there is a currently unlocked wallet,
+        # refuse to process the request:
+        if self.wallet_service:
+            raise WalletAlreadyUnlocked()
+
+        request_data = self.get_POST_body(request,
+                        ["walletname", "password", "wallettype"])
+        if not request_data or request_data["wallettype"] not in [
+            "sw", "sw-legacy"]:
+            raise InvalidRequestFormat()
+
+        wallet_cls = SegwitWallet if request_data[
+            "wallettype"]=="sw" else SegwitLegacyWallet
+
+        # use the config's data location combined with the json
+        # data to construct the wallet path:
+        wallet_root_path = os.path.join(jm_single().datadir, "wallets")
+        wallet_name = os.path.join(wallet_root_path, request_data["walletname"])
+        try:
+            wallet = create_wallet(wallet_name,  request_data["password"],
+                               4, wallet_cls=wallet_cls)
+        except StorageError as e:
+            raise NotAuthorized(repr(e))
+
+        # finally, after the wallet is successfully created, we should
+        # start the wallet service:
+        return self.initialize_wallet_service(request, wallet)
+
+    def initialize_wallet_service(self, request, wallet):
+        """ Called only when the wallet has loaded correctly, so
+        authorization is passed, so set cookie for this wallet
+        (currently THE wallet, daemon does not yet support multiple).
+        This is maintained for as long as the daemon is active (i.e.
+        no expiry currently implemented), or until the user switches
+        to a new wallet.
+        """
+        self.cookie = request.getHeader(b"JMCookie")
+        if self.cookie is None:
+            raise NotAuthorized("No cookie")
+
+        # the daemon blocks here until the wallet synchronization
+        # from the blockchain interface completes; currently this is
+        # fine as long as the client handles the response asynchronously:
+        self.wallet_service = WalletService(wallet)
+        while not self.wallet_service.synced:
+            self.wallet_service.sync_wallet(fast=True)
+        self.wallet_service.startService()
+        # now that the WalletService instance is active and ready to
+        # respond to requests, we return the status to the client:
+        return response(request,
+                        walletname=self.wallet_service.get_wallet_name(),
+                        already_loaded=False)
+
     @app.route('/wallet/<string:walletname>/unlock', methods=['POST'])
     def unlockwallet(self, request, walletname):
         print_req(request)
@@ -290,30 +357,12 @@ class JMWalletDaemon(Service):
             except StorageError as e:
                 # e.g. .lock file exists:
                 raise NotAuthorized(repr(e))
-
-            # since wallet loaded correctly, authorization is passed, so set
-            # cookie for this wallet (currently THE wallet, daemon does not
-            # yet support multiple). This is maintained for as long as the
-            # daemon is active (i.e. no expiry currently implemented),
-            # or until the user switches to a new wallet.
-            self.cookie = request.getHeader(b"JMCookie")
-            if self.cookie is None:
-                # TODO different error class? this could mislead:
-                raise NotAuthorized()
-
-            # the daemon blocks here until the wallet synchronization
-            # from the blockchain interface completes; currently this is
-            # fine as long as the client handles the response asynchronously:
-            self.wallet_service = WalletService(wallet)
-            while not self.wallet_service.synced:
-                self.wallet_service.sync_wallet(fast=True)
-            self.wallet_service.startService()
-            # now that the WalletService instance is active and ready to
-            # respond to requests, we return the status to the client:
-            return response(request, walletname=walletname, already_loaded=False)
+            return self.initialize_wallet_service(request, wallet)
         else:
             print('wallet was already unlocked.')
-            return response(request, walletname=walletname, already_loaded=True)
+            return response(request,
+                            walletname=self.wallet_service.get_wallet_name(),
+                            already_loaded=True)
 
 def jmwalletd_main():
     import sys
