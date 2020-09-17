@@ -12,11 +12,14 @@ from jmclient import load_test_config, jm_single, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
     SegwitWallet, WalletService, SegwitLegacyWalletFidelityBonds,\
-    BTC_P2PKH, BTC_P2SH_P2WPKH,\
+    BTC_P2PKH, BTC_P2SH_P2WPKH, create_wallet, open_test_wallet_maybe, \
     FidelityBondMixin, FidelityBondWatchonlyWallet, wallet_gettimelockaddress
 from test_blockchaininterface import sync_test_wallet
 
 testdir = os.path.dirname(os.path.realpath(__file__))
+
+test_create_wallet_filename = "testwallet_for_create_wallet_test"
+
 log = get_log()
 
 
@@ -815,10 +818,38 @@ def test_watchonly_wallet(setup_wallet):
         assert script == watchonly_script
     assert burn_pubkey == watchonly_burn_pubkey
 
+@pytest.mark.parametrize('password, wallet_cls', [
+    ["hunter2", SegwitLegacyWallet],
+    ["hunter2", SegwitWallet],
+])
+def test_create_wallet(setup_wallet, password, wallet_cls):
+    wallet_name = test_create_wallet_filename
+    password = password.encode("utf-8")
+    # test mainnet (we are not transacting)
+    btc.select_chain_params("bitcoin")
+    wallet = create_wallet(wallet_name, password, 4, wallet_cls)
+    mnemonic = wallet.get_mnemonic_words()[0]
+    firstkey = wallet.get_key_from_addr(wallet.get_addr(0,0,0))
+    print("Created mnemonic, firstkey: ", mnemonic, firstkey)
+    wallet.close()
+    # ensure that the wallet file created is openable with the password,
+    # and has the parameters that were claimed on creation:
+    new_wallet = open_test_wallet_maybe(wallet_name, "", 4,
+                        password=password, ask_for_password=False)
+    assert new_wallet.get_mnemonic_words()[0] == mnemonic
+    assert new_wallet.get_key_from_addr(
+        new_wallet.get_addr(0,0,0)) == firstkey
+    os.remove(wallet_name)
+    btc.select_chain_params("bitcoin/regtest")
+
 @pytest.fixture(scope='module')
-def setup_wallet():
+def setup_wallet(request):
     load_test_config()
     btc.select_chain_params("bitcoin/regtest")
     #see note in cryptoengine.py:
     cryptoengine.BTC_P2WPKH.VBYTE = 100
     jm_single().bc_interface.tick_forward_chain_interval = 2
+    def teardown():
+        if os.path.exists(test_create_wallet_filename):
+            os.remove(test_create_wallet_filename)
+    request.addfinalizer(teardown)
