@@ -1,6 +1,6 @@
 ### PayJoin (aka P2EP) user guide.
 
-(You've installed using the `install.sh` as per instructions in the README before
+(You've installed using the `install.sh` or similar as per instructions in the README before
 reading this).
 
 This document does **not** discuss why PayJoin is interesting or the general concept.
@@ -20,9 +20,17 @@ For that, see [this](https://joinmarket.me/blog/blog/payjoin/) post.
 
    b. [Using Joinmarket-wallet-to-Joinmarket-wallet payjoins](#jmtojm)
 
+   c. [About fees](#fees)
+
 5. [What if I wanted bech32 native segwit addresses?](#native)
 
-6. [Sample testnet wallet display output](#sample)
+6. [Receiving a BIP78 Payjoin payment](#receiving)
+
+7. [Configuring Tor to setup a hidden service](#torconfig)
+
+8. [Using JoinmarketQt to send and receive Payjoins](#using-qt)
+
+7. [Sample testnet wallet display output](#sample)
 
 Some instructions here will be redundant with the introductory [usage guide](USAGE.md); sections 1-3 are aimed at users who have not/ will not use Joinmarket for ordinary coinjoins.
 So just skip those sections if you already know it.
@@ -124,7 +132,7 @@ python wallet-tool.py wallet-name-you-chose.dat [display]
 
 ("display" is optional because default; use `python wallet-tool.py -h` to see all possible methods).
 
-Below is [an example](#sample-testnet-wallet-display-output) of what the wallet looks like (although
+Below is [an example](#sample) of what the wallet looks like (although
 yours will be mainnet, so the addresses will start with '3' not '2').
 
 Joinmarket by default uses *5* accounts, not only 1 as some other wallets (e.g. Electrum), this is to help
@@ -142,6 +150,8 @@ including the 12 word seed, although consider privacy concerns when sending addr
 
 ### Doing a PayJoin payment.
 
+This section gives details on how to make payments with Payjoin. You might prefer to start with the video linked [here](#using-qt) to see how this works if you are using JoinmarketQt rather than the command line.
+
 <a name="bip78" />
 
 #### Using BIP78 payjoins to pay a merchant.
@@ -153,8 +163,8 @@ The process here is to use the syntax of sendpayment.py:
 ```
 
 Notes on this:
-* Payjoins BIP78 style are done using the `sendpayment` script (there is no Qt support yet, but it will come later).
-* They are done using BIP21 URIs. These can be copy/pasted from a website (e.g. a btcpayserver invoice page), note that double quotes are required because the string contains special characters. Note also that you must see `pj=` in the URI, otherwise payjoin is not supported by that server.
+* Payjoins BIP78 style are done using the `sendpayment` script, or by entering the BIP21 URI into the "Recipient" field in JoinmarketQt.
+* They are done using BIP21 URIs. These can be copy/pasted from a website (e.g. a btcpayserver invoice page), note that double quotes are required (on the command line) because the string contains special characters. Note also that you must see `pj=` in the URI, otherwise payjoin is not supported by that server.
 * If the url in `pj=` is `****.onion` it means you must be using Tor, remember to have Tor running on your system and change the configuration (see below) for sock5 port if necessary. If you are running the Tor browser the port is 9150 instead of 9050.
 * Don't forget to specify the mixdepth you are spending from with `-m 0`. The payment amount is of course in the URI, along with the address.
 * Pay attention to address type; this point is complicated, but: some servers will not be able to match the address type of the sender, and so won't be able to construct sensible Payjoin transactions. In that case they may fallback to the non-Payjoin payment (which is not a disaster). If you want to do a Payjoin with a server that only supports bech32, you will have to create a new Joinmarket wallet, specifying `native=true` in the `POLICY` section of `joinmarket.cfg` before you generate the wallet.
@@ -213,107 +223,11 @@ bump the fee enough to add one input to the transaction, and this should be fine
 
 #### Using Joinmarket-wallet-to-Joinmarket-wallet payjoins
 
-(At the end of this file are full terminal outputs from a regtest run of the process,
-you can read it after this to see that it makes sense; there's also a video
-[here](https://joinmarket.me/blog/blog/payjoin-basic-demo) of the process running live with mainnet coins).
+This is now deprecated; if you still want to use it, use Joinmarket(-clientserver) version 0.7.0 or lower, and see the corresponding older version of this document.
 
-* Receiver needs to start: run (still in scripts/ directory):
+<a name="fees" />
 
-```
-(jmvenv)a$ python receive-payjoin.py -m 1 receiver-wallet-name.jmdat amount
-```
-
-Note : `-m 1` is choosing the *mixdepth* (see above) to *spend* coins from: in a payjoin,
-the receiver also spends some coins, he just gets that amount back, as well as his payment.
-
-If you funded into mixdepth 0 at the start, and you only have coins there, you must choose 0
-here (which is the default). How much do you need? The code is fairly lenient and it doesn't
-matter too much. But it needs to be more than zero!
-
-The receiver will be prompted to read/note the receiving address, amount and "ephemeral nick", and then
-the script will just wait (indefinitely). It'll look something like this:
-
-```
-2019-01-16 16:11:40,018 [INFO]  Your receiving address is: 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS
-2019-01-16 16:11:40,018 [INFO]  You will receive amount: 27000000 satoshis.
-2019-01-16 16:11:40,018 [INFO]  The sender also needs to know your ephemeral nickname: J5AFezpsuV95CBCH
-2019-01-16 16:11:40,018 [INFO]  This information has been stored in a file payjoin.txt; send it to your counterparty when you are ready.
-```
-
-The "ephemeral nick" starts with J, version (5 currently), then a short base58 string. It's how the sender will find you in the
-"joinmarket trading pit" (multiple IRC servers are used for this currently).
-
-* Receiver sends data to sender (amount, address, ephemeral nick).
-
-This data is stored in the file payjoin.txt but not currently using any encoding (that's a TODO).
-
-* Sender starts up the sendpayment script:
-
-```
-(jmvenv)a$ python sendpayment.py -m 1 sender-wallet.jmdat 27000000 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS -T J5AFezpsuV95CBCH
-```
-
-Notice that the user has specified the three pieces of data given; using the `-T` flags this as a PayJoin; if you don't do this you will be
-doing a Joinmarket coinjoin accidentally! (which wouldn't be the end of the world, the receiver would still get the money!).
-
-As before -m 1 tells the wallet which mixdepth to source coins to spend from; it obviously needs to have at least the given amount
-(in this case, 27 million satoshis or 0.27 btc).
-
-* The two sides communicate
-
-This takes generally only a couple of seconds, not including a relatively slow startup (30s-60s or so depending on configuration),
-during which time the sender acts similarly to any other Joinmarket participant (and so does the receiver, likewise), to have
-a slightly better "blend in with the crowd" effect.
-
-Once the transaction is broadcast, you'll see a message to that effect and the script will shutdown. You can check the txid
-on your favourite block explorer.
-
-* What if something goes wrong and the payment fails to go through?
-
-First, if the sender succeeds in doing the first step, the receiver will have a non-coinjoin ordinary payment transaction
-to fall back on. It'll look like this:
-
-```
-2019-01-16 16:34:55,168 [INFO]  Network transaction fee is: 1672 satoshis.
-2019-01-16 16:34:55,175 [INFO]  We'll use this serialized transaction to broadcast if your counterparty fails to broadcast the payjoin version:
-2019-01-16 16:34:55,177 [INFO]  0200000000010152da645b5a2ec3a166ad8a933b1442fa38fc119faf7659d72033ba863fdd8d470000000017160014297b55001daa905a3552137ef19755cf4eae7babfeffffff02b8be4f0a0000000017a914e3cb2bf72ccd4412035f9668e07e17b6c9ebd58d87c0fc9b010000000017a914b8bf57f3bae00d23f9a60c9a6e4d4c7182ec87cc8702483045022100e3605548f5e07ebd14a0700dc3e54e7c8ae90ce0057a3fdc80b5fd37636b44a002202fd7942104fb344b80b8fd91faf0394a0f274f7a68fa462084b8ecf2fa245a65012102f823d62891d8bc8544d4369bb98c6fb8235a372d2c36196d40c448690b42754f42030000
-2019-01-16 16:34:55,186 [INFO]  The proposed tx does not trigger UIH2, which means it is indistinguishable from a normal payment. This is the ideal case. Continuing..
-....
-```
-
-If the final step fails and we don't get a PayJoin, the receiver can just use his favorite broadcast method (e.g.
-`sendrawtransaction` in Bitcoin Core) to send the signed transaction above (02000...).
-
-* Privacy and security controls
-
-Just like Joinmarket, do note, that here the private information is communicated with **end-to-end encryption** - it's not like
-the people/operators on the IRC servers are going to learn any information about your transaction.
-
-Second, it's very recommended to use Tor connections to the messaging servers via their hidden services. See the
-`[MESSAGING:serverN]` sections in the `joinmarket.cfg`. This keeps anyone from seeing your IP address origin.
-
-This altogether means it's possible to have anonymity from your sender/receiver counterparty, if that's an issue.
-You *do* still have to send them the payment information out of band, though. We could perhaps fold this in, although
-it seems a bit tricky to do so without introducing a security issue.
-
-An additional minor feature is that the receiver "fakes" being a Joinmarket maker, so his bot looks the same as the other
-ones in the Joinmarket trading pit (at least, to a crude extent). And the sender fakes being a Joinmarket taker, too.
-
-Also we try to make the PayJoin look as much as possible as an ordinary payment. For example:
- - we make the transaction version, locktime and sequence numbers look similar to those created by Core, Electrum.
- - we try to avoid "UIH2", meaning we avoid a situation where one input is larger than any output, since that would
-   mean no other inputs are needed; wallet coin selection algorithms *usually* don't do that.
-   
-Security - since the receiver passively waits, what happens if a bad actor tries to connect to him? Nothing; an attacker
-would fail to even start the process without knowing the payment amount and address, which the receiver is not broadcasting
-around everywhere (especially not the amount and ephemeral nickname), and even if they knew that, the worst
-they can do is learn at least 1 utxo of the receiver. The receiver won't pay attention to non-PayJoin messages, either.
-
-##### Controlling fees
-
-**The fees are paid by the sender of funds; note that the fees are going to be a bit higher than a normal payment** (typically
-about 2-3x higher); this may be changed to share the fee, in a future version. There are controls to make sure the fee
-isn't *too* high.
+#### About fees
 
 In the joinmarket.cfg file, under `[POLICY]` section you should see a setting called `tx_fees`.
 You can set this to any integer; if you set it to 1000 or less then it's treated as a "confirmation in N blocks target",
@@ -326,15 +240,19 @@ about 5-10 sats/byte, which nowadays is a reasonable fee. The exact amount is ra
 watermarking all your transactions. So don't use < 1200 because then you might be using less than 1 sat/byte which is
 difficult to relay on the Bitcoin network.
 
+BIP78 itself has various controls around fees - essentially it tries to let the receiver bump the fee but *only slightly* to account for the fact that the receiver is adding at least one more input and so increasing the size of the transaction, and also ensure that low fees do not accidentally fall too low (even, below the relay limit). Joinmarket's receiver will only add one input and never more, for now, and it looks like this is the tradeoff that most wallets will make. If you want to learn more investigate the `maxadditionalfeecontribution`, `additionalfeeoutputindex` and `minfeerate` parameters described in the BIP.
+
+As a spender in the BIP78 protocol, you will usually see the following: a small reduction in the size of your change output as a result of the extra 1 input. Unless the payment is very small, this probably won't be significant.
+
 <a name="native" />
 
 #### What if I wanted bech32 native segwit addresses?
 
-You can do this, but bear in mind: PayJoin only gives its full effect if you and your receiver are using the same kind of addresses; so do this only if you and your receiver(s)/sender(s) agree on it.
+You can do this, but bear in mind: PayJoin only gives its full effect if you and your receiver are using the same kind of addresses; so do this only if you and your receiver(s)/sender(s) agree on it - most BIP78 receivers at least for now will only engage in the protocol if they can provide inputs of the same type as yours.
 
 As was noted in the BIP78 section, it may be therefore that you *need* to do this (albeit that the worst that can happen is a fallback to non-payjoin payment, which isn't a disaster).
 
-Also note: you *cannot* do Joinmarket coinjoins if you choose a bech32 wallet (this may change in future).
+Also note: you *cannot* do Joinmarket coinjoins if you choose a bech32 wallet (this may change in future, see [this PR](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/656)).
 
 In the configuration file `joinmarket.cfg` (which was created in the preparatory step above), go to the
 POLICY section and set:
@@ -351,6 +269,117 @@ the default (and the one used in Joinmarket itself).
 
 Note that the bech32 style wallet is written to conform to [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki),
 analogous to the BIP49 case for p2sh.
+
+<a name="receiving" />
+
+#### Receiving payments using BIP78 Payjoin
+
+Joinmarket allows you to receive payments from any wallet that supports spending via the BIP78 Protocol, using a Tor hidden service.
+
+This hidden service is "ephemeral" meaning it is set up specifically for the payment and discarded after you shut down the receiving process. The setup takes some few seconds but it isn't too slow.
+
+To make this work, you will need to do some minor configuring Tor, the first time. This is explained in detail [below](#torconfig). If you fail to do this step, you will see some rather unintelligible errors about connection failures when trying to run the script described next.
+
+Once that is ready, you can run the `receive-payjoin.py` script something like this:
+
+```python3
+(jmvenv)a$ python receive-payjoin.py -m1 walletname.jmdat 0.32
+```
+
+The arguments provided are the wallet name and the exact amount you intend to receive (here it's 0.32 BTC (flagged as BTC because decimal), but you could also write `32000000` which will be interpreted as satoshis).
+
+After a delay of 5-50 seconds (usually; Tor setup varies unpredictably), you will see a message like this:
+
+```
+Your hidden service is available. Please now pass this URI string to the sender to effect the payjoin payment:
+bitcoin:bc1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?amount=0.32000000&pj=http://p53lf57qovyuvwsc6xnrppyply3vtqm7l6pcobkmyqsiofyeznfu5uqd.onion:7083
+Keep this process running until the payment is received.
+```
+
+... which should be self explanatory. The sender may be using Joinmarket, or a different wallet that supports Payjoin, like Wasabi. As previously noted, Payjoins will not work if the address type in use by the two wallets is different, so for Wasabi it would be necessary to use a bech32 Joinmarket wallet (as was discussed [here](#native)).
+
+When the payment goes through you will see a chunk of logging text (most of which is serialized PSBTs being exchanged). If Payjoin was effected as intended, you will see:
+
+```
+date string [INFO] Removed utxos= ...
+date string [INFO] Added utxos= ...
+date string [INFO] transaction seen on network: hex-txid
+done
+```
+
+where hex-txid is of course the transaction id of the payjoin transaction which paid you.
+
+If you see:
+
+```
+date string [INFO] Payment made without coinjoin. Transaction:
+```
+
+followed by a detailed transaction output, it means that some incompatibility or error between the two wallets resulted in the normal non-payjoin (non-coinjoin) payment being sent; you still received your money, so DON'T ask to be paid again just because Payjoin failed! This is part of BIP78 - we recognize that things can go slightly wrong in the arrangement (for example, the wrong address type, or a fee requirement that cannot be met), so allowing normal payments instead is very much *intended behaviour*.
+
+On the other hand, if you see at the end:
+
+```
+2020-09-12 13:01:15,887 [WARNING]  Payment is not valid. Payment has NOT been made.
+```
+
+it means of course the other case. Double check with your counterparty, something more fundamental has gone wrong because they did not send you a valid non-coinjoin payment, as they were supposed to right at the start.
+
+<a name="torconfig" />
+
+#### Configuring Tor to setup a hidden service
+
+(These steps were prepared using Ubuntu; you may have to adjust for your distro).
+
+First, ensure you have Tor installed:
+
+```
+sudo apt install tor
+```
+
+Don't start the tor daemon yet though, since we need to do some setup. Edit Tor's config file with sudo:
+
+```
+sudo vim /etc/tor/torrc
+```
+
+and uncomment these two lines to enable hidden service startup:
+
+```
+ControlPort 9051
+CookieAuthentication 1
+```
+
+However if you proceed at this point to try to run `receive-payjoin.py` as outlined above, you will almost certainly get an error like this:
+
+```
+Permission denied: '/var/run/tor/control.authcookie'
+```
+
+... because reading this file requires being a member of the group `debian-tor`. So add your user to this group:
+
+```
+sudo usermod -a -G debian-tor yourusername
+```
+
+... and then you must *restart the computer/server* for that change to take effect (check it with `groups yourusername`).
+
+Finally, after system restart, ensure Tor is started (it may be automatically, but anyway):
+
+```
+sudo service tor start
+```
+
+ Once this is done, you should be able to run the BIP 78 receiver script, or [JoinmarketQt](#using-qt) and a hidden service will be automatically created for you from now on.
+
+<a name="using-qt" />
+
+### Using JoinmarketQt to send and receive Payjoins
+
+All of the configuration details above apply to this scenario (for example, setting up Tor if you want to act as receiver.
+But for the workflow on the GUI application, this video explains what to do:
+
+https://video.autizmo.xyz/videos/watch/7081ae10-dce0-491e-9717-389ccc3aad0d
 
 <a name="sample" />
 
@@ -424,125 +453,3 @@ Balance:	0.00000000
 Balance for mixdepth 4:	0.00000000
 Total balance:	8.00000000
 ```
-
-#### Full sender-side log of a regtest run of PayJoin
-
-(Note that the "Received offers from joinmarket pit" message is a privacy feature, we don't actually respond to any offers).
-
-```
-(jmvenv) me@here:~/jm/scripts$ python sendpayment.py -m1 b80d142a466dbf56f518a3a8c017ab85 27000000 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS -T J5AFezpsuV95CBCH
-2019-01-16 16:34:44,877 [WARNING]  Cannot listen on port 27183, trying next port
-2019-01-16 16:34:44,877 [WARNING]  Cannot listen on port 27184, trying next port
-2019-01-16 16:34:44,877 [WARNING]  Cannot listen on port 27185, trying next port
-2019-01-16 16:34:44,878 [WARNING]  Cannot listen on port 27186, trying next port
-2019-01-16 16:34:44,878 [INFO]  Listening on port 27187
-2019-01-16 16:34:47,495 [INFO]  Could not connect to *ALL* servers yet, waiting up to 60 more seconds.
-2019-01-16 16:34:47,496 [INFO]  All IRC servers connected, starting execution.
-2019-01-16 16:34:47,501 [INFO]  JM daemon setup complete
-2019-01-16 16:34:52,508 [INFO]  INFO:Received offers from joinmarket pit
-2019-01-16 16:34:52,531 [INFO]  total estimated amount spent = 27020000
-2019-01-16 16:34:52,594 [INFO]  Makers responded with: ["J5AFezpsuV95CBCH"]
-2019-01-16 16:34:52,600 [INFO]  Obtained proposed payjoin tx
-{'ins': [{'outpoint': {'hash': '478ddd3f86ba3320d75976af9f11fc38fa42143b938aad66a1c32e5a5b64da52',
-                       'index': 0},
-          'script': '',
-          'sequence': 4294967294}],
- 'locktime': 834,
- 'outs': [{'script': 'a914e3cb2bf72ccd4412035f9668e07e17b6c9ebd58d87',
-           'value': 172998328},
-          {'script': 'a914b8bf57f3bae00d23f9a60c9a6e4d4c7182ec87cc87',
-           'value': 27000000}],
- 'version': 2}
-2019-01-16 16:34:52,602 [INFO]  INFO:Built tx proposal, sending to receiver.
-2019-01-16 16:34:56,622 [INFO]  Obtained tx from receiver:
-{'ins': [{'outpoint': {'hash': '478ddd3f86ba3320d75976af9f11fc38fa42143b938aad66a1c32e5a5b64da52',
-                       'index': 0},
-          'script': '',
-          'sequence': 4294967294,
-          'txinwitness': []},
-         {'outpoint': {'hash': '5e19edacc10298e7761be7231db5fa44ad73903c3690c4b71b443355267d346a',
-                       'index': 0},
-          'script': '160014a5b07a64bff72b442c71761599e0b627c687661f',
-          'sequence': 4294967294,
-          'txinwitness': ['3044022077a811939910a935934f68ac8a70439bab665ce9ad4cd02e42289c3046d606e1022054ef241980733caa7c7c5b6bb1babf96caba83a9fb0a8e091d8358b1cb35fcdb01',
-                          '02c7ceecf0783ecc7530e018397db434af63eda63765c79816f023699a22663926']}],
- 'locktime': 834,
- 'outs': [{'script': 'a914b8bf57f3bae00d23f9a60c9a6e4d4c7182ec87cc87',
-           'value': 227000000},
-          {'script': 'a914e3cb2bf72ccd4412035f9668e07e17b6c9ebd58d87',
-           'value': 172997415}],
- 'version': 2}
-2019-01-16 16:34:56,630 [INFO]  INFO:Network transaction fee is: 2585 satoshis.
-2019-01-16 16:34:56,641 [INFO]  txid = 1031780b31bd3b1cfdec44296fdb82e467284e93f871eb48d7d3e72df059f0ae
-2019-01-16 16:34:56,661 [INFO]  Transaction broadcast OK.
-2019-01-16 16:35:01,651 [INFO]  Transaction seen on network, shutting down.
-2019-01-16 16:35:01,652 [INFO]  Txid was: 1031780b31bd3b1cfdec44296fdb82e467284e93f871eb48d7d3e72df059f0ae
-```
-
-#### Full receiver-side log of a regtest run of PayJoin
-
-```
-(jmvenv) me@here:~/jm/scripts$ python receive-payjoin.py -m1 84735f364c2cf4c8ddaa614315aeae14 27000000
-2019-01-16 16:11:39,952 [INFO]  offerlist=[{'maxsize': 112412265, 'ordertype': 'swreloffer', 'cjfee': '0.00035792', 'oid': 0, 'minsize': 1095839, 'txfee': 493}]
-2019-01-16 16:11:39,952 [INFO]  starting receive-payjoin
-2019-01-16 16:11:40,011 [WARNING]  Cannot listen on port 27183, trying next port
-2019-01-16 16:11:40,011 [WARNING]  Cannot listen on port 27184, trying next port
-2019-01-16 16:11:40,011 [WARNING]  Cannot listen on port 27185, trying next port
-2019-01-16 16:11:40,012 [INFO]  Listening on port 27186
-2019-01-16 16:11:40,018 [INFO]  Your receiving address is: 2NA65YN6eXf3LiciBb1dEdS6ovaZ8HVBcHS
-2019-01-16 16:11:40,018 [INFO]  You will receive amount: 27000000 satoshis.
-2019-01-16 16:11:40,018 [INFO]  The sender also needs to know your ephemeral nickname: J5AFezpsuV95CBCH
-2019-01-16 16:11:40,018 [INFO]  This information has been stored in a file payjoin.txt; send it to your counterparty when you are ready.
-2019-01-16 16:35:00+0100 [-] Enter 'y' to wait for the payment:y
-2019-01-16 16:34:32,449 [INFO]  Could not connect to *ALL* servers yet, waiting up to 60 more seconds.
-2019-01-16 16:34:32,450 [INFO]  All IRC servers connected, starting execution.
-2019-01-16 16:34:32,453 [INFO]  JM daemon setup complete
-
-(note time gap here; just waiting)
-
-2019-01-16 16:34:55,163 [INFO]  obtained tx proposal from sender:
-{'ins': [{'outpoint': {'hash': '478ddd3f86ba3320d75976af9f11fc38fa42143b938aad66a1c32e5a5b64da52',
-                       'index': 0},
-          'script': '160014297b55001daa905a3552137ef19755cf4eae7bab',
-          'sequence': 4294967294,
-          'txinwitness': ['3045022100e3605548f5e07ebd14a0700dc3e54e7c8ae90ce0057a3fdc80b5fd37636b44a002202fd7942104fb344b80b8fd91faf0394a0f274f7a68fa462084b8ecf2fa245a6501',
-                          '02f823d62891d8bc8544d4369bb98c6fb8235a372d2c36196d40c448690b42754f']}],
- 'locktime': 834,
- 'outs': [{'script': 'a914e3cb2bf72ccd4412035f9668e07e17b6c9ebd58d87',
-           'value': 172998328},
-          {'script': 'a914b8bf57f3bae00d23f9a60c9a6e4d4c7182ec87cc87',
-           'value': 27000000}],
- 'version': 2}
-2019-01-16 16:34:55,165 [WARNING]  Connection had broken pipe, attempting reconnect.
-2019-01-16 16:34:55,168 [INFO]  Network transaction fee is: 1672 satoshis.
-2019-01-16 16:34:55,175 [INFO]  We'll use this serialized transaction to broadcast if your counterparty fails to broadcast the payjoin version:
-2019-01-16 16:34:55,177 [INFO]  0200000000010152da645b5a2ec3a166ad8a933b1442fa38fc119faf7659d72033ba863fdd8d470000000017160014297b55001daa905a3552137ef19755cf4eae7babfeffffff02b8be4f0a0000000017a914e3cb2bf72ccd4412035f9668e07e17b6c9ebd58d87c0fc9b010000000017a914b8bf57f3bae00d23f9a60c9a6e4d4c7182ec87cc8702483045022100e3605548f5e07ebd14a0700dc3e54e7c8ae90ce0057a3fdc80b5fd37636b44a002202fd7942104fb344b80b8fd91faf0394a0f274f7a68fa462084b8ecf2fa245a65012102f823d62891d8bc8544d4369bb98c6fb8235a372d2c36196d40c448690b42754f42030000
-2019-01-16 16:34:55,186 [INFO]  The proposed tx does not trigger UIH2, which means it is indistinguishable from a normal payment. This is the ideal case. Continuing..
-2019-01-16 16:34:55,187 [INFO]  We selected inputs worth: 200000000
-2019-01-16 16:34:55,195 [INFO]  We estimated a fee of: 2585
-2019-01-16 16:34:55,196 [INFO]  We calculated a new change amount of: 172997415
-2019-01-16 16:34:55,197 [INFO]  We calculated a new destination amount of: 227000000
-2019-01-16 16:35:00,232 [INFO]  The transaction has been broadcast.
-2019-01-16 16:35:00,232 [INFO]  Txid is: 1031780b31bd3b1cfdec44296fdb82e467284e93f871eb48d7d3e72df059f0ae
-2019-01-16 16:35:00,233 [INFO]  Transaction in detail: {'ins': [{'outpoint': {'hash': '478ddd3f86ba3320d75976af9f11fc38fa42143b938aad66a1c32e5a5b64da52',
-                       'index': 0},
-          'script': '160014297b55001daa905a3552137ef19755cf4eae7bab',
-          'sequence': 4294967294,
-          'txinwitness': ['3045022100c1d579fb19f5b8710b407e3995657313d0b1c9fe1180b852834b2210ba19b5e30220464f034eef8d8975b4fe10db7edbf14fcfdc6d71ada3d2063d34fa5c04a38cb801',
-                          '02f823d62891d8bc8544d4369bb98c6fb8235a372d2c36196d40c448690b42754f']},
-         {'outpoint': {'hash': '5e19edacc10298e7761be7231db5fa44ad73903c3690c4b71b443355267d346a',
-                       'index': 0},
-          'script': '160014a5b07a64bff72b442c71761599e0b627c687661f',
-          'sequence': 4294967294,
-          'txinwitness': ['3044022077a811939910a935934f68ac8a70439bab665ce9ad4cd02e42289c3046d606e1022054ef241980733caa7c7c5b6bb1babf96caba83a9fb0a8e091d8358b1cb35fcdb01',
-                          '02c7ceecf0783ecc7530e018397db434af63eda63765c79816f023699a22663926']}],
- 'locktime': 834,
- 'outs': [{'script': 'a914b8bf57f3bae00d23f9a60c9a6e4d4c7182ec87cc87',
-           'value': 227000000},
-          {'script': 'a914e3cb2bf72ccd4412035f9668e07e17b6c9ebd58d87',
-           'value': 172997415}],
- 'version': 2}
-2019-01-16 16:35:00,234 [INFO]  shutting down.
-```
-
-

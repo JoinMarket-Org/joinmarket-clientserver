@@ -44,10 +44,10 @@ def decode_bip21_uri(uri):
     return result
 
 
-def encode_bip21_uri(address, params):
+def encode_bip21_uri(address, params, safe=""):
     uri = 'bitcoin:' + address
     if len(params) > 0:
         if 'amount' in params:
             validate_bip21_amount(params['amount'])
-        uri += '?' + urlencode(params, quote_via=quote)
+        uri += '?' + urlencode(params, safe=safe, quote_via=quote)
     return uri

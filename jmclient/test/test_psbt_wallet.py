@@ -234,12 +234,8 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
     # *** STEP 2 ***
     # **************
 
-    # This step will not be in Joinmarket code for the first cut,
-    # it will be done by the merchant, but included here for the data flow.
-    # receiver grabs a random utxo here (as per previous sentence, this is
-    # the merchant's responsibility, not ours, but see earlier code in
-    # jmclient.maker.P2EPMaker for possibe heuristics).
-    # for more generality we test with two receiver-utxos, not one.
+    # Simple receiver utxo choice heuristic.
+    # For more generality we test with two receiver-utxos, not one.
     all_receiver_utxos = wallet_r.get_all_utxos()
     # TODO is there a less verbose way to get any 2 utxos from the dict?
     receiver_utxos_keys = list(all_receiver_utxos.keys())[:2]

@@ -16,13 +16,12 @@ from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.internet import ssl
 from twisted.internet import reactor, endpoints
-from io import BytesIO
 from common import make_wallets
 import pytest
 from jmbase import jmprint
 import jmbitcoin as btc
 from jmclient import load_test_config, jm_single,\
-     SegwitWallet, SegwitLegacyWallet, cryptoengine
+     SegwitWallet, SegwitLegacyWallet, cryptoengine, PayjoinServer
 
 import txtorcon
 
@@ -59,115 +58,6 @@ def get_ssl_context():
     """
     return ssl.DefaultOpenSSLContextFactory(os.path.join(dir_path, "key.pem"),
                                             os.path.join(dir_path, "cert.pem"))
-
-class PayjoinServer(Resource):
-    def __init__(self, wallet_service):
-        self.wallet_service = wallet_service
-        super().__init__()
-    isLeaf = True
-    def render_GET(self, request):
-        # can be used e.g. to check if an ephemeral HS is up
-        # on Tor Browser:
-        return "<html>Only for testing.</html>".encode("utf-8")
-    def render_POST(self, request):
-        """ The sender will use POST to send the initial
-        payment transaction.
-        """
-        jmprint("The server got this POST request: ")
-        print(request)
-        print(request.method)
-        print(request.uri)
-        print(request.args)
-        print(request.path)
-        print(request.content)
-        proposed_tx = request.content
-        assert isinstance(proposed_tx, BytesIO)
-        payment_psbt_base64 = proposed_tx.read()
-        payment_psbt = btc.PartiallySignedTransaction.from_base64(
-            payment_psbt_base64)
-        all_receiver_utxos = self.wallet_service.get_all_utxos()
-        # TODO is there a less verbose way to get any 2 utxos from the dict?
-        receiver_utxos_keys = list(all_receiver_utxos.keys())[:2]
-        receiver_utxos = {k: v for k, v in all_receiver_utxos.items(
-            ) if k in receiver_utxos_keys}
-    
-        # receiver will do other checks but this is out of scope,
-        # since we only created this server (currently) to test our
-        # BIP78 client.
-
-        # construct unsigned tx for payjoin-psbt:
-        payjoin_tx_inputs = [(x.prevout.hash[::-1],
-                    x.prevout.n) for x in payment_psbt.unsigned_tx.vin]
-        payjoin_tx_inputs.extend(receiver_utxos.keys())
-        # find payment output and change output
-        pay_out = None
-        change_out = None
-        for o in payment_psbt.unsigned_tx.vout:
-            jm_out_fmt = {"value": o.nValue,
-            "address": str(btc.CCoinAddress.from_scriptPubKey(
-            o.scriptPubKey))}
-            if o.nValue == payment_amt:
-                assert pay_out is None
-                pay_out = jm_out_fmt
-            else:
-                assert change_out is None
-                change_out = jm_out_fmt
-    
-        # we now know there were two outputs and know which is payment.
-        # bump payment output with our input:
-        outs = [pay_out, change_out]
-        our_inputs_val = sum([v["value"] for _, v in receiver_utxos.items()])
-        pay_out["value"] += our_inputs_val
-        print("we bumped the payment output value by: ", our_inputs_val)
-        print("It is now: ", pay_out["value"])
-        unsigned_payjoin_tx = btc.make_shuffled_tx(payjoin_tx_inputs, outs,
-                                    version=payment_psbt.unsigned_tx.nVersion,
-                                    locktime=payment_psbt.unsigned_tx.nLockTime)
-        print("we created this unsigned tx: ")
-        print(btc.human_readable_transaction(unsigned_payjoin_tx))
-        # to create the PSBT we need the spent_outs for each input,
-        # in the right order:
-        spent_outs = []
-        for i, inp in enumerate(unsigned_payjoin_tx.vin):
-            input_found = False
-            for j, inp2 in enumerate(payment_psbt.unsigned_tx.vin):
-                if inp.prevout == inp2.prevout:
-                    spent_outs.append(payment_psbt.inputs[j].utxo)
-                    input_found = True
-                    break
-            if input_found:
-                continue
-            # if we got here this input is ours, we must find
-            # it from our original utxo choice list:
-            for ru in receiver_utxos.keys():
-                if (inp.prevout.hash[::-1], inp.prevout.n) == ru:
-                    spent_outs.append(
-                        self.wallet_service.witness_utxos_to_psbt_utxos(
-                            {ru: receiver_utxos[ru]})[0])
-                    input_found = True
-                    break
-            # there should be no other inputs:
-            assert input_found
-    
-        r_payjoin_psbt = self.wallet_service.create_psbt_from_tx(unsigned_payjoin_tx,
-                                                      spent_outs=spent_outs)
-        print("Receiver created payjoin PSBT:\n{}".format(
-            self.wallet_service.human_readable_psbt(r_payjoin_psbt)))
-    
-        signresultandpsbt, err = self.wallet_service.sign_psbt(r_payjoin_psbt.serialize(),
-                                                    with_sign_result=True)
-        assert not err, err
-        signresult, receiver_signed_psbt = signresultandpsbt
-        assert signresult.num_inputs_final == len(receiver_utxos)
-        assert not signresult.is_final
-    
-        print("Receiver signing successful. Payjoin PSBT is now:\n{}".format(
-            self.wallet_service.human_readable_psbt(receiver_signed_psbt)))
-        content = receiver_signed_psbt.to_base64()
-        request.setHeader(b"content-length", ("%d" % len(content)).encode("ascii"))
-        return content.encode("ascii")
-    
-    
 
 def test_start_payjoin_server(setup_payjoin_server):
     # set up the wallet that the server owns, and the wallet for
