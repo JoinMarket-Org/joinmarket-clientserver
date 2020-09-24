@@ -948,8 +948,8 @@ class ReceiveBIP78Dialog(QDialog):
     parameter_names = ['Amount to receive', 'Mixdepth']
     parameter_tooltips = [
      "How much you should receive (after any fees) in BTC or sats.",
-     "The mixdepth you source coins from to create inputs for the "
-     "payjoin. Note your receiving address will be chosen from the "
+     "The mixdepth you source coins from to create inputs for the\n"
+     "payjoin. Note your receiving address will be chosen from the\n"
      "*next* mixdepth after this (or 0 if last)."]
     parameter_types = ["btc", int]
     parameter_settings = ["", 0]
@@ -1007,6 +1007,16 @@ class ReceiveBIP78Dialog(QDialog):
         self.cancel_fn()
         self.close()
 
+    def process_complete(self):
+        """ Called by the owning Qt object
+        when the BIP78 workflow is complete,
+        whether successful or not.
+        """
+        # Give user indication that they
+        # can quit without cancelling:
+        self.close_btn.setVisible(True)
+        self.btnbox.button(QDialogButtonBox.Cancel).setDisabled(True)
+
     def start_generate(self):
         """ Before starting up the
         hidden service and initiating the payment
@@ -1015,9 +1025,9 @@ class ReceiveBIP78Dialog(QDialog):
         If the 'start generate request' action is
         aborted, we reset the generate button.
         """
-        self.btnbox.buttons()[1].setDisabled(True)
+        self.generate_btn.setDisabled(True)
         if not self.action_fn():
-            self.btnbox.buttons()[1].setDisabled(False)
+            self.generate_btn.setDisabled(False)
 
     def get_receive_bip78_dialog(self):
         """ Displays editable parameters and
@@ -1062,12 +1072,20 @@ class ReceiveBIP78Dialog(QDialog):
         layout.addWidget(self.updates_label, i+2, 0, 1, 2)
         layout.addWidget(self.bip21_widget, i+3, 0, 1, 2)
 
-        # Buttons for start/cancel:
+        # Buttons for start/cancel/close:
         self.btnbox = QDialogButtonBox()
         self.btnbox.setStandardButtons(QDialogButtonBox.Cancel)
-        btnname = "Generate request"
-        self.btnbox.addButton(btnname, QDialogButtonBox.ActionRole)
+        self.generate_btn = self.btnbox.addButton("&Generate request",
+                                                  QDialogButtonBox.ActionRole)
+        self.close_btn = self.btnbox.addButton("C&lose",
+                                               QDialogButtonBox.AcceptRole)
+        self.close_btn.setVisible(False)
         layout.addWidget(self.btnbox, i+4, 0)
+        # note that we don't use a standard 'Close' button because
+        # it is also associated with 'rejection' (and we don't use "OK" because
+        # concept doesn't quite fit here:
         self.btnbox.rejected.connect(self.shutdown_actions)
-        self.btnbox.buttons()[1].clicked.connect(self.start_generate)
+        self.generate_btn.clicked.connect(self.start_generate)
+        # does not trigger cancel_fn callback:
+        self.close_btn.clicked.connect(self.close)
         return layout

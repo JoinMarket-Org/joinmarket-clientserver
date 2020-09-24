@@ -1043,7 +1043,8 @@ class JMBIP78ReceiverManager(object):
     """ A class to encapsulate receiver construction
     """
     def __init__(self, wallet_service, mixdepth, amount, port,
-                 info_callback=None, uri_created_callback = None,
+                 info_callback=None, uri_created_callback=None,
+                 shutdown_callback=None,
                  mode="command-line"):
         assert isinstance(wallet_service, WalletService)
         assert isinstance(mixdepth, int)
@@ -1068,6 +1069,9 @@ class JMBIP78ReceiverManager(object):
             self.uri_created_callback = self.info_callback
         else:
             self.uri_created_callback = uri_created_callback
+        # This callback used by GUI as a signal that it can
+        # signal the user that the dialog is close-able:
+        self.shutdown_callback = shutdown_callback
         self.receiving_address = None
         self.mode = mode
 
@@ -1158,3 +1162,5 @@ class JMBIP78ReceiverManager(object):
         self.tor_connection.protocol.transport.loseConnection()
         process_shutdown(self.mode)
         self.info_callback("Hidden service shutdown complete")
+        if self.shutdown_callback:
+            self.shutdown_callback()

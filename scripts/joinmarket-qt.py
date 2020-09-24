@@ -1571,6 +1571,7 @@ class JMMainWindow(QMainWindow):
         self.backend_receiver = JMBIP78ReceiverManager(self.wallet_service,
             mixdepth, amount, 80, self.receiver_bip78_dialog.info_update,
             uri_created_callback=self.receiver_bip78_dialog.update_uri,
+            shutdown_callback=self.receiver_bip78_dialog.process_complete,
             mode="gui")
         self.backend_receiver.start_pj_server_and_tor()
         return True
