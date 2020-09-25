@@ -707,7 +707,7 @@ class SpendTab(QWidget):
     def startSingle(self):
         if not self.spendstate.runstate == 'ready':
             log.info("Cannot start join, already running.")
-        if not self.validateSettings():
+        if not self.validateSingleSend():
             return
 
         destaddr = str(self.addressInput.text().strip())
@@ -1069,11 +1069,23 @@ class SpendTab(QWidget):
         self.tumbler_options = None
         self.tumbler_destaddrs = None
 
-    def validateSettings(self):
+    def validateSingleSend(self):
+        if not mainWindow.wallet_service:
+            JMQtMessageBox(self,
+                           "There is no wallet loaded.",
+                           mbtype='warn',
+                           title="Error")
+            return False
         if jm_single().bc_interface is None:
             JMQtMessageBox(
                 self,
                 "Sending coins not possible without blockchain source.",
+                mbtype='warn', title="Error")
+            return False
+        if len(self.addressInput.text()) == 0:
+            JMQtMessageBox(
+                self,
+                "Recipient address or BIP21 bitcoin: payment URI must be provided.",
                 mbtype='warn', title="Error")
             return False
         valid, errmsg = validate_address(
@@ -1098,11 +1110,6 @@ class SpendTab(QWidget):
                 self,
                 "Amount, in bitcoins, must be provided.",
                 mbtype='warn', title="Error")
-        if not mainWindow.wallet_service:
-            JMQtMessageBox(self,
-                           "There is no wallet loaded.",
-                           mbtype='warn',
-                           title="Error")
             return False
         return True
 
