@@ -73,3 +73,7 @@ of the `commitments.json` file, explained above.
 ### sendtomany.py
 
 As above.
+
+### genwallet.py
+
+Non-interactively generate a wallet, giving only wallet name and password. Returns wallet seed as `recovery_seed:`. Useful for automating JoinMarket deployments.
