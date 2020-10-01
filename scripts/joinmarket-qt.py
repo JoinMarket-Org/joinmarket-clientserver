@@ -63,7 +63,7 @@ donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 #Version of this Qt script specifically
 JM_GUI_VERSION = '16dev'
 
-from jmbase import get_log
+from jmbase import get_log, stop_reactor
 from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, utxo_to_utxostr,\
     bintohex, hextobin, JM_CORE_VERSION
 from jmclient import load_program_config, get_network, update_persist_config,\
@@ -1489,8 +1489,7 @@ class JMMainWindow(QMainWindow):
             event.accept()
             if self.reactor.threadpool is not None:
                 self.reactor.threadpool.stop()
-            if reactor.running:
-                self.reactor.stop()
+            stop_reactor()
         else:
             event.ignore()
 

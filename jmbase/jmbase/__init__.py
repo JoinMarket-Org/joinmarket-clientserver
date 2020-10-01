@@ -7,6 +7,7 @@ from .support import (get_log, chunks, debug_silence, jmprint,
                       utxo_to_utxostr, EXIT_ARGERROR, EXIT_FAILURE,
                       EXIT_SUCCESS, hexbin, dictchanger, listchanger,
                       JM_WALLET_NAME_PREFIX, JM_APP_NAME)
+from .twisted_utils import stop_reactor
 from .bytesprod import BytesProducer
 from .commands import *
 
