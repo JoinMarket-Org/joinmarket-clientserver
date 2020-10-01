@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 import binascii
 from twisted.internet import reactor, task
-from jmbase import bintohex, hextobin
+from jmbase import bintohex, hextobin, stop_reactor
 import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError

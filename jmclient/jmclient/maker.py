@@ -25,6 +25,9 @@ class Maker(object):
         self.nextoid = -1
         self.offerlist = None
         self.sync_wait_loop = task.LoopingCall(self.try_to_create_my_orders)
+        # don't fire on the first tick since reactor is still starting up
+        # and may not shutdown appropriately if we immediately recognize
+        # not-enough-coins:
         self.sync_wait_loop.start(2.0, now=False)
         self.aborted = False
 
