@@ -74,6 +74,17 @@ stick to that convention.
 
 The wallet will now automatically load from the your Bitcoin Core node. It may take a few seconds, during which you'll see "Reading wallet from blockchain...".
 
+If JoinMarketQt stucks in "Reading wallet from blockchain..." state, close it. 
+You need to create a wallet in the Bitcoin Core using the command:
+```bitcoin-cli createwallet "jm_wallet"```
+
+The "jm_wallet" name is just an example. You can set any name.
+
+After you create the wallet in the Bitcoin Core, you should set it in the `joinmarket.cfg`:
+```rpc_wallet_file= jm_wallet```
+
+Now you can start the JoinMarketQt, load the wallet and it should work.
+
 Since you just created it, it will have no coins initially:
 
 ![](images/JMQwalletloaded.png)
