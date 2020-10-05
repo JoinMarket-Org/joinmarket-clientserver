@@ -47,9 +47,13 @@ class WalletService(Service):
         self.wallet = wallet
         self.synced = False
 
+        # used to flag RPC failure at construction of object:
+        self.rpc_error = False
+
         # keep track of the quasi-real-time blockheight
         # (updated in main monitor loop)
         self.current_blockheight = None
+
         if self.bci is not None:
             if not self.update_blockheight():
                 # this accounts for the unusual case
@@ -60,6 +64,9 @@ class WalletService(Service):
                 jlog.error("Failure of RPC connection to Bitcoin Core in "
                           "wallet service startup. Application cannot "
                           "continue, shutting down.")
+                self.rpc_error = ("Failure of RPC connection to Bitcoin "
+                                  "Core in wallet service startup.")
+                # no need to call stopService as it has not yet been started.
                 stop_reactor()
         else:
             jlog.warning("No blockchain source available, " +

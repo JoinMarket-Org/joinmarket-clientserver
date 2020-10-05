@@ -1844,6 +1844,10 @@ class JMMainWindow(QMainWindow):
                                mbtype='warn',
                                title="Error")
                     return
+                if decrypted == "error":
+                    # special case, not a failure to decrypt the file but
+                    # a failure of wallet loading, give up:
+                    self.close()
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
@@ -1887,6 +1891,11 @@ class JMMainWindow(QMainWindow):
             self.walletRefresh.stop()
 
         self.wallet_service = WalletService(wallet)
+        # in case an RPC error occurs in the constructor:
+        if self.wallet_service.rpc_error:
+            JMQtMessageBox(self,self.wallet_service.rpc_error,
+                           mbtype='warn',title="Error")
+            return "error"
 
         if jm_single().bc_interface is None:
             self.centralWidget().widget(0).updateWalletInfo(

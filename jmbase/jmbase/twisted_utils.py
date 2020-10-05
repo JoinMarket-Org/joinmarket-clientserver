@@ -11,7 +11,6 @@ def stop_reactor():
     raised by trying to stop the reactor.
     """
     try:
-        if reactor.running:
-            reactor.stop()
+        reactor.stop()
     except ReactorNotRunning:
         pass
