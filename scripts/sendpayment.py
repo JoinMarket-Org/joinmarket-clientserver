@@ -170,6 +170,8 @@ def main():
         wallet_password_stdin=options.wallet_password_stdin,
         gap_limit=options.gaplimit)
     wallet_service = WalletService(wallet)
+    if wallet_service.rpc_error:
+        sys.exit(EXIT_FAILURE)
     # in this script, we need the wallet synced before
     # logic processing for some paths, so do it now:
     while not wallet_service.synced:

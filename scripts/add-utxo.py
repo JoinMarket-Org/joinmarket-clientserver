@@ -172,6 +172,8 @@ def main():
         wallet_path = get_wallet_path(options.loadwallet)
         wallet = open_wallet(wallet_path, gap_limit=options.gaplimit)
         wallet_service = WalletService(wallet)
+        if wallet_service.rpc_error:
+            sys.exit(EXIT_FAILURE)
         while True:
             if wallet_service.sync_wallet(fast=not options.recoversync):
                 break
