@@ -1082,6 +1082,8 @@ class PSBTWalletMixin(object):
             elif isinstance(psbt_input.utxo, btc.CTransaction):
                 # human readable full transaction is *too* verbose:
                 outdict["utxo"] = bintohex(psbt_input.utxo.serialize())
+                if psbt_input.witness_utxo:
+                    outdict["witness_utxo"] = bintohex(psbt_input.witness_utxo.serialize())
             else:
                 assert False, "invalid PSBT Input utxo field."
         if psbt_input.sighash_type:
@@ -1161,23 +1163,25 @@ class PSBTWalletMixin(object):
         """ Given an input of a PSBT which is already finalized,
         return its type as either "sw-legacy" or "sw" or False
         if not one of these two types.
-        TODO: can be extented to other types.
+        TODO: can be extented to other types, does not currently
+        support any non-segwit input.
         """
         assert isinstance(psbt_input, btc.PSBT_Input)
-        # TODO: cleanly check that this PSBT Input is finalized.
-        if psbt_input.utxo.scriptPubKey.is_p2sh():
+        if not psbt_input.final_script_witness:
+            return False
+        if psbt_input.witness_utxo.scriptPubKey.is_p2sh():
             # Note: p2sh does not prove the redeemscript;
             # we check the finalscriptSig is p2wpkh:
             fss = btc.CScript(next(btc.CScript(
                 psbt_input.final_script_sig).raw_iter())[1])
             if fss.is_witness_v0_keyhash():
                 return "sw-legacy"
-        elif psbt_input.utxo.scriptPubKey.is_witness_v0_keyhash():
+        elif psbt_input.witness_utxo.scriptPubKey.is_witness_v0_keyhash():
             return "sw"
         else:
             return False
 
-    def create_psbt_from_tx(self, tx, spent_outs=None):
+    def create_psbt_from_tx(self, tx, spent_outs=None, force_witness_utxo=True):
         """ Given a CMutableTransaction object, which should not currently
         contain signatures, we create and return a new PSBT object of type
         btc.PartiallySignedTransaction.
@@ -1199,23 +1203,27 @@ class PSBTWalletMixin(object):
                 # as above, will not be signable in this case
                 continue
             if isinstance(spent_outs[i], (btc.CTransaction, btc.CTxOut)):
-                # note that we trust the caller to choose Tx vs TxOut as according
-                # to non-witness/witness. Note also that for now this mixin does
-                # not attempt to provide unsigned-tx(second argument) for witness
-                # case.
-                txinput.set_utxo(spent_outs[i], None)
+                # note: if spent_outs[i] is in fact CTransaction, then
+                # the unsigned_tx must be provided (tx) in order to populate
+                # the witness_utxo field of this PSBT_Input (and if it isn't,
+                # this argument is ignored), but also, until the redeem script
+                # is populated, then for the p2sh case, the lib can't know
+                # whether it is witness, so we must force the witness_utxo here,
+                # unless this is switched off in the kwargs of this function:
+                txinput.set_utxo(spent_outs[i], tx,
+                                 force_witness_utxo=force_witness_utxo)
             else:
                 assert False, "invalid spent output type passed into PSBT creator"
         # we now insert redeemscripts where that is possible and necessary:
         for i, txinput in enumerate(new_psbt.inputs):
             if isinstance(txinput.witness_utxo, btc.CTxOut):
                 # witness
-                if txinput.utxo.scriptPubKey.is_witness_scriptpubkey():
+                if txinput.witness_utxo.scriptPubKey.is_witness_scriptpubkey():
                     # nothing needs inserting; the scriptSig is empty.
                     continue
-                elif txinput.utxo.scriptPubKey.is_p2sh():
+                elif txinput.witness_utxo.scriptPubKey.is_p2sh():
                     try:
-                        path = self.script_to_path(txinput.utxo.scriptPubKey)
+                        path = self.script_to_path(txinput.witness_utxo.scriptPubKey)
                     except AssertionError:
                         # this happens when an input is provided but it's not in
                         # this wallet; in this case, we cannot set the redeem script.

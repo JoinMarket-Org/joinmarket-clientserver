@@ -52,7 +52,8 @@ def test_create_and_sign_psbt_with_legacy(setup_psbt_wallet):
     tx2 = bitcoin.mktx(list(utxos.keys()), outs)
     spent_outs = wallet_service.witness_utxos_to_psbt_utxos(my_utxos)
     spent_outs.append(tx)
-    new_psbt = wallet_service.create_psbt_from_tx(tx2, spent_outs)
+    new_psbt = wallet_service.create_psbt_from_tx(tx2, spent_outs,
+                                                  force_witness_utxo=False)
     signed_psbt_and_signresult, err = wallet_service.sign_psbt(
         new_psbt.serialize(), with_sign_result=True)
     assert err is None
@@ -119,13 +120,16 @@ def test_create_psbt_and_sign(setup_psbt_wallet, unowned_utxo, wallet_cls):
 
     if wallet_cls != LegacyWallet:
         spent_outs = wallet_service.witness_utxos_to_psbt_utxos(utxos)
+        force_witness_utxo=True
     else:
         spent_outs = fulltxs
         # the extra input is segwit:
         if unowned_utxo:
             spent_outs.extend(
                 wallet_service.witness_utxos_to_psbt_utxos(u_utxos))
-    newpsbt = wallet_service.create_psbt_from_tx(tx, spent_outs)
+        force_witness_utxo=False
+    newpsbt = wallet_service.create_psbt_from_tx(tx, spent_outs,
+                            force_witness_utxo=force_witness_utxo)
     # see note above
     if unowned_utxo:
         newpsbt.inputs[-1].redeem_script = redeem_script
