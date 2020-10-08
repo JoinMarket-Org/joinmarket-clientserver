@@ -6,7 +6,7 @@ import sys
 import abc
 
 import jmbitcoin as btc
-from jmbase import bintohex, hexbin, get_log, EXIT_SUCCESS, EXIT_FAILURE
+from jmbase import bintohex, hexbin, get_log, EXIT_SUCCESS, EXIT_FAILURE, stop_reactor
 from jmclient.wallet import estimate_tx_fee, compute_tx_locktime
 from jmclient.wallet_service import WalletService
 from jmclient.configure import jm_single
@@ -25,7 +25,10 @@ class Maker(object):
         self.nextoid = -1
         self.offerlist = None
         self.sync_wait_loop = task.LoopingCall(self.try_to_create_my_orders)
-        self.sync_wait_loop.start(2.0)
+        # don't fire on the first tick since reactor is still starting up
+        # and may not shutdown appropriately if we immediately recognize
+        # not-enough-coins:
+        self.sync_wait_loop.start(2.0, now=False)
         self.aborted = False
 
     def try_to_create_my_orders(self):
@@ -41,7 +44,7 @@ class Maker(object):
         self.sync_wait_loop.stop()
         if not self.offerlist:
             jlog.info("Failed to create offers, giving up.")
-            sys.exit(EXIT_FAILURE)
+            stop_reactor()
         jlog.info('offerlist={}'.format(self.offerlist))
 
     @hexbin

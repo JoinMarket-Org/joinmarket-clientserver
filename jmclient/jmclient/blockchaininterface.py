@@ -6,7 +6,7 @@ import time
 from decimal import Decimal
 import binascii
 from twisted.internet import reactor, task
-from jmbase import bintohex, hextobin
+from jmbase import bintohex, hextobin, stop_reactor
 import jmbitcoin as btc
 
 from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
@@ -214,9 +214,11 @@ class BitcoinCoreInterface(BlockchainInterface):
             # BareException type).
             log.error("Failure of RPC connection to Bitcoin Core. "
                       "Application cannot continue, shutting down.")
-            if reactor.running:
-                reactor.stop()
+            stop_reactor()
             return None
+        # note that JsonRpcError is not caught here; for some calls, we
+        # have specific behaviour requirements depending on these errors,
+        # so this is handled elsewhere in BitcoinCoreInterface.
         return res
 
     def is_address_labeled(self, utxo, walletname):
@@ -430,7 +432,13 @@ class BitcoinCoreInterface(BlockchainInterface):
         return retval
 
     def get_current_block_height(self):
-        return self.rpc("getblockcount", [])
+        try:
+            res = self.rpc("getblockcount", [])
+        except JsonRpcError as e:
+            log.error("Getblockcount RPC failed with: %i, %s" % (
+                e.code, e.message))
+            res = None
+        return res
 
     def get_best_block_hash(self):
         return self.rpc('getbestblockhash', [])

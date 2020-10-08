@@ -63,7 +63,7 @@ donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 #Version of this Qt script specifically
 JM_GUI_VERSION = '16dev'
 
-from jmbase import get_log
+from jmbase import get_log, stop_reactor
 from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, utxo_to_utxostr,\
     bintohex, hextobin, JM_CORE_VERSION
 from jmclient import load_program_config, get_network, update_persist_config,\
@@ -1489,8 +1489,7 @@ class JMMainWindow(QMainWindow):
             event.accept()
             if self.reactor.threadpool is not None:
                 self.reactor.threadpool.stop()
-            if reactor.running:
-                self.reactor.stop()
+            stop_reactor()
         else:
             event.ignore()
 
@@ -1845,6 +1844,10 @@ class JMMainWindow(QMainWindow):
                                mbtype='warn',
                                title="Error")
                     return
+                if decrypted == "error":
+                    # special case, not a failure to decrypt the file but
+                    # a failure of wallet loading, give up:
+                    self.close()
         else:
             if not testnet_seed:
                 testnet_seed, ok = QInputDialog.getText(self,
@@ -1888,6 +1891,11 @@ class JMMainWindow(QMainWindow):
             self.walletRefresh.stop()
 
         self.wallet_service = WalletService(wallet)
+        # in case an RPC error occurs in the constructor:
+        if self.wallet_service.rpc_error:
+            JMQtMessageBox(self,self.wallet_service.rpc_error,
+                           mbtype='warn',title="Error")
+            return "error"
 
         if jm_single().bc_interface is None:
             self.centralWidget().widget(0).updateWalletInfo(

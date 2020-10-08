@@ -1432,6 +1432,8 @@ def wallet_tool_main(wallet_root_path):
         # this object is only to respect the layering,
         # the service will not be started since this is a synchronous script:
         wallet_service = WalletService(wallet)
+        if wallet_service.rpc_error:
+            sys.exit(EXIT_FAILURE)
 
         if method not in noscan_methods and jm_single().bc_interface is not None:
             # if nothing was configured, we override bitcoind's options so that

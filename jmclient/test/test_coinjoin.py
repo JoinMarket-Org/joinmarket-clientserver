@@ -69,6 +69,11 @@ def create_taker(wallet, schedule, monkeypatch):
     monkeypatch.setattr(taker, 'auth_counterparty', lambda *args: True)
     return taker
 
+def create_orders(makers):
+    # fire the order creation immediately (delayed 2s in prod,
+    # but this is too slow for test):
+    for maker in makers:
+        maker.try_to_create_my_orders()
 
 def init_coinjoin(taker, makers, orderbook, cj_amount):
     init_data = taker.initialize(orderbook)
@@ -133,6 +138,7 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
     makers = [YieldGeneratorBasic(
         wallet_services[i],
         [0, 2000, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
+    create_orders(makers)
 
     orderbook = create_orderbook(makers)
     assert len(orderbook) == MAKER_NUM
@@ -177,6 +183,7 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     makers = [YieldGeneratorBasic(
         wallet_services[i],
         [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
+    create_orders(makers)
 
     orderbook = create_orderbook(makers)
     assert len(orderbook) == MAKER_NUM
@@ -232,7 +239,7 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     makers = [YieldGeneratorBasic(
         wallet_services[i],
         [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
-
+    create_orders(makers)
     orderbook = create_orderbook(makers)
     assert len(orderbook) == MAKER_NUM
 

@@ -15,6 +15,7 @@ from jmclient.output import fmt_tx_data
 from jmclient.blockchaininterface import (INF_HEIGHT, BitcoinCoreInterface,
     BitcoinCoreNoHistoryInterface)
 from jmclient.wallet import FidelityBondMixin
+from jmbase import stop_reactor
 from jmbase.support import jmprint, EXIT_SUCCESS, utxo_to_utxostr, hextobin
 
 
@@ -46,9 +47,13 @@ class WalletService(Service):
         self.wallet = wallet
         self.synced = False
 
+        # used to flag RPC failure at construction of object:
+        self.rpc_error = False
+
         # keep track of the quasi-real-time blockheight
         # (updated in main monitor loop)
         self.current_blockheight = None
+
         if self.bci is not None:
             if not self.update_blockheight():
                 # this accounts for the unusual case
@@ -56,8 +61,13 @@ class WalletService(Service):
                 # a functioning blockchain interface, but
                 # that bci is now failing when we are starting
                 # the wallet service.
-                raise Exception("WalletService failed to start "
-                                "due to inability to query block height.")
+                jlog.error("Failure of RPC connection to Bitcoin Core in "
+                          "wallet service startup. Application cannot "
+                          "continue, shutting down.")
+                self.rpc_error = ("Failure of RPC connection to Bitcoin "
+                                  "Core in wallet service startup.")
+                # no need to call stopService as it has not yet been started.
+                stop_reactor()
         else:
             jlog.warning("No blockchain source available, " +
                 "wallet tools will not show correct balances.")
@@ -91,8 +101,13 @@ class WalletService(Service):
         """
 
         def critical_error():
-            jlog.error("Failure to get blockheight from Bitcoin Core.")
+            jlog.error("Critical error updating blockheight.")
+            # this cleanup (a) closes the wallet, removing the lock
+            # and (b) signals to clients that the service is no longer
+            # in a running state, both of which can be useful
+            # post reactor shutdown.
             self.stopService()
+            stop_reactor()
             return False
 
         if self.current_blockheight:
@@ -707,6 +722,10 @@ class WalletService(Service):
         st = time.time()
         # block height needs to be real time for addition to our utxos:
         current_blockheight = self.bci.get_current_block_height()
+        if not current_blockheight:
+            # this failure will shut down the application elsewhere, here
+            # just give up:
+            return
         wallet_name = self.get_wallet_name()
         self.reset_utxos()
 
