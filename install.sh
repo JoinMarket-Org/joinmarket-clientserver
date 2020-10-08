@@ -269,17 +269,18 @@ libffi_install ()
 
 libsecp256k1_build()
 {
-    make clean
+    $make clean
     ./autogen.sh
     ./configure \
-    --enable-module-recovery \
-    --disable-jni \
-    --prefix "${jm_root}" \
-    --enable-experimental \
-    --enable-module-ecdh \
-    --enable-benchmark=no
-    make
-    if ! make check; then
+        --enable-module-recovery \
+        --disable-jni \
+        --prefix "${jm_root}" \
+        --enable-experimental \
+        --enable-module-ecdh \
+        --enable-benchmark=no \
+        MAKE=$make
+    $make
+    if ! $make check; then
         return 1
     fi
 }
@@ -294,7 +295,7 @@ libsecp256k1_install()
     fi
     pushd "secp256k1-${secp256k1_lib_tar}"
     if libsecp256k1_build; then
-        make install
+        $make install
     else
         return 1
     fi
