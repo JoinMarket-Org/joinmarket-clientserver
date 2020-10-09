@@ -693,7 +693,8 @@ def process_payjoin_proposal_from_server(response_body, manager):
                     if (inp.prevout.hash, inp.prevout.n) == (
                         inp2.prevout.hash, inp2.prevout.n):
                         payjoin_proposal_psbt.set_utxo(
-                            manager.initial_psbt.inputs[j].utxo, i)
+                            manager.initial_psbt.inputs[j].utxo, i,
+                            force_witness_utxo=True)
     signresultandpsbt, err = manager.wallet_service.sign_psbt(
         payjoin_proposal_psbt.serialize(), with_sign_result=True)
     if err:
