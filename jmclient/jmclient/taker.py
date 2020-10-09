@@ -506,7 +506,8 @@ class Taker(object):
         self.utxo_tx = [u for u in sum(self.utxos.values(), [])]
         self.outputs.append({'address': self.coinjoin_address(),
                              'value': self.cjamount})
-        self.latest_tx = btc.make_shuffled_tx(self.utxo_tx, self.outputs)
+        self.latest_tx = btc.make_shuffled_tx(self.utxo_tx, self.outputs,
+                                              version=2, locktime=compute_tx_locktime())
         jlog.info('obtained tx\n' + btc.human_readable_transaction(
             self.latest_tx))
 

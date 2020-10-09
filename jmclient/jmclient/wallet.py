@@ -1366,7 +1366,7 @@ class SNICKERWalletMixin(object):
         # version and locktime as currently specified in the BIP
         # for 0/1 version SNICKER.
         tx = btc.make_shuffled_tx([our_input, their_input], outputs,
-                              version=2, locktime=0)
+                              version=2, locktime=compute_tx_locktime())
         # we need to know which randomized input is ours:
         our_index = -1
         for i, inp in enumerate(tx.vin):
