@@ -27,6 +27,8 @@ The github commits to the main repo, above, are signed.
 
 ### Walkthrough
 
+Ensure Bitcoin Core is running, and synced. (Your version of Bitcoin Core must be compiled with wallet support).
+
 Double click the binary to run it, or go to the `/scripts` subdirectory and run `python joinmarket-qt.py`
 (make sure you're in the venv, go back to the README quick install instructions if you don't know what that means).
 
@@ -43,7 +45,10 @@ has been created in your Joinmarket data directory (see [here](USAGE.md#data)). 
     rpc_host = localhost #default usually correct 
     rpc_port = 8332 # default for mainnet
 
-Once the rpc connection is correct, you will be presented with this start screen:
+Before restarting though, you're strongly advised to make the configuration change explained [here](USAGE.md#setting-core-wallet), this
+may avoid possible RPC errors (indeed, read the whole of that section on "Configuring for Bitcoin Core").
+
+Once the rpc connection is correct, and you restart, you will be presented with this start screen:
 
 ![](images/JMQInitregtest.png)
 
@@ -74,16 +79,8 @@ stick to that convention.
 
 The wallet will now automatically load from the your Bitcoin Core node. It may take a few seconds, during which you'll see "Reading wallet from blockchain...".
 
-If JoinMarketQt stucks in "Reading wallet from blockchain..." state, close it. 
-You need to create a wallet in the Bitcoin Core using the command:
-```bitcoin-cli createwallet "jm_wallet"```
-
-The "jm_wallet" name is just an example. You can set any name.
-
-After you create the wallet in the Bitcoin Core, you should set it in the `joinmarket.cfg`:
-```rpc_wallet_file= jm_wallet```
-
-Now you can start the JoinMarketQt, load the wallet and it should work.
+If JoinMarketQt gets stuck at "Reading wallet from blockchain..." state, one possible solution may be to ensure you have set `rpc_wallet_file` correctly
+as described above. You can also check the terminal you ran the `joinmarket-qt.py` script from for other error messages.
 
 Since you just created it, it will have no coins initially:
 

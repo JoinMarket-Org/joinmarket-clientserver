@@ -11,6 +11,8 @@ followed a manual installation as per [here](INSTALL.md)).
 
 2. [Configuring for Bitcoin Core](#configure)
 
+   a. [Setting a Core wallet (recommended)](#setting-core-wallet)
+
 3. [Using the wallet-tool.py script](#wallet-tool)
 
    a. [Creating a Wallet](#generate)
@@ -85,6 +87,8 @@ The worst case is if you recover only from seedphrase and on a new Core instance
 
 Bitcoin Core is required to use Joinmarket; note that the node *can* be pruned.
 
+Note that if you compile Core yourself, it must have wallet support (the default), but does not need Qt.
+
 Configuring Joinmarket for Core no longer needs any `walletnotify` setting.
 
 In the `joinmarket.cfg` file described above, edit this section (comments omitted; do read them):
@@ -97,7 +101,34 @@ In the `joinmarket.cfg` file described above, edit this section (comments omitte
 
 Note, you can also use a cookie file by setting, in this section, a variable `rpc_cookie_file` to the location of the file, as an alternative to using user/password.
 
-If you use Bitcoin Core's multiwallet feature, you can edit the value of `rpc_wallet_file` to your chosen wallet file. Just use a new line with `rpc_wallet_file = wallet2.dat` or similar.
+<a name="setting-core-wallet" />
+
+### Setting a Core wallet (recommended)
+
+This point often confuses people. Joinmarket has its own wallet, with encryption and storage of keys, separate to Bitcoin Core,
+but it *stores addresses as watch-only in the Bitcoin Core wallet*, and the relevant rpc calls to Bitcon Core always specify the
+wallet they're talking to. As a result it's strongly recommended to use this feature, as it isolates those watch-only addresses
+being stored in Bitcoin Core, from any other usage you might have for that Core instance.
+
+If you don't do this, Joinmarket will use the default Core wallet `wallet.dat` to store these watch-only addresses in.
+
+With `bitcoind` running, do:
+
+```
+bitcoin-cli createwallet "jm_wallet"
+```
+
+The "jm_wallet" name is just an example. You can set any name. Alternative to this `bitcoin-cli` command: you can set a line with `wallet=..` in your
+`bitcoin.conf` before starting Core (see the Bitcoin Core documentation for details).
+
+After you create the wallet in the Bitcoin Core, you should set it in the `joinmarket.cfg`:
+
+```
+[BLOCKCHAIN]
+...
+...
+rpc_wallet_file= jm_wallet
+```
 
 Then retry the `generate` command we mentioned above; it should now not error (see [below](#generate)).
 
@@ -207,7 +238,7 @@ Total balance:	0.00000000
 
 ```
 
-The [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) xpub keys of each external branch are shown in case that is needed.
+The [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) xpub keys of each external branch are shown in case that is needed.
 The BIP32 derivation paths are also shown; for Joinmarket they are defined by [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki); for more on this see [below](#structure).
 
 **Bitcoins should be sent to empty external addresses** (sometimes known as receive addresses). You'll notice in
