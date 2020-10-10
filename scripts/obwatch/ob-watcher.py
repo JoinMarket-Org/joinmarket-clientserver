@@ -81,7 +81,7 @@ def cjfee_display(cjfee, order, btc_unit, rel_unit):
     if order['ordertype'] in ['absoffer', 'swabsoffer']:
         return satoshi_to_unit(cjfee, order, btc_unit, rel_unit)
     elif order['ordertype'] in ['reloffer', 'swreloffer']:
-        return str(float(cjfee) * rel_unit_to_factor[rel_unit]) + rel_unit
+        return str(Decimal(cjfee) * rel_unit_to_factor[rel_unit]) + rel_unit
 
 
 def satoshi_to_unit(sat, order, btc_unit, rel_unit):
@@ -148,7 +148,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             o = dict(row)
             if 'cjfee' in o:
                 o['cjfee'] = int(o['cjfee']) if o['ordertype']\
-                             == 'swabsoffer' else float(o['cjfee'])
+                             == 'swabsoffer' else str(Decimal(o['cjfee']))
             result.append(o)
         return result
 
