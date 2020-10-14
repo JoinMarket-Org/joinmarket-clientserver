@@ -17,12 +17,15 @@ Qt files for the wizard for initiating a tumbler run.
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-import math, re, logging, string
+import math, logging, qrcode, re, string
+from io import BytesIO
 from PySide2 import QtCore
+
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
 from jmbitcoin.amount import amount_to_sat, btc_to_sat, sat_to_btc
+from jmbitcoin.bip21 import decode_bip21_uri
 from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
 
@@ -943,6 +946,28 @@ class CopyOnClickLineEdit(QLineEdit):
                 "URI copied to clipboard", mbtype="info")
         self.was_copied = True
 
+
+class QRCodePopup(QDialog):
+
+    def __init__(self, parent, title, data):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        buf = BytesIO()
+        img = qrcode.make(data)
+        img.save(buf, "PNG")
+        self.imageLabel = QLabel()
+        qt_pixmap = QPixmap()
+        qt_pixmap.loadFromData(buf.getvalue(), "PNG")
+        self.imageLabel.setPixmap(qt_pixmap)
+        layout = QVBoxLayout()
+        layout.addWidget(self.imageLabel)
+        self.setLayout(layout)
+        self.initUI()
+
+    def initUI(self):
+        self.show()
+
+
 class ReceiveBIP78Dialog(QDialog):
 
     parameter_names = ['Amount to receive', 'Mixdepth']
@@ -1015,6 +1040,7 @@ class ReceiveBIP78Dialog(QDialog):
         # Give user indication that they
         # can quit without cancelling:
         self.close_btn.setVisible(True)
+        self.qr_btn.setVisible(False)
         self.btnbox.button(QDialogButtonBox.Cancel).setDisabled(True)
 
     def start_generate(self):
@@ -1080,12 +1106,22 @@ class ReceiveBIP78Dialog(QDialog):
         self.close_btn = self.btnbox.addButton("C&lose",
                                                QDialogButtonBox.AcceptRole)
         self.close_btn.setVisible(False)
+        self.qr_btn = self.btnbox.addButton("Show &QR code",
+                                            QDialogButtonBox.ActionRole)
         layout.addWidget(self.btnbox, i+4, 0)
         # note that we don't use a standard 'Close' button because
         # it is also associated with 'rejection' (and we don't use "OK" because
         # concept doesn't quite fit here:
         self.btnbox.rejected.connect(self.shutdown_actions)
         self.generate_btn.clicked.connect(self.start_generate)
+        self.qr_btn.clicked.connect(self.open_qr_code_popup)
         # does not trigger cancel_fn callback:
         self.close_btn.clicked.connect(self.close)
         return layout
+
+    def open_qr_code_popup(self):
+        bip21_uri = self.bip21_widget.text()
+        if bip21_uri:
+            parsed_uri = decode_bip21_uri(bip21_uri)
+            popup = QRCodePopup(self, parsed_uri['address'], bip21_uri)
+            popup.show()

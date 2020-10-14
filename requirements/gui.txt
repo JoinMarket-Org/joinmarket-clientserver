@@ -2,5 +2,5 @@
 pywin32; platform_system == "Windows"
 PySide2
 PyQt5==5.14.2
-qrcode[pil]
+qrcode
 https://github.com/sunu/qt5reactor/archive/58410aaead2185e9917ae9cac9c50fe7b70e4a60.zip#egg=qt5reactor
