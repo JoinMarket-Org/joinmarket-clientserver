@@ -14,8 +14,7 @@ def startup_joinmarketd(host, port, usessl, factories=None,
     """
     startLogging(sys.stdout)
     if not factories:
-        factories = [jmdaemon.JMDaemonServerProtocolFactory(),
-                     jmdaemon.P2EPDaemonServerProtocolFactory()]
+        factories = [jmdaemon.JMDaemonServerProtocolFactory(),]
     for factory in factories:
         jmdaemon.start_daemon(host, port, factory, usessl,
                               './ssl/key.pem', './ssl/cert.pem')
