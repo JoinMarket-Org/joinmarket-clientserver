@@ -10,13 +10,20 @@ ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
 
 log = get_log()
 
+
+class NotEnoughFundsException(RuntimeError):
+
+    def __init__(self, want, has):
+        super().__init__("Not enough funds, " +
+            str(want) + " vs. " + str(has) + ".")
+
+
 """
 Random functions - replacing some NumPy features
 NOTE THESE ARE NEITHER CRYPTOGRAPHICALLY SECURE
 NOR PERFORMANT NOR HIGH PRECISION!
 Only for sampling purposes
 """
-
 
 def get_random_bytes(num_bytes, cryptographically_secure=False):
     if cryptographically_secure:
@@ -78,8 +85,9 @@ def select(unspent, value):
         tv += low[i]["value"]
         i += 1
     if tv < value:
-        raise Exception("Not enough funds")
+        raise NotEnoughFundsException(value, tv)
     return low[:i]
+
 
 def select_gradual(unspent, value):
     """
@@ -94,7 +102,7 @@ def select_gradual(unspent, value):
     lowsum = reduce(lambda x, y: x + y, map(key, low), 0)
     if value > lowsum:
         if len(high) == 0:
-            raise Exception('Not enough funds')
+            raise NotEnoughFundsException(value, lowsum)
         else:
             return [high[0]]
     else:
@@ -129,11 +137,11 @@ def select_greedy(unspent, value):
         if value > 0:  # no, that drops us below the target
             picked += [utxo]  # so we need this one too
             value -= key(utxo)  # 'backtrack' the counter
+    picked_sum = sum(key(u) for u in picked)
     if len(picked) > 0:
-        if len(picked) < len(utxos) or sum(
-            key(u) for u in picked) >= original_value:
+        if len(picked) < len(utxos) or picked_sum >= original_value:
             return picked
-    raise Exception('Not enough funds')  # if all else fails, we do too
+    raise NotEnoughFundsException(original_value, picked_sum)   # if all else fails, we do too
 
 
 def select_greediest(unspent, value):
@@ -149,7 +157,7 @@ def select_greediest(unspent, value):
     lowsum = reduce(lambda x, y: x + y, map(key, low), 0)
     if value > lowsum:
         if len(high) == 0:
-            raise Exception('Not enough funds')
+            raise NotEnoughFundsException(value, lowsum)
         else:
             return [high[0]]
     else:
@@ -158,6 +166,7 @@ def select_greediest(unspent, value):
             total += low[end]['value']
             end += 1
         return low[0:end]
+
 
 def select_one_utxo(unspent, value):
     key = lambda u: u['value']

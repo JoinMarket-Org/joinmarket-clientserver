@@ -13,7 +13,8 @@ from base64 import b64encode
 from jmbase import utxostr_to_utxo, hextobin
 from jmclient import load_test_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
-    get_network, WalletService, NO_ROUNDING, BTC_P2PKH
+    get_network, WalletService, NO_ROUNDING, BTC_P2PKH,\
+    NotEnoughFundsException
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
     t_maker_response, t_chosen_orders, t_dummy_ext
 from commontest import default_max_cj_fee
@@ -57,7 +58,7 @@ class DummyWallet(SegwitLegacyWallet):
     def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
                      maxheight=None, includeaddr=False):
         if amount > self.get_balance_by_mixdepth()[mixdepth]:
-            raise Exception("Not enough funds")
+            raise NotEnoughFundsException(amount, self.get_balance_by_mixdepth()[mixdepth])
         # comment as for get_utxos_by_mixdepth:
         retval = {}
         for k, v in t_utxos_by_mixdepth[mixdepth].items():
