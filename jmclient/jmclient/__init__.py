@@ -7,7 +7,7 @@ from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       rand_weighted_choice, select,
                       select_gradual, select_greedy, select_greediest,
                       get_random_bytes, random_under_max_order_choose,
-                      select_one_utxo)
+                      select_one_utxo, NotEnoughFundsException)
 from .jsonrpc import JsonRpcError, JsonRpcConnectionError, JsonRpc
 from .old_mnemonic import mn_decode, mn_encode
 from .taker import Taker
