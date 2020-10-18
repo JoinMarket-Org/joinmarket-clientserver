@@ -22,7 +22,6 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 
 import sys, datetime, os, logging
 import platform, json, threading, time
-import qrcode
 from optparse import OptionParser
 
 from PySide2 import QtCore
@@ -30,8 +29,6 @@ from PySide2 import QtCore
 from PySide2.QtGui import *
 
 from PySide2.QtWidgets import *
-
-from PIL.ImageQt import ImageQt
 
 if platform.system() == 'Windows':
     MONOSPACE_FONT = 'Lucida Console'
@@ -82,7 +79,7 @@ from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
     donation_more_message, BitcoinAmountEdit, JMIntValidator,\
-    ReceiveBIP78Dialog
+    ReceiveBIP78Dialog, QRCodePopup
 
 from twisted.internet import task
 
@@ -1302,23 +1299,6 @@ class CoinsTab(QWidget):
                        lambda: app.clipboard().setText(txid))
         menu.exec_(self.cTW.viewport().mapToGlobal(position))
 
-class BitcoinQRCodePopup(QDialog):
-
-    def __init__(self, parent, address):
-        super().__init__(parent)
-        self.address = address
-        self.setWindowTitle(address)
-        img = qrcode.make('bitcoin:' + address)
-        self.imageLabel = QLabel()
-        self.imageLabel.setPixmap(QPixmap.fromImage(ImageQt(img)))
-        layout = QVBoxLayout()
-        layout.addWidget(self.imageLabel)
-        self.setLayout(layout)
-        self.initUI()
-
-    def initUI(self):
-        self.show()
-
 
 class JMWalletTab(QWidget):
 
@@ -1385,7 +1365,7 @@ class JMWalletTab(QWidget):
             menu.exec_(self.walletTree.viewport().mapToGlobal(position))
 
     def openQRCodePopup(self, address):
-        popup = BitcoinQRCodePopup(self, address)
+        popup = QRCodePopup(self, address, btc.encode_bip21_uri(address, {}))
         popup.show()
 
     def updateWalletInfo(self, walletinfo=None):
