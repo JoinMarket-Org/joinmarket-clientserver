@@ -49,7 +49,7 @@ If in a run of `sendpayment.py` no commitment can be sourced (in tumbler it just
 
 ### Minor additional tools
 
-An extra method for `wallet-tool.py` is added: `showutxos` - this will pretty print the all the available utxos in any Joinmarket wallet. This is only potentially useful for people who run both as Maker and Taker and want to consider transferring utxos for commitments from one wallet to another (using the `-w` option to `cmttools/add-utxo.py`).
+An extra method for `wallet-tool.py` is added: `showutxos` - this will pretty print the all the available utxos in any Joinmarket wallet. This is only potentially useful for people who run both as Maker and Taker and want to consider transferring utxos for commitments from one wallet to another (using the `-w` option to `scripts/add-utxo.py`).
 
 Similarly a `sendtomany` function is available in `cd scripts; python sendtomany.py --help`; read the help for details but it's as simple as it sounds, specifically creating equal sized outputs for each of the destination addresses you specify; it requires one utxo and its private key as inputs. You're prompted before broadcast, so you can check its validity.
 
