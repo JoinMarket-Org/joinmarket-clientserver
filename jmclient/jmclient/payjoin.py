@@ -8,7 +8,7 @@ from twisted.web.resource import Resource, ErrorPage
 from twisted.web.iweb import IPolicyForHTTPS
 from twisted.internet.ssl import CertificateOptions
 from twisted.internet.error import ConnectionRefusedError, ConnectionLost
-from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.internet.endpoints import TCP4ClientEndpoint, UNIXClientEndpoint
 from twisted.web.http_headers import Headers
 import txtorcon
 from txtorcon.web import tor_agent
@@ -1159,7 +1159,13 @@ class JMBIP78ReceiverManager(object):
         of starting the hidden service and returning/
         printing the BIP21 URI:
         """
-        d = txtorcon.connect(reactor)
+        control_host = jm_single().config.get("PAYJOIN", "tor_control_host")
+        control_port = int(jm_single().config.get("PAYJOIN", "tor_control_port"))
+        if str(control_host).startswith('unix:'):
+            control_endpoint = UNIXClientEndpoint(reactor, control_host[5:])
+        else:
+            control_endpoint = TCP4ClientEndpoint(reactor, control_host, control_port)
+        d = txtorcon.connect(reactor, control_endpoint)
         d.addCallback(self.create_onion_ep)
         d.addErrback(self.setup_failed)
         # TODO: add errbacks to the next two calls in
