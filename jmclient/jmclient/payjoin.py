@@ -650,7 +650,11 @@ def fallback_nonpayjoin_broadcast(err, manager):
     log.warn("Error message was: " + err.decode("utf-8"))
     original_tx = manager.initial_psbt.extract_transaction()
     if not jm_single().bc_interface.pushtx(original_tx.serialize()):
-        log.error("Unable to broadcast original payment. The payment is NOT made.")
+        errormsg = ("Unable to broadcast original payment. Check your wallet\n"
+        "to see whether original payment was made.")
+        log.error(errormsg)
+        # ensure any GUI as well as command line sees the message:
+        manager.user_info_callback(errormsg)
         quit()
         return
     log.info("Payment made without coinjoin. Transaction: ")
@@ -683,7 +687,6 @@ def process_payjoin_proposal_from_server(response_body, manager):
         log.error("Payjoin tx from server could not be parsed: " + repr(e))
         fallback_nonpayjoin_broadcast(b"Server sent invalid psbt", manager)
         return
-
     log.debug("Receiver sent us this PSBT: ")
     log.debug(manager.wallet_service.human_readable_psbt(payjoin_proposal_psbt))
     # we need to add back in our utxo information to the received psbt,
@@ -874,6 +877,12 @@ class PayjoinServer(Resource):
             return self.bip78_error(request, "Proposed transaction was "
                                     "rejected from mempool.",
                                     "original-psbt-rejected")
+
+        # Now that the PSBT is accepted, we schedule fallback in case anything
+        # fails later on in negotiation (as specified in BIP78):
+        self.manager.timeout_fallback_dc = reactor.callLater(60,
+                                                fallback_nonpayjoin_broadcast,
+                                                b"timeout", self.manager)
 
         receiver_utxos = self.manager.select_receiver_utxos()
         if not receiver_utxos:
