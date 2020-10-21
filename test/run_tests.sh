@@ -72,7 +72,7 @@ run_jm_tests ()
         echo "No candidate directory for test files. Exiting."
         return 1
     fi
-    unlink ./joinmarket.cfg
+    [[ -f ./joinmarket.cfg ]] && unlink ./joinmarket.cfg
     ln -s ./test/regtest_joinmarket.cfg ./joinmarket.cfg
     orig_umask="$(umask -p)"
     umask 077
@@ -83,7 +83,7 @@ run_jm_tests ()
     echo "datadir=${jm_test_datadir}" >> "${jm_test_datadir}/bitcoin.conf"
     python -m pytest ${HAS_JOSH_K_SEAL_OF_APPROVAL+--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 -p no:warnings --ignore test/test_full_coinjoin.py
     local success="$?"
-    unlink ./joinmarket.cfg
+    [[ -f ./joinmarket.cfg ]] && unlink ./joinmarket.cfg
     if [ -f "${jm_test_datadir}/bitcoind.pid" ] && read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
         kill -15 ${bitcoind_pid} || kill -9 ${bitcoind_pid}
     fi
