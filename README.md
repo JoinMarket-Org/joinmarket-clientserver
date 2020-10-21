@@ -92,7 +92,7 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 
 ### Community
 
-+ IRC: `#joinmarket` on irc.freenode.net https://webchat.freenode.net/?channels=%23joinmarket
++ IRC: `#joinmarket` on irc.freenode.net https://webchat.freenode.net/?channels=%23joinmarket (logs can be found [here](http://gnusha.org/joinmarket/))
 
 + IRC on tor: `#joinmarket` on the networks [Hackint](https://www.hackint.org/) and [Darkscience](https://www.darkscience.net/). These channels are bridged to the above freenode channel.
 
