@@ -244,12 +244,20 @@ absurd_fee_per_kb = 350000
 # spends from unconfirmed inputs, which may then get malleated or double-spent!
 # other counterparties are likely to reject unconfirmed inputs... don't do it.
 
-# options: self, random-peer, not-self.
+# tx_broadcast: options: self, random-peer, not-self.
+#
 # self = broadcast transaction with your own bitcoin node.
+#
 # random-peer = everyone who took part in the coinjoin has a chance of broadcasting
-# not-self = never broadcast with your own ip
 # note: if your counterparties do not support it, you will fall back
 # to broadcasting via your own node.
+#
+# not-self = never broadcast with your own bitcoin node.
+# note: in this case if your counterparties do not broadcast for you, you
+# will have to broadcast the tx manually (you can take the tx hex from the log
+# or terminal) via some other channel. It is not recommended to choose this
+# option when running schedules/tumbler.
+
 tx_broadcast = self
 
 # If makers do not respond while creating a coinjoin transaction,

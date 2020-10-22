@@ -795,6 +795,14 @@ class Taker(object):
             # in Taker.push():
             self.wallet_service.register_callbacks([self.unconfirm_callback],
                                                    txid, "unconfirmed")
+            if jm_single().config.get('POLICY', 'tx_broadcast') == "not-self":
+                warnmsg = ("You have chosen not to broadcast from your own "
+                          "node. The transaction is NOT broadcast.")
+                self.taker_info_callback("ABORT", warnmsg + "\nSee log for details.")
+                # warning is arguably not correct but it will stand out more:
+                jlog.warn(warnmsg)
+                jlog.info(btc.human_readable_transaction(tx))
+                return
             if not self.push_ourselves():
                 jlog.error("Failed to broadcast transaction: ")
                 jlog.info(btc.human_readable_transaction(tx))
