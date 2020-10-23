@@ -337,6 +337,13 @@ min_fee_rate = 1.1
 # for payjoins to hidden service endpoints, the socks5 configuration:
 onion_socks5_host = localhost
 onion_socks5_port = 9050
+
+# for payjoin onion service creation, the tor control configuration:
+tor_control_host = localhost
+# or, to use a UNIX socket
+# control_host = unix:/var/run/tor/control
+tor_control_port = 9051
+
 # in some exceptional case the HS may be SSL configured,
 # this feature is not yet implemented in code, but here for the
 # future:
