@@ -16,6 +16,7 @@ from txtorcon.socks import HostUnreachableError
 import urllib.parse as urlparse
 from urllib.parse import urlencode
 import json
+import random
 from io import BytesIO
 from pprint import pformat
 from jmbase import BytesProducer, bintohex, jmprint
@@ -903,11 +904,21 @@ class PayjoinServer(Resource):
                               self.manager.change_out.scriptPubKey))}
 
         # we now know there were one/two outputs and know which is payment.
-        # bump payment output with our input:
+        # set the ordering of the outputs correctly.
         if change_out:
-            outs = [pay_out, change_out]
+            # indices of original payment were set in JMPayjoinManager
+            # sanity check:
+            if self.manager.change_out_index == 0 and \
+               self.manager.pay_out_index == 1:
+                outs = [change_out, pay_out]
+            elif self.manager.change_out_index == 1 and \
+                 self.manager.pay_out_index == 0:
+                outs = [pay_out, change_out]
+            else:
+                assert False, "More than 2 outputs is not supported."
         else:
             outs = [pay_out]
+        # bump payment output with our input:
         our_inputs_val = sum([v["value"] for _, v in receiver_utxos.items()])
         pay_out["value"] += our_inputs_val
         log.debug("We bumped the payment output value by: " + str(
@@ -959,12 +970,15 @@ class PayjoinServer(Resource):
                                         "original-psbt-rejected")
 
         # Having checked the sender's conditions, we can apply the fee bump
-        # intended (note the outputs will be shuffled next!):
-        outs[1]["value"] -= our_fee_bump
+        # intended:
+        outs[self.manager.change_out_index]["value"] -= our_fee_bump
 
         # TODO this only works for 2 input transactions, otherwise
-        # pure-shuffle will not be valid as per BIP78 ordering requirement.
-        unsigned_payjoin_tx = btc.make_shuffled_tx(payjoin_tx_inputs, outs,
+        # reversal [::-1] will not be valid as per BIP78 ordering requirement.
+        # (For outputs, we do nothing since we aren't batching in other payments).
+        if random.random() < 0.5:
+            payjoin_tx_inputs = payjoin_tx_inputs[::-1]
+        unsigned_payjoin_tx = btc.mktx(payjoin_tx_inputs, outs,
                                     version=payment_psbt.unsigned_tx.nVersion,
                                     locktime=payment_psbt.unsigned_tx.nLockTime)
 
