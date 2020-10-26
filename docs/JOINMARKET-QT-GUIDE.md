@@ -4,7 +4,7 @@
 
 The gui can be run directly from Python script by doing `python joinmarket-qt.py` from within `scripts/`, or by running the executable file/binary (**[CLICK HERE](https://github.com/AdamISZ/joinmarket-clientserver/releases/)** to download the latest release).
 
-**LATEST VERSION of JoinMarket-Qt is GUI version 16**. You can check the version via `About` in the menu.
+**LATEST VERSION of JoinMarket-Qt is GUI version 17**. You can check the version via `About` in the menu.
 
 No other files / setup should be needed. You might need to `chmod 755` on Linux.
 
