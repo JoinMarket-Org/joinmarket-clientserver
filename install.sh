@@ -280,8 +280,12 @@ libsecp256k1_build()
         --enable-benchmark=no \
         MAKE=$make
     $make
-    if ! $make check; then
-        return 1
+    if [[ $use_secp_check == '1' ]]; then
+        if ! $make check; then
+            return 1
+        fi
+    else
+        echo "Skipping libsecp256k1 tests."
     fi
 }
 
@@ -371,6 +375,9 @@ parse_flags ()
             --develop)
                 develop_build='1'
                 ;;
+            --disable-secp-check)
+                use_secp_check='0'
+                ;;
             -p|--python)
                 if [[ "$2" ]]; then
                     python="$2"
@@ -402,10 +409,11 @@ Usage: "${0}" [options]
 
 Options:
 
---develop       code remains editable in place (currently always enabled)
---python, -p    python version (only python3 versions are supported)
---with-qt       build the Qt GUI
---without-qt    don't build the Qt GUI
+--develop               code remains editable in place (currently always enabled)
+--disable-secp-check    do not run libsecp256k1 tests (default is to run them)
+--python, -p            python version (only python3 versions are supported)
+--with-qt               build the Qt GUI
+--without-qt            don't build the Qt GUI
 "
                 return 1
                 ;;
@@ -469,6 +477,7 @@ main ()
     develop_build=''
     no_gpg_validation=''
     python='python3'
+    use_secp_check='1'
     with_qt=''
     reinstall='false'
     if ! parse_flags ${@}; then
