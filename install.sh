@@ -154,45 +154,6 @@ dep_get ()
     popd
 }
 
-openssl_build ()
-{
-    ./config shared --prefix="${jm_root}"
-    $make
-    rm -rf "${jm_root}/ssl" \
-        "${jm_root}/lib/engines" \
-        "${jm_root}/lib/pkgconfig/openssl.pc" \
-        "${jm_root}/lib/pkgconfig/libssl.pc" \
-        "${jm_root}/lib/pkgconfig/libcrypto.pc" \
-        "${jm_root}/include/openssl" \
-        "${jm_root}/bin/c_rehash" \
-        "${jm_root}/bin/openssl"
-    if ! $make test; then
-        return 1
-    fi
-}
-
-openssl_install ()
-{
-    openssl_version='openssl-1.0.2l'
-    openssl_lib_tar="${openssl_version}.tar.gz"
-    openssl_lib_sha='ce07195b659e75f4e1db43552860070061f156a98bb37b672b101ba6e3ddf30c'
-    openssl_url='https://www.openssl.org/source'
-
-    if check_skip_build "${openssl_version}"; then
-        return 0
-    fi
-    if ! dep_get "${openssl_lib_tar}" "${openssl_lib_sha}" "${openssl_url}"; then
-        return 1
-    fi
-    pushd "${openssl_version}"
-    if openssl_build; then
-        $make install_sw
-    else
-        return 1
-    fi
-    popd
-}
-
 # add '--disable-docs' to libffi ./configure so makeinfo isn't needed
 # https://github.com/libffi/libffi/pull/190/commits/fa7a257113e2cfc963a0be9dca5d7b4c73999dcc
 libffi_patch_disable_docs ()
@@ -467,7 +428,6 @@ main ()
 
     # flags
     develop_build=''
-    no_gpg_validation=''
     python='python3'
     with_qt=''
     reinstall='false'
@@ -489,11 +449,6 @@ main ()
     source "${jm_root}/bin/activate"
     mkdir -p "deps/cache"
     pushd deps
-# openssl build disabled. using OS package manager's version.
-#    if ! openssl_install; then
-#        echo "Openssl was not built. Exiting."
-#        return 1
-#    fi
     if ! libsecp256k1_install; then
         echo "libsecp256k1 was not built. Exiting."
         return 1
