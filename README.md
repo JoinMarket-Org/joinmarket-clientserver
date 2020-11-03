@@ -64,6 +64,8 @@ If you are running Joinmarket-Qt, you can instead use the [walkthrough](docs/JOI
 
 If you used the old version of Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
 
+If you are looking for the available makers, run the [orderbook](docs/orderbook.md).
+
 ### PayJoin
 
 If you want to use the PayJoin feature to pay/receive money to/from another Joinmarket wallet user, read [this guide](docs/PAYJOIN.md).
