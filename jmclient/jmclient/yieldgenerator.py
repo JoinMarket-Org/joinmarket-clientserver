@@ -188,7 +188,7 @@ class YieldGeneratorBasic(YieldGenerator):
         return self.wallet_service.get_internal_addr(cjoutmix)
 
 
-def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='sw0reloffer',
+def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer',
            nickserv_password='', minsize=100000, gaplimit=6):
     import sys
 
@@ -222,20 +222,19 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='sw0reloff
     wallet_name = args[0]
     ordertype = options.ordertype
     txfee = options.txfee
-    if ordertype in ('reloffer', 'swreloffer', 'sw0reloffer'):
+    if ordertype == 'reloffer':
         if options.cjfee != '':
             cjfee_r = options.cjfee
         # minimum size is such that you always net profit at least 20%
         #of the miner fee
         minsize = max(int(1.2 * txfee / float(cjfee_r)), options.minsize)
-    elif ordertype in ('absoffer', 'swabsoffer', 'sw0absoffer'):
+    elif ordertype == 'absoffer':
         if options.cjfee != '':
             cjfee_a = int(options.cjfee)
         minsize = options.minsize
     else:
         parser.error('You specified an incorrect offer type which ' +\
-                     'can be either swreloffer, sw0reloffer, ' +\
-                     'swabsoffer, or sw0absoffer')
+                     'can be either reloffer or absoffer')
         sys.exit(EXIT_ARGERROR)
     nickserv_password = options.password
 
@@ -257,8 +256,22 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='sw0reloff
         wallet_service.sync_wallet(fast=not options.recoversync)
     wallet_service.startService()
 
+    txtype = wallet_service.get_txtype()
+    if txtype == "p2wpkh":
+        prefix = "sw0"
+    elif txtype == "p2sh-p2wpkh":
+        prefix = "sw"
+    elif txtype == "p2pkh":
+        prefix = ""
+    else:
+        jlog.error("Unsupported wallet type for yieldgenerator: " + txtype)
+        sys.exit(EXIT_ARGERROR)
+
+    ordertype = prefix + ordertype
+    jlog.debug("Set the offer type string to: " + ordertype)
+
     maker = ygclass(wallet_service, [options.txfee, cjfee_a, cjfee_r,
-                             options.ordertype, options.minsize])
+                             ordertype, options.minsize])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
 

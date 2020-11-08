@@ -8,14 +8,10 @@
 
 (You can ignore this whole section if starting from scratch).
 
-#### Upgrading to new segwit version (0.3.0+ of this repo)
-
-See [here](SEGWIT-UPGRADE.md).
-
 #### Notes on upgrading versions generally:
 
 If you just want the latest version in a new directory, go to the [releases](https://github.com/AdamISZ/joinmarket-clientserver/releases) page.
-Binary executables are not currently being built; that may change in the future.
+Binary executables (of JoinmarketQt) are currently being built only for Windows, please verify the signature on the .exe file attached to the release.
 
 Otherwise: if you are upgrading from an older version, just update using git: `git pull origin master`,
 or `git fetch; git checkout tags/<tagname>` for a specific tagged release, then rerun the installation
@@ -133,6 +129,9 @@ There are currently two choices for installing on Windows; one, directly install
 2) [Installation using WSL](#installation-using-wsl)
 
 #### Installation directly on Windows
+
+As per the note above, binaries for JoinmarketQt are being offered with releases as of 0.7.0+.
+This section is for doing a full command line install, on Windows.
 
 First, if you have not done so, install [Python](https://www.python.org/downloads/windows/) - specifically, the latest Python 3 version. Make sure to choose to install `pip` during the installation (it should be included automatically, but you can choose the custom installation option to choose it).
 

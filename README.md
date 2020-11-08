@@ -12,16 +12,16 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 
 ### Wallet features
 
-* Segwit addresses in the backward compatible form (start with `3`)
+* Segwit addresses (native bech32 ('bc1') by default; p2sh wrapped ('3') optionally).
 * Multiple "mixdepths" or pockets (by default 5) for better coin isolation
-* Ability to spend directly, or with coinjoin; export private keys; BIP49 compatible seed (Trezor, Samourai etc.) and mnemonic extension option
+* Ability to spend directly, or with coinjoin; export private keys; BIP84/49 compatible seed (Trezor, Samourai etc.) and mnemonic extension option
 * Fine-grained control over bitcoin transaction fees
 * Basic coin control - can freeze individual utxos to stop them being spent in any transaction
 * Can run sequence of coinjoins in automated form, either auto-generated (see `tumbler.py`) or self-generated sequence.
 * Can specify exact amount of coinjoin (figures from 0.01 to 30.0 btc and higher are practical), can choose time and number of counterparties
 * Can run passively to receive small payouts for taking part in coinjoins (see "Maker" and "yield-generator" in docs)
 * GUI to support Taker role, including tumbler/automated coinjoin sequence.
-* PayJoin - both [BIP78](https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki) to pay users of other wallets (e.g. merchants), as well as between two JM wallet users. This is a way to boost fungibility/privacy while paying.
+* PayJoin - [BIP78](https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki) to pay users of other wallets (e.g. merchants), as well as between two compatible wallet users (Joinmarket, Wasabi, others). This is a way to boost fungibility/privacy while paying.
 * Protection from [forced address reuse](https://en.bitcoin.it/wiki/Privacy#Forced_address_reuse) attacks.
 
 ### Quickstart - RECOMMENDED INSTALLATION METHOD (Linux and macOS only)
@@ -62,7 +62,7 @@ If you are new, follow and read the links in the [usage guide](docs/USAGE.md).
 
 If you are running Joinmarket-Qt, you can instead use the [walkthrough](docs/JOINMARKET-QT-GUIDE.md) to start.
 
-If you used the old version of Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts.
+If you used the old version of Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts (warning: this refers to changes from several years ago, so may be slightly outdated).
 
 If you are looking for the available makers, run the [orderbook](docs/orderbook.md).
 

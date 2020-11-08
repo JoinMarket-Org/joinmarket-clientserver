@@ -15,14 +15,14 @@ from jmclient import YieldGeneratorBasic, ygmain, jm_single
 """THESE SETTINGS CAN SIMPLY BE EDITED BY HAND IN THIS FILE:
 """
 
-ordertype = 'swreloffer'  # [string, 'swreloffer', 'swabsoffer', 'sw0reloffer', 'sw0absoffer'] / which fee type to actually use
+ordertype = 'reloffer'  # [string, 'reloffer' or 'absoffer'], which fee type to actually use
 cjfee_a = 500             # [satoshis, any integer] / absolute offer fee you wish to receive for coinjoins (cj)
-cjfee_r = '0.00002'       # [percent, any str between 0-1] / relative offer fee you wish to receive based on a cj's amount
-cjfee_factor = 0.1        # [percent, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
+cjfee_r = '0.00002'       # [fraction, any str between 0-1] / relative offer fee you wish to receive based on a cj's amount
+cjfee_factor = 0.1        # [fraction, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
 txfee = 100               # [satoshis, any integer] / the average transaction fee you're adding to coinjoin transactions
-txfee_factor = 0.3        # [percent, 0-1] / variance around the average fee. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
+txfee_factor = 0.3        # [fraction, 0-1] / variance around the average fee. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
 minsize = 100000          # [satoshis, any integer] / minimum size of your cj offer. Lower cj amounts will be disregarded
-size_factor = 0.1         # [percent, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
+size_factor = 0.1         # [fraction, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
 gaplimit = 6
 
 # end of settings customization
@@ -39,9 +39,9 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         # We publish ONLY the maximum amount and use minsize for lower bound;
         # leave it to oid_to_order to figure out the right depth to use.
         f = '0'
-        if ordertype in ['swreloffer', 'sw0reloffer']:
+        if self.ordertype in ['swreloffer', 'sw0reloffer']:
             f = self.cjfee_r
-        elif ordertype in ['swabsoffer', 'sw0absoffer']:
+        elif self.ordertype in ['swabsoffer', 'sw0absoffer']:
             f = str(self.txfee + self.cjfee_a)
         mix_balance = dict([(m, b) for m, b in iteritems(mix_balance)
                             if b > self.minsize])
@@ -60,7 +60,7 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         randomize_maxsize = int(random.uniform(possible_maxsize * (1 - float(size_factor)),
                                                possible_maxsize))
 
-        if ordertype == 'swabsoffer':
+        if self.ordertype == 'swabsoffer':
             randomize_cjfee = int(random.uniform(float(cjfee_a) * (1 - float(cjfee_factor)),
                                                  float(cjfee_a) * (1 + float(cjfee_factor))))
             randomize_cjfee = randomize_cjfee + randomize_txfee

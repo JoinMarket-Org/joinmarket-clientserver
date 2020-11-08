@@ -24,6 +24,7 @@ The github commits to the main repo, above, are signed.
  
   * [Exporting private keys](#export-private-keys)
 
+(*Before starting, note that the screenshots here use testnet p2sh addresses (start with '2'), but by default Joinmarket mainnet addresses are native segwit ('bc1')*).
 
 ### Walkthrough
 

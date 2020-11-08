@@ -174,72 +174,75 @@ Notice that here you **don't** need to rescan, because you are not "recovering a
 
 ```
 JM wallet
-mixdepth	0	xpub6Crt4fcfpnrNxW45MzuV626z4fjddsuFGwRn1DXdpwnDkBMR12GKdBzW8euDqLSqRRv2eZmcJy8FSQLWEosC6wFZAZEv3FJMtvZ7W1CkQDi
-external addresses	m/49'/0'/0'/0	xpub6FQFAscJgwd8MXCcAT8A1hgx9vigrgVoXVNTAKHj2aK3NR2Zf1CbFNXD8G8X9dspGXLY9eiEzBWaypr24owJ8r1aTKgMbUZoTnQ36bBwQB3
-m/49'/0'/0'/0/0     	35SrGbUt9FpfA6xqKMpNaiTNyeuXagBi7Y	0.00000000	new
-m/49'/0'/0'/0/1     	39hc2xfA6i9kWZdXMwH4Pd9dWUvDKocGd3	0.00000000	new
-m/49'/0'/0'/0/2     	371MJcjFG4cEpz8RVdYb1L8PkA9tZYySGZ	0.00000000	new
-m/49'/0'/0'/0/3     	39eTy635wLCyBbphUTNnSB2V9LnvgdndNo	0.00000000	new
-m/49'/0'/0'/0/4     	33T8eNr54maWNZYQjoZwpLA2HGk7RJaLVb	0.00000000	new
-m/49'/0'/0'/0/5     	35kJoTSxHtQbKUg2jvjDVqcY9iXoH2cTqD	0.00000000	new
+mixdepth	0	xpub6CMAJ67vZWVXuzjzYXUoJgWrmuvFRiqiUG4dwoXNFmJtpTH3WgviANNxGyZYo27zxbMuqhDDym6fnBxmGaYoxr6LHgNDo1eEghkXHTX4Jnx
+external addresses	m/84'/0'/0'/0	xpub6FFUn4AxdqFbnTH2fyPrkLreEkStNnMFb6R1PyAykZ4fzN3LzvkRB4VF8zWrks4WhJroMYeFbCcfeooEVM6n2YRy1EAYUvUxZe6JET6XYaW
+m/84'/0'/0'/0/0     	bc1qt493axn3wl4gzjxvfg03vkacre0m6f2gzfhv5t	0.00000000	new
+m/84'/0'/0'/0/1     	bc1q2av9emer8k2j567yzv6ey6muqkuew4nh4rl85q	0.00000000	new
+m/84'/0'/0'/0/2     	bc1qggpg0q7cn4mpe98t29wte2rfn2rzjtn3zdmqye	0.00000000	new
+m/84'/0'/0'/0/3     	bc1qnnkqz8vcdjan7ztcpr68tyec7dw2yk8gjnr9ze	0.00000000	new
+m/84'/0'/0'/0/4     	bc1qud5s2ln88ktg83hkr6gv9s576zvt249qn2lepx	0.00000000	new
+m/84'/0'/0'/0/5     	bc1qw0lhq7xlhj7ww2jdaknv23vcyhnz6qxg23uthy	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/0'/0'/1	
+internal addresses	m/84'/0'/0'/1	
 Balance:	0.00000000
 Balance for mixdepth 0:	0.00000000
-mixdepth	1	xpub6Crt4fcfpnrP2GZnVuT1qi9aw9cpCuXcnGEjAKhaoWAHq5M4pWX64DNio3XHirY5uTCZCi6vTmaLjU5YQXbVsTjyEdCE2zn3S2fzBNFjxs8
-external addresses	m/49'/0'/1'/0	xpub6E2EnYy6yBXvE9U1nR5sSH58YiwbsKFZzaMkgMY5jrt2XFe4D5HVwikeTWyjuoczjQhJNezkwxrKAbUPMEDYHmbiaaiEAeXcL1yAcEAqtd7
-m/49'/0'/1'/0/0     	3DdhEr9GCoMDVRLNGAwi9rb8F4HQX8newY	0.00000000	new
-m/49'/0'/1'/0/1     	342XPkCQYzZkdUaB9TGPfVhf1iX55yE4gH	0.00000000	new
-m/49'/0'/1'/0/2     	33RaQJTn1P8KNUvNnPRFM19zHjPhzuyCqc	0.00000000	new
-m/49'/0'/1'/0/3     	3LydaxypMyYrbDFFp61f9rnZRcAJnZ5sv5	0.00000000	new
-m/49'/0'/1'/0/4     	36u2ykPy6Y9tg811B8XjYoPjpTtEg98RPd	0.00000000	new
-m/49'/0'/1'/0/5     	3AfSFczJEUN5RRbXirf8Pc74ve3ZaBVF8r	0.00000000	new
+mixdepth	1	xpub6CMAJ67vZWVXyTJEaZndxZy9ACUufsmNuJwp9k5dHHKa22zQdsgALxXvMRFSwtvB8BRJzsd8h17pKqoAyHtkBrAoSqC9AUcXB1cPrSYATsZ
+external addresses	m/84'/0'/1'/0	xpub6FNSLcHuGnoUbaiKgwXuKpfcbR63ybrjaqHCudrma13NDqMfKgBtZRiPZaHjSbCY3P3cgEEcdzZCwrLKXeT5jeuk8erdSmBuRgJJzfNnVjj
+m/84'/0'/1'/0/0     	bc1qhrvm7kd9hxv3vxs8mw2arcrsl9w37a7d6ccwe4	0.00000000	new
+m/84'/0'/1'/0/1     	bc1q0sccdfrsnjtgfytul5zulst46wxgahtcf44tcw	0.00000000	new
+m/84'/0'/1'/0/2     	bc1qst6p8hr8yg280zcpvvkxahv42ecvdzq63t75su	0.00000000	new
+m/84'/0'/1'/0/3     	bc1q0gkarwg8y3nc2mcusuaw9zsn3gvzwe8mp3ac9h	0.00000000	new
+m/84'/0'/1'/0/4     	bc1qkf5wlcla2qlg5g5sym9gk6q4l4k5c98vvyj33u	0.00000000	new
+m/84'/0'/1'/0/5     	bc1qz6zptlh3cqty2tqyspjk6ksqelnvrrrvmyqa5v	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/0'/1'/1	
+internal addresses	m/84'/0'/1'/1	
 Balance:	0.00000000
 Balance for mixdepth 1:	0.00000000
-mixdepth	2	xpub6Crt4fcfpnrP2Tjc95HKmSgaCpi9P9EM54B12XAUfdnyAyoftFpNyikSK4pBtsvqZAnj8grDFf61xDmAHYimQXvaQkoTY3h9G5BAxHuYgvn
-external addresses	m/49'/0'/2'/0	xpub6DrRZxJu5zEgxVMcrXmKGGeEQMgfh1MeZXvDXVYndqsqoFaJQUA94GbD1JX2p7Yw5NLcCUgg3WQXtXk5eP4vnNjGkDwA3FJoFFkE4PytauC
-m/49'/0'/2'/0/0     	39uPqzuW6CiyRSUvdrBYfaqSD2AtH2k4wf	0.00000000	new
-m/49'/0'/2'/0/1     	3FVYzJWE6g6kGj3hF7B5e7QpDQafBcUdnx	0.00000000	new
-m/49'/0'/2'/0/2     	3HjYatHB5tZFGcC2SUCBqT1zCM7AwgGE5r	0.00000000	new
-m/49'/0'/2'/0/3     	3CDco5iVa2iyEHGjXcAojsod6QDxeNedFg	0.00000000	new
-m/49'/0'/2'/0/4     	3LKaYFENU16ix8FngQk6m9VmQFGaATEeCu	0.00000000	new
-m/49'/0'/2'/0/5     	3B3TtgU6VgLF6BzQeG5znKZHpr3zgoftZC	0.00000000	new
+mixdepth	2	xpub6CMAJ67vZWVY2cq5fmVxXw92fcgTchphGNFxweSiupYH1xYfjBiK6dj5wEEVAQeA4JcGDQGm2xcuz2UsMnDkzVmi2ESZ3xey63mQMY4x2w2
+external addresses	m/84'/0'/2'/0	xpub6DqkbMG3tj2oixGYniEQTFamLCHTZx9CeAbUdBttiGuYwgfGZbrLMor8LWeJBUqTpsa81JcJqAUXuDxhXdLpKDxJAEqKMqPgJyXstj5dp3o
+m/84'/0'/2'/0/0     	bc1qwtdgg928wma8jz32upkje7e4cegtef7yrv233l	0.00000000	new
+m/84'/0'/2'/0/1     	bc1qhkuk2gny4gumrxcaw999uq3jm3fjrjvcwz7lz3	0.00000000	new
+m/84'/0'/2'/0/2     	bc1qvu753lkltc8akfasclnq89tdv8yylu2alyg76y	0.00000000	new
+m/84'/0'/2'/0/3     	bc1qal3r040k26cw2f08337huzcf00hrnws5rhfrz3	0.00000000	new
+m/84'/0'/2'/0/4     	bc1qpv4nm7wwtxesgwsr0g0slxls33u0w02gqx2euk	0.00000000	new
+m/84'/0'/2'/0/5     	bc1qk3ekjzlvw3uythw738z7nvwe2sg93w2rtuy6ml	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/0'/2'/1	
+internal addresses	m/84'/0'/2'/1	
 Balance:	0.00000000
 Balance for mixdepth 2:	0.00000000
-mixdepth	3	xpub6Crt4fcfpnrP5B7ysPePnY98sKaLAdu9yCbHpkodb6evSKhr4BWvpB7nQquPdzncTuhMxmUhEcVNuYpXQf9i6VN9DFYu3PgPMckuu4P7EeQ
-external addresses	m/49'/0'/3'/0	xpub6En2j7xGy2ihoYhpmTyDL1eER5B6rdas1HotoBiLbSXuXBMwZnjJTRefyJKVLUTfwDMgyATqZAwbZdKb8gQ8Fbno4XhUMPe6XBuN4LSsXN2
-m/49'/0'/3'/0/0     	3LhThkjSvYmmXLNLMcXghbvaoGgDitwfmi	0.00000000	new
-m/49'/0'/3'/0/1     	3LTwvukpZqsf9ghqnNQVu8szgScjoVnLdh	0.00000000	new
-m/49'/0'/3'/0/2     	35FRiSaZ6Yotr3YB3yX9JgqAbsxCnuTBfm	0.00000000	new
-m/49'/0'/3'/0/3     	3H7S5ZjYaWgSTXA1RFwGNytS2zsK1PfXoN	0.00000000	new
-m/49'/0'/3'/0/4     	33b8j2nPCFCWXb7wDHPRggUFoPJMwGQYYt	0.00000000	new
-m/49'/0'/3'/0/5     	3PE7fen989oPZn7XaRSAu3fvGN1P57SB9W	0.00000000	new
+mixdepth	3	xpub6CMAJ67vZWVY3uty61M6jeGheGU5ni5mQmqMW2QLQbEa8ZQXuBw1K2umKFZsmU8EMEafJZKQkGS1trtWE5dtz4XmDbvLvUccAPn26ZC5i2o
+external addresses	m/84'/0'/3'/0	xpub6EvT4QFPRdkt2sji3QdLLZjkJQmk7G2y3umT99ceomKTXGYvZ5S9TLaGos6cEugXEuxS6s9kvSUj1Xvpiu65dn5yzK7CgdZLzXawpKC9Mpe
+m/84'/0'/3'/0/0     	bc1q9ph5l2gknjezcmzv84rnhu4df566jgputzef7l	0.00000000	new
+m/84'/0'/3'/0/1     	bc1qrlvmmxfuryr3mfhssjv45h0fl6s43g3vzrkwca	0.00000000	new
+m/84'/0'/3'/0/2     	bc1q40xkajgv9q42ve92zstwjc9v4jgauxme9su6uc	0.00000000	new
+m/84'/0'/3'/0/3     	bc1q38pfk8yfnu97v4mckkuk2dhk9u8geuyzu9c0hc	0.00000000	new
+m/84'/0'/3'/0/4     	bc1q2qzxyw56em9qdxc5z5s5xjz3j6s2qlzn3juvtu	0.00000000	new
+m/84'/0'/3'/0/5     	bc1qd2f8f3dau5pfjqu7dpuvt6fahj36w4rgl3xevr	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/0'/3'/1	
+internal addresses	m/84'/0'/3'/1	
 Balance:	0.00000000
 Balance for mixdepth 3:	0.00000000
-mixdepth	4	xpub6Crt4fcfpnrP9pZBowaYjC7595HXETHFw2YnqtukLnqpfb4PWbhWwt5jPdskLo8ZZbHBnccexTJUArt4V8C7592K3LvsrYkrvsQMJFiPx8z
-external addresses	m/49'/0'/4'/0	xpub6E37s5W8C63FxsgcpMbH43ssUi8CQzfo3PrfSWfn9jKTYZgR4QZBCymJ8TPw3Vx5zoQ7aSgkqrEKr1NEerZuN8okV7w1JhNg2hoYEWohtT4
-m/49'/0'/4'/0/0     	39n1tYKnPQ47bgCmsPWDHxuk2Mxo6GE4LZ	0.00000000	new
-m/49'/0'/4'/0/1     	3BoLqHDSHdMHyrSEAP31bBzzw45bFwZhy7	0.00000000	new
-m/49'/0'/4'/0/2     	31mo7D9UDmoStafYcyHpwV9sWY7oP9jUVQ	0.00000000	new
-m/49'/0'/4'/0/3     	3JMVGEyZ5nyJR9NVsfNY93c34xx9rEtzmq	0.00000000	new
-m/49'/0'/4'/0/4     	3AdD86dw59Q5EGHVupkHzR8pM4sW45bKqX	0.00000000	new
-m/49'/0'/4'/0/5     	3Gu7jTxcmh5dHJXgCE7Z5fdMgUWuenE2GE	0.00000000	new
+mixdepth	4	xpub6CMAJ67vZWVY7gT4oJQBMc1fhbausT57yNVLCLCMwaGed5spHKaQY1EMQxvL2vTgDfhEimuAy7bzBE1qx5uY6D7cpUjQtXPHpyJzFuUtQPN
+external addresses	m/84'/0'/4'/0	xpub6EQWpKsBTG3N9TFU4v6WtCcBJuLAeTZTcUwVJTxYUAsHeVPFdey4qT1dg4G7MqvnFFgHZDxqTo37S81UWUA2BqKKoTff1pcHTcSFzxyp5JG
+m/84'/0'/4'/0/0     	bc1qdpjh3ewm367jm5eazqdf8wfrm09py50wn47urs	0.00000000	new
+m/84'/0'/4'/0/1     	bc1q2x0fmtms5nr3wz3x3660c8wampg7t22e6m30t8	0.00000000	new
+m/84'/0'/4'/0/2     	bc1q23595yg3dkj8gd3jrgup0hyzslhzf9skrg50r5	0.00000000	new
+m/84'/0'/4'/0/3     	bc1qw48asjpkwm3k2w8cketqhrre0uwq9f7ypwzmxl	0.00000000	new
+m/84'/0'/4'/0/4     	bc1qf3wljw44utyv7qd0z57zvdkfl20y470mva0nes	0.00000000	new
+m/84'/0'/4'/0/5     	bc1qz3f80rtv0ux85d7rc06ldtvmpqyfx6ly48c9pa	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/0'/4'/1	
+internal addresses	m/84'/0'/4'/1	
 Balance:	0.00000000
 Balance for mixdepth 4:	0.00000000
 Total balance:	0.00000000
 
+
 ```
 
 The [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) xpub keys of each external branch are shown in case that is needed.
-The BIP32 derivation paths are also shown; for Joinmarket they are defined by [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki); for more on this see [below](#structure).
+The BIP32 derivation paths are also shown; for Joinmarket they are defined by [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki); for more on this see [below](#structure).
+
+If you set `native = false` in the `[POLICY]` section of your `~/.joinmarket/joinmarket.cfg` file, you will create a wallet with '3' addresses, which is p2sh wrapped segwit, instead of 'bc1' addresses; this uses BIP49 instead of BIP84, but is recoverable similarly (it is slightly more expensive in terms of tx fees; this was the default for Joinmarket pre-0.8.0).
 
 **Bitcoins should be sent to empty external addresses** (sometimes known as receive addresses). You'll notice in
 the above that while there are fields also for *internal addresses*, they are empty. That's because zero-balance internal addresses (also known as change addresses) are hidden by default. Using 'displayall' as the second argument will show all addresses in wallet, including empty used ones.
@@ -292,34 +295,34 @@ The `showseed` command will display the mnemonic for an existing wallet file, in
 <a name="privkeys" />
 
 ### Recovering Private Keys
-It is possible to recover a Joinmarket wallet in Trezor, Electrum or a number of other wallets, because it uses BIP49. But note that this is not ideal for privacy reasons (if you contact a server with your addresses), and also that because Joinmarket uses multiple accounts (=mixdepths), it may be more difficult than expected.
+It is possible to recover a Joinmarket wallet in Trezor, Electrum or a number of other wallets, because it uses BIP84. But note that this is not ideal for privacy reasons (if you contact a server with your addresses), and also that because Joinmarket uses multiple accounts (=mixdepths), it may be more difficult than expected.
 
 In difficult recovery situations, the `-p` command line flag can be used to print out private keys. Be very careful and consider this advanced usage:
 
 ```
    ...
    JM wallet
-   mixdepth	0	xpub6Crt4fcfpnrNxW45MzuV626z4fjddsuFGwRn1DXdpwnDkBMR12GKdBzW8euDqLSqRRv2eZmcJy8FSQLWEosC6wFZAZEv3FJMtvZ7W1CkQDi
-   external addresses	m/49'/0'/0'/0	xpub6FQFAscJgwd8MXCcAT8A1hgx9vigrgVoXVNTAKHj2aK3NR2Zf1CbFNXD8G8X9dspGXLY9eiEzBWaypr24owJ8r1aTKgMbUZoTnQ36bBwQB3
-   m/49'/0'/0'/0/0     	35SrGbUt9FpfA6xqKMpNaiTNyeuXagBi7Y	0.00000000	new	L4TDPLYgd77GcHWdLTCEhqqd3GM15Wp7PX7dw1YeyCeRb326hM8K
-   m/49'/0'/0'/0/1     	39hc2xfA6i9kWZdXMwH4Pd9dWUvDKocGd3	0.00000000	new	L26Y8v6fU3Nx8yaRhnkKAq3wi4TkaR5BgEXuDQNmR2nv2v7kVCd9
-   m/49'/0'/0'/0/2     	371MJcjFG4cEpz8RVdYb1L8PkA9tZYySGZ	0.00000000	new	KyLza1kdozCyGwt6rkwkhshaBHS8hhciB6mnneczrxtFYXTNeyYV
-   m/49'/0'/0'/0/3     	39eTy635wLCyBbphUTNnSB2V9LnvgdndNo	0.00000000	new	KyKugtGLD1RpA8ZURCPqJ74kWyh26JBnfPG1TtjzmBoS5E3wzWJK
-   m/49'/0'/0'/0/4     	33T8eNr54maWNZYQjoZwpLA2HN4UJB2Gk7RJaLVb	0.00000000	new	L3yjfeVyBCwTgUXpdPNKPK7RBQ6Xvc17LThvF3zKM2pQkWpEEcbo
-   m/49'/0'/0'/0/5     	35kJoTSxHtQbKUg2jvjDVqcY9iXoH2cTqD	0.00000000	new	L1QXi1KjVyTFQZGWeybjnnSN3sieYGeTQtTiYrwLJmJvhQ7EBzVL
-   Balance:	0.00000000
-   internal addresses	m/49'/0'/0'/1	
-   Balance:	0.00000000
-   Balance for mixdepth 0:	0.00000000
-   mixdepth	1	xpub6Crt4fcfpnrP2GZnVuT1qi9aw9cpCuXcnGEjAKhaoWAHq5M4pWX64DNio3XHirY5uTCZCi6vTmaLjU5YQXbVsTjyEdCE2zn3S2fzBNFjxs8
-   external addresses	m/49'/0'/1'/0	xpub6E2EnYy6yBXvE9U1nR5sSH58YiwbsKFZzaMkgMY5jrt2XFe4D5HVwikeTWyjuoczjQhJNezkwxrKAbUPMEDYHmbiaaiEAeXcL1yAcEAqtd7
-   m/49'/0'/1'/0/0     	3DdhEr9GCoMDVRLNGAwi9rb8F4HQX8newY	0.00000000	new	KzNosXo1sDfSJr7JcyqwYqGzTKTgAeQ9iEfiWA5YVE3Y6Tn3iCJs
+mixdepth	0	xpub6CMAJ67vZWVXuzjzYXUoJgWrmuvFRiqiUG4dwoXNFmJtpTH3WgviANNxGyZYo27zxbMuqhDDym6fnBxmGaYoxr6LHgNDo1eEghkXHTX4Jnx
+external addresses	m/84'/0'/0'/0	xpub6FFUn4AxdqFbnTH2fyPrkLreEkStNnMFb6R1PyAykZ4fzN3LzvkRB4VF8zWrks4WhJroMYeFbCcfeooEVM6n2YRy1EAYUvUxZe6JET6XYaW
+m/84'/0'/0'/0/0     	bc1qt493axn3wl4gzjxvfg03vkacre0m6f2gzfhv5t	0.00000000	new	Kyx53Zaq35EEPgCkA8bCf2GkmtMjSt261LznWJACb9NzwL8gE9zF
+m/84'/0'/0'/0/1     	bc1q2av9emer8k2j567yzv6ey6muqkuew4nh4rl85q	0.00000000	new	KwY2ZANdevBVhdV1KxuadFe9tWoHvZGB2o1qLzgWB9uDgaZQhfPj
+m/84'/0'/0'/0/2     	bc1qggpg0q7cn4mpe98t29wte2rfn2rzjtn3zdmqye	0.00000000	new	L5R9TD3c9NyV2Skjxhc58Gem3fhorfRrSTmMxd1JxEByFZifiuKX
+m/84'/0'/0'/0/3     	bc1qnnkqz8vcdjan7ztcpr68tyec7dw2yk8gjnr9ze	0.00000000	new	Kxmj5YQ6V4j4jMjr3uK8kHnaDLSCuLao8Yyvn2e5pS4SR4ueCEJ6
+m/84'/0'/0'/0/4     	bc1qud5s2ln88ktg83hkr6gv9s576zvt249qn2lepx	0.00000000	new	L2MZPx36cVTQCntDzwJF3AAYJroHEySCfBTG3o2bMCH1aDPjZS3y
+m/84'/0'/0'/0/5     	bc1qw0lhq7xlhj7ww2jdaknv23vcyhnz6qxg23uthy	0.00000000	new	L3zrKnqxYDRDHLS3ey4a3BYkMtYPKj2eNAruiJ8SSRDA9tqceHSZ
+Balance:	0.00000000
+internal addresses	m/84'/0'/0'/1	
+Balance:	0.00000000
+Balance for mixdepth 0:	0.00000000
+mixdepth	1	xpub6CMAJ67vZWVXyTJEaZndxZy9ACUufsmNuJwp9k5dHHKa22zQdsgALxXvMRFSwtvB8BRJzsd8h17pKqoAyHtkBrAoSqC9AUcXB1cPrSYATsZ
+external addresses	m/84'/0'/1'/0	xpub6FNSLcHuGnoUbaiKgwXuKpfcbR63ybrjaqHCudrma13NDqMfKgBtZRiPZaHjSbCY3P3cgEEcdzZCwrLKXeT5jeuk8erdSmBuRgJJzfNnVjj
+m/84'/0'/1'/0/0     	bc1qhrvm7kd9hxv3vxs8mw2arcrsl9w37a7d6ccwe4	0.00000000	new	KxpBewNsVCSBktvFUPhZLEaXB4pcMwpzWdaEZ1BYRtVK9waeNLbU
    .... etc
  ```
 
 The above method (`-p`) still requires synchronizing the JoinMarket wallet. In the case where this isn't possible, individual private keys can still be exported:
 
-        (jmvenv)$python wallet-tool.py -H "m/49'/0'/4'/0/0" wallet.jmdat dumpprivkey
+        (jmvenv)$python wallet-tool.py -H "m/84'/0'/4'/0/0" wallet.jmdat dumpprivkey
         Enter wallet decryption passphrase: 
         L1YPrEGNMwwfnvzBfAiPiPC4zb5s6Urpqnk88zNHgsYLHrq2Umss
 
@@ -381,11 +384,11 @@ An example of the different identities being used is to not leak a lower limit o
 #### BIP32 Structure
 
 m - generated from seed
-m/49' - purpose: this is specified by [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki) for P2SH-wrapped segwit P2WPKH addresses
-m/49'/0' - coin type 0 : see [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) which specifies this as the coin type for Bitcoin mainnet
-m/49'/0'/n' - nth mixing depth (nth account) (as per BIP44)
-m/49'/0'/n'/0/k - kth external address, for mixing depth n
-m/49'/0'/n'/1/k - kth internal address, for mixing depth n
+m/84' - purpose: this is specified by [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki) for p2wpkh native segwit addresses
+m/84'/0' - coin type 0 : see [BIP44](https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki) which specifies this as the coin type for Bitcoin mainnet
+m/84'/0'/n' - nth mixing depth (nth account) (as per BIP44)
+m/84'/0'/n'/0/k - kth external address, for mixing depth n
+m/84'/0'/n'/1/k - kth internal address, for mixing depth n
 
 Note that the quote (') indicates hardened derivation. See [BIP32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki) for technical details.
 

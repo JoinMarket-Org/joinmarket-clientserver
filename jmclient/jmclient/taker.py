@@ -506,8 +506,19 @@ class Taker(object):
         self.utxo_tx = [u for u in sum(self.utxos.values(), [])]
         self.outputs.append({'address': self.coinjoin_address(),
                              'value': self.cjamount})
+        # pre-Nov-2020/v0.8.0: transactions used ver 1 and nlocktime 0
+        # so only the new "pit" (using native segwit) will use the updated
+        # version 2 and nlocktime ~ current block as per normal payments.
+        # TODO makers do not check this; while there is no security risk,
+        # it might be better for them to sanity check.
+        if self.wallet_service.get_txtype() == "p2wpkh":
+            n_version = 2
+            locktime = compute_tx_locktime()
+        else:
+            n_version = 1
+            locktime = 0
         self.latest_tx = btc.make_shuffled_tx(self.utxo_tx, self.outputs,
-                                              version=2, locktime=compute_tx_locktime())
+                                              version=n_version, locktime=locktime)
         jlog.info('obtained tx\n' + btc.human_readable_transaction(
             self.latest_tx))
 
