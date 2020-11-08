@@ -618,6 +618,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
                 return False
     elif method == 'recover':
         words, mnemonic_extension = enter_seed_callback()
+        words = words.strip()
         mnemonic_extension = mnemonic_extension and mnemonic_extension.strip()
         if not words:
             return False
