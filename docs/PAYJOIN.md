@@ -16,13 +16,13 @@ For that, see [this](https://joinmarket.me/blog/blog/payjoin/) post.
 
 4. [Doing a PayJoin payment](#doing)
 
-   a. [Using BIP78 payjoins to pay a merchant](#bip78)
+   a. [Using BIP78 payjoins to pay a merchant or other user's wallet](#bip78)
 
    b. [Using Joinmarket-wallet-to-Joinmarket-wallet payjoins](#jmtojm)
 
    c. [About fees](#fees)
 
-5. [What if I wanted bech32 native segwit addresses?](#native)
+5. [What if I wanted p2sh segwit addresses?](#p2sh)
 
 6. [Receiving a BIP78 Payjoin payment](#receiving)
 
@@ -117,10 +117,10 @@ So now we know that, let's continue doing the `generate` command to make a new w
 
 Continue/complete the wallet generation with the above (`generate`) method.
 
-(But wait again! Before you finish: want a bech32 wallet? you probably don't,
-but read [this](#what-if-i-wanted-bech32-native-segwit-addresses) if you do.)
+(But wait again! Before you finish: want a p2sh segwit wallet? you probably don't,
+but read [this](#what-if-i-wanted-p2sh-segwit-addresses) if you do.)
 
-The wallet you create is (if not bech32) BIP49 by default, using BIP39 12 word seed,
+The wallet you create is (if not p2sh) BIP84 by default, using BIP39 12 word seed,
 mnemonic extension optional (simplest to leave it out if you're not sure).
 
 Once the `generate` method run has completed, successfully, you need to look at the wallet contents. Use
@@ -132,8 +132,7 @@ python wallet-tool.py wallet-name-you-chose.dat [display]
 
 ("display" is optional because default; use `python wallet-tool.py -h` to see all possible methods).
 
-Below is [an example](#sample) of what the wallet looks like (although
-yours will be mainnet, so the addresses will start with '3' not '2').
+Below is [an example](#sample) of what the wallet looks like.
 
 Joinmarket by default uses *5* accounts, not only 1 as some other wallets (e.g. Electrum), this is to help
 with coin isolation. Try to move coins from one account to another *only* via coinjoins; or, you can just
@@ -143,7 +142,7 @@ that if you don't bother to do anything special, the coins in those two mixdepth
 **Fund** the wallet by choosing one or more addresses in the *external* section of the first account (called
 "Mixdepth 0" here). When you fund, fund to the external addresses. The internals will be used for change.
 
-(The new standard (BIP49) *should* be compatible with TREZOR, Ledger, Electrum, Samourai and some others,
+(The new standard (BIP84) *should* be compatible with TREZOR, Ledger, Electrum, Samourai and some others,
 including the 12 word seed, although consider privacy concerns when sending addresses to remote servers!).
 
 <a name="doing" />
@@ -165,9 +164,9 @@ The process here is to use the syntax of sendpayment.py:
 Notes on this:
 * Payjoins BIP78 style are done using the `sendpayment` script, or by entering the BIP21 URI into the "Recipient" field in JoinmarketQt.
 * They are done using BIP21 URIs. These can be copy/pasted from a website (e.g. a btcpayserver invoice page), note that double quotes are required (on the command line) because the string contains special characters. Note also that you must see `pj=` in the URI, otherwise payjoin is not supported by that server.
-* If the url in `pj=` is `****.onion` it means you must be using Tor, remember to have Tor running on your system and change the configuration (see below) for sock5 port if necessary. If you are running the Tor browser the port is 9150 instead of 9050.
+* If the url in `pj=` is `****.onion` it means you must be using Tor, remember to have Tor running on your system and change the configuration (see below) for socks5 port if necessary. If you are running the Tor browser the port is 9150 instead of 9050.
 * Don't forget to specify the mixdepth you are spending from with `-m 0`. The payment amount is of course in the URI, along with the address.
-* Pay attention to address type; this point is complicated, but: some servers will not be able to match the address type of the sender, and so won't be able to construct sensible Payjoin transactions. In that case they may fallback to the non-Payjoin payment (which is not a disaster). If you want to do a Payjoin with a server that only supports bech32, you will have to create a new Joinmarket wallet, specifying `native=true` in the `POLICY` section of `joinmarket.cfg` before you generate the wallet.
+* Pay attention to address type; this point is complicated, but: some servers will not be able to match the address type of the sender, and so won't be able to construct sensible Payjoin transactions. In that case they may fallback to the non-Payjoin payment (which is not a disaster). If you want to do a Payjoin with a server that only supports p2sh, not bech32, you will have to create a new Joinmarket wallet, specifying `native=false` in the `POLICY` section of `joinmarket.cfg` before you generate the wallet.
 
 Before you do such coinjoins, you may want to:
 * regenerate `joinmarket.cfg`. First, rename your current `joinmarket.cfg` (in `~/.joinmarket` on Linux), then run a script once to have it regenerated from defaults. Then reapply your custom changes.
@@ -203,6 +202,11 @@ max_additional_fee_contribution = default
 # transaction; note it is decimal, not integer.
 min_fee_rate = 1.1
 
+# for payjoin onion service creation, the tor control configuration:
+tor_control_host = localhost
+# or, to use a UNIX socket
+# control_host = unix:/var/run/tor/control
+tor_control_port = 9051
 
 # for payjoins to hidden service endpoints, the socks5 configuration:
 onion_socks5_host = localhost
@@ -244,31 +248,29 @@ BIP78 itself has various controls around fees - essentially it tries to let the 
 
 As a spender in the BIP78 protocol, you will usually see the following: a small reduction in the size of your change output as a result of the extra 1 input. Unless the payment is very small, this probably won't be significant.
 
-<a name="native" />
+<a name="p2sh" />
 
-#### What if I wanted bech32 native segwit addresses?
+#### What if I wanted p2sh segwit addresses?
 
 You can do this, but bear in mind: PayJoin only gives its full effect if you and your receiver are using the same kind of addresses; so do this only if you and your receiver(s)/sender(s) agree on it - most BIP78 receivers at least for now will only engage in the protocol if they can provide inputs of the same type as yours.
 
 As was noted in the BIP78 section, it may be therefore that you *need* to do this (albeit that the worst that can happen is a fallback to non-payjoin payment, which isn't a disaster).
-
-Also note: you *cannot* do Joinmarket coinjoins if you choose a bech32 wallet (this may change in future, see [this PR](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/656)).
 
 In the configuration file `joinmarket.cfg` (which was created in the preparatory step above), go to the
 POLICY section and set:
 
 ```
 [POLICY]
-native = true
+native = false
 ```
 
 Note that this must be done *before* generating the wallet, as
 the wallet internally, of course, stores which type of addresses it manages, and it can only be of two
-types currently (ignoring legacy upgrades): bech32 or p2sh-segwit (starting with '3'), the latter being
-the default (and the one used in Joinmarket itself).
+types currently (ignoring legacy upgrades): bech32 or p2sh-segwit (starting with '3'), the former being
+the default in Joinmarket as of 0.8.0+.
 
-Note that the bech32 style wallet is written to conform to [BIP84](https://github.com/bitcoin/bips/blob/master/bip-0084.mediawiki),
-analogous to the BIP49 case for p2sh.
+Note that the p2sh-wrapped-segwit style wallet is written to conform to [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0040.mediawiki),
+analogous to the BIP84 case for native/bech32.
 
 <a name="receiving" />
 
@@ -296,7 +298,7 @@ bitcoin:bc1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx?amount=0.32000000&pj=http://p53l
 Keep this process running until the payment is received.
 ```
 
-... which should be self explanatory. The sender may be using Joinmarket, or a different wallet that supports Payjoin, like Wasabi. As previously noted, Payjoins will not work if the address type in use by the two wallets is different, so for Wasabi it would be necessary to use a bech32 Joinmarket wallet (as was discussed [here](#native)).
+... which should be self explanatory. The sender may be using Joinmarket, or a different wallet that supports Payjoin, like Wasabi. As previously noted, Payjoins will not work if the address type in use by the two wallets is different, so for Wasabi it would be necessary to use a bech32 Joinmarket wallet (the default).
 
 When the payment goes through you will see a chunk of logging text (most of which is serialized PSBTs being exchanged). If Payjoin was effected as intended, you will see:
 
@@ -383,73 +385,70 @@ https://video.autizmo.xyz/videos/watch/7081ae10-dce0-491e-9717-389ccc3aad0d
 
 <a name="sample" />
 
-#### Sample testnet wallet display output
+#### Sample wallet display output
 
 ```
 JM wallet
-mixdepth	0	tpubDC4qk8DsyiFYY85uktoKaiR1srWLSNRxZ2A4MXYg5LHy9XHKSTcF2tNtFpGz4LzXPcDH1kNkiww7MwipNqNSps6HSyjPTqTB18J7C4jrFMi
-external addresses	m/49'/1'/0'/0	tpubDFFCJfi4y6xPKquA6H6aP5EBZPupb6A9tJz8sErW8GN6D7D3s9MABPt1BczpQ3n8rBv7VLSVpu3ddvb7xEKMfNX2sMZ7XxiBD4J6kpfF7Ag
-m/49'/1'/0'/0/0     	2NBT6npWKxBEG8fkDjSFLDZJ7fNda4kYnAx	2.00000000	deposit
-m/49'/1'/0'/0/1     	2Mt7dBFikYwCQTDU129VTF9ahKWxeJjEUuF	0.00000000	new
-m/49'/1'/0'/0/2     	2N94bte8xWojSaX6yq2th3R3mUhvKzZqDJ9	0.00000000	new
-m/49'/1'/0'/0/3     	2MvSBTkCKwPHLdNPRXbovPXUM8oAfjUFPYc	0.00000000	new
-m/49'/1'/0'/0/4     	2MzVn3Nc3RRyN7shiVajA225xCTcaGn1PRw	0.00000000	new
-m/49'/1'/0'/0/5     	2MxJwv2dmkMupDuBLsEMa4HgG6GAieWHiXr	0.00000000	new
-m/49'/1'/0'/0/6     	2MwhdkeAcnCkam1LdVBQJ7un8syyoYB1HVH	0.00000000	new
-Balance:	2.00000000
-internal addresses	m/49'/1'/0'/1	
+mixdepth	0	xpub6CMAJ67vZWVXuzjzYXUoJgWrmuvFRiqiUG4dwoXNFmJtpTH3WgviANNxGyZYo27zxbMuqhDDym6fnBxmGaYoxr6LHgNDo1eEghkXHTX4Jnx
+external addresses	m/84'/0'/0'/0	xpub6FFUn4AxdqFbnTH2fyPrkLreEkStNnMFb6R1PyAykZ4fzN3LzvkRB4VF8zWrks4WhJroMYeFbCcfeooEVM6n2YRy1EAYUvUxZe6JET6XYaW
+m/84'/0'/0'/0/0     	bc1qt493axn3wl4gzjxvfg03vkacre0m6f2gzfhv5t	0.00000000	new
+m/84'/0'/0'/0/1     	bc1q2av9emer8k2j567yzv6ey6muqkuew4nh4rl85q	0.00000000	new
+m/84'/0'/0'/0/2     	bc1qggpg0q7cn4mpe98t29wte2rfn2rzjtn3zdmqye	0.00000000	new
+m/84'/0'/0'/0/3     	bc1qnnkqz8vcdjan7ztcpr68tyec7dw2yk8gjnr9ze	0.00000000	new
+m/84'/0'/0'/0/4     	bc1qud5s2ln88ktg83hkr6gv9s576zvt249qn2lepx	0.00000000	new
+m/84'/0'/0'/0/5     	bc1qw0lhq7xlhj7ww2jdaknv23vcyhnz6qxg23uthy	0.00000000	new
 Balance:	0.00000000
-Balance for mixdepth 0:	2.00000000
-mixdepth	1	tpubDC4qk8DsyiFYba4t8cSpadjoLYUdPwV5dAtBpzpPzgaDKPfSP42xNJq48QUKEVGHQRfFej6DCUjQqCKD8TtcqN932f27jmyjXaxVMpksos4
-external addresses	m/49'/1'/1'/0	tpubDEnijtftQiJpVgezdRNyKVVWGr9xKV9RgPQWHYDHpQ5utdHF7Sqh7xMUyNHcpdeKcKdQ753hFbyccRZNEHTUkHLnDaVqoXRo9XkATPtHhCp
-m/49'/1'/1'/0/0     	2NEsN45waxdkqjP5EnsP3K8YjMeZJh2RLx6	2.00000000	deposit
-m/49'/1'/1'/0/1     	2Mzhewfg6fr5jR122txdTShmLi7rH9ZscTm	2.00000000	deposit
-m/49'/1'/1'/0/2     	2N1vn44cv5m6PhRJMbZ1mR8dAJgHybnsT5u	2.00000000	deposit
-m/49'/1'/1'/0/3     	2NFwBsHkQ8mxCJWRJhkxAY28Tj8YuUJio4t	0.00000000	new
-m/49'/1'/1'/0/4     	2NA1YAa2VqHMSH9b2GYGBA8waUMxZTZwW5Z	0.00000000	new
-m/49'/1'/1'/0/5     	2MvLLp4cnP8ZVuWWDZzRCLFM2YcTfo9ALec	0.00000000	new
-m/49'/1'/1'/0/6     	2Mux3ZUHGmaMBiMsPDbQS56gRGGN26jMGzd	0.00000000	new
-m/49'/1'/1'/0/7     	2N3MWFiSHyRY3QLZgb63Vfcp4BGSFs6Y3bV	0.00000000	new
-m/49'/1'/1'/0/8     	2N3z5zKJPTfPc41esRRvMvjdKaSv6D6jqvY	0.00000000	new
-Balance:	6.00000000
-internal addresses	m/49'/1'/1'/1	
+internal addresses	m/84'/0'/0'/1	
 Balance:	0.00000000
-Balance for mixdepth 1:	6.00000000
-mixdepth	2	tpubDC4qk8DsyiFYdQBNNzo3vHq63Gag4eUJT29UaTVNHM89hJk6CshZ9WGemQNDh2LGDXCud8anAQ4UR7n7tSWiJtviR8WJuTB78ZbEHpFNcLH
-external addresses	m/49'/1'/2'/0	tpubDEY4sVvs1TX82DftUUB51Agg4Ln7BksoRGESNWtrWTDntV2fCs5wNrqiPENcXBAEHtnaY9ZaK48PRFEw1GLhcTxdDNHUyuqDd2YyNYKoVAo
-m/49'/1'/2'/0/0     	2NBSnSB3nVN4TA7EcNkhcRsmrdyXSQepDFE	0.00000000	new
-m/49'/1'/2'/0/1     	2NFtrtpdvmCRXMy1fV8w1eLWpF8MC3nre7n	0.00000000	new
-m/49'/1'/2'/0/2     	2NFHJvGLWU7KuNkbo8rzPwfGtCS5RtNDw7c	0.00000000	new
-m/49'/1'/2'/0/3     	2NGJcmeScFnTSzZzSRNHiLL8zjYeA9ngx5A	0.00000000	new
-m/49'/1'/2'/0/4     	2NBUAxKrNQtp49xYYHh9f6YHfo2FvYBP1NL	0.00000000	new
-m/49'/1'/2'/0/5     	2MyQfzKyPTfYT4vTe2d3fyGvQMoGX6GAhcr	0.00000000	new
+Balance for mixdepth 0:	0.00000000
+mixdepth	1	xpub6CMAJ67vZWVXyTJEaZndxZy9ACUufsmNuJwp9k5dHHKa22zQdsgALxXvMRFSwtvB8BRJzsd8h17pKqoAyHtkBrAoSqC9AUcXB1cPrSYATsZ
+external addresses	m/84'/0'/1'/0	xpub6FNSLcHuGnoUbaiKgwXuKpfcbR63ybrjaqHCudrma13NDqMfKgBtZRiPZaHjSbCY3P3cgEEcdzZCwrLKXeT5jeuk8erdSmBuRgJJzfNnVjj
+m/84'/0'/1'/0/0     	bc1qhrvm7kd9hxv3vxs8mw2arcrsl9w37a7d6ccwe4	0.00000000	new
+m/84'/0'/1'/0/1     	bc1q0sccdfrsnjtgfytul5zulst46wxgahtcf44tcw	0.00000000	new
+m/84'/0'/1'/0/2     	bc1qst6p8hr8yg280zcpvvkxahv42ecvdzq63t75su	0.00000000	new
+m/84'/0'/1'/0/3     	bc1q0gkarwg8y3nc2mcusuaw9zsn3gvzwe8mp3ac9h	0.00000000	new
+m/84'/0'/1'/0/4     	bc1qkf5wlcla2qlg5g5sym9gk6q4l4k5c98vvyj33u	0.00000000	new
+m/84'/0'/1'/0/5     	bc1qz6zptlh3cqty2tqyspjk6ksqelnvrrrvmyqa5v	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/1'/2'/1	
+internal addresses	m/84'/0'/1'/1	
+Balance:	0.00000000
+Balance for mixdepth 1:	0.00000000
+mixdepth	2	xpub6CMAJ67vZWVY2cq5fmVxXw92fcgTchphGNFxweSiupYH1xYfjBiK6dj5wEEVAQeA4JcGDQGm2xcuz2UsMnDkzVmi2ESZ3xey63mQMY4x2w2
+external addresses	m/84'/0'/2'/0	xpub6DqkbMG3tj2oixGYniEQTFamLCHTZx9CeAbUdBttiGuYwgfGZbrLMor8LWeJBUqTpsa81JcJqAUXuDxhXdLpKDxJAEqKMqPgJyXstj5dp3o
+m/84'/0'/2'/0/0     	bc1qwtdgg928wma8jz32upkje7e4cegtef7yrv233l	0.00000000	new
+m/84'/0'/2'/0/1     	bc1qhkuk2gny4gumrxcaw999uq3jm3fjrjvcwz7lz3	0.00000000	new
+m/84'/0'/2'/0/2     	bc1qvu753lkltc8akfasclnq89tdv8yylu2alyg76y	0.00000000	new
+m/84'/0'/2'/0/3     	bc1qal3r040k26cw2f08337huzcf00hrnws5rhfrz3	0.00000000	new
+m/84'/0'/2'/0/4     	bc1qpv4nm7wwtxesgwsr0g0slxls33u0w02gqx2euk	0.00000000	new
+m/84'/0'/2'/0/5     	bc1qk3ekjzlvw3uythw738z7nvwe2sg93w2rtuy6ml	0.00000000	new
+Balance:	0.00000000
+internal addresses	m/84'/0'/2'/1	
 Balance:	0.00000000
 Balance for mixdepth 2:	0.00000000
-mixdepth	3	tpubDC4qk8DsyiFYgXoNb3UmiaG2veSTdrLCxEBUsTEQnDgQLCaC8Yg1z1Bcwn4ZQivNhgBxHEWH7j8hbRx7rab2kYLy4r4PXxor4Ho3A5AJvVH
-external addresses	m/49'/1'/3'/0	tpubDEnwog2atqaSLe9xVTTdqxY5ynysqeQPsXuaKrZ6HaYCJcFPY7LmhepmwFTJYTkqf1w5jgLQmoZvREyk9qiq4P2A2fSGTyj62WUE4VjXK76
-m/49'/1'/3'/0/0     	2MtckYQLD6bJZiPXffW7m5rryMao7u4ktng	0.00000000	new
-m/49'/1'/3'/0/1     	2N9KrH5Bi35ZH3DVUwD67eh8MtQD1LLhgCa	0.00000000	new
-m/49'/1'/3'/0/2     	2N6zLabMeXTXfyzQttr6PBV2JdbZPrVd9i8	0.00000000	new
-m/49'/1'/3'/0/3     	2MzYTWMjXcv4NBce5PKcDAceT7gMuYrGovc	0.00000000	new
-m/49'/1'/3'/0/4     	2N6tYykyCZLtvP1RJZvgZ9a7c6xbQaqpE66	0.00000000	new
-m/49'/1'/3'/0/5     	2N2o3eJ9h2BC5q3TzPVqhn9gmgWBjaL67Hu	0.00000000	new
+mixdepth	3	xpub6CMAJ67vZWVY3uty61M6jeGheGU5ni5mQmqMW2QLQbEa8ZQXuBw1K2umKFZsmU8EMEafJZKQkGS1trtWE5dtz4XmDbvLvUccAPn26ZC5i2o
+external addresses	m/84'/0'/3'/0	xpub6EvT4QFPRdkt2sji3QdLLZjkJQmk7G2y3umT99ceomKTXGYvZ5S9TLaGos6cEugXEuxS6s9kvSUj1Xvpiu65dn5yzK7CgdZLzXawpKC9Mpe
+m/84'/0'/3'/0/0     	bc1q9ph5l2gknjezcmzv84rnhu4df566jgputzef7l	0.00000000	new
+m/84'/0'/3'/0/1     	bc1qrlvmmxfuryr3mfhssjv45h0fl6s43g3vzrkwca	0.00000000	new
+m/84'/0'/3'/0/2     	bc1q40xkajgv9q42ve92zstwjc9v4jgauxme9su6uc	0.00000000	new
+m/84'/0'/3'/0/3     	bc1q38pfk8yfnu97v4mckkuk2dhk9u8geuyzu9c0hc	0.00000000	new
+m/84'/0'/3'/0/4     	bc1q2qzxyw56em9qdxc5z5s5xjz3j6s2qlzn3juvtu	0.00000000	new
+m/84'/0'/3'/0/5     	bc1qd2f8f3dau5pfjqu7dpuvt6fahj36w4rgl3xevr	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/1'/3'/1	
+internal addresses	m/84'/0'/3'/1	
 Balance:	0.00000000
 Balance for mixdepth 3:	0.00000000
-mixdepth	4	tpubDC4qk8DsyiFYj7GF4LV97c9f7Yff1mrwnxkpi5twGSLmesmPyM4xXBWsxMw9ZLFycVVC4TeeX1ESjNP4rVVrJEDVCm7C3UMvZH9vs6srsAi
-external addresses	m/49'/1'/4'/0	tpubDFA3XKgf2ZiusZHr4we5utkrQ9toN5s7QGKndNMrdQFQfjQU6yiiMT65tmXFCPduSc7muLFegAi36pv4LCdRnhpRYp2QUpm1izyrboWSjzV
-m/49'/1'/4'/0/0     	2N18HGRJyaaUwLQFTyfjqZoXGCV8Yv5rbwD	0.00000000	new
-m/49'/1'/4'/0/1     	2Mt94Y4iguYLkBAhsXT5a1P8VMTQ4kxdZJD	0.00000000	new
-m/49'/1'/4'/0/2     	2N5vYyG1gx8ht2JCKkuVqow3Qn51cHrwaxh	0.00000000	new
-m/49'/1'/4'/0/3     	2N44ZtKYu21p1qN4DBoTCYZL2sms6YBeWVW	0.00000000	new
-m/49'/1'/4'/0/4     	2NF9p2b2PfHvXiPmPP5JPq4CRxKn47LPZrW	0.00000000	new
-m/49'/1'/4'/0/5     	2MwgfAvbPc4ASD84WdBYo2FM5bXBVG1rRG9	0.00000000	new
+mixdepth	4	xpub6CMAJ67vZWVY7gT4oJQBMc1fhbausT57yNVLCLCMwaGed5spHKaQY1EMQxvL2vTgDfhEimuAy7bzBE1qx5uY6D7cpUjQtXPHpyJzFuUtQPN
+external addresses	m/84'/0'/4'/0	xpub6EQWpKsBTG3N9TFU4v6WtCcBJuLAeTZTcUwVJTxYUAsHeVPFdey4qT1dg4G7MqvnFFgHZDxqTo37S81UWUA2BqKKoTff1pcHTcSFzxyp5JG
+m/84'/0'/4'/0/0     	bc1qdpjh3ewm367jm5eazqdf8wfrm09py50wn47urs	0.00000000	new
+m/84'/0'/4'/0/1     	bc1q2x0fmtms5nr3wz3x3660c8wampg7t22e6m30t8	0.00000000	new
+m/84'/0'/4'/0/2     	bc1q23595yg3dkj8gd3jrgup0hyzslhzf9skrg50r5	0.00000000	new
+m/84'/0'/4'/0/3     	bc1qw48asjpkwm3k2w8cketqhrre0uwq9f7ypwzmxl	0.00000000	new
+m/84'/0'/4'/0/4     	bc1qf3wljw44utyv7qd0z57zvdkfl20y470mva0nes	0.00000000	new
+m/84'/0'/4'/0/5     	bc1qz3f80rtv0ux85d7rc06ldtvmpqyfx6ly48c9pa	0.00000000	new
 Balance:	0.00000000
-internal addresses	m/49'/1'/4'/1	
+internal addresses	m/84'/0'/4'/1	
 Balance:	0.00000000
 Balance for mixdepth 4:	0.00000000
-Total balance:	8.00000000
+Total balance:	0.00000000
+
 ```

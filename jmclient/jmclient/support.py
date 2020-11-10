@@ -174,9 +174,9 @@ def select_one_utxo(unspent, value):
 
 
 def calc_cj_fee(ordertype, cjfee, cj_amount):
-    if ordertype in ['swabsoffer', 'absoffer']:
+    if ordertype in ['sw0absoffer', 'swabsoffer', 'absoffer']:
         real_cjfee = int(cjfee)
-    elif ordertype in ['swreloffer', 'reloffer']:
+    elif ordertype in ['sw0reloffer', 'swreloffer', 'reloffer']:
         real_cjfee = int((Decimal(cjfee) * Decimal(cj_amount)).quantize(Decimal(
             1)))
     else:
@@ -235,7 +235,7 @@ def _get_is_within_max_limits(max_fee_rel, max_fee_abs, cjvalue):
 
 
 def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
-                  pick=False, allowed_types=["swreloffer", "swabsoffer"],
+                  pick=False, allowed_types=["sw0reloffer", "sw0absoffer"],
                   max_cj_fee=(1, float('inf'))):
     is_within_max_limits = _get_is_within_max_limits(
         max_cj_fee[0], max_cj_fee[1], cj_amount)
@@ -301,7 +301,7 @@ def choose_sweep_orders(offers,
                         n,
                         chooseOrdersBy,
                         ignored_makers=None,
-                        allowed_types=['swreloffer', 'swabsoffer'],
+                        allowed_types=['sw0reloffer', 'sw0absoffer'],
                         max_cj_fee=(1, float('inf'))):
     """
     choose an order given that we want to be left with no change
@@ -325,9 +325,9 @@ def choose_sweep_orders(offers,
         sumtxfee_contribution = 0
         for order in ordercombo:
             sumtxfee_contribution += order['txfee']
-            if order['ordertype'] in ['swabsoffer', 'absoffer']:
+            if order['ordertype'] in ['sw0absoffer', 'swabsoffer', 'absoffer']:
                 sumabsfee += int(order['cjfee'])
-            elif order['ordertype'] in ['swreloffer', 'reloffer']:
+            elif order['ordertype'] in ['sw0reloffer', 'swreloffer', 'reloffer']:
                 sumrelfee += Decimal(order['cjfee'])
             #this is unreachable since calc_cj_fee must already have been called
             else: #pragma: no cover

@@ -11,7 +11,7 @@ data_dir = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 sys.path.insert(0, os.path.join(data_dir))
 
 from jmbase import get_log
-from jmclient import open_test_wallet_maybe, BIP32Wallet, SegwitLegacyWallet, \
+from jmclient import open_test_wallet_maybe, BIP32Wallet, SegwitWallet, \
     estimate_tx_fee, jm_single, WalletService
 import jmbitcoin as btc
 from jmbase import chunks
@@ -64,7 +64,7 @@ def make_wallets(n,
                  fixed_seeds=None,
                  test_wallet=False,
                  passwords=None,
-                 walletclass=SegwitLegacyWallet,
+                 walletclass=SegwitWallet,
                  mixdepths=5):
     '''n: number of wallets to be created
        wallet_structure: array of n arrays , each subarray

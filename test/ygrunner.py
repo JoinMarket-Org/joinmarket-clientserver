@@ -120,7 +120,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     txfee = 1000
     cjfee_a = 4200
     cjfee_r = '0.001'
-    ordertype = 'swreloffer'
+    ordertype = 'sw0reloffer'
     minsize = 100000
     ygclass = YieldGeneratorBasic
     if malicious:

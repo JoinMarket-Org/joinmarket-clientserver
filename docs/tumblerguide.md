@@ -204,7 +204,7 @@ This tweaking process is repeated as many times as necessary until the transacti
 
 ## How often do retries occur?
 
-This is hardcoded currently to `20 * maker_timeout_sec`, the figure 20 being hardcoded is due to me not wanting yet another config variable, although that could be done of course. This is the rate at which the stall monitor wakes up in the client protocol, the setting is in the code [here](https://github.com/AdamISZ/joinmarket-clientserver/blob/master/jmclient/jmclient/client_protocol.py#L87). Note that by default this is fairly slow, 10 minutes.
+This is hardcoded currently to `20 * maker_timeout_sec`, the figure 20 being hardcoded is due to me not wanting yet another config variable, although that could be done of course. This is the rate at which the stall monitor wakes up in the client protocol, the setting is in the code [here](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/acc00fc6f5a1cd1f21052c5af06cd06e78c6edda/jmclient/jmclient/client_protocol.py#L359-L363). Note that by default this is fairly slow, 10 minutes.
 
 <a name="restarts" />
 
@@ -221,7 +221,7 @@ This can of course be implemented in, say, a shell script (just add --restart to
 ## Possible failure vectors - crash or shutdown
 
 * **Failure to source commitment** - if there is no *unused* PoDLE commitment available, the script terminates as even with tweaks this condition will not change. This *could* be changed to allow dynamic update of the `commitments.json` file (adding external utxos), but I didn't judge that to be the right choice for now. On the other hand, as was noted above, if the commitments are simply too young, the script will keep tweaking and retrying. I recommend using the `add-utxo.py` script to prepare external commitments in advance of the run for more robustness, although it shouldn't be necessary for success.
-* **Network errors** - this is the biggest unknown for now; since this has not been tested in a sufficiently wide variety of network conditions, it's possible that the IRC reconnection fails in case of drop, or perhaps even crashes.
+* **Network errors** - this should not cause a problem. Joinmarket handles network interruptions to its IRC communications quite robustly.
 * **Insufficient liquidity**. This is a tricky one - particulary for sweeps, if the number of potential counterparties is low, and if some of them are deliberately non-responsive, you may run out of counterparties. Currently the script will simply keep retrying indefinitely. **Use a reasonably high -N value** - I think going much below 5 is starting to introduce risk, so values like `-N 6 1` should be OK, but `-N 3 1` is dubious. Force-quitting after a very long timeout is conceivable, but obviously a slightly tricky/impractical proposition.
 
 Note that various other failure vectors will not actually cause a problem, such as the infamous "txn-mempool-conflict"; tweaking handles these cases.

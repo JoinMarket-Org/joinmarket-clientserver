@@ -156,29 +156,19 @@ class Maker(object):
         success, msg = self.wallet_service.sign_tx(tx, our_inputs)
         assert success, msg
         for index in our_inputs:
-            sigmsg = tx.vin[index].scriptSig
-            if tx.has_witness():
-                # Note that this flag only implies that the transaction
-                # *as a whole* is using segwit serialization; it doesn't
-                # imply that this specific input is segwit type (to be
-                # fully general, we allow that even our own wallet's
-                # inputs might be of mixed type). So, we catch the EngineError
-                # which is thrown by non-segwit types. This way the sigmsg
-                # will only contain the scriptCode field if the wallet object
-                # decides it's necessary/appropriate for this specific input
-                # If it is segwit, we prepend the witness data since we want
-                # (sig, pub, witnessprogram=scriptSig - note we could, better,
-                # pass scriptCode here, but that is not backwards compatible,
-                # as the taker uses this third field and inserts it into the
-                # transaction scriptSig), else (non-sw) the !sig message remains
-                # unchanged as (sig, pub).
-                try:
-                    sig, pub = [a for a in iter(tx.wit.vtxinwit[index].scriptWitness)]
-                    scriptCode = btc.pubkey_to_p2wpkh_script(pub)
-                    sigmsg = btc.CScript([sig]) + btc.CScript(pub) + scriptCode
-                except Exception as e:
-                    #the sigmsg was already set before the segwit check
-                    pass
+            # The second case here is kept for backwards compatibility.
+            if self.wallet_service.get_txtype() == 'p2pkh':
+                sigmsg = tx.vin[index].scriptSig
+            elif self.wallet_service.get_txtype() == 'p2sh-p2wpkh':
+                sig, pub = [a for a in iter(tx.wit.vtxinwit[index].scriptWitness)]
+                scriptCode = btc.pubkey_to_p2wpkh_script(pub)
+                sigmsg = btc.CScript([sig]) + btc.CScript(pub) + scriptCode
+            elif self.wallet_service.get_txtype() == 'p2wpkh':
+                sig, pub = [a for a in iter(tx.wit.vtxinwit[index].scriptWitness)]
+                sigmsg = btc.CScript([sig]) + btc.CScript(pub)
+            else:
+                jlog.error("Taker has unknown wallet type")
+                sys.exit(EXIT_FAILURE)
             sigs.append(base64.b64encode(sigmsg).decode('ascii'))
         return (True, sigs)
 

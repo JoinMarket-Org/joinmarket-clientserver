@@ -11,7 +11,7 @@ from twisted.internet import reactor
 
 from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single,\
-    YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet,\
+    YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet, SegwitWallet,\
     NO_ROUNDING
 from jmclient.podle import set_commitment_file
 from commontest import make_wallets, default_max_cj_fee
@@ -118,7 +118,7 @@ def do_tx_signing(taker, makers, active_orders, txdata):
     return taker_final_result
 
 
-@pytest.mark.parametrize('wallet_cls', (LegacyWallet, SegwitLegacyWallet))
+@pytest.mark.parametrize('wallet_cls', (LegacyWallet, SegwitLegacyWallet, SegwitWallet))
 def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
     def raise_exit(i):
         raise Exception("sys.exit called")
@@ -137,7 +137,7 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
 
     makers = [YieldGeneratorBasic(
         wallet_services[i],
-        [0, 2000, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
+        [0, 2000, 0, 'sw0absoffer', 10**7]) for i in range(MAKER_NUM)]
     create_orders(makers)
 
     orderbook = create_orderbook(makers)
@@ -182,7 +182,7 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     cj_fee = 2000
     makers = [YieldGeneratorBasic(
         wallet_services[i],
-        [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
+        [0, cj_fee, 0, 'sw0absoffer', 10**7]) for i in range(MAKER_NUM)]
     create_orders(makers)
 
     orderbook = create_orderbook(makers)
@@ -238,7 +238,7 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     cj_fee = 2000
     makers = [YieldGeneratorBasic(
         wallet_services[i],
-        [0, cj_fee, 0, 'swabsoffer', 10**7]) for i in range(MAKER_NUM)]
+        [0, cj_fee, 0, 'sw0absoffer', 10**7]) for i in range(MAKER_NUM)]
     create_orders(makers)
     orderbook = create_orderbook(makers)
     assert len(orderbook) == MAKER_NUM
