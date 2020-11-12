@@ -60,7 +60,7 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         randomize_maxsize = int(random.uniform(possible_maxsize * (1 - float(size_factor)),
                                                possible_maxsize))
 
-        if self.ordertype == 'swabsoffer':
+        if self.ordertype in ['swabsoffer', 'sw0absoffer']:
             randomize_cjfee = int(random.uniform(float(cjfee_a) * (1 - float(cjfee_factor)),
                                                  float(cjfee_a) * (1 + float(cjfee_factor))))
             randomize_cjfee = randomize_cjfee + randomize_txfee
