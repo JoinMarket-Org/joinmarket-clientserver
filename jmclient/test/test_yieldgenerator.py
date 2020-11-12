@@ -49,7 +49,7 @@ def create_yg_basic(balances, txfee=0, cjfee_a=0, cjfee_r=0,
     will be set as given here."""
 
     wallet = CustomUtxoWallet(balances)
-    offerconfig = (txfee, cjfee_a, cjfee_r, ordertype, minsize)
+    offerconfig = (txfee, cjfee_a, cjfee_r, ordertype, minsize, None, None, None)
 
     yg = YieldGeneratorBasic(WalletService(wallet), offerconfig)
 

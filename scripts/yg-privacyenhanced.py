@@ -4,28 +4,16 @@ from future.utils import iteritems
 import random
 
 from jmbase import get_log, jmprint
+from jmbase.support import lookup_appdata_folder
 from jmclient import YieldGeneratorBasic, ygmain, jm_single
-
 
 # This is a maker for the purposes of generating a yield from held bitcoins
 # while maximising the difficulty of spying on blockchain activity.
 # This is primarily attempted by randomizing all aspects of orders
 # after transactions wherever possible.
 
-"""THESE SETTINGS CAN SIMPLY BE EDITED BY HAND IN THIS FILE:
-"""
-
-ordertype = 'reloffer'  # [string, 'reloffer' or 'absoffer'], which fee type to actually use
-cjfee_a = 500             # [satoshis, any integer] / absolute offer fee you wish to receive for coinjoins (cj)
-cjfee_r = '0.00002'       # [fraction, any str between 0-1] / relative offer fee you wish to receive based on a cj's amount
-cjfee_factor = 0.1        # [fraction, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
-txfee = 0                 # [satoshis, any integer] / the average transaction fee contribution you're adding to coinjoin transactions
-txfee_factor = 0.3        # [fraction, 0-1] / variance around the average fee contribution. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
-minsize = 100000          # [satoshis, any integer] / minimum size of your cj offer. Lower cj amounts will be disregarded
-size_factor = 0.1         # [fraction, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
-gaplimit = 6
-
-# end of settings customization
+# YIELD GENERATOR SETTINGS ARE NOW IN YOUR joinmarket.cfg CONFIG FILE
+# (You can also use command line flags; see --help for this script).
 
 jlog = get_log()
 
@@ -53,21 +41,21 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         max_mix = max(mix_balance, key=mix_balance.get)
 
         # randomizing the different values
-        randomize_txfee = int(random.uniform(txfee * (1 - float(txfee_factor)),
-                                             txfee * (1 + float(txfee_factor))))
-        randomize_minsize = int(random.uniform(self.minsize * (1 - float(size_factor)),
-                                               self.minsize * (1 + float(size_factor))))
+        randomize_txfee = int(random.uniform(self.txfee * (1 - float(self.txfee_factor)),
+                                             self.txfee * (1 + float(self.txfee_factor))))
+        randomize_minsize = int(random.uniform(self.minsize * (1 - float(self.size_factor)),
+                                               self.minsize * (1 + float(self.size_factor))))
         possible_maxsize = mix_balance[max_mix] - max(jm_single().DUST_THRESHOLD, randomize_txfee)
-        randomize_maxsize = int(random.uniform(possible_maxsize * (1 - float(size_factor)),
+        randomize_maxsize = int(random.uniform(possible_maxsize * (1 - float(self.size_factor)),
                                                possible_maxsize))
 
         if self.ordertype in ['swabsoffer', 'sw0absoffer']:
-            randomize_cjfee = int(random.uniform(float(cjfee_a) * (1 - float(cjfee_factor)),
-                                                 float(cjfee_a) * (1 + float(cjfee_factor))))
+            randomize_cjfee = int(random.uniform(float(self.cjfee_a) * (1 - float(self.cjfee_factor)),
+                                                 float(self.cjfee_a) * (1 + float(self.cjfee_factor))))
             randomize_cjfee = randomize_cjfee + randomize_txfee
         else:
-            randomize_cjfee = random.uniform(float(f) * (1 - float(cjfee_factor)),
-                                             float(f) * (1 + float(cjfee_factor)))
+            randomize_cjfee = random.uniform(float(f) * (1 - float(self.cjfee_factor)),
+                                             float(f) * (1 + float(self.cjfee_factor)))
             randomize_cjfee = "{0:.6f}".format(randomize_cjfee)  # round to 6 decimals
 
         order = {'oid': 0,
@@ -90,8 +78,5 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
 
 
 if __name__ == "__main__":
-    ygmain(YieldGeneratorPrivacyEnhanced, txfee=txfee, cjfee_a=cjfee_a,
-           cjfee_r=cjfee_r, ordertype=ordertype,
-           nickserv_password='',
-           minsize=minsize, gaplimit=gaplimit)
+    ygmain(YieldGeneratorPrivacyEnhanced, nickserv_password='')
     jmprint('done', "success")
