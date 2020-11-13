@@ -484,7 +484,7 @@ class WalletService(Service):
         have been used in our Core wallet with the specific label
         for our JM wallet. This operation is generally immediate.
         """
-        agd = self.bci.rpc('listaddressgroupings', [])
+        agd = self.bci.listaddressgroupings()
         # flatten all groups into a single list; then, remove duplicates
         fagd = (tuple(item) for sublist in agd for item in sublist)
         # "deduplicated flattened address grouping data" = dfagd
@@ -647,7 +647,7 @@ class WalletService(Service):
                     jlog.warning("Merkle branch likely not available, use "
                         + "wallet-tool `addtxoutproof`")
                     merkle_branch = None
-                block_height = self.bci.rpc("getblockheader", [gettx["blockhash"]])["height"]
+                block_height = self.bci.get_block_height(gettx["blockhash"])
                 if merkle_branch:
                     assert self.bci.verify_tx_merkle_branch(txid, block_height, merkle_branch)
                 self.wallet.add_burner_output(path_repr, gettx["hex"], block_height,
@@ -729,12 +729,7 @@ class WalletService(Service):
         wallet_name = self.get_wallet_name()
         self.reset_utxos()
 
-        listunspent_args = []
-        if 'listunspent_args' in jm_single().config.options('POLICY'):
-            listunspent_args = ast.literal_eval(jm_single().config.get(
-                'POLICY', 'listunspent_args'))
-
-        unspent_list = self.bci.rpc('listunspent', listunspent_args)
+        unspent_list = self.bci.listunspent()
         # filter on label, but note (a) in certain circumstances (in-
         # wallet transfer) it is possible for the utxo to be labeled
         # with the external label, and (b) the wallet will know if it

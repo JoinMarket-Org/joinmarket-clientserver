@@ -143,7 +143,7 @@ def test_spend_freeze_script(setup_tx_creation):
     wallet_service = make_wallets(1, [[3, 0, 0, 0, 0]], 3)[0]['wallet']
     wallet_service.sync_wallet(fast=True)
 
-    mediantime = jm_single().bc_interface.rpc("getblockchaininfo", [])["mediantime"]
+    mediantime = jm_single().bc_interface.get_best_block_median_time()
 
     timeoffset_success_tests = [(2, False), (-60*60*24*30, True), (60*60*24*30, False)]
 
