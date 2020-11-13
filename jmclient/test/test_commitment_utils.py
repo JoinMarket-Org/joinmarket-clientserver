@@ -2,6 +2,7 @@
 from commontest import DummyBlockchainInterface
 import pytest
 
+from jmbase import utxostr_to_utxo
 from jmclient import (load_test_config, jm_single)
 from jmclient.commitment_utils import get_utxo_info, validate_utxo_data
 from jmbitcoin import select_chain_params
@@ -15,12 +16,13 @@ def test_get_utxo_info():
     dbci = DummyBlockchainInterface()
     privkey = "L1RrrnXkcKut5DEMwtDthjwRcTTwED36thyL1DebVrKuwvohjMNi"
     #to verify use from_wif_privkey and privkey_to_address
-    iaddr = "1LDsjB43N2NAQ1Vbc2xyHca4iBBciN8iwC"
+    iaddr = "bc1q6tvmnmetj8vfz98vuetpvtuplqtj4uvvwjgxxc"
     fakeutxo = "aa"*32+":08"
-    
+    success, fakeutxo_bin = utxostr_to_utxo(fakeutxo)
+    assert success
     fake_query_results = [{'value': 200000000,
                                 'address': iaddr,
-                                'utxo': fakeutxo,
+                                'utxo': fakeutxo_bin,
                                 'confirms': 20}]    
     dbci.insert_fake_query_results(fake_query_results)
     jm_single().bc_interface = dbci
@@ -39,12 +41,12 @@ def test_get_utxo_info():
     with pytest.raises(Exception) as e_info:
         u, priv = get_utxo_info(fakeutxo + "," + p2)
 
-    utxodatas = [(fakeutxo, privkey)]
+    utxodatas = [(fakeutxo_bin, privkey)]
     retval = validate_utxo_data(utxodatas, False)
     assert retval
     #try to retrieve
     retval = validate_utxo_data(utxodatas, True)
-    assert retval[0] == (fakeutxo, 200000000)
+    assert retval[0] == (fakeutxo_bin, 200000000)
     fake_query_results[0]['address'] = "fakeaddress"
     dbci.insert_fake_query_results(fake_query_results)
     #validate should fail for wrong address

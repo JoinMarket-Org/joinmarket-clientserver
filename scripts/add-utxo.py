@@ -17,7 +17,8 @@ from jmclient import load_program_config, jm_single,\
     open_wallet, WalletService, add_external_commitments, update_commitments,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
     get_wallet_path, add_base_options, BTCEngine, BTC_P2SH_P2WPKH
-from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR, jmprint
+from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR, \
+     jmprint, utxostr_to_utxo
 
 
 def add_ext_commitments(utxo_datas):
@@ -47,7 +48,7 @@ def add_ext_commitments(utxo_datas):
             if 'P' not in ecs[u]:
                 ecs[u]['P']=P
             ecs[u]['reveal'][j] = {'P2':P2, 's':s, 'e':e}
-        add_external_commitments(ecs)
+    add_external_commitments(ecs)
 
 def main():
     parser = OptionParser(
@@ -181,11 +182,10 @@ def main():
         # minor note: adding a utxo from an external wallet for commitments, we
         # default to not allowing disabled utxos to avoid a privacy leak, so the
         # user would have to explicitly enable.
-        for md, utxos in wallet_service.get_utxos_by_mixdepth(hexfmt=False).items():
-            for (txid, index), utxo in utxos.items():
-                txhex = binascii.hexlify(txid).decode('ascii') + ':' + str(index)
-                wif = wallet_service.get_wif_path(utxo['path'])
-                utxo_data.append((txhex, wif))
+        for md, utxos in wallet_service.get_utxos_by_mixdepth().items():
+            for utxo, utxodata in utxos.items():
+                wif = wallet_service.get_wif_path(utxodata['path'])
+                utxo_data.append((utxo, wif))
 
     elif options.in_file:
         with open(options.in_file, "rb") as f:
@@ -196,7 +196,7 @@ def main():
                 u, priv = get_utxo_info(ul)
                 if not u:
                     quit(parser, "Failed to parse utxo info: " + str(ul))
-                utxo_data.append((u, priv))
+                utxo_data.append((utxostr_to_utxo(u), priv))
     elif options.in_json:
         if not os.path.isfile(options.in_json):
             jmprint("File: " + options.in_json + " not found.", "error")
@@ -208,7 +208,7 @@ def main():
                 jmprint("Failed to read json from " + options.in_json, "error")
                 sys.exit(EXIT_FAILURE)
         for u, pva in iteritems(utxo_json):
-            utxo_data.append((u, pva['privkey']))
+            utxo_data.append((utxostr_to_utxo(u), pva['privkey']))
     elif len(args) == 1:
         u = args[0]
         priv = input(
@@ -216,15 +216,26 @@ def main():
         u, priv = get_utxo_info(','.join([u, priv]))
         if not u:
             quit(parser, "Failed to parse utxo info: " + u)
-        utxo_data.append((u, priv))
+        utxo_data.append((utxostr_to_utxo(u), priv))
     else:
         quit(parser, 'Invalid syntax')
     if options.validate or options.vonly:
-        sw = False if jm_single().config.get("POLICY", "segwit") == "false" else True
-        if not validate_utxo_data(utxo_data, segwit=sw):
+        # if the utxos are loaded from a wallet, we use the wallet's
+        # txtype to determine the value of `utxo_address_type`; if not,
+        # we use joinmarket.cfg.
+        if options.loadwallet:
+            utxo_address_type = wallet_service.get_txtype()
+        else:
+            if jm_single().config.get("POLICY", "segwit") == "false":
+                utxo_address_type = "p2pkh"
+            elif jm_single().config.get("POLICY", "native") == "false":
+                utxo_address_type = "p2sh-p2wpkh"
+            else:
+                utxo_address_type = "p2wpkh"
+        if not validate_utxo_data(utxo_data, utxo_address_type=utxo_address_type):
             quit(parser, "Utxos did not validate, quitting")
     if options.vonly:
-        sys.exit(EXIT_ARGERROR)
+        sys.exit(EXIT_SUCCESS)
     
     #We are adding utxos to the external list
     assert len(utxo_data)
