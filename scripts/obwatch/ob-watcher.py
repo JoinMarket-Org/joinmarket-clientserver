@@ -79,7 +79,7 @@ def cjfee_display(cjfee, order, btc_unit, rel_unit):
     if order['ordertype'] in ['swabsoffer', 'sw0absoffer']:
         return satoshi_to_unit(cjfee, order, btc_unit, rel_unit)
     elif order['ordertype'] in ['reloffer', 'swreloffer', 'sw0reloffer']:
-        return str(Decimal(cjfee) * rel_unit_to_factor[rel_unit]) + rel_unit
+        return str(Decimal(cjfee) * Decimal(rel_unit_to_factor[rel_unit])) + rel_unit
 
 
 def satoshi_to_unit(sat, order, btc_unit, rel_unit):
