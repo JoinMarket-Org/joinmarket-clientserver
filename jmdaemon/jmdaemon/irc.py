@@ -49,10 +49,12 @@ def get_config_irc_channel(chan_name, btcnet):
         channel += "-test"
     return channel
 
+
 class TxIRCFactory(protocol.ReconnectingClientFactory):
     def __init__(self, wrapper):
         self.wrapper = wrapper
         self.channel = self.wrapper.channel
+        self.channel_keyword = self.wrapper.channel_keyword
 
     def buildProtocol(self, addr):
         p = txIRC_Client(self.wrapper)
@@ -95,6 +97,7 @@ class IRCMessageChannel(MessageChannel):
         self.socks5_port = int(configdata["socks5_port"])
         self.channel = get_config_irc_channel(configdata["channel"],
                                               configdata["btcnet"])
+        self.channel_keyword = configdata["channel_keyword"]
         self.userrealname = (username, realname)
         if password and len(password) == 0:
             password = None
@@ -182,6 +185,7 @@ class txIRC_Client(irc.IRCClient, object):
     def __init__(self, wrapper):
         self.wrapper = wrapper
         self.channel = self.wrapper.channel
+        self.channel_keyword = self.wrapper.channel_keyword
         self.nickname = self.wrapper.nick
         self.password = self.wrapper.password
         self.hostname = self.wrapper.serverport[0]
@@ -261,7 +265,7 @@ class txIRC_Client(irc.IRCClient, object):
 
     def signedOn(self):
         wlog('signedOn: ', self.hostname)
-        self.join(self.factory.channel)
+        self.join(self.factory.channel, self.factory.channel_keyword)
 
     def joined(self, channel):
         wlog("INFO", "joined: " + str(channel) + " " + str(self.hostname))
