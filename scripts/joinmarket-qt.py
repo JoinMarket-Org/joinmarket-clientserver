@@ -79,8 +79,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
-    donation_more_message, BitcoinAmountEdit, JMIntValidator, StatusBarButton, read_QIcon, MakerDialog\
-    ReceiveBIP78Dialog, QRCodePopup
+    donation_more_message, BitcoinAmountEdit, JMIntValidator, StatusBarButton, \
+    read_QIcon, MakerDialog, ReceiveBIP78Dialog, QRCodePopup
 
 from twisted.internet import task
 
@@ -1501,8 +1501,7 @@ class JMMainWindow(QMainWindow):
         or change settings.
         TODO These restrictions can be relaxed after analysis.
         """
-        for action in [self.loadAction, self.generateAction,
-                       self.recoverAction]:
+        for action in [self.loadAction, self.generateAction, self.recoverAction]:
             action.setEnabled(not self.maker_running)
         for tab in [self.centralWidget().widget(x) for x in [1,2]]:
             tab.setEnabled(not self.maker_running)
@@ -1545,15 +1544,15 @@ class JMMainWindow(QMainWindow):
                                 "Click to start maker", self.makerManager)
         self.statusBar().addPermanentWidget(self.makerbtn)
         self.setGeometry(300, 300, 250, 150)
-        loadAction = QAction('&Load...', self)
-        loadAction.setStatusTip('Load wallet from file')
-        loadAction.triggered.connect(self.selectWallet)
-        generateAction = QAction('&Generate...', self)
-        generateAction.setStatusTip('Generate new wallet')
-        generateAction.triggered.connect(self.generateWallet)
-        recoverAction = QAction('&Recover...', self)
-        recoverAction.setStatusTip('Recover wallet from seed phrase')
-        recoverAction.triggered.connect(self.recoverWallet)
+        self.loadAction = QAction('&Load...', self)
+        self.loadAction.setStatusTip('Load wallet from file')
+        self.loadAction.triggered.connect(self.selectWallet)
+        self.generateAction = QAction('&Generate...', self)
+        self.generateAction.setStatusTip('Generate new wallet')
+        self.generateAction.triggered.connect(self.generateWallet)
+        self.recoverAction = QAction('&Recover...', self)
+        self.recoverAction.setStatusTip('Recover wallet from seed phrase')
+        self.recoverAction.triggered.connect(self.recoverWallet)
         showSeedAction = QAction('&Show seed', self)
         showSeedAction.setStatusTip('Show wallet seed phrase')
         showSeedAction.triggered.connect(self.showSeedDialog)
@@ -1576,9 +1575,9 @@ class JMMainWindow(QMainWindow):
 
         menubar = self.menuBar()
         walletMenu = menubar.addMenu('&Wallet')
-        walletMenu.addAction(loadAction)
-        walletMenu.addAction(generateAction)
-        walletMenu.addAction(recoverAction)
+        walletMenu.addAction(self.loadAction)
+        walletMenu.addAction(self.generateAction)
+        walletMenu.addAction(self.recoverAction)
         walletMenu.addAction(showSeedAction)
         walletMenu.addAction(exportPrivAction)
         walletMenu.addAction(changePassAction)
