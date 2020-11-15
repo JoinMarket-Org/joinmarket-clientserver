@@ -1508,15 +1508,16 @@ class JMMainWindow(QMainWindow):
 
     def startMaker(self):
         mle = self.makerDialog.maker_settings_ql
-        offertype = 'swreloffer' if mle[0][1].currentText() == "Relative fee" else 'swabsoffer'
+        offertype = "reloffer" if mle[0][1].currentText() == "Relative fee" else "absoffer"
         cjabsfee = int(mle[1][1].text())
         cjrelfee = float(mle[2][1].text())
         txfee = int(mle[3][1].text())
         minsize = int(mle[4][1].text())
         # keep track of currently chosen settings for next display of dialog:
         self.maker_settings = [mle[0][1].currentText(), cjabsfee, cjrelfee, txfee, minsize]
-        self.makerfactory = ygstart(self.wallet_service, [txfee, cjabsfee, cjrelfee,
-                                        offertype, minsize], rs=False)
+        # note: a quirk of JM maker code, relative fees are assumed to come in as string:
+        self.makerfactory = ygstart(self.wallet_service, txfee, cjabsfee, str(cjrelfee),
+                                        offertype, minsize, rs=False)
         self.maker_running = True
         self.setMakerBtn()
         self.toggle_non_maker_function()
@@ -2007,11 +2008,10 @@ class JMMainWindow(QMainWindow):
             # (note that this includes direct sends)
             return
         addr_val = [None, None]
-        for o in txd["outs"]:
-            bscript = btc.safe_from_hex(o["script"])
-            if self.wallet_service.is_known_script(bscript):
-                addr_val = [self.wallet_service.script_to_addr(bscript),
-                            o["value"]]
+        for o in txd.vout:
+            if self.wallet_service.is_known_script(o.scriptPubKey):
+                addr_val = [self.wallet_service.script_to_addr(o.scriptPubKey),
+                            o.nValue]
                 break
         if addr_val[0] is None:
             # it's possible to get notified of a transaction

@@ -18,6 +18,19 @@ jlog = get_log()
 
 MAX_MIX_DEPTH = 5
 
+def get_yg_ordertype(wallet_service, ordertype):
+    txtype = wallet_service.get_txtype()
+    if txtype == "p2wpkh":
+        prefix = "sw0"
+    elif txtype == "p2sh-p2wpkh":
+        prefix = "sw"
+    elif txtype == "p2pkh":
+        prefix = ""
+    else:
+        jlog.error("Unsupported wallet type for yieldgenerator: " + txtype)
+        sys.exit(EXIT_ARGERROR)
+    return prefix + ordertype
+
 class YieldGenerator(Maker):
     """A maker for the purposes of generating a yield from held
     bitcoins, offering from the maximum mixdepth and trying to offer
@@ -257,25 +270,15 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer'
         wallet_service.sync_wallet(fast=not options.recoversync)
     wallet_service.startService()
 
-    txtype = wallet_service.get_txtype()
-    if txtype == "p2wpkh":
-        prefix = "sw0"
-    elif txtype == "p2sh-p2wpkh":
-        prefix = "sw"
-    elif txtype == "p2pkh":
-        prefix = ""
-    else:
-        jlog.error("Unsupported wallet type for yieldgenerator: " + txtype)
-        sys.exit(EXIT_ARGERROR)
+    ygstart(wallet_service, options.txfee, cjfee_a, cjfee_r,
+                ordertype, options.minsize, ygclass=ygclass)
 
-    ordertype = prefix + ordertype
+def ygstart(wallet_service, txfee, cjfee_a, cjfee_r, ordertype, minsize,
+            rs=True, ygclass=YieldGeneratorBasic):
+    # translate from user-interface "reloffer/absoffer" to wallet specific string:
+    ordertype = get_yg_ordertype(wallet_service, ordertype)
     jlog.debug("Set the offer type string to: " + ordertype)
-
-    ygstart(wallet_service, [options.txfee, cjfee_a, cjfee_r,
-                ordertype, options.minsize], ygclass=ygclass)
-
-def ygstart(wallet_service, makerconfig, rs=True, ygclass=YieldGeneratorBasic):
-    maker = ygclass(wallet_service, makerconfig)
+    maker = ygclass(wallet_service, [txfee, cjfee_a, cjfee_r, ordertype, minsize])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
 
