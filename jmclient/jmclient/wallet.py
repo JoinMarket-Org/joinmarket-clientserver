@@ -1763,6 +1763,8 @@ class BIP39WalletMixin(object):
     def entropy_from_mnemonic(cls, seed):
         m = Mnemonic(cls.MNEMONIC_LANG)
         seed = seed.lower()
+        # ensure only single whitespace characters:
+        seed = " ".join(seed.split())
         if not m.check(seed):
             raise WalletError("Invalid mnemonic seed.")
 
