@@ -144,6 +144,15 @@ class JMClientProtocol(amp.AMP):
                             txhex=txhex)
         self.defaultCallbacks(d)
 
+    def request_mc_shutdown(self):
+        """ To ensure that lingering message channel
+        connections are shut down when the client itself
+        is shutting down.
+        """
+        d = self.callRemote(commands.JMShutdown)
+        self.defaultCallbacks(d)
+        return {'accepted': True}
+
 class JMMakerClientProtocol(JMClientProtocol):
     def __init__(self, factory, maker, nick_priv=None):
         self.factory = factory

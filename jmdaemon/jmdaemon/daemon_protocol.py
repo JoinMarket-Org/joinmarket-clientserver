@@ -209,6 +209,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             self.mcc.on_verified_privmsg(nick, fullmsg, hostid)
         return {'accepted': True}
 
+    @JMShutdown.responder
+    def on_JM_SHUTDOWN(self):
+        self.mc_shutdown()
+        self.jm_state = 0
+        return {'accepted': True}
     """Taker specific responders
     """
 
