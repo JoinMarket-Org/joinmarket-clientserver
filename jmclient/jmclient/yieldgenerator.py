@@ -271,7 +271,7 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer'
     jlog.debug("Set the offer type string to: " + ordertype)
 
     maker = ygclass(wallet_service, [options.txfee, cjfee_a, cjfee_r,
-                             ordertype, options.minsize])
+                             ordertype, minsize])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
 
