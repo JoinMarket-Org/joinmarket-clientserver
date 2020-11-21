@@ -228,8 +228,10 @@ class YieldGeneratorBasic(YieldGenerator):
         return self.wallet_service.get_internal_addr(cjoutmix)
 
 class YieldGeneratorService(Service):
-    def __init__(self, wallet_service, yg_config):
+    def __init__(self, wallet_service, daemon_host, daemon_port, yg_config):
         self.wallet_service = wallet_service
+        self.daemon_host = daemon_host
+        self.daemon_port = daemon_port
         self.yg_config = yg_config
         self.yieldgen = None
 
@@ -243,26 +245,21 @@ class YieldGeneratorService(Service):
         """
         # TODO genericise to any YG class:
         self.yieldgen = YieldGeneratorBasic(self.wallet_service, self.yg_config)
-        self.clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
-
-        nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-        daemon = True if nodaemon == 1 else False
-        if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet"]:
-            startLogging(sys.stdout)
+        self.clientfactory = JMClientProtocolFactory(self.yieldgen, proto_type="MAKER")
         # here 'start_reactor' does not start the reactor but instantiates
-        # the connection to the daemon backend.
-        start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
-                      jm_single().config.getint("DAEMON", "daemon_port"),
-                      self.clientfactory, rs=False)
+        # the connection to the daemon backend; note daemon=False, i.e. the daemon
+        # backend is assumed to be started elsewhere; we just connect to it with a client.
+        start_reactor(self.daemon_host, self.daemon_port, self.clientfactory, rs=False)
         super().startService()
 
     def stopService(self):
         """ TODO need a method exposed to gracefully
         shut down a maker bot.
         """
-        jlog.info("Shutting down YieldGenerator service.")
-        self.clientfactory.proto_client.request_mc_shutdown()
-        super().stopService()
+        if self.running:
+            jlog.info("Shutting down YieldGenerator service.")
+            self.clientfactory.proto_client.request_mc_shutdown()
+            super().stopService()
 
 def ygmain(ygclass, nickserv_password='', gaplimit=6):
     import sys

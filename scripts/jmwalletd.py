@@ -235,6 +235,7 @@ class JMWalletDaemon(Service):
             raise BackendNotReady()
 
         self.services["maker"] = YieldGeneratorService(self.wallet_service,
+                                daemon_serving_host, daemon_serving_port,
                                 [config_json[x] for x in ["txfee", "cjfee_a",
                                 "cjfee_r", "ordertype", "minsize"]])
         self.services["maker"].startService()
