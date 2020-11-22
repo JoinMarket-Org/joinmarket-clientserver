@@ -15,9 +15,10 @@ from klein import Klein
 
 from optparse import OptionParser
 from jmbase import get_log
+from jmbitcoin import human_readable_transaction
 from jmclient import Maker, jm_single, load_program_config, \
     JMClientProtocolFactory, start_reactor, calc_cj_fee, \
-    WalletService, add_base_options, get_wallet_path, \
+    WalletService, add_base_options, get_wallet_path, direct_send, \
     open_test_wallet_maybe, wallet_display, SegwitLegacyWallet, \
     SegwitWallet, get_daemon_serving_params, YieldGeneratorService, \
     SNICKERReceiverService, SNICKERReceiver, create_wallet, StorageError
@@ -217,6 +218,25 @@ class JMWalletDaemon(Service):
         self.services["snicker"].stopService()
         return response(request, walletname=walletname)
 
+    @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
+    def send_direct(self, request, walletname):
+        """ Use the contents of the POST body to do a direct send from
+        the active wallet at the chosen mixdepth.
+        """
+        assert isinstance(request.content, BytesIO)
+        payment_info_json = self.get_POST_body(request, ["mixdepth", "amount_sats",
+                                                         "destination"])
+        if not payment_info_json:
+            raise InvalidRequestFormat()
+        if not self.wallet_service:
+            raise NoWalletFound()
+        tx = direct_send(self.wallet_service, payment_info_json["amount_sats"],
+                    payment_info_json["mixdepth"],
+                    optin_rbf=payment_info_json["optin_rbf"],
+                    return_transaction=True)
+        return response(request, walletname=walletname,
+                        txinfo=human_readable_transaction(tx))
+
     @app.route('/wallet/<string:walletname>/maker/start', methods=['POST'])
     def start_maker(self, request, walletname):
         """ Use the configuration in the POST body to start the yield generator:
@@ -370,7 +390,7 @@ def jmwalletd_main():
     parser = OptionParser(usage='usage: %prog [options] [wallet file]')
     parser.add_option('-p', '--port', action='store', type='int',
                       dest='port', default=28183,
-                      help='the port over which to serve RPC')
+                      help='the port over which to serve RPC, default 28183')
     # TODO: remove the non-relevant base options:
     add_base_options(parser)
 
@@ -382,7 +402,7 @@ def jmwalletd_main():
         jlog.error("Running jmwallet-daemon requires configured " +
                    "blockchain source.")
         sys.exit(EXIT_FAILURE)
-    jlog.info("Starting jmwalletd")
+    jlog.info("Starting jmwalletd on port: " + str(options.port))
 
     jm_wallet_daemon = JMWalletDaemon(options.port)
     jm_wallet_daemon.startService()
