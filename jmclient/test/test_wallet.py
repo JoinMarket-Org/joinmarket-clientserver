@@ -755,7 +755,7 @@ def test_wallet_mixdepth_decrease(setup_wallet):
     assert max_mixdepth >= 1, "bad default value for mixdepth for this test"
     utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(max_mixdepth), 1)
     bci = jm_single().bc_interface
-    unspent_list = bci.rpc('listunspent', [0])
+    unspent_list = bci.listunspent(0)
     # filter on label, but note (a) in certain circumstances (in-
     # wallet transfer) it is possible for the utxo to be labeled
     # with the external label, and (b) the wallet will know if it

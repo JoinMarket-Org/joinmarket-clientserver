@@ -1,5 +1,6 @@
 
 import abc
+import ast
 import random
 import sys
 import time
@@ -25,12 +26,11 @@ class BlockchainInterface(object):
     def __init__(self):
         pass
 
+    @abc.abstractmethod
     def is_address_imported(self, addr):
-        try:
-            return self.rpc('getaccount', [addr]) != ''
-        except JsonRpcError:
-            return len(self.rpc('getaddressinfo', [addr])['labels']) > 0
+        """checks that address is already imported"""
 
+    @abc.abstractmethod
     def is_address_labeled(self, utxo, walletname):
         """checks that UTXO belongs to the JM wallet"""
 
@@ -68,6 +68,8 @@ class BlockchainInterface(object):
         else:
             return False
 
+
+# ElectrumWalletInterface is currently broken
 class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
     """A pseudo-blockchain interface using the existing 
     Electrum server connection in an Electrum wallet.
@@ -159,17 +161,18 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         log.info("Got fee: " + btc.fee_per_kb_to_str(fee_per_kb_sat))
         return fee_per_kb_sat
 
+
 class BitcoinCoreInterface(BlockchainInterface):
 
     def __init__(self, jsonRpc, network):
         super().__init__()
         self.jsonRpc = jsonRpc
-        blockchainInfo = self.rpc("getblockchaininfo", [])
+        blockchainInfo = self._rpc("getblockchaininfo", [])
         if not blockchainInfo:
             # see note in BitcoinCoreInterface.rpc - here
             # we have to create this object before reactor start,
             # so reactor is not stopped, so we override the 'swallowing'
-            # of the Exception that happened in self.rpc():
+            # of the Exception that happened in self._rpc():
             raise JsonRpcConnectionError("RPC connection to Bitcoin Core "
                                          "was not established successfully.")
         actualNet = blockchainInfo['chain']
@@ -180,21 +183,28 @@ class BitcoinCoreInterface(BlockchainInterface):
             #special case of regtest and testnet having the same addr format
             raise Exception('wrong network configured')
 
+    def is_address_imported(self, addr):
+        try:
+            return self._rpc('getaccount', [addr]) != ''
+        except JsonRpcError:
+            return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
+
     def get_block(self, blockheight):
         """Returns full serialized block at a given height.
         """
-        block_hash = self.rpc('getblockhash', [blockheight])
-        block = self.rpc('getblock', [block_hash, False])
+        block_hash = self._rpc('getblockhash', [blockheight])
+        block = self._rpc('getblock', [block_hash, False])
         if not block:
             return False
         return block
 
-    def rpc(self, method, args):
+    def _rpc(self, method, args):
         """ Returns the result of an rpc call to the Bitcoin Core RPC API.
         If the connection is permanently or unrecognizably broken, None
         is returned *and the reactor is shutdown* (because we consider this
         condition unsafe - TODO possibly create a "freeze" mode that could
         restart when the connection is healed, but that is tricky).
+        Should not be called directly from outside code.
         """
         if method not in ['importaddress', 'walletpassphrase', 'getaccount',
                           'gettransaction', 'getrawtransaction', 'gettxout',
@@ -243,7 +253,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 "watchonly": True
             })
 
-        result = self.rpc('importmulti', [requests, {"rescan": False}])
+        result = self._rpc('importmulti', [requests, {"rescan": False}])
 
         num_failed = 0
         for row in result:
@@ -266,11 +276,11 @@ class BitcoinCoreInterface(BlockchainInterface):
 
     def import_addresses_if_needed(self, addresses, wallet_name):
         try:
-            imported_addresses = set(self.rpc('getaddressesbyaccount',
+            imported_addresses = set(self._rpc('getaddressesbyaccount',
                                                   [wallet_name]))
         except JsonRpcError:
-            if wallet_name in self.rpc('listlabels', []):
-                imported_addresses = set(self.rpc('getaddressesbylabel',
+            if wallet_name in self._rpc('listlabels', []):
+                imported_addresses = set(self._rpc('getaddressesbylabel',
                                                       [wallet_name]).keys())
             else:
                 imported_addresses = set()
@@ -283,7 +293,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         batch_size = 1000
         iteration = 0
         while True:
-            new = self.rpc(
+            new = self._rpc(
                 'listtransactions',
                 ["*", batch_size, iteration * batch_size, True])
             for tx in new:
@@ -307,7 +317,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         in the wallet (under any label/account), optionally
         skipping some.
         """
-        return self.rpc("listtransactions", ["*", num, skip, True])
+        return self._rpc("listtransactions", ["*", num, skip, True])
 
     def get_transaction(self, txid):
         """ Argument txid is passed in binary.
@@ -319,10 +329,10 @@ class BitcoinCoreInterface(BlockchainInterface):
         htxid = bintohex(txid)
         #changed syntax in 0.14.0; allow both syntaxes
         try:
-            res = self.rpc("gettransaction", [htxid, True])
+            res = self._rpc("gettransaction", [htxid, True])
         except Exception as e:
             try:
-                res = self.rpc("gettransaction", [htxid, 1])
+                res = self._rpc("gettransaction", [htxid, 1])
             except JsonRpcError as e:
                 #This should never happen (gettransaction is a wallet rpc).
                 log.warn("Failed gettransaction call; JsonRpcError: " + repr(e))
@@ -342,7 +352,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         """
         txhex = bintohex(txbin)
         try:
-            txid = self.rpc('sendrawtransaction', [txhex])
+            txid = self._rpc('sendrawtransaction', [txhex])
         except JsonRpcConnectionError as e:
             log.warning('error pushing = ' + repr(e))
             return False
@@ -378,7 +388,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 log.warn("Invalid utxo format, ignoring: {}".format(txo))
                 result.append(None)
                 continue
-            ret = self.rpc('gettxout', [txo_hex, txo_idx, includeunconf])
+            ret = self._rpc('gettxout', [txo_hex, txo_idx, includeunconf])
             if ret is None:
                 result.append(None)
             else:
@@ -399,7 +409,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         if super().fee_per_kb_has_been_manually_set(N):
             # use the local bitcoin core relay fee as floor to avoid relay problems
             btc_relayfee = -1
-            rpc_result = self.rpc('getnetworkinfo', None)
+            rpc_result = self._rpc('getnetworkinfo', None)
             btc_relayfee = rpc_result.get('relayfee', btc_relayfee)
             if btc_relayfee > 0:
                 relayfee_in_sat = int(Decimal(1e8) * Decimal(btc_relayfee))
@@ -419,7 +429,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         estimate = -1
         retval = -1
         for i in range(tries):
-            rpc_result = self.rpc('estimatesmartfee', [N + i])
+            rpc_result = self._rpc('estimatesmartfee', [N + i])
             estimate = rpc_result.get('feerate', estimate)
             if estimate > 0:
                 break
@@ -433,7 +443,7 @@ class BitcoinCoreInterface(BlockchainInterface):
 
     def get_current_block_height(self):
         try:
-            res = self.rpc("getblockcount", [])
+            res = self._rpc("getblockcount", [])
         except JsonRpcError as e:
             log.error("Getblockcount RPC failed with: %i, %s" % (
                 e.code, e.message))
@@ -441,23 +451,32 @@ class BitcoinCoreInterface(BlockchainInterface):
         return res
 
     def get_best_block_hash(self):
-        return self.rpc('getbestblockhash', [])
+        return self._rpc('getbestblockhash', [])
 
-    def get_block_time(self, blockhash):
+    def get_best_block_median_time(self):
+        return self._rpc('getblockchaininfo', [])['mediantime']
+
+    def _get_block_header_data(self, blockhash, key):
         try:
             # works with pruning enabled, but only after v0.12
-            return self.rpc('getblockheader', [blockhash])['time']
+            return self._rpc('getblockheader', [blockhash])[key]
         except JsonRpcError:
-            return self.rpc('getblock', [blockhash])['time']
+            return self._rpc('getblock', [blockhash])[key]
+
+    def get_block_height(self, blockhash):
+        return self._get_block_header_data(blockhash, 'height')
+
+    def get_block_time(self, blockhash):
+        return self._get_block_header_data(blockhash, 'time')
 
     def get_tx_merkle_branch(self, txid, blockhash=None):
         if not blockhash:
-            tx = self.rpc("gettransaction", [txid])
+            tx = self._rpc("gettransaction", [txid])
             if tx["confirmations"] < 1:
                 raise ValueError("Transaction not in block")
             blockhash = tx["blockhash"]
         try:
-            core_proof = self.rpc("gettxoutproof", [[txid], blockhash])
+            core_proof = self._rpc("gettxoutproof", [[txid], blockhash])
         except JsonRpcError:
             raise ValueError("Block containing transaction is pruned")
         return self.core_proof_to_merkle_branch(core_proof)
@@ -469,11 +488,27 @@ class BitcoinCoreInterface(BlockchainInterface):
         return core_proof[80:]
 
     def verify_tx_merkle_branch(self, txid, block_height, merkle_branch):
-        block_hash = self.rpc("getblockhash", [block_height])
-        core_proof = self.rpc("getblockheader", [block_hash, False]) + \
+        block_hash = self._rpc("getblockhash", [block_height])
+        core_proof = self._rpc("getblockheader", [block_hash, False]) + \
             binascii.hexlify(merkle_branch).decode()
-        ret = self.rpc("verifytxoutproof", [core_proof])
+        ret = self._rpc("verifytxoutproof", [core_proof])
         return len(ret) == 1 and ret[0] == txid
+
+    def listaddressgroupings(self):
+        return self._rpc('listaddressgroupings', [])
+
+    def listunspent(self, minconf=None):
+        listunspent_args = []
+        if 'listunspent_args' in jm_single().config.options('POLICY'):
+            listunspent_args = ast.literal_eval(jm_single().config.get(
+                'POLICY', 'listunspent_args'))
+        if minconf is not None:
+            listunspent_args[0] = minconf
+        return self._rpc('listunspent', listunspent_args)
+
+    def testmempoolaccept(self, rawtx):
+        return self._rpc('testmempoolaccept', [[rawtx]])
+
 
 class RegtestBitcoinCoreMixin():
     """
@@ -486,7 +521,7 @@ class RegtestBitcoinCoreMixin():
         instruct to mine n blocks.
         """
         try:
-            self.rpc('generatetoaddress', [n, self.destn_addr])
+            self._rpc('generatetoaddress', [n, self.destn_addr])
         except JsonRpcConnectionError:
             #can happen if the blockchain is shut down
             #automatically at the end of tests; this shouldn't
@@ -510,16 +545,17 @@ class RegtestBitcoinCoreMixin():
         #mine enough to get to the reqd amt
         reqd = int(amt - self.current_balance)
         reqd_blocks = int(reqd/50) +1
-        if self.rpc('setgenerate', [True, reqd_blocks]):
+        if self._rpc('setgenerate', [True, reqd_blocks]):
         raise Exception("Something went wrong")
         """
         # now we do a custom create transaction and push to the receiver
-        txid = self.rpc('sendtoaddress', [receiving_addr, amt])
+        txid = self._rpc('sendtoaddress', [receiving_addr, amt])
         if not txid:
             raise Exception("Failed to broadcast transaction")
         # confirm
         self.tick_forward_chain(1)
         return txid
+
 
 class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin):
 
@@ -537,8 +573,8 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
             log.debug("Starting scan of UTXO set")
             st = time.time()
             try:
-                self.rpc("scantxoutset", ["abort", []])
-                self.scan_result = self.rpc("scantxoutset", ["start",
+                self._rpc("scantxoutset", ["abort", []])
+                self.scan_result = self._rpc("scantxoutset", ["start",
                     addr_list])
             except JsonRpcError as e:
                 raise RuntimeError("Bitcoin Core 0.17.0 or higher required "
@@ -567,23 +603,19 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
     def list_transactions(self, num):
         return []
 
-    def rpc(self, method, args):
-        if method == "listaddressgroupings":
-            raise RuntimeError("default sync not supported by bitcoin-rpc-nohistory, use --recoversync")
-        elif method == "listunspent":
-            minconf = 0 if len(args) < 1 else args[0]
-            maxconf = 9999999 if len(args) < 2 else args[1]
-            return [{
-                "address": self._get_addr_from_desc(u["desc"]),
-                "label": self.wallet_name,
-                "height": u["height"],
-                "txid": u["txid"],
-                "vout": u["vout"],
-                "scriptPubKey": u["scriptPubKey"],
-                "amount": u["amount"]
-                } for u in self.scan_result["unspents"]]
-        else:
-            return super().rpc(method, args)
+    def listaddressgroupings(self):
+        raise RuntimeError("default sync not supported by bitcoin-rpc-nohistory, use --recoversync")
+
+    def listunspent(self):
+        return [{
+            "address": self._get_addr_from_desc(u["desc"]),
+            "label": self.wallet_name,
+            "height": u["height"],
+            "txid": u["txid"],
+            "vout": u["vout"],
+            "scriptPubKey": u["scriptPubKey"],
+            "amount": u["amount"]
+        } for u in self.scan_result["unspents"]]
 
     def set_wallet_no_history(self, wallet):
         #make wallet-tool not display any new addresses
@@ -595,8 +627,9 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
         wallet.disable_new_scripts = True
 
     def tick_forward_chain(self, n):
-        self.destn_addr = self.rpc("getnewaddress", [])
+        self.destn_addr = self._rpc("getnewaddress", [])
         super().tick_forward_chain(n)
+
 
 # class for regtest chain access
 # running on local daemon. Only
@@ -611,7 +644,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
         self.absurd_fees = False
         self.simulating = False
         self.shutdown_signal = False
-        self.destn_addr = self.rpc("getnewaddress", [])
+        self.destn_addr = self._rpc("getnewaddress", [])
 
     def estimate_fee_per_kb(self, N):
         if not self.absurd_fees:
@@ -655,8 +688,8 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
         # in the wallet
         res = []
         for address in addresses:
-            #self.rpc('importaddress', [address, 'watchonly'])
+            #self._rpc('importaddress', [address, 'watchonly'])
             res.append({'address': address,
-                        'balance': int(Decimal(1e8) * self.rpc(
+                        'balance': int(Decimal(1e8) * self._rpc(
                             'getreceivedbyaddress', [address, 0]))})
         return {'data': res}
