@@ -19,8 +19,8 @@ ordertype = 'reloffer'  # [string, 'reloffer' or 'absoffer'], which fee type to 
 cjfee_a = 500             # [satoshis, any integer] / absolute offer fee you wish to receive for coinjoins (cj)
 cjfee_r = '0.00002'       # [fraction, any str between 0-1] / relative offer fee you wish to receive based on a cj's amount
 cjfee_factor = 0.1        # [fraction, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
-txfee = 100               # [satoshis, any integer] / the average transaction fee you're adding to coinjoin transactions
-txfee_factor = 0.3        # [fraction, 0-1] / variance around the average fee. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
+txfee = 0                 # [satoshis, any integer] / the average transaction fee contribution you're adding to coinjoin transactions
+txfee_factor = 0.3        # [fraction, 0-1] / variance around the average fee contribution. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
 minsize = 100000          # [satoshis, any integer] / minimum size of your cj offer. Lower cj amounts will be disregarded
 size_factor = 0.1         # [fraction, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
 gaplimit = 6
@@ -47,7 +47,8 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
                             if b > self.minsize])
         if len(mix_balance) == 0:
             jlog.error('You do not have the minimum required amount of coins'
-                       ' to be a maker: ' + str(minsize))
+                       ' to be a maker: ' + str(self.minsize) + \
+                       '\nTry setting txfee to zero and/or lowering the minsize.')
             return []
         max_mix = max(mix_balance, key=mix_balance.get)
 
