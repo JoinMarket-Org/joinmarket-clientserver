@@ -1,8 +1,8 @@
 
 import sys
-from jmbase import jmprint
-from jmclient import jm_single, BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH
-from jmbase.support import EXIT_FAILURE, utxostr_to_utxo
+from jmbase import jmprint, utxostr_to_utxo
+from jmclient import jm_single, BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, BTC_P2WPKH
+from jmbase.support import EXIT_FAILURE, utxostr_to_utxo, utxo_to_utxostr
 
 
 def quit(parser, errmsg): #pragma: no cover
@@ -32,8 +32,8 @@ def get_utxo_info(upriv):
         raise
     return u, priv
     
-def validate_utxo_data(utxo_datas, retrieve=False, segwit=False):
-    """For each txid: N, privkey, first
+def validate_utxo_data(utxo_datas, retrieve=False, utxo_address_type="p2wpkh"):
+    """For each (utxo, privkey), first
     convert the privkey and convert to address,
     then use the blockchain instance to look up
     the utxo and check that its address field matches.
@@ -44,21 +44,33 @@ def validate_utxo_data(utxo_datas, retrieve=False, segwit=False):
     """
     results = []
     for u, priv in utxo_datas:
-        jmprint('validating this utxo: ' + str(u), "info")
+        success, utxostr = utxo_to_utxostr(u)
+        if not success:
+            jmprint("Invalid utxo format: " + str(u), "error")
+            sys.exit(EXIT_FAILURE)
+        jmprint('validating this utxo: ' + utxostr, "info")
         # as noted in `ImportWalletMixin` code comments, there is not
         # yet a functional auto-detection of key type from WIF, so the
-        # second argument is ignored; we assume p2sh-p2wpkh if segwit,
-        # else we assume p2pkh.
-        engine = BTC_P2SH_P2WPKH if segwit else BTC_P2PKH
+        # second argument is ignored; we assume p2sh-p2wpkh if segwit=True,
+        # p2pkh if segwit=False, and p2wpkh if segwit="native" (slightly
+        # ugly, just done for backwards compat.).
+        if utxo_address_type == "p2wpkh":
+            engine = BTC_P2WPKH
+        elif utxo_address_type == "p2sh-p2wpkh":
+            engine = BTC_P2SH_P2WPKH
+        elif utxo_address_type == "p2pkh":
+            engine = BTC_P2PKH
+        else:
+            raise Exception("Invalid argument: " + str(utxo_address_type))
         rawpriv, _ = BTCEngine.wif_to_privkey(priv)
         addr = engine.privkey_to_address(rawpriv)
         jmprint('claimed address: ' + addr, "info")
         res = jm_single().bc_interface.query_utxo_set([u])
         if len(res) != 1 or None in res:
-            jmprint("utxo not found on blockchain: " + str(u), "error")
+            jmprint("utxo not found on blockchain: " + utxostr, "error")
             return False
         if res[0]['address'] != addr:
-            jmprint("privkey corresponds to the wrong address for utxo: " + str(u), "error")
+            jmprint("privkey corresponds to the wrong address for utxo: " + utxostr, "error")
             jmprint("blockchain returned address: {}".format(res[0]['address']), "error")
             jmprint("your privkey gave this address: " + addr, "error")
             return False
