@@ -12,7 +12,7 @@ import struct
 from base64 import b64encode
 from jmbase import utxostr_to_utxo, hextobin
 from jmclient import load_test_config, jm_single, set_commitment_file,\
-    get_commitment_file, SegwitLegacyWallet, Taker, VolatileStorage,\
+    get_commitment_file, SegwitWallet, Taker, VolatileStorage,\
     get_network, WalletService, NO_ROUNDING, BTC_P2PKH,\
     NotEnoughFundsException
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
@@ -25,7 +25,7 @@ def convert_utxos(utxodict):
         return_dict[utxostr_to_utxo(uk)[1]] = val
     return return_dict
 
-class DummyWallet(SegwitLegacyWallet):
+class DummyWallet(SegwitWallet):
     def __init__(self):
         storage = VolatileStorage()
         super().initialize(storage, get_network(), max_mixdepth=5)
@@ -88,7 +88,7 @@ class DummyWallet(SegwitLegacyWallet):
         """Return string defining wallet type
         for purposes of transaction size estimates
         """
-        return 'p2sh-p2wpkh'
+        return 'p2wpkh'
 
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
@@ -226,10 +226,10 @@ def test_auth_pub_not_found(setup_taker):
         #edge case triggers that don't fail
         ([(0, 0, 4, "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #sweep rounding error case
-        ([(0, 199850001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
+        ([(0, 199856001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger sub dust change for taker
         #edge case triggers that do fail
-        ([(0, 199851000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
+        ([(0, 199857000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger negative change
         ([(0, 199599800, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger sub dust change for maker
@@ -251,11 +251,14 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     #these tests do not trigger utxo_retries
     oldtakerutxoretries = jm_single().config.get("POLICY", "taker_utxo_retries")
     oldtakerutxoamtpercent = jm_single().config.get("POLICY", "taker_utxo_amtpercent")
+    oldtxfees = jm_single().config.get("POLICY", "tx_fees")
     jm_single().config.set("POLICY", "taker_utxo_retries", "20")
+    jm_single().config.set("POLICY", "tx_fees", "30000")
     def clean_up():
         jm_single().config.set("POLICY", "minimum_makers", oldminmakers)
         jm_single().config.set("POLICY", "taker_utxo_retries", oldtakerutxoretries)
         jm_single().config.set("POLICY", "taker_utxo_amtpercent", oldtakerutxoamtpercent)
+        jm_single().config.set("POLICY", "tx_fees", oldtxfees)
     oldminmakers = jm_single().config.get("POLICY", "minimum_makers")
     jm_single().config.set("POLICY", "minimum_makers", str(minmakers))
     taker = get_taker(schedule)
@@ -288,19 +291,19 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     if notauthed:
         #Doctor one of the maker response data fields
         maker_response["J659UPUSLLjHJpaB"][1] = "xx" #the auth pub
-    if schedule[0][1] == 199851000:
+    if schedule[0][1] == 199857000:
         #triggers negative change
-        #((109 + 4*64)*ins + 34 * outs + 8)/4. plug in 9 ins and 8 outs gives
-        #tx size estimate = 1101 bytes. Times 30 ~= 33030.
-        #makers offer 3000 txfee, so we pay 30030, plus maker fees = 3*0.0002*200000000
-        #roughly, gives required selected = amt + 120k+30k, hence the above =
-        #2btc - 140k sats = 199851000 (tweaked because of aggressive coin selection)
+        # ((10 + 31 * outs + 41 * ins)*4 + 109 * ins)/4. plug in 9 ins and 8 outs gives
+        #tx size estimate = 872.25 bytes. Times 30 ~= 26167.5.
+        #makers offer 3000 txfee, so we pay 23168, plus maker fees = 3*0.0002*200000000
+        #roughly, gives required selected = amt + 120k+23k, hence the above =
+        #2btc - 143k sats = 199857000 (tweaked because of aggressive coin selection)
         #simulate the effect of a maker giving us a lot more utxos
         taker.utxos["dummy_for_negative_change"] = [(struct.pack(b"B", a) *32, a+1) for a in range(7,12)]
         with pytest.raises(ValueError) as e_info:
             res = taker.receive_utxos(maker_response)
         return clean_up()
-    if schedule[0][1] == 199850001:
+    if schedule[0][1] == 199856001:
         #our own change is greater than zero but less than dust
         #use the same edge case as for negative change, don't add dummy inputs
         #(because we need tx creation to complete), but trigger case by

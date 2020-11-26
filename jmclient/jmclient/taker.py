@@ -250,12 +250,15 @@ class Taker(object):
         if sweep:
             self.orderbook = orderbook #offers choosing deferred to next step
         else:
-            if jm_single().config.get("POLICY", "segwit") == "false":
+            if self.wallet_service.get_txtype() == "p2pkh":
                 allowed_types = ["reloffer", "absoffer"]
-            elif jm_single().config.get("POLICY", "native") == "false":
+            elif self.wallet_service.get_txtype() == "p2sh-p2wpkh":
                 allowed_types = ["swreloffer", "swabsoffer"]
-            else:
+            elif self.wallet_service.get_txtype() == "p2wpkh":
                 allowed_types = ["sw0reloffer", "sw0absoffer"]
+            else:
+                jlog.error("Unrecognized wallet type, taker cannot continue.")
+                return False
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
                 self.ignored_makers, allowed_types=allowed_types,
@@ -324,12 +327,15 @@ class Taker(object):
                                             txtype=self.wallet_service.get_txtype())
             jlog.debug("We have a fee estimate: "+str(self.total_txfee))
             total_value = sum([va['value'] for va in self.input_utxos.values()])
-            if jm_single().config.get("POLICY", "segwit") == "false":
+            if self.wallet_service.get_txtype() == "p2pkh":
                 allowed_types = ["reloffer", "absoffer"]
-            elif jm_single().config.get("POLICY", "native") == "false":
+            elif self.wallet_service.get_txtype() == "p2sh-p2wpkh":
                 allowed_types = ["swreloffer", "swabsoffer"]
-            else:
+            elif self.wallet_service.get_txtype() == "p2wpkh":
                 allowed_types = ["sw0reloffer", "sw0absoffer"]
+            else:
+                jlog.error("Unrecognized wallet type, taker cannot continue.")
+                return False
             self.orderbook, self.cjamount, self.total_cj_fee = choose_sweep_orders(
                 self.orderbook, total_value, self.total_txfee,
                 self.n_counterparties, self.order_chooser,
