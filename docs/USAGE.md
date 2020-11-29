@@ -362,7 +362,7 @@ You should read the warnings and understand the non-intuitive behaviour before u
 With [this](https://bitcoin.stackexchange.com/questions/29948/why-doc-says-importing-private-keys-is-so-dangerous) and [this](https://bitcoin.stackexchange.com/questions/18619/why-so-many-warnings-about-importing-private-keys) page.
 It is best to avoid importing private keys if you can.
 
-        (jmvenv)$ python wallet-tool.py -M 0 example.jmdat importprivkey
+        (jmvenv)$ python wallet-tool.py -m 0 example.jmdat importprivkey
         Enter wallet decryption passphrase: 
         WARNING: This imported key will not be recoverable with your 12 word mnemonic seed. Make sure you have backups.
         WARNING: Handling of raw ECDSA bitcoin private keys can lead to non-intuitive behaviour and loss of funds.
