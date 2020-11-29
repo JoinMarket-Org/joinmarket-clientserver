@@ -74,7 +74,8 @@ def main():
                     "BE CAREFUL about handling private keys! "
                     "Don't do this in insecure environments. "
                     
-                    "Also note this ONLY works for standard (p2pkh or p2sh-p2wpkh) utxos."
+                    "Also note this ONLY works for standard p2wpkh (native segwit) "
+                    "or p2sh-p2wpkh (nested segwit) utxos."
     )
     add_base_options(parser)
     parser.add_option(
@@ -193,10 +194,10 @@ def main():
         for ul in utxo_info:
             ul = ul.rstrip()
             if ul:
-                u, priv = get_utxo_info(ul)
+                u, priv = get_utxo_info(ul.decode("utf-8"), utxo_binary=True)
                 if not u:
                     quit(parser, "Failed to parse utxo info: " + str(ul))
-                utxo_data.append((utxostr_to_utxo(u), priv))
+                utxo_data.append((u, priv))
     elif options.in_json:
         if not os.path.isfile(options.in_json):
             jmprint("File: " + options.in_json + " not found.", "error")
@@ -208,15 +209,19 @@ def main():
                 jmprint("Failed to read json from " + options.in_json, "error")
                 sys.exit(EXIT_FAILURE)
         for u, pva in iteritems(utxo_json):
-            utxo_data.append((utxostr_to_utxo(u), pva['privkey']))
+            utxobin, priv = get_utxo_info(",".join([u, pva["privkey"]]),
+                                                   utxo_binary=True)
+            if not utxobin:
+                quit(parser, "Failed to load utxo from json: " + str(u))
+            utxo_data.append((utxobin, priv))
     elif len(args) == 1:
-        u = args[0]
+        ul = args[0]
         priv = input(
-            'input private key for ' + u + ', in WIF compressed format : ')
-        u, priv = get_utxo_info(','.join([u, priv]))
+            'input private key for ' + ul + ', in WIF compressed format : ')
+        u, priv = get_utxo_info(','.join([ul, priv]), utxo_binary=True)
         if not u:
-            quit(parser, "Failed to parse utxo info: " + u)
-        utxo_data.append((utxostr_to_utxo(u), priv))
+            quit(parser, "Failed to parse utxo info: " + ul)
+        utxo_data.append((u, priv))
     else:
         quit(parser, 'Invalid syntax')
     if options.validate or options.vonly:
