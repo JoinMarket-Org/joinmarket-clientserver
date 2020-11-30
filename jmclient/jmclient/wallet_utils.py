@@ -1419,6 +1419,13 @@ def wallet_tool_main(wallet_root_path):
         seed = args[0]
         wallet_path = get_wallet_path(seed, wallet_root_path)
         method = ('display' if len(args) == 1 else args[1].lower())
+
+        # no-seed methods are incompatible with a provided wallet:
+        if method in noseed_methods:
+            parser.error("The method '" + method + \
+                         "' is not compatible with a wallet filename.")
+            sys.exit(EXIT_ARGERROR)
+
         read_only = method in readonly_methods
 
         #special case needed for fidelity bond burner outputs
