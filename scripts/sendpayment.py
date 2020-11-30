@@ -172,17 +172,19 @@ def main():
     # the sync call here will now be a no-op:
     wallet_service.startService()
 
-    # Dynamically estimate a realistic fee.
+    # Dynamically estimate a realistic fee, for coinjoins.
     # At this point we do not know even the number of our own inputs, so
     # we guess conservatively with 2 inputs and 2 outputs each.
-    fee_per_cp_guess = estimate_tx_fee(2, 2, txtype=wallet_service.get_txtype())
-    log.debug("Estimated miner/tx fee for each cj participant: " + str(
-        fee_per_cp_guess))
+    if options.makercount != 0:
+        fee_per_cp_guess = estimate_tx_fee(2, 2,
+                                           txtype=wallet_service.get_txtype())
+        log.debug("Estimated miner/tx fee for each cj participant: " + str(
+            fee_per_cp_guess))
 
     # From the estimated tx fees, check if the expected amount is a
     # significant value compared the the cj amount; currently enabled
     # only for single join (the predominant, non-advanced case)
-    if options.schedule == '':
+    if options.schedule == '' and options.makercount != 0:
         total_cj_amount = amount
         if total_cj_amount == 0:
             total_cj_amount = wallet_service.get_balance_by_mixdepth()[options.mixdepth]

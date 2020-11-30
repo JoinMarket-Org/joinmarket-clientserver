@@ -406,20 +406,27 @@ class BitcoinCoreInterface(BlockchainInterface):
         return result
 
     def estimate_fee_per_kb(self, N):
+        """ The argument N may be either a number of blocks target,
+        for estimation of feerate by Core, or a number of satoshis
+        per kilo-vbyte (see `fee_per_kb_has_been_manually_set` for
+        how this is distinguished).
+        In the latter case, it is prevented from falling below the
+        minimum allowed feerate for relay on the Bitcoin network.
+        """
         if super().fee_per_kb_has_been_manually_set(N):
-            # use the local bitcoin core relay fee as floor to avoid relay problems
+            # use the local bitcoin core relay fee as floor to avoid relay
+            # problems
             btc_relayfee = -1
             rpc_result = self._rpc('getnetworkinfo', None)
             btc_relayfee = rpc_result.get('relayfee', btc_relayfee)
             if btc_relayfee > 0:
                 relayfee_in_sat = int(Decimal(1e8) * Decimal(btc_relayfee))
-                log.info("Using this min relay fee as tx fee floor: " +
-                    btc.fee_per_kb_to_str(relayfee_in_sat))
-                return int(max(relayfee_in_sat, random.uniform(N * float(0.8), N * float(1.2))))
             else:   # cannot get valid relayfee: fall back to 1000 sat/kbyte
-                log.info("Using this min relay fee as tx fee floor " +
-                    "(fallback): " + btc.fee_per_kb_to_str(1000))
-                return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
+                relayfee_in_sat = 1000
+            log.debug("Using this min relay fee as tx feerate per kB floor: " +
+                btc.fee_per_kb_to_str(1000))
+            return int(max(relayfee_in_sat, random.uniform(N * float(0.8),
+                                                           N * float(1.2))))
 
         # Special bitcoin core case: sometimes the highest priority
         # cannot be estimated in that case the 2nd highest priority
@@ -438,7 +445,8 @@ class BitcoinCoreInterface(BlockchainInterface):
 
         if retval == -1:
             retval = int(Decimal(1e8) * Decimal(estimate))
-        log.info("Using tx fee: " + btc.fee_per_kb_to_str(retval))
+        log.info("Using bitcoin network feerate (per kB in sats): " +\
+                 btc.fee_per_kb_to_str(retval))
         return retval
 
     def get_current_block_height(self):
