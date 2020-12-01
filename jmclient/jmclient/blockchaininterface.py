@@ -341,6 +341,9 @@ class BitcoinCoreInterface(BlockchainInterface):
                 log.warn("Failed gettransaction call; unexpected error:")
                 log.warn(str(e))
                 return None
+        if res is None:
+            # happens in case of rpc connection failure:
+            return None
         if "confirmations" not in res:
             log.warning("Malformed gettx result: " + str(res))
             return None
