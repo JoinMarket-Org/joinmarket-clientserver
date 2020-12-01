@@ -178,8 +178,8 @@ def main():
     if options.makercount != 0:
         fee_per_cp_guess = estimate_tx_fee(2, 2,
                                            txtype=wallet_service.get_txtype())
-        log.debug("Estimated miner/tx fee for each cj participant: " + str(
-            fee_per_cp_guess))
+        log.debug("Estimated miner/tx fee for each cj participant: " +
+                  btc.amount_to_str(fee_per_cp_guess))
 
     # From the estimated tx fees, check if the expected amount is a
     # significant value compared the the cj amount; currently enabled

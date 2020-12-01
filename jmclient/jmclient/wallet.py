@@ -81,6 +81,9 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh', extra_bytes=0):
             "without blockchain source.")
     fee_per_kb = jm_single().bc_interface.estimate_fee_per_kb(
                 jm_single().config.getint("POLICY","tx_fees"))
+    if fee_per_kb is None:
+        raise RuntimeError("Cannot estimate fee per kB, possibly" +
+                           " a failure of connection to the blockchain.")
     absurd_fee = jm_single().config.getint("POLICY", "absurd_fee_per_kb")
     if fee_per_kb > absurd_fee:
         #This error is considered critical; for safety reasons, shut down.
