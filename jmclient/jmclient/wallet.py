@@ -32,32 +32,6 @@ import jmbitcoin as btc
 from jmbase import JM_WALLET_NAME_PREFIX, bintohex
 
 
-"""
-transaction dict format:
-    {
-        'version': int,
-        'locktime': int,
-        'ins': [
-            {
-                'outpoint': {
-                    'hash': bytes,
-                    'index': int
-                },
-                'script': bytes,
-                'sequence': int,
-                'txinwitness': [bytes]
-            }
-        ],
-        'outs': [
-            {
-                'script': bytes,
-                'value': int
-            }
-        ]
-    }
-"""
-
-
 def _int_to_bytestr(i):
     return str(i).encode('ascii')
 
