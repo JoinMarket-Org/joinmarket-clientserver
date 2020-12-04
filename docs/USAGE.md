@@ -35,6 +35,8 @@ followed a manual installation as per [here](INSTALL.md)).
 
    j. [What is the Gap Limit](#gaplimit)
 
+   k. [Co-signing a PSBT](#psbt)
+
 4. [Try out a coinjoin; using sendpayment.py](#try-coinjoin)
 
 5. [Running a "Maker" or "yield generator"](#run-maker)
@@ -401,6 +403,19 @@ With a deterministic wallet you create a sequence of bitcoin addresses and priva
 You can create as many addresses as you like, but not all of them will appear the blockchain. For instance I might create one especially for you to give me 1,000,000 BTC. That is (alas!) probably not going to be used so will likely never appear on the blockchain.
 
 When you are starting JoinMarket it does not know which is the last address used. So you start at the beginning and see what is on the blockchain. Then you look for the next one in the sequence. The gap limit is how many *misses* you accept before you give up and stop looking. The same concept is used in other deterministic wallets like Electrum.
+
+<a name="psbt" />
+
+### Co-signing a PSBT
+
+Joinmarket now (version 0.8.1+) has (limited) PSBT support. You can take a PSBT from another source, which has created a transaction spending some of your utxos, as well as others, and co-sign it (for example, a custom coinjoin). If your wallet recognizes the coins as belonging to you, it will sign them and present the transaction ready for broadcast, if the signing is complete. **BE CAREFUL USING THIS FEATURE**. This is, for now, intended to be a manual process; before broadcasting a transaction, you **MUST** carefully read the presented information to ensure you are not spending coins you don't intend to. This feature should work with both native and p2sh segwit wallets (but not tested with non-segwit). For creating such PSBTs in other wallets, before co-signing them here, you will probably need to use the xpub of the account (mixdepth) as shown in the output of `wallet-tool.py` default method `display`; for general analysis of what's going on, don't forget you can use `wallet-tool.py` method `showutxos`.
+
+The syntax is:
+
+`python wallet-tool.py mywalletname.jmdat signpsbt <base64-psbt>`.
+
+Note that you only need the PSBT itself, you don't need e.g. mixdepth or other metadata, the tool will figure out for itself whether this wallet is able to co-sign. If it does not end with a "finalized" (fully signed) PSBT, it will in any case output the latest "updated" PSBT and tell you how many signings it did.
+
 
 <a name="try-coinjoin" />
 

@@ -1,8 +1,9 @@
+import base64
+import binascii
 import json
 import os
-import sys
 import sqlite3
-import binascii
+import sys
 from datetime import datetime
 from calendar import timegm
 from optparse import OptionParser, IndentedHelpFormatter
@@ -16,7 +17,7 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
 from jmclient.wallet_service import WalletService
 from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
-                            EXIT_ARGERROR, utxo_to_utxostr, hextobin)
+                            EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex)
 
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
     TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
@@ -51,6 +52,7 @@ The method is one of the following:
 (dumpprivkey) Export a single private key, specify an hd wallet path.
 (signmessage) Sign a message with the private key from an address in
     the wallet. Use with -H and specify an HD wallet path for the address.
+(signpsbt) Sign PSBT with JoinMarket wallet.
 (freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.
 (gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`.
 (addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with
@@ -1064,6 +1066,37 @@ def wallet_signmessage(wallet, hdpath, message):
     retval = "Signature: {}\nTo verify this in Bitcoin Core".format(sig)
     return retval + " use the RPC command 'verifymessage'"
 
+def wallet_signpsbt(wallet_service, psbt):
+    if not psbt:
+        return "Error: no PSBT specified"
+
+    signed_psbt_and_signresult, err = wallet_service.sign_psbt(
+        base64.b64decode(psbt.encode('ascii')), with_sign_result=True)
+    if err:
+        return "Failed to sign PSBT, quitting. Error message: {}".format(err)
+    signresult, signedpsbt = signed_psbt_and_signresult
+    jmprint(wallet_service.human_readable_psbt(signedpsbt))
+    jmprint("Base64 of the above PSBT:")
+    jmprint(signedpsbt.to_base64())
+    if signresult.is_final:
+        if input("Above PSBT is fully signed. Do you want to broadcast?"
+                 "(y/n):") != "y":
+            jmprint("Not broadcasting.")
+        else:
+            jmprint("Broadcasting...")
+            tx = signedpsbt.extract_transaction()
+            if jm_single().bc_interface.pushtx(tx.serialize()):
+                jmprint("Transaction sent: " + bintohex(
+                    tx.GetTxid()[::-1]))
+            else:
+                jmprint("Transaction broadcast failed!", "error")
+    else:
+        # if the signing action did not result in a finalized PSBT,
+        # inform the user of the current status:
+        jmprint("The PSBT is not yet fully signed, we signed: {} "
+                "inputs.".format(signresult.num_inputs_signed))
+    return ""
+
 def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
         utxos_disabled):
     """ CLI implementation of the callback required as described in
@@ -1503,6 +1536,11 @@ def wallet_tool_main(wallet_root_path):
             jmprint('Must provide message to sign', "error")
             sys.exit(EXIT_ARGERROR)
         return wallet_signmessage(wallet_service, options.hd_path, args[2])
+    elif method == "signpsbt":
+        if len(args) < 3:
+            jmprint("Must provide PSBT to sign", "error")
+            sys.exit(EXIT_ARGERROR)
+        return wallet_signpsbt(wallet_service, args[2])
     elif method == "freeze":
         return wallet_freezeutxo(wallet_service, options.mixdepth)
     elif method == "gettimelockaddress":
