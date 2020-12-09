@@ -9,15 +9,17 @@ def quit(parser, errmsg): #pragma: no cover
     parser.error(errmsg)
     sys.exit(EXIT_FAILURE)
 
-def get_utxo_info(upriv):
+def get_utxo_info(upriv, utxo_binary=False):
     """Verify that the input string parses correctly as (utxo, priv)
-    and return that.
+    and return that. If `utxo_binary` is true, the first element of
+    that return tuple is the standard internal form
+    (txid-in-binary, index-as-int).
     """
     try:
         u, priv = upriv.split(',')
         u = u.strip()
         priv = priv.strip()
-        success, utxo = utxostr_to_utxo(u)
+        success, utxo_bin = utxostr_to_utxo(u)
         assert success, utxo
     except:
         #not sending data to stdout in case privkey info
@@ -30,7 +32,8 @@ def get_utxo_info(upriv):
     except:
         jmprint("failed to parse privkey, make sure it's WIF compressed format.", "error")
         raise
-    return u, priv
+    utxo_to_return = utxo_bin if utxo_binary else u
+    return utxo_to_return, priv
     
 def validate_utxo_data(utxo_datas, retrieve=False, utxo_address_type="p2wpkh"):
     """For each (utxo, privkey), first
