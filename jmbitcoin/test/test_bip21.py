@@ -26,6 +26,10 @@ def test_bip21_decode():
 
     assert(btc.decode_bip21_uri('bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'
         )['address'] == '175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W')
+    assert(btc.decode_bip21_uri('BITCOIN:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'
+        )['address'] == '175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W')
+    assert(btc.decode_bip21_uri('BitCoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'
+        )['address'] == '175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W')
 
     parsed = btc.decode_bip21_uri(
         'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr')

@@ -11,7 +11,7 @@ import re
 
 def is_bip21_uri(uri):
     parsed = urlparse(uri)
-    return parsed.scheme == 'bitcoin' and parsed.path != ''
+    return parsed.scheme.lower() == 'bitcoin' and parsed.path != ''
 
 
 def is_bip21_amount_str(amount):
