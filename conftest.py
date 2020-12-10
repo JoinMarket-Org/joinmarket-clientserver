@@ -42,7 +42,8 @@ def local_command(command, bg=False, redirect=''):
     else:
         #in case of foreground execution, we can use the output; if not
         #it doesn't matter
-        return subprocess.check_output(command)
+        return subprocess.run(command, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT)
 
 def root_path():
     # returns the directory in which this file is contained
@@ -120,7 +121,12 @@ def setup(request):
                        "-rpcuser=" + bitcoin_rpcusername,
                        "-rpcpassword=" + bitcoin_rpcpassword]
     for i in range(2):
-        destn_addr = local_command(root_cmd + ["getnewaddress"])[:-1].decode('utf-8')
-        local_command(root_cmd + ["generatetoaddress", "301", destn_addr])
+        cpe = local_command(root_cmd + ["getnewaddress"])
+        if cpe.returncode == 0:
+            destn_addr = cpe.stdout[:-1].decode('utf-8')
+            local_command(root_cmd + ["generatetoaddress", "301", destn_addr])
+        else:
+            pytest.exit("Cannot setup tests, bitcoin-cli failing.\n" +
+                str(cpe.stdout))
         time.sleep(1)
     
