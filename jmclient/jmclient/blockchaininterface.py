@@ -184,10 +184,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             raise Exception('wrong network configured')
 
     def is_address_imported(self, addr):
-        try:
-            return self._rpc('getaccount', [addr]) != ''
-        except JsonRpcError:
-            return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
+        return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
 
     def get_block(self, blockheight):
         """Returns full serialized block at a given height.
@@ -232,11 +229,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         return res
 
     def is_address_labeled(self, utxo, walletname):
-        # Bitcoin Core before 0.17 used accounts, new versions has labels
-        return (
-            ("label" in utxo and utxo["label"] == walletname) or
-            ("account" in utxo and utxo["account"] == walletname)
-        )
+        return ("label" in utxo and utxo["label"] == walletname)
 
     def import_addresses(self, addr_list, wallet_name, restart_cb=None):
         """Imports addresses in a batch during initial sync.
@@ -275,15 +268,11 @@ class BitcoinCoreInterface(BlockchainInterface):
             sys.exit(EXIT_FAILURE)
 
     def import_addresses_if_needed(self, addresses, wallet_name):
-        try:
-            imported_addresses = set(self._rpc('getaddressesbyaccount',
-                                                  [wallet_name]))
-        except JsonRpcError:
-            if wallet_name in self._rpc('listlabels', []):
-                imported_addresses = set(self._rpc('getaddressesbylabel',
-                                                      [wallet_name]).keys())
-            else:
-                imported_addresses = set()
+        if wallet_name in self._rpc('listlabels', []):
+            imported_addresses = set(self._rpc('getaddressesbylabel',
+                                                  [wallet_name]).keys())
+        else:
+            imported_addresses = set()
         import_needed = not addresses.issubset(imported_addresses)
         if import_needed:
             self.import_addresses(addresses - imported_addresses, wallet_name)
@@ -327,25 +316,21 @@ class BitcoinCoreInterface(BlockchainInterface):
         watch-only wallets.
         """
         htxid = bintohex(txid)
-        #changed syntax in 0.14.0; allow both syntaxes
         try:
             res = self._rpc("gettransaction", [htxid, True])
+        except JsonRpcError as e:
+            #This should never happen (gettransaction is a wallet rpc).
+            log.warn("Failed gettransaction call; JsonRpcError: " + repr(e))
+            return None
         except Exception as e:
-            try:
-                res = self._rpc("gettransaction", [htxid, 1])
-            except JsonRpcError as e:
-                #This should never happen (gettransaction is a wallet rpc).
-                log.warn("Failed gettransaction call; JsonRpcError: " + repr(e))
-                return None
-            except Exception as e:
-                log.warn("Failed gettransaction call; unexpected error:")
-                log.warn(str(e))
-                return None
+            log.warn("Failed gettransaction call; unexpected error:")
+            log.warn(str(e))
+            return None
         if res is None:
             # happens in case of rpc connection failure:
             return None
         if "confirmations" not in res:
-            log.warning("Malformed gettx result: " + str(res))
+            log.warning("Malformed gettransaction result: " + str(res))
             return None
         return res
 
@@ -479,11 +464,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         return self._rpc('getblockchaininfo', [])['mediantime']
 
     def _get_block_header_data(self, blockhash, key):
-        try:
-            # works with pruning enabled, but only after v0.12
-            return self._rpc('getblockheader', [blockhash])[key]
-        except JsonRpcError:
-            return self._rpc('getblock', [blockhash])[key]
+        return self._rpc('getblockheader', [blockhash])[key]
 
     def get_block_height(self, blockhash):
         return self._get_block_header_data(blockhash, 'height')
@@ -594,13 +575,9 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
             addr_list = ["addr(" + a + ")" for a in addresses]
             log.debug("Starting scan of UTXO set")
             st = time.time()
-            try:
-                self._rpc("scantxoutset", ["abort", []])
-                self.scan_result = self._rpc("scantxoutset", ["start",
-                    addr_list])
-            except JsonRpcError as e:
-                raise RuntimeError("Bitcoin Core 0.17.0 or higher required "
-                    + "for no-history sync (" + repr(e) + ")")
+            self._rpc("scantxoutset", ["abort", []])
+            self.scan_result = self._rpc("scantxoutset", ["start",
+                addr_list])
             et = time.time()
             log.debug("UTXO set scan took " + str(et - st) + "sec")
         elif self.import_addresses_call_count > 4:
