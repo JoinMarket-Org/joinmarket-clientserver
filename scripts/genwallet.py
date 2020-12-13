@@ -3,7 +3,7 @@
 import sys
 import os
 from optparse import OptionParser
-from jmclient import load_program_config, add_base_options, SegwitLegacyWallet, create_wallet, jm_single
+from jmclient import load_program_config, add_base_options, SegwitWallet, SegwitLegacyWallet, create_wallet, jm_single
 from jmbase.support import get_log, jmprint
 
 log = get_log()
@@ -23,7 +23,11 @@ def main():
     load_program_config(config_path=options.datadir)
     wallet_root_path = os.path.join(jm_single().datadir, "wallets")
     wallet_name = os.path.join(wallet_root_path, args[0])
-    wallet = create_wallet(wallet_name, password, 4, SegwitLegacyWallet)
+    if jm_single().config.get("POLICY", "native") == "true":
+        walletclass = SegwitWallet
+    else:
+        walletclass = SegwitLegacyWallet
+    wallet = create_wallet(wallet_name, password, 4, walletclass)
     jmprint("recovery_seed:{}"
          .format(wallet.get_mnemonic_words()[0]), "important")
     wallet.close()
