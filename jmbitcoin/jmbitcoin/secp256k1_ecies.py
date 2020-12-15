@@ -34,14 +34,11 @@ def aes_decrypt(key, data, iv):
     return dec_data
 
 def ecies_encrypt(message, pubkey):
-    """ Take a privkey in raw byte serialization,
-    and a pubkey serialized in compressed, binary format (33 bytes),
-    and output the shared secret as a 32 byte hash digest output.
-    The exact calculation is:
-    shared_secret = SHA256(privkey * pubkey)
-    .. where * is elliptic curve scalar multiplication.
-    See https://github.com/bitcoin/bitcoin/blob/master/src/secp256k1/src/modules/ecdh/main_impl.h
-    for implementation details.
+    """ Take a message in bytes and a secp256k1 public key
+    in compressed byte serialization, and output the
+    ECIES encryption, using magic bytes as defined in this module,
+    sha512 for the key expansion, and AES-CBC for the encryption;
+    these choices are aligned with that used by Electrum.
     """
     # create an ephemeral pubkey for this encryption:
     while True:

@@ -32,4 +32,5 @@ from bitcointx.core.script import (CScript, OP_0, SignatureHash, SIGHASH_ALL,
                                    SIGVERSION_WITNESS_V0, CScriptWitness)
 from bitcointx.core.psbt import (PartiallySignedTransaction, PSBT_Input,
                                  PSBT_Output)
+from .blocks import get_transactions_in_block
 

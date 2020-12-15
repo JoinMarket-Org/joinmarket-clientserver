@@ -17,7 +17,7 @@ import random
 from jmbase import jmprint
 from jmclient import YieldGeneratorBasic, load_test_config, jm_single,\
     JMClientProtocolFactory, start_reactor, SegwitWallet,\
-    SegwitLegacyWallet, cryptoengine
+    SegwitLegacyWallet, cryptoengine, SNICKERClientProtocolFactory, SNICKERReceiver
 
 
 class MaliciousYieldGenerator(YieldGeneratorBasic):
@@ -169,12 +169,19 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
         if malicious:
             yg.set_maliciousness(malicious, mtype="tx")
         clientfactory = JMClientProtocolFactory(yg, proto_type="MAKER")
+        if jm_single().config.get("SNICKER", "enabled") == "true":
+            snicker_r = SNICKERReceiver(wallet_service_yg)
+            servers = jm_single().config.get("SNICKER", "servers").split(",")
+            snicker_factory = SNICKERClientProtocolFactory(snicker_r, servers)
+        else:
+            snicker_factory = None
         nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
         daemon = True if nodaemon == 1 else False
         rs = True if i == num_ygs - 1 else False
         start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
-                      clientfactory, daemon=daemon, rs=rs)
+                      clientfactory, snickerfactory=snicker_factory,
+                      daemon=daemon, rs=rs)
 
 @pytest.fixture(scope="module")
 def setup_ygrunner():

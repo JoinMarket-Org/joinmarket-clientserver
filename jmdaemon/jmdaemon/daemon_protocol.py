@@ -9,14 +9,20 @@ from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        COMMITMENT_PREFIXES)
 from .irc import IRCMessageChannel
 
-from jmbase import hextobin
+from jmbase import (hextobin, is_hs_uri, get_tor_agent,
+                    get_nontor_agent, BytesProducer, wrapped_urlparse)
 from jmbase.commands import *
 from twisted.protocols import amp
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone)
+from twisted.web.http_headers import Headers
+from twisted.web.client import ResponseFailed, readBody
+from txtorcon.socks import HostUnreachableError
 from twisted.python import log
+import urllib.parse as urlparse
+from urllib.parse import urlencode
 import json
 import threading
 import os
@@ -86,6 +92,186 @@ def check_utxo_blacklist(commitment, persist=False):
 
 class JMProtocolError(Exception):
     pass
+
+class HTTPPassThrough(amp.AMP):
+    """ This class supports passing through
+    requests over HTTPS or over a socks proxy to a remote
+    onion service, or multiple.
+    """
+
+    def on_INIT(self, netconfig):
+        """ The network config must be passed in json
+	and contains these fields:
+	socks5_host
+	socks5_proxy
+	servers (comma separated list)
+        tls_whitelist (comma separated list)
+	filterconfig (not yet defined)
+	credentials (not yet defined)
+	"""
+        netconfig = json.loads(netconfig)
+        self.socks5_host = netconfig["socks5_host"]
+        self.socks5_port = int(netconfig["socks5_port"])
+        self.servers = [a for a in netconfig["servers"] if a != ""]
+        self.tls_whitelist = [a for a in netconfig["tls_whitelist"].split(
+            ",") if a != ""]
+
+    def getAgentDestination(self, server, params=None):
+        tor_url_data = is_hs_uri(server)
+        if tor_url_data:
+            # note: SSL over Tor not supported at the moment:
+            agent = get_tor_agent(self.socks5_host, self.socks5_port)
+        else:
+            agent = get_nontor_agent(self.tls_whitelist)
+
+        destination_url = server.encode("utf-8")
+        url_parts = list(wrapped_urlparse(destination_url))
+        if params:
+            url_parts[4] = urlencode(params).encode("utf-8")
+        destination_url = urlparse.urlunparse(url_parts)
+        return (agent, destination_url)
+
+    def getRequest(self, server, success_callback, url=None, headers=None):
+        """ Make GET request to server server, if response received OK,
+	passed to success_callback, which must have function signature
+        (response, server).
+	"""
+        agent, destination_url = self.getAgentDestination(server)
+        if url:
+            destination_url = destination_url + url
+        # Deliberately sending NO headers; this could be a tricky point
+        # for anonymity of users, as much boilerplate code will not create
+        # requests that look like this.
+        headers = Headers({}) if not headers else headers
+        d = agent.request(b"GET", destination_url, headers)
+        d.addCallback(success_callback, server)
+        # note that the errback (here "noResponse") is *not* triggered
+        # by a server rejection (which is accompanied by a non-200
+        # status code returned), but by failure to communicate.
+        def noResponse(failure):
+            failure.trap(ResponseFailed, ConnectionRefusedError,
+                         HostUnreachableError, ConnectionLost)
+            log.msg(failure.value)
+        d.addErrback(noResponse)
+
+    def postRequest(self, body, server, success_callback, headers=None):
+        """ Pass body of post request as string, will be encoded here.
+	"""
+        agent, destination_url = self.getAgentDestination(server)
+        body = BytesProducer(body.encode("utf-8"))
+        d = agent.request(b"POST", destination_url,
+            Headers({}), bodyProducer=body)
+        d.addCallback(success_callback, server)
+        # note that the errback (here "noResponse") is *not* triggered
+        # by a server rejection (which is accompanied by a non-200
+        # status code returned), but by failure to communicate.
+        def noResponse(failure):
+            failure.trap(ResponseFailed, ConnectionRefusedError,
+                         HostUnreachableError, ConnectionLost)
+            log.msg(failure.value)
+            self.callRemote(SNICKERProposalsServerResponse,
+                            response="failure to connect",
+                            server=server)
+        d.addErrback(noResponse)
+
+    def checkClientResponse(self, response):
+        """A generic check of client acceptance; any failure
+        is considered criticial.
+        """
+        if 'accepted' not in response or not response['accepted']:
+            reactor.stop() #pragma: no cover
+
+    def defaultErrback(self, failure):
+        """TODO better network error handling.
+        """
+        failure.trap(ConnectionAborted, ConnectionClosed,
+                     ConnectionDone, ConnectionLost)
+
+    def defaultCallbacks(self, d):
+        d.addCallback(self.checkClientResponse)
+        d.addErrback(self.defaultErrback)
+
+class SNICKERDaemonServerProtocol(HTTPPassThrough):
+
+    @SNICKERProposerPostProposals.responder
+    def on_SNICKER_PROPOSER_POST_PROPOSALS(self, proposals, server):
+        """ Receives a list of proposals to be posted to a specific
+	server.
+	"""
+        self.postRequest(proposals, server, self.receive_proposals_response)
+        return {"accepted": True}
+
+    def receive_proposals_response(self, response, server):
+        d = readBody(response)
+        if int(response.code) != 200:
+            log.msg("Server returned error code: " + str(response.code))
+            d = self.callRemote(SNICKERServerError, server=server,
+                                               errorcode=response.code)
+            self.defaultCallbacks(d)
+            return
+        d.addCallback(self.process_proposals_response_from_server, server)
+
+    @SNICKERReceiverInit.responder
+    def on_SNICKER_RECEIVER_INIT(self, netconfig):
+        self.on_INIT(netconfig)
+        d = self.callRemote(SNICKERReceiverUp)
+        self.defaultCallbacks(d)
+        return {'accepted': True}
+
+    @SNICKERProposerInit.responder
+    def on_SNICKER_PROPOSER_INIT(self, netconfig):
+        self.on_INIT(netconfig)
+        d = self.callRemote(SNICKERProposerUp)
+        self.defaultCallbacks(d)
+        return {"accepted": True}
+
+    @SNICKERReceiverGetProposals.responder
+    def on_SNICKER_RECEIVER_GET_PROPOSALS(self):
+        for server in self.servers:
+            self.getRequest(server, self.receive_proposals_from_server)
+        return {'accepted': True}
+
+    def receive_proposals_from_server(self, response, server):
+        """ Parses the response from one server.
+	"""
+        # if the response code is not 200 OK, we must let the client
+        # know that this server is not responding as expected.
+        if int(response.code) != 200:
+            d = self.callRemote(SNICKERServerError,
+                                server=server,
+                                errorcode = response.code)
+            self.defaultCallbacks(d)
+            return
+        d = readBody(response)
+        d.addCallback(self.process_proposals_from_server, server)
+
+    @SNICKERRequestPowTarget.responder
+    def on_SNICKER_REQUEST_POW_TARGET(self, server):
+        self.getRequest(server, self.receive_pow_target,
+                        url=b"/target")
+        return {"accepted": True}
+
+    def receive_pow_target(self, response, server):
+        d = readBody(response)
+        d.addCallback(self.process_pow_target, server)
+
+    def process_pow_target(self, response_body, server):
+        d = self.callRemote(SNICKERReceivePowTarget,
+                            server=server,
+                            targetbits=int(response_body.decode("utf-8")))
+        self.defaultCallbacks(d)
+
+    def process_proposals_from_server(self, response, server):
+        d = self.callRemote(SNICKERReceiverProposals,
+                            proposals=response.decode("utf-8"),
+                            server=server)
+        self.defaultCallbacks(d)
+
+    def process_proposals_response_from_server(self, response_body, server):
+        d = self.callRemote(SNICKERProposalsServerResponse,
+                            response=response_body.decode("utf-8"),
+                            server=server)
+        self.defaultCallbacks(d)
 
 class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
@@ -646,6 +832,9 @@ class JMDaemonServerProtocolFactory(ServerFactory):
 
     def buildProtocol(self, addr):
         return JMDaemonServerProtocol(self)
+
+class SNICKERDaemonServerProtocolFactory(ServerFactory):
+    protocol = SNICKERDaemonServerProtocol
 
 def start_daemon(host, port, factory, usessl=False, sslkey=None, sslcert=None):
     if usessl:
