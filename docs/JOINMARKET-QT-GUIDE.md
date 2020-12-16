@@ -2,13 +2,13 @@
 
 ### Binary or script
 
-The gui can be run directly from Python script by doing `python joinmarket-qt.py` from within `scripts/`, or by running the executable file/binary (**[CLICK HERE](https://github.com/AdamISZ/joinmarket-clientserver/releases/)** to download the latest release).
+The GUI can be run directly from Python script by doing `./joinmarket-qt.sh` from within `scripts/`, or, if using Microsoft Windows, by running the executable file/binary (**[CLICK HERE](https://github.com/JoinMarket-Org/joinmarket-clientserver/releases)** to download the latest release). If you followed normal installation procedure under Linux, desktop entry of JoinMarketQt should be added to the application menu of your desktop environment.
 
 **LATEST VERSION of JoinMarket-Qt is GUI version 18**. You can check the version via `About` in the menu.
 
-No other files / setup should be needed. You might need to `chmod 755` on Linux.
+No other files / setup should be needed.
 
-The github commits to the main repo, above, are signed.
+The GitHub commits to the main repo, above, are signed.
 
 **Contents**
 
@@ -30,8 +30,7 @@ The github commits to the main repo, above, are signed.
 
 Ensure Bitcoin Core is running, and synced. (Your version of Bitcoin Core must be compiled with wallet support).
 
-Double click the binary to run it, or go to the `/scripts` subdirectory and run `python joinmarket-qt.py`
-(make sure you're in the venv, go back to the README quick install instructions if you don't know what that means).
+Double click the binary to run it, or go to the `/scripts` subdirectory and run `joinmarket-qt.sh`.
 
 You will get the following error screen initially:
 
@@ -75,13 +74,13 @@ Next, give a name for your wallet file:
 
 The wallet file will be saved with this name under the directory `wallets` in the same data directory as mentioned above.
 
-Joinmarket wallet file names are .json by default; this isn't strictly necessary, but better to 
+Joinmarket wallet file names are .jmdat by default; this isn't strictly necessary, but better to
 stick to that convention.
 
 The wallet will now automatically load from the your Bitcoin Core node. It may take a few seconds, during which you'll see "Reading wallet from blockchain...".
 
 If JoinMarketQt gets stuck at "Reading wallet from blockchain..." state, one possible solution may be to ensure you have set `rpc_wallet_file` correctly
-as described above. You can also check the terminal you ran the `joinmarket-qt.py` script from for other error messages.
+as described above. You can also check the terminal you ran the `joinmarket-qt.sh` script from for other error messages.
 
 Since you just created it, it will have no coins initially:
 
@@ -133,19 +132,21 @@ The donation feature is disabled; you can donate to the general JM donation addr
 
 Paste the address you want to send to under `Recipient address`.
 
-The number of counterparties can be anything from 2 up to 20; realistically, numbers 
-greater than about 8 can sometimes get a bit problematic, for a number of reasons, e.g. 
+The number of counterparties can be anything from 4 up to 20 (in theory you can make
+coinjoin with even 1 counterparty, but that will not work with the default settings
+and is not a recommended practice for privacy reasons); realistically, numbers
+greater than about 10 can sometimes get a bit problematic, for a number of reasons, e.g.
 the fact that the transaction fee gets large, there might not be enough counterparties 
 with sensible fees, messaging delays etc. Having said that, joins with 10-15 counterparties 
-*can* be done, and have been. But for ordinary working, I'd recommend a figure between 
-3 and 8 as fine.
+*can* be done, and have been. But for ordinary working, we recommend a figure between
+4 and 10 as fine.
 
 Mixdepth: this is not completely obvious, and is **important**: this is *where you are 
-spending the coins from*. If you have 2 btc in mixdepth 0 and 1 btc in mixdepth 3, and 
+spending the coins from*. If you have 2 BTC in mixdepth 0 and 1 BTC in mixdepth 3, and
 you want to send 1.4 coins you must type `0` in this box; Joinmarket only spends coins 
-from one mixdepth at one time, to aid privacy (again, see the wiki for details).
+from one mixdepth at one time, to aid privacy.
 
-Amount in BTC (if decimal) or satoshis (if integer) is the amount the recipient address
+Amount in BTC or satoshis is the amount the recipient address
 will actually receive; so don't add any transaction fees or coinjoin fees here.
 
 Once the settings are done, click Start. **NOTE** you haven't committed to the transaction 
@@ -153,7 +154,7 @@ yet at this point (if you didn't edit the `checktx` setting in Settings). After 
 
 ![](images/JMQchecktransactionregtest.png)
 
-You'll see that 2 (or whatever number you chose) counterparties have been selected. The 
+You'll see that 4 (or whatever number you chose) counterparties have been selected. The
 selection is partly random and partly favouring fees as low as possible. The percentage 
 fee is shown: in this case, it's 0.199% of 1.439, i.e. 285800 satoshis. Note that (a) this is a fake testing mode transaction, so these figures are not meaningful, but (b) this is the **coinjoin fee**, it does not include the **bitcoin transaction fee** which can be significantly larger, in many cases.
 
