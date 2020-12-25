@@ -117,9 +117,11 @@ Before starting, note you need either (a) Bitcoin Core installed on Windows or (
 If (a), then note the following two points:
 
 ##### Installing Bitcoin Core
-If you haven't done so yet, install Bitcoin Core as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
+
+If you haven't done so yet, install Bitcoin Core, version 0.18 or newer, as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
 
 ##### Configuring Bitcoin Core
+
 Bitcoin Core needs to be configured to allow JoinMarket to connect to it. From the `Settings` menu choose `Options` and click `Open Configuration File`. Add `server=1`, save and close the file. After that restart Bitcoin Core.
 
 There are currently two choices for installing on Windows; one, directly installing on Windows, requiring the manual addition of a libsodium dependency, or, two, using Ubuntu via the WSL mechanism (which may require additional setup to make the Qt GUI work).
