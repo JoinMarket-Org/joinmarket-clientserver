@@ -66,7 +66,7 @@ You should see the following files and folders for an initial setup:
 `joinmarket.cfg` is the main configuration file for Joinmarket and has a lot of settings, several of which you'll want to edit or at least examine.
 This will be discussed in several of the sections below.
 The `wallets/` directory is where wallet files, extension (by default) of `.jmdat` are stored after you create them. They are encrypted and store important information; without them, it is possible to recover your coins with the seedphrase, but can be a hassle, so keep the file safe.
-The `logs/` directory contains a log file for each bot you run (Maker or Taker), with debug information. You'll rarely need to read these files unless you encounter a problem; deleting them regularly is recommended (and never dangerous). However there are other log files kept here, in particular one called `yigen-statement.csv` which records all transactions your Maker bot does over time. This can be useful for keeping track. Additionall, tumbles have a `TUMBLE.schedule` and `TUMBLE.log` file here which can be very useful; don't delete these.
+The `logs/` directory contains a log file for each bot you run (Maker or Taker), with debug information. You'll rarely need to read these files unless you encounter a problem; deleting them regularly is recommended (and never dangerous). However there are other log files kept here, in particular one called `yigen-statement.csv` which records all transactions your Maker bot does over time. This can be useful for keeping track. Additionally, tumbles have a `TUMBLE.schedule` and `TUMBLE.log` file here which can be very useful; don't delete these.
 The `cmtdata/` directory stores technical information that you will not need to read.
 
 <a name="portability" />
