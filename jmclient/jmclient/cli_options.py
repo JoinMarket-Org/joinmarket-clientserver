@@ -448,7 +448,8 @@ def get_sendpayment_parser():
     parser = OptionParser(
         usage=
         'usage: %prog [options] wallet_file amount destination\n' +
-        '       %prog [options] wallet_file bitcoin_uri',
+        '       %prog [options] wallet_file bitcoin_uri\n' +
+        '       %prog [options] wallet_file',
         description='Sends a single payment from a given mixing depth of your '
         +
         'wallet to an given address using coinjoin and then switches off. '
