@@ -5,7 +5,7 @@ import sqlite3
 import binascii
 from datetime import datetime
 from calendar import timegm
-from optparse import OptionParser
+from optparse import OptionParser, IndentedHelpFormatter
 from numbers import Integral
 from collections import Counter
 from itertools import islice
@@ -29,29 +29,36 @@ DEFAULT_MIXDEPTH = 4
 
 
 def get_wallettool_parser():
-    description = (
-        'Use this script to monitor and manage your Joinmarket wallet.\n'
-        'The method is one of the following: \n'
-        '(display) Shows addresses and balances.\n'
-        '(displayall) Shows ALL addresses and balances.\n'
-        '(summary) Shows a summary of mixing depth balances.\n'
-        '(generate) Generates a new wallet.\n'
-        '(changepass) Changes the encryption passphrase of the wallet.\n'
-        '(history) Show all historical transaction details. Requires Bitcoin Core.'
-        '(recover) Recovers a wallet from the 12 word recovery seed.\n'
-        '(showutxos) Shows all utxos in the wallet.\n'
-        '(showseed) Shows the wallet recovery seed and hex seed.\n'
-        '(importprivkey) Adds privkeys to this wallet, privkeys are spaces or commas separated.\n'
-        '(dumpprivkey) Export a single private key, specify an hd wallet path\n'
-        '(signmessage) Sign a message with the private key from an address in \n'
-        'the wallet. Use with -H and specify an HD wallet path for the address.\n'
-        '(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.\n'
-        '(gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`\n'
-        '(addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with '
-            '-H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof\n'
-        '(createwatchonly) Create a watch-only fidelity bond wallet')
+
+    # optparse munges description paragraphs. Here we
+    # have a big, complex paragraph which we need to control:
+    class IndentedHelpFormatterWithNL(IndentedHelpFormatter):
+        def format_description(self, description):
+            return description
+
+    description ="""Use this script to monitor and manage your Joinmarket wallet.
+The method is one of the following:
+(display) Shows addresses and balances.
+(displayall) Shows ALL addresses and balances.
+(summary) Shows a summary of mixing depth balances.
+(generate) Generates a new wallet.
+(changepass) Changes the encryption passphrase of the wallet.
+(history) Show all historical transaction details. Requires Bitcoin Core.
+(recover) Recovers a wallet from the 12 word recovery seed.
+(showutxos) Shows all utxos in the wallet.
+(showseed) Shows the wallet recovery seed and hex seed.
+(importprivkey) Adds privkeys to this wallet, privkeys are spaces or commas separated.
+(dumpprivkey) Export a single private key, specify an hd wallet path.
+(signmessage) Sign a message with the private key from an address in
+    the wallet. Use with -H and specify an HD wallet path for the address.
+(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.
+(gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`.
+(addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with
+    -H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof.
+(createwatchonly) Create a watch-only fidelity bond wallet.
+"""
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method] [args..]',
-                          description=description)
+                          description=description, formatter=IndentedHelpFormatterWithNL())
     add_base_options(parser)
     parser.add_option('-p',
                       '--privkey',
