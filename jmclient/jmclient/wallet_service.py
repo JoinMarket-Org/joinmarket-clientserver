@@ -693,13 +693,14 @@ class WalletService(Service):
                     burner_txes.append((pubkeyhash, gettx))
 
             self.sync_burner_outputs(burner_txes)
-            used_addresses_gen = (tx["address"] for tx in tx_receive)
+            used_addresses_gen = set(tx["address"] for tx in tx_receive)
         else:
             #not fidelity bond wallet, significantly faster sync
-            used_addresses_gen = (tx['address']
+            used_addresses_gen = set(tx['address']
                                   for tx in self.bci._yield_transactions(wallet_name)
                                   if tx['category'] == 'receive')
-
+        # needed for address-reuse check:
+        self.used_addresses = used_addresses_gen
         used_indices = self.get_used_indices(used_addresses_gen)
         jlog.debug("got used indices: {}".format(used_indices))
         gap_limit_used = not self.check_gap_indices(used_indices)
