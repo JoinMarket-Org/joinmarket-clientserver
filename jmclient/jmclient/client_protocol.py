@@ -393,7 +393,7 @@ class JMTakerClientProtocol(JMClientProtocol):
             return
         if not self.client.txid:
             #txid is set on pushing; if it's not there, we have failed.
-            jlog.info("Stall detected. Regenerating transactions and retrying.")
+            jlog.info("Stall detected. Retrying transaction if possible ...")
             self.client.on_finished_callback(False, True, 0.0)
         else:
             #This shouldn't really happen; if the tx confirmed,
@@ -442,6 +442,10 @@ class JMTakerClientProtocol(JMClientProtocol):
             if not retval[0]:
                 jlog.info("Taker is not continuing, phase 2 abandoned.")
                 jlog.info("Reason: " + str(retval[1]))
+                if len(self.client.schedule) == 1:
+                    # see comment for the same invocation in on_JM_OFFERS;
+                    # the logic here is the same.
+                    self.client.on_finished_callback(False, False, 0.0)
                 return {'accepted': False}
             else:
                 nick_list, txhex = retval[1:]

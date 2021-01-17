@@ -504,8 +504,28 @@ class Taker(object):
                 # seems you wont always get exactly zero because of integer
                 # rounding so 1 satoshi extra or fewer being spent as miner
                 # fees is acceptable
-                jlog.info(('WARNING CHANGE NOT BEING '
-                           'USED\nCHANGEVALUE = {}').format(btc.amount_to_str(my_change_value)))
+                jlog.info(
+                ('WARNING CHANGE NOT BEING USED\nCHANGEVALUE = {}').format(
+                    btc.amount_to_str(my_change_value)))
+            # we need to check whether the *achieved* txfee-rate is outside
+            # the range allowed by the user in config; if not, abort the tx.
+            # this is done with using the same estimate fee function and comparing
+            # the totals; this ratio will correspond to the ratio of the feerates.
+            num_ins = len([u for u in sum(self.utxos.values(), [])])
+            num_outs = len(self.outputs) + 2
+            new_total_fee = estimate_tx_fee(num_ins, num_outs,
+                                    txtype=self.wallet_service.get_txtype())
+            feeratio = self.total_txfee/new_total_fee
+            jlog.debug("Ratio of actual to estimated sweep fee: {}".format(
+                feeratio))
+            sweep_delta = float(jm_single().config.get("POLICY",
+                                                       "max_sweep_fee_change"))
+            if feeratio < 1 - sweep_delta or feeratio > 1 + sweep_delta:
+                jlog.warn("Transaction fee for sweep: {} too far from expected:"
+                          " {}; check the setting 'max_sweep_fee_change'"
+                          " in joinmarket.cfg. Aborting this attempt.".format(
+                              self.total_txfee, new_total_fee))
+                return (False, "Unacceptable feerate for sweep, giving up.")
         else:
             self.outputs.append({'address': self.my_change_addr,
                                  'value': my_change_value})
