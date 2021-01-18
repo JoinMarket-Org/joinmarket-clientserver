@@ -20,6 +20,8 @@ is actually newer in version number, than what was there already.
 
 ### Installation on Linux
 
+**WARNING: This manual process is more difficult**; the `install.sh` script is recommended, please go back to the [README](../README.md) unless you're sure you need to do this.
+
 To install everything (client and server), install these packages:
 
     sudo apt-get install python3-dev python3-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev libgmp-dev
@@ -50,6 +52,23 @@ Then:
 
 **At this point you should see `(jmvenv)` at the beginning of your command prompt.**
 
+Then build and install a local copy of libsecp256k1 for python-bitcointx:
+
+    mkdir -p deps
+    cd deps
+    git clone git://github.com/bitcoin-core/secp256k1
+    cd secp256k1
+    git checkout 0d9540b13ffcd7cd44cc361b8744b93d88aa76ba
+    make clean
+    ./autogen.sh
+    ./configure --prefix JM_ROOT --enable-module-recovery --disable-jni --enable-experimental --enable-module-ecdh --enable-benchmark=no
+    make
+    make check
+    make install
+    cd ../..
+
+> *NOTE*: JM_ROOT must be replaced with the venv directory you've just created, so it will be `~/joinmarket-clientserver/jmvenv` if you installed to your home directory.
+
 
 #### Installing packages to run everything in-one:
 
@@ -57,10 +76,11 @@ Then:
 
     pip install -r requirements/base.txt
 
-If you have installed this "full" version of the client, you can use it with the
-command line scripts as explained in the [scripts README](https://github.com/AdamISZ/joinmarket-clientserver/tree/master/scripts).
+If you have installed this "full" version of the client, you can use it with the command line scripts as explained in the [usage guide](USAGE.md).
 
 ### Installation on macOS
+
+**WARNING: This manual process is more difficult**; the `install.sh` script is recommended, please go back to the [README](../README.md) unless you're sure you need to do this.
 
 1) Install Apple Command Line Tools
     ```
