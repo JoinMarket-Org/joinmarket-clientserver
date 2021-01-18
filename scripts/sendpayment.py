@@ -116,8 +116,9 @@ def main():
         schedule = [[options.mixdepth, amount, options.makercount,
                      destaddr, 0.0, NO_ROUNDING, 0]]
     else:
-        if btc.is_bip21_uri(args[1]):
-            parser.error("Schedule files are not compatible with bip21 uris.")
+        if len(args) > 1:
+            parser.error("Schedule files are not compatible with "
+                         "payment destination/amount arguments.")
             sys.exit(EXIT_ARGERROR)
         result, schedule = get_schedule(options.schedule)
         if not result:
