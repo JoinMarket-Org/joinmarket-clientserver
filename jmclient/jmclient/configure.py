@@ -217,6 +217,22 @@ tx_fees = 3
 # 1,000,000 satoshis.
 absurd_fee_per_kb = 350000
 
+# In decimal, the maximum allowable change either lower or
+# higher, that the fee rate used for coinjoin sweeps is
+# allowed to be.
+# (note: coinjoin sweeps *must estimate* fee rates;
+# they cannot be exact due to the lack of change output.)
+#
+# Example: max_sweep_fee_change = 0.4, with tx_fees = 10000,
+# means actual fee rate achieved in the sweep can be as low
+# as 6000 sats/kilo-vbyte up to 14000 sats/kilo-vbyte.
+#
+# If this is not achieved, the transaction is aborted. For tumbler,
+# it will then be retried until successful.
+# WARNING: too-strict setting may result in using up a lot
+# of PoDLE commitments, hence the default 0.8 (80%).
+max_sweep_fee_change = 0.8
+
 # Maximum absolute coinjoin fee in satoshi to pay to a single
 # market maker for a transaction. Both the limits given in
 # max_cj_fee_abs and max_cj_fee_rel must be exceeded in order
