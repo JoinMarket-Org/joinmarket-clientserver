@@ -141,7 +141,7 @@ def test_simple_coinjoin(monkeypatch, tmpdir, setup_cj, wallet_cls):
 
     makers = [YieldGeneratorBasic(
         wallet_services[i],
-        [0, 2000, 0, absoffer_type_map[wallet_cls], 10**7]) for i in range(MAKER_NUM)]
+        [0, 2000, 0, absoffer_type_map[wallet_cls], 10**7, None, None, None]) for i in range(MAKER_NUM)]
     create_orders(makers)
 
     orderbook = create_orderbook(makers)
@@ -186,7 +186,7 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     cj_fee = 2000
     makers = [YieldGeneratorBasic(
         wallet_services[i],
-        [0, cj_fee, 0, absoffer_type_map[SegwitWallet], 10**7]) for i in range(MAKER_NUM)]
+        [0, cj_fee, 0, absoffer_type_map[SegwitWallet], 10**7, None, None, None]) for i in range(MAKER_NUM)]
     create_orders(makers)
 
     orderbook = create_orderbook(makers)
@@ -242,7 +242,7 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     cj_fee = 2000
     makers = [YieldGeneratorBasic(
         wallet_services[i],
-        [0, cj_fee, 0, absoffer_type_map[SegwitWallet], 10**7]) for i in range(MAKER_NUM)]
+        [0, cj_fee, 0, absoffer_type_map[SegwitWallet], 10**7, None, None, None]) for i in range(MAKER_NUM)]
     create_orders(makers)
     orderbook = create_orderbook(makers)
     assert len(orderbook) == MAKER_NUM

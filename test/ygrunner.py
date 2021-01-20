@@ -117,12 +117,43 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
         jmprint("Maker seed: " + wallet_services[i]['seed'])
     jmprint("\n")
     wallet_service.sync_wallet(fast=True)
-    txfee = 1000
-    cjfee_a = 4200
-    cjfee_r = '0.001'
-    ordertype = 'sw0reloffer'
-    minsize = 100000
     ygclass = YieldGeneratorBasic
+
+    # As per previous note, override non-default command line settings:
+    options = {}
+    for x in ["ordertype", "txfee", "txfee_factor", "cjfee_a", "cjfee_r",
+              "cjfee_factor", "minsize", "size_factor"]:
+        options[x] = jm_single().config.get("YIELDGENERATOR", x)
+    ordertype = options["ordertype"]
+    txfee = int(options["txfee"])
+    txfee_factor = float(options["txfee_factor"])
+    cjfee_factor = float(options["cjfee_factor"])
+    size_factor = float(options["size_factor"])
+    if ordertype == 'reloffer':
+        cjfee_r = options["cjfee_r"]
+        # minimum size is such that you always net profit at least 20%
+        #of the miner fee
+        minsize = max(int(1.2 * txfee / float(cjfee_r)), int(options["minsize"]))
+        cjfee_a = None
+    elif ordertype == 'absoffer':
+        cjfee_a = int(options["cjfee_a"])
+        minsize = int(options["minsize"])
+        cjfee_r = None
+    else:
+        assert False, "incorrect offertype config for yieldgenerator."
+
+    txtype = wallet_service.get_txtype()
+    if txtype == "p2wpkh":
+        prefix = "sw0"
+    elif txtype == "p2sh-p2wpkh":
+        prefix = "sw"
+    elif txtype == "p2pkh":
+        prefix = ""
+    else:
+        assert False, "Unsupported wallet type for yieldgenerator: " + txtype
+
+    ordertype = prefix + ordertype
+
     if malicious:
         if deterministic:
             ygclass = DeterministicMaliciousYieldGenerator
@@ -130,7 +161,8 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
             ygclass = MaliciousYieldGenerator
     for i in range(num_ygs):
         
-        cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize]
+        cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize, txfee_factor,
+               cjfee_factor, size_factor]
         wallet_service_yg = wallet_services[i]["wallet"]
         wallet_service_yg.startService()
         yg = ygclass(wallet_service_yg, cfg)

@@ -322,6 +322,10 @@ accept_commitment_broadcasts = 1
 #and those you want to use in future), relative to the scripts directory.
 commit_file_location = cmtdata/commitments.json
 
+##############################
+# END OF ANTI-SNOOPING SETTINGS
+##############################
+
 [PAYJOIN]
 # for the majority of situations, the defaults
 # need not be altered - they will ensure you don't pay
@@ -365,6 +369,33 @@ tor_control_port = 9051
 # this feature is not yet implemented in code, but here for the
 # future:
 hidden_service_ssl = false
+
+[YIELDGENERATOR]
+# [string, 'reloffer' or 'absoffer'], which fee type to actually use
+ordertype = reloffer
+
+# [satoshis, any integer] / absolute offer fee you wish to receive for coinjoins (cj)
+cjfee_a = 500
+
+# [fraction, any str between 0-1] / relative offer fee you wish to receive based on a cj's amount
+cjfee_r = 0.00002
+
+# [fraction, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
+cjfee_factor = 0.1
+
+# [satoshis, any integer] / the average transaction fee you're adding to coinjoin transactions
+txfee = 100
+
+# [fraction, 0-1] / variance around the average fee. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
+txfee_factor = 0.3
+
+# [satoshis, any integer] / minimum size of your cj offer. Lower cj amounts will be disregarded
+minsize = 100000
+
+# [fraction, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
+size_factor = 0.1
+
+gaplimit = 6
 """
 
 #This allows use of the jmclient package with a

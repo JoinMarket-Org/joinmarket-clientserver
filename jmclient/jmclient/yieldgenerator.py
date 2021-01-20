@@ -71,8 +71,9 @@ class YieldGeneratorBasic(YieldGenerator):
     thus is somewhat suboptimal in giving more information to spies.
     """
     def __init__(self, wallet_service, offerconfig):
-        self.txfee, self.cjfee_a, self.cjfee_r, self.ordertype, self.minsize \
-             = offerconfig
+        # note the randomizing entries are ignored in this base class:
+        self.txfee, self.cjfee_a, self.cjfee_r, self.ordertype, self.minsize, \
+            self.txfee_factor, self.cjfee_factor, self.size_factor = offerconfig
         super().__init__(wallet_service)
 
     def create_my_orders(self):
@@ -188,27 +189,50 @@ class YieldGeneratorBasic(YieldGenerator):
         return self.wallet_service.get_internal_addr(cjoutmix)
 
 
-def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer',
-           nickserv_password='', minsize=100000, gaplimit=6):
+def ygmain(ygclass, nickserv_password='', gaplimit=6):
     import sys
 
     parser = OptionParser(usage='usage: %prog [options] [wallet file]')
     add_base_options(parser)
+    # A note about defaults:
+    # We want command line settings to override config settings.
+    # This would naturally mean setting `default=` arguments here, to the
+    # values in the config.
+    # However, we cannot load the config until we know the datadir.
+    # The datadir is a setting in the command line options, so we have to
+    # call parser.parse_args() before we know the datadir.
+    # Hence we do the following: set all modifyable-by-config arguments to
+    # default "None" initially; call parse_args(); then call load_program_config
+    # and override values of "None" with what is set in the config.
+    # (remember, the joinmarket defaultconfig always sets every value, even if
+    # the user doesn't).
     parser.add_option('-o', '--ordertype', action='store', type='string',
-                      dest='ordertype', default=ordertype,
+                      dest='ordertype', default=None,
                       help='type of order; can be either reloffer or absoffer')
     parser.add_option('-t', '--txfee', action='store', type='int',
-                      dest='txfee', default=txfee,
+                      dest='txfee', default=None,
                       help='minimum miner fee in satoshis')
-    parser.add_option('-c', '--cjfee', action='store', type='string',
-                      dest='cjfee', default='',
-                      help='requested coinjoin fee in satoshis or proportion')
+    parser.add_option('-f', '--txfee-factor', action='store', type='float',
+                      dest='txfee_factor', default=None,
+                      help='variance around the average fee, decimal fraction')
+    parser.add_option('-a', '--cjfee-a', action='store', type='string',
+                      dest='cjfee_a', default=None,
+                      help='requested coinjoin fee (absolute) in satoshis')
+    parser.add_option('-r', '--cjfee-r', action='store', type='string',
+                      dest='cjfee_r', default=None,
+                      help='requested coinjoin fee (relative) as a decimal')
+    parser.add_option('-j', '--cjfee-factor', action='store', type='float',
+                      dest='cjfee_factor', default=None,
+                      help='variance around the average fee, decimal fraction')
     parser.add_option('-p', '--password', action='store', type='string',
                       dest='password', default=nickserv_password,
                       help='irc nickserv password')
     parser.add_option('-s', '--minsize', action='store', type='int',
-                      dest='minsize', default=minsize,
+                      dest='minsize', default=None,
                       help='minimum coinjoin size in satoshis')
+    parser.add_option('-z', '--size-factor', action='store', type='float',
+                      dest='size_factor', default=None,
+                      help='variance around all offer sizes, decimal fraction')
     parser.add_option('-g', '--gap-limit', action='store', type="int",
                       dest='gaplimit', default=gaplimit,
                       help='gap limit for wallet, default='+str(gaplimit))
@@ -216,29 +240,40 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer'
                       dest='mixdepth', default=None,
                       help="highest mixdepth to use")
     (options, args) = parser.parse_args()
+    # for string access, convert to dict:
+    options = vars(options)
     if len(args) < 1:
         parser.error('Needs a wallet')
         sys.exit(EXIT_ARGERROR)
+
+    load_program_config(config_path=options["datadir"])
+
+    # As per previous note, override non-default command line settings:
+    for x in ["ordertype", "txfee", "txfee_factor", "cjfee_a", "cjfee_r",
+              "cjfee_factor", "minsize", "size_factor"]:
+        if options[x] is None:
+            options[x] = jm_single().config.get("YIELDGENERATOR", x)
     wallet_name = args[0]
-    ordertype = options.ordertype
-    txfee = options.txfee
+    ordertype = options["ordertype"]
+    txfee = int(options["txfee"])
+    txfee_factor = float(options["txfee_factor"])
+    cjfee_factor = float(options["cjfee_factor"])
+    size_factor = float(options["size_factor"])
     if ordertype == 'reloffer':
-        if options.cjfee != '':
-            cjfee_r = options.cjfee
+        cjfee_r = options["cjfee_r"]
         # minimum size is such that you always net profit at least 20%
         #of the miner fee
-        minsize = max(int(1.2 * txfee / float(cjfee_r)), options.minsize)
+        minsize = max(int(1.2 * txfee / float(cjfee_r)), int(options["minsize"]))
+        cjfee_a = None
     elif ordertype == 'absoffer':
-        if options.cjfee != '':
-            cjfee_a = int(options.cjfee)
-        minsize = options.minsize
+        cjfee_a = int(options["cjfee_a"])
+        minsize = int(options["minsize"])
+        cjfee_r = None
     else:
         parser.error('You specified an incorrect offer type which ' +\
                      'can be either reloffer or absoffer')
         sys.exit(EXIT_ARGERROR)
-    nickserv_password = options.password
-
-    load_program_config(config_path=options.datadir)
+    nickserv_password = options["password"]
 
     if jm_single().bc_interface is None:
         jlog.error("Running yield generator requires configured " +
@@ -247,13 +282,13 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer'
 
     wallet_path = get_wallet_path(wallet_name, None)
     wallet = open_test_wallet_maybe(
-        wallet_path, wallet_name, options.mixdepth,
-        wallet_password_stdin=options.wallet_password_stdin,
-        gap_limit=options.gaplimit)
+        wallet_path, wallet_name, options["mixdepth"],
+        wallet_password_stdin=options["wallet_password_stdin"],
+        gap_limit=options["gaplimit"])
 
     wallet_service = WalletService(wallet)
     while not wallet_service.synced:
-        wallet_service.sync_wallet(fast=not options.recoversync)
+        wallet_service.sync_wallet(fast=not options["recoversync"])
     wallet_service.startService()
 
     txtype = wallet_service.get_txtype()
@@ -270,8 +305,9 @@ def ygmain(ygclass, txfee=1000, cjfee_a=200, cjfee_r=0.002, ordertype='reloffer'
     ordertype = prefix + ordertype
     jlog.debug("Set the offer type string to: " + ordertype)
 
-    maker = ygclass(wallet_service, [options.txfee, cjfee_a, cjfee_r,
-                             ordertype, minsize])
+    maker = ygclass(wallet_service, [txfee, cjfee_a, cjfee_r,
+                             ordertype, minsize, txfee_factor,
+                             cjfee_factor, size_factor])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
 
