@@ -252,6 +252,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     oldtakerutxoretries = jm_single().config.get("POLICY", "taker_utxo_retries")
     oldtakerutxoamtpercent = jm_single().config.get("POLICY", "taker_utxo_amtpercent")
     oldtxfees = jm_single().config.get("POLICY", "tx_fees")
+    oldmaxsweepfeechange = jm_single().config.get("POLICY", "max_sweep_fee_change")
     jm_single().config.set("POLICY", "taker_utxo_retries", "20")
     jm_single().config.set("POLICY", "tx_fees", "30000")
     def clean_up():
@@ -259,8 +260,10 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
         jm_single().config.set("POLICY", "taker_utxo_retries", oldtakerutxoretries)
         jm_single().config.set("POLICY", "taker_utxo_amtpercent", oldtakerutxoamtpercent)
         jm_single().config.set("POLICY", "tx_fees", oldtxfees)
+        jm_single().config.get("POLICY", "max_sweep_fee_change")
     oldminmakers = jm_single().config.get("POLICY", "minimum_makers")
     jm_single().config.set("POLICY", "minimum_makers", str(minmakers))
+    jm_single().config.set("POLICY", "max_sweep_fee_change", "3.0")
     taker = get_taker(schedule)
     orderbook = copy.deepcopy(t_orderbook) 
     if highfee:
