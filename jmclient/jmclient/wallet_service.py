@@ -14,7 +14,7 @@ from jmclient.configure import jm_single, get_log
 from jmclient.output import fmt_tx_data
 from jmclient.blockchaininterface import (INF_HEIGHT, BitcoinCoreInterface,
     BitcoinCoreNoHistoryInterface)
-from jmclient.wallet import FidelityBondMixin
+from jmclient.wallet import FidelityBondMixin, BaseWallet
 from jmbase import stop_reactor
 from jmbase.support import jmprint, EXIT_SUCCESS, utxo_to_utxostr, hextobin
 
@@ -867,7 +867,8 @@ class WalletService(Service):
 
         for md in range(self.max_mixdepth + 1):
             saved_indices[md] = [0, 0]
-            for address_type in (0, 1):
+            for address_type in (BaseWallet.ADDRESS_TYPE_EXTERNAL,
+                                 BaseWallet.ADDRESS_TYPE_INTERNAL):
                 next_unused = self.get_next_unused_index(md, address_type)
                 for index in range(next_unused):
                     addresses.add(self.get_addr(md, address_type, index))
@@ -904,7 +905,8 @@ class WalletService(Service):
         addresses = set()
 
         for md in range(self.max_mixdepth + 1):
-            for address_type in (1, 0):
+            for address_type in (BaseWallet.ADDRESS_TYPE_INTERNAL,
+                                 BaseWallet.ADDRESS_TYPE_EXTERNAL):
                 old_next = self.get_next_unused_index(md, address_type)
                 for index in range(gap_limit):
                     addresses.add(self.get_new_addr(md, address_type))

@@ -1824,7 +1824,7 @@ class BIP32Wallet(BaseWallet):
 
     def _get_key_ident(self):
         return sha256(sha256(
-            self.get_bip32_priv_export(0, 0).encode('ascii')).digest())\
+            self.get_bip32_priv_export(0, self.BIP32_EXT_ID).encode('ascii')).digest())\
             .digest()[:3]
 
     def _populate_script_map(self):
@@ -1976,10 +1976,18 @@ class BIP32Wallet(BaseWallet):
         index = self.get_index_cache_and_increment(mixdepth, address_type)
         return self.get_script_and_update_map(mixdepth, address_type, index)
 
+    def _set_index_cache(self, mixdepth, address_type, index):
+        """ Ensures that any update to index_cache dict only applies
+        to valid address types.
+        """
+        assert address_type in self._get_supported_address_types()
+        self._index_cache[mixdepth][address_type] = index
+
     def get_index_cache_and_increment(self, mixdepth, address_type):
         index = self._index_cache[mixdepth][address_type]
-        self._index_cache[mixdepth][address_type] += 1
-        return index
+        cur_index = self._index_cache[mixdepth][address_type]
+        self._set_index_cache(mixdepth, address_type, cur_index + 1)
+        return cur_index
 
     def get_script_and_update_map(self, *args):
         path = self.get_path(*args)
@@ -2052,7 +2060,7 @@ class BIP32Wallet(BaseWallet):
     def set_next_index(self, mixdepth, address_type, index, force=False):
         if not (force or index <= self._index_cache[mixdepth][address_type]):
             raise Exception("cannot advance index without force=True")
-        self._index_cache[mixdepth][address_type] = index
+        self._set_index_cache(mixdepth, address_type, index)
 
     def get_details(self, path):
         if not self._is_my_bip32_path(path):
@@ -2176,7 +2184,7 @@ class FidelityBondMixin(object):
         return len(path) > 4 and path[4] == cls.BIP32_TIMELOCK_ID
 
     def _get_key_ident(self):
-        first_path = self.get_path(0, 0)
+        first_path = self.get_path(0, BIP32Wallet.BIP32_EXT_ID)
         priv, engine = self._get_key_from_path(first_path)
         pub = engine.privkey_to_pubkey(priv)
         return sha256(sha256(pub).digest()).digest()[:3]

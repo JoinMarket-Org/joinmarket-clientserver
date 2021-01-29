@@ -10,7 +10,7 @@ from jmbase import (get_log, hextobin, bintohex, dictchanger)
 
 from jmclient import (
     jm_single, open_test_wallet_maybe, estimate_tx_fee,
-    BlockchainInterface, BIP32Wallet,
+    BlockchainInterface, BIP32Wallet, BaseWallet,
     SegwitWallet, WalletService, BTC_P2SH_P2WPKH)
 from jmbase.support import chunks
 import jmbitcoin as btc
@@ -146,8 +146,8 @@ def make_sign_and_push(ins_full,
     total = sum(x['value'] for x in ins_full.values())
     ins = list(ins_full.keys())
     #random output address and change addr
-    output_addr = wallet_service.get_new_addr(1, 1) if not output_addr else output_addr
-    change_addr = wallet_service.get_new_addr(0, 1) if not change_addr else change_addr
+    output_addr = wallet_service.get_new_addr(1, BaseWallet.ADDRESS_TYPE_INTERNAL) if not output_addr else output_addr
+    change_addr = wallet_service.get_new_addr(0, BaseWallet.ADDRESS_TYPE_INTERNAL) if not change_addr else change_addr
     fee_est = estimate_tx_fee(len(ins), 2) if estimate_fee else 10000
     outs = [{'value': amount,
              'address': output_addr}, {'value': total - amount - fee_est,
@@ -179,7 +179,7 @@ def make_wallets(n,
                  fixed_seeds=None,
                  wallet_cls=SegwitWallet,
                  mixdepths=5,
-                 populate_internal=False):
+                 populate_internal=BaseWallet.ADDRESS_TYPE_EXTERNAL):
     '''n: number of wallets to be created
        wallet_structure: array of n arrays , each subarray
        specifying the number of addresses to be populated with coins

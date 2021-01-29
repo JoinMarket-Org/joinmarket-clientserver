@@ -6,7 +6,7 @@ from commontest import create_wallet_for_sync
 
 import pytest
 from jmbase import get_log
-from jmclient import load_test_config, jm_single
+from jmclient import load_test_config, jm_single, BaseWallet
 
 log = get_log()
 
@@ -30,15 +30,18 @@ def test_empty_wallet_sync(setup_wallets, fast):
 
     broken = True
     for md in range(wallet_service.max_mixdepth + 1):
-        for internal in (True, False):
+        for internal in (BaseWallet.ADDRESS_TYPE_INTERNAL,
+                         BaseWallet.ADDRESS_TYPE_EXTERNAL):
             broken = False
             assert 0 == wallet_service.get_next_unused_index(md, internal)
     assert not broken
 
 
 @pytest.mark.parametrize('fast,internal', (
-        (False, False), (False, True),
-        (True, False), (True, True)))
+        (False, BaseWallet.ADDRESS_TYPE_EXTERNAL),
+        (False, BaseWallet.ADDRESS_TYPE_INTERNAL),
+        (True, BaseWallet.ADDRESS_TYPE_EXTERNAL),
+        (True, BaseWallet.ADDRESS_TYPE_INTERNAL)))
 def test_sequentially_used_wallet_sync(setup_wallets, fast, internal):
     used_count = [1, 3, 6, 2, 23]
     wallet_service = create_wallet_for_sync(
@@ -72,23 +75,27 @@ def test_gap_used_wallet_sync(setup_wallets, fast):
         for x in range(md):
             assert x <= wallet_service.gap_limit, "test broken"
             # create some unused addresses
-            wallet_service.get_new_script(md, True)
-            wallet_service.get_new_script(md, False)
+            wallet_service.get_new_script(md, BaseWallet.ADDRESS_TYPE_INTERNAL)
+            wallet_service.get_new_script(md, BaseWallet.ADDRESS_TYPE_EXTERNAL)
         used_count[md] += x + 2
-        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(md, True), 1)
-        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(md, False), 1)
+        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(md,
+                                        BaseWallet.ADDRESS_TYPE_INTERNAL), 1)
+        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(md,
+                                        BaseWallet.ADDRESS_TYPE_EXTERNAL), 1)
 
     # reset indices to simulate completely unsynced wallet
     for md in range(wallet_service.max_mixdepth + 1):
-        wallet_service.set_next_index(md, True, 0)
-        wallet_service.set_next_index(md, False, 0)
+        wallet_service.set_next_index(md, BaseWallet.ADDRESS_TYPE_INTERNAL, 0)
+        wallet_service.set_next_index(md, BaseWallet.ADDRESS_TYPE_EXTERNAL, 0)
     sync_test_wallet(fast, wallet_service)
 
     broken = True
     for md in range(len(used_count)):
         broken = False
-        assert md + 1 == wallet_service.get_next_unused_index(md, True)
-        assert used_count[md] == wallet_service.get_next_unused_index(md, False)
+        assert md + 1 == wallet_service.get_next_unused_index(md,
+                                            BaseWallet.ADDRESS_TYPE_INTERNAL)
+        assert used_count[md] == wallet_service.get_next_unused_index(md,
+                                            BaseWallet.ADDRESS_TYPE_EXTERNAL)
     assert not broken
 
 
@@ -107,34 +114,43 @@ def test_multigap_used_wallet_sync(setup_wallets, fast):
         for x in range(int(wallet_service.gap_limit * 0.6)):
             assert x <= wallet_service.gap_limit, "test broken"
             # create some unused addresses
-            wallet_service.get_new_script(mixdepth, True)
-            wallet_service.get_new_script(mixdepth, False)
+            wallet_service.get_new_script(mixdepth,
+                                        BaseWallet.ADDRESS_TYPE_INTERNAL)
+            wallet_service.get_new_script(mixdepth,
+                                        BaseWallet.ADDRESS_TYPE_EXTERNAL)
         used_count[mixdepth] += x + 2
-        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(mixdepth, True), 1)
-        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(mixdepth, False), 1)
+        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(
+            mixdepth, BaseWallet.ADDRESS_TYPE_INTERNAL), 1)
+        jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(
+            mixdepth, BaseWallet.ADDRESS_TYPE_EXTERNAL), 1)
 
     # reset indices to simulate completely unsynced wallet
     for md in range(wallet_service.max_mixdepth + 1):
-        wallet_service.set_next_index(md, True, 0)
-        wallet_service.set_next_index(md, False, 0)
+        wallet_service.set_next_index(md, BaseWallet.ADDRESS_TYPE_INTERNAL, 0)
+        wallet_service.set_next_index(md, BaseWallet.ADDRESS_TYPE_EXTERNAL, 0)
 
     sync_test_wallet(fast, wallet_service)
 
-    assert used_count[mixdepth] - start_index == wallet_service.get_next_unused_index(mixdepth, True)
-    assert used_count[mixdepth] == wallet_service.get_next_unused_index(mixdepth, False)
+    assert used_count[mixdepth] - start_index == \
+           wallet_service.get_next_unused_index(mixdepth,
+                        BaseWallet.ADDRESS_TYPE_INTERNAL)
+    assert used_count[mixdepth] == wallet_service.get_next_unused_index(
+        mixdepth, BaseWallet.ADDRESS_TYPE_EXTERNAL)
 
 
 @pytest.mark.parametrize('fast', (False, True))
 def test_retain_unused_indices_wallet_sync(setup_wallets, fast):
     used_count = [0, 0, 0, 0, 0]
-    wallet_service = create_wallet_for_sync(used_count, ['test_retain_unused_indices_wallet_sync'])
+    wallet_service = create_wallet_for_sync(used_count,
+                    ['test_retain_unused_indices_wallet_sync'])
 
     for x in range(9):
-        wallet_service.get_new_script(0, 1)
+        wallet_service.get_new_script(0, BaseWallet.ADDRESS_TYPE_INTERNAL)
 
     sync_test_wallet(fast, wallet_service)
 
-    assert wallet_service.get_next_unused_index(0, 1) == 9
+    assert wallet_service.get_next_unused_index(0,
+                    BaseWallet.ADDRESS_TYPE_INTERNAL) == 9
 
 
 @pytest.mark.parametrize('fast', (False, True))

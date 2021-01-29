@@ -7,7 +7,7 @@ from binascii import hexlify, unhexlify
 from collections import defaultdict
 from pyaes import AESModeOfOperationCBC, Decrypter
 from jmbase import JM_APP_NAME
-from jmclient import Storage, load_program_config, BTCEngine
+from jmclient import Storage, load_program_config, BTCEngine, BaseWallet
 from jmclient.wallet_utils import get_password, get_wallet_cls,\
     cli_get_wallet_passphrase_check, get_wallet_path
 
@@ -91,8 +91,10 @@ def new_wallet_from_data(data, file_name):
 
     if 'index_cache' in data:
         for md, indices in enumerate(data['index_cache']):
-            wallet.set_next_index(md, 0, indices[0], force=True)
-            wallet.set_next_index(md, 1, indices[1], force=True)
+            wallet.set_next_index(md, BaseWallet.ADDRESS_TYPE_EXTERNAL,
+                                  indices[0], force=True)
+            wallet.set_next_index(md, BaseWallet.ADDRESS_TYPE_INTERNAL,
+                                  indices[1], force=True)
 
     if 'imported' in data:
         for md in data['imported']:

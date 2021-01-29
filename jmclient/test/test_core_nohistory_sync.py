@@ -8,7 +8,7 @@ from commontest import create_wallet_for_sync
 import pytest
 from jmbase import get_log
 from jmclient import (load_test_config, SegwitLegacyWallet,
-                      SegwitWallet, jm_single)
+                      SegwitWallet, jm_single, BaseWallet)
 from jmbitcoin import select_chain_params
 
 log = get_log()
@@ -19,10 +19,11 @@ def test_fast_sync_unavailable(setup_sync):
     with pytest.raises(RuntimeError) as e_info:
         wallet_service.sync_wallet(fast=True)
 
-@pytest.mark.parametrize('internal, wallet_cls', [(False, SegwitLegacyWallet),
-                                                  (True, SegwitLegacyWallet),
-                                                  (False, SegwitWallet),
-                                                  (True, SegwitWallet)])
+@pytest.mark.parametrize('internal, wallet_cls',
+    [(BaseWallet.ADDRESS_TYPE_EXTERNAL, SegwitLegacyWallet),
+    (BaseWallet.ADDRESS_TYPE_INTERNAL, SegwitLegacyWallet),
+    (BaseWallet.ADDRESS_TYPE_EXTERNAL, SegwitWallet),
+    (BaseWallet.ADDRESS_TYPE_INTERNAL, SegwitWallet)])
 def test_sync(setup_sync, internal, wallet_cls):
     used_count = [1, 3, 6, 2, 23]
     wallet_service = create_wallet_for_sync(used_count, ['test_sync'],

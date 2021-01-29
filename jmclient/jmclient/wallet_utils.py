@@ -11,7 +11,7 @@ from numbers import Integral
 from collections import Counter
 from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
-    jm_single, BitcoinCoreInterface, WalletError,
+    jm_single, BitcoinCoreInterface, WalletError, BaseWallet,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
     LegacyWallet, SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
     is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
@@ -452,9 +452,10 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True)
     for m in range(wallet_service.mixdepth + 1):
         branchlist = []
-        for address_type in [0, 1]:
+        for address_type in [BaseWallet.ADDRESS_TYPE_EXTERNAL,
+                             BaseWallet.ADDRESS_TYPE_INTERNAL]:
             entrylist = []
-            if address_type == 0:
+            if address_type == BaseWallet.ADDRESS_TYPE_EXTERNAL:
                 # users would only want to hand out the xpub for externals
                 xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
             else:
