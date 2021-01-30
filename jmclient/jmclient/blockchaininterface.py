@@ -177,7 +177,8 @@ class BitcoinCoreInterface(BlockchainInterface):
                                          "was not established successfully.")
         actualNet = blockchainInfo['chain']
 
-        netmap = {'main': 'mainnet', 'test': 'testnet', 'regtest': 'regtest'}
+        netmap = {'main': 'mainnet', 'test': 'testnet', 'regtest': 'regtest',
+            'signet': 'signet'}
         if netmap[actualNet] != network and \
                 (not (actualNet == "regtest" and network == "testnet")):
             #special case of regtest and testnet having the same addr format

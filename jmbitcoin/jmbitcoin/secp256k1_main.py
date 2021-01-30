@@ -11,8 +11,9 @@ from bitcointx.signmessage import BitcoinMessage
 #Required only for PoDLE calculation:
 N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
 
-BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f', "regtest": 100}
-BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4'}
+BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f', "signet": b'\x6f',
+    "regtest": 100}
+BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4', "signet": b'\xc4'}
 
 """PoDLE related primitives
 """

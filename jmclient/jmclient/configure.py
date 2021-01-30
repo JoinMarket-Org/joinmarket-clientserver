@@ -113,7 +113,7 @@ use_ssl = false
 # Use 'no-blockchain' to run the ob-watcher.py script in scripts/obwatch without current access
 # to Bitcoin Core; note that use of this option for any other purpose is currently unsupported.
 blockchain_source = bitcoin-rpc
-# options: testnet, mainnet
+# options: signet, testnet, mainnet
 # Note: for regtest, use network = testnet
 network = mainnet
 rpc_host = localhost
@@ -461,6 +461,8 @@ def get_config_irc_channel(channel_name):
     channel = "#" + channel_name
     if get_network() == 'testnet':
         channel += '-test'
+    elif get_network() == 'signet':
+        channel += '-sig'
     return channel
 
 
@@ -642,7 +644,7 @@ def get_blockchain_interface_instance(_config):
         BitcoinCoreNoHistoryInterface
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
-    testnet = network == 'testnet'
+    testnet = (network == 'testnet' or network == 'signet')
 
     if source in ('bitcoin-rpc', 'regtest', 'bitcoin-rpc-no-history'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
