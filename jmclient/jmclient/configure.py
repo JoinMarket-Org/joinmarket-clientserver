@@ -597,12 +597,14 @@ def load_program_config(config_path="", bs=None):
         global_singleton.commit_file_location = global_singleton.config.get(
             "POLICY", "commit_file_location")
     except NoOptionError: #pragma: no cover
-        log.debug("No commitment file location in config, using default "
+        if get_network() == "mainnet":
+            log.debug("No commitment file location in config, using default "
                   "location cmtdata/commitments.json")
     if get_network() != "mainnet":
         # no need to be flexible for tests; note this is used
-        # for regtest as well as testnet(3)
-        global_singleton.commit_file_location = "cmtdata/testnet_commitments.json"
+        # for regtest, signet and testnet3
+        global_singleton.commit_file_location = "cmtdata/" + get_network() + \
+            "_commitments.json"
     set_commitment_file(os.path.join(config_path,
                                          global_singleton.commit_file_location))
 
