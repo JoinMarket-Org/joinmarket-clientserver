@@ -309,11 +309,19 @@ class WalletService(Service):
             if x['txid'] in self.active_txids or x['txid'] not in self.old_txs:
                 new_txs.append(x)
         # reset for next polling event:
-        self.old_txs = [x['txid'] for x in txlist if "txid" in x]
-
+        self.old_txs = set(x['txid'] for x in txlist if "txid" in x)
+        # for this invocation of transaction_monitor, we *don't* want
+        # to call `gettransaction` more than once per txid, even if the
+        # `listtransactions` result has multiple instances for different
+        # wallet labels; so we use a temporary variable to cache.
+        gettx_results = {}
         for tx in new_txs:
             txid = tx["txid"]
-            res = self.bci.get_transaction(hextobin(txid))
+            if txid not in gettx_results:
+                res = self.bci.get_transaction(hextobin(txid))
+                gettx_results[txid] = res
+            else:
+                res = gettx_results[txid]
             if not res:
                 continue
             confs = res["confirmations"]
