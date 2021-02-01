@@ -117,6 +117,7 @@ blockchain_source = bitcoin-rpc
 # Note: for regtest, use network = testnet
 network = mainnet
 rpc_host = localhost
+# default ports are 8332 for mainnet, 18443 for regtest, 18332 for testnet, 38332 for signet
 rpc_port = 8332
 rpc_user = bitcoin
 rpc_password = password
