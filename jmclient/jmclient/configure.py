@@ -113,10 +113,11 @@ use_ssl = false
 # Use 'no-blockchain' to run the ob-watcher.py script in scripts/obwatch without current access
 # to Bitcoin Core; note that use of this option for any other purpose is currently unsupported.
 blockchain_source = bitcoin-rpc
-# options: testnet, mainnet
+# options: signet, testnet, mainnet
 # Note: for regtest, use network = testnet
 network = mainnet
 rpc_host = localhost
+# default ports are 8332 for mainnet, 18443 for regtest, 18332 for testnet, 38332 for signet
 rpc_port = 8332
 rpc_user = bitcoin
 rpc_password = password
@@ -461,6 +462,8 @@ def get_config_irc_channel(channel_name):
     channel = "#" + channel_name
     if get_network() == 'testnet':
         channel += '-test'
+    elif get_network() == 'signet':
+        channel += '-sig'
     return channel
 
 
@@ -594,12 +597,14 @@ def load_program_config(config_path="", bs=None):
         global_singleton.commit_file_location = global_singleton.config.get(
             "POLICY", "commit_file_location")
     except NoOptionError: #pragma: no cover
-        log.debug("No commitment file location in config, using default "
+        if get_network() == "mainnet":
+            log.debug("No commitment file location in config, using default "
                   "location cmtdata/commitments.json")
     if get_network() != "mainnet":
         # no need to be flexible for tests; note this is used
-        # for regtest as well as testnet(3)
-        global_singleton.commit_file_location = "cmtdata/testnet_commitments.json"
+        # for regtest, signet and testnet3
+        global_singleton.commit_file_location = "cmtdata/" + get_network() + \
+            "_commitments.json"
     set_commitment_file(os.path.join(config_path,
                                          global_singleton.commit_file_location))
 
@@ -642,7 +647,7 @@ def get_blockchain_interface_instance(_config):
         BitcoinCoreNoHistoryInterface
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
-    testnet = network == 'testnet'
+    testnet = (network == 'testnet' or network == 'signet')
 
     if source in ('bitcoin-rpc', 'regtest', 'bitcoin-rpc-no-history'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")

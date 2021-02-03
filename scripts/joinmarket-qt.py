@@ -2195,7 +2195,12 @@ tabWidget.addTab(TxHistoryTab(), "Tx History")
 tabWidget.addTab(CoinsTab(), "Coins")
 
 mainWindow.resize(600, 500)
-suffix = ' - Testnet' if get_network() == 'testnet' else ''
+if get_network() == 'testnet':
+    suffix = ' - Testnet'
+elif get_network() == 'signet':
+    suffix = ' - Signet'
+else:
+    suffix = ''
 mainWindow.setWindowTitle(appWindowTitle + suffix)
 tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 mainWindow.setCentralWidget(tabWidget)
