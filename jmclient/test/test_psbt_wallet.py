@@ -7,15 +7,77 @@
    '''
 
 import copy
+import base64
 from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
 
 import jmbitcoin as bitcoin
 import pytest
-from jmbase import get_log, bintohex, hextobin
+from jmbase import get_log, bintohex, hextobin, utxostr_to_utxo
 from jmclient import (load_test_config, jm_single, direct_send,
-                      SegwitLegacyWallet, SegwitWallet, LegacyWallet)
+                      SegwitLegacyWallet, SegwitWallet, LegacyWallet,
+                      VolatileStorage, get_network)
 from jmclient.wallet import PSBTWalletMixin
 log = get_log()
+
+def create_volatile_wallet(seedphrase, wallet_cls=SegwitWallet):
+    storage = VolatileStorage()
+    wallet_cls.initialize(storage, get_network(), max_mixdepth=4,
+                          entropy=wallet_cls.entropy_from_mnemonic(seedphrase))
+    storage.save()
+    return wallet_cls(storage)
+
+@pytest.mark.parametrize('walletseed, xpub, spktype_wallet, spktype_destn, partial, psbt', [
+    ("prosper diamond marriage spy across start shift elevator job lunar edge gallery",
+     "tpubDChjiEhsafnW2LcmK1C77XiEAgZddi6xZyxjMujBzUqZPTMRwsv3e5vSBYsdiPtCyc6TtoHTCjkxBjtF22tf8Z5ABRdeBUNwHCsqEyzR5wT",
+     "p2wpkh", "p2sh-p2wpkh", False,
+     "cHNidP8BAMQCAAAAA7uEliZeXLPfjeUiRBw6e5oZV1DtBrDmLthfDC4oaHQLAAAAAAD/////+X1Exketc4o5b9BPxsj70O+VlGvgiZz0KP1OMRtVLUQAAAAAAP////9r5ylMhQyxbJvCbU8aNE3NOPoXJwUaUZm4H3iT4RnaSwAAAAAA/////wKMz/AIAAAAABepFJwmRAefvZS7VQStD4k52Rn0k71Gh4zP8AgAAAAAFgAUA2shnTVftDXq+ssPwzml2UKdu1QAAAAAAAEBHwDh9QUAAAAAFgAUqw1Ifto4LztwcsxV6q+sQThIdloiBgMDZ5u3RN6Xum+OLkgAzwLFXGWFLwBUraMi7Oin4fYfrwzvYoLxAAAAAAAAAAAAAQEfAOH1BQAAAAAWABQpSCwoeMSghUoVflvtTPiqBPi+5yIGA/tAH4kVpqd3wzidaTNFxtwdpHTydkmB825us2w/3cAVDO9igvEAAAAAAQAAAAABAR8A4fUFAAAAABYAFEqM0KJ5FJ7ak2NL8PDqOPI0I1PaIgYD84aDwOqXKfGvEbre+bpNpuT0uZv6syESzz5PMu4RyLkM72KC8QAAAAACAAAAAAEAF6kUnCZEB5+9lLtVBK0PiTnZGfSTvUaHACICAw8k2gGGcF5sR8yKO5JeAkrkH15rmtCq8sCoDYbywTNzEO9igvEMAAAAIgAAAJQCAAAA"),
+    ("prosper diamond marriage spy across start shift elevator job lunar edge gallery",
+     "tpubDChjiEhsafnW2LcmK1C77XiEAgZddi6xZyxjMujBzUqZPTMRwsv3e5vSBYsdiPtCyc6TtoHTCjkxBjtF22tf8Z5ABRdeBUNwHCsqEyzR5wT",
+     "p2wpkh", "p2wpkh", False,
+     "cHNidP8BAMMCAAAAA7uEliZeXLPfjeUiRBw6e5oZV1DtBrDmLthfDC4oaHQLAAAAAAD/////+X1Exketc4o5b9BPxsj70O+VlGvgiZz0KP1OMRtVLUQAAAAAAP////9r5ylMhQyxbJvCbU8aNE3NOPoXJwUaUZm4H3iT4RnaSwAAAAAA/////wKMz/AIAAAAABYAFBaOTObQIdtCaryiPxaDV5rsGYWUjM/wCAAAAAAWABR9TJm5rcSoIMW7bE1bnj7REL/eygAAAAAAAQEfAOH1BQAAAAAWABSrDUh+2jgvO3ByzFXqr6xBOEh2WiIGAwNnm7dE3pe6b44uSADPAsVcZYUvAFStoyLs6Kfh9h+vDO9igvEAAAAAAAAAAAABAR8A4fUFAAAAABYAFClILCh4xKCFShV+W+1M+KoE+L7nIgYD+0AfiRWmp3fDOJ1pM0XG3B2kdPJ2SYHzbm6zbD/dwBUM72KC8QAAAAABAAAAAAEBHwDh9QUAAAAAFgAUSozQonkUntqTY0vw8Oo48jQjU9oiBgPzhoPA6pcp8a8Rut75uk2m5PS5m/qzIRLPPk8y7hHIuQzvYoLxAAAAAAIAAAAAACICAuqCicVUfcM5IiVSiB/0ZemodybG5Im9Fu8MLorQSE4UEO9igvEMAAAAIgAAAOkAAAAA"),
+    ("prosper diamond marriage spy across start shift elevator job lunar edge gallery",
+     "tpubDChjiEhsafnW2LcmK1C77XiEAgZddi6xZyxjMujBzUqZPTMRwsv3e5vSBYsdiPtCyc6TtoHTCjkxBjtF22tf8Z5ABRdeBUNwHCsqEyzR5wT",
+     "p2wpkh", "p2wpkh", True,
+     "cHNidP8BAMMCAAAAA7uEliZeXLPfjeUiRBw6e5oZV1DtBrDmLthfDC4oaHQLAAAAAAD/////+X1Exketc4o5b9BPxsj70O+VlGvgiZz0KP1OMRtVLUQAAAAAAP////9r5ylMhQyxbJvCbU8aNE3NOPoXJwUaUZm4H3iT4RnaSwAAAAAA/////wKMz/AIAAAAABYAFLH/IL11rTJ3wX1NcmUIsJ/T4j4jjM/wCAAAAAAWABR8GPNb1HUpCz8PKOc8aQXLD1wjcAAAAAAAAQEfAOH1BQAAAAAWABSrDUh+2jgvO3ByzFXqr6xBOEh2WiIGAwNnm7dE3pe6b44uSADPAsVcZYUvAFStoyLs6Kfh9h+vDE5vcGUAAAAAAAAAAAABAR8A4fUFAAAAABYAFClILCh4xKCFShV+W+1M+KoE+L7nIgYD+0AfiRWmp3fDOJ1pM0XG3B2kdPJ2SYHzbm6zbD/dwBUM72KC8QAAAAABAAAAAAEBHwDh9QUAAAAAFgAUSozQonkUntqTY0vw8Oo48jQjU9oiBgPzhoPA6pcp8a8Rut75uk2m5PS5m/qzIRLPPk8y7hHIuQzvYoLxAAAAAAIAAAAAACICAsQ7ZvU9tsbBoSje5rIJQBStlUkQaRCssKylEixre3AYEO9igvEMAAAAIgAAABcCAAAA"),
+])
+def test_sign_external_psbt(setup_psbt_wallet, walletseed, xpub,
+                            spktype_wallet, spktype_destn, partial, psbt):
+    bitcoin.select_chain_params("bitcoin")
+    wallet_cls = SegwitWallet if spktype_wallet == "p2wpkh" else SegwitLegacyWallet
+    wallet = create_volatile_wallet(walletseed, wallet_cls=wallet_cls)
+    # if we want to actually sign, our wallet has to recognize the fake utxos
+    # as being in the wallet, so we inject them:
+    class DummyUtxoManager(object):
+        _utxo = {0:{}}
+        def add_utxo(self, utxo, path, value, height):
+            self._utxo[0][utxo] = (path, value, height)
+    wallet._index_cache[0][0] = 1000
+    wallet._utxos = DummyUtxoManager()
+    p0, p1, p2 = (wallet.get_path(0, 0, i) for i in range(3))
+    if not partial:
+        wallet._utxos.add_utxo(utxostr_to_utxo(
+            "0b7468282e0c5fd82ee6b006ed5057199a7b3a1c4422e58ddfb35c5e269684bb:0"),
+                               p0, 10000, 1)
+    wallet._utxos.add_utxo(utxostr_to_utxo(
+        "442d551b314efd28f49c89e06b9495efd0fbc8c64fd06f398a73ad47c6447df9:0"),
+                           p1, 10000, 1)
+    wallet._utxos.add_utxo(utxostr_to_utxo(
+        "4bda19e193781fb899511a052717fa38cd4d341a4f6dc29b6cb10c854c29e76b:0"),
+                           p2, 10000, 1)
+    signresult_and_signedpsbt, err = wallet.sign_psbt(base64.b64decode(
+        psbt.encode("ascii")),with_sign_result=True)
+    assert not err
+    signresult, signedpsbt = signresult_and_signedpsbt
+    if partial:
+        assert not signresult.is_final
+        assert signresult.num_inputs_signed == 2
+        assert signresult.num_inputs_final == 2
+    else:
+        assert signresult.is_final
+        assert signresult.num_inputs_signed == 3
+        assert signresult.num_inputs_final == 3
+    print(PSBTWalletMixin.human_readable_psbt(signedpsbt))
+    bitcoin.select_chain_params("bitcoin/regtest")
 
 def test_create_and_sign_psbt_with_legacy(setup_psbt_wallet):
     """ The purpose of this test is to check that we can create and
