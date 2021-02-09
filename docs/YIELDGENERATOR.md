@@ -51,7 +51,7 @@ The value of `gradual` or `greedy` is usually good for keeping the number of inp
 
 ## How to run yield generator in background
 
-Use [tmux](https://man.openbsd.org/OpenBSD-current/man1/tmux.1), [Byobu](https://www.byobu.org/), or [GNU Screen](https://www.gnu.org/software/screen/).
+You can use a [terminal multiplexer](https://en.wikipedia.org/wiki/Terminal_multiplexer) such as [tmux](https://man.openbsd.org/OpenBSD-current/man1/tmux.1), [Byobu](https://www.byobu.org/), [GNU Screen](https://www.gnu.org/software/screen/), or [Twin](https://github.com/cosmos72/twin/).
 
 ## Modifying the algorithm
 If you are a programmer you could try creating your own algorithm for the yield generator.
