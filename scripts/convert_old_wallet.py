@@ -9,7 +9,8 @@ from pyaes import AESModeOfOperationCBC, Decrypter
 from jmbase import JM_APP_NAME
 from jmclient import Storage, load_program_config, BTCEngine
 from jmclient.wallet_utils import get_password, get_wallet_cls,\
-    cli_get_wallet_passphrase_check, get_wallet_path
+    cli_get_wallet_passphrase_check, get_wallet_path, \
+    get_configured_wallet_type
 
 
 class ConvertException(Exception):
@@ -75,7 +76,7 @@ def new_wallet_from_data(data, file_name):
         return False
 
     storage = Storage(file_name, create=True, password=new_pw)
-    wallet_cls = get_wallet_cls()
+    wallet_cls = get_wallet_cls(wtype=get_configured_wallet_type(False))
 
     kwdata = {
         'entropy': data['entropy'],
