@@ -277,19 +277,21 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         self.path, query = self.path.split('?', 1) if '?' in self.path else (
             self.path, '')
         args = parse_qs(query)
-        pages = ['/', '/ordersize', '/depth', '/orderbook.json', '/vendor/sorttable.js', '/vendor/bootstrap.min.css']
-        if self.path not in pages:
+        pages = ['/', '/ordersize', '/depth', '/orderbook.json']
+        static_files = {'/vendor/sorttable.js', '/vendor/bootstrap.min.css'}
+        if self.path in static_files:
+            return super().do_GET()
+        elif self.path not in pages:
             return
+        fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+            'orderbook.html'), 'r')
+        orderbook_fmt = fd.read()
+        fd.close()
         alert_msg = ''
-        replacements = {}
         if jm_single().joinmarket_alert[0]:
             alert_msg = '<br />JoinMarket Alert Message:<br />' + \
                         jm_single().joinmarket_alert[0]
         if self.path == '/':
-            fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                'orderbook.html'), 'r')
-            orderbook_fmt = fd.read()
-            fd.close()
             btc_unit = args['btcunit'][
                 0] if 'btcunit' in args else sorted_units[0]
             rel_unit = args['relunit'][
@@ -313,10 +315,6 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                     table_heading + ordertable + '</table>\n')
             }
         elif self.path == '/ordersize':
-            fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                'orderbook.html'), 'r')
-            orderbook_fmt = fd.read()
-            fd.close()
             replacements = {
                 'PAGETITLE': 'JoinMarket Browser Interface',
                 'MAINHEADING': 'Order Sizes',
@@ -326,10 +324,6 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         elif self.path.startswith('/depth'):
             # if self.path[6] == '?':
             #	quantity =
-            fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                'orderbook.html'), 'r')
-            orderbook_fmt = fd.read()
-            fd.close()
             cj_amounts = [10 ** cja for cja in range(4, 12, 1)]
             mainbody = [self.create_depth_chart(cja, args) \
                         for cja in cj_amounts] + \
@@ -342,21 +336,14 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 'MAINBODY': '<br />'.join(mainbody)
             }
         elif self.path == '/orderbook.json':
+            replacements = {}
             orderbook_fmt = json.dumps(self.create_orderbook_obj())
-        elif self.path.startswith('/vendor/') and not '..' in self.path:
-            fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)), self.path[1:]), 'r')
-            orderbook_fmt = fd.read()
-            fd.close()
         orderbook_page = orderbook_fmt
         for key, rep in iteritems(replacements):
             orderbook_page = orderbook_page.replace(key, rep)
         self.send_response(200)
         if self.path.endswith('.json'):
             self.send_header('Content-Type', 'application/json')
-        elif self.path.endswith('.js'):
-            self.send_header('Content-Type', 'application/javascript')
-        elif self.path.endswith('.css'):
-            self.send_header('Content-Type', 'text/css')
         else:
             self.send_header('Content-Type', 'text/html')
         self.send_header('Content-Length', len(orderbook_page))
