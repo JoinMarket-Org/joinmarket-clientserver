@@ -130,7 +130,8 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         self.taker = base_server.taker
         self.base_server = base_server
         http.server.SimpleHTTPRequestHandler.__init__(
-                self, request, client_address, base_server)
+                self, request, client_address, base_server,
+                directory=os.path.dirname(os.path.realpath(__file__)))
 
     def create_orderbook_obj(self):
         try:
