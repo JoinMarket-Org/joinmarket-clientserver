@@ -279,7 +279,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             self.path, '')
         args = parse_qs(query)
         pages = ['/', '/ordersize', '/depth', '/orderbook.json']
-        static_files = {'/vendor/sorttable.js', '/vendor/bootstrap.min.css'}
+        static_files = {'/vendor/sorttable.js', '/vendor/bootstrap.min.css', '/vendor/jquery-3.5.1.slim.min.js'}
         if self.path in static_files:
             return super().do_GET()
         elif self.path not in pages:
