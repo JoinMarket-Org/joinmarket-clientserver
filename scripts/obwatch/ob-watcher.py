@@ -130,7 +130,8 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         self.taker = base_server.taker
         self.base_server = base_server
         http.server.SimpleHTTPRequestHandler.__init__(
-                self, request, client_address, base_server)
+                self, request, client_address, base_server,
+                directory=os.path.dirname(os.path.realpath(__file__)))
 
     def create_orderbook_obj(self):
         try:
@@ -278,7 +279,10 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             self.path, '')
         args = parse_qs(query)
         pages = ['/', '/ordersize', '/depth', '/orderbook.json']
-        if self.path not in pages:
+        static_files = {'/vendor/sorttable.js', '/vendor/bootstrap.min.css', '/vendor/jquery-3.5.1.slim.min.js'}
+        if self.path in static_files:
+            return super().do_GET()
+        elif self.path not in pages:
             return
         fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
             'orderbook.html'), 'r')
