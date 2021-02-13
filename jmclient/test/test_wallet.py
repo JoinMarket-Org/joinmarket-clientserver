@@ -8,7 +8,7 @@ import pytest
 import jmbitcoin as btc
 from commontest import ensure_bip65_activated
 from jmbase import get_log, hextobin
-from jmclient import load_test_config, jm_single, \
+from jmclient import load_test_config, jm_single, BaseWallet, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
     SegwitWallet, WalletService, SegwitLegacyWalletFidelityBonds,\
@@ -186,10 +186,10 @@ def test_bip32_test_vector_3(monkeypatch, setup_wallet):
 
 
 @pytest.mark.parametrize('mixdepth,internal,index,address,wif', [
-    [0, 0, 0, 'mpCX9EbdXpcrKMtjEe1fqFhvzctkfzMYTX', 'cVqtSSoVxFyPqTRGfeESi31uCYfgTF4tGWRtGeVs84fzybiX5TPk'],
-    [0, 0, 5, 'mtj85a3pFppRhrxNcFig1k7ECshrZjJ9XC', 'cMsFXc4TRw9PTcCTv7x9mr88rDeGXBTLEV67mKaw2cxCkjkhL32G'],
-    [0, 1, 3, 'n1EaQuqvTRm719hsSJ7yRsj49JfoG1C86q', 'cUgSTqnAtvYoQRXCYy4wCFfaks2Zrz1d55m6mVhFyVhQbkDi7JGJ'],
-    [2, 1, 2, 'mfxkBk7uDhmF5PJGS9d1NonGiAxPwJqQP4', 'cPcZXSiXPuS5eiT4oDrDKi1mFumw5D1RcWzK2gkGdEHjEz99eyXn']
+    [0, BaseWallet.ADDRESS_TYPE_EXTERNAL, 0, 'mpCX9EbdXpcrKMtjEe1fqFhvzctkfzMYTX', 'cVqtSSoVxFyPqTRGfeESi31uCYfgTF4tGWRtGeVs84fzybiX5TPk'],
+    [0, BaseWallet.ADDRESS_TYPE_EXTERNAL, 5, 'mtj85a3pFppRhrxNcFig1k7ECshrZjJ9XC', 'cMsFXc4TRw9PTcCTv7x9mr88rDeGXBTLEV67mKaw2cxCkjkhL32G'],
+    [0, BaseWallet.ADDRESS_TYPE_INTERNAL, 3, 'n1EaQuqvTRm719hsSJ7yRsj49JfoG1C86q', 'cUgSTqnAtvYoQRXCYy4wCFfaks2Zrz1d55m6mVhFyVhQbkDi7JGJ'],
+    [2, BaseWallet.ADDRESS_TYPE_INTERNAL, 2, 'mfxkBk7uDhmF5PJGS9d1NonGiAxPwJqQP4', 'cPcZXSiXPuS5eiT4oDrDKi1mFumw5D1RcWzK2gkGdEHjEz99eyXn']
 ])
 def test_bip32_addresses_p2pkh(monkeypatch, setup_wallet, mixdepth, internal, index, address, wif):
     """
@@ -391,7 +391,7 @@ def test_signing_simple(setup_wallet, wallet_cls, type_check):
             [{"address": str(btc.CCoinAddress.from_scriptPubKey(
                 btc.CScript(b"\x00").to_p2sh_scriptPubKey())),
               "value": 10**8 - 9000}])    
-    script = wallet.get_script(0, 1, 0)
+    script = wallet.get_script(0, BaseWallet.ADDRESS_TYPE_INTERNAL, 0)
     success, msg = wallet.sign_tx(tx, {0: (script, 10**8)})
     assert success, msg
     type_check(tx)
@@ -486,7 +486,8 @@ def test_add_new_utxos(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
     wallet = get_populated_wallet(num=1)
 
-    scripts = [wallet.get_new_script(x, True) for x in range(3)]
+    scripts = [wallet.get_new_script(x,
+                BaseWallet.ADDRESS_TYPE_INTERNAL) for x in range(3)]
     tx_scripts = list(scripts)
     tx = btc.mktx(
             [(b"\x00"*32, 2)],
@@ -514,7 +515,8 @@ def test_remove_old_utxos(setup_wallet):
     for i in range(3):
         txin = jm_single().bc_interface.grab_coins(
             wallet.get_internal_addr(1), 1)
-        wallet.add_utxo(btc.x(txin), 0, wallet.get_script(1, 1, i), 10**8, 1)
+        wallet.add_utxo(btc.x(txin), 0, wallet.get_script(1,
+                    BaseWallet.ADDRESS_TYPE_INTERNAL, i), 10**8, 1)
 
     inputs = wallet.select_utxos(0, 10**8)
     inputs.update(wallet.select_utxos(1, 2 * 10**8))
@@ -549,7 +551,7 @@ def test_initialize_twice(setup_wallet):
 
 def test_is_known(setup_wallet):
     wallet = get_populated_wallet(num=0)
-    script = wallet.get_new_script(1, True)
+    script = wallet.get_new_script(1, BaseWallet.ADDRESS_TYPE_INTERNAL)
     addr = wallet.get_external_addr(2)
 
     assert wallet.is_known_script(script)
@@ -576,29 +578,30 @@ def test_wallet_save(setup_wallet):
     storage = VolatileStorage(data=data)
     wallet = SegwitLegacyWallet(storage)
 
-    assert wallet.get_next_unused_index(0, True) == 3
-    assert wallet.get_next_unused_index(0, False) == 0
-    assert wallet.get_next_unused_index(1, True) == 0
-    assert wallet.get_next_unused_index(1, False) == 1
+    assert wallet.get_next_unused_index(0, BaseWallet.ADDRESS_TYPE_INTERNAL) == 3
+    assert wallet.get_next_unused_index(0, BaseWallet.ADDRESS_TYPE_EXTERNAL) == 0
+    assert wallet.get_next_unused_index(1, BaseWallet.ADDRESS_TYPE_INTERNAL) == 0
+    assert wallet.get_next_unused_index(1, BaseWallet.ADDRESS_TYPE_EXTERNAL) == 1
     assert wallet.is_known_script(script)
 
 
 def test_set_next_index(setup_wallet):
     wallet = get_populated_wallet()
 
-    assert wallet.get_next_unused_index(0, True) == 3
+    assert wallet.get_next_unused_index(0,
+                BaseWallet.ADDRESS_TYPE_INTERNAL) == 3
 
     with pytest.raises(Exception):
         # cannot advance index without force=True
-        wallet.set_next_index(0, True, 5)
+        wallet.set_next_index(0, BaseWallet.ADDRESS_TYPE_INTERNAL, 5)
 
-    wallet.set_next_index(0, True, 1)
-    assert wallet.get_next_unused_index(0, True) == 1
+    wallet.set_next_index(0, BaseWallet.ADDRESS_TYPE_INTERNAL, 1)
+    assert wallet.get_next_unused_index(0, BaseWallet.ADDRESS_TYPE_INTERNAL) == 1
 
-    wallet.set_next_index(0, True, 20, force=True)
-    assert wallet.get_next_unused_index(0, True) == 20
+    wallet.set_next_index(0, BaseWallet.ADDRESS_TYPE_INTERNAL, 20, force=True)
+    assert wallet.get_next_unused_index(0, BaseWallet.ADDRESS_TYPE_INTERNAL) == 20
 
-    script = wallet.get_new_script(0, True)
+    script = wallet.get_new_script(0, BaseWallet.ADDRESS_TYPE_INTERNAL)
     path = wallet.script_to_path(script)
     index = wallet.get_details(path)[2]
     assert index == 20
@@ -693,7 +696,7 @@ def test_wallet_id(setup_wallet):
 def test_addr_script_conversion(setup_wallet):
     wallet = get_populated_wallet(num=1)
 
-    path = wallet.get_path(0, True, 0)
+    path = wallet.get_path(0, BaseWallet.ADDRESS_TYPE_INTERNAL, 0)
     script = wallet.get_script_from_path(path)
     addr = wallet.script_to_addr(script)
 

@@ -9,7 +9,7 @@ from commontest import make_wallets, dummy_accept_callback, dummy_info_callback
 import jmbitcoin as btc
 from jmbase import get_log, bintohex
 from jmclient import (load_test_config, estimate_tx_fee, SNICKERReceiver,
-                      direct_send, SegwitLegacyWallet)
+                      direct_send, SegwitLegacyWallet, BaseWallet)
 
 TEST_PROPOSALS_FILE = "test_proposals.txt"
 log = get_log()
@@ -41,7 +41,7 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     wallet_r = wallets[0]['wallet']
     wallet_p = wallets[1]['wallet']
     # next, create a tx from the receiver wallet
-    our_destn_script = wallet_r.get_new_script(1, 1)
+    our_destn_script = wallet_r.get_new_script(1, BaseWallet.ADDRESS_TYPE_INTERNAL)
     tx = direct_send(wallet_r, btc.coins_to_satoshi(0.3), 0,
                      wallet_r.script_to_addr(our_destn_script),
                      accept_callback=dummy_accept_callback,
@@ -83,7 +83,7 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     our_input_utxo = btc.CMutableTxOut(prop_utxo['value'],
                                        prop_utxo['script'])
     fee_est = estimate_tx_fee(len(tx.vin), 2)
-    change_spk = wallet_p.get_new_script(0, 1)
+    change_spk = wallet_p.get_new_script(0, BaseWallet.ADDRESS_TYPE_INTERNAL)
 
     encrypted_proposals = []
 

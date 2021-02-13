@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(data_dir))
 
 from jmbase import get_log
 from jmclient import open_test_wallet_maybe, BIP32Wallet, SegwitWallet, \
-    estimate_tx_fee, jm_single, WalletService
+    estimate_tx_fee, jm_single, WalletService, BaseWallet
 import jmbitcoin as btc
 from jmbase import chunks
 
@@ -32,8 +32,8 @@ def make_sign_and_push(ins_full,
     total = sum(x['value'] for x in ins_full.values())
     ins = ins_full.keys()
     #random output address and change addr
-    output_addr = wallet_service.get_new_addr(1, 1) if not output_addr else output_addr
-    change_addr = wallet_service.get_new_addr(0, 1) if not change_addr else change_addr
+    output_addr = wallet_service.get_new_addr(1, BaseWallet.ADDRESS_TYPE_INTERNAL) if not output_addr else output_addr
+    change_addr = wallet_service.get_new_addr(0, BaseWallet.ADDRESS_TYPE_INTERNAL) if not change_addr else change_addr
     fee_est = estimate_tx_fee(len(ins), 2) if estimate_fee else 10000
     outs = [{'value': amount,
              'address': output_addr}, {'value': total - amount - fee_est,
@@ -106,7 +106,8 @@ def make_wallets(n,
                 amt = mean_amt - sdev_amt / 2.0 + deviation
                 if amt < 0: amt = 0.001
                 amt = float(Decimal(amt).quantize(Decimal(10)**-8))
-                jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(j, 1), amt)
+                jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(
+                    j, BaseWallet.ADDRESS_TYPE_INTERNAL), amt)
     return wallets
 
 

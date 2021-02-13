@@ -7,7 +7,7 @@ from pprint import pformat
 import jmbitcoin as btc
 import pytest
 from jmbase import get_log, hextobin
-from jmclient import load_test_config, jm_single, LegacyWallet
+from jmclient import load_test_config, jm_single, LegacyWallet, BaseWallet
 log = get_log()
 
 
@@ -90,8 +90,10 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
     FEE = 50000
     assert FEE < total_amt_in_sat - amount, "test broken, not enough funds"
 
-    cj_script = nsw_wallet_service.get_new_script(MIXDEPTH + 1, True)
-    change_script = nsw_wallet_service.get_new_script(MIXDEPTH, True)
+    cj_script = nsw_wallet_service.get_new_script(MIXDEPTH + 1,
+                                BaseWallet.ADDRESS_TYPE_INTERNAL)
+    change_script = nsw_wallet_service.get_new_script(MIXDEPTH,
+                                BaseWallet.ADDRESS_TYPE_INTERNAL)
     change_amt = total_amt_in_sat - amount - FEE
 
     tx_outs = [
