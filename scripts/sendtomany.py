@@ -8,7 +8,8 @@ for other reasons).
 from pprint import pformat
 from optparse import OptionParser
 import jmbitcoin as btc
-from jmbase import get_log, jmprint, bintohex, utxostr_to_utxo
+from jmbase import (get_log, jmprint, bintohex, utxostr_to_utxo,
+                    IndentedHelpFormatterWithNL)
 from jmclient import load_program_config, estimate_tx_fee, jm_single,\
     validate_address, get_utxo_info, add_base_options,\
     validate_utxo_data, quit, BTCEngine, compute_tx_locktime
@@ -46,30 +47,29 @@ def sign(utxo, priv, destaddrs, utxo_address_type):
     success, msg = btc.sign(tx, 0, rawpriv, amount=amtforsign, native=native)
     assert success, msg
     return tx
-    
+
+description="""For creating multiple utxos from one (for commitments in JM).
+Provide a utxo in form txid:N that has some unspent coins;
+Specify a list of destination addresses and the coins will
+be split equally between them (after bitcoin fees).
+You'll be prompted to enter the private key for the utxo
+during the run; it must be in WIF compressed format.
+After the transaction is completed, the utxo strings for
+the new outputs will be shown.
+Note that these utxos will not be ready for use as external
+commitments in Joinmarket until 5 confirmations have passed.
+BE CAREFUL about handling private keys!
+Don't do this in insecure environments.
+Works only with p2pkh ('1'), p2sh-p2wpkh (segwit '3') or
+p2wpkh ('bc1') addresses.
+utxos - set segwit=False in the POLICY section of
+joinmarket.cfg for the former."""
+
 def main():
     parser = OptionParser(
         usage=
         'usage: %prog [options] utxo destaddr1 destaddr2 ..',
-        description="For creating multiple utxos from one (for commitments in JM)."
-                    "Provide a utxo in form txid:N that has some unspent coins;"
-                    "Specify a list of destination addresses and the coins will"
-                    "be split equally between them (after bitcoin fees)."
-
-                    "You'll be prompted to enter the private key for the utxo"
-                    "during the run; it must be in WIF compressed format."
-                    "After the transaction is completed, the utxo strings for"
-
-                    "the new outputs will be shown."
-                    "Note that these utxos will not be ready for use as external"
-
-                    "commitments in Joinmarket until 5 confirmations have passed."
-                    " BE CAREFUL about handling private keys!"
-                    " Don't do this in insecure environments."
-                    " Works only with p2pkh ('1') or p2sh-p2wpkh (segwit '3')"
-                    " utxos - set segwit=False in the POLICY section of"
-                    " joinmarket.cfg for the former."
-    )
+        description=description, formatter=IndentedHelpFormatterWithNL())
     parser.add_option(
         '-t',
         '--utxo-address-type',
