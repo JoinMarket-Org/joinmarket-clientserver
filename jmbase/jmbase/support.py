@@ -4,6 +4,8 @@ import binascii
 from getpass import getpass
 from os import path, environ
 from functools import wraps
+from optparse import IndentedHelpFormatter
+
 # JoinMarket version
 JM_CORE_VERSION = '0.8.2dev'
 
@@ -15,6 +17,12 @@ JM_APP_NAME = "joinmarket"
 EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 EXIT_ARGERROR = 2
+
+# optparse munges description paragraphs. We sometimes
+# don't want that.
+class IndentedHelpFormatterWithNL(IndentedHelpFormatter):
+    def format_description(self, description):
+        return description
 
 from chromalog.log import (
     ColorizingStreamHandler,

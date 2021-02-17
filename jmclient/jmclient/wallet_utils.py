@@ -6,7 +6,7 @@ import sqlite3
 import sys
 from datetime import datetime
 from calendar import timegm
-from optparse import OptionParser, IndentedHelpFormatter
+from optparse import OptionParser
 from numbers import Integral
 from collections import Counter
 from itertools import islice
@@ -17,7 +17,8 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
 from jmclient.wallet_service import WalletService
 from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
-                            EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex)
+                            EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex,
+                            IndentedHelpFormatterWithNL)
 
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
     TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
@@ -30,12 +31,6 @@ DEFAULT_MIXDEPTH = 4
 
 
 def get_wallettool_parser():
-
-    # optparse munges description paragraphs. Here we
-    # have a big, complex paragraph which we need to control:
-    class IndentedHelpFormatterWithNL(IndentedHelpFormatter):
-        def format_description(self, description):
-            return description
 
     description ="""Use this script to monitor and manage your Joinmarket wallet.
 The method is one of the following:
