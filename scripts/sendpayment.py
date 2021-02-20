@@ -298,11 +298,16 @@ def main():
                 log.info("All transactions completed correctly")
             reactor.stop()
 
+    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
+    daemon = True if nodaemon == 1 else False
+    dhost = jm_single().config.get("DAEMON", "daemon_host")
+    dport = jm_single().config.getint("DAEMON", "daemon_port")
     if bip78url:
         # TODO sanity check wallet type is segwit
         manager = parse_payjoin_setup(args[1], wallet_service, options.mixdepth)
         reactor.callWhenRunning(send_payjoin, manager)
-        reactor.run()
+        # JM is default, so must be switched off explicitly in this call:
+        start_reactor(dhost, dport, bip78=True, jm_coinjoin=False, daemon=daemon)
         return
 
     else:
@@ -312,13 +317,10 @@ def main():
                       max_cj_fee=maxcjfee,
                       callbacks=(filter_orders_callback, None, taker_finished))
     clientfactory = JMClientProtocolFactory(taker)
-    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-    daemon = True if nodaemon == 1 else False
+
     if jm_single().config.get("BLOCKCHAIN", "network") == "regtest":
         startLogging(sys.stdout)
-    start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
-                  jm_single().config.getint("DAEMON", "daemon_port"),
-                  clientfactory, daemon=daemon)
+    start_reactor(dhost, dport, clientfactory, daemon=daemon)
 
 if __name__ == "__main__":
     main()

@@ -15,11 +15,12 @@ def startup_joinmarketd(host, port, usessl, factories=None,
     startLogging(sys.stdout)
     if not factories:
         factories = [jmdaemon.JMDaemonServerProtocolFactory(),
-                     jmdaemon.SNICKERDaemonServerProtocolFactory()]
+                     jmdaemon.SNICKERDaemonServerProtocolFactory(),
+                     jmdaemon.BIP78ServerProtocolFactory()]
     for factory in factories:
         jmdaemon.start_daemon(host, port, factory, usessl,
                               './ssl/key.pem', './ssl/cert.pem')
-        port += 1
+        port -= 1000
     if finalizer:
         reactor.addSystemEventTrigger("after", "shutdown", finalizer,
                                       finalizer_args)

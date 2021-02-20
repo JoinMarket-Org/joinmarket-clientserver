@@ -8,15 +8,22 @@ import sys
 import pytest
 from twisted.internet import reactor
 from twisted.web.server import Site
+from twisted.web.client import readBody
+from twisted.web.http_headers import Headers
 from twisted.trial import unittest
+import urllib.parse as urlparse
+from urllib.parse import urlencode
 
-from jmbase import get_log, jmprint
+from jmbase import get_log, jmprint, BytesProducer
 from jmbitcoin import (CCoinAddress, encode_bip21_uri,
                        amount_to_btc, amount_to_sat)
 from jmclient import cryptoengine
 from jmclient import (load_test_config, jm_single,
                       SegwitLegacyWallet, SegwitWallet,
-                      PayjoinServer, parse_payjoin_setup, send_payjoin)
+                      PayjoinServer, parse_payjoin_setup,
+                      send_payjoin)
+from jmclient.payjoin import make_payjoin_request_params, make_payment_psbt
+from jmclient.payjoin import process_payjoin_proposal_from_server
 from commontest import make_wallets
 from test_coinjoin import make_wallets_to_list, create_orderbook, sync_wallets
 
@@ -75,7 +82,23 @@ class TrialTestPayjoinServer(unittest.TestCase):
         self.manager = parse_payjoin_setup(bip78_uri, self.wallet_services[1], 0)
         self.manager.mode = "testing"
         self.site = site
-        return send_payjoin(self.manager, return_deferred=True)
+        success, msg = make_payment_psbt(self.manager)
+        assert success, msg
+        params = make_payjoin_request_params(self.manager)
+        # avoiding backend daemon (testing only jmclient code here),
+        # we send the http request manually:
+        from jmbase import get_nontor_agent, wrapped_urlparse
+        serv = b"http://127.0.0.1:47083"
+        agent = get_nontor_agent()
+        body = BytesProducer(self.manager.initial_psbt.to_base64().encode("utf-8"))
+        url_parts = list(wrapped_urlparse(serv))
+        url_parts[4] = urlencode(params).encode("utf-8")
+        destination_url = urlparse.urlunparse(url_parts)
+        d = agent.request(b"POST", destination_url,
+                          Headers({"Content-Type": ["text/plain"]}),
+                          bodyProducer=body)
+        d.addCallback(bip78_receiver_response, self.manager)
+        return d
 
     def tearDown(self):
         for dc in reactor.getDelayedCalls():
@@ -84,6 +107,21 @@ class TrialTestPayjoinServer(unittest.TestCase):
                            self.manager.final_psbt.get_fee(),
                            self.ssb, self.rsb)
         assert res, "final checks failed"
+
+def bip78_receiver_response(response, manager):
+    d = readBody(response)
+    # if the response code is not 200 OK, we must assume payjoin
+    # attempt has failed, and revert to standard payment.
+    if int(response.code) != 200:
+        d.addCallback(process_receiver_errormsg, response.code)
+        return
+    d.addCallback(process_receiver_psbt, manager)
+
+def process_receiver_errormsg(r, c):
+    print("Failed: r, c: ", r, c)
+
+def process_receiver_psbt(response, manager):
+    process_payjoin_proposal_from_server(response.decode("utf-8"), manager)
 
 def getbals(wallet_service, mixdepth):
     """ Retrieves balances for a mixdepth and the 'next'
