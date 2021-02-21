@@ -3,13 +3,14 @@
 # note, only used for non-cryptographic randomness:
 import random
 import json
+import itertools
 # needed for single sha256 evaluation, which is used
 # in bitcoin (p2wsh) but not exposed in python-bitcointx:
 import hashlib
 
 from jmbitcoin.secp256k1_main import *
 from jmbase import bintohex, utxo_to_utxostr
-from bitcointx.core import (CMutableTransaction, Hash160, CTxInWitness,
+from bitcointx.core import (CMutableTransaction, CTxInWitness,
                             CMutableOutPoint, CMutableTxIn, CTransaction,
                             CMutableTxOut, CTxIn, CTxOut, ValidationError)
 from bitcointx.core.script import *
@@ -314,7 +315,7 @@ def mktx(ins, outs, version=1, locktime=0):
 def make_shuffled_tx(ins, outs, version=1, locktime=0):
     """ Simple wrapper to ensure transaction
     inputs and outputs are randomly ordered.
-    Can possibly be replaced by BIP69 in future
+    NB: This mutates ordering of `ins` and `outs`.
     """
     random.shuffle(ins)
     random.shuffle(outs)
@@ -332,3 +333,103 @@ def verify_tx_input(tx, i, scriptSig, scriptPubKey, amount=None, witness=None):
     except ValidationError as e:
         return False
     return True
+
+def extract_witness(tx, i):
+    """Given `tx` of type CTransaction, extract,
+    as a list of objects of type CScript, which constitute the
+    witness at the index i, followed by "success".
+    If the witness is not present for this index, (None, "errmsg")
+    is returned.
+    Callers must distinguish the case 'tx is unsigned' from the
+    case 'input is not type segwit' externally.
+    """
+    assert isinstance(tx, CTransaction)
+    assert i >= 0
+    if not tx.has_witness():
+        return None, "Tx witness not present"
+    if len(tx.vin) < i:
+        return None, "invalid input index"
+    witness = tx.wit.vtxinwit[i]
+    return (witness, "success")
+
+def extract_pubkey_from_witness(tx, i):
+    """ Extract the pubkey used to sign at index i,
+    in CTransaction tx, assuming it is of type p2wpkh
+    (including wrapped segwit version).
+    Returns (pubkey, "success") or (None, "errmsg").
+    """
+    witness, msg = extract_witness(tx, i)
+    sWitness = [a for a in iter(witness.scriptWitness)]
+    if not sWitness:
+        return None, msg
+    else:
+        if len(sWitness) != 2:
+            return None, "invalid witness for p2wpkh."
+        if not is_valid_pubkey(sWitness[1], True):
+            return None, "invalid pubkey in witness"
+        return sWitness[1], "success"
+
+def get_equal_outs(tx):
+    """ If 2 or more transaction outputs have the same
+    bitcoin value, return then as a list of CTxOuts.
+    If there is not exactly one equal output size, return False.
+    """
+    retval = []
+    l = [x.nValue for x in tx.vout]
+    eos = [i for i in l if l.count(i)>=2]
+    if len(eos) > 0:
+        eos = set(eos)
+        if len(eos) > 1:
+            return False
+    for i, vout in enumerate(tx.vout):
+        if vout.nValue == list(eos)[0]:
+            retval.append((i, vout))
+    assert len(retval) > 1
+    return retval
+
+def is_jm_tx(tx, min_cj_amount=75000, min_participants=3):
+    """ Identify Joinmarket-patterned transactions.
+    TODO: this should be in another module.
+    Given a CBitcoinTransaction tx, check:
+    nins >= number of coinjoin outs (equal sized)
+    non-equal outs = coinjoin outs or coinjoin outs -1
+    at least 3 coinjoin outs (2 technically possible but excluded)
+    also possible to try to get clever about fees, but won't bother.
+    note: BlockSci's algo additionally addresses subset sum, so will
+    give better quality data, but this is kept simple for now.
+    We filter out joins with less than 3 participants as they are
+    not really in Joinmarket "correct usage" and there will be a lot
+    of false positives.
+    We filter out "joins" less than 75000 sats as they are unlikely to
+    be Joinmarket and there tend to be many low-value false positives.
+    Returns:
+    (False, None) for non-matches
+    (coinjoin amount, number of participants) for matches.
+    """
+    def assumed_cj_out_num(nout):
+        """Return the value ceil(nout/2)
+        """
+        x = nout//2
+        if nout %2: return x+1
+        return x
+
+    def most_common_value(x):
+        return max(set(x), key=x.count)
+
+    assumed_coinjoin_outs = assumed_cj_out_num(len(tx.vout))
+    if assumed_coinjoin_outs < min_participants:
+        return (False, None)
+    if len(tx.vin) < assumed_coinjoin_outs:
+        return (False, None)
+    outvals = [x.nValue for x in tx.vout]
+    # it's not possible for the coinjoin out to not be
+    # the most common value:
+    mcov = most_common_value(outvals)
+    if mcov < min_cj_amount:
+        return (False, None)
+    cjoutvals = [x for x in outvals if x == mcov]
+    if len(cjoutvals) != assumed_coinjoin_outs:
+        return (False, None)
+    # number of participants is the number of assumed
+    # coinjoin outputs:
+    return (mcov, assumed_coinjoin_outs)

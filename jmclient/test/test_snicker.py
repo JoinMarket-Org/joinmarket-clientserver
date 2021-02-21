@@ -11,7 +11,6 @@ from jmbase import get_log, bintohex
 from jmclient import (load_test_config, estimate_tx_fee, SNICKERReceiver,
                       direct_send, SegwitLegacyWallet, BaseWallet)
 
-TEST_PROPOSALS_FILE = "test_proposals.txt"
 log = get_log()
 
 @pytest.mark.parametrize(
@@ -33,8 +32,7 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     """
 
     # TODO: Make this test work with native segwit wallets
-    wallets = make_wallets(nw, wallet_structures, mean_amt, sdev_amt,
-                           wallet_cls=SegwitLegacyWallet)
+    wallets = make_wallets(nw, wallet_structures, mean_amt, sdev_amt)
     for w in wallets.values():
         w['wallet'].sync_wallet(fast=True)
     print(wallets)
@@ -82,7 +80,8 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     their_input = (txid1, txid1_index)
     our_input_utxo = btc.CMutableTxOut(prop_utxo['value'],
                                        prop_utxo['script'])
-    fee_est = estimate_tx_fee(len(tx.vin), 2)
+    fee_est = estimate_tx_fee(len(tx.vin), 2,
+                              txtype=wallet_p.get_txtype())
     change_spk = wallet_p.get_new_script(0, BaseWallet.ADDRESS_TYPE_INTERNAL)
 
     encrypted_proposals = []
@@ -92,8 +91,8 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
         # not just one guessed output, if desired.
         encrypted_proposals.append(
             wallet_p.create_snicker_proposal(
-            our_input, their_input,
-            our_input_utxo,
+            [our_input], their_input,
+            [our_input_utxo],
             tx.vout[txid1_index],
             net_transfer,
             fee_est,
@@ -102,11 +101,8 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
             prop_utxo['script'],
             change_spk,
             version_byte=1) + b"," + bintohex(p).encode('utf-8'))
-    with open(TEST_PROPOSALS_FILE, "wb") as f:
-        f.write(b"\n".join(encrypted_proposals))
     sR = SNICKERReceiver(wallet_r)
-    sR.proposals_source = TEST_PROPOSALS_FILE # avoid clashing with mainnet
-    sR.poll_for_proposals()
+    sR.process_proposals([x.decode("utf-8") for x in encrypted_proposals])
     assert len(sR.successful_txs) == 1
     wallet_r.process_new_tx(sR.successful_txs[0])
     end_utxos = wallet_r.get_all_utxos()
@@ -117,7 +113,3 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
 @pytest.fixture(scope="module")
 def setup_snicker(request):
     load_test_config()
-    def teardown():
-        if os.path.exists(TEST_PROPOSALS_FILE):
-            os.remove(TEST_PROPOSALS_FILE)
-    request.addfinalizer(teardown)

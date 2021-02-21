@@ -228,3 +228,56 @@ class JMTXBroadcast(JMCommand):
     broadcast.
     """
     arguments = [(b'txhex', Unicode())]
+
+"""SNICKER related commands.
+"""
+
+class SNICKERReceiverInit(JMCommand):
+    """ Initialization data for a SNICKER service.
+    See documentation of `netconfig` in
+    jmdaemon.HTTPPassThrough.on_INIT
+    """
+    arguments = [(b'netconfig', Unicode())]
+
+class SNICKERProposerInit(JMCommand):
+    """ As for receiver.
+    """
+    arguments = [(b'netconfig', Unicode())]
+
+class SNICKERReceiverUp(JMCommand):
+    arguments = []
+
+class SNICKERProposerUp(JMCommand):
+    arguments = []
+
+class SNICKERReceiverGetProposals(JMCommand):
+    arguments = []
+
+class SNICKERReceiverProposals(JMCommand):
+    """ Sends the retrieved proposal list from
+    a specific server, from daemon back to client.
+    """
+    arguments = [(b'proposals', BigUnicode()),
+                 (b'server', Unicode())]
+
+class SNICKERProposerPostProposals(JMCommand):
+    """ Sends a list of proposals to be uploaded
+    to a server.
+    """
+    arguments = [(b'proposals', BigUnicode()),
+                 (b'server', Unicode())]
+
+class SNICKERProposalsServerResponse(JMCommand):
+    arguments = [(b'response', Unicode()),
+                 (b'server', Unicode())]
+
+class SNICKERServerError(JMCommand):
+    arguments = [(b'server', Unicode()),
+                 (b'errorcode', Integer())]
+
+class SNICKERRequestPowTarget(JMCommand):
+    arguments = [(b'server', Unicode())]
+
+class SNICKERReceivePowTarget(JMCommand):
+    arguments = [(b'server', Unicode()),
+                 (b'targetbits', Integer())]

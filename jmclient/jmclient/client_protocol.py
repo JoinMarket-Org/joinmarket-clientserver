@@ -16,27 +16,14 @@ import sys
 from jmbase import (get_log, EXIT_FAILURE, hextobin, bintohex,
                     utxo_to_utxostr)
 from jmclient import (jm_single, get_irc_mchannels,
-                      RegtestBitcoinCoreInterface)
+                      RegtestBitcoinCoreInterface,
+                      SNICKERReceiver, process_shutdown)
 import jmbitcoin as btc
 
 
 jlog = get_log()
 
-class JMProtocolError(Exception):
-    pass
-
-class JMClientProtocol(amp.AMP):
-    def __init__(self, factory, client, nick_priv=None):
-            self.client = client
-            self.factory = factory
-            if not nick_priv:
-                self.nick_priv = hashlib.sha256(
-                    os.urandom(16)).digest() + b"\x01"
-            else:
-                self.nick_priv = nick_priv
-
-            self.shutdown_requested = False
-
+class BaseClientProtocol(amp.AMP):
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
         is considered criticial.
@@ -53,6 +40,146 @@ class JMClientProtocol(amp.AMP):
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
         d.addErrback(self.defaultErrback)
+
+class JMProtocolError(Exception):
+    pass
+
+class SNICKERClientProtocol(BaseClientProtocol):
+
+    def __init__(self, client, servers, tls_whitelist=[], oneshot=False):
+        # if client is type JMSNICKERReceiver, this will flag
+        # the use of the receiver workflow (polling loop).
+        # Otherwise it is assumed to be a proposer workloop,
+        # which does not have active polling, but only the
+        # ability to upload when clients call for it.
+        self.client = client
+        self.servers = servers
+        if len(tls_whitelist) == 0:
+            if isinstance(jm_single().bc_interface,
+                          RegtestBitcoinCoreInterface):
+                tls_whitelist = ["127.0.0.1"]
+        self.tls_whitelist = tls_whitelist
+        self.processed_proposals = []
+        self.oneshot = oneshot
+
+    def connectionMade(self):
+        netconfig = {"socks5_host": jm_single().config.get("PAYJOIN", "onion_socks5_host"),
+                     "socks5_port": jm_single().config.get("PAYJOIN", "onion_socks5_port"),
+                     "servers": self.servers,
+                     "tls_whitelist": ",".join(self.tls_whitelist),
+                     "filterconfig": "",
+                     "credentials": ""}
+
+        if isinstance(self.client, SNICKERReceiver):
+            d = self.callRemote(commands.SNICKERReceiverInit,
+                                netconfig=json.dumps(netconfig))
+        else:
+            d = self.callRemote(commands.SNICKERProposerInit,
+                                netconfig=json.dumps(netconfig))
+            self.defaultCallbacks(d)
+
+    def shutdown(self):
+        """ Encapsulates shut down actions.
+        """
+        if self.proposal_poll_loop:
+            self.proposals_poll_loop.stop()
+
+    def poll_for_proposals(self):
+        """ May be invoked in a LoopingCall or other
+        event loop.
+        Retrieves any entries in the proposals_source, then
+        compares with existing,
+        and invokes parse_proposal on all new entries.
+        # TODO considerable thought should go into how to store
+        proposals cross-runs, and also handling of keys, which
+        must be optional.
+        """
+        # always check whether the service is still intended to
+        # be active, before starting the polling actions:
+        if jm_single().config.get("SNICKER", "enabled") != "true":
+            self.shutdown()
+            return
+        d = self.callRemote(commands.SNICKERReceiverGetProposals)
+        self.defaultCallbacks(d)
+
+    @commands.SNICKERProposerUp.responder
+    def on_SNICKER_PROPOSER_UP(self):
+        jlog.info("SNICKER proposer daemon ready.")
+        # TODO handle multiple servers correctly
+        for s in self.servers:
+            if s == "":
+                continue
+            d = self.callRemote(commands.SNICKERRequestPowTarget,
+                                server=s)
+            self.defaultCallbacks(d)
+        return {"accepted": True}
+
+    @commands.SNICKERReceivePowTarget.responder
+    def on_SNICKER_RECEIVE_POW_TARGET(self, server, targetbits):
+        proposals = self.client.get_proposals(targetbits)
+        d = self.callRemote(commands.SNICKERProposerPostProposals,
+            proposals="\n".join([x.decode("utf-8") for x in proposals]),
+            server = server)
+        self.defaultCallbacks(d)
+        return {"accepted": True}
+
+    @commands.SNICKERServerError.responder
+    def on_SNICKER_SERVER_ERROR(self, server, errorcode):
+        self.client.info_callback("Server: " + str(
+        server) + " returned error code: " + str(errorcode))
+        return {"accepted": True}
+
+    @commands.SNICKERReceiverUp.responder
+    def on_SNICKER_RECEIVER_UP(self):
+        if self.oneshot:
+            jlog.info("Starting single query to SNICKER server(s).")
+            reactor.callLater(0.0, self.poll_for_proposals)
+        else:
+            jlog.info("Starting SNICKER polling loop")
+            self.proposal_poll_loop = task.LoopingCall(
+                self.poll_for_proposals)
+            poll_interval = int(60.0 * float(
+                jm_single().config.get("SNICKER", "polling_interval_minutes")))
+            self.proposal_poll_loop.start(poll_interval, now=False)
+        return {"accepted": True}
+
+    @commands.SNICKERReceiverProposals.responder
+    def on_SNICKER_RECEIVER_PROPOSALS(self, proposals, server):
+        """ Just passes through the proposals retrieved from
+        any server, to the SNICKERReceiver client object, asynchronously.
+        The proposals data must be newline separated.
+        """
+        try:
+            proposals = proposals.split("\n")
+        except:
+            jlog.warn("Error in parsing proposals from server: " + str(server))
+            return {"accepted": True}
+        reactor.callLater(0.0, self.process_proposals, proposals)
+        return {"accepted": True}
+
+    def process_proposals(self, proposals):
+        self.client.process_proposals(proposals)
+        if self.oneshot:
+            process_shutdown()
+
+    @commands.SNICKERProposalsServerResponse.responder
+    def on_SNICKER_PROPOSALS_SERVER_RESPONSE(self, response, server):
+        self.client.info_callback("Response from server: " + str(server) +\
+                                  " was: " + str(response))
+        self.client.end_requests_callback(None)
+        return {"accepted": True}
+
+class JMClientProtocol(BaseClientProtocol):
+    def __init__(self, factory, client, nick_priv=None):
+            self.client = client
+            self.factory = factory
+            if not nick_priv:
+                self.nick_priv = hashlib.sha256(
+                    os.urandom(16)).digest() + b"\x01"
+            else:
+                self.nick_priv = nick_priv
+
+            self.shutdown_requested = False
 
     def connectionMade(self):
         jlog.debug('connection was made, starting client.')
@@ -499,6 +626,15 @@ class JMTakerClientProtocol(JMClientProtocol):
                             txhex=str(txhex_to_push))
         self.defaultCallbacks(d)
 
+class SNICKERClientProtocolFactory(protocol.ClientFactory):
+    protocol = SNICKERClientProtocol
+    def buildProtocol(self, addr):
+        return self.protocol(self.client, self.servers, oneshot=self.oneshot)
+    def __init__(self, client, servers, oneshot=False):
+        self.client = client
+        self.servers = servers
+        self.oneshot = oneshot
+
 class JMClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTakerClientProtocol
 
@@ -517,15 +653,17 @@ class JMClientProtocolFactory(protocol.ClientFactory):
     def buildProtocol(self, addr):
         return self.protocol(self, self.client)
 
-def start_reactor(host, port, factory, ish=True, daemon=False, rs=True,
-                  gui=False): #pragma: no cover
+def start_reactor(host, port, factory=None, snickerfactory=None, ish=True,
+                  daemon=False, rs=True, gui=False): #pragma: no cover
     #(Cannot start the reactor in tests)
     #Not used in prod (twisted logging):
     #startLogging(stdout)
-    usessl = True if jm_single().config.get("DAEMON", "use_ssl") != 'false' else False
+    usessl = True if jm_single().config.get("DAEMON",
+                                            "use_ssl") != 'false' else False
     if daemon:
         try:
-            from jmdaemon import JMDaemonServerProtocolFactory, start_daemon
+            from jmdaemon import JMDaemonServerProtocolFactory, start_daemon, \
+                 SNICKERDaemonServerProtocolFactory
         except ImportError:
             jlog.error("Cannot start daemon without jmdaemon package; "
                        "either install it, and restart, or, if you want "
@@ -533,6 +671,8 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True,
                        "section of the config. Quitting.")
             return
         dfactory = JMDaemonServerProtocolFactory()
+        if snickerfactory:
+            sdfactory = SNICKERDaemonServerProtocolFactory()
         orgport = port
         while True:
             try:
@@ -546,11 +686,21 @@ def start_reactor(host, port, factory, ish=True, daemon=False, rs=True,
                     jlog.error("Tried 100 ports but cannot listen on any of them. Quitting.")
                     sys.exit(EXIT_FAILURE)
                 port += 1
+        if snickerfactory:
+            start_daemon(host, port-1000, sdfactory, usessl,
+                                 './ssl/key.pem', './ssl/cert.pem')
+            jlog.info("(SNICKER) Listening on port " + str(port-1000))
     if usessl:
-        ctx = ClientContextFactory()
-        reactor.connectSSL(host, port, factory, ctx)
+        if factory:
+            reactor.connectSSL(host, port, factory, ClientContextFactory())
+        if snickerfactory:
+            reactor.connectSSL(host, port-1000, snickerfactory,
+                           ClientContextFactory())
     else:
-        reactor.connectTCP(host, port, factory)
+        if factory:
+            reactor.connectTCP(host, port, factory)
+        if snickerfactory:
+            reactor.connectTCP(host, port-1000, snickerfactory)
     if rs:
         if not gui:
             reactor.run(installSignalHandlers=ish)

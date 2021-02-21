@@ -29,3 +29,7 @@ scripts/commitmentlist
 tmp/
 wallets/
 scripts/jm-tx-history.txt
+scripts/snicker/joinmarket.cfg
+scripts/snicker/snicker-proposals.txt
+scripts/snicker/candidates.txt
+

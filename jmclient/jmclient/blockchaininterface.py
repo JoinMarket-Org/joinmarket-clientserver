@@ -204,10 +204,12 @@ class BitcoinCoreInterface(BlockchainInterface):
         restart when the connection is healed, but that is tricky).
         Should not be called directly from outside code.
         """
+        # TODO: flip the logic of this. We almost never want to print these
+        # out even to debug as they are noisy.
         if method not in ['importaddress', 'walletpassphrase', 'getaccount',
                           'gettransaction', 'getrawtransaction', 'gettxout',
                           'importmulti', 'listtransactions', 'getblockcount',
-                          'scantxoutset']:
+                          'scantxoutset', 'getblock', 'getblockhash']:
             log.debug('rpc: ' + method + " " + str(args))
         try:
             res = self.jsonRpc.call(method, args)
@@ -393,6 +395,17 @@ class BitcoinCoreInterface(BlockchainInterface):
                     result_dict['confirms'] = int(ret['confirmations'])
                 result.append(result_dict)
         return result
+
+    def get_unspent_indices(self, transaction):
+        """ Given a CTransaction object, identify the list of
+        indices of outputs which are unspent (returned as list of ints).
+        """
+        bintxid = transaction.GetTxid()[::-1]
+        res = self.query_utxo_set([(bintxid, i) for i in range(
+            len(transaction.vout))])
+        # QUS returns 'None' for spent outputs, so filter them out
+        # and return the indices of the others:
+        return [i for i, val in enumerate(res) if val]
 
     def estimate_fee_per_kb(self, N):
         """ The argument N may be either a number of blocks target,

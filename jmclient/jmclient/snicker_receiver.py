@@ -1,26 +1,21 @@
 #! /usr/bin/env python
 
-import sys
-
 import jmbitcoin as btc
 from jmclient.configure import jm_single
-from jmbase import (get_log, EXIT_FAILURE, utxo_to_utxostr,
-                    bintohex, hextobin)
+from jmbase import (get_log, utxo_to_utxostr,
+                    hextobin, bintohex)
+from twisted.application.service import Service
 
 jlog = get_log()
 
 class SNICKERError(Exception):
     pass
 
-class SNICKERReceiver(object):
+class SNICKERReceiver(Service):
     supported_flags = []
-    import_branch = 0
-    # TODO implement http api or similar
-    # for polling, here just a file:
-    proposals_source = "proposals.txt"
 
-    def __init__(self, wallet_service, income_threshold=0,
-                 acceptance_callback=None):
+    def __init__(self, wallet_service, acceptance_callback=None,
+                 info_callback=None):
         """
         Class to manage processing of SNICKER proposals and
         co-signs and broadcasts in case the application level
@@ -36,9 +31,9 @@ class SNICKERReceiver(object):
 
         # The simplest filter on accepting SNICKER joins:
         # that they pay a minimum of this value in satoshis,
-        # which can be negative (to account for fees).
-        # TODO this will be a config variable.
-        self.income_threshold = income_threshold
+        # which can be negative (e.g. to account for fees).
+        self.income_threshold = jm_single().config.getint("SNICKER",
+                                                "lowest_net_gain")
 
         # The acceptance callback which defines if we accept
         # a valid proposal and sign it, or not.
@@ -47,6 +42,11 @@ class SNICKERReceiver(object):
         else:
             self.acceptance_callback = acceptance_callback
 
+        # callback for information messages to UI
+        if not info_callback:
+            self.info_callback = self.default_info_callback
+        else:
+            self.info_callback = info_callback
         # A list of currently viable key candidates; these must
         # all be (pub)keys for which the privkey is accessible,
         # i.e. they must be in-wallet keys.
@@ -61,27 +61,11 @@ class SNICKERReceiver(object):
         # SNICKER transactions in the current run.
         self.successful_txs = []
 
-    def poll_for_proposals(self):
-        """ Intended to be invoked in a LoopingCall or other
-        event loop.
-        Retrieves any entries in the proposals_source, then
-        compares with existing,
-        and invokes parse_proposal on all new entries.
-        # TODO considerable thought should go into how to store
-        proposals cross-runs, and also handling of keys, which
-        must be optional.
-        """
-        new_proposals = []
-        with open(self.proposals_source, "rb") as f:
-            current_entries = f.readlines()
-        for entry in current_entries:
-            if entry in self.processed_proposals:
-                continue
-            new_proposals.append(entry)
-        if not self.process_proposals(new_proposals):
-            jlog.error("Critical logic error, shutting down.")
-            sys.exit(EXIT_FAILURE)
-        self.processed_proposals.extend(new_proposals)
+        # the main monitoring loop that checks for proposals:
+        self.proposal_poll_loop = None
+
+    def default_info_callback(self, msg):
+        jlog.info(msg)
 
     def default_acceptance_callback(self, our_ins, their_ins,
                                     our_outs, their_outs):
@@ -99,16 +83,16 @@ class SNICKERReceiver(object):
         # we use get_all* because for these purposes mixdepth
         # is irrelevant.
         utxos = self.wallet_service.get_all_utxos()
-        print("gau returned these utxos: ", utxos)
         our_in_amts = []
         our_out_amts = []
         for i in our_ins:
             utxo_for_i = (i.prevout.hash[::-1], i.prevout.n)
             if  utxo_for_i not in utxos.keys():
-                success, utxostr =utxo_to_utxostr(utxo_for_i)
+                success, utxostr = utxo_to_utxostr(utxo_for_i)
                 if not success:
                     jlog.error("Code error: input utxo in wrong format.")
                 jlog.debug("The input utxo was not found: " + utxostr)
+                jlog.debug("NB: This can simply mean the coin is already spent.")
                 return False
             our_in_amts.append(utxos[utxo_for_i]["value"])
         for o in our_outs:
@@ -117,8 +101,19 @@ class SNICKERReceiver(object):
             return False
         return True
 
+    def log_successful_tx(self, tx):
+        """ TODO: add dedicated SNICKER log file.
+        """
+        self.successful_txs.append(tx)
+        jlog.info(btc.human_readable_transaction(tx))
+
     def process_proposals(self, proposals):
-        """ Each entry in `proposals` is of form:
+        """ This is the "meat" of the SNICKERReceiver service.
+        It parses proposals and creates and broadcasts transactions
+        with the wallet, assuming all conditions are met.
+        Note that this is ONLY called from the proposals poll loop.
+
+        Each entry in `proposals` is of form:
         encrypted_proposal - base64 string
         key - hex encoded compressed pubkey, or ''
         if the key is not null, we attempt to decrypt and
@@ -141,29 +136,31 @@ class SNICKERReceiver(object):
         """
 
         for kp in proposals:
+            # handle empty list entries:
+            if not kp:
+                continue
             try:
-                p, k = kp.split(b',')
+                p, k = kp.split(',')
             except:
-                jlog.error("Invalid proposal string, ignoring: " + kp)
+                # could argue for info or warning debug level,
+                # but potential for a lot of unwanted output.
+                jlog.debug("Invalid proposal string, ignoring: " + kp)
+                continue
             if k is not None:
                 # note that this operation will succeed as long as
                 # the key is in the wallet._script_map, which will
                 # be true if the key is at an HD index lower than
                 # the current wallet.index_cache
-                k = hextobin(k.decode('utf-8'))
+                k = hextobin(k)
                 addr = self.wallet_service.pubkey_to_addr(k)
                 if not self.wallet_service.is_known_addr(addr):
                     jlog.debug("Key not recognized as part of our "
                                "wallet, ignoring.")
                     continue
-                # TODO: interface/API of SNICKERWalletMixin would better take
-                # address as argument here, not privkey:
-                priv = self.wallet_service.get_key_from_addr(addr)
                 result = self.wallet_service.parse_proposal_to_signed_tx(
-                    priv, p, self.acceptance_callback)
+                    addr, p, self.acceptance_callback)
                 if result[0] is not None:
                     tx, tweak, out_spk = result
-
                     # We will: rederive the key as a sanity check,
                     # and see if it matches the claimed spk.
                     # Then, we import the key into the wallet
@@ -172,45 +169,53 @@ class SNICKERReceiver(object):
                     # Finally, we co-sign, then push.
                     # (Again, simplest function: checks already passed,
                     # so do it automatically).
-                    # TODO: the more sophisticated actions.
                     tweaked_key = btc.snicker_pubkey_tweak(k, tweak)
-                    tweaked_spk = btc.pubkey_to_p2sh_p2wpkh_script(tweaked_key)
+                    tweaked_spk = self.wallet_service.pubkey_to_script(
+                        tweaked_key)
+                    # Derive original path to make sure we change
+                    # mixdepth:
+                    source_path = self.wallet_service.script_to_path(
+                        self.wallet_service.pubkey_to_script(k))
+                    # NB This will give the correct source mixdepth independent
+                    # of whether the key is imported or not:
+                    source_mixdepth = self.wallet_service.get_details(
+                        source_path)[0]
                     if not tweaked_spk == out_spk:
                         jlog.error("The spk derived from the pubkey does "
                                    "not match the scriptPubkey returned from "
                                    "the snicker module - code error.")
                         return False
                     # before import, we should derive the tweaked *private* key
-                    # from the tweak, also:
-                    tweaked_privkey = btc.snicker_privkey_tweak(priv, tweak)
-                    if not btc.privkey_to_pubkey(tweaked_privkey) == tweaked_key:
-                        jlog.error("Was not able to recover tweaked pubkey "
-                                   "from tweaked privkey - code error.")
-                        jlog.error("Expected: " + bintohex(tweaked_key))
-                        jlog.error("Got: " + bintohex(btc.privkey_to_pubkey(
-                            tweaked_privkey)))
+                    # from the tweak, also; failure of this critical sanity check
+                    # is a code error. If the recreated private key matches, we
+                    # import to the wallet. Note that this happens *before* pushing
+                    # the coinjoin transaction to the network, which is advisably
+                    # conservative (never possible to have broadcast a tx without
+                    # having already stored the output's key).
+                    success, msg = self.wallet_service.check_tweak_matches_and_import(
+                        addr, tweak, tweaked_key, source_mixdepth)
+                    if not success:
+                        jlog.error(msg)
                         return False
-                    # the recreated private key matches, so we import to the wallet,
-                    # note that type = None here is because we use the same
-                    # scriptPubKey type as the wallet, this has been implicitly
-                    # checked above by deriving the scriptPubKey.
-                    self.wallet_service.import_private_key(self.import_branch,
-                            self.wallet_service._ENGINE.privkey_to_wif(tweaked_privkey))
-
 
                     # TODO condition on automatic brdcst or not
                     if not jm_single().bc_interface.pushtx(tx.serialize()):
-                        jlog.error("Failed to broadcast SNICKER CJ.")
-                        return False
-                    self.successful_txs.append(tx)
-                    return True
+                        # this represents an error about state (or conceivably,
+                        # an ultra-short window in which the spent utxo was
+                        # consumed in another transaction), but not really
+                        # an internal logic error, so we do NOT return False
+                        jlog.error("Failed to broadcast SNICKER coinjoin: " +\
+                                   bintohex(tx.GetTxid()[::-1]))
+                        jlog.info(btc.human_readable_transaction(tx))
+                    jlog.info("Successfully broadcast SNICKER coinjoin: " +\
+                                  bintohex(tx.GetTxid()[::-1]))
+                    self.log_successful_tx(tx)
                 else:
                     jlog.debug('Failed to parse proposal: ' + result[1])
-                    continue
             else:
                 # Some extra work to implement checking all possible
                 # keys.
-                raise NotImplementedError()
+                jlog.info("Proposal without pubkey was not processed.")
 
         # Completed processing all proposals without any logic
         # errors (whether the proposals were valid or accepted
