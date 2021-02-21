@@ -312,6 +312,12 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
     if jm_single().config.get("SNICKER", "enabled") == "true":
+        if jm_single().config.get("BLOCKCHAIN", "network") == "mainnet":
+            jlog.error("You have enabled SNICKER on mainnet, this is not "
+                       "yet supported for yieldgenerators; either use "
+                       "signet/regtest/testnet, or run SNICKER manually "
+                       "with snicker/receive-snicker.py.")
+            sys.exit(EXIT_ARGERROR)
         snicker_r = SNICKERReceiver(wallet_service)
         servers = jm_single().config.get("SNICKER", "servers").split(",")
         snicker_factory = SNICKERClientProtocolFactory(snicker_r, servers)
