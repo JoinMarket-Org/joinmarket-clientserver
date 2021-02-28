@@ -97,15 +97,14 @@ The method is one of the following:
                       help='hd wallet path (e.g. m/0/0/0/000)')
     parser.add_option('--key-type',  # note: keep in sync with map_key_type
                       type='choice',
-                      choices=('standard', 'segwit-p2sh'),
+                      choices=('standard', 'segwit-p2sh', 'segwit'),
                       action='store',
                       dest='key_type',
                       default=None,
                       help=("Key type when importing private keys.\n"
                             "If your address starts with '1' use 'standard', "
-                            "if your address starts with '3' use 'segwit-p2sh'.\n"
-                            "Native segwit addresses (starting with 'bc') are "
-                            "not yet supported."))
+                            "If your address starts with '3' use 'segwit-p2sh'.\n"
+                            "If your address starts with 'bc' use 'segwit'."))
 
     return parser
 
@@ -117,6 +116,8 @@ def map_key_type(parser_key_choice):
         return TYPE_P2PKH
     if parser_key_choice == 'segwit-p2sh':
         return TYPE_P2SH_P2WPKH
+    if parser_key_choice == 'segwit':
+        return TYPE_P2WPKH
     raise Exception("Unknown key type choice '{}'.".format(parser_key_choice))
 
 
@@ -1006,7 +1007,7 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
     jmprint("WARNING: This imported key will not be recoverable with your 12 "
           "word mnemonic phrase. Make sure you have backups.", "warning")
     jmprint("WARNING: Make sure that the type of the public address previously "
-          "derived from this private key matches the wallet type you are "
+          "derived from this private key matches the wallet or key type you are "
           "currently using.", "warning")
     jmprint("WARNING: Handling of raw ECDSA bitcoin private keys can lead to "
           "non-intuitive behaviour and loss of funds.\n  Recommended instead "
@@ -1020,7 +1021,7 @@ def wallet_importprivkey(wallet, mixdepth, key_type):
         # TODO is there any point in only accepting wif format? check what
         # other wallets do
         try:
-            path = wallet.import_private_key(mixdepth, wif)
+            path = wallet.import_private_key(mixdepth, wif, key_type)
         except WalletError as e:
             print("Failed to import key {}: {}".format(wif, e))
             import_failed += 1
