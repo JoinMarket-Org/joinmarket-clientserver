@@ -295,8 +295,10 @@ class JMPayjoinManager(object):
             for j, inp2 in enumerate(ourins):
                 if (inp.prevout.hash, inp.prevout.n) == inp2:
                     found[j] += 1
-                else:
-                    receiver_input_indices.append(i)
+                    break
+            else:
+                receiver_input_indices.append(i)
+        assert len(receiver_input_indices) + len(ourins) == len(in_psbt.unsigned_tx.vin)
 
         if any([f != 1 for f in found]):
             return (False, "Receiver proposed PSBT does not contain our inputs.")
