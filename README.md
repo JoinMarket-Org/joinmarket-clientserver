@@ -2,7 +2,7 @@
 
 JoinMarket is software to create a special kind of bitcoin transaction called a CoinJoin transaction. Its aim is to improve the confidentiality and privacy of bitcoin transactions.
 
-A CoinJoin transaction requires other people to take part. The right resources (coins) have to be in the right place, at the right time, in the right quantity. This isn't a software or tech problem, it's an economic problem. JoinMarket works by creating a new kind of market that would allocate these resources in the best way.
+A CoinJoin transaction requires other people to participate. The right resources (coins) have to be in the right place, at the right time, in the right quantity. These are not  software or tech conditions, these are economic conditions. JoinMarket meets them by creating a new kind of market that would allocate these resources in the best way.
 
 One group of participants (called market makers) will always be available to take part in CoinJoins at any time. Other participants (called market takers) can create a CoinJoin at any time. The takers pay a fee which incentivizes the makers. A form of smart contract is created, meaning the private keys will never be broadcasted outside of your computer, resulting in virtually zero risk of loss (aside from malware or bugs). As a result of free-market forces the fees will eventually be next to nothing.
 
@@ -90,7 +90,7 @@ See [architecture-notes.md](docs/architecture-notes.md).
 
 ### TESTING
 
-Instructions for developers for testing [here](docs/TESTING.md). If you want to help improve the project, please have a read of [this todo list](docs/TODO.md) and the [Help Wanted tag](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) on the issue tracker.
+Instructions for developers for testing can be found [here](docs/TESTING.md). If you want to help improve the project, please have a read of [this todo list](docs/TODO.md) and the [Help Wanted tag](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) on the issue tracker.
 
 ### Community
 
@@ -110,7 +110,7 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 
 Donate to help make JoinMarket even better: [Obtain a bitcoin address here](https://bitcoinprivacy.me/joinmarket-donations)
 
-JoinMarket is an open source project which does not have a funding model, fortunately the project itself has very low running costs as it is almost-fully decentralized and available to everyone for free. Developers contribute only as volunteers and donations are divided amongst them. Many developers have also been important in advocating for privacy and educating the wider bitcoin user base. Be part of the effort to improve bitcoin privacy and fungibility. Every donated coin helps us spend more time on JoinMarket instead of doing other stuff.
+JoinMarket is an open source project which does not have a funding model, fortunately the project itself has very low running costs as it is almost-fully decentralized and available to everyone for free. Developers contribute only as volunteers and donations are divided amongst them. Many developers have also been important in advocating for privacy and educating the wider bitcoin user base. Become a part of the effort to improve bitcoin privacy and fungibility. Every donated coin helps us spend more time on JoinMarket instead of doing other stuff.
 
 Old donation addresses: `bc1q5x02zqj5nshw0yhx2s4tj75z6vkvuvww26jak5` or `1AZgQZWYRteh6UyF87hwuvyWj73NvWKpL`. Signatures can be found [here](docs/signed-donation-address.txt).
 Ideally use the above https link to obtain a brand new address.
