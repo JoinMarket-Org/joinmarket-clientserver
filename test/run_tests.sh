@@ -46,7 +46,7 @@ run_jm_tests ()
     export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${VIRTUAL_ENV}/include"
 
     pushd "${jm_source}"
-    if ! sha256_verify 'ce3a4ddc777343645ccd06ca36233b5777e218ee89d887ef529ece86a917fc33' 'miniircd.tar.gz'; then
+    if [ ! -f 'miniircd.tar.gz' ] || ! sha256_verify 'ce3a4ddc777343645ccd06ca36233b5777e218ee89d887ef529ece86a917fc33' 'miniircd.tar.gz'; then
         http_get "https://github.com/JoinMarket-Org/miniircd/archive/master.tar.gz" "miniircd.tar.gz"
     fi
     if [[ ! -x ${jm_source}/miniircd/miniircd ]]; then
