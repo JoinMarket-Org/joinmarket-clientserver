@@ -404,7 +404,7 @@ def wallet_showutxos(wallet_service, showprivkey):
 
 
 def wallet_display(wallet_service, showprivkey, displayall=False,
-        serialized=True, summarized=False):
+        serialized=True, summarized=False, mixdepth=None):
     """build the walletview object,
     then return its serialization directly if serialized,
     else return the WalletView object.
@@ -445,7 +445,11 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     # TODO - either optionally not show disabled utxos, or
     # mark them differently in display (labels; colors)
     utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True)
-    for m in range(wallet_service.mixdepth + 1):
+    if mixdepth:
+        md_range = range(mixdepth, mixdepth + 1)
+    else:
+        md_range = range(wallet_service.mixdepth + 1)
+    for m in md_range:
         branchlist = []
         for address_type in [BaseWallet.ADDRESS_TYPE_EXTERNAL,
                              BaseWallet.ADDRESS_TYPE_INTERNAL]:
@@ -1490,12 +1494,14 @@ def wallet_tool_main(wallet_root_path):
 
     #Now the wallet/data is prepared, execute the script according to the method
     if method == "display":
-        return wallet_display(wallet_service, options.showprivkey)
+        return wallet_display(wallet_service, options.showprivkey,
+            mixdepth=options.mixdepth)
     elif method == "displayall":
         return wallet_display(wallet_service, options.showprivkey,
-                              displayall=True)
+            displayall=True, mixdepth=options.mixdepth)
     elif method == "summary":
-        return wallet_display(wallet_service, options.showprivkey, summarized=True)
+        return wallet_display(wallet_service, options.showprivkey,
+            summarized=True, mixdepth=options.mixdepth)
     elif method == "history":
         if not isinstance(jm_single().bc_interface, BitcoinCoreInterface):
             jmprint('showing history only available when using the Bitcoin Core ' +
