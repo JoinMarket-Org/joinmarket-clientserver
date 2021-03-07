@@ -144,7 +144,7 @@ dep_get ()
     pkg_name="$1" pkg_hash="$2" pkg_url="$3"
 
     pushd cache
-    if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
+    if [ ! -f "${pkg_name}" ] || ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         http_get "${pkg_url}/${pkg_name}" "${pkg_name}"
     fi
     if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
