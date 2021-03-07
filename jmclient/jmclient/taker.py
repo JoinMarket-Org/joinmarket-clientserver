@@ -548,12 +548,6 @@ class Taker(object):
         jlog.info('obtained tx\n' + btc.human_readable_transaction(
             self.latest_tx))
 
-        for index, ins in enumerate(self.latest_tx.vin):
-            utxo = (ins.prevout.hash[::-1], ins.prevout.n)
-            if utxo not in self.input_utxos.keys():
-                continue
-            # placeholders required
-            ins.scriptSig = btc.CScript.fromhex("deadbeef")
         self.taker_info_callback("INFO", "Built tx, sending to counterparties.")
         return (True, list(self.maker_utxo_data.keys()),
                 bintohex(self.latest_tx.serialize()))
@@ -595,10 +589,9 @@ class Taker(object):
         utxo = {}
         ctr = 0
         for index, ins in enumerate(self.latest_tx.vin):
-            utxo_for_checking = (ins.prevout.hash[::-1], ins.prevout.n)
-             # 'deadbeef' markers mean our own input scripts are not queried
-            if ins.scriptSig != b"":
+            if self._is_our_input(ins) or ins.scriptSig != b"":
                 continue
+            utxo_for_checking = (ins.prevout.hash[::-1], ins.prevout.n)
             utxo[ctr] = [index, utxo_for_checking]
             ctr += 1
         utxo_data = jm_single().bc_interface.query_utxo_set([x[
@@ -689,9 +682,10 @@ class Taker(object):
             # other guy sent a failed signature
 
         tx_signed = True
-        for input, witness in zip(self.latest_tx.vin, self.latest_tx.wit.vtxinwit):
-            if input.scriptSig == b"" \
-               and witness == btc.CTxInWitness(btc.CScriptWitness([])):
+        for ins, witness in zip(self.latest_tx.vin, self.latest_tx.wit.vtxinwit):
+            if ins.scriptSig == b"" \
+                    and not self._is_our_input(ins) \
+                    and witness == btc.CTxInWitness(btc.CScriptWitness([])):
                 tx_signed = False
         if not tx_signed:
             return False
@@ -814,9 +808,9 @@ class Taker(object):
         # now sign it ourselves
         our_inputs = {}
         for index, ins in enumerate(self.latest_tx.vin):
-            utxo = (ins.prevout.hash[::-1], ins.prevout.n)
-            if utxo not in self.input_utxos.keys():
+            if not self._is_our_input(ins):
                 continue
+            utxo = (ins.prevout.hash[::-1], ins.prevout.n)
             self.latest_tx.vin[index].scriptSig = btc.CScript(b'')
             script = self.input_utxos[utxo]['script']
             amount = self.input_utxos[utxo]['value']
@@ -945,6 +939,10 @@ class Taker(object):
         self.on_finished_callback(True, fromtx=fromtx, waittime=waittime,
                                   txdetails=(txd, txid))
         return True
+
+    def _is_our_input(self, tx_input):
+        utxo = (tx_input.prevout.hash[::-1], tx_input.prevout.n)
+        return utxo in self.input_utxos
 
 def round_to_significant_figures(d, sf):
     '''Rounding number d to sf significant figures in base 10'''
