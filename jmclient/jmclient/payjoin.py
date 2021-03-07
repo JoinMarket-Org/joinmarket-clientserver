@@ -663,7 +663,7 @@ def fallback_nonpayjoin_broadcast(err, manager):
     log.info("Payment made without coinjoin. Transaction: ")
     log.info(btc.human_readable_transaction(original_tx))
     manager.set_broadcast(False)
-    if manager.timeout_fallback_dc.active():
+    if manager.timeout_fallback_dc and manager.timeout_fallback_dc.active():
         manager.timeout_fallback_dc.cancel()
     quit()
 
@@ -731,7 +731,7 @@ def process_payjoin_proposal_from_server(response_body, manager):
         log.info("Payjoin transaction broadcast successfully.")
         # if transaction is succesfully broadcast, remove the
         # timeout fallback to avoid confusing error messages:
-        if manager.timeout_fallback_dc.active():
+        if manager.timeout_fallback_dc and manager.timeout_fallback_dc.active():
             manager.timeout_fallback_dc.cancel()
         manager.set_broadcast(True)
     if manager.mode == "command-line" and reactor.running:
@@ -1103,7 +1103,7 @@ class JMBIP78ReceiverManager(object):
             self.uri_created_callback = self.info_callback
         else:
             self.uri_created_callback = uri_created_callback
-        # This callback used by GUI as a signal that it can
+        # This callback is used by GUI as a signal that it can
         # signal the user that the dialog is close-able:
         self.shutdown_callback = shutdown_callback
         self.receiving_address = None
@@ -1201,6 +1201,13 @@ class JMBIP78ReceiverManager(object):
     def shutdown(self):
         self.tor_connection.protocol.transport.loseConnection()
         process_shutdown(self.mode)
+        # on receiver side, if we are part of a long running
+        # process (meaning above process_shutdown is a no-op),
+        # we need to abandon the delayed call (this is the normal
+        # success case):
+        tfdc = self.pj_server.manager.timeout_fallback_dc
+        if tfdc and tfdc.active():
+            tfdc.cancel()
         self.info_callback("Hidden service shutdown complete")
         if self.shutdown_callback:
             self.shutdown_callback()
