@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=JoinMarket
+GenericName=Decentralized CoinJoin marketplace
+Comment=JoinMarket is software to create a special kind of bitcoin transaction called a CoinJoin transaction.
+Exec=/usr/bin/jm
+Icon=${SNAP}/meta/gui/icon.png
+Terminal=false
+Type=Application
+Categories=Utility;Finance;

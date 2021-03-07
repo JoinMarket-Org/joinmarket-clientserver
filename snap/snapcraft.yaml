@@ -1,0 +1,70 @@
+name: joinmarket
+base: core18
+version: git
+summary: Software to assist in creating bitcoin CoinJoin transactions
+description: |
+  JoinMarket is software to create a special kind of bitcoin transaction called
+  a CoinJoin transaction. It's aim is to improve the confidentiality and privacy
+  of bitcoin transactions.
+confinement: strict
+grade: stable
+icon: snap/local/icon.png
+architectures: [amd64]
+
+apps:
+  joinmarket:
+    extensions:
+      - gnome-3-28
+    command: usr/bin/jm
+    plugs:
+      - network
+      - network-bind
+    desktop: usr/share/applications/joinmarket.desktop
+
+parts:
+  launchers:
+    plugin: dump
+    source: snap/local
+    organize:
+      jm: usr/bin/jm
+      joinmarket.desktop: usr/share/applications/joinmarket.desktop
+  scripts:
+    plugin: dump
+    source: scripts
+    organize:
+      "*": /scripts/
+  joinmarket-requirements:
+    plugin: python
+    source: .
+    requirements:
+      - requirements/gui.txt
+    stage-packages:
+      - python3
+      - libnspr4
+      - libnss3
+      - libnss3-tools
+      - libodbc1
+      - libpq5
+      - libpulse-dev
+      - mime-support
+      - libspeechd2
+      - libxkbcommon-x11-0
+    build-packages:
+      - python3
+      - python3-pip
+  joinmarket-base:
+    plugin: python
+    source: jmbase
+    after: [joinmarket-requirements]
+  joinmarket-bitcoin:
+    plugin: python
+    source: jmbitcoin
+    after: [joinmarket-base]
+  joinmarket-client:
+    plugin: python
+    source: jmclient
+    after: [joinmarket-base]
+  joinmarket-daemon:
+    plugin: python
+    source: jmdaemon
+    after: [joinmarket-base]

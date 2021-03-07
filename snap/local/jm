@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Try to use WALLET environment variable or use default value
+WALLET_FILE=${WALLET:-wallet.jmdat}
+
+_help="JoinMarket helper script
+
+Run with no arguments to launch GUI.
+OR use one of the shortcuts to operate on the wallet '$WALLET_FILE'.
+
+Change the wallet to use with shortcut commands with environment variable WALLET.
+  EX: WALLET=mywallet.jmdat joinmarket display
+
+Enter the full script name with arguments for normal JoinMarket functionality.
+  EX: joinmarket wallet-tool.py mywallet.jmdat display
+
+commands:
+  ls                              list scripts which can be run
+
+  display, displayall, summary,   shortcuts to run scripts with
+  history, recover, showseed      default wallet '$WALLET_FILE'
+  importprivkey, dumpprivkey,
+  signmessage, freeze
+
+  generate                        generate a new wallet
+
+  wallet-tool                     shortcut to run wallet-tool.py with
+                                  default wallet '$WALLET_FILE'
+
+  sendpayment                     shortcut to run sendpayment.py with
+                                  default wallet '$WALLET_FILE'
+
+  help                            display this help message"
+
+SCRIPT_DIR="$SNAP/scripts"
+
+# Run GUI by default.
+CMD="joinmarket-qt.py"
+
+if [ -n "$1" ]; then
+case "$1" in
+    "help" | "--help" | "-h")
+        echo "$_help"
+        exit 0
+        ;;
+    "ls" )
+        echo "Available scripts:"
+        ls "$SCRIPT_DIR"
+        exit 0
+        ;;
+    "display" | "displayall" | "summary" | "history" | "recover" \
+        | "showseed" | "importprivkey" | "dumpprivkey" | "signmessage" | "freeze" )
+        # Assume using default options for wallet-tool.py
+        CMD=" wallet-tool.py $WALLET_FILE $*"
+        ;;
+    "generate")
+        CMD=" wallet-tool.py generate"
+        ;;
+    "wallet-tool")
+        CMD=" wallet-tool.py $WALLET_FILE ${*:2}"
+        ;;
+    "sendpayment")
+        CMD=" sendpayment.py $WALLET_FILE ${*:2}"
+        ;;
+    *)
+        END_COMMAND="python3 $*"
+        ;;
+esac; fi
+
+if [ -z "$END_COMMAND" ]; then
+    END_COMMAND="python3 $CMD"
+fi
+
+# JoinMarket expects scripts to be run from
+cd "$SCRIPT_DIR" || exit 1
+$END_COMMAND
