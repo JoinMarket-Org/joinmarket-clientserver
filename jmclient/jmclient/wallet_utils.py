@@ -301,7 +301,11 @@ class WalletView(WalletViewBase):
 
     def serialize(self, entryseparator="\n", summarize=False):
         header = self.wallet_name
-        footer = "Total balance:" + self.separator + self.get_fmt_balance()
+        if len(self.accounts) > 1:
+            footer = "Total balance:" + self.separator + \
+                self.get_fmt_balance()
+        else:
+            footer = ""
         if summarize:
             return self.serclass(entryseparator.join([header] + [
                 x.serialize("", summarize=True) for x in self.accounts] + [footer]))

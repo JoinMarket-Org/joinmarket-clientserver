@@ -101,7 +101,6 @@ display:
     m/49'/1'/0'/2/0:1585699200  bcrt1qrc2qu3m2l2spayu5kr0k0rnn9xgjz46zsxmruh87a3h3f5zmnkaqlfx7v5    0.15000000  2020-04-01 [LOCKED]
     Balance:    0.15000000
     Balance for mixdepth 0: 0.15000000
-    Total balance:  0.15000000
 
 #### Spending time-locked coins
 
@@ -185,7 +184,6 @@ synchronizations.
     m/49'/1'/0'/3/0         BURN-7631c805d8ad9239677b8d7530353fda3fec07ca   0.11999800  656bb4538f14f2cc874043915907b6c9c46a807ef9818bde771d07630d54b0f7 [NO MERKLE PROOF]
     Balance:    0.11999800
     Balance for mixdepth 0: 0.11999800
-    Total balance:  0.11999800
 
 #### Adding the merkle proof of a burn transaction if missing
 
@@ -255,7 +253,6 @@ mixdepth will be shown.
     internal addresses  m/49'/1'/0'/3   tpubDEGdmPwmQRcZuX3uNrCouu5bRgp2GJcoQTvhkFAJMTA3yxhKmQyeGwecbnkms4DYmBhCJn2fGTuejTe3g8oyJW3qKcfB4b3Swj2hDk1h4Y2
     Balance:    0.00000000
     Balance for mixdepth 0: 0.15000000
-    Total balance:  0.15000000
 
 ### BIP32 Paths
 
