@@ -21,7 +21,8 @@ from jmclient import Maker, jm_single, load_program_config, \
     WalletService, add_base_options, get_wallet_path, direct_send, \
     open_test_wallet_maybe, wallet_display, SegwitLegacyWallet, \
     SegwitWallet, get_daemon_serving_params, YieldGeneratorService, \
-    SNICKERReceiverService, SNICKERReceiver, create_wallet, StorageError
+    SNICKERReceiverService, SNICKERReceiver, create_wallet, \
+    StorageError, StoragePasswordError
 from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE
 
 jlog = get_log()

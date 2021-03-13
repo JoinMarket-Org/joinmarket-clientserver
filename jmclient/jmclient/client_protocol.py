@@ -870,15 +870,15 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
     # Note the reactor.connect*** entries do not include BIP78 which
     # starts in jmclient.payjoin:
         if usessl:
-        if factory:
+            if factory:
             reactor.connectSSL(host, jmcport, factory, ClientContextFactory())
-        if snickerfactory:
+            if snickerfactory:
             reactor.connectSSL(host, snickerport, snickerfactory,
-                           ClientContextFactory())
+                               ClientContextFactory())
         else:
-        if factory:
+            if factory:
             reactor.connectTCP(host, jmcport, factory)
-        if snickerfactory:
+            if snickerfactory:
             reactor.connectTCP(host, snickerport, snickerfactory)
     if rs:
         if not gui:
