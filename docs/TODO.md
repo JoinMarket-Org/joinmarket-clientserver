@@ -97,6 +97,6 @@ PayJoin is already implemented, ~~though not in GUI, that could be added.~~ Full
 
 Maker functionality is not in GUI, that could quite plausibly be added and is quite widely requested. - See #487, this is now largely functional but still needs work.
 
-SNICKER exists currently as a proposed code update but is not quite ready, see #403.
+~~SNICKER exists currently as a proposed code update but is not quite ready, see #403.~~ "Full" SNICKER functionality is now merged via #768, albeit it will need more testing before it can be auto-switched on for mainnet yieldgenerators.
 
 Hardware wallet support is a tough one, but there is some interesting discussion around possibilities, see #663.
