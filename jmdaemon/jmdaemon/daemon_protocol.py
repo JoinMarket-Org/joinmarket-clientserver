@@ -16,7 +16,8 @@ from twisted.protocols import amp
 from twisted.internet import reactor, ssl
 from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
-                                    ConnectionClosed, ConnectionDone)
+                                    ConnectionClosed, ConnectionDone,
+                                    ConnectionRefusedError)
 from twisted.web.http_headers import Headers
 from twisted.web.client import ResponseFailed, readBody
 from txtorcon.socks import HostUnreachableError
@@ -131,6 +132,14 @@ class HTTPPassThrough(amp.AMP):
         destination_url = urlparse.urlunparse(url_parts)
         return (agent, destination_url)
 
+    def getDefaultHeaders(self):
+        # Deliberately sending NO headers other than
+        # Content-Type by default;
+        # this could be a tricky point for anonymity of users,
+        # as much boilerplate code will not create
+        # requests that look like this.
+        return Headers({"Content-Type": ["text/plain"]})
+
     def getRequest(self, server, success_callback, url=None, headers=None):
         """ Make GET request to server server, if response received OK,
 	passed to success_callback, which must have function signature
@@ -142,7 +151,7 @@ class HTTPPassThrough(amp.AMP):
         # Deliberately sending NO headers; this could be a tricky point
         # for anonymity of users, as much boilerplate code will not create
         # requests that look like this.
-        headers = Headers({}) if not headers else headers
+        headers = self.getDefaultHeaders() if not headers else headers
         d = agent.request(b"GET", destination_url, headers)
         d.addCallback(success_callback, server)
         # note that the errback (here "noResponse") is *not* triggered
@@ -154,13 +163,18 @@ class HTTPPassThrough(amp.AMP):
             log.msg(failure.value)
         d.addErrback(noResponse)
 
-    def postRequest(self, body, server, success_callback, headers=None):
+    def postRequest(self, body, server, success_callback,
+                    url=None, params=None, headers=None):
         """ Pass body of post request as string, will be encoded here.
 	"""
-        agent, destination_url = self.getAgentDestination(server)
+        agent, destination_url = self.getAgentDestination(server,
+                                                    params=params)
+        if url:
+            destination_url = destination_url + url
         body = BytesProducer(body.encode("utf-8"))
+        headers = self.getDefaultHeaders() if not headers else headers
         d = agent.request(b"POST", destination_url,
-            Headers({}), bodyProducer=body)
+            headers, bodyProducer=body)
         d.addCallback(success_callback, server)
         # note that the errback (here "noResponse") is *not* triggered
         # by a server rejection (which is accompanied by a non-200
@@ -169,9 +183,9 @@ class HTTPPassThrough(amp.AMP):
             failure.trap(ResponseFailed, ConnectionRefusedError,
                          HostUnreachableError, ConnectionLost)
             log.msg(failure.value)
-            self.callRemote(SNICKERProposalsServerResponse,
-                            response="failure to connect",
-                            server=server)
+            self.callRemote(BIP78ReceiverError,
+                            errormsg="failure to connect",
+                            errorcode=10000)
         d.addErrback(noResponse)
 
     def checkClientResponse(self, response):
@@ -190,6 +204,42 @@ class HTTPPassThrough(amp.AMP):
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
         d.addErrback(self.defaultErrback)
+
+class BIP78ServerProtocol(HTTPPassThrough):
+    @BIP78SenderInit.responder
+    def on_BIP78_SENDER_INIT(self, netconfig):
+        self.on_INIT(netconfig)
+        d = self.callRemote(BIP78SenderUp)
+        self.defaultCallbacks(d)
+        return {"accepted": True}
+
+    @BIP78SenderOriginalPSBT.responder
+    def on_BIP78_SENDER_ORIGINAL_PSBT(self, body, params):
+        self.postRequest(body, self.servers[0],
+                self.bip78_receiver_response,
+                params=json.loads(params),
+                headers=Headers({"Content-Type": ["text/plain"]}))
+        return {"accepted": True}
+
+    def bip78_receiver_response(self, response, server):
+        d = readBody(response)
+        # if the response code is not 200 OK, we must assume payjoin
+        # attempt has failed, and revert to standard payment.
+        if int(response.code) != 200:
+            d.addCallback(self.process_receiver_errormsg, response.code)
+            return
+        d.addCallback(self.process_receiver_psbt)
+
+    def process_receiver_errormsg(self, response, errorcode):
+        d = self.callRemote(BIP78ReceiverError,
+                            errormsg=response.decode("utf-8"),
+                            errorcode=errorcode)
+        self.defaultCallbacks(d)
+
+    def process_receiver_psbt(self, response):
+        d = self.callRemote(BIP78SenderReceiveProposal,
+                            psbt=response.decode("utf-8"))
+        self.defaultCallbacks(d)
 
 class SNICKERDaemonServerProtocol(HTTPPassThrough):
 
@@ -835,6 +885,9 @@ class JMDaemonServerProtocolFactory(ServerFactory):
 
 class SNICKERDaemonServerProtocolFactory(ServerFactory):
     protocol = SNICKERDaemonServerProtocol
+
+class BIP78ServerProtocolFactory(ServerFactory):
+    protocol = BIP78ServerProtocol
 
 def start_daemon(host, port, factory, usessl=False, sslkey=None, sslcert=None):
     if usessl:

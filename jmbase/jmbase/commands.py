@@ -281,3 +281,38 @@ class SNICKERRequestPowTarget(JMCommand):
 class SNICKERReceivePowTarget(JMCommand):
     arguments = [(b'server', Unicode()),
                  (b'targetbits', Integer())]
+
+""" Payjoin-related commands
+"""
+class BIP78SenderInit(JMCommand):
+    """ Initialization data for a BIP78 service.
+    See documentation of `netconfig` in
+    jmdaemon.HTTPPassThrough.on_INIT
+    """
+    arguments = [(b'netconfig', Unicode())]
+
+class BIP78SenderUp(JMCommand):
+    arguments = []
+
+class BIP78SenderOriginalPSBT(JMCommand):
+    """ Sends the payjoin url and the original
+    payment PSBT, base64 encoded,
+    from the client to the daemon,
+    to be sent as an http request to the receiver.
+    """
+    arguments = [(b'body', BigUnicode()),
+                 (b'params', Unicode())]
+
+class BIP78SenderReceiveProposal(JMCommand):
+    """ Sends the payjoin proposal PSBT, received
+    from the BIP78 Receiver, from the daemon to the client.
+    """
+    arguments = [(b'psbt', BigUnicode())]
+
+class BIP78ReceiverError(JMCommand):
+    """ Sends a message from daemon to client
+    indicating that the BIP78 receiver did not
+    accept the request, or there was a network error.
+    """
+    arguments = [(b'errormsg', Unicode()),
+                 (b'errorcode', Integer())]

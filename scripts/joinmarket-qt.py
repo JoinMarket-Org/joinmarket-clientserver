@@ -37,8 +37,6 @@ elif platform.system() == 'Darwin':
 else:
     MONOSPACE_FONT = 'monospace'
 
-import jmbitcoin as btc
-
 # This is required to change the decimal separator
 # to '.' regardless of the locale; TODO don't require
 # this, but will require other edits for parsing amounts.
@@ -63,6 +61,7 @@ JM_GUI_VERSION = '21dev'
 from jmbase import get_log, stop_reactor
 from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, utxo_to_utxostr,\
     bintohex, hextobin, JM_CORE_VERSION
+import jmbitcoin as btc
 from jmclient import load_program_config, get_network, update_persist_config,\
     open_test_wallet_maybe, get_wallet_path,\
     jm_single, validate_address, weighted_order_choose, Taker,\
@@ -74,7 +73,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
     get_default_max_relative_fee, RetryableStorageError, add_base_options, \
     BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin, wallet_change_passphrase, \
-    parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager
+    parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
+    BIP78ClientProtocolFactory
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
@@ -292,6 +292,8 @@ class SpendTab(QWidget):
         self.spendstate.reset() #trigger callback to 'ready' state
         # needed to be saved for parse_payjoin_setup()
         self.bip21_uri = None
+        # avoid re-starting BIP78 daemon unnecessarily:
+        self.bip78_daemon_started = False
 
     def switchToBIP78Payjoin(self, endpoint_url):
         self.numCPLabel.setVisible(False)
@@ -746,7 +748,18 @@ class SpendTab(QWidget):
 
         if bip78url:
             manager = parse_payjoin_setup(self.bip21_uri,
-                mainWindow.wallet_service, mixdepth, "joinmarket-qt")
+                    mainWindow.wallet_service, mixdepth, "joinmarket-qt")
+            # start BIP78 AMP protocol if not yet up:
+            if not self.bip78_daemon_started:
+                daemon = jm_single().config.getint("DAEMON", "no_daemon")
+                daemon = True if daemon == 1 else False
+                start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
+                       jm_single().config.getint("DAEMON", "daemon_port"),
+                       bip78=True, jm_coinjoin=False,
+                       ish=False,
+                       daemon=daemon,
+                       gui=True)
+                self.bip78_daemon_started = True
             # disable form fields until payment is done
             self.addressInput.setEnabled(False)
             self.pjEndpointInput.setEnabled(False)

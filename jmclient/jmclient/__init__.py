@@ -29,7 +29,8 @@ from .blockchaininterface import (BlockchainInterface,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .snicker_receiver import SNICKERError, SNICKERReceiver
 from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
-                              start_reactor, SNICKERClientProtocolFactory)
+                              start_reactor, SNICKERClientProtocolFactory,
+                              BIP78ClientProtocolFactory)
 from .podle import (set_commitment_file, get_commitment_file,
                     add_external_commitments,
                     PoDLE, generate_podle, get_podle_commitments,

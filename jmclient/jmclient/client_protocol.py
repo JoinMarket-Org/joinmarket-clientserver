@@ -44,6 +44,48 @@ class BaseClientProtocol(amp.AMP):
 class JMProtocolError(Exception):
     pass
 
+class BIP78ClientProtocol(BaseClientProtocol):
+
+    def __init__(self, manager, params,
+                 success_callback, failure_callback,
+                 tls_whitelist=[]):
+        self.manager = manager
+        self.success_callback = success_callback
+        self.failure_callback = failure_callback
+        self.params = params
+        if len(tls_whitelist) == 0:
+            if isinstance(jm_single().bc_interface,
+                          RegtestBitcoinCoreInterface):
+                tls_whitelist = ["127.0.0.1"]
+        self.tls_whitelist = tls_whitelist
+
+    def connectionMade(self):
+        netconfig = {"socks5_host": jm_single().config.get("PAYJOIN", "onion_socks5_host"),
+                     "socks5_port": jm_single().config.get("PAYJOIN", "onion_socks5_port"),
+                     "tls_whitelist": ",".join(self.tls_whitelist),
+                     "servers": [self.manager.server]}
+        d = self.callRemote(commands.BIP78SenderInit,
+                            netconfig=json.dumps(netconfig))
+        self.defaultCallbacks(d)
+
+    @commands.BIP78SenderUp.responder
+    def on_BIP78_SENDER_UP(self):
+        d = self.callRemote(commands.BIP78SenderOriginalPSBT,
+                            body=self.manager.initial_psbt.to_base64(),
+                            params=json.dumps(self.params))
+        self.defaultCallbacks(d)
+        return {"accepted": True}
+
+    @commands.BIP78SenderReceiveProposal.responder
+    def on_BIP78_SENDER_RECEIVE_PROPOSAL(self, psbt):
+        self.success_callback(psbt, self.manager)
+        return {"accepted": True}
+
+    @commands.BIP78ReceiverError.responder
+    def on_BIP78_RECEIVER_ERROR(self, errormsg, errorcode):
+        self.failure_callback(errormsg, errorcode, self.manager)
+        return {"accepted": True}
+
 class SNICKERClientProtocol(BaseClientProtocol):
 
     def __init__(self, client, servers, tls_whitelist=[], oneshot=False):
@@ -635,6 +677,19 @@ class SNICKERClientProtocolFactory(protocol.ClientFactory):
         self.servers = servers
         self.oneshot = oneshot
 
+class BIP78ClientProtocolFactory(protocol.ClientFactory):
+    protocol = BIP78ClientProtocol
+    def buildProtocol(self, addr):
+        return self.protocol(self.manager, self.params,
+                    self.success_callback,
+                    self.failure_callback)
+    def __init__(self, manager, params, success_callback,
+                 failure_callback):
+        self.manager = manager
+        self.params = params
+        self.success_callback = success_callback
+        self.failure_callback = failure_callback
+
 class JMClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTakerClientProtocol
 
@@ -653,7 +708,8 @@ class JMClientProtocolFactory(protocol.ClientFactory):
     def buildProtocol(self, addr):
         return self.protocol(self, self.client)
 
-def start_reactor(host, port, factory=None, snickerfactory=None, ish=True,
+def start_reactor(host, port, factory=None, snickerfactory=None,
+                  bip78=False, jm_coinjoin=True, ish=True,
                   daemon=False, rs=True, gui=False): #pragma: no cover
     #(Cannot start the reactor in tests)
     #Not used in prod (twisted logging):
@@ -663,33 +719,51 @@ def start_reactor(host, port, factory=None, snickerfactory=None, ish=True,
     if daemon:
         try:
             from jmdaemon import JMDaemonServerProtocolFactory, start_daemon, \
-                 SNICKERDaemonServerProtocolFactory
+                 SNICKERDaemonServerProtocolFactory, BIP78ServerProtocolFactory
         except ImportError:
             jlog.error("Cannot start daemon without jmdaemon package; "
                        "either install it, and restart, or, if you want "
                        "to run the daemon separately, edit the DAEMON "
                        "section of the config. Quitting.")
             return
-        dfactory = JMDaemonServerProtocolFactory()
+        if jm_coinjoin:
+            dfactory = JMDaemonServerProtocolFactory()
         if snickerfactory:
             sdfactory = SNICKERDaemonServerProtocolFactory()
-        orgport = port
-        while True:
-            try:
-                start_daemon(host, port, dfactory, usessl,
-                             './ssl/key.pem', './ssl/cert.pem')
-                jlog.info("Listening on port " + str(port))
-                break
-            except Exception:
-                jlog.warn("Cannot listen on port " + str(port) + ", trying next port")
-                if port >= (orgport + 100):
-                    jlog.error("Tried 100 ports but cannot listen on any of them. Quitting.")
-                    sys.exit(EXIT_FAILURE)
-                port += 1
+        if bip78:
+            bip78factory = BIP78ServerProtocolFactory()
+        # ints are immutable in python, to pass by ref we use
+        # an array object:
+        port_a = [port]
+        def start_daemon_on_port(p, f, name, port_offset):
+            orgp = p[0]
+            while True:
+                try:
+                    start_daemon(host, p[0] - port_offset, f, usessl,
+                        './ssl/key.pem', './ssl/cert.pem')
+                    jlog.info("{} daemon listening on port {}".format(
+                        name, str(p[0] - port_offset)))
+                    break
+                except Exception:
+                    jlog.warn("Cannot listen on port " + str(
+                        p[0] - port_offset) + ", trying next port")
+                    if p[0] >= (orgp + 100):
+                        jlog.error("Tried 100 ports but cannot "
+                                   "listen on any of them. Quitting.")
+                        sys.exit(EXIT_FAILURE)
+                    p[0] += 1
+        if jm_coinjoin:
+            # TODO either re-apply this port incrementing logic
+            # to other protocols, or re-work how the ports work entirely.
+            start_daemon_on_port(port_a, dfactory, "Joinmarket", 0)
+        # (See above) For now these other two are just on ports that are 1K offsets.
         if snickerfactory:
-            start_daemon(host, port-1000, sdfactory, usessl,
-                                 './ssl/key.pem', './ssl/cert.pem')
-            jlog.info("(SNICKER) Listening on port " + str(port-1000))
+            start_daemon_on_port(port_a, sdfactory, "SNICKER", 1000)
+        if bip78:
+            start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
+
+    # Note the reactor.connect*** entries do not include BIP78 which
+    # starts in jmclient.payjoin:
     if usessl:
         if factory:
             reactor.connectSSL(host, port, factory, ClientContextFactory())
