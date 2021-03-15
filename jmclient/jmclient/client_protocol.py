@@ -14,7 +14,7 @@ import hashlib
 import os
 import sys
 from jmbase import (get_log, EXIT_FAILURE, hextobin, bintohex,
-                    utxo_to_utxostr)
+                    utxo_to_utxostr, bdict_sdict_convert)
 from jmclient import (jm_single, get_irc_mchannels,
                       RegtestBitcoinCoreInterface,
                       SNICKERReceiver, process_shutdown)
@@ -48,11 +48,17 @@ class BIP78ClientProtocol(BaseClientProtocol):
 
     def __init__(self, manager, params,
                  success_callback, failure_callback,
-                 tls_whitelist=[]):
+                 tls_whitelist=[], mode="sender"):
         self.manager = manager
+        # can be "sender" or "receiver"
+        self.mode = mode
         self.success_callback = success_callback
         self.failure_callback = failure_callback
-        self.params = params
+        if self.mode == "sender":
+            self.params = params
+        else:
+            # receiver only learns params from request
+            self.params = None
         if len(tls_whitelist) == 0:
             if isinstance(jm_single().bc_interface,
                           RegtestBitcoinCoreInterface):
@@ -60,13 +66,56 @@ class BIP78ClientProtocol(BaseClientProtocol):
         self.tls_whitelist = tls_whitelist
 
     def connectionMade(self):
-        netconfig = {"socks5_host": jm_single().config.get("PAYJOIN", "onion_socks5_host"),
-                     "socks5_port": jm_single().config.get("PAYJOIN", "onion_socks5_port"),
-                     "tls_whitelist": ",".join(self.tls_whitelist),
-                     "servers": [self.manager.server]}
-        d = self.callRemote(commands.BIP78SenderInit,
-                            netconfig=json.dumps(netconfig))
+        jcg = jm_single().config.get
+        if self.mode == "sender":
+            netconfig = {"socks5_host": jcg("PAYJOIN", "onion_socks5_host"),
+                         "socks5_port": jcg("PAYJOIN", "onion_socks5_port"),
+                         "tls_whitelist": ",".join(self.tls_whitelist),
+                         "servers": [self.manager.server]}
+            d = self.callRemote(commands.BIP78SenderInit,
+                                netconfig=json.dumps(netconfig))
+        else:
+            netconfig = {"port": 80,
+                         "tor_control_host": jcg("PAYJOIN", "tor_control_host"),
+                         "tor_control_port": jcg("PAYJOIN", "tor_control_port")}
+            d = self.callRemote(commands.BIP78ReceiverInit,
+                                netconfig=json.dumps(netconfig))
         self.defaultCallbacks(d)
+
+    @commands.BIP78ReceiverUp.responder
+    def on_BIP78_RECEIVER_UP(self, hostname):
+        self.manager.bip21_uri_from_onion_hostname(hostname)
+        return {"accepted": True}
+
+    @commands.BIP78ReceiverOriginalPSBT.responder
+    def on_BIP78_RECEIVER_ORIGINAL_PSBT(self, body, params):
+        params = json.loads(params)
+        # TODO: we don't need binary key/vals client side, but will have to edit
+        # PayjoinConverter for that:
+        retval = self.success_callback(body.encode("utf-8"), bdict_sdict_convert(
+            params, output_binary=True))
+        if not retval[0]:
+            d = self.callRemote(commands.BIP78ReceiverSendError, errormsg=retval[1],
+                                errorcode=retval[2])
+        else:
+            d = self.callRemote(commands.BIP78ReceiverSendProposal, psbt=retval[1])
+        self.defaultCallbacks(d)
+        return {"accepted": True}
+
+    @commands.BIP78ReceiverHiddenServiceShutdown.responder
+    def on_BIP78_RECEIVER_HIDDEN_SERVICE_SHUTDOWN(self):
+        """ This is called when the daemon has shut down the HS
+        because of an invalid message/error. An earlier message
+        will have conveyed the reason for the error.
+        """
+        self.manager.shutdown()
+        return {"accepted": True}
+
+    @commands.BIP78ReceiverOnionSetupFailed.responder
+    def on_BIP78_RECEIVER_ONION_SETUP_FAILED(self, reason):
+        self.manager.info_callback(reason)
+        self.manager.shutdown()
+        return {"accepted": True}
 
     @commands.BIP78SenderUp.responder
     def on_BIP78_SENDER_UP(self):
@@ -81,9 +130,14 @@ class BIP78ClientProtocol(BaseClientProtocol):
         self.success_callback(psbt, self.manager)
         return {"accepted": True}
 
-    @commands.BIP78ReceiverError.responder
-    def on_BIP78_RECEIVER_ERROR(self, errormsg, errorcode):
+    @commands.BIP78SenderReceiveError.responder
+    def on_BIP78_SENDER_RECEIVER_ERROR(self, errormsg, errorcode):
         self.failure_callback(errormsg, errorcode, self.manager)
+        return {"accepted": True}
+
+    @commands.BIP78InfoMsg.responder
+    def on_BIP78_INFO_MSG(self, infomsg):
+        self.manager.info_callback(infomsg)
         return {"accepted": True}
 
 class SNICKERClientProtocol(BaseClientProtocol):
@@ -682,13 +736,18 @@ class BIP78ClientProtocolFactory(protocol.ClientFactory):
     def buildProtocol(self, addr):
         return self.protocol(self.manager, self.params,
                     self.success_callback,
-                    self.failure_callback)
+                    self.failure_callback,
+                    tls_whitelist=self.tls_whitelist,
+                    mode=self.mode)
     def __init__(self, manager, params, success_callback,
-                 failure_callback):
+                 failure_callback, tls_whitelist=[],
+                 mode="sender"):
         self.manager = manager
         self.params = params
         self.success_callback = success_callback
         self.failure_callback = failure_callback
+        self.tls_whitelist = tls_whitelist
+        self.mode = mode
 
 class JMClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTakerClientProtocol
@@ -765,6 +824,13 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
             snickerport = start_daemon_on_port(port_a, sdfactory, "SNICKER", 1000)
         if bip78:
             bip78port = start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
+
+        # if the port had to be incremented due to conflict above, we should update
+        # it in the config var so e.g. bip78 connections choose the port we actually
+        # used.
+        # This is specific to the daemon-in-same-process case; for the external daemon
+        # the user must just set the right value.
+        jm_single().config.set("DAEMON", "daemon_port", str(port_a[0]))
 
     # Note the reactor.connect*** entries do not include BIP78 which
     # starts in jmclient.payjoin:

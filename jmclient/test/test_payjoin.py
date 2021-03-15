@@ -12,12 +12,15 @@ from twisted.trial import unittest
 import urllib.parse as urlparse
 from urllib.parse import urlencode
 
-from jmbase import get_log, jmprint, BytesProducer
-from jmbitcoin import (CCoinAddress, encode_bip21_uri,
+from jmbase import (get_log, jmprint, BytesProducer,
+                    JMHTTPResource, get_nontor_agent,
+                    wrapped_urlparse)
+from jmbitcoin import (encode_bip21_uri,
                        amount_to_btc, amount_to_sat)
 from jmclient import (load_test_config, jm_single,
-                      SegwitLegacyWallet,
-                      PayjoinServer, parse_payjoin_setup)
+                      SegwitLegacyWallet, SegwitWallet,
+                      parse_payjoin_setup,
+                      JMBIP78ReceiverManager)
 from jmclient.payjoin import make_payjoin_request_params, make_payment_psbt
 from jmclient.payjoin import process_payjoin_proposal_from_server
 from commontest import make_wallets
@@ -26,17 +29,43 @@ from test_coinjoin import make_wallets_to_list, sync_wallets
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 
-class TrialTestPayjoinServer(unittest.TestCase):
+class DummyBIP78ReceiverResource(JMHTTPResource):
+    """ A simplified version of the BIP78Resource object created
+    to serve requests in jmdaemon.
+    """
+    def __init__(self, info_callback, shutdown_callback, bip78receivermanager):
+        assert isinstance(bip78receivermanager, JMBIP78ReceiverManager)
+        self.bip78_receiver_manager = bip78receivermanager
+        self.info_callback = info_callback
+        self.shutdown_callback = shutdown_callback
+        super().__init__(info_callback, shutdown_callback)
 
+    def render_POST(self, request):
+        proposed_tx = request.content
+        payment_psbt_base64 = proposed_tx.read().decode("utf-8")
+        retval = self.bip78_receiver_manager.receive_proposal_from_sender(
+            payment_psbt_base64, request.args)
+        assert retval[0]
+        content = retval[1].encode("utf-8")
+        request.setHeader(b"content-length", ("%d" % len(content)))
+        return content
+
+class PayjoinTestBase(object):
+    """ This tests that a payjoin invoice and
+    then payment of the invoice, results in the correct changes
+    in balance in the sender and receiver wallets, while also
+    implicitly testing all the BIP78 rules (failures are caught
+    by the JMPayjoinManager and PayjoinConverter rules).
+    """
     def setUp(self):
         load_test_config()
         jm_single().bc_interface.tick_forward_chain_interval = 5
         jm_single().bc_interface.simulate_blocks()
 
-    def test_payment(self):
+    def do_test_payment(self, wc1, wc2):
         wallet_structures = [[1, 3, 0, 0, 0]] * 2
         mean_amt = 2.0
-        wallet_cls = (SegwitLegacyWallet, SegwitLegacyWallet)
+        wallet_cls = (wc1, wc2)
         self.wallet_services = []
         self.wallet_services.append(make_wallets_to_list(make_wallets(
             1, wallet_structures=[wallet_structures[0]],
@@ -53,37 +82,31 @@ class TrialTestPayjoinServer(unittest.TestCase):
         self.ssb = getbals(self.wallet_services[1], 0)
 
         self.cj_amount = int(1.1 * 10**8)
-        # destination address is in 2nd mixdepth of receiver
-        # (note: not first because sourcing from first)
-        bip78_receiving_address = self.wallet_services[0].get_internal_addr(1)
         def cbStopListening():
             return self.port.stopListening()
-        pjs = PayjoinServer(self.wallet_services[0], 0,
-                      CCoinAddress(bip78_receiving_address),
-                      self.cj_amount, cbStopListening, jmprint)
-        site = Site(pjs)
-
-        # NB The connectivity aspects of the BIP78 tests are in
-        # test/payjoin[client/server].py as they are time heavy
-        # and require extra setup. This server is TCP only.
-        self.port = reactor.listenTCP(47083, site)
+        b78rm = JMBIP78ReceiverManager(self.wallet_services[0], 0,
+                                       self.cj_amount, 47083)
+        resource = DummyBIP78ReceiverResource(jmprint, cbStopListening, b78rm)
+        self.site = Site(resource)
+        self.site.displayTracebacks = False
+        # NB The connectivity aspects of the onion-based BIP78 setup
+        # are time heavy. This server is TCP only.
+        self.port = reactor.listenTCP(47083, self.site)
         self.addCleanup(cbStopListening)
 
         # setup of spender
         bip78_btc_amount = amount_to_btc(amount_to_sat(self.cj_amount))
-        bip78_uri = encode_bip21_uri(bip78_receiving_address,
+        bip78_uri = encode_bip21_uri(str(b78rm.receiving_address),
                                 {"amount": bip78_btc_amount,
                                  "pj": b"http://127.0.0.1:47083"},
                                 safe=":/")
         self.manager = parse_payjoin_setup(bip78_uri, self.wallet_services[1], 0)
         self.manager.mode = "testing"
-        self.site = site
         success, msg = make_payment_psbt(self.manager)
         assert success, msg
         params = make_payjoin_request_params(self.manager)
         # avoiding backend daemon (testing only jmclient code here),
         # we send the http request manually:
-        from jmbase import get_nontor_agent, wrapped_urlparse
         serv = b"http://127.0.0.1:47083"
         agent = get_nontor_agent()
         body = BytesProducer(self.manager.initial_psbt.to_base64().encode("utf-8"))
@@ -98,11 +121,20 @@ class TrialTestPayjoinServer(unittest.TestCase):
 
     def tearDown(self):
         for dc in reactor.getDelayedCalls():
-                    dc.cancel()
+            dc.cancel()
         res = final_checks(self.wallet_services, self.cj_amount,
                            self.manager.final_psbt.get_fee(),
                            self.ssb, self.rsb)
         assert res, "final checks failed"
+
+class TrialTestPayjoin1(PayjoinTestBase, unittest.TestCase):
+    def test_payment(self):
+        return self.do_test_payment(SegwitLegacyWallet, SegwitLegacyWallet)
+
+class TrialTestPayjoin2(PayjoinTestBase, unittest.TestCase):
+    def test_bech32_payment(self):
+        return self.do_test_payment(SegwitWallet, SegwitWallet)
+
 
 def bip78_receiver_response(response, manager):
     d = readBody(response)
@@ -115,6 +147,7 @@ def bip78_receiver_response(response, manager):
 
 def process_receiver_errormsg(r, c):
     print("Failed: r, c: ", r, c)
+    assert False
 
 def process_receiver_psbt(response, manager):
     process_payjoin_proposal_from_server(response.decode("utf-8"), manager)

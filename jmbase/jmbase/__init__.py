@@ -7,9 +7,12 @@ from .support import (get_log, chunks, debug_silence, jmprint,
                       utxo_to_utxostr, EXIT_ARGERROR, EXIT_FAILURE,
                       EXIT_SUCCESS, hexbin, dictchanger, listchanger,
                       JM_WALLET_NAME_PREFIX, JM_APP_NAME,
-                      IndentedHelpFormatterWithNL, wrapped_urlparse)
+                      IndentedHelpFormatterWithNL, wrapped_urlparse,
+                      bdict_sdict_convert)
 from .proof_of_work import get_pow, verify_pow
-from .twisted_utils import stop_reactor, is_hs_uri, get_tor_agent, get_nontor_agent
+from .twisted_utils import (stop_reactor, is_hs_uri, get_tor_agent,
+                            get_nontor_agent, JMHiddenService,
+                            JMHTTPResource)
 from .bytesprod import BytesProducer
 from .commands import *
 

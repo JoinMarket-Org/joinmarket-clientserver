@@ -849,7 +849,7 @@ class SpendTab(QWidget):
             self.clientfactory = JMClientProtocolFactory(self.taker)
             daemon = jm_single().config.getint("DAEMON", "no_daemon")
             daemon = True if daemon == 1 else False
-            start_reactor("localhost",
+            start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                    jm_single().config.getint("DAEMON", "daemon_port"),
                    self.clientfactory,
                    ish=False,
@@ -1471,6 +1471,9 @@ class JMMainWindow(QMainWindow):
         # BIP 78 Receiver manager object, only
         # created when user starts a payjoin event:
         self.backend_receiver = None
+        # Keep track of whether the BIP78 daemon has
+        # been started, to avoid unnecessary duplication:
+        self.bip78daemon = False
 
         self.reactor = reactor
         self.initUI()
@@ -1572,7 +1575,19 @@ class JMMainWindow(QMainWindow):
             uri_created_callback=self.receiver_bip78_dialog.update_uri,
             shutdown_callback=self.receiver_bip78_dialog.process_complete,
             mode="gui")
-        self.backend_receiver.start_pj_server_and_tor()
+        if not self.bip78daemon:
+            #First run means we need to start: create daemon;
+            # the client and its connection are created in the .initiate()
+            # call.
+            daemon = jm_single().config.getint("DAEMON", "no_daemon")
+            if daemon:
+                # this call not needed if daemon is external.
+                start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
+                       jm_single().config.getint("DAEMON", "daemon_port"),
+                       jm_coinjoin=False, bip78=True, daemon=True,
+                       gui=True, rs=False)
+                self.bip78daemon = True
+        self.backend_receiver.initiate()
         return True
 
     def stopReceiver(self):
