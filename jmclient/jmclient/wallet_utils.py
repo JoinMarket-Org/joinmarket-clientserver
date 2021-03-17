@@ -146,12 +146,7 @@ def bip32pathparse(path):
         ret_elements.append(x)
     return ret_elements
 
-def test_bip32_pathparse():
-    assert bip32pathparse("m/2/1/0017")
-    assert not bip32pathparse("n/1/1/1/1")
-    assert bip32pathparse("m/0/1'/100'/3'/2/2/21/004/005")
-    assert not bip32pathparse("m/0/0/00k")
-    return True
+
 """
 WalletView* classes manage wallet representations.
 """
@@ -1568,29 +1563,4 @@ def wallet_tool_main(wallet_root_path):
     else:
         parser.error("Unknown wallet-tool method: " + method)
         sys.exit(EXIT_ARGERROR)
-
-
-#Testing (can port to test modules, TODO)
-if __name__ == "__main__":
-    if not test_bip32_pathparse():
-        sys.exit(EXIT_FAILURE)
-    rootpath="m/0"
-    walletbranch = 0
-    accounts = range(3)
-    acctlist = []
-    for a in accounts:
-        branches = []
-        for address_type in range(2):
-            entries = []
-            for i in range(4):
-                entries.append(WalletViewEntry(rootpath, a, address_type,
-                                       i, "DUMMYADDRESS"+str(i+a),
-                                       [i*10000000, i*10000000]))
-            branches.append(WalletViewBranch(rootpath,
-                                            a, address_type, branchentries=entries,
-                                            xpub="xpubDUMMYXPUB"+str(a+address_type)))
-        acctlist.append(WalletViewAccount(rootpath, a, branches=branches))
-    wallet = WalletView(rootpath + "/" + str(walletbranch),
-                             accounts=acctlist)
-    jmprint(wallet.serialize(), "success")
 
