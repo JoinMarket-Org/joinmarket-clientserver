@@ -716,6 +716,8 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
     #startLogging(stdout)
     usessl = True if jm_single().config.get("DAEMON",
                                             "use_ssl") != 'false' else False
+
+    jmcport, snickerport, bip78port = [port]*3
     if daemon:
         try:
             from jmdaemon import JMDaemonServerProtocolFactory, start_daemon, \
@@ -752,29 +754,31 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
                                    "listen on any of them. Quitting.")
                         sys.exit(EXIT_FAILURE)
                     p[0] += 1
+            return p[0]
+
         if jm_coinjoin:
             # TODO either re-apply this port incrementing logic
             # to other protocols, or re-work how the ports work entirely.
-            start_daemon_on_port(port_a, dfactory, "Joinmarket", 0)
+            jmcport = start_daemon_on_port(port_a, dfactory, "Joinmarket", 0)
         # (See above) For now these other two are just on ports that are 1K offsets.
         if snickerfactory:
-            start_daemon_on_port(port_a, sdfactory, "SNICKER", 1000)
+            snickerport = start_daemon_on_port(port_a, sdfactory, "SNICKER", 1000)
         if bip78:
-            start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
+            bip78port = start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
 
     # Note the reactor.connect*** entries do not include BIP78 which
     # starts in jmclient.payjoin:
     if usessl:
         if factory:
-            reactor.connectSSL(host, port, factory, ClientContextFactory())
+            reactor.connectSSL(host, jmcport, factory, ClientContextFactory())
         if snickerfactory:
-            reactor.connectSSL(host, port-1000, snickerfactory,
+            reactor.connectSSL(host, snickerport, snickerfactory,
                            ClientContextFactory())
     else:
         if factory:
-            reactor.connectTCP(host, port, factory)
+            reactor.connectTCP(host, jmcport, factory)
         if snickerfactory:
-            reactor.connectTCP(host, port-1000, snickerfactory)
+            reactor.connectTCP(host, snickerport, snickerfactory)
     if rs:
         if not gui:
             reactor.run(installSignalHandlers=ish)
