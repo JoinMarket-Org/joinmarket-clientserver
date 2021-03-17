@@ -12,7 +12,7 @@ from jmclient import (Maker, jm_single, load_program_config,
                       WalletService, add_base_options, SNICKERReceiver,
                       SNICKERClientProtocolFactory)
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
-from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE
+from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE, get_jm_version_str
 
 jlog = get_log()
 
@@ -27,6 +27,7 @@ class YieldGenerator(Maker):
 
     def __init__(self, wallet_service):
         Maker.__init__(self, wallet_service)
+        jlog.info(get_jm_version_str())
         self.tx_unconfirm_timestamp = {}
         self.statement_file = os.path.join(jm_single().datadir,
                                       'logs', 'yigen-statement.csv')

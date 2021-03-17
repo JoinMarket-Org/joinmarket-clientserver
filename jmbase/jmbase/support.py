@@ -222,8 +222,11 @@ def lookup_appdata_folder(appname):
         data_folder = path.expanduser(path.join("~", "." + appname + "/"))
     return data_folder
 
+def get_jm_version_str():
+    return "JoinMarket " + JM_CORE_VERSION
+
 def print_jm_version(option, opt_str, value, parser):
-    print("JoinMarket " + JM_CORE_VERSION)
+    print(get_jm_version_str())
     sys.exit(EXIT_SUCCESS)
 
 # helper functions for conversions of format between over-the-wire JM
