@@ -31,8 +31,41 @@ http_get ()
     fi
 }
 
+parse_flags ()
+{
+    while :; do
+        case $1 in
+            -v|--verbose)
+                verbose_output=1
+                ;;
+            "")
+                break
+                ;;
+            *)
+                echo "
+Usage: "${0}" [options]
+
+Options:
+
+--verbose, -v   verbose output
+"
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
+
 run_jm_tests ()
 {
+    verbose_output=0
+    parse_flags ${@}
+
+    additional_pytest_flags=""
+    if [[ $verbose_output == 1 ]]; then
+        additional_pytest_flags="-vv"
+    fi
+
     if [[ -z "${VIRTUAL_ENV}" ]]; then
         echo "Source JM virtualenv before running tests:
 
@@ -81,7 +114,7 @@ run_jm_tests ()
     cp -f ./test/bitcoin.conf "${jm_test_datadir}/bitcoin.conf"
     ${orig_umask}
     echo "datadir=${jm_test_datadir}" >> "${jm_test_datadir}/bitcoin.conf"
-    python -m pytest ${HAS_JOSH_K_SEAL_OF_APPROVAL+--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 -p no:warnings --ignore test/test_full_coinjoin.py
+    python -m pytest $additional_pytest_flags ${HAS_JOSH_K_SEAL_OF_APPROVAL+--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 -p no:warnings --ignore test/test_full_coinjoin.py
     local success="$?"
     [[ -f ./joinmarket.cfg ]] && unlink ./joinmarket.cfg
     if [ -f "${jm_test_datadir}/bitcoind.pid" ] && read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
@@ -95,4 +128,4 @@ run_jm_tests ()
     fi
     return ${success:-1}
 }
-run_jm_tests
+run_jm_tests ${@}
