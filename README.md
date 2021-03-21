@@ -106,6 +106,8 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 
 + Twitter: https://twitter.com/joinmarket
 
++ Telegram: https://t.me/joinmarketorg
+
 ### Support JoinMarket and bitcoin privacy
 
 Donate to help make JoinMarket even better: [Obtain a bitcoin address here](https://bitcoinprivacy.me/joinmarket-donations)
