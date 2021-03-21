@@ -4,8 +4,6 @@ Test doing payjoins over tcp client/server
 """
 
 import os
-import sys
-import pytest
 from twisted.internet import reactor
 from twisted.web.server import Site
 from twisted.web.client import readBody
@@ -17,15 +15,13 @@ from urllib.parse import urlencode
 from jmbase import get_log, jmprint, BytesProducer
 from jmbitcoin import (CCoinAddress, encode_bip21_uri,
                        amount_to_btc, amount_to_sat)
-from jmclient import cryptoengine
 from jmclient import (load_test_config, jm_single,
-                      SegwitLegacyWallet, SegwitWallet,
-                      PayjoinServer, parse_payjoin_setup,
-                      send_payjoin)
+                      SegwitLegacyWallet,
+                      PayjoinServer, parse_payjoin_setup)
 from jmclient.payjoin import make_payjoin_request_params, make_payment_psbt
 from jmclient.payjoin import process_payjoin_proposal_from_server
 from commontest import make_wallets
-from test_coinjoin import make_wallets_to_list, create_orderbook, sync_wallets
+from test_coinjoin import make_wallets_to_list, sync_wallets
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()

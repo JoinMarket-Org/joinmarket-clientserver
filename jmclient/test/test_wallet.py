@@ -12,7 +12,7 @@ from jmclient import load_test_config, jm_single, BaseWallet, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
     SegwitWallet, WalletService, SegwitLegacyWalletFidelityBonds,\
-    BTC_P2PKH, BTC_P2SH_P2WPKH, create_wallet, open_test_wallet_maybe, \
+    create_wallet, open_test_wallet_maybe, \
     FidelityBondMixin, FidelityBondWatchonlyWallet, wallet_gettimelockaddress
 from test_blockchaininterface import sync_test_wallet
 

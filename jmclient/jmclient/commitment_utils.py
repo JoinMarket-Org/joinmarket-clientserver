@@ -1,8 +1,7 @@
 
 import sys
-from jmbase import jmprint, utxostr_to_utxo
+from jmbase import jmprint, utxostr_to_utxo, utxo_to_utxostr, EXIT_FAILURE
 from jmclient import jm_single, BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, BTC_P2WPKH
-from jmbase.support import EXIT_FAILURE, utxostr_to_utxo, utxo_to_utxostr
 
 
 def quit(parser, errmsg): #pragma: no cover
@@ -20,7 +19,7 @@ def get_utxo_info(upriv, utxo_binary=False):
         u = u.strip()
         priv = priv.strip()
         success, utxo_bin = utxostr_to_utxo(u)
-        assert success, utxo
+        assert success, u
     except:
         #not sending data to stdout in case privkey info
         jmprint("Failed to parse utxo information for utxo", "error")

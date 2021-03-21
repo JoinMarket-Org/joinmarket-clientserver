@@ -1,4 +1,4 @@
-import pytest
+
 from jmclient.wallet_utils import bip32pathparse, WalletView, \
     WalletViewAccount, WalletViewBranch, WalletViewEntry
 

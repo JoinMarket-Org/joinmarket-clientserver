@@ -2,7 +2,6 @@
 '''Some helper functions for testing'''
 
 import os
-import binascii
 import random
 from decimal import Decimal
 
@@ -37,10 +36,6 @@ class DummyBlockchainInterface(BlockchainInterface):
         self.fake_query_results = None
         self.qusfail = False
         self.cbh = 1
-
-    def get_current_block_height(self):
-        self.cbh += 1
-        return self.cbh
 
     def rpc(self, a, b):
         return None
