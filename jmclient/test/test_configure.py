@@ -1,7 +1,6 @@
 '''test configure module.'''
 
 import pytest
-import struct
 from jmclient import load_test_config, jm_single, get_irc_mchannels
 from jmclient.configure import (get_config_irc_channel,
                                 get_blockchain_interface_instance)

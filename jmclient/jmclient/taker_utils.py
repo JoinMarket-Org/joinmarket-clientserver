@@ -75,7 +75,6 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 "small. Tip: use the coin control feature to freeze utxos")
             return
 
-    from pprint import pformat
     txtype = wallet_service.get_txtype()
     if amount == 0:
         utxos = wallet_service.get_utxos_by_mixdepth()[mixdepth]

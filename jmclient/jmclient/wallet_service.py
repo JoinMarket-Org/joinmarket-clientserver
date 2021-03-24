@@ -2,7 +2,6 @@
 
 import collections
 import time
-import ast
 import sys
 from decimal import Decimal
 from copy import deepcopy
@@ -10,14 +9,14 @@ from twisted.internet import reactor
 from twisted.internet import task
 from twisted.application.service import Service
 from numbers import Integral
+import jmbitcoin as btc
 from jmclient.configure import jm_single, get_log
 from jmclient.output import fmt_tx_data
 from jmclient.blockchaininterface import (INF_HEIGHT, BitcoinCoreInterface,
     BitcoinCoreNoHistoryInterface)
 from jmclient.wallet import FidelityBondMixin, BaseWallet
-from jmbase import stop_reactor
-from jmbase.support import jmprint, EXIT_SUCCESS, utxo_to_utxostr, hextobin
-
+from jmbase import (stop_reactor, hextobin, utxo_to_utxostr,
+                    jmprint, EXIT_SUCCESS)
 
 """Wallet service
 
@@ -636,7 +635,7 @@ class WalletService(Service):
             path = self.wallet.get_path(mixdepth, address_type, index)
             path_privkey, engine = self.wallet._get_key_from_path(path)
             path_pubkey = engine.privkey_to_pubkey(path_privkey)
-            path_pubkeyhash = btc.bin_hash160(path_pubkey)
+            path_pubkeyhash = btc.Hash160(path_pubkey)
             for burner_tx in burner_txes:
                 burner_pubkeyhash, gettx = burner_tx
                 if burner_pubkeyhash != path_pubkeyhash:
@@ -733,7 +732,7 @@ class WalletService(Service):
                     #otherwise there's no merkleproof or block index
                     if gettx["confirmations"] < 1:
                         continue
-                    script = binascii.unhexlify(txd["outs"][0]["script"])
+                    script = hextobin(txd["outs"][0]["script"])
                     if script[0] != 0x6a: #OP_RETURN
                         continue
                     pubkeyhash = script[2:]

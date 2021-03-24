@@ -1,31 +1,18 @@
-from zope.interface import implementer
 from twisted.internet import reactor, task
-from twisted.web.http import UNAUTHORIZED, BAD_REQUEST, NOT_FOUND
-from twisted.web.client import (Agent, readBody, ResponseFailed,
-                                BrowserLikePolicyForHTTPS)
 from twisted.web.server import Site
-from twisted.web.resource import Resource, ErrorPage
-from twisted.web.iweb import IPolicyForHTTPS
-from twisted.internet.ssl import CertificateOptions
-from twisted.internet.error import ConnectionRefusedError, ConnectionLost
+from twisted.web.resource import Resource
 from twisted.internet.endpoints import TCP4ClientEndpoint, UNIXClientEndpoint
-from twisted.web.http_headers import Headers
 import txtorcon
-from txtorcon.web import tor_agent
-from txtorcon.socks import HostUnreachableError
-import urllib.parse as urlparse
-from urllib.parse import urlencode
 import json
 import random
 from io import BytesIO
-from pprint import pformat
 from jmbase import bintohex, jmprint
 from .configure import get_log, jm_single
 import jmbitcoin as btc
-from .wallet import PSBTWalletMixin, SegwitLegacyWallet, SegwitWallet, estimate_tx_fee
+from .wallet import PSBTWalletMixin, SegwitLegacyWallet, SegwitWallet
 from .wallet_service import WalletService
 from .taker_utils import direct_send
-from jmclient import (RegtestBitcoinCoreInterface, select_one_utxo,
+from jmclient import (select_one_utxo,
                       process_shutdown, BIP78ClientProtocolFactory)
 
 """

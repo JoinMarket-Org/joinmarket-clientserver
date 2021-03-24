@@ -493,7 +493,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                     timelock = datetime.utcfromtimestamp(path[-1])
 
                     balance = sum([utxodata["value"] for utxo, utxodata in
-                        iteritems(utxos[m]) if path == utxodata["path"]])
+                        utxos[m].items() if path == utxodata["path"]])
                     status = timelock.strftime("%Y-%m-%d") + " [" + (
                         "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
                     privkey = ""

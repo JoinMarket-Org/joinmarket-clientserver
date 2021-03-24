@@ -1,18 +1,15 @@
 #! /usr/bin/env python
 import base64
-import pprint
-import random
 import sys
 import abc
 
 import jmbitcoin as btc
-from jmbase import bintohex, hexbin, get_log, EXIT_SUCCESS, EXIT_FAILURE, stop_reactor
-from jmclient.wallet import estimate_tx_fee, compute_tx_locktime
+from jmbase import bintohex, hexbin, get_log, EXIT_FAILURE, stop_reactor
 from jmclient.wallet_service import WalletService
 from jmclient.configure import jm_single
-from jmclient.support import calc_cj_fee, select_one_utxo
+from jmclient.support import calc_cj_fee
 from jmclient.podle import verify_podle, PoDLE, PoDLEError
-from twisted.internet import task, reactor
+from twisted.internet import task
 from .cryptoengine import EngineError
 
 jlog = get_log()

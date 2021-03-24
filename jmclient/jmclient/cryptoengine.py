@@ -4,7 +4,7 @@ import struct
 
 import jmbitcoin as btc
 from jmbase import bintohex
-from .configure import get_network
+from .configure import get_network, jm_single
 
 
 #NOTE: before fidelity bonds and watchonly wallet, each of these types corresponded

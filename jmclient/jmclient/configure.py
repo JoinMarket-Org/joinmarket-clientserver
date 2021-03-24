@@ -2,7 +2,6 @@
 import io
 import logging
 import os
-import binascii
 import re
 import sys
 
@@ -540,20 +539,6 @@ _BURN_DESTINATION = "BURN"
 
 def is_burn_destination(destination):
     return destination == _BURN_DESTINATION
-
-def donation_address(reusable_donation_pubkey=None): #pragma: no cover
-    #Donation code currently disabled, so not tested.
-    if not reusable_donation_pubkey:
-        reusable_donation_pubkey = ('02be838257fbfddabaea03afbb9f16e852'
-                                    '9dfe2de921260a5c46036d97b5eacf2a')
-    sign_k = binascii.hexlify(os.urandom(32)).decode('ascii')
-    c = btc.sha256(btc.multiply(sign_k, reusable_donation_pubkey, True))
-    sender_pubkey = btc.add_pubkeys(
-        [reusable_donation_pubkey, btc.privtopub(c + '01', True)], True)
-    sender_address = btc.pubtoaddr(sender_pubkey, get_p2pk_vbyte())
-    log.debug('sending coins to ' + sender_address)
-    return sender_address, sign_k
-
 
 def remove_unwanted_default_settings(config):
     for section in config.sections():
