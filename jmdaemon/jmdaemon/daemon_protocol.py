@@ -9,17 +9,19 @@ from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        COMMITMENT_PREFIXES)
 from .irc import IRCMessageChannel
 
-from jmbase import (hextobin, is_hs_uri, get_tor_agent,
-                    get_nontor_agent, BytesProducer, wrapped_urlparse)
+from jmbase import (hextobin, is_hs_uri, get_tor_agent, JMHiddenService,
+                    get_nontor_agent, BytesProducer, wrapped_urlparse,
+                    bintohex, bdict_sdict_convert, JMHTTPResource)
 from jmbase.commands import *
 from twisted.protocols import amp
-from twisted.internet import reactor, ssl
+from twisted.internet import reactor, ssl, task
 from twisted.internet.protocol import ServerFactory
 from twisted.internet.error import (ConnectionLost, ConnectionAborted,
                                     ConnectionClosed, ConnectionDone,
                                     ConnectionRefusedError)
 from twisted.web.http_headers import Headers
 from twisted.web.client import ResponseFailed, readBody
+from twisted.web import server
 from txtorcon.socks import HostUnreachableError
 from twisted.python import log
 import urllib.parse as urlparse
@@ -27,6 +29,7 @@ from urllib.parse import urlencode
 import json
 import threading
 import os
+from io import BytesIO
 import copy
 from functools import wraps
 from numbers import Integral
@@ -93,6 +96,67 @@ def check_utxo_blacklist(commitment, persist=False):
 
 class JMProtocolError(Exception):
     pass
+
+class BIP78ReceiverResource(JMHTTPResource):
+
+    def __init__(self, info_callback, shutdown_callback, post_request_handler):
+        """ The POST request handling callback has function signature:
+	args: (request-body-content-in-bytes,)
+	returns: (errormsg, errcode, httpcode, response-in-bytes)
+	If the request was successful, errormsg should be true and response
+	should be in bytes, to be sent in the return value of render_POST().
+	"""
+        self.post_request_handler = post_request_handler
+        super().__init__(info_callback, shutdown_callback)
+
+    def bip78_error(self, request, error_meaning,
+                    error_code="unavailable", http_code=400):
+        """
+        See https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki#receivers-well-known-errors
+
+        We return, to the sender, stringified json in the body as per the above.
+        """
+        request.setResponseCode(http_code)
+        request.setHeader(b"content-type", b"text/html; charset=utf-8")
+        print("Returning an error: " + str(
+            error_code) + ": " + str(error_meaning))
+        if error_code in ["original-psbt-rejected", "version-unsupported"]:
+            # if there is a negotiation failure in the first step, we cannot
+            # know whether the sender client sent a valid non-payjoin or not,
+            # hence the warning below is somewhat ambiguous:
+            print("Negotiation failure. Payment has not yet been made,"
+                     " check wallet.")
+            # shutdown now but wait until response is sent.
+            task.deferLater(reactor, 2.0, self.end_failure)
+        return json.dumps({"errorCode": error_code,
+                           "message": error_meaning}).encode("utf-8")
+
+    def render_POST(self, request):
+        """ The sender will use POST to send the initial
+        payment transaction.
+        """
+        print("The server got this POST request: ")
+        # unfortunately the twisted Request object is not
+        # easily serialized:
+        print(request)
+        print(request.method)
+        print(request.uri)
+        print(request.args)
+        sender_parameters = request.args
+        print(request.path)
+        # defer logging of raw request content:
+        proposed_tx = request.content
+        if not isinstance(proposed_tx, BytesIO):
+            return self.bip78_error(request, "invalid psbt format",
+                                    "original-psbt-rejected")
+        payment_psbt_base64 = proposed_tx.read().decode("utf-8")
+        reactor.callLater(0.0, self.post_request_handler, request,
+                      payment_psbt_base64, sender_parameters)
+        return server.NOT_DONE_YET
+
+    def end_failure(self):
+        self.info_callback("Shutting down, payjoin negotiation failed.")
+        self.shutdown_callback()
 
 class HTTPPassThrough(amp.AMP):
     """ This class supports passing through
@@ -183,7 +247,7 @@ class HTTPPassThrough(amp.AMP):
             failure.trap(ResponseFailed, ConnectionRefusedError,
                          HostUnreachableError, ConnectionLost)
             log.msg(failure.value)
-            self.callRemote(BIP78ReceiverError,
+            self.callRemote(BIP78SenderReceiveError,
                             errormsg="failure to connect",
                             errorcode=10000)
         d.addErrback(noResponse)
@@ -206,6 +270,80 @@ class HTTPPassThrough(amp.AMP):
         d.addErrback(self.defaultErrback)
 
 class BIP78ServerProtocol(HTTPPassThrough):
+    @BIP78ReceiverInit.responder
+    def on_BIP78_RECEIVER_INIT(self, netconfig):
+        netconfig = json.loads(netconfig)
+        self.serving_port = int(netconfig["port"])
+        self.tor_control_host = netconfig["tor_control_host"]
+        self.tor_control_port = int(netconfig["tor_control_port"])
+        self.bip78_rr = BIP78ReceiverResource(self.info_callback,
+                                              self.shutdown_callback,
+                                              self.post_request_handler)
+        self.hs = JMHiddenService(self.bip78_rr,
+                                  self.info_callback,
+                                  self.setup_error_callback,
+                                  self.onion_hostname_callback,
+                                  self.tor_control_host,
+                                  self.tor_control_port,
+                                  self.serving_port,
+                                  self.shutdown_callback)
+        # this call will start bringing up the HS; when it's finished,
+        # it will fire the `onion_hostname_callback`, or if it fails,
+        # it'll fire the `setup_error_callback`.
+        self.hs.start_tor()
+        return {"accepted": True}
+
+    def setup_error_callback(self, errormsg):
+        d = self.callRemote(BIP78ReceiverOnionSetupFailed,
+                            reason=errormsg)
+        self.defaultCallbacks(d)
+
+    def shutdown_callback(self):
+        d = self.callRemote(BIP78ReceiverHiddenServiceShutdown)
+        self.defaultCallbacks(d)
+
+    def info_callback(self, msg):
+        """ Informational messages are all passed
+	to the client. TODO makes sense to log locally
+	too, in case daemon is isolated?.
+	"""
+        d = self.callRemote(BIP78InfoMsg, infomsg=msg)
+        self.defaultCallbacks(d)
+
+    def onion_hostname_callback(self, hostname):
+        """ On successful start of HS, we pass hostname
+	to client, who can use this to build the full URI.
+	"""
+        d = self.callRemote(BIP78ReceiverUp,
+                            hostname=hostname)
+        self.defaultCallbacks(d)
+
+    def post_request_handler(self, request, body, params):
+        """ Fired when a sender has sent a POST request
+	to our hidden service. Argument `body` should be a base64
+        string and params should be a dict.
+	"""
+        self.post_request = request
+        d = self.callRemote(BIP78ReceiverOriginalPSBT, body=body,
+                            params=json.dumps(bdict_sdict_convert(params)))
+        self.defaultCallbacks(d)
+
+    @BIP78ReceiverSendProposal.responder
+    def on_BIP78_RECEIVER_SEND_PROPOSAL(self, psbt):
+        content = psbt.encode("utf-8")
+        self.post_request.setHeader(b"content-length",
+                        ("%d" % len(content)))
+        self.post_request.write(content)
+        self.post_request.finish()
+        return {"accepted": True}
+
+    @BIP78ReceiverSendError.responder
+    def on_BIP78_RECEIVER_SEND_ERROR(self, errormsg, errorcode):
+        self.post_request.write(self.bip78_rr.bip78_error(
+            self.post_request, errormsg, errorcode))
+        self.post_request.finish()
+        return {"accepted": True}
+
     @BIP78SenderInit.responder
     def on_BIP78_SENDER_INIT(self, netconfig):
         self.on_INIT(netconfig)
@@ -231,7 +369,7 @@ class BIP78ServerProtocol(HTTPPassThrough):
         d.addCallback(self.process_receiver_psbt)
 
     def process_receiver_errormsg(self, response, errorcode):
-        d = self.callRemote(BIP78ReceiverError,
+        d = self.callRemote(BIP78SenderReceiveError,
                             errormsg=response.decode("utf-8"),
                             errorcode=errorcode)
         self.defaultCallbacks(d)

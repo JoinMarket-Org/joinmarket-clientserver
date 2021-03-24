@@ -306,3 +306,21 @@ def wrapped_urlparse(url):
     if url.endswith(a) and not url.startswith(b):
         url = b + url
     return urlparse.urlparse(url)
+
+def bdict_sdict_convert(d, output_binary=False):
+    """ Useful for converting dicts from url parameter sets
+    to a form that can be handled by json dumps/loads.
+    This code only works if *all* keys in the dict
+    are binary strings, and all values are lists of same.
+    This code could be extended if needed.
+    If output_binary is True, the reverse operation is performed.
+    """
+    newd = {}
+    for k, v in d.items():
+        if output_binary:
+            newv = [a.encode("utf-8") for a in v]
+            newd[k.encode("utf-8")] = newv
+        else:
+            newv = [a.decode("utf-8") for a in v]
+            newd[k.decode("utf-8")] = newv
+    return newd
