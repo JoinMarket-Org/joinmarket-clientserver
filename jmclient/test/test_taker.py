@@ -176,6 +176,7 @@ def test_make_commitment(setup_taker, failquery, external):
     taker = get_taker([(mixdepth, amount, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", NO_ROUNDING)])
     taker.cjamount = amount
     taker.input_utxos = convert_utxos(t_utxos_by_mixdepth[0])
+    taker.mixdepth = mixdepth
     if failquery:
         jm_single().bc_interface.setQUSFail(True)
     taker.make_commitment()
