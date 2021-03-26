@@ -724,15 +724,15 @@ class WalletService(Service):
                 if tx['category'] == 'receive':
                     tx_receive.append(tx)
                 elif tx["category"] == "send":
-                    gettx = self.bci.get_transaction(tx["txid"])
+                    gettx = self.bci.get_transaction(hextobin(tx["txid"]))
                     txd = self.bci.get_deser_from_gettransaction(gettx)
-                    if len(txd["outs"]) > 1:
+                    if len(txd.vout) > 1:
                         continue
                     #must be mined into a block to sync
                     #otherwise there's no merkleproof or block index
                     if gettx["confirmations"] < 1:
                         continue
-                    script = hextobin(txd["outs"][0]["script"])
+                    script = txd.vout[0].scriptPubKey
                     if script[0] != 0x6a: #OP_RETURN
                         continue
                     pubkeyhash = script[2:]

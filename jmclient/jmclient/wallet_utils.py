@@ -521,22 +521,21 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
 
                 privkey, engine = wallet_service._get_key_from_path(path)
                 pubkey = engine.privkey_to_pubkey(privkey)
-                pubkeyhash = btc.bin_hash160(pubkey)
+                pubkeyhash = btc.Hash160(pubkey)
                 output = "BURN-" + binascii.hexlify(pubkeyhash).decode()
 
                 balance = 0
                 status = "no transaction"
                 if path_repr_b in burner_outputs:
                     txhex, blockheight, merkle_branch, blockindex = burner_outputs[path_repr_b]
-                    txhex = binascii.hexlify(txhex).decode()
-                    txd = btc.deserialize(txhex)
-                    assert len(txd["outs"]) == 1
-                    balance = txd["outs"][0]["value"]
-                    script = binascii.unhexlify(txd["outs"][0]["script"])
+                    txd = btc.CMutableTransaction.deserialize(txhex)
+                    assert len(txd.vout) == 1
+                    balance = txd.vout[0].nValue
+                    script = txd.vout[0].scriptPubKey
                     assert script[0] == 0x6a #OP_RETURN
                     tx_pubkeyhash = script[2:]
                     assert tx_pubkeyhash == pubkeyhash
-                    status = btc.txhash(txhex) + (" [NO MERKLE PROOF]" if
+                    status = bintohex(txd.GetTxid()) + (" [NO MERKLE PROOF]" if
                         merkle_branch == FidelityBondMixin.MERKLE_BRANCH_UNAVAILABLE else "")
                 privkey = (wallet_service.get_wif_path(path) if showprivkey else "")
                 if displayall or balance > 0:
