@@ -218,13 +218,19 @@ class BTCEngine(object):
     @staticmethod
     def sign_message(privkey, message):
         """
+        Note: only (currently) used for manual
+        signing of text messages by keys,
+        *not* used in Joinmarket communication protocol.
         args:
             privkey: bytes
             message: bytes
         returns:
             base64-encoded signature
         """
-        return btc.ecdsa_sign(message, privkey, True, False)
+        # note: only supported on mainnet
+        assert get_network() == "mainnet"
+        k = btc.CBitcoinKey(BTCEngine.privkey_to_wif(privkey))
+        return btc.SignMessage(k, btc.BitcoinMessage(message)).decode("ascii")
 
     @classmethod
     def script_to_address(cls, script):

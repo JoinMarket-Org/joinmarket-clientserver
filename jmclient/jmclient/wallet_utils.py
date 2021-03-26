@@ -1052,7 +1052,17 @@ def wallet_dumpprivkey(wallet, hdpath):
     return wallet.get_wif_path(path)  # will raise exception on invalid path
 
 
-def wallet_signmessage(wallet, hdpath, message):
+def wallet_signmessage(wallet, hdpath, message, out_str=True):
+    """ Given a wallet, a BIP32 HD path (as can be output
+    from the display method) and a message string, returns
+    a base64 encoded signature along with the corresponding
+    address and message.
+    If `out_str` is True, returns human readable representation,
+    otherwise returns tuple of (signature, message, address).
+    """
+    if not get_network() == "mainnet":
+        return "Error: message signing is only supported on mainnet."
+
     msg = message.encode('utf-8')
 
     if not hdpath:
@@ -1062,8 +1072,12 @@ def wallet_signmessage(wallet, hdpath, message):
 
     path = wallet.path_repr_to_path(hdpath)
     sig = wallet.sign_message(msg, path)
-    retval = "Signature: {}\nTo verify this in Bitcoin Core".format(sig)
-    return retval + " use the RPC command 'verifymessage'"
+    addr = wallet.get_address_from_path(path)
+    if not out_str:
+        return (sig, message, addr)
+    return ("Signature: {}\nMessage: {}\nAddress: {}\n"
+    "To verify this in Electrum use Tools->Sign/verify "
+    "message.".format(sig, message, addr))
 
 def wallet_signpsbt(wallet_service, psbt):
     if not psbt:

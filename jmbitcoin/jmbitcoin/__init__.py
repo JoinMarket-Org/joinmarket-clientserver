@@ -27,10 +27,12 @@ from bitcointx.core import (x, b2x, b2lx, lx, COutPoint, CTxOut, CTxIn,
                             coins_to_satoshi, satoshi_to_coins)
 from bitcointx.core.key import KeyStore
 from bitcointx.wallet import (P2SHCoinAddress, P2SHCoinAddressError,
-                              P2WPKHCoinAddress, P2WPKHCoinAddressError)
+                              P2WPKHCoinAddress, P2WPKHCoinAddressError,
+                              CBitcoinKey)
 from bitcointx.core.script import (CScript, OP_0, SignatureHash, SIGHASH_ALL,
                                    SIGVERSION_WITNESS_V0, CScriptWitness)
 from bitcointx.core.psbt import (PartiallySignedTransaction, PSBT_Input,
                                  PSBT_Output)
+from bitcointx.signmessage import SignMessage
 from .blocks import get_transactions_in_block
 
