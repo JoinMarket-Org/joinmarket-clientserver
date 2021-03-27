@@ -131,7 +131,7 @@ class JMHiddenService(object):
 
     def create_onion_ep(self, t):
         self.tor_connection = t
-        return t.create_onion_endpoint(self.port)
+        return t.create_onion_endpoint(self.port, private_key=txtorcon.DISCARD)
 
     def onion_listen(self, onion_ep):
         return onion_ep.listen(self.site)
