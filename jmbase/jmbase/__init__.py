@@ -8,7 +8,7 @@ from .support import (get_log, chunks, debug_silence, jmprint,
                       EXIT_SUCCESS, hexbin, dictchanger, listchanger,
                       JM_WALLET_NAME_PREFIX, JM_APP_NAME,
                       IndentedHelpFormatterWithNL, wrapped_urlparse,
-                      bdict_sdict_convert)
+                      bdict_sdict_convert, random_insert)
 from .proof_of_work import get_pow, verify_pow
 from .twisted_utils import (stop_reactor, is_hs_uri, get_tor_agent,
                             get_nontor_agent, JMHiddenService,

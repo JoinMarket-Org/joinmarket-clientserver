@@ -1,6 +1,7 @@
 
 import logging, sys
 import binascii
+import random
 from getpass import getpass
 from os import path, environ
 from functools import wraps
@@ -324,3 +325,11 @@ def bdict_sdict_convert(d, output_binary=False):
             newv = [a.decode("utf-8") for a in v]
             newd[k.decode("utf-8")] = newv
     return newd
+
+def random_insert(old, new):
+    """ Insert elements of new at random indices in
+    the old list, without changing the ordering of the old list.
+    """
+    for n in new:
+        insertion_index = random.randint(0, len(old))
+        old[:] = old[:insertion_index] + [n] + old[insertion_index:]
