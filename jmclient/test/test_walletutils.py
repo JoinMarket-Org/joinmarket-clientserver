@@ -1,7 +1,39 @@
+import pytest
+from jmbitcoin import select_chain_params
+from jmclient import (SegwitLegacyWallet, SegwitWallet, get_network,
+                      jm_single, VolatileStorage, load_test_config)
+from jmclient.wallet_utils import (bip32pathparse, WalletView,
+                                   WalletViewAccount, WalletViewBranch,
+                                   WalletViewEntry, wallet_signmessage)
 
-from jmclient.wallet_utils import bip32pathparse, WalletView, \
-    WalletViewAccount, WalletViewBranch, WalletViewEntry
-
+# The below signatures have all been verified against Electrum 4.0.9:
+@pytest.mark.parametrize('seed, hdpath, walletcls, message, sig, addr', [
+    [b"\x01"*16, "m/84'/0'/0'/0/0", SegwitWallet, "hello",
+     "IOLk6ct/8aKtvTNnEAc+xojIWKv5FOwnzHGcnHkTJJwRBAyhrZ2ZyB0Re+dKS4SEav3qgjQeqMYRm+7mHi4sFKA=",
+     "bc1qq53d9372u8d50jfd5agq9zv7m7zdnzwducuqgz"],
+    [b"\x01"*16, "m/49'/0'/0'/0/0", SegwitLegacyWallet, "hello",
+     "HxVaQuXyBpl1UKutiusJjeLfKHwJYBzUiWuu6hEbmNFeSZGt/mbXKJ071ANR1gvdICbS/AnEa2RKDq9xMd/nU8s=",
+     "3AdTcqdoLHFGNq6znkahJDT41u65HAwiRv"],
+    [b"\x02"*16, "m/84'/0'/2'/1/0", SegwitWallet, "sign me",
+     "IA/V5DG7u108aNzCnpNPHqfrJAL8pF4GQ0sSqpf4Vlg5UWizauXzh2KskoD6Usl13hzqXBi4XDXl7Xxo5z6M298=",
+     "bc1q8mm69xs740sr0l2umrhmpl4ewhxfudxg2zvjw5"],
+    [b"\x02"*16, "m/49'/0'/2'/1/0", SegwitLegacyWallet, "sign me",
+     "H4cAtoE+zL+Mr+U8jm9DiYxZlym5xeZM3mcgymLz+TF4YYr4lgnM8qTZhFwlK4izcPaLuF27LFEoGJ/ltleIHUI=",
+     "3Qan1D4Vcy1yMGHfR9j7szDuC8QxSFVScA"],
+])
+def test_signmessage(seed, hdpath, walletcls, message, sig, addr):
+    load_test_config()
+    jm_single().config.set('BLOCKCHAIN', 'network', 'mainnet')
+    select_chain_params("bitcoin/mainnet")
+    storage = VolatileStorage()
+    walletcls.initialize(
+        storage, get_network(), entropy=seed, max_mixdepth=3)
+    wallet = walletcls(storage)
+    s, m, a = wallet_signmessage(wallet, hdpath, message,
+                                        out_str=False)
+    assert (s, m, a) == (sig, message, addr)
+    jm_single().config.set("BLOCKCHAIN", "network", "testnet")
+    select_chain_params("bitcoin/regtest")
 
 def test_bip32_pathparse():
     assert bip32pathparse("m/2/1/0017")
