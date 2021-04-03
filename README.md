@@ -18,7 +18,7 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 * Fine-grained control over bitcoin transaction fees
 * Basic coin control - can freeze individual utxos to stop them being spent in any transaction
 * Can run sequence of coinjoins in automated form, either auto-generated (see `tumbler.py`) or self-generated sequence.
-* Can specify exact amount of coinjoin (figures from 0.01 to 30.0 btc and higher are practical), can choose time and number of counterparties
+* Can specify exact amount of coinjoin (figures from 0.001 to 30.0 BTC and higher are practical), can choose time and number of counterparties
 * Can run passively to receive small payouts for taking part in coinjoins (see "Maker" and "yield-generator" in docs)
 * GUI to support Taker role, including tumbler/automated coinjoin sequence.
 * PayJoin - [BIP78](https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki) to pay users of other wallets (e.g. merchants), as well as between two compatible wallet users (Joinmarket, Wasabi, others). This is a way to boost fungibility/privacy while paying.
