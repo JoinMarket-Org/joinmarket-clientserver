@@ -17,6 +17,7 @@ from hashlib import sha256
 from itertools import chain
 from decimal import Decimal
 from numbers import Integral
+from math import exp
 
 
 from .configure import jm_single
@@ -2379,6 +2380,25 @@ class FidelityBondMixin(object):
         path = path.encode()
         self._storage.data[self._BURNER_OUTPUT_STORAGE_KEY][path][2] = \
             merkle_branch
+
+
+    @classmethod
+    def calculate_timelocked_fidelity_bond_value(cls, utxo_value, confirmation_time, locktime,
+            current_time, interest_rate):
+        """
+        utxo_value is in satoshi
+        interest rate is per year
+        all times are seconds
+        """
+        YEAR = 60 * 60 * 24 * 365.2425 #gregorian calender year length
+
+        r = interest_rate
+        T = (locktime - confirmation_time) / YEAR
+        L = locktime / YEAR
+        t = current_time / YEAR
+
+        a = max(0, min(1, exp(r*T) - 1) - min(1, exp(r*max(0, t-L)) - 1))
+        return utxo_value*utxo_value*a*a
 
 class BIP49Wallet(BIP32PurposedWallet):
     _PURPOSE = 2**31 + 49

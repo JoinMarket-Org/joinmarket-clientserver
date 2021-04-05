@@ -821,6 +821,67 @@ def test_watchonly_wallet(setup_wallet):
         assert script == watchonly_script
     assert burn_pubkey == watchonly_burn_pubkey
 
+def test_calculate_timelocked_fidelity_bond_value(setup_wallet):
+    EPSILON = 0.000001
+    YEAR = 60*60*24*356.25
+
+    #the function should be flat anywhere before the locktime ends
+    values = [FidelityBondMixin.calculate_timelocked_fidelity_bond_value(
+        utxo_value=100000000,
+        confirmation_time=0,
+        locktime=6*YEAR,
+        current_time=y*YEAR,
+        interest_rate=0.01
+        )
+        for y in range(4)
+    ]
+    value_diff = [values[i] - values[i+1] for i in range(len(values)-1)]
+    for vd in value_diff:
+        assert abs(vd) < EPSILON
+
+    #after locktime, the value should go down
+    values = [FidelityBondMixin.calculate_timelocked_fidelity_bond_value(
+        utxo_value=100000000,
+        confirmation_time=0,
+        locktime=6*YEAR,
+        current_time=(6+y)*YEAR,
+        interest_rate=0.01
+        )
+        for y in range(5)
+    ]
+    value_diff = [values[i+1] - values[i] for i in range(len(values)-1)]
+    for vrd in value_diff:
+        assert vrd < 0
+
+    #value of a bond goes up as the locktime goes up
+    values = [FidelityBondMixin.calculate_timelocked_fidelity_bond_value(
+        utxo_value=100000000,
+        confirmation_time=0,
+        locktime=y*YEAR,
+        current_time=0,
+        interest_rate=0.01
+        )
+        for y in range(5)
+    ]
+    value_ratio = [values[i] / values[i+1] for i in range(len(values)-1)]
+    value_ratio_diff = [value_ratio[i] - value_ratio[i+1] for i in range(len(value_ratio)-1)]
+    for vrd in value_ratio_diff:
+        assert vrd < 0
+
+    #value of a bond locked into the far future is constant, clamped at the value of burned coins
+    values = [FidelityBondMixin.calculate_timelocked_fidelity_bond_value(
+        utxo_value=100000000,
+        confirmation_time=0,
+        locktime=(200+y)*YEAR,
+        current_time=0,
+        interest_rate=0.01
+        )
+        for y in range(5)
+    ]
+    value_diff = [values[i] - values[i+1] for i in range(len(values)-1)]
+    for vd in value_diff:
+        assert abs(vd) < EPSILON
+
 @pytest.mark.parametrize('password, wallet_cls', [
     ["hunter2", SegwitLegacyWallet],
     ["hunter2", SegwitWallet],
