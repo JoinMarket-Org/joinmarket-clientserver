@@ -10,7 +10,7 @@ The gory crypto details don't matter of course, what matters is that for each ut
 
 ## Source of commitment utxos
 
-Usually they will be sourced from your Joinmarket wallet, and this will require no intervention. The main purpose of this page is (a) to make that happen as much as possible and (b) to tell you what to do if it goes wrong.
+Usually they will be sourced from your spending mixdepth, and this will require no intervention. The main purpose of this page is (a) to make that happen as much as possible and (b) to tell you what to do if it goes wrong.
 
 ### Wait for at least 5 confirmations
 
@@ -31,7 +31,7 @@ In most cases this will be enough.
 In cases where you don't have enough utxos with valid commitments left, or you're not prepared to wait 5 blocks, there are alternatives made available. If you go into the `scripts` directory you'll find a tool `add-utxo.py`. Run `python add-utxo.py --help` to see an explanation. In short, you can:
 
 * Add external utxos from a non-JM wallet, like Electrum or Core, one at a time, or from a prepared file (-r).
-* Add external utxos from another Joinmarket wallet (-w).
+* Add external utxos from a Joinmarket wallet (-w).
 * Delete existing external utxos (-d)
 * Validate utxos (-v, -o)
 
@@ -45,38 +45,41 @@ Be aware that Makers will see this utxo *only if* your usage is successful (they
 
 The commitments you've already used (just hash values) are stored in the `used` section of the file `~/.joinmarket/cmtdata/commitments.json` - **don't delete this file**. Although you won't need to read this file, it represents your memory of which commitments you've already used, so if you lose that record, your Taker scripts will find themselves spending a lot of time retrying commitments that the rest of the Joinmarket "network" knows are already used, and so will be rejected. This is only an inconvenience, but it could be pretty annoying. Any external commitments you sourced according to the previous section are also added here, and deleted automatically once they're used up. You can add/delete the contents of that `external` section using the previously mentioned `scripts/add-utxo.py` script (see previous section for a brief overview of options).
 
-If in a run of `sendpayment.py` no commitment can be sourced (in tumbler it just waits), either within the internal wallet, or external as described above, a file `commitments_debug.txt` is created that will show exactly which utxos have been tried and why they failed - and gives brief instructions on what to do depending on the state of each of those. A sample file is shown at the end of this page.
+If in a run of `sendpayment.py` no commitment can be sourced (in tumbler it just waits), either within the spending mixdepth, or external as described above, a file `commitments_debug.txt` is created that will show exactly which utxos have been tried and why they failed - and gives brief instructions on what to do depending on the state of each of those. A sample file is shown at the end of this page.
 
 ### Minor additional tools
 
-An extra method for `wallet-tool.py` is added: `showutxos` - this will pretty print the all the available utxos in any Joinmarket wallet. This is only potentially useful for people who run both as Maker and Taker and want to consider transferring utxos for commitments from one wallet to another (using the `-w` option to `scripts/add-utxo.py`).
+An extra method for `wallet-tool.py` is added: `showutxos` - this will pretty print all the available utxos in any Joinmarket wallet. This is only potentially useful for people who run both as Maker and Taker and want to consider transferring utxos for commitments from one mixdepth/wallet to another (using the `-w` option to `scripts/add-utxo.py`).
 
 Similarly a `sendtomany` function is available in `cd scripts; python sendtomany.py --help`; read the help for details but it's as simple as it sounds, specifically creating equal sized outputs for each of the destination addresses you specify; it requires one utxo and its private key as inputs. You're prompted before broadcast, so you can check its validity.
 
 
 Sample commitments_debug.txt:
+
 ```
 THIS IS A TEMPORARY FILE FOR DEBUGGING; IT CAN BE SAFELY DELETED ANY TIME.
 ***
 1: Utxos that passed age and size limits, but have been used too many times (see taker_utxo_retries in the config):
-None
+dba822a36ad524b775af63db4e25b3558c75ac90d8566a74b2d08b9f63adff97:1
+cde0608bf5426c7ed705d87553718e8c74fa75b9428f14e0759f9e95b03d25f2:1
 2: Utxos that have less than 5 confirmations:
-f8f0256f70ed3b60c2d933a697a8462ccf7d165bbf3d5a33fd4a4ff57eb8cc27:0
-ed00d570efc763706bbca3cf008afe9ab50da730f0a428ea0115f7642186ff54:0
-ac947720cabab156c41cb9d6ade90c260107dd08584522b703b79433aa877767:1
-71b527f7802d2a6694d474b0e5532dfa0abd349a64f163809c93ed6324c9230f:0
-aee068c78fa9d576378828f1539fba6027ddb00c2bdb3747b970d21ecbd64f39:1
-3: Utxos that were not at least 20% of the size of the coinjoin amount 199164661
 None
+3: Utxos that were not at least 20% of the size of the coinjoin amount 499948833
+8ddaee775825a6f89f48e17b47177d3858044cdc633ced09c7c84cc75f609522:0
 ***
 Utxos that appeared in item 1 cannot be used again.
 Utxos only in item 2 can be used by waiting for more confirmations, (set by the value of taker_utxo_age).
 Utxos only in item 3 are not big enough for this coinjoin transaction, set by the value of taker_utxo_amtpercent.
-If you cannot source a utxo from your wallet according to these rules, use the tool add-utxo.py to source a utxo external to your joinmarket wallet. Read the help with 'python add-utxo.py --help'
+If you cannot source a utxo from your spending mixdepth according to these rules, use the tool add-utxo.py to source a utxo from another mixdepth or a utxo external to your joinmarket wallet. Read the help with 'python add-utxo.py --help'
 
-You can also reset the rules in the joinmarket.cfg file, but this is generally inadvisable.
 ***
 For reference, here are the utxos in your wallet:
 
-{u'f8f0256f70ed3b60c2d933a697a8462ccf7d165bbf3d5a33fd4a4ff57eb8cc27:0': {'value': 100000000, 'address': u'mfv6e3fjmTbBRgTMoLSmcGoykocuLYoctZ'}, u'ed00d570efc763706bbca3cf008afe9ab50da730f0a428ea0115f7642186ff54:0': {'value': 100000000, 'address': u'n3k7HrKj7wA3HZLjUnHyWjHWpkFhzPvodv'}, u'ac947720cabab156c41cb9d6ade90c260107dd08584522b703b79433aa877767:1': {'value': 100000000, 'address': u'muzRPUFFo5LdVF51gR4PeapNrYLikM2JkN'}, u'71b527f7802d2a6694d474b0e5532dfa0abd349a64f163809c93ed6324c9230f:0': {'value': 100000000, 'address': u'muqTeLpF8ANJBXUK3SZbQU9WdyJ4LUVktm'}, u'aee068c78fa9d576378828f1539fba6027ddb00c2bdb3747b970d21ecbd64f39:1': {'value': 100000000, 'address': u'n45s5NXoAo7Qrq1YctdpoBHpAoeaBunF6i'}}
+mixdepth 1:
+    dba822a36ad524b775af63db4e25b3558c75ac90d8566a74b2d08b9f63adff97:1 - path: m/84'/1'/1'/1/1, address: bcrt1qwdf43llnn8t7h38vxsqswadyelh4trz3ne6syu, value: 200000000
+    cde0608bf5426c7ed705d87553718e8c74fa75b9428f14e0759f9e95b03d25f2:1 - path: m/84'/1'/1'/1/0, address: bcrt1ql6akvae73rf433d7ga0muqcrh4y0nuxer5zczd, value: 200000000
+    8ddaee775825a6f89f48e17b47177d3858044cdc633ced09c7c84cc75f609522:0 - path: m/84'/1'/1'/1/3, address: bcrt1ql0z4wcjapmrkehgtcjc8c0gvv59hls30h0qhwq, value: 99988990
+mixdepth 0:
+    57fcec6f770e3b2ac35e9cb17b1ee88ae5b0dc84b941f7418b04a4edecc46d7f:1 - path: m/84'/1'/0'/1/0, address: bcrt1qctllzvz5jcyfa08q0psfyx6p2luss8llldh06u, value: 200000000
+    8ddaee775825a6f89f48e17b47177d3858044cdc633ced09c7c84cc75f609522:4 - path: m/84'/1'/0'/0/4, address: bcrt1qv5utq4crzwpq4gw3mvfmaw7q63ukpjf3098f6k, value: 100000000
 ```
