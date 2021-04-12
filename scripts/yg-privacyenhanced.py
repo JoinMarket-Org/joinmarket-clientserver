@@ -21,7 +21,29 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
 
     def __init__(self, wallet_service, offerconfig):
         super().__init__(wallet_service, offerconfig)
-
+        
+    def select_input_mixdepth(self, available, offer, amount):
+        """Mixdepths are in cyclic order and we select the mixdepth to
+        maximize the largest interval of non-available mixdepths by choosing
+        the first mixdepth available after the largest such interval.
+        This forces the biggest UTXOs to stay in a bulk of few mixdepths so
+        that the maker can always maximize the size of his orders even when
+        some coins are sent from the last to the first mixdepth"""
+        # We sort the available depths for linear scaling of the interval search
+        available = sorted(available.keys())
+        # For an available mixdepth, the smallest interval starting from this mixdepth
+        # containing all the other available mixdepths necessarily ends at the previous
+        # available mixdepth in the cyclic order. The successive difference of sorted
+        # depths is then the length of the largest interval ending at the same mixdepth
+        # without any available mixdepths, modulo the number of mixdepths if 0 is in it
+        # which is only the case for the first (in linear order) available mixdepth case
+        intervals = ([self.wallet_service.mixdepth + 1 + available[0] - available[-1]] + \
+                    [(available[i+1] - available[i]) for i in range(len(available)-1)])
+        # We return the mixdepth value at which the largest interval without
+        # available mixdepths ends. Selecting this mixdepth will send the CoinJoin
+        # outputs closer to the others available mixdepths which are after in cyclical order
+        return available[max(range(len(available)), key = intervals.__getitem__)]
+    
     def create_my_orders(self):
         mix_balance = self.get_available_mixdepths()
         # We publish ONLY the maximum amount and use minsize for lower bound;
