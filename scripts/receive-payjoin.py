@@ -64,9 +64,9 @@ def receive_payjoin_main():
     wallet_service.startService()
     # having enforced wallet sync, we can check if we have coins
     # to do payjoin in the mixdepth
-    if wallet_service.get_balance_by_mixdepth()[options.mixdepth] == 0:
+    if wallet_service.get_balance_by_mixdepth(minconfs=1)[options.mixdepth] == 0:
         jlog.error("Cannot do payjoin from mixdepth " + str(
-            options.mixdepth) + ", no coins. Shutting down.")
+            options.mixdepth) + ", no confirmed coins. Shutting down.")
         sys.exit(EXIT_ARGERROR)
     receiver_manager = JMBIP78ReceiverManager(wallet_service, options.mixdepth,
                                     bip78_amount, options.hsport)

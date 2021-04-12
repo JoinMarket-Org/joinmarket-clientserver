@@ -1566,9 +1566,10 @@ class JMMainWindow(QMainWindow):
                            "Wallet does not have mixdepth " + str(mixdepth),
                            mbtype='crit', title="Error")
             return False
-        if self.wallet_service.get_balance_by_mixdepth()[mixdepth] == 0:
+        if self.wallet_service.get_balance_by_mixdepth(minconfs=1)[mixdepth] == 0:
             JMQtMessageBox(self, "Mixdepth " + str(mixdepth) + \
-                           " has no coins.", mbtype='crit', title="Error")
+                           " has no confirmed coins.",
+                           mbtype='crit', title="Error")
             return False
         self.backend_receiver = JMBIP78ReceiverManager(self.wallet_service,
             mixdepth, amount, 80, self.receiver_bip78_dialog.info_update,

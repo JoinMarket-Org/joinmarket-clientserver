@@ -393,7 +393,7 @@ class JMPayjoinManager(object):
         try:
             my_utxos = self.wallet_service.select_utxos(
                 self.mixdepth, jm_single().DUST_THRESHOLD,
-                select_fn=select_one_utxo)
+                select_fn=select_one_utxo, minconfs=1)
         except Exception as e:
             log.error("Failed to select coins, exception: " + repr(e))
             return False
