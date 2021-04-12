@@ -309,11 +309,12 @@ class WalletView(WalletViewBase):
                 x.serialize(entryseparator, summarize=False) for x in self.accounts] + [footer]))
 
 
-def get_tx_info(txid):
+def get_tx_info(txid, tx_cache=None):
     """
     Retrieve some basic information about the given transaction.
 
     :param txid: txid as hex-str
+    :param tx_cache: optional cache (dictionary) for get_transaction results
     :return: tuple
         is_coinjoin: bool
         cj_amount: int, only useful if is_coinjoin==True
@@ -322,7 +323,12 @@ def get_tx_info(txid):
         blocktime: int, blocktime this tx was mined
         txd: deserialized transaction object (hex-encoded data)
     """
-    rpctx = jm_single().bc_interface.get_transaction(txid)
+    if tx_cache is not None and txid in tx_cache:
+        rpctx = tx_cache[txid]
+    else:
+        rpctx = jm_single().bc_interface.get_transaction(txid)
+        if tx_cache is not None:
+            tx_cache[txid] = rpctx
     txhex = str(rpctx['hex'])
     tx = btc.CMutableTransaction.deserialize(hextobin(txhex))
     output_script_values = {x.scriptPubKey: x.nValue for x in tx.vout}
@@ -792,9 +798,10 @@ def wallet_fetch_history(wallet, options):
     deposits = []
     deposit_times = []
     tx_number = 0
+    tx_cache = {}
     for tx in txes:
         is_coinjoin, cj_amount, cj_n, output_script_values, blocktime, txd =\
-            get_tx_info(hextobin(tx['txid']))
+            get_tx_info(hextobin(tx['txid']), tx_cache=tx_cache)
 
         # unconfirmed transactions don't have blocktime, get_tx_info() returns
         # 0 in that case
@@ -805,8 +812,12 @@ def wallet_fetch_history(wallet, options):
 
         rpc_inputs = []
         for ins in txd.vin:
-            wallet_tx = jm_single().bc_interface.get_transaction(
-                ins.prevout.hash[::-1])
+            if ins.prevout.hash[::-1] in tx_cache:
+                wallet_tx = tx_cache[ins.prevout.hash[::-1]]
+            else:
+                wallet_tx = jm_single().bc_interface.get_transaction(
+                    ins.prevout.hash[::-1])
+                tx_cache[ins.prevout.hash[::-1]] = wallet_tx
             if wallet_tx is None:
                 continue
             inp = btc.CMutableTransaction.deserialize(hextobin(
