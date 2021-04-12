@@ -57,22 +57,25 @@ class PayjoinTestBase(object):
     implicitly testing all the BIP78 rules (failures are caught
     by the JMPayjoinManager and PayjoinConverter rules).
     """
+    # the indices in our wallets to populate
+    wallet_structure = [1, 3, 0, 0, 0]
+    # the mean amount of each deposit in the above indices, in btc
+    mean_amt = 2.0
     def setUp(self):
         load_test_config()
         jm_single().bc_interface.tick_forward_chain_interval = 5
         jm_single().bc_interface.simulate_blocks()
 
-    def do_test_payment(self, wc1, wc2):
-        wallet_structures = [[1, 3, 0, 0, 0]] * 2
-        mean_amt = 2.0
+    def do_test_payment(self, wc1, wc2, amt=1.1):
+        wallet_structures = [self.wallet_structure] * 2
         wallet_cls = (wc1, wc2)
         self.wallet_services = []
         self.wallet_services.append(make_wallets_to_list(make_wallets(
             1, wallet_structures=[wallet_structures[0]],
-            mean_amt=mean_amt, wallet_cls=wallet_cls[0]))[0])
+            mean_amt=self.mean_amt, wallet_cls=wallet_cls[0]))[0])
         self.wallet_services.append(make_wallets_to_list(make_wallets(
                 1, wallet_structures=[wallet_structures[1]],
-                mean_amt=mean_amt, wallet_cls=wallet_cls[1]))[0])
+                mean_amt=self.mean_amt, wallet_cls=wallet_cls[1]))[0])
         jm_single().bc_interface.tickchain()
         sync_wallets(self.wallet_services)
 
@@ -81,7 +84,7 @@ class PayjoinTestBase(object):
         self.rsb = getbals(self.wallet_services[0], 0)
         self.ssb = getbals(self.wallet_services[1], 0)
 
-        self.cj_amount = int(1.1 * 10**8)
+        self.cj_amount = int(amt * 10**8)
         def cbStopListening():
             return self.port.stopListening()
         b78rm = JMBIP78ReceiverManager(self.wallet_services[0], 0,
@@ -135,6 +138,12 @@ class TrialTestPayjoin2(PayjoinTestBase, unittest.TestCase):
     def test_bech32_payment(self):
         return self.do_test_payment(SegwitWallet, SegwitWallet)
 
+class TrialTestPayjoin3(PayjoinTestBase, unittest.TestCase):
+    def test_multi_input(self):
+        # wallet structure and amt are chosen so that the sender
+        # will need 3 utxos rather than 1 (to pay 4.5 from 2,2,2).
+        self.wallet_structure = [3, 1, 0, 0, 0]
+        return self.do_test_payment(SegwitWallet, SegwitWallet, amt=4.5)
 
 def bip78_receiver_response(response, manager):
     d = readBody(response)

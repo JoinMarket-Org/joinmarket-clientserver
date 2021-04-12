@@ -4,8 +4,7 @@ try:
 except ImportError:
     pass
 import json
-import random
-from jmbase import bintohex, jmprint
+from jmbase import bintohex, jmprint, random_insert
 from .configure import get_log, jm_single
 import jmbitcoin as btc
 from .wallet import PSBTWalletMixin, SegwitLegacyWallet, SegwitWallet
@@ -767,7 +766,9 @@ class PayjoinConverter(object):
         # construct unsigned tx for payjoin-psbt:
         payjoin_tx_inputs = [(x.prevout.hash[::-1],
                     x.prevout.n) for x in payment_psbt.unsigned_tx.vin]
-        payjoin_tx_inputs.extend(receiver_utxos.keys())
+        # See https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki#Protocol
+        random_insert(payjoin_tx_inputs, receiver_utxos.keys())
+
         pay_out = {"value": self.manager.pay_out.nValue,
                    "address": str(btc.CCoinAddress.from_scriptPubKey(
                        self.manager.pay_out.scriptPubKey))}
@@ -846,11 +847,6 @@ class PayjoinConverter(object):
         # intended:
         outs[self.manager.change_out_index]["value"] -= our_fee_bump
 
-        # TODO this only works for 2 input transactions, otherwise
-        # reversal [::-1] will not be valid as per BIP78 ordering requirement.
-        # (For outputs, we do nothing since we aren't batching in other payments).
-        if random.random() < 0.5:
-            payjoin_tx_inputs = payjoin_tx_inputs[::-1]
         unsigned_payjoin_tx = btc.mktx(payjoin_tx_inputs, outs,
                                     version=payment_psbt.unsigned_tx.nVersion,
                                     locktime=payment_psbt.unsigned_tx.nLockTime)
@@ -886,7 +882,6 @@ class PayjoinConverter(object):
 
         # respect the sender's fixed sequence number, if it was used (we checked
         # in the initial sanity check)
-        # TODO consider RBF if we implement it in Joinmarket payments.
         if self.manager.fixed_sequence_number:
             for inp in unsigned_payjoin_tx.vin:
                 inp.nSequence = self.manager.fixed_sequence_number
