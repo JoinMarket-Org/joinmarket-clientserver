@@ -31,6 +31,7 @@ class DummyWallet(SegwitWallet):
         super().initialize(storage, get_network(), max_mixdepth=5)
         super().__init__(storage)
         self._add_utxos()
+        self.ex_utxos = {}
         self.inject_addr_get_failure = False
 
     def _add_utxos(self):
@@ -43,6 +44,26 @@ class DummyWallet(SegwitWallet):
                 script = self._ENGINE.address_to_script(data['address'])
                 self._script_map[script] = path
 
+    def add_extra_utxo(self, txid, index, value, md,
+                       address="mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
+                       i=0):
+        # note branch and index, path will be ignored in these test cases,
+        # the tree is not real.
+        # if we have extra utxos that have been added for some test,
+        # we will need to return a script and an address, although it
+        # won't be used; note we can't use base class get_utxos_by_mixdepth
+        # because the paths are fake.
+        if md not in self.ex_utxos:
+            self.ex_utxos[md] = {}
+        self.ex_utxos[md].update({(txid, index): {"mixdepth": md,
+                            "address": address,
+                            "value": value,
+                            "script": self._ENGINE.address_to_script(address),
+                            "path": (b'dummy', md, i)}})
+
+    def remove_extra_utxo(self, txid, index, md):
+        del self.ex_utxos[(txid, index)]
+
     def get_utxos_by_mixdepth(self, include_disabled=False, verbose=True,
                               includeheight=False):
         # utxostr conversion routines because taker_test_data uses hex:
@@ -53,6 +74,8 @@ class DummyWallet(SegwitWallet):
                 retval[mixdepth][utxostr_to_utxo(utxo)[1]] = val
                 val["script"] = self._ENGINE.address_to_script(val['address'])
                 val["path"] = (b'dummy', mixdepth, i)
+        for md, u in self.ex_utxos.items():
+            retval[md].update(u)
         return retval
 
     def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
@@ -149,38 +172,88 @@ def test_filter_rejection(setup_taker):
     assert not res[0]
 
 @pytest.mark.parametrize(
-    "failquery, external",
+    "mixdepth, cjamt, failquery, external, expected_success, amtpercent, age, mixdepth_extras",
     [
-        (False, False),
-        (True, False),
-        (False, True),
+        (0, 110000000, False, False, True, 0, 0, {}),
+        (0, 110000000, True, False, True, 0, 0, {}),
+        (0, 110000000, False, True, True, 0, 0, {}),
+        # this will fail to source from mixdepth 1 just because 2 < 50% of 5.5:
+        (1, 550000000, False, False, False, 50, 5, {}),
+        # this must fail to source even though the size in mixdepth 0 is enough:
+        (1, 550000000, False, False, False, 50, 5, {0: [600000000]}),
+        # this should succeed in sourcing because even though there are 9 utxos
+        # in mixdepth 0, one of them is more than 20% (the original 2BTC):
+        (0, 900000000, False, False, True, 20, 5, {0:[100000000]*8}),
+        # this case must fail since the utxos are all at 20 confs and too new:
+        (0, 110000000, False, False, False, 20, 25, {}),
+        # make the confs in the spending mixdepth insufficient, while those
+        # in another mixdepth are OK; must fail:
+        (0, 110000000, False, False, False, 20, 5, {"confchange": {0: 1}}),
     ])
-def test_make_commitment(setup_taker, failquery, external):
+def test_make_commitment(setup_taker, mixdepth, cjamt, failquery, external,
+                         expected_success, amtpercent, age, mixdepth_extras):
     def clean_up():
         jm_single().config.set("POLICY", "taker_utxo_age", old_taker_utxo_age)
         jm_single().config.set("POLICY", "taker_utxo_amtpercent", old_taker_utxo_amtpercent)
         set_commitment_file(old_commitment_file)
         jm_single().bc_interface.setQUSFail(False)
+        jm_single().bc_interface.reset_confs()
         os.remove('dummyext')
     old_commitment_file = get_commitment_file()
     with open('dummyext', 'wb') as f:
         f.write(json.dumps(t_dummy_ext, indent=4).encode('utf-8'))
     if external:
         set_commitment_file('dummyext')
+
+    # define the appropriate podle acceptance parameters in the global config:
     old_taker_utxo_age = jm_single().config.get("POLICY", "taker_utxo_age")
     old_taker_utxo_amtpercent = jm_single().config.get("POLICY", "taker_utxo_amtpercent")
-    jm_single().config.set("POLICY", "taker_utxo_age", "5")
-    jm_single().config.set("POLICY", "taker_utxo_amtpercent", "20")
-    mixdepth = 0
-    amount = 110000000
-    taker = get_taker([(mixdepth, amount, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", NO_ROUNDING)])
-    taker.cjamount = amount
-    taker.input_utxos = convert_utxos(t_utxos_by_mixdepth[0])
+    if expected_success:
+        # set to defaults for mainnet
+        newtua = "5"
+        newtuap = "20"
+    else:
+        newtua = str(age)
+        newtuap = str(amtpercent)
+        jm_single().config.set("POLICY", "taker_utxo_age", newtua)
+        jm_single().config.set("POLICY", "taker_utxo_amtpercent", newtuap)
+
+    taker = get_taker([(mixdepth, cjamt, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", NO_ROUNDING)])
+
+    # modify or add any extra utxos for this run:
+    for k, v in mixdepth_extras.items():
+        if k == "confchange":
+            for k2, v2 in v.items():
+                # set the utxos in mixdepth k2 to have confs v2:
+                cdict = taker.wallet_service.get_utxos_by_mixdepth()[k2]
+                jm_single().bc_interface.set_confs({utxo: v2 for utxo in cdict.keys()})
+        else:
+            for value in v:
+                taker.wallet_service.add_extra_utxo(
+                    os.urandom(32), 0, value, k)
+
+    taker.cjamount = cjamt
+    taker.input_utxos = taker.wallet_service.get_utxos_by_mixdepth()[mixdepth]
+    taker.mixdepth = mixdepth
     if failquery:
         jm_single().bc_interface.setQUSFail(True)
-    taker.make_commitment()
+    comm, revelation, msg = taker.make_commitment()
+    if expected_success and failquery:
+        # for manual tests, show the error message:
+        print("Failure case due to QUS fail: ")
+        print("Erromsg: ", msg)
+        assert not comm
+    elif expected_success:
+        assert comm, "podle was not generated but should have been."
+    else:
+        # in these cases we have set the podle acceptance
+        # parameters such that our in-mixdepth utxos are not good
+        # enough.
+        # for manual tests, show the errormsg:
+        print("Failure case, errormsg: ", msg)
+        assert not comm, "podle was generated but should not have been."
     clean_up()
-    
+
 def test_not_found_maker_utxos(setup_taker):
     taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)])
     orderbook = copy.deepcopy(t_orderbook)

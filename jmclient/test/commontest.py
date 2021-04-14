@@ -36,6 +36,8 @@ class DummyBlockchainInterface(BlockchainInterface):
         self.fake_query_results = None
         self.qusfail = False
         self.cbh = 1
+        self.default_confs = 20
+        self.confs_for_qus = {}
 
     def rpc(self, a, b):
         return None
@@ -59,7 +61,16 @@ class DummyBlockchainInterface(BlockchainInterface):
 
     def setQUSFail(self, state):
         self.qusfail = state
-    
+
+    def set_confs(self, confs_utxos):
+        # we hook specific confirmation results
+        # for specific utxos so that query_utxo_set
+        # can return a non-constant fake value.
+        self.confs_for_qus.update(confs_utxos)
+
+    def reset_confs(self):
+        self.confs_for_qus = {}
+
     def query_utxo_set(self, txouts, includeconf=False):
         if self.qusfail:
             #simulate failure to find the utxo
@@ -99,13 +110,17 @@ class DummyBlockchainInterface(BlockchainInterface):
             return [{'value': 200000000,
                      'address': addr,
                      'script': scr,
-                     'confirms': 20}]
+                     'confirms': self.default_confs}]
         for t in txouts:
-            result_dict = {'value': 10000000000,
+            result_dict = {'value': 200000000,
                            'address': "mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
                            'script': hextobin('76a91479b000887626b294a914501a4cd226b58b23598388ac')}
             if includeconf:
-                result_dict['confirms'] = 20
+                if t in self.confs_for_qus:
+                    confs = self.confs_for_qus[t]
+                else:
+                    confs = self.default_confs
+                result_dict['confirms'] = confs
             result.append(result_dict)        
         return result
 

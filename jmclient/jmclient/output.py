@@ -55,8 +55,9 @@ def generate_podle_error_string(priv_utxo_pairs, to, ts, wallet_service, cjamoun
     errmsg += ("Utxos only in item 3 are not big enough for this "
                "coinjoin transaction, set by the value "
                "of taker_utxo_amtpercent.\n")
-    errmsg += ("If you cannot source a utxo from your wallet according "
+    errmsg += ("If you cannot source a utxo from your spending mixdepth according "
                "to these rules, use the tool add-utxo.py to source a "
+               "utxo from another mixdepth or a "
                "utxo external to your joinmarket wallet. Read the help "
                "with 'python add-utxo.py --help'\n\n")
     errmsg += ("***\nFor reference, here are the utxos in your wallet:\n")
