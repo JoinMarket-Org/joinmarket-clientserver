@@ -16,12 +16,18 @@ from future.moves.urllib.parse import parse_qs
 from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
+from datetime import datetime
 
 if sys.version_info < (3, 7):
     print("ERROR: this script requires at least python 3.7")
     exit(1)
 
 from jmbase.support import EXIT_FAILURE
+from jmbase import bintohex
+from jmclient import FidelityBondMixin, get_interest_rate
+from jmclient.fidelity_bond import FidelityBondProof
+
+import sybil_attack_calculations as sybil
 
 from jmbase import get_log
 log = get_log()
@@ -86,31 +92,45 @@ def cjfee_display(cjfee, order, btc_unit, rel_unit):
         return str(Decimal(cjfee) * Decimal(rel_unit_to_factor[rel_unit])) + rel_unit
 
 
-def satoshi_to_unit(sat, order, btc_unit, rel_unit):
-    power = unit_to_power[btc_unit]
+def satoshi_to_unit_power(sat, power):
     return ("%." + str(power) + "f") % float(
         Decimal(sat) / Decimal(10 ** power))
 
+def satoshi_to_unit(sat, order, btc_unit, rel_unit):
+    return satoshi_to_unit_power(sat, unit_to_power[btc_unit])
 
 def order_str(s, order, btc_unit, rel_unit):
     return str(s)
 
 
-def create_table_heading(btc_unit, rel_unit):
+def create_offerbook_table_heading(btc_unit, rel_unit):
     col = '  <th>{1}</th>\n'  # .format(field,label)
     tableheading = '<table class="tftable sortable" border="1">\n <tr>' + ''.join(
             [
-                col.format('ordertype', 'Type'), col.format(
-                    'counterparty', 'Counterparty'),
+                col.format('ordertype', 'Type'),
+                col.format('counterparty', 'Counterparty'),
                 col.format('oid', 'Order ID'),
-                col.format('cjfee', 'Fee'), col.format(
-                    'txfee', 'Miner Fee Contribution / ' + btc_unit),
-                col.format(
-                        'minsize', 'Minimum Size / ' + btc_unit), col.format(
-                    'maxsize', 'Maximum Size / ' + btc_unit)
+                col.format('cjfee', 'Fee'),
+                col.format('txfee', 'Miner Fee Contribution / ' + btc_unit),
+                col.format('minsize', 'Minimum Size / ' + btc_unit),
+                col.format('maxsize', 'Maximum Size / ' + btc_unit),
+                col.format('bondvalue', 'Bond value / ' + btc_unit + '&#xb2;')
             ]) + ' </tr>'
     return tableheading
 
+def create_bonds_table_heading(btc_unit):
+    tableheading = ('<table class="tftable sortable" border="1"><tr>'
+        + '<th>Counterparty</th>'
+        + '<th>UTXO</th>'
+        + '<th>Bond value / ' + btc_unit + '&#xb2;</th>'
+        + '<th>Locktime</th>'
+        + '<th>Locked coins / ' + btc_unit + '</th>'
+        + '<th>Confirmation time</th>'
+        + '<th>Signature expiry height</th>'
+        + '<th>Redeem script</th>'
+        + '</tr>'
+    )
+    return tableheading
 
 def create_choose_units_form(selected_btc, selected_rel):
     choose_units_form = (
@@ -128,6 +148,53 @@ def create_choose_units_form(selected_btc, selected_rel):
             '<option selected="selected">' + selected_rel)
     return choose_units_form
 
+def get_fidelity_bond_data(taker):
+    with taker.dblock:
+        fbonds = taker.db.execute("SELECT * FROM fidelitybonds;").fetchall()
+
+    blocks = jm_single().bc_interface.get_current_block_height()
+    mediantime = jm_single().bc_interface.get_best_block_median_time()
+    interest_rate = get_interest_rate()
+
+    bond_utxo_set = set()
+    fidelity_bond_data = []
+    bond_outpoint_conf_times = []
+    fidelity_bond_values = []
+    for fb in fbonds:
+        try:
+            parsed_bond = FidelityBondProof.parse_and_verify_proof_msg(fb["counterparty"],
+                fb["takernick"], fb["proof"])
+        except ValueError:
+            continue
+        bond_utxo_data = FidelityBondMixin.get_validated_timelocked_fidelity_bond_utxo(
+            parsed_bond.utxo, parsed_bond.utxo_pub, parsed_bond.locktime, parsed_bond.cert_expiry,
+            blocks)
+        if bond_utxo_data == None:
+            continue
+        #check for duplicated utxos i.e. two or more makers using the same UTXO
+        # which is obviously not allowed, a fidelity bond must only be usable by one maker nick
+        utxo_str = parsed_bond.utxo[0] + b":" + str(parsed_bond.utxo[1]).encode("ascii")
+        if utxo_str in bond_utxo_set:
+            continue
+        bond_utxo_set.add(utxo_str)
+
+        fidelity_bond_data.append((parsed_bond, bond_utxo_data))
+        conf_time = jm_single().bc_interface.get_block_time(
+            jm_single().bc_interface.get_block_hash(
+                blocks - bond_utxo_data["confirms"] + 1
+            )
+        )
+        bond_outpoint_conf_times.append(conf_time)
+
+        bond_value = FidelityBondMixin.calculate_timelocked_fidelity_bond_value(
+            bond_utxo_data["value"],
+            conf_time,
+            parsed_bond.locktime,
+            mediantime,
+            interest_rate)
+        fidelity_bond_values.append(bond_value)
+    return (fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times)
+
 class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
     def __init__(self, request, client_address, base_server):
         self.taker = base_server.taker
@@ -137,15 +204,21 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 directory=os.path.dirname(os.path.realpath(__file__)))
 
     def create_orderbook_obj(self):
-        try:
-            self.taker.dblock.acquire(True)
+        with self.taker.dblock:
             rows = self.taker.db.execute('SELECT * FROM orderbook;').fetchall()
-        finally:
-            self.taker.dblock.release()
-        if not rows:
+            fbonds = self.taker.db.execute("SELECT * FROM fidelitybonds;").fetchall()
+        if not rows or not fbonds:
             return []
 
-        result = []
+        if jm_single().bc_interface != None:
+            (fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times) =\
+                get_fidelity_bond_data(self.taker)
+            fidelity_bond_values_dict = dict([(bond_data["counterparty"], bond_value)
+                for (bond_data, _), bond_value in zip(fidelity_bond_data, fidelity_bond_values)])
+        else:
+            fidelity_bond_values_dict = {}
+
+        offers = []
         for row in rows:
             o = dict(row)
             if 'cjfee' in o:
@@ -154,8 +227,19 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                     o['cjfee'] = int(o['cjfee'])
                 else:
                     o['cjfee'] = str(Decimal(o['cjfee']))
-            result.append(o)
-        return result
+            o["fidelity_bond_value"] = fidelity_bond_values_dict.get(o["counterparty"], 0)
+            offers.append(o)
+
+        BIN_KEYS = ["txid", "utxopubkey"]
+        fidelitybonds = []
+        for fbond in fbonds:
+            o = dict(fbond)
+            for k in BIN_KEYS:
+                o[k] = bintohex(o[k])
+            o["fidelity_bond_value"] = fidelity_bond_values_dict.get(o["counterparty"], 0)
+            fidelitybonds.append(o)
+
+        return {"offers": offers, "fidelitybonds": fidelitybonds}
 
     def create_depth_chart(self, cj_amount, args=None):
         if 'matplotlib' not in sys.modules:
@@ -232,6 +316,166 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         return get_graph_html(fig) + ("<br/><a href='?scale=log'>log scale</a>" if
                                       bins == 30 else "<br/><a href='?'>linear</a>")
 
+    def create_fidelity_bond_table(self, btc_unit):
+        if jm_single().bc_interface == None:
+            with self.taker.dblock:
+                fbonds = self.taker.db.execute("SELECT * FROM fidelitybonds;").fetchall()
+            fidelity_bond_data = []
+            for fb in fbonds:
+                try:
+                    proof = FidelityBondProof.parse_and_verify_proof_msg(
+                        fb["counterparty"],
+                        fb["takernick"],
+                        fb["proof"])
+                except ValueError:
+                    proof = None
+                fidelity_bond_data.append((proof, None))
+            fidelity_bond_values = [-1]*len(fidelity_bond_data) #-1 means no data
+            bond_outpoint_conf_times = [-1]*len(fidelity_bond_data)
+            total_btc_committed_str = "unknown"
+        else:
+            (fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times) =\
+                get_fidelity_bond_data(self.taker)
+            total_btc_committed_str = satoshi_to_unit(
+                sum([utxo_data["value"] for _, utxo_data in fidelity_bond_data]),
+                None, btc_unit, 0)
+
+        RETARGET_INTERVAL = 2016
+        elem = lambda e: "<td>" + e + "</td>"
+        bondtable = ""
+        for (bond_data, utxo_data), bond_value, conf_time in zip(
+                fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times):
+
+            if bond_value == -1 or conf_time == -1 or utxo_data == None:
+                bond_value_str = "No data"
+                conf_time_str = "No data"
+                utxo_value_str = "No data"
+            else:
+                bond_value_str = satoshi_to_unit_power(bond_value, 2*unit_to_power[btc_unit])
+                conf_time_str = str(datetime.utcfromtimestamp(conf_time))
+                utxo_value_str = satoshi_to_unit(utxo_data["value"], None, btc_unit, 0)
+            bondtable += ("<tr>"
+                + elem(bond_data.maker_nick)
+                + elem(bintohex(bond_data.utxo[0]) + ":" + str(bond_data.utxo[1]))
+                + elem(bond_value_str)
+                + elem(datetime.utcfromtimestamp(bond_data.locktime).strftime("%Y-%m-%d"))
+                + elem(utxo_value_str)
+                + elem(conf_time_str)
+                + elem(str(bond_data.cert_expiry*RETARGET_INTERVAL))
+                + elem(bintohex(btc.mk_freeze_script(bond_data.utxo_pub,
+                    bond_data.locktime)))
+                + "</tr>"
+            )
+
+        heading2 = (str(len(fidelity_bond_data)) + " fidelity bonds found with "
+            + total_btc_committed_str + " " + btc_unit
+            + " total locked up")
+        choose_units_form = (
+            '<form method="get" action="">' +
+            '<select name="btcunit" onchange="this.form.submit();">' +
+            ''.join(('<option>' + u + ' </option>' for u in sorted_units)) +
+            '</select></form>')
+        choose_units_form = choose_units_form.replace(
+                '<option>' + btc_unit,
+                '<option selected="selected">' + btc_unit)
+
+        decodescript_tip = ("<br/>Tip: try running the RPC <code>decodescript "
+            + "&lt;redeemscript&gt;</code> as proof that the fidelity bond address matches the "
+            + "locktime.<br/>Also run <code>gettxout &lt;utxo_txid&gt; &lt;utxo_vout&gt;</code> "
+            + "as proof that the fidelity bond UTXO is real.")
+
+        return (heading2,
+            choose_units_form + create_bonds_table_heading(btc_unit) + bondtable + "</table>"
+            + decodescript_tip)
+
+    def create_sybil_resistance_page(self, btc_unit):
+        if jm_single().bc_interface == None:
+            return "", "Calculations unavailable, requires configured bitcoin node."
+
+        (fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times) =\
+            get_fidelity_bond_data(self.taker)
+
+        choose_units_form = (
+            '<form method="get" action="">' +
+            '<select name="btcunit" onchange="this.form.submit();">' +
+            ''.join(('<option>' + u + ' </option>' for u in sorted_units)) +
+            '</select></form>')
+        choose_units_form = choose_units_form.replace(
+                '<option>' + btc_unit,
+                '<option selected="selected">' + btc_unit)
+        mainbody = choose_units_form
+
+        honest_weight = sum(fidelity_bond_values)
+        mainbody += ("Assuming the makers in the offerbook right now are not sybil attackers, "
+            + "how much would a sybil attacker starting now have to sacrifice to succeed in their"
+            + " attack with 95% probability. Honest weight="
+            + satoshi_to_unit_power(honest_weight, 2*unit_to_power[btc_unit]) + " " + btc_unit
+            + "&#xb2;<br/>Also assumes that takers are not price-sensitive and that their max "
+            + "coinjoin fee is configured high enough that they dont exclude any makers.")
+        heading2 = "Sybil attacks from external enemies."
+
+        mainbody += ('<table class="tftable" border="1"><tr>'
+            + '<th>Maker count</th>'
+            + '<th>6month locked coins / ' + btc_unit + '</th>'
+            + '<th>1y locked coins / ' + btc_unit + '</th>'
+            + '<th>2y locked coins / ' + btc_unit + '</th>'
+            + '<th>5y locked coins / ' + btc_unit + '</th>'
+            + '<th>10y locked coins / ' + btc_unit + '</th>'
+            + '<th>Required burned coins / ' + btc_unit + '</th>'
+            + '</tr>'
+        )
+
+        timelocks = [0.5, 1.0, 2.0, 5.0, 10.0, None]
+        interest_rate = get_interest_rate()
+        for makercount, unit_success_sybil_weight in sybil.successful_attack_95pc_sybil_weight.items():
+            success_sybil_weight = unit_success_sybil_weight * honest_weight
+            row = "<tr><td>" + str(makercount) + "</td>"
+            for timelock in timelocks:
+                if timelock != None:
+                    coins_per_sybil = sybil.weight_to_locked_coins(success_sybil_weight,
+                        interest_rate, timelock)
+                else:
+                    coins_per_sybil = sybil.weight_to_burned_coins(success_sybil_weight)
+                row += ("<td>" + satoshi_to_unit(coins_per_sybil*makercount, None, btc_unit, 0)
+                    + "</td>")
+            row += "</tr>"
+            mainbody += row
+        mainbody += "</table>"
+
+        mainbody += ("<h2>Sybil attacks from enemies within</h2>Assume a sybil attack is ongoing"
+            + " right now and that the counterparties with the most valuable fidelity bonds are "
+            + " actually controlled by the same entity. Then, what is the probability of a "
+            + " successful sybil attack for a given makercount, and what is the fidelity bond "
+            + " value being foregone by not putting all bitcoins into just one maker.")
+        mainbody += ('<table class="tftable" border="1"><tr>'
+            + '<th>Maker count</th>'
+            + '<th>Success probability</th>'
+            + '<th>Foregone value / ' + btc_unit + '&#xb2;</th>'
+            + '</tr>'
+        )
+
+        #limited because calculation is slow, so this avoids server being too slow to respond
+        MAX_MAKER_COUNT_INTERNAL = 10
+        weights = sorted(fidelity_bond_values)[::-1]
+        for makercount in range(1, MAX_MAKER_COUNT_INTERNAL+1):
+            makercount_str = (str(makercount) + " - " + str(MAX_MAKER_COUNT_INTERNAL)
+                if makercount == len(fidelity_bond_data) and len(fidelity_bond_data) !=
+                MAX_MAKER_COUNT_INTERNAL else str(makercount))
+            success_prob = sybil.calculate_top_makers_sybil_attack_success_probability(weights,
+                makercount)
+            total_sybil_weight = sum(weights[:makercount])
+            sacrificed_values = [sybil.weight_to_burned_coins(w) for w in weights[:makercount]]
+            foregone_value = (sybil.coins_burned_to_weight(sum(sacrificed_values))
+                - total_sybil_weight)
+            mainbody += ("<tr><td>" + makercount_str + "</td><td>" + str(round(success_prob*100.0, 5))
+                + "%</td><td>" + satoshi_to_unit_power(foregone_value, 2*unit_to_power[btc_unit])
+                + "</td></tr>")
+            if makercount == len(weights):
+                break
+        mainbody += "</table>"
+
+        return heading2, mainbody
+
     def create_orderbook_table(self, btc_unit, rel_unit):
         result = ''
         try:
@@ -241,14 +485,59 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             self.taker.dblock.release()
         if not rows:
             return 0, result
-        #print("len rows before filter: " + str(len(rows)))
         rows = [o for o in rows if o["ordertype"] in filtered_offername_list]
 
+        if jm_single().bc_interface == None:
+            for row in rows:
+                row["bondvalue"] = "No data"
+        else:
+            blocks = jm_single().bc_interface.get_current_block_height()
+            mediantime = jm_single().bc_interface.get_best_block_median_time()
+            interest_rate = get_interest_rate()
+            for row in rows:
+                with self.taker.dblock:
+                    fbond_data = self.taker.db.execute(
+                        "SELECT * FROM fidelitybonds WHERE counterparty=?;", (row["counterparty"],)
+                    ).fetchall()
+                if len(fbond_data) == 0:
+                    row["bondvalue"] = "0"
+                    continue
+                else:
+                    try:
+                        parsed_bond = FidelityBondProof.parse_and_verify_proof_msg(
+                            fbond_data[0]["counterparty"],
+                            fbond_data[0]["takernick"],
+                            fbond_data[0]["proof"]
+                        )
+                    except ValueError:
+                        row["bondvalue"] = "0"
+                        continue
+                    utxo_data = FidelityBondMixin.get_validated_timelocked_fidelity_bond_utxo(
+                        parsed_bond.utxo, parsed_bond.utxo_pub, parsed_bond.locktime,
+                        parsed_bond.cert_expiry, blocks)
+                    if utxo_data == None:
+                        row["bondvalue"] = "0"
+                        continue
+                    bond_value = FidelityBondMixin.calculate_timelocked_fidelity_bond_value(
+                        utxo_data["value"],
+                        jm_single().bc_interface.get_block_time(
+                            jm_single().bc_interface.get_block_hash(
+                                blocks - utxo_data["confirms"] + 1
+                            )
+                        ),
+                        parsed_bond.locktime,
+                        mediantime,
+                        interest_rate)
+                    row["bondvalue"] = satoshi_to_unit_power(bond_value, 2*unit_to_power[btc_unit])
+
         order_keys_display = (('ordertype', ordertype_display),
-                              ('counterparty', do_nothing), ('oid', order_str),
-                              ('cjfee', cjfee_display), ('txfee', satoshi_to_unit),
+                              ('counterparty', do_nothing),
+                              ('oid', order_str),
+                              ('cjfee', cjfee_display),
+                              ('txfee', satoshi_to_unit),
                               ('minsize', satoshi_to_unit),
-                              ('maxsize', satoshi_to_unit))
+                              ('maxsize', satoshi_to_unit),
+                              ('bondvalue', do_nothing))
 
         # somewhat complex sorting to sort by cjfee but with swabsoffers on top
 
@@ -278,16 +567,15 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         # http.server.SimpleHTTPRequestHandler.do_GET(self)
-        # print 'httpd received ' + self.path + ' request'
+        # print('httpd received ' + self.path + ' request')
         self.path, query = self.path.split('?', 1) if '?' in self.path else (
             self.path, '')
         args = parse_qs(query)
-        pages = ['/', '/ordersize', '/depth', '/orderbook.json']
+        pages = ['/', '/fidelitybonds', '/ordersize', '/depth', '/sybilresistance',
+            '/orderbook.json']
         static_files = {'/vendor/sorttable.js', '/vendor/bootstrap.min.css', '/vendor/jquery-3.5.1.slim.min.js'}
-        if self.path in static_files:
+        if self.path in static_files or self.path not in pages:
             return super().do_GET()
-        elif self.path not in pages:
-            return
         fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
             'orderbook.html'), 'r')
         orderbook_fmt = fd.read()
@@ -308,7 +596,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             ordercount, ordertable = self.create_orderbook_table(
                     btc_unit, rel_unit)
             choose_units_form = create_choose_units_form(btc_unit, rel_unit)
-            table_heading = create_table_heading(btc_unit, rel_unit)
+            table_heading = create_offerbook_table_heading(btc_unit, rel_unit)
             replacements = {
                 'PAGETITLE': 'JoinMarket Browser Interface',
                 'MAINHEADING': 'JoinMarket Orderbook',
@@ -318,6 +606,18 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 'MAINBODY': (
                     rotateObform + refresh_orderbook_form + choose_units_form +
                     table_heading + ordertable + '</table>\n')
+            }
+        elif self.path == '/fidelitybonds':
+            btc_unit = args['btcunit'][0] if 'btcunit' in args else sorted_units[0]
+            if btc_unit not in sorted_units:
+                btc_unit = sorted_units[0]
+            heading2, mainbody = self.create_fidelity_bond_table(btc_unit)
+
+            replacements = {
+                'PAGETITLE': 'JoinMarket Browser Interface',
+                'MAINHEADING': 'Fidelity Bonds',
+                'SECONDHEADING': heading2,
+                'MAINBODY': mainbody
             }
         elif self.path == '/ordersize':
             replacements = {
@@ -339,6 +639,17 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 'MAINHEADING': 'Depth Chart',
                 'SECONDHEADING': 'Orderbook Depth' + alert_msg,
                 'MAINBODY': '<br />'.join(mainbody)
+            }
+        elif self.path == '/sybilresistance':
+            btc_unit = args['btcunit'][0] if 'btcunit' in args else sorted_units[0]
+            if btc_unit not in sorted_units:
+                btc_unit = sorted_units[0]
+            heading2, mainbody = self.create_sybil_resistance_page(btc_unit)
+            replacements = {
+                'PAGETITLE': 'JoinMarket Browser Interface',
+                'MAINHEADING': 'Resistance to Sybil Attacks from Fidelity Bonds',
+                'SECONDHEADING': heading2,
+                'MAINBODY': mainbody
             }
         elif self.path == '/orderbook.json':
             replacements = {}
@@ -437,6 +748,7 @@ class ObIRCMessageChannel(IRCMessageChannel):
             _chunks = command.split(" ")
             try:
                 self.check_for_orders(nick, _chunks)
+                self.check_for_fidelity_bond(nick, _chunks)
             except:
                 pass
 
