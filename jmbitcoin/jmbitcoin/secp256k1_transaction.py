@@ -3,7 +3,6 @@
 # note, only used for non-cryptographic randomness:
 import random
 import json
-import itertools
 # needed for single sha256 evaluation, which is used
 # in bitcoin (p2wsh) but not exposed in python-bitcointx:
 import hashlib

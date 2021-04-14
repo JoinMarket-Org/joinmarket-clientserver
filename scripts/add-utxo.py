@@ -9,16 +9,15 @@ the anti-snooping feature employed by makers.
 import sys
 import os
 import json
-import binascii
 from pprint import pformat
 from optparse import OptionParser
 
 from jmclient import load_program_config, jm_single,\
     open_wallet, WalletService, add_external_commitments, update_commitments,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
-    get_wallet_path, add_base_options, BTCEngine, BTC_P2SH_P2WPKH
-from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR, \
-     jmprint, utxostr_to_utxo
+    get_wallet_path, add_base_options, BTCEngine
+from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, \
+     jmprint
 
 
 def add_ext_commitments(utxo_datas):

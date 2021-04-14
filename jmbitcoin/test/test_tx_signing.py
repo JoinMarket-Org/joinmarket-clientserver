@@ -2,7 +2,6 @@
 
 import pytest
 
-import binascii
 import hashlib
 from jmbase import bintohex
 import jmbitcoin as btc

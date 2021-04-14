@@ -4,7 +4,6 @@ from future.utils import iteritems
 import random
 
 from jmbase import get_log, jmprint
-from jmbase.support import lookup_appdata_folder
 from jmclient import YieldGeneratorBasic, ygmain, jm_single
 
 # This is a maker for the purposes of generating a yield from held bitcoins

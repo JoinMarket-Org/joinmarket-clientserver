@@ -18,7 +18,7 @@ from jmclient import Taker, load_program_config, get_schedule,\
     get_sendpayment_parser, get_max_cj_fee_values, check_regtest, \
     parse_payjoin_setup, send_payjoin
 from twisted.python.log import startLogging
-from jmbase.support import get_log, set_logging_level, jmprint, \
+from jmbase.support import get_log, jmprint, \
     EXIT_FAILURE, EXIT_ARGERROR, DUST_THRESHOLD
 
 import jmbitcoin as btc

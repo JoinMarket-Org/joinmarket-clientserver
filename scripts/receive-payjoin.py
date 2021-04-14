@@ -3,9 +3,8 @@
 from optparse import OptionParser
 
 import sys
-from twisted.python.log import startLogging
 from twisted.internet import reactor
-from jmbase import get_log, set_logging_level, jmprint
+from jmbase import get_log, jmprint
 from jmclient import jm_single, load_program_config, \
     WalletService, open_test_wallet_maybe, get_wallet_path, check_regtest, \
     add_base_options, JMBIP78ReceiverManager, start_reactor
