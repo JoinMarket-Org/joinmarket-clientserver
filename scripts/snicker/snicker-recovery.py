@@ -25,9 +25,9 @@ or at least, the imported keys themselves.)
 """
 
 from optparse import OptionParser
-from jmbase import bintohex, EXIT_ARGERROR, EXIT_FAILURE, jmprint
+from jmbase import bintohex, EXIT_ARGERROR, jmprint
 import jmbitcoin as btc
-from jmclient import (jm_single, add_base_options, load_program_config,
+from jmclient import (add_base_options, load_program_config,
                       check_regtest, get_wallet_path, open_test_wallet_maybe,
                       WalletService)
 from jmclient.configure import get_log

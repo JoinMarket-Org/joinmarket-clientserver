@@ -13,13 +13,11 @@
 """
 import os
 from twisted.web.server import Site
-from twisted.web.resource import Resource
 from twisted.internet import ssl
-from twisted.internet import reactor, endpoints
+from twisted.internet import reactor
 from common import make_wallets
 import pytest
 from jmbase import jmprint
-import jmbitcoin as btc
 from jmclient import load_test_config, jm_single,\
      SegwitWallet, SegwitLegacyWallet, cryptoengine, PayjoinServer
 

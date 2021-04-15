@@ -3,10 +3,9 @@ Module implementing actions that can be taken on
 network-serialized bitcoin blocks.
 """
 
-import struct
-from jmbase import hextobin, bintohex
+from jmbase import hextobin
 from bitcointx.core import CBitcoinTransaction
-from bitcointx.core.serialize import VarIntSerializer, VarBytesSerializer
+from bitcointx.core.serialize import VarIntSerializer
 
 def decode_varint(data):
     n, tail = VarIntSerializer.deserialize_partial(data)

@@ -25,7 +25,7 @@ parses the raw blocks.
 """
 
 from optparse import OptionParser
-from jmbase import bintohex, EXIT_ARGERROR, EXIT_FAILURE, jmprint
+from jmbase import bintohex, EXIT_ARGERROR, jmprint
 import jmbitcoin as btc
 from jmclient import (jm_single, add_base_options, load_program_config,
                       check_regtest)

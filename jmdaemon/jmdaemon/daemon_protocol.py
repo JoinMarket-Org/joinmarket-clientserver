@@ -11,7 +11,7 @@ from .irc import IRCMessageChannel
 
 from jmbase import (hextobin, is_hs_uri, get_tor_agent, JMHiddenService,
                     get_nontor_agent, BytesProducer, wrapped_urlparse,
-                    bintohex, bdict_sdict_convert, JMHTTPResource)
+                    bdict_sdict_convert, JMHTTPResource)
 from jmbase.commands import *
 from twisted.protocols import amp
 from twisted.internet import reactor, ssl, task

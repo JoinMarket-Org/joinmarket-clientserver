@@ -60,7 +60,7 @@ JM_GUI_VERSION = '21dev'
 
 from jmbase import get_log, stop_reactor
 from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, utxo_to_utxostr,\
-    bintohex, hextobin, JM_CORE_VERSION
+    hextobin, JM_CORE_VERSION
 import jmbitcoin as btc
 from jmclient import load_program_config, get_network, update_persist_config,\
     open_test_wallet_maybe, get_wallet_path,\
@@ -72,9 +72,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     wallet_generate_recover_bip39, wallet_display, get_utxos_enabled_disabled,\
     NO_ROUNDING, get_max_cj_fee_values, get_default_max_absolute_fee, \
     get_default_max_relative_fee, RetryableStorageError, add_base_options, \
-    BTCEngine, BTC_P2SH_P2WPKH, FidelityBondMixin, wallet_change_passphrase, \
-    parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
-    BIP78ClientProtocolFactory
+    BTCEngine, FidelityBondMixin, wallet_change_passphrase, \
+    parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
     PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\

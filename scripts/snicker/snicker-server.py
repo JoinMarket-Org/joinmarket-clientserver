@@ -33,9 +33,8 @@ import base64
 import json
 import sqlite3
 import threading
-import hashlib
 from io import BytesIO
-from jmbase import jmprint, hextobin, bintohex, verify_pow
+from jmbase import jmprint, hextobin, verify_pow
 from jmclient import process_shutdown, jm_single, load_program_config
 from jmclient.configure import get_log
 

@@ -5,7 +5,6 @@ for a Joinmarket user, although of course it may be useful
 for other reasons).
 """
 
-from pprint import pformat
 from optparse import OptionParser
 import jmbitcoin as btc
 from jmbase import (get_log, jmprint, bintohex, utxostr_to_utxo,

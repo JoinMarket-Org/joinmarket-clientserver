@@ -22,14 +22,11 @@ a *signalling* fake coinjoin, so it is better not to violate the principle.
 import sys
 import random
 from optparse import OptionParser
-from jmbase import BytesProducer, bintohex, jmprint, hextobin, \
-     EXIT_ARGERROR, EXIT_FAILURE, EXIT_SUCCESS
+from jmbase import bintohex, jmprint, EXIT_ARGERROR, EXIT_FAILURE
 import jmbitcoin as btc
-from jmclient import (RegtestBitcoinCoreInterface, process_shutdown,
-                      jm_single, load_program_config, check_regtest, select_one_utxo,
-                      estimate_tx_fee, SNICKERReceiver, add_base_options, get_wallet_path,
-                      open_test_wallet_maybe, WalletService, SNICKERClientProtocolFactory,
-                      start_reactor, JMPluginService)
+from jmclient import (jm_single, load_program_config, check_regtest,
+                      estimate_tx_fee, add_base_options, get_wallet_path,
+                      open_test_wallet_maybe, WalletService, JMPluginService)
 from jmclient.support import select_greedy, NotEnoughFundsException
 from jmclient.configure import get_log
 
