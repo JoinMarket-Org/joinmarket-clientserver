@@ -16,7 +16,8 @@ options which are common to more than one script in a base class.
 order_choose_algorithms = {
     'random_under_max_order_choose': '-R',
     'cheapest_order_choose': '-C',
-    'weighted_order_choose': '-W'
+    'weighted_order_choose': '-W',
+    'fidelity_bond_weighted_order_choose': '-F'
 }
 
 def add_base_options(parser):
@@ -90,12 +91,12 @@ def add_common_options(parser):
         '--order-choose-algorithm',
         action='callback',
         type='string',
-        default=jmclient.support.random_under_max_order_choose,
+        default=jmclient.support.fidelity_bond_weighted_order_choose,
         callback=get_order_choose_algorithm,
         help="Set the algorithm to use for selecting orders from the order book.\n"
              "Default: {}\n"
              "Available options: {}"
-             .format('random_under_max_order_choose',
+             .format('fidelity_bond_weighted_order_choose',
                      ', '.join(order_choose_algorithms.keys())),
         dest='order_choose_fn')
     add_order_choose_short_options(parser)

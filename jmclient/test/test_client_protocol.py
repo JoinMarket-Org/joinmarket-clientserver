@@ -43,7 +43,7 @@ class DummyTaker(Taker):
     def default_taker_info_callback(self, infotype, msg):
         jlog.debug(infotype + ":" + msg)
 
-    def initialize(self, orderbook):
+    def initialize(self, orderbook, fidelity_bonds_info):
         """Once the daemon is active and has returned the current orderbook,
         select offers, re-initialize variables and prepare a commitment,
         then send it to the protocol to fill offers.
@@ -184,8 +184,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, offers, fidelity_bond):
-        show_receipt("JMSETUP", role, offers, fidelity_bond)
+    def on_JM_SETUP(self, role, offers, use_fidelity_bond):
+        show_receipt("JMSETUP", role, offers, use_fidelity_bond)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -195,8 +195,10 @@ class JMTestServerProtocol(JMBaseProtocol):
         show_receipt("JMREQUESTOFFERS")
         #build a huge orderbook to test BigString Argument
         orderbook = ["aaaa" for _ in range(15)]
+        fidelitybonds = ["bbbb" for _ in range(15)]
         d = self.callRemote(JMOffers,
-                        orderbook=json.dumps(orderbook))
+                        orderbook=json.dumps(orderbook),
+                        fidelitybonds=json.dumps(fidelitybonds))
         self.defaultCallbacks(d)
         return {'accepted': True}
 

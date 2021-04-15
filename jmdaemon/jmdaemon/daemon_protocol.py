@@ -594,10 +594,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         This call is stateless."""
         rows = self.db.execute('SELECT * FROM orderbook;').fetchall()
         self.orderbook = [dict([(k, o[k]) for k in ORDER_KEYS]) for o in rows]
-        log.msg("About to send orderbook of size: " + str(len(self.orderbook)))
         string_orderbook = json.dumps(self.orderbook)
-        d = self.callRemote(JMOffers,
-                        orderbook=string_orderbook)
+
+        fbond_rows = self.db.execute("SELECT * FROM fidelitybonds;").fetchall()
+        fidelitybonds = [fb for fb in fbond_rows]
+        string_fidelitybonds = json.dumps(fidelitybonds)
+
+        log.msg("About to send orderbook (size=" + str(len(self.orderbook))
+            + " with fidelity bonds (size=" + str(len(fidelitybonds)))
+        d = self.callRemote(JMOffers, orderbook=string_orderbook,
+            fidelitybonds=string_fidelitybonds)
         self.defaultCallbacks(d)
         return {'accepted': True}
 

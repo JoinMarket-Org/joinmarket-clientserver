@@ -90,6 +90,8 @@ required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
 
 _DEFAULT_INTEREST_RATE = "0.015"
 
+_DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.125"
+
 defaultconfig = \
     """
 [DAEMON]
@@ -300,6 +302,13 @@ max_sats_freeze_reuse = -1
 # Set as a real number, i.e. 1 = 100% and 0.01 = 1%
 interest_rate = """ + _DEFAULT_INTEREST_RATE + """
 
+# Some makers run their bots to mix their funds not just to earn money
+# So to improve privacy very slightly takers dont always choose a maker based
+# on his fidelity bond but allow a certain small percentage to be chosen completely
+# randomly without taking into account fidelity bonds
+# This parameter sets how many makers on average will be chosen regardless of bonds
+# A real number, i.e. 1 = 100%, 0.125 = 1/8 = 1 in every 8 makers on average will be bondless
+bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 
 ##############################
 #THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
@@ -551,6 +560,10 @@ def is_burn_destination(destination):
 def get_interest_rate():
     return float(global_singleton.config.get('POLICY', 'interest_rate',
         fallback=_DEFAULT_INTEREST_RATE))
+
+def get_bondless_makers_allowance():
+    return float(global_singleton.config.get('POLICY', 'bondless_makers_allowance',
+        fallback=_DEFAULT_BONDLESS_MAKERS_ALLOWANCE))
 
 def remove_unwanted_default_settings(config):
     for section in config.sections():

@@ -189,7 +189,8 @@ class JMOffers(JMCommand):
     """Return the entire contents of the
     orderbook to TAKER, as a json-ified dict.
     """
-    arguments = [(b'orderbook', BigUnicode())]
+    arguments = [(b'orderbook', BigUnicode()),
+                 (b'fidelitybonds', BigUnicode())]
 
 class JMFillResponse(JMCommand):
     """Returns ioauth data from MAKER if successful.
