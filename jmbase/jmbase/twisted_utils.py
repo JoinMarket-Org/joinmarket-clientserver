@@ -2,7 +2,7 @@
 from zope.interface import implementer
 from twisted.internet.error import ReactorNotRunning
 from twisted.internet import reactor, defer
-from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.internet.endpoints import TCP4ClientEndpoint, UNIXClientEndpoint
 from twisted.web.client import Agent, BrowserLikePolicyForHTTPS
 import txtorcon
 from txtorcon.web import tor_agent

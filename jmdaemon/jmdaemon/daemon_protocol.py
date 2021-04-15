@@ -415,8 +415,8 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
 
     @SNICKERReceiverGetProposals.responder
     def on_SNICKER_RECEIVER_GET_PROPOSALS(self):
-        for server in self.servers:
-            self.getRequest(server, self.receive_proposals_from_server)
+        for srv in self.servers:
+            self.getRequest(srv, self.receive_proposals_from_server)
         return {'accepted': True}
 
     def receive_proposals_from_server(self, response, server):

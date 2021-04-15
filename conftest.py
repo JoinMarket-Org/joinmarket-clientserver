@@ -17,7 +17,7 @@ def get_bitcoind_version(version_string):
     # this utility function returns the version number
     # as a tuple in the form (major, minor, patch)
     version_tuple = re.match(
-        b'.*v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)',
+        br'.*v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)',
         version_string).groups()
     return tuple(map(lambda x: int(x), version_tuple))
 
