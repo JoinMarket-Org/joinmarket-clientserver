@@ -821,9 +821,9 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
             jmcport = start_daemon_on_port(port_a, dfactory, "Joinmarket", 0)
         # (See above) For now these other two are just on ports that are 1K offsets.
         if snickerfactory:
-            snickerport = start_daemon_on_port(port_a, sdfactory, "SNICKER", 1000)
+            snickerport = start_daemon_on_port(port_a, sdfactory, "SNICKER", 1000) - 1000
         if bip78:
-            bip78port = start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
+            start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
 
         # if the port had to be incremented due to conflict above, we should update
         # it in the config var so e.g. bip78 connections choose the port we actually
