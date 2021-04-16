@@ -1,11 +1,38 @@
 
 from zope.interface import implementer
 from twisted.internet.error import ReactorNotRunning
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twisted.internet.endpoints import TCP4ClientEndpoint
 from twisted.web.client import Agent, BrowserLikePolicyForHTTPS
 import txtorcon
 from txtorcon.web import tor_agent
+from txtorcon import TorControlProtocol, TorConfig
+
+# This removes `CONF_CHANGED` requests
+# over the Tor control port, which aren't needed for our use case.
+def patch_add_event_listener(self, evt, callback):
+    if evt not in self.valid_events.values():
+        try:
+            evt = self.valid_events[evt]
+        except KeyError:
+            raise RuntimeError("Unknown event type: " + evt)
+
+    if evt.name not in self.events and evt.name != "CONF_CHANGED":
+        self.events[evt.name] = evt
+        d = self.queue_command('SETEVENTS %s' % ' '.join(self.events.keys()))
+    else:
+        d = defer.succeed(None)
+    evt.listen(callback)
+    return d
+TorControlProtocol.add_event_listener = patch_add_event_listener
+
+# Similar to above, but more important:
+# txtorcon making too nosy requests for config data; this
+# simply prevents the request, which the package allows.
+def patch_get_defaults(self):
+    return dict()
+TorConfig._get_defaults = patch_get_defaults
+
 from twisted.web.server import Site
 from twisted.web.resource import Resource
 from twisted.web.iweb import IPolicyForHTTPS
