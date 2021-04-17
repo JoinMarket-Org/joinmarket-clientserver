@@ -24,6 +24,7 @@ keys, so as a reminder, *always* back up either jmdat wallet files,
 or at least, the imported keys themselves.)
 """
 
+import sys
 from optparse import OptionParser
 from jmbase import bintohex, EXIT_ARGERROR, jmprint
 import jmbitcoin as btc

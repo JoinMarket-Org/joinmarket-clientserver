@@ -24,6 +24,7 @@ in Bitcoin Core in order to get full transactions, since it
 parses the raw blocks.
 """
 
+import sys
 from optparse import OptionParser
 from jmbase import bintohex, EXIT_ARGERROR, jmprint
 import jmbitcoin as btc
