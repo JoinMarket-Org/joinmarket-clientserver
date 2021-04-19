@@ -695,7 +695,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
                               self.tick_forward_chain, 1)
         return ret
 
-    def get_received_by_addr(self, addresses, query_params):
+    def get_received_by_addr(self, addresses):
         # NB This will NOT return coinbase coins (but wont matter in our use
         # case). allow importaddress to fail in case the address is already
         # in the wallet

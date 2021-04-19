@@ -131,7 +131,7 @@ def test_spend_p2sh_p2wpkh_multi(setup_segwit, wallet_structure, in_amt, amount,
 
     balances = jm_single().bc_interface.get_received_by_addr(
         [nsw_wallet_service.script_to_addr(cj_script),
-         nsw_wallet_service.script_to_addr(change_script)], None)['data']
+         nsw_wallet_service.script_to_addr(change_script)])['data']
     assert balances[0]['balance'] == amount
     assert balances[1]['balance'] == change_amt
 
