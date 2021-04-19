@@ -485,16 +485,16 @@ class Taker(object):
         #we have tried to avoid this based on over-estimating the needed amount
         #in SendPayment.create_tx(), but it is still a possibility if one maker
         #uses a *lot* of inputs.
-        if self.my_change_addr and my_change_value <= 0:
-            raise ValueError("Calculated transaction fee of: " +
-                btc.amount_to_str(self.total_txfee) +
-                " is too large for our inputs; Please try again.")
-        elif self.my_change_addr and my_change_value <= jm_single(
-        ).BITCOIN_DUST_THRESHOLD:
-            jlog.info("Dynamically calculated change lower than dust: " +
-                btc.amount_to_str(my_change_value) + "; dropping.")
-            self.my_change_addr = None
-            my_change_value = 0
+        if self.my_change_addr:
+            if my_change_value < 0:
+                raise ValueError("Calculated transaction fee of: " +
+                    btc.amount_to_str(self.total_txfee) +
+                    " is too large for our inputs; Please try again.")
+            if my_change_value <= jm_single().BITCOIN_DUST_THRESHOLD:
+                jlog.info("Dynamically calculated change lower than dust: " +
+                    btc.amount_to_str(my_change_value) + "; dropping.")
+                self.my_change_addr = None
+                my_change_value = 0
         jlog.info(
             'fee breakdown for me totalin=%d my_txfee=%d makers_txfee=%d cjfee_total=%d => changevalue=%d'
             % (my_total_in, my_txfee, self.maker_txfee_contributions,
