@@ -54,16 +54,21 @@ class JsonRpc(object):
   to connect to Bitcoin.
   """
 
-    def __init__(self, host, port, user, password, wallet_file=""):
+    def __init__(self, host, port, user, password, wallet_name=""):
         self.host = host
         self.port = int(port)
         self.conn = http.client.HTTPConnection(self.host, self.port)
         self.authstr = "%s:%s" % (user, password)
-        if len(wallet_file) > 0:
-            self.url = "/wallet/" + wallet_file
+        if len(wallet_name) > 0:
+            self.url = "/wallet/" + wallet_name
         else:
             self.url = ""
         self.queryId = 1
+
+        # Check that RPC wallet is loaded. If not, try to load it.
+        loaded_wallets = self.call("listwallets", [])
+        if not wallet_name in loaded_wallets:
+            self.call("loadwallet", [wallet_name])
 
     def queryHTTP(self, obj):
         """
