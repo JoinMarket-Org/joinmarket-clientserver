@@ -9,7 +9,7 @@ import copy
 import base64
 import json
 from binascii import hexlify, unhexlify
-from datetime import datetime
+from datetime import datetime, timedelta
 from calendar import timegm
 from copy import deepcopy
 from mnemonic import Mnemonic as MnemonicParent
@@ -2231,7 +2231,9 @@ class FidelityBondMixin(object):
         """
         converts a datetime object to a time number
         """
-        dt = datetime.utcfromtimestamp(timestamp)
+        #workaround for the year 2038 problem on 32 bit systems
+        #see https://stackoverflow.com/questions/10588027/converting-timestamps-larger-than-maxint-into-datetime-objects
+        dt = datetime.utcfromtimestamp(0) + timedelta(seconds=timestamp)
         if (dt.month - cls.TIMELOCK_EPOCH_MONTH) % cls.TIMENUMBER_UNIT != 0:
             raise ValueError()
         day_and_shorter_tuple = (dt.day, dt.hour, dt.minute, dt.second, dt.microsecond)
