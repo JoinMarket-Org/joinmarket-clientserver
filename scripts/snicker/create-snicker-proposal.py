@@ -172,7 +172,8 @@ def main():
     snicker_pf = SNICKERClientProtocolFactory(snicker_client, servers)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
-                      None, snickerfactory=snicker_pf,
+                      snickerfactory=snicker_pf,
+                      jm_coinjoin=False,
                       daemon=daemon)
 
 class SNICKERPostingClient(object):
