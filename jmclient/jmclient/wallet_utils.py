@@ -633,13 +633,8 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     if not wallet_name:
         wallet_name = default_wallet_name
     wallet_path = os.path.join(walletspath, wallet_name)
-
-    # disable creating fidelity bond wallets for now until the
-    # rest of the fidelity bond feature is created
-    #support_fidelity_bonds = enter_do_support_fidelity_bonds()
-    support_fidelity_bonds = False
+    support_fidelity_bonds = enter_do_support_fidelity_bonds()
     wallet_cls = get_wallet_cls(get_configured_wallet_type(support_fidelity_bonds))
-
     wallet = create_wallet(wallet_path, password, mixdepth, wallet_cls,
                            entropy=entropy,
                            entropy_extension=mnemonic_extension)
