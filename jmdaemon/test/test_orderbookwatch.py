@@ -3,7 +3,7 @@
 import pytest
 
 from jmdaemon.orderbookwatch import OrderbookWatch
-from jmdaemon import IRCMessageChannel
+from jmdaemon import IRCMessageChannel, fidelity_bond_cmd_list
 from jmclient import get_irc_mchannels, load_test_config
 from jmdaemon.protocol import JM_VERSION, ORDER_KEYS
 from jmbase.support import hextobin
@@ -125,8 +125,6 @@ def test_disconnect_leave():
     rows = ob.db.execute('SELECT * FROM orderbook;').fetchall()
     orderbook = [dict([(k, o[k]) for k in ORDER_KEYS]) for o in rows]
     assert len(orderbook) == 0
-    
-    
 
 @pytest.mark.parametrize(
     "valid, fidelity_bond_proof, maker_nick, taker_nick",
@@ -271,15 +269,14 @@ def test_fidelity_bond_seen(valid, fidelity_bond_proof, maker_nick, taker_nick):
     except ValueError:
         parsed_proof = None
     if valid:
-        assert len(rows) == 1
-        assert rows[0]["counterparty"] == maker_nick
-        assert rows[0]["vout"] == fidelity_bond_proof["vout"]
-        assert rows[0]["locktime"] == fidelity_bond_proof["locktime"]
-        assert rows[0]["certexpiry"] == fidelity_bond_proof["certificate-expiry"]
-        assert rows[0]["txid"] == hextobin(fidelity_bond_proof["txid"])
-        assert rows[0]["utxopubkey"] == hextobin(fidelity_bond_proof["utxo-pubkey"])
+        assert parsed_proof is not None
+        assert parsed_proof.utxo[0] == hextobin(fidelity_bond_proof["txid"])
+        assert parsed_proof.utxo[1] == fidelity_bond_proof["vout"]
+        assert parsed_proof.locktime == fidelity_bond_proof["locktime"]
+        assert parsed_proof.cert_expiry == fidelity_bond_proof["certificate-expiry"]
+        assert parsed_proof.utxo_pub == hextobin(fidelity_bond_proof["utxo-pubkey"])
     else:
-        assert len(rows) == 0
+        assert parsed_proof is None
 
 def test_duplicate_fidelity_bond_rejected():
 

@@ -90,6 +90,7 @@ class DummyMaker(Maker):
         self.aborted = False
         self.wallet_service = WalletService(DummyWallet())
         self.offerlist = self.create_my_orders()
+        self.fidelity_bond = None
 
     def try_to_create_my_orders(self):
         pass
