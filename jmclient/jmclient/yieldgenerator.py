@@ -114,11 +114,14 @@ class YieldGeneratorBasic(YieldGenerator):
 
     def oid_to_order(self, offer, amount):
         total_amount = amount + offer["txfee"]
-        mix_balance = self.get_available_mixdepths()
+        real_cjfee = calc_cj_fee(offer["ordertype"], offer["cjfee"], amount)
+        required_amount = total_amount + \
+            jm_single().DUST_THRESHOLD + 1 - real_cjfee
 
+        mix_balance = self.get_available_mixdepths()
         filtered_mix_balance = {m: b
                                 for m, b in mix_balance.items()
-                                if b >= total_amount}
+                                if b >= required_amount}
         if not filtered_mix_balance:
             return None, None, None
         jlog.debug('mix depths that have enough = ' + str(filtered_mix_balance))
@@ -134,22 +137,8 @@ class YieldGeneratorBasic(YieldGenerator):
 
         change_addr = self.wallet_service.get_internal_addr(mixdepth)
 
-        utxos = self.wallet_service.select_utxos(mixdepth, total_amount,
+        utxos = self.wallet_service.select_utxos(mixdepth, required_amount,
                                         minconfs=1, includeaddr=True)
-        my_total_in = sum([va['value'] for va in utxos.values()])
-        real_cjfee = calc_cj_fee(offer["ordertype"], offer["cjfee"], amount)
-        change_value = my_total_in - amount - offer["txfee"] + real_cjfee
-        if change_value <= jm_single().DUST_THRESHOLD:
-            jlog.debug(('change value={} below dust threshold, '
-                       'finding new utxos').format(change_value))
-            try:
-                utxos = self.wallet_service.select_utxos(mixdepth,
-                    total_amount + jm_single().DUST_THRESHOLD,
-                    minconfs=1, includeaddr=True)
-            except Exception:
-                jlog.info('dont have the required UTXOs to make a '
-                          'output above the dust threshold, quitting')
-                return None, None, None
 
         return utxos, cj_addr, change_addr
 
