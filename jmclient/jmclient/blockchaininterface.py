@@ -412,8 +412,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         for estimation of feerate by Core, or a number of satoshis
         per kilo-vbyte (see `fee_per_kb_has_been_manually_set` for
         how this is distinguished).
-        In the latter case, it is prevented from falling below the
-        minimum allowed feerate for relay on the Bitcoin network.
+        In both cases it is prevented from falling below the current
+        minimum feerate for tx to be accepted into node's mempool.
         In case of failure to connect, None is returned.
         In case of failure to source a specific minimum fee relay rate
         (which is used to sanity check user's chosen fee rate), 1000
@@ -421,19 +421,27 @@ class BitcoinCoreInterface(BlockchainInterface):
         In case of failure to source a feerate estimate for targeted
         number of blocks, a default of 10000 is returned.
         """
+
+        # use the local bitcoin core minimum mempool fee as floor to avoid
+        # relay problems
+        rpc_result = self._rpc('getmempoolinfo', None)
+        if not rpc_result:
+            # in case of connection error:
+            return None
+        mempoolminfee_in_sat = btc.btc_to_sat(rpc_result['mempoolminfee'])
+        mempoolminfee_in_sat_randomized = random.uniform(
+            mempoolminfee_in_sat, mempoolminfee_in_sat * float(1.2))
+
         if super().fee_per_kb_has_been_manually_set(N):
-            # use the local bitcoin core relay fee as floor to avoid relay
-            # problems
-            rpc_result = self._rpc('getnetworkinfo', None)
-            if not rpc_result:
-                # in case of connection error:
-                return None
-            btc_relayfee = rpc_result.get('relayfee', 1000)
-            relayfee_in_sat = int(Decimal(1e8) * Decimal(btc_relayfee))
-            log.debug("Using this min relay fee as tx feerate floor: " +
-                btc.fee_per_kb_to_str(relayfee_in_sat))
-            return int(max(relayfee_in_sat, random.uniform(N * float(0.8),
-                                                           N * float(1.2))))
+            N_res = random.uniform(N * float(0.8), N * float(1.2))
+            if N_res < mempoolminfee_in_sat:
+                log.info("Using this mempool min fee as tx feerate: " +
+                    btc.fee_per_kb_to_str(mempoolminfee_in_sat) + ".")
+                return int(mempoolminfee_in_sat_randomized)
+            else:
+                log.info("Using this manually set tx feerate (randomized " +
+                    "for privacy): " + btc.fee_per_kb_to_str(N_res) + ".")
+                return int(N_res)
 
         # Special bitcoin core case: sometimes the highest priority
         # cannot be estimated in that case the 2nd highest priority
@@ -451,16 +459,25 @@ class BitcoinCoreInterface(BlockchainInterface):
             # if it is not able to make an estimate. We insist that
             # the 'feerate' key is found and contains a positive value:
             if estimate and estimate > 0:
-                retval = int(Decimal(1e8) * Decimal(estimate))
+                estimate_in_sat = btc.btc_to_sat(estimate)
+                retval = random.uniform(estimate_in_sat * float(0.8),
+                    estimate_in_sat * float(1.2))
                 break
         else:  # cannot get a valid estimate after `tries` tries:
-            log.warn("Could not source a fee estimate from Core, " +
-                     "falling back to default.")
             retval = 10000
+            log.warn("Could not source a fee estimate from Core, " +
+                     "falling back to default: " +
+                     btc.fee_per_kb_to_str(retval) + ".")
 
-        log.info("Using bitcoin network feerate: " +\
-                 btc.fee_per_kb_to_str(retval))
-        return retval
+        if retval < mempoolminfee_in_sat:
+            log.info("Using this mempool min fee as tx feerate: " +
+                btc.fee_per_kb_to_str(mempoolminfee_in_sat) + ".")
+            return int(mempoolminfee_in_sat_randomized)
+        else:
+            log.info("Using bitcoin network feerate for " + str(N) +
+                " block confirmation target (randomized for privacy): " +
+                btc.fee_per_kb_to_str(retval))
+            return int(retval)
 
     def get_current_block_height(self):
         try:

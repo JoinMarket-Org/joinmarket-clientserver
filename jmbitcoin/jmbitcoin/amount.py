@@ -60,4 +60,5 @@ def sat_to_str_p(sat):
 
 
 def fee_per_kb_to_str(feerate):
-    return str(feerate) + " sat/vkB (" + str(feerate / 1000) + " sat/vB)"
+    return (str(int(feerate)) + " sat/vkB (" +
+        '%.1f' % (int(feerate / 100) / 10) + " sat/vB)")
