@@ -45,7 +45,7 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     1. False if there is any failure.
     2. The txid if transaction is pushed, and return_transaction is False,
        and with_final_psbt is False.
-    3. The full CMutableTransaction is return_transaction is True and
+    3. The full CMutableTransaction if return_transaction is True and
        with_final_psbt is False.
     4. The PSBT object if with_final_psbt is True, and in
        this case the transaction is *NOT* broadcast.
