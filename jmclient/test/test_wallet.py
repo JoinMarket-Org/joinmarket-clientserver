@@ -11,7 +11,7 @@ from jmbase import get_log, hextobin
 from jmclient import load_test_config, jm_single, BaseWallet, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
-    SegwitWallet, WalletService, SegwitLegacyWalletFidelityBonds,\
+    SegwitWallet, WalletService, SegwitWalletFidelityBonds,\
     create_wallet, open_test_wallet_maybe, \
     FidelityBondMixin, FidelityBondWatchonlyWallet, wallet_gettimelockaddress
 from test_blockchaininterface import sync_test_wallet
@@ -243,19 +243,19 @@ def test_bip32_addresses_p2sh_p2wpkh(setup_wallet, mixdepth, internal, index, ad
     assert address == wallet.get_addr(mixdepth, internal, index)
 
 @pytest.mark.parametrize('index,timenumber,address,wif', [
-    [0, 0, 'bcrt1qndcqwedwa4lu77ryqpvp738d6p034a2fv8mufw3pw5smfcn39sgqpesn76', 'cST4g5R3mKp44K4J8PRVyys4XJu6EFavZyssq67PJKCnbhjdEdBY'],
-    [0, 50, 'bcrt1q73zhrfcu0ttkk4er9esrmvnpl6wpzhny5aly97jj9nw52agf8ncqjv8rda', 'cST4g5R3mKp44K4J8PRVyys4XJu6EFavZyssq67PJKCnbhjdEdBY'],
-    [5, 0, 'bcrt1qz5208jdm6399ja309ra28d0a34qlt0859u77uxc94v5mgk7auhtssau4pw', 'cRnUaBYTmyZURPe72YCrtvgxpBMvLKPZaCoXvKuWRPMryeJeAZx2'],
-    [9, 1, 'bcrt1qa7pd6qnadpmlm29vtvqnykalc34tr33eclaz7eeqal59n4gwr28qwnka2r', 'cQCxEPCWMwXVB16zCikDBTXMUccx6ioHQipPhYEp1euihkJUafyD']
+    [0, 0, 'bcrt1qgysu2eynn6klarz200ctgev7gqhhp7hwsdaaec3c7h0ltmc3r68q87c2d3', 'cVASAS6bpC5yctGmnsKaDz7D8CxEwccUtpjSNBQzeV2fw8ox8RR9'],
+    [0, 50, 'bcrt1qyrdhyqzj87vq20e853x7gzhx9lp8ta6cd8mwp8haqex8r4vrg2wsf7rcxm', 'cVASAS6bpC5yctGmnsKaDz7D8CxEwccUtpjSNBQzeV2fw8ox8RR9'],
+    [5, 0, 'bcrt1quunmmsudhpsuksa2ke8m6aj7757mst966mqq50nckx9wdrs4y6fs9gjuww', 'cUgT5jRjYi6i8Fc7TirJrrvhbs7ceSqJ6USKboVrLYghJKDzEQHQ'],
+    [9, 1, 'bcrt1qvpgmrn5a7yc0h2j6fp8jhtwzd8eetlt7hsu3cn098qftzp4t2h6sp5p35p', 'cW7H2pv6Rr5NWaTAnDC6r7bviHwDsAwyqh4XdZTE4xf2H2DB2hmb']
 ])
 def test_bip32_timelocked_addresses(setup_wallet, index, timenumber, address, wif):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
 
     entropy = unhexlify('2e0339ba89b4a1272cdf78b27ee62669ee01992a59e836e2807051be128ca817')
     storage = VolatileStorage()
-    SegwitLegacyWalletFidelityBonds.initialize(
+    SegwitWalletFidelityBonds.initialize(
         storage, get_network(), entropy=entropy, max_mixdepth=1)
-    wallet = SegwitLegacyWalletFidelityBonds(storage)
+    wallet = SegwitWalletFidelityBonds(storage)
     mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
 
@@ -274,8 +274,8 @@ def test_bip32_timelocked_addresses(setup_wallet, index, timenumber, address, wi
 ])
 def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
     storage = VolatileStorage()
-    SegwitLegacyWalletFidelityBonds.initialize(storage, get_network())
-    wallet = SegwitLegacyWalletFidelityBonds(storage)
+    SegwitWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitWalletFidelityBonds(storage)
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
@@ -289,18 +289,18 @@ def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
     assert addr == addr_from_method
 
 @pytest.mark.parametrize('index,wif', [
-    [0, 'cMg9eH3fW2JDSyggvXucjmECRwiheCMDo2Qik8y1keeYaxynzrYa'],
-    [9, 'cURA1Qgxhd7QnhhwxCnCHD4pZddVrJdu2BkTdzNaTp9owRSkUvPy'],
-    [50, 'cRTaHZ1eezb8s6xsT2V7EAevYToQMi7cxQD9vgFZzaJZDfhMhf3c']
+    [0, 'cVQbz7DB5JQ1TGsg9Dbm32VtJbXBHaj39Yc9QLkaGpRgXcibHTDH'],
+    [9, 'cULqe2sYZ4z8jZTGybr2Bzf4EyiT5Ts6wAE3mvCUofRuTVsofR8N'],
+    [50, 'cQNp7cQbrwjWuxmbkZF8ax9ogmTuWp3Ykb9LEpainhRTJXYc8Deu']
 ])
 def test_bip32_burn_keys(setup_wallet, index, wif):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
 
     entropy = unhexlify('2e0339ba89b4a1272cdf78b27ee62669ee01992a59e836e2807051be128ca817')
     storage = VolatileStorage()
-    SegwitLegacyWalletFidelityBonds.initialize(
+    SegwitWalletFidelityBonds.initialize(
         storage, get_network(), entropy=entropy, max_mixdepth=1)
-    wallet = SegwitLegacyWalletFidelityBonds(storage)
+    wallet = SegwitWalletFidelityBonds(storage)
     mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_BURN_ID
 
@@ -402,8 +402,8 @@ def test_timelocked_output_signing(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
     ensure_bip65_activated()
     storage = VolatileStorage()
-    SegwitLegacyWalletFidelityBonds.initialize(storage, get_network())
-    wallet = SegwitLegacyWalletFidelityBonds(storage)
+    SegwitWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitWalletFidelityBonds(storage)
 
     index = 0
     timenumber = 0
@@ -787,14 +787,14 @@ def test_wallet_mixdepth_decrease(setup_wallet):
 def test_watchonly_wallet(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
     storage = VolatileStorage()
-    SegwitLegacyWalletFidelityBonds.initialize(storage, get_network())
-    wallet = SegwitLegacyWalletFidelityBonds(storage)
+    SegwitWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitWalletFidelityBonds(storage)
 
     paths = [
-        "m/49'/1'/0'/0/0",
-        "m/49'/1'/0'/1/0",
-        "m/49'/1'/0'/2/0:1577836800",
-        "m/49'/1'/0'/2/0:2314051200"
+        "m/84'/1'/0'/0/0",
+        "m/84'/1'/0'/1/0",
+        "m/84'/1'/0'/2/0:1577836800",
+        "m/84'/1'/0'/2/0:2314051200"
     ]
     burn_path = "m/49'/1'/0'/3/0"
 

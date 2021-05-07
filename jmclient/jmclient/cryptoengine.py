@@ -12,8 +12,8 @@ from .configure import get_network, jm_single
 #with fidelity bond wallets and watchonly fidelity bond wallet, the wallet class
 # can have two engines, one for single-sig addresses and the other for timelocked addresses
 TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N, TYPE_TIMELOCK_P2WSH, \
-    TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS, TYPE_WATCHONLY_FIDELITY_BONDS, \
-    TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2SH_P2WPKH = range(9)
+    TYPE_SEGWIT_WALLET_FIDELITY_BONDS, TYPE_WATCHONLY_FIDELITY_BONDS, \
+    TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH = range(9)
 NET_MAINNET, NET_TESTNET, NET_SIGNET = range(3)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET,
     'signet': NET_SIGNET}
@@ -407,7 +407,7 @@ class BTC_Watchonly_Timelocked_P2WSH(BTC_Timelocked_P2WSH):
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         raise RuntimeError("Cannot spend from watch-only wallets")
 
-class BTC_Watchonly_P2SH_P2WPKH(BTC_P2SH_P2WPKH):
+class BTC_Watchonly_P2WPKH(BTC_P2WPKH):
 
     @classmethod
     def derive_bip32_privkey(cls, master_key, path):
@@ -426,7 +426,7 @@ class BTC_Watchonly_P2SH_P2WPKH(BTC_P2SH_P2WPKH):
 
     @classmethod
     def derive_bip32_pub_export(cls, master_key, path):
-        return super(BTC_Watchonly_P2SH_P2WPKH, cls).derive_bip32_pub_export(
+        return super(BTC_Watchonly_P2WPKH, cls).derive_bip32_pub_export(
             master_key, BTC_Watchonly_Timelocked_P2WSH.get_watchonly_path(path))
 
     @classmethod
@@ -440,5 +440,5 @@ ENGINES = {
     TYPE_P2WPKH: BTC_P2WPKH,
     TYPE_TIMELOCK_P2WSH: BTC_Timelocked_P2WSH,
     TYPE_WATCHONLY_TIMELOCK_P2WSH: BTC_Watchonly_Timelocked_P2WSH,
-    TYPE_WATCHONLY_P2SH_P2WPKH: BTC_Watchonly_P2SH_P2WPKH
+    TYPE_WATCHONLY_P2WPKH: BTC_Watchonly_P2WPKH
 }

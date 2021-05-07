@@ -25,8 +25,8 @@ from .blockchaininterface import INF_HEIGHT
 from .support import select_gradual, select_greedy, select_greediest, \
     select
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
-    TYPE_P2WPKH, TYPE_TIMELOCK_P2WSH, TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS,\
-    TYPE_WATCHONLY_FIDELITY_BONDS, TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2SH_P2WPKH,\
+    TYPE_P2WPKH, TYPE_TIMELOCK_P2WSH, TYPE_SEGWIT_WALLET_FIDELITY_BONDS,\
+    TYPE_WATCHONLY_FIDELITY_BONDS, TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH,\
     ENGINES
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
@@ -405,10 +405,10 @@ class BaseWallet(object):
         """
         if self.TYPE == TYPE_P2PKH:
             return 'p2pkh'
-        elif self.TYPE in (TYPE_P2SH_P2WPKH,
-                TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS):
+        elif self.TYPE == TYPE_P2SH_P2WPKH:
             return 'p2sh-p2wpkh'
-        elif self.TYPE == TYPE_P2WPKH:
+        elif self.TYPE in (TYPE_P2WPKH,
+                TYPE_SEGWIT_WALLET_FIDELITY_BONDS):
             return 'p2wpkh'
         assert False
 
@@ -2414,13 +2414,13 @@ class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, S
 class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, SNICKERWalletMixin, BIP84Wallet):
     TYPE = TYPE_P2WPKH
 
-class SegwitLegacyWalletFidelityBonds(FidelityBondMixin, SegwitLegacyWallet):
-    TYPE = TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
+class SegwitWalletFidelityBonds(FidelityBondMixin, SegwitWallet):
+    TYPE = TYPE_SEGWIT_WALLET_FIDELITY_BONDS
 
 
-class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP49Wallet):
+class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP84Wallet):
     TYPE = TYPE_WATCHONLY_FIDELITY_BONDS
-    _ENGINE = ENGINES[TYPE_WATCHONLY_P2SH_P2WPKH]
+    _ENGINE = ENGINES[TYPE_WATCHONLY_P2WPKH]
     _TIMELOCK_ENGINE = ENGINES[TYPE_WATCHONLY_TIMELOCK_P2WSH]
 
     @classmethod
@@ -2440,6 +2440,6 @@ WALLET_IMPLEMENTATIONS = {
     LegacyWallet.TYPE: LegacyWallet,
     SegwitLegacyWallet.TYPE: SegwitLegacyWallet,
     SegwitWallet.TYPE: SegwitWallet,
-    SegwitLegacyWalletFidelityBonds.TYPE: SegwitLegacyWalletFidelityBonds,
+    SegwitWalletFidelityBonds.TYPE: SegwitWalletFidelityBonds,
     FidelityBondWatchonlyWallet.TYPE: FidelityBondWatchonlyWallet
 }

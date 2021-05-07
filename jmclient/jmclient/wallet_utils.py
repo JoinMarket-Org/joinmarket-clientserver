@@ -21,7 +21,7 @@ from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
                             IndentedHelpFormatterWithNL)
 
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
-    TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
+    TYPE_SEGWIT_WALLET_FIDELITY_BONDS
 from .output import fmt_utxo
 import jmbitcoin as btc
 
@@ -1296,8 +1296,8 @@ def get_configured_wallet_type(support_fidelity_bonds):
     if not support_fidelity_bonds:
         return configured_type
 
-    if configured_type == TYPE_P2SH_P2WPKH:
-        return TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
+    if configured_type == TYPE_P2WPKH:
+        return TYPE_SEGWIT_WALLET_FIDELITY_BONDS
     else:
         raise ValueError("Fidelity bonds not supported with the configured "
             "options of segwit and native. Edit joinmarket.cfg")
