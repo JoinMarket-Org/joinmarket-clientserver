@@ -629,7 +629,7 @@ def test_path_repr_imported(setup_wallet):
     [0, 1577836800],
     [50, 1709251200],
     [300, 2366841600],
-    [400, None], #too far in the future
+    [1000, None], #too far in the future
     [-1, None] #before epoch
 ])
 def test_timenumber_to_timestamp(setup_wallet, timenumber, timestamp):
@@ -646,7 +646,7 @@ def test_timenumber_to_timestamp(setup_wallet, timenumber, timestamp):
     [1709251200, 50],
     [2366841600, 300],
     [1577836801, None], #not exactly midnight on first of month
-    [2629670400, None], #too far in future
+    [4133980800, None], #too far in future
     [1575158400, None] #before epoch
 ])
 def test_timestamp_to_timenumber(setup_wallet, timestamp, timenumber):
