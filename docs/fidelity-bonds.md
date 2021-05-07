@@ -3,8 +3,6 @@
 Fidelity bonds are a feature of JoinMarket which improves the resistance to
 sybil attacks, and therefore improves the privacy of the system.
 
-## This feature is incomplete and so is disabled for now
-
 A fidelity bond is a mechanism where bitcoin value is deliberately sacrificed
 to make a cryptographic identity expensive to obtain. The sacrifice is done in
 a way that can be proven to a third party. Takers in JoinMarket will
@@ -22,12 +20,8 @@ long-term holder (or hodler) of bitcoins can buy time-locked fidelity bonds
 essentially for free, assuming they never intended to transact with their coins
 anyway.
 
-Another way to create fidelity bonds is to destroy coins by sending them to a
-[OP_RETURN](https://en.bitcoin.it/wiki/Script#Provably_Unspendable.2FPrunable_Outputs)
-output.
-
 The private keys to fidelity bonds can be kept in [cold storage](https://en.bitcoin.it/wiki/Cold_storage)
-for added security.
+for added security. (Note: not implemented in JoinMarket)
 
 For a more detailed explanation of how fidelity bonds work see these documents:
 
@@ -36,11 +30,35 @@ bonds](https://gist.github.com/chris-belcher/18ea0e6acdb885a2bfbdee43dcd6b5af/)
 
 * [Financial mathematics of JoinMarket fidelity bonds](https://gist.github.com/chris-belcher/87ebbcbb639686057a389acb9ab3e25b)
 
-#### Note on privacy
+## How to use fidelity bonds as a taker
 
-Bitcoin outputs which create fidelity bonds will be published to the entire
-world, so before and after creating them make sure the outputs are not linked
-to your identity in any way. Perhaps mix with JoinMarket before and after.
+In JoinMarket version v0.9 or later takers will by default use fidelity bonds
+without any input needed from the user.
+
+The orderbook watcher script now displays information about any fidelity bonds
+advertised by makers, as well as calculating how strong the system is against
+hypothetical sybil attackers.
+
+Some makers with high-valued fidelity bonds may choose to ask for a high coinjoin fee, so
+for the strongest protection from sybil attacks make sure to set your maximum coinjoin fee
+high enough (or if you think the sybil protection is too expensive then set the max fee
+lower, as always its your choice as a taker in the market).
+
+Takers will still choose makers equally (i.e. without taking into account fidelity bonds) with a
+small probability. By default this probability is 12.5%, so approximately 1-in-8 makers. This can
+be changed in the config file with the option `bondless_makers_allowance`.
+
+The previous algorithm for choosing makers without regards to fidelity bonds can still be used by
+passing the relevant CLI option when running a script (for example
+`python3 sendpayment.py -R wallet.jmdat <amount> <address>`). As always use `--help` to get a full
+list of options.
+
+
+## How to use fidelity bonds as a yield-generator
+
+You need to create a fidelity bond wallet and run the yield-generator script on it. The yield
+generator will automatically announce the most valuable fidelity bond in its wallet. Fidelity bonds
+are only supported for native segwit wallets.
 
 ### Creating a JoinMarket wallet which supports fidelity bonds
 
@@ -56,7 +74,7 @@ will offer an option to make the wallet support fidelity bonds.
     Would you like this wallet to support fidelity bonds? write 'n' if you don't know what this is (y/n): y
     Write down this wallet recovery mnemonic
 
-    evidence initial knee image inspire plug dad midnight blast awkward clean between
+    use amateur twelve unfair weekend file canal frog cotton play renew illegal
 
     Generated wallet OK
 
@@ -65,6 +83,27 @@ as a backup. It is also recommended to write down the name of the creating walle
 "JoinMarket" and that the fidelity bond option was enabled. Writing the wallet
 creation date is also useful as it can help with rescanning.
 
+#### Adding fidelity bonds to an existing wallet
+
+On any **native segwit** wallet this can be done by using the `recover` method:
+
+    (jmvenv) $ python3 wallet-tool.py recover
+
+And then choosing `yes` to create a fidelity bond wallet.
+
+#### Note on privacy
+
+Bitcoin transactions which create fidelity bonds will be published to the entire world, so before
+creating them make sure the coins are not linked to any of your privacy-relevant information.
+Perhaps mix with JoinMarket. Also, use a sweep transaction which does not create a change output
+when funding the timelocked address. Change addresses can also leak privacy information and the
+best way to avoid that is to not create change outputs at all i.e. use only sweep transactions.
+
+Once the timelocked addresses expire and become spendable, make sure you don't leak any information
+then either, mix afterwards as well. If your timelocked address expires and you want to send the
+coins to another timelocked address then you don't need to mix in between, because no
+privacy-relevant information linked to you has been leaked.
+
 ### Obtaining time-locked addresses
 
 The `wallet-tool.py` script supports a new method `gettimelockaddress` used for
@@ -72,13 +111,14 @@ obtaining time-locked addresses. If coins are sent to these addresses they will
 be locked up until the timelock date passes. Only mixdepth zero can have
 fidelity bonds in it.
 
-This example creates an address which locks any coins sent to it until April 2020.
+This example creates an address which locks any coins sent to it until January 2025.
 
-    (jmvenv) $ python3 wallet-tool.py testfidelity.jmdat gettimelockaddress 2020-4
+    (jmvenv) $ python3 wallet-tool.py testfidelity.jmdat gettimelockaddress 2025-1
     Enter wallet decryption passphrase: 
-    path = m/49'/1'/0'/2/3:1585699200
-    Coins sent to this address will be not be spendable until April 2020. Full date: 2020-04-01 00:00:00
-    bcrt1qrc2qu3m2l2spayu5kr0k0rnn9xgjz46zsxmruh87a3h3f5zmnkaqlfx7v5
+    path = m/84'/1'/0'/2/0:1748736000
+    Coins sent to this address will be not be spendable until June 2025. Full date: 2025-06-01 00:00:00
+    bcrt1qvcjcggpcw2rzk4sks94r3nxj5xhgkqm4p9h54c7mtr695se27efqqxnu0k
+
 
 If coins are sent to these addresses they will appear in the usual `wallet-tool.py`
 display:
@@ -86,21 +126,24 @@ display:
     (jmvenv) $ python3 wallet-tool.py -m 0 testfidelity.jmdat
     Enter wallet decryption passphrase: 
     JM wallet
-    mixdepth    0   fbonds-mpk-tpubDDCbCPdf5wJVGYWB4mZr3E3Lys4NBcEKysrrUrLfhG6sekmrvs6KZNe4i5p5z3FyfwRmKMqB9NWEcEUiTS4LwqfrKPQzhKj6aLihu2EejaU
-    external addresses  m/49'/1'/0'/0   tpubDEGdmPwmQRcZmGKhaudjch9Fgw4J5yP4bYw5B8LoSDkMdmhBxM4ndEQXHK4r1TPexGjLidxdpeEzsJcdXEe7khWToxCZuN6JiLzvUoHAki2
-    m/49'/1'/0'/0/0         2N8jHuQaApgFtQ8UKxKbREAvNxKn4BGX4x2 0.00000000  new
-    m/49'/1'/0'/0/1         2Mx5CwDoNcuCT38EDmgenQxv9skHbZfXFdo 0.00000000  new
-    m/49'/1'/0'/0/2         2N1tNTTwNyucGGmfDWNVk3AUi3i5S8jVKqn 0.00000000  new
-    m/49'/1'/0'/0/3         2N8eBEU5wpWb6kS1gvbRgewtxsmXsMkShV6 0.00000000  new
-    m/49'/1'/0'/0/4         2MuHgeSgMsvkcn6aGNW2uk2UXP3xVVnkfh2 0.00000000  new
-    m/49'/1'/0'/0/5         2NA8d8um5KmBNNR8dadhbEDYGiTJPFCdjMB 0.00000000  new
+    mixdepth    0   fbonds-mpk-tpubDCv7SSisuV4AqNgRqHcXFAeCjV9Z5SPZgSVFjzydEZrS5Jg1uCkv4wGfMZc3wEaiC2hkEfbD753u4R6Shpgj8bR1kuKnEciB522kSpQ3j1v
+    external addresses  m/84'/1'/0'/0   tpubDEdbDAFbNCXXN54M2qgzHBJYxkHK9hoeisyRsC2gC3WZuxziU5RkcJWgpw7nJqugPx26Ui9c2AqCy9gwZpgTtL1GW1TuPtKRX2SdrrjBY2W
+    m/84'/1'/0'/0/0         bcrt1qwmj5yht2xxr3juxczt453uqjltc3xdyklkjnjt    2.00000000  used
+    m/84'/1'/0'/0/1         bcrt1q99nzc6s8fh37rjju8gfws4dcfhrpcfz0jst829    0.00000000  new
+    m/84'/1'/0'/0/2         bcrt1ql3fxzq2ueyhm8kwy7du6nsv7fgpvujupd2emms    0.00000000  new
+    m/84'/1'/0'/0/3         bcrt1qgxr5mh8v4dj8kuqv98ckjzqdmzd4xjcn539nc6    0.00000000  new
+    m/84'/1'/0'/0/4         bcrt1qhyhwzkh60p26pk2v008ejqhcl8g70h5vuw2fn6    0.00000000  new
+    m/84'/1'/0'/0/5         bcrt1q9xuzrqql028wpj3933zyny6geg2u75rhaygv6z    0.00000000  new
+    m/84'/1'/0'/0/6         bcrt1q8w7ewzl4q8mwxx7erf7pjq36z5g088jxzqjdcn    0.00000000  new
+    Balance:    2.00000000
+    internal addresses  m/84'/1'/0'/1
     Balance:    0.00000000
-    internal addresses  m/49'/1'/0'/1   
+    internal addresses  m/84'/1'/0'/2   tpubDEdbDAFbNCXXSFfUKS5QAaxN9toxv8pFSn3TxRdhEij46wj88RCch7ZBA2fgqsocD7MZqowVAdm6LyYumKuKZbzT4V2CfudwDicrMnqqbjC
+    m/84'/1'/0'/2/0:1748736000  bcrt1qvcjcggpcw2rzk4sks94r3nxj5xhgkqm4p9h54c7mtr695se27efqqxnu0k    2.00000000  2025-06-01 [LOCKED]
+    Balance:    2.00000000
+    internal addresses  m/84'/1'/0'/3   tpubDEdbDAFbNCXXUpShWMdtPMDcAogMyZJVAzMMn3wM9rC364sdeUuFMS7ZmdjoMbkf14jeK56uy95UBR2SA9AFFeoVv4j4CqMeaq1tcuBVkZe
     Balance:    0.00000000
-    internal addresses  m/49'/1'/0'/2   tpubDEGdmPwmQRcZrzjRmUFqXXyLdRedwxCWQviAFqDe6sXJeZzRNTwmwqMfxN6Ka3v7hEebstrU5kqUNoHsFKaA3RoB2vopL6kLHVo1EQq6USw
-    m/49'/1'/0'/2/0:1585699200  bcrt1qrc2qu3m2l2spayu5kr0k0rnn9xgjz46zsxmruh87a3h3f5zmnkaqlfx7v5    0.15000000  2020-04-01 [LOCKED]
-    Balance:    0.15000000
-    Balance for mixdepth 0: 0.15000000
+    Balance for mixdepth 0: 4.00000000
 
 #### Spending time-locked coins
 
@@ -111,9 +154,116 @@ JoinMarket's coin control feature, so before spending you need to unfreeze the
 coins using `python3 wallet-tool.py <walletname> -m 0 freeze`.
 
 Once unfrozen and untimelocked the coins can be spent normally with the scripts
-`sendpayment.py`, `tumber.py`, or yield generator.
+`sendpayment.py`, `tumber.py`, or yield generator. NB You cannot export the private keys (which is
+always disadvised, anyway) of timelocked addresses to any other wallets, as they use custom scripts.
+You must spend them from JoinMarket itself.
+
+### How many coins to lock up and for how long?
+
+Fidelity bonds UTXOs are valuable as soon as they confirmed. The simplified formula for a fidelity
+bond value with locked coins is:
+
+    bond_value = (locked_coins * exp(interest_rate * locktime))^2
+
+A few important things to notice:
+* The bond value goes as the _square_ of sacrificed value. For example if your sacrificed value is
+5 BTC then the fidelity bond value is 25 (because 5 x 5 = 25). If instead you sacrificed 6 BTC the
+value is 36 (because 6 x 6 = 36). The point of this is to create an incentive for makers to lump
+all their coins into just one bot rather than spreading it over many bots. It makes a sybil attack
+much more expensive.
+* The longer you lock for the greater the value. The value increases as the `interest_rate`, which
+is configurable in the config file with the option `interest_rate`. By default it is 1.5% per
+annum and because of tyranny-of-the-default takers are unlikely to change it. This value is probably
+not too far from the "real" interest rate, and the system still works fine even if the real rate
+is something like 3% or 0.1%.
+* The above formula would suggest that if you lock 3 BTC for 10000 years you get a fidelity
+bond worth `1.7481837557171304e+131` (17 followed by 130 zeros). This does not happen because the
+sacrificed value is capped at the value of the burned coins. So in this example the fidelity bond
+value would be just 9 (equal to 3x3 or 3 squared). This feature is not included in the above
+simplified equation.
+* After the locktime expires and the coins are free to move, the fidelity bond will continue to be
+valuable, but its value will exponentially drop following the interest rate. So it would be good
+for you as a yield generator to create a transaction with the UTXO spending it to another
+time-locked address, but it's not a huge rush (specifically, there's likely no need to pay massive
+miner fees, you can probably wait until fees are low).
+
+The full details on valuing a time-locked fidelity bond are [found in the relevant section of the
+"Financial mathematics of fidelity bonds" document](https://gist.github.com/chris-belcher/87ebbcbb639686057a389acb9ab3e25b#time-locked-fidelity-bonds).
+
+At any time you can use the orderbook watcher script to see your own fidelity bond value.
+
+Consider also the [warning on the bitcoin wiki page on timelocks](https://en.bitcoin.it/wiki/Timelock#Far-future_locks).
+
+I would recommend locking as many coins as you are comfortable with for a period of between 6
+months and 2 years. Perhaps at the very start lock for only 1 month or 2 months(?) It's a
+marketplace and the rules are known to all, so ultimately you'll have to make your own decision.
+
+### Can I add coins to a fidelity bond that already exists?
+
+No. Sending more coins to the same timelocked address will not add to the existing fidelity bond,
+but instead create a new one with the same locktime.
+
+### Creating watch-only fidelity bond wallets
+
+#### Note: Fidelity bond in cold storage cannot be advertised to takers right now. You can create watch-only fidelity bond wallets but cant advertise them yet. This feature is pretty easy to add though, and can be done without changing the JoinMarket protocol.
+
+Fidelity bonds can be held on an offline computer in
+[cold storage](https://en.bitcoin.it/wiki/Cold_storage). To do this we create
+a watch-only fidelity bond wallet.
+
+When fidelity bonds are displayed in `wallet-tool.py`, their master public key
+is highlighted with a prefix `fbonds-mpk-`.
+
+This master public key can be used to create a watch-only wallet using
+`wallet-tool.py`.
+
+    $ python3 wallet-tool.py createwatchonly fbonds-mpk-tpubDDCbCPdf5wJVGYWB4mZr3E3Lys4NBcEKysrrUrLfhG6sekmrvs6KZNe4i5p5z3FyfwRmKMqB9NWEcEUiTS4LwqfrKPQzhKj6aLihu2EejaU
+    Input wallet file name (default: watchonly.jmdat): watchfidelity.jmdat
+    Enter wallet file encryption passphrase: 
+    Reenter wallet file encryption passphrase: 
+    Done
+
+Then the wallet can be displayed like a regular wallet, although only the zeroth
+mixdepth will be shown.
+
+    $ python3 wallet-tool.py watchfidelity.jmdat
+    User data location: .
+    Enter wallet decryption passphrase: 
+    JM wallet
+    mixdepth    0   fbonds-mpk-tpubDCv7SSisuV4AqNgRqHcXFAeCjV9Z5SPZgSVFjzydEZrS5Jg1uCkv4wGfMZc3wEaiC2hkEfbD753u4R6Shpgj8bR1kuKnEciB522kSpQ3j1v
+    external addresses  m/84'/1'/0'/0   tpubDEdbDAFbNCXXN54M2qgzHBJYxkHK9hoeisyRsC2gC3WZuxziU5RkcJWgpw7nJqugPx26Ui9c2AqCy9gwZpgTtL1GW1TuPtKRX2SdrrjBY2W
+    m/84'/1'/0'/0/0         bcrt1qwmj5yht2xxr3juxczt453uqjltc3xdyklkjnjt    2.00000000  used
+    m/84'/1'/0'/0/1         bcrt1q99nzc6s8fh37rjju8gfws4dcfhrpcfz0jst829    0.00000000  new
+    m/84'/1'/0'/0/2         bcrt1ql3fxzq2ueyhm8kwy7du6nsv7fgpvujupd2emms    0.00000000  new
+    m/84'/1'/0'/0/3         bcrt1qgxr5mh8v4dj8kuqv98ckjzqdmzd4xjcn539nc6    0.00000000  new
+    m/84'/1'/0'/0/4         bcrt1qhyhwzkh60p26pk2v008ejqhcl8g70h5vuw2fn6    0.00000000  new
+    m/84'/1'/0'/0/5         bcrt1q9xuzrqql028wpj3933zyny6geg2u75rhaygv6z    0.00000000  new
+    m/84'/1'/0'/0/6         bcrt1q8w7ewzl4q8mwxx7erf7pjq36z5g088jxzqjdcn    0.00000000  new
+    Balance:    2.00000000
+    internal addresses  m/84'/1'/0'/1
+    Balance:    0.00000000
+    internal addresses  m/84'/1'/0'/2   tpubDEdbDAFbNCXXSFfUKS5QAaxN9toxv8pFSn3TxRdhEij46wj88RCch7ZBA2fgqsocD7MZqowVAdm6LyYumKuKZbzT4V2CfudwDicrMnqqbjC
+    m/84'/1'/0'/2/0:1748736000  bcrt1qvcjcggpcw2rzk4sks94r3nxj5xhgkqm4p9h54c7mtr695se27efqqxnu0k    2.00000000  2025-06-01 [LOCKED]
+    Balance:    2.00000000
+    internal addresses  m/84'/1'/0'/3   tpubDEdbDAFbNCXXUpShWMdtPMDcAogMyZJVAzMMn3wM9rC364sdeUuFMS7ZmdjoMbkf14jeK56uy95UBR2SA9AFFeoVv4j4CqMeaq1tcuBVkZe
+    Balance:    0.00000000
+    Balance for mixdepth 0: 4.00000000
+
+### BIP32 Paths
+
+Fidelity bond wallets extend the BIP32 path format to include the locktime
+values. In this example we've got `m/49'/1'/0'/2/0:1583020800` where the
+number after the colon is the locktime value in Unix time.
+
+This path can be passed to certain wallet methods like `dumpprivkey`.
+
+    $ python3 wallet-tool.py -H "m/49'/1'/0'/2/0:1583020800" testfidelity.jmdat dumpprivkey
+    Enter wallet decryption passphrase: 
+    cNEuE5ypNTxVFCyC5iH7u5AQTrddamcUHRPNweiLvmHUWd6XXDkz
 
 ### Burning coins
+
+#### Note: There is no point using this feature. Fidelity bonds in JoinMarket cannot be created by burning coins right now. This feature is here only for historical reasons. 
 
 Coins can be burned with a special method of the `sendpayment.py` script. Set
 the destination to be `BURN`. Transactions which burn coins must only have one
@@ -209,60 +359,4 @@ Then add it to the JoinMarket wallet:
 The `-H` flag must point to the path containing the burn output.
 
 Then synchronizing the wallet won't output the no-merkle-proof warning.
-
-### Creating watch-only fidelity bond wallets
-
-Fidelity bonds can be held on an offline computer in
-[cold storage](https://en.bitcoin.it/wiki/Cold_storage). To do this we create
-a watch-only fidelity bond wallet.
-
-When fidelity bonds are displayed in `wallet-tool.py`, their master public key
-is highlighted with a prefix `fbonds-mpk-`.
-
-This master public key can be used to create a watch-only wallet using
-`wallet-tool.py`.
-
-    $ python3 wallet-tool.py createwatchonly fbonds-mpk-tpubDDCbCPdf5wJVGYWB4mZr3E3Lys4NBcEKysrrUrLfhG6sekmrvs6KZNe4i5p5z3FyfwRmKMqB9NWEcEUiTS4LwqfrKPQzhKj6aLihu2EejaU
-    Input wallet file name (default: watchonly.jmdat): watchfidelity.jmdat
-    Enter wallet file encryption passphrase: 
-    Reenter wallet file encryption passphrase: 
-    Done
-
-Then the wallet can be displayed like a regular wallet, although only the zeroth
-mixdepth will be shown.
-
-    $ python3 wallet-tool.py watchfidelity.jmdat
-    User data location: .
-    Enter wallet decryption passphrase: 
-    JM wallet
-    mixdepth    0   fbonds-mpk-tpubDDCbCPdf5wJVGYWB4mZr3E3Lys4NBcEKysrrUrLfhG6sekmrvs6KZNe4i5p5z3FyfwRmKMqB9NWEcEUiTS4LwqfrKPQzhKj6aLihu2EejaU
-    external addresses  m/49'/1'/0'/0   tpubDEGdmPwmQRcZmGKhaudjch9Fgw4J5yP4bYw5B8LoSDkMdmhBxM4ndEQXHK4r1TPexGjLidxdpeEzsJcdXEe7khWToxCZuN6JiLzvUoHAki2
-    m/49'/1'/0'/0/0         2N8jHuQaApgFtQ8UKxKbREAvNxKn4BGX4x2 0.00000000  used
-    m/49'/1'/0'/0/1         2Mx5CwDoNcuCT38EDmgenQxv9skHbZfXFdo 0.00000000  new
-    m/49'/1'/0'/0/2         2N1tNTTwNyucGGmfDWNVk3AUi3i5S8jVKqn 0.00000000  new
-    m/49'/1'/0'/0/3         2N8eBEU5wpWb6kS1gvbRgewtxsmXsMkShV6 0.00000000  new
-    m/49'/1'/0'/0/4         2MuHgeSgMsvkcn6aGNW2uk2UXP3xVVnkfh2 0.00000000  new
-    m/49'/1'/0'/0/5         2NA8d8um5KmBNNR8dadhbEDYGiTJPFCdjMB 0.00000000  new
-    m/49'/1'/0'/0/6         2NG76BAHPccfyy6sH68EHrB9QJBycx3FKb6 0.00000000  new
-    Balance:    0.25000000
-    internal addresses  m/49'/1'/0'/1
-    Balance:    0.00000000
-    internal addresses  m/49'/1'/0'/2   tpubDEGdmPwmQRcZrzjRmUFqXXyLdRedwxCWQviAFqDe6sXJeZzRNTwmwqMfxN6Ka3v7hEebstrU5kqUNoHsFKaA3RoB2vopL6kLHVo1EQq6USw
-    m/49'/1'/0'/0/3:1585699200  bcrt1qrc2qu3m2l2spayu5kr0k0rnn9xgjz46zsxmruh87a3h3f5zmnkaqlfx7v5    0.15000000  2020-04-01 [UNLOCKED]
-    Balance:    0.15000000
-    internal addresses  m/49'/1'/0'/3   tpubDEGdmPwmQRcZuX3uNrCouu5bRgp2GJcoQTvhkFAJMTA3yxhKmQyeGwecbnkms4DYmBhCJn2fGTuejTe3g8oyJW3qKcfB4b3Swj2hDk1h4Y2
-    Balance:    0.00000000
-    Balance for mixdepth 0: 0.15000000
-
-### BIP32 Paths
-
-Fidelity bond wallets extend the BIP32 path format to include the locktime
-values. In this example we've got `m/49'/1'/0'/2/0:1583020800` where the
-number after the colon is the locktime value in Unix time.
-
-This path can be passed to certain wallet methods like `dumpprivkey`.
-
-    $ python3 wallet-tool.py -H "m/49'/1'/0'/2/0:1583020800" testfidelity.jmdat dumpprivkey
-    Enter wallet decryption passphrase: 
-    cNEuE5ypNTxVFCyC5iH7u5AQTrddamcUHRPNweiLvmHUWd6XXDkz
 
