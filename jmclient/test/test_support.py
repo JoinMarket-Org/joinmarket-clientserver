@@ -4,7 +4,7 @@
 import pytest
 from jmclient import (select, select_gradual, select_greedy, select_greediest,
                       choose_orders, choose_sweep_orders, weighted_order_choose)
-from jmclient.support import (calc_cj_fee, rand_exp_array, rand_pow_array,
+from jmclient.support import (calc_cj_fee, rand_exp_array,
                               rand_norm_array, rand_weighted_choice,
                               cheapest_order_choose)
 from taker_test_data import t_orderbook
@@ -37,11 +37,6 @@ def test_random_funcs():
     assert len(x2) == 10
     for x in x2:
         assert x > 0
-    x3 = rand_pow_array(100, 10)
-    assert len(x3) == 10
-    for x in x3:
-        assert x > 0
-        assert x < 1
     x4 = rand_weighted_choice(5, [0.2, 0.1, 0.3, 0.15, 0.25])
     assert x4 in range(5)
     #test weighted choice fails with invalid inputs

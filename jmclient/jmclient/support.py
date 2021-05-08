@@ -44,14 +44,6 @@ def rand_exp_array(lamda, n):
     return [random.expovariate(1.0 / lamda) for _ in range(n)]
 
 
-def rand_pow_array(power, n):
-    # rather crude in that uses a uniform sample which is a multiple of 1e-4
-    # for basis of formula, see: http://mathworld.wolfram.com/RandomNumber.html
-    return [y**(1.0 / power)
-            for y in [x * 0.0001 for x in random.sample(
-                range(10000), n)]]
-
-
 def rand_weighted_choice(n, p_arr):
     """
     Choose a value in 0..n-1
