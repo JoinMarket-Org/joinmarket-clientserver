@@ -2190,10 +2190,6 @@ if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
     #trigger start with a fake tx
     jm_single().bc_interface.pushtx(b"\x00"*20)
 
-#prepare for logging
-for dname in ['logs', 'wallets', 'cmtdata']:
-    if not os.path.exists(dname):
-        os.makedirs(dname)
 logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
 #tumble log will not always be used, but is made available anyway:
 tumble_log = get_tumble_log(logsdir)
