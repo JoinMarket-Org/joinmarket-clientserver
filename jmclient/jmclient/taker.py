@@ -486,7 +486,7 @@ class Taker(object):
         #in SendPayment.create_tx(), but it is still a possibility if one maker
         #uses a *lot* of inputs.
         if self.my_change_addr:
-            if my_change_value < 0:
+            if my_change_value < -1:
                 raise ValueError("Calculated transaction fee of: " +
                     btc.amount_to_str(self.total_txfee) +
                     " is too large for our inputs; Please try again.")
