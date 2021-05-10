@@ -131,9 +131,9 @@ def get_order_choose_algorithm(option, opt_str, value, parser, value_kw=None):
 The following defaults are maintained as accessed via functions for
 flexibility.
 TODO This should be moved from this module."""
-MAX_DEFAULT_REL_FEE = 0.001
-MIN_MAX_DEFAULT_ABS_FEE = 1000
-MAX_MAX_DEFAULT_ABS_FEE = 10000
+MAX_DEFAULT_REL_FEE = 0.004
+MIN_MAX_DEFAULT_ABS_FEE = 4000
+MAX_MAX_DEFAULT_ABS_FEE = 40000
 
 def get_default_max_relative_fee():
     return MAX_DEFAULT_REL_FEE
