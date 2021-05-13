@@ -345,7 +345,7 @@ class SpendTab(QWidget):
 
         self.addressInput.setText(addr)
         valid, errmsg = validate_address(str(addr))
-        if not valid:
+        if not valid and len(addr) > 0:
             JMQtMessageBox(self,
                        "Bitcoin address not valid.\n" + errmsg,
                        mbtype='warn',
