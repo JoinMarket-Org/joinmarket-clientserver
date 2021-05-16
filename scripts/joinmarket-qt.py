@@ -1102,7 +1102,7 @@ class SpendTab(QWidget):
         if len(self.numCPInput.text()) == 0:
             JMQtMessageBox(
                 self,
-                "Non-zero number of counterparties must be provided.",
+                "Number of counterparties must be provided. Enter '0' to do a direct send instead of a CoinJoin.",
                 mbtype='warn', title="Error")
             return False
         if len(self.mixdepthInput.text()) == 0:
