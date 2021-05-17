@@ -28,8 +28,6 @@ class AttributeDict(object):
     def __init__(self, **entries):
         self.currentnick = None
         self.add_entries(**entries)
-        if not os.path.exists('logs'):
-            os.makedirs('logs')
 
     def add_entries(self, **entries):
         for key, value in entries.items():
@@ -45,7 +43,7 @@ class AttributeDict(object):
                 ('%(asctime)s [%(threadName)-12.12s] '
                  '[%(levelname)-5.5s]  %(message)s'))
             logsdir = os.path.join(os.path.dirname(
-            global_singleton.config_location), "logs")
+                global_singleton.config_location), "logs")
             fileHandler = logging.FileHandler(
                 logsdir + '/{}.log'.format(value))
             fileHandler.setFormatter(logFormatter)
@@ -512,7 +510,7 @@ class JMPluginService(object):
             ('%(asctime)s [%(levelname)-5.5s] {} - %(message)s'.format(
                 self.name)))
         fileHandler = logging.FileHandler(
-        self.logdirname + '/{}'.format(self.logfilename))
+            self.logdirname + '/{}'.format(self.logfilename))
         fileHandler.setFormatter(logFormatter)
         get_log().addHandler(fileHandler)
 
@@ -660,7 +658,7 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
             # itself will switch on its own logging when ready,
             # attaching a filehandler to the global log.
             plogsdir = os.path.join(os.path.dirname(
-            global_singleton.config_location), "logs", p.name)
+                global_singleton.config_location), "logs", p.name)
             if not os.path.exists(plogsdir):
                 os.makedirs(plogsdir)
             p.set_log_dir(plogsdir)
