@@ -68,7 +68,7 @@ If you are looking for the available makers, run the [orderbook](docs/orderbook.
 
 ### PayJoin
 
-If you want to use the PayJoin feature to pay/receive money to/from another Joinmarket wallet user, read [this guide](docs/PAYJOIN.md).
+If you want to use the PayJoin feature to pay/receive money to/from another [BIP78]((https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki))-supporting wallet, read [this guide](docs/PAYJOIN.md).
 
 ### Joinmarket-Qt
 
