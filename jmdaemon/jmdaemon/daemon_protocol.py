@@ -8,9 +8,10 @@ from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER,
                        COMMITMENT_PREFIXES)
 from .irc import IRCMessageChannel
+from .onion_mc import OnionMessageChannel
 
-from jmbase import (hextobin, is_hs_uri, get_tor_agent, JMHiddenService,
-                    get_nontor_agent, BytesProducer, wrapped_urlparse,
+from jmbase import (hextobin, JMHiddenService,
+                    BytesProducer, HTTPPassThrough,
                     bdict_sdict_convert, JMHTTPResource)
 from jmbase.commands import *
 from twisted.protocols import amp
@@ -24,8 +25,6 @@ from twisted.web.client import ResponseFailed, readBody
 from twisted.web import server
 from txtorcon.socks import HostUnreachableError
 from twisted.python import log
-import urllib.parse as urlparse
-from urllib.parse import urlencode
 import json
 import threading
 import os
@@ -157,117 +156,6 @@ class BIP78ReceiverResource(JMHTTPResource):
     def end_failure(self):
         self.info_callback("Shutting down, payjoin negotiation failed.")
         self.shutdown_callback()
-
-class HTTPPassThrough(amp.AMP):
-    """ This class supports passing through
-    requests over HTTPS or over a socks proxy to a remote
-    onion service, or multiple.
-    """
-
-    def on_INIT(self, netconfig):
-        """ The network config must be passed in json
-	and contains these fields:
-	socks5_host
-	socks5_proxy
-	servers (comma separated list)
-        tls_whitelist (comma separated list)
-	filterconfig (not yet defined)
-	credentials (not yet defined)
-	"""
-        netconfig = json.loads(netconfig)
-        self.socks5_host = netconfig["socks5_host"]
-        self.socks5_port = int(netconfig["socks5_port"])
-        self.servers = [a for a in netconfig["servers"] if a != ""]
-        self.tls_whitelist = [a for a in netconfig["tls_whitelist"].split(
-            ",") if a != ""]
-
-    def getAgentDestination(self, server, params=None):
-        tor_url_data = is_hs_uri(server)
-        if tor_url_data:
-            # note: SSL over Tor not supported at the moment:
-            agent = get_tor_agent(self.socks5_host, self.socks5_port)
-        else:
-            agent = get_nontor_agent(self.tls_whitelist)
-
-        destination_url = server.encode("utf-8")
-        url_parts = list(wrapped_urlparse(destination_url))
-        if params:
-            url_parts[4] = urlencode(params).encode("utf-8")
-        destination_url = urlparse.urlunparse(url_parts)
-        return (agent, destination_url)
-
-    def getDefaultHeaders(self):
-        # Deliberately sending NO headers other than
-        # Content-Type by default;
-        # this could be a tricky point for anonymity of users,
-        # as much boilerplate code will not create
-        # requests that look like this.
-        return Headers({"Content-Type": ["text/plain"]})
-
-    def getRequest(self, server, success_callback, url=None, headers=None):
-        """ Make GET request to server server, if response received OK,
-	passed to success_callback, which must have function signature
-        (response, server).
-	"""
-        agent, destination_url = self.getAgentDestination(server)
-        if url:
-            destination_url = destination_url + url
-        # Deliberately sending NO headers; this could be a tricky point
-        # for anonymity of users, as much boilerplate code will not create
-        # requests that look like this.
-        headers = self.getDefaultHeaders() if not headers else headers
-        d = agent.request(b"GET", destination_url, headers)
-        d.addCallback(success_callback, server)
-        # note that the errback (here "noResponse") is *not* triggered
-        # by a server rejection (which is accompanied by a non-200
-        # status code returned), but by failure to communicate.
-        def noResponse(failure):
-            failure.trap(ResponseFailed, ConnectionRefusedError,
-                         HostUnreachableError, ConnectionLost)
-            log.msg(failure.value)
-        d.addErrback(noResponse)
-
-    def postRequest(self, body, server, success_callback,
-                    url=None, params=None, headers=None):
-        """ Pass body of post request as string, will be encoded here.
-	"""
-        agent, destination_url = self.getAgentDestination(server,
-                                                    params=params)
-        if url:
-            destination_url = destination_url + url
-        body = BytesProducer(body.encode("utf-8"))
-        headers = self.getDefaultHeaders() if not headers else headers
-        d = agent.request(b"POST", destination_url,
-            headers, bodyProducer=body)
-        d.addCallback(success_callback, server)
-        # note that the errback (here "noResponse") is *not* triggered
-        # by a server rejection (which is accompanied by a non-200
-        # status code returned), but by failure to communicate.
-        def noResponse(failure):
-            failure.trap(ResponseFailed, ConnectionRefusedError,
-                         HostUnreachableError, ConnectionLost)
-            log.msg(failure.value)
-            self.callRemote(BIP78SenderReceiveError,
-                            errormsg="failure to connect",
-                            errorcode=10000)
-        d.addErrback(noResponse)
-
-    def checkClientResponse(self, response):
-        """A generic check of client acceptance; any failure
-        is considered criticial.
-        """
-        if 'accepted' not in response or not response['accepted']:
-            reactor.stop() #pragma: no cover
-
-    def defaultErrback(self, failure):
-        """TODO better network error handling.
-        """
-        failure.trap(ConnectionAborted, ConnectionClosed,
-                     ConnectionDone, ConnectionLost)
-
-    def defaultCallbacks(self, d):
-        d.addCallback(self.checkClientResponse)
-        d.addErrback(self.defaultErrback)
 
 class BIP78ServerProtocol(HTTPPassThrough):
     @BIP78ReceiverInit.responder
@@ -467,7 +355,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.factory = factory
         self.jm_state = 0
         self.restart_mc_required = False
-        self.irc_configs = None
+        self.mc_configs = None
         self.mcc = None
         #Default role is TAKER; must be overriden to MAKER in JMSetup message.
         self.role = "TAKER"
@@ -493,7 +381,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         d.addErrback(self.defaultErrback)
 
     @JMInit.responder
-    def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
+    def on_JM_INIT(self, bcsource, network, mc_configs, minmakers,
                    maker_timeout_sec):
         """Reads in required configuration from client for a new
         session; feeds back joinmarket messaging protocol constants
@@ -503,23 +391,29 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         self.maker_timeout_sec = int(maker_timeout_sec)
         self.minmakers = int(minmakers)
-        irc_configs = json.loads(irc_configs)
+        mc_configs = json.loads(mc_configs)
         #(bitcoin) network only referenced in channel name construction
         self.network = network
-        if irc_configs == self.irc_configs:
+        if mc_configs == self.mc_configs:
             self.restart_mc_required = False
             log.msg("New init received did not require a new message channel"
                     " setup.")
         else:
-            if self.irc_configs:
+            if self.mc_configs:
                 #close the existing connections
                 self.mc_shutdown()
-            self.irc_configs = irc_configs
+            self.mc_configs = mc_configs
             self.restart_mc_required = True
-            mcs = [IRCMessageChannel(c,
-                                     daemon=self,
-                                     realname='btcint=' + bcsource)
-                   for c in self.irc_configs]
+            mcs = []
+            for mc_config in mc_configs:
+                if mc_config["type"] == "irc":
+                    mcclass = IRCMessageChannel
+                elif mc_config["type"] == "onion":
+                    mcclass = OnionMessageChannel
+                else:
+                    assert False
+                mcs.append(mcclass(mc_config, daemon=self,
+                                   realname='btcint=' + bcsource))
             self.mcc = MessageChannelCollection(mcs)
             OrderbookWatch.set_msgchan(self, self.mcc)
             #register taker-specific msgchan callbacks here

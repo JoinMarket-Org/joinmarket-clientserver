@@ -84,7 +84,6 @@ def jm_single():
 
 # FIXME: Add rpc_* options here in the future!
 required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
-                    'MESSAGING': ['host', 'channel', 'port'],
                     'POLICY': ['absurd_fee_per_kb', 'taker_utxo_retries',
                                'taker_utxo_age', 'taker_utxo_amtpercent']}
 
@@ -120,7 +119,15 @@ rpc_user = bitcoin
 rpc_password = password
 rpc_wallet_file =
 
+[MESSAGING:onion]
+type = onion
+seeds =
+port = 80
+socks5_host = localhost
+socks5_port = 9050
+
 [MESSAGING:server1]
+type = irc
 host = irc.darkscience.net
 channel = joinmarket-pit
 port = 6697
@@ -134,6 +141,7 @@ socks5_port = 9050
 #socks5 = true
 
 [MESSAGING:server2]
+type = irc
 host = irc.hackint.org
 channel = joinmarket-pit
 port = 6697
@@ -425,7 +433,7 @@ def set_config(cfg, bcint=None):
         global_singleton.bc_interface = bcint
 
 
-def get_irc_mchannels():
+def get_mchannels():
     SECTION_NAME = 'MESSAGING'
     # FIXME: remove in future release
     if jm_single().config.has_section(SECTION_NAME):
@@ -435,17 +443,32 @@ def get_irc_mchannels():
                     "in a future version.")
         return _get_irc_mchannels_old()
 
+    configs = []
+    onion_config = None
+    if "MESSAGING:onion" in jm_single().config.sections():
+        onion_config = {}
+        onion_fields = [("type", str), ("seeds", str), ("port", int),
+                        ("socks5_host", str), ("socks5_port", str),
+                        ("tor_control_host", str), ("tor_control_port", str)]
+        for option, otype in onion_fields:
+            val = jm_single().config.get("MESSAGING:onion", option)
+            onion_config[option] = otype(val)
+        onion_config['btcnet'] = get_network()
+        configs.append(onion_config)
+
     SECTION_NAME += ':'
     irc_sections = []
     for s in jm_single().config.sections():
+        if s == "MESSAGING:onion":
+            continue
         if s.startswith(SECTION_NAME):
             irc_sections.append(s)
-    assert irc_sections
+    assert irc_sections or onion_config
 
-    fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
-              ("socks5", str), ("socks5_host", str), ("socks5_port", str)]
+    fields = [("type", str), ("host", str), ("port", int), ("channel", str),
+              ("usessl", str), ("socks5", str), ("socks5_host", str),
+              ("socks5_port", str)]
 
-    configs = []
     for section in irc_sections:
         server_data = {}
         for option, otype in fields:
@@ -453,6 +476,8 @@ def get_irc_mchannels():
             server_data[option] = otype(val)
         server_data['btcnet'] = get_network()
         configs.append(server_data)
+    if onion_config:
+        configs = configs + [onion_config]
     return configs
 
 

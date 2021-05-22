@@ -28,7 +28,7 @@ class JMInit(JMCommand):
     """
     arguments = [(b'bcsource', Unicode()),
                  (b'network', Unicode()),
-                 (b'irc_configs', Unicode()),
+                 (b'mc_configs', Unicode()),
                  (b'minmakers', Integer()),
                  (b'maker_timeout_sec', Integer())]
     errors = {DaemonNotReady: b'daemon is not ready'}
