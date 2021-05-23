@@ -77,7 +77,7 @@ DUST_THRESHOLD = 2730
 class JoinMarketStreamHandler(ColorizingStreamHandler):
 
     def __init__(self):
-        super().__init__(colorizer=jm_colorizer)
+        super().__init__(colorizer=jm_colorizer, stream=sys.stdout)
 
     def emit(self, record):
         if joinmarket_alert[0]:
