@@ -94,9 +94,9 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 
 ### Community
 
-+ IRC: `#joinmarket` on irc.freenode.net https://webchat.freenode.net/?channels=%23joinmarket (logs can be found [here](http://gnusha.org/joinmarket/))
++ IRC: `#joinmarket` on irc.libera.chat https://kiwiirc.com/nextclient/irc.libera.chat#joinmarket (logs can be found [here](http://gnusha.org/joinmarket/))
 
-+ IRC on tor: `#joinmarket` on the networks [Hackint](https://www.hackint.org/) and [Darkscience](https://www.darkscience.net/). These channels are bridged to the above freenode channel.
++ IRC on tor: `#joinmarket` on [Hackint](https://www.hackint.org/). This channel is bridged to the above Libera Chat channel.
 
 + Bitcoin wiki page: https://en.bitcoin.it/wiki/JoinMarket
 
