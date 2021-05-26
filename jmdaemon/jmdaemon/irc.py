@@ -291,7 +291,7 @@ class txIRC_Client(irc.IRCClient, object):
             if sent_to == self.wrapper.nick:
                 if nick not in self.built_privmsg:
                     if message[0] != COMMAND_PREFIX:
-                        wlog('bad command ', message[0])
+                        wlog('bad command ', message)
                         return
     
                     # new message starting
