@@ -130,7 +130,7 @@ socks5_host = localhost
 socks5_port = 9050
 
 #for tor
-#host = darksci3bfoka7tw.onion
+#host = darkirc6tqgpnwd3blln3yfv5ckl47eg7llfxkmtovrv7c7iwohhb6ad.onion
 #socks5 = true
 
 [MESSAGING:server2]
