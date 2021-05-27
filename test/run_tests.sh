@@ -35,6 +35,86 @@ parse_flags ()
 {
     while :; do
         case $1 in
+            -c|--btcconf)
+                if [[ "$2" ]]; then
+                    btcconf="$2"
+                    shift
+                else
+                    echo 'ERROR: "--btcconf" requires a non-empty option argument.'
+                    return 1
+                fi
+                ;;
+            --btcconf=?*)
+                btcconf="${1#*=}"
+                ;;
+            --btcconf=)
+                echo 'ERROR: "--btcconf" requires a non-empty option argument.'
+                return 1
+                ;;
+            -p|--btcpwd)
+                if [[ "$2" ]]; then
+                    btcpwd="$2"
+                    shift
+                else
+                    echo 'ERROR: "--btcpwd" requires a non-empty option argument.'
+                    return 1
+                fi
+                ;;
+            --btcpwd=?*)
+                btcpwd="${1#*=}"
+                ;;
+            --btcpwd=)
+                echo 'ERROR: "--btcpwd" requires a non-empty option argument.'
+                return 1
+                ;;
+            -r|--btcroot)
+                if [[ "$2" ]]; then
+                    btcroot="$2"
+                    shift
+                else
+                    echo 'ERROR: "--btcroot" requires a non-empty option argument.'
+                    return 1
+                fi
+                ;;
+            --btcroot=?*)
+                btcroot="${1#*=}"
+                ;;
+            --btcroot=)
+                echo 'ERROR: "--btcroot" requires a non-empty option argument.'
+                return 1
+                ;;
+            -u|--btcuser)
+                if [[ "$2" ]]; then
+                    btcuser="$2"
+                    shift
+                else
+                    echo 'ERROR: "--btcuser" requires a non-empty option argument.'
+                    return 1
+                fi
+                ;;
+            --btcuser=?*)
+                btcuser="${1#*=}"
+                ;;
+            --btcuser=)
+                echo 'ERROR: "--btcuser" requires a non-empty option argument.'
+                return 1
+                ;;
+            -i|--nirc)
+                if [[ "$2" ]]; then
+                    nirc="$2"
+                    shift
+                else
+                    echo 'ERROR: "--nirc" requires a non-empty option argument.'
+                    return 1
+                fi
+                ;;
+            --nirc=?*)
+                btcconf="${1#*=}"
+                ;;
+            --nirc=)
+                echo 'ERROR: "--nirc" requires a non-empty option argument.'
+                return 1
+                ;;
             -v|--verbose)
                 verbose_output=1
                 ;;
@@ -47,6 +127,14 @@ Usage: "${0}" [options]
 
 Options:
 
+--btcconf, -c   the fully qualified path to the location of the bitcoin
+                configuration file you use for testing, e.g.
+                /home/user/.bitcoin/bitcoin.conf
+--btcpwd, -p    the RPC password for your test bitcoin instance
+--btcroot, -r   the fully qualified path to the directory containing the
+                bitcoin binaries, e.g. /home/user/bitcoin/bin/
+--btcuser, -u   the RPC username for your test bitcoin instance (default: $btcuser)
+--nirc, -i      the number of local miniircd instances (default: $nirc)
 --verbose, -v   verbose output
 "
                 exit 1
@@ -59,7 +147,14 @@ Options:
 run_jm_tests ()
 {
     verbose_output=0
-    parse_flags ${@}
+    btcconf=""
+    btcroot=""
+    btcuser="bitcoinrpc"
+    btcpwd="123456abcdef"
+    nirc="2"
+    if ! parse_flags ${@}; then
+        return 1
+    fi
 
     additional_pytest_flags=""
     if [[ $verbose_output == 1 ]]; then
@@ -111,10 +206,21 @@ run_jm_tests ()
     umask 077
     rm -rf "${jm_test_datadir}"
     mkdir -p "${jm_test_datadir}"
-    cp -f ./test/bitcoin.conf "${jm_test_datadir}/bitcoin.conf"
+    if [[ -z "$btcconf" ]]; then
+        btcconf="${jm_test_datadir}/bitcoin.conf"
+        cp -f ./test/bitcoin.conf "${jm_test_datadir}/bitcoin.conf"
+    fi
     ${orig_umask}
     echo "datadir=${jm_test_datadir}" >> "${jm_test_datadir}/bitcoin.conf"
-    python -m pytest $additional_pytest_flags ${HAS_JOSH_K_SEAL_OF_APPROVAL+--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html} --btcpwd=123456abcdef --btcconf=${jm_test_datadir}/bitcoin.conf --btcuser=bitcoinrpc --nirc=2 -p no:warnings --ignore test/test_full_coinjoin.py
+    python -m pytest $additional_pytest_flags \
+        ${HAS_JOSH_K_SEAL_OF_APPROVAL+--cov=jmclient --cov=jmbitcoin --cov=jmbase --cov=jmdaemon --cov-report html} \
+        --btcconf=$btcconf \
+        --btcpwd=$btcpwd \
+        --btcroot=$btcroot \
+        --btcuser=$btcuser \
+        --nirc=$nirc \
+        -p no:warnings \
+        --ignore test/test_full_coinjoin.py
     local success="$?"
     [[ -f ./joinmarket.cfg ]] && unlink ./joinmarket.cfg
     if [ -f "${jm_test_datadir}/bitcoind.pid" ] && read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
