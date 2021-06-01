@@ -26,7 +26,8 @@ PINL = '\r\n' if OS == 'Windows' else '\n'
 default_max_cj_fee = (1, float('inf'))
 
 # callbacks for making transfers in-script with direct_send:
-def dummy_accept_callback(tx, destaddr, actual_amount, fee_est):
+def dummy_accept_callback(tx, destaddr, actual_amount, fee_est,
+                          custom_change_addr):
     return True
 def dummy_info_callback(msg):
     pass

@@ -33,6 +33,7 @@ class Taker(object):
                  order_chooser=weighted_order_choose,
                  callbacks=None,
                  tdestaddrs=None,
+                 custom_change_address=None,
                  ignored_makers=None):
         """`schedule`` must be a list of tuples: (see sample_schedule_for_testnet
         for explanation of syntax, also schedule.py module in this directory),
@@ -84,6 +85,7 @@ class Taker(object):
         self.schedule = schedule
         self.order_chooser = order_chooser
         self.max_cj_fee = max_cj_fee
+        self.my_change_addr = custom_change_address
 
         #List (which persists between transactions) of makers
         #who have not responded or behaved maliciously at any
@@ -288,13 +290,13 @@ class Taker(object):
         if not self.my_cj_addr:
             #previously used for donations; TODO reimplement?
             raise NotImplementedError
-        self.my_change_addr = None
         if self.cjamount != 0:
-            try:
-                self.my_change_addr = self.wallet_service.get_internal_addr(self.mixdepth)
-            except:
-                self.taker_info_callback("ABORT", "Failed to get a change address")
-                return False
+            if self.my_change_addr is None:
+                try:
+                    self.my_change_addr = self.wallet_service.get_internal_addr(self.mixdepth)
+                except:
+                    self.taker_info_callback("ABORT", "Failed to get a change address")
+                    return False
             #adjust the required amount upwards to anticipate an increase in
             #transaction fees after re-estimation; this is sufficiently conservative
             #to make failures unlikely while keeping the occurence of failure to
@@ -314,6 +316,7 @@ class Taker(object):
         else:
             #sweep
             self.input_utxos = self.wallet_service.get_utxos_by_mixdepth()[self.mixdepth]
+            self.my_change_addr = None
             #do our best to estimate the fee based on the number of
             #our own utxos; this estimate may be significantly higher
             #than the default set in option.txfee * makercount, where

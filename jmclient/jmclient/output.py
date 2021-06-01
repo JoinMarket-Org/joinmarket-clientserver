@@ -1,5 +1,36 @@
 from jmbase import utxo_to_utxostr
 
+general_custom_change_warning = """You are attempting to send change to a custom change
+address. Change outputs are usually directly linkable to
+your CoinJoin inputs, and incautious combination of
+custom change UTXOs can catastrophically compromise
+your CoinJoin privacy, especially if those UTXOs are from
+different mixdepths.
+
+Are you sure you know what you're doing?"""
+
+nonwallet_custom_change_warning ="""
+The custom change address type is different from your wallet
+address type.
+
+Be extremely careful here: It will be obvious to any blockchain
+observer that this output was disposed of by the taker (i.e.
+you) and is directly linkable to your CoinJoin inputs.
+
+Sending change in a one-off transaction to a party with a
+different address type than this wallet is otherwise probably
+OK.
+
+HOWEVER, if you regularly send your change to unusual
+address types, especially multisig P2(W)SH addresses, you
+seriously risk linking ALL of those CoinJoins to you,
+REGARDLESS of how carefully you spend those custom change
+UTXOs.
+
+Are you sure you want to continue?"""
+
+sweep_custom_change_warning = \
+    "Custom change cannot be set while doing a sweep (zero amount)."
 
 def fmt_utxos(utxos, wallet_service, prefix=''):
     output = []
