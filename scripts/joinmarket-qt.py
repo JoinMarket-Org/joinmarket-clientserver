@@ -720,6 +720,7 @@ class SpendTab(QWidget):
             return False
 
     def infoDirectSend(self, msg):
+        self.clearFields(None)
         JMQtMessageBox(self, msg, title="Success")
 
     def errorDirectSend(self, msg):
@@ -996,6 +997,7 @@ class SpendTab(QWidget):
             mainWindow.statusBar().showMessage(
                 "Transaction seen on network: " + self.taker.txid)
             if self.spendstate.typestate == 'single':
+                self.clearFields(None)
                 JMQtMessageBox(self, "Transaction broadcast OK. You can safely \n"
                                "shut down if you don't want to wait.",
                                title="Success")
