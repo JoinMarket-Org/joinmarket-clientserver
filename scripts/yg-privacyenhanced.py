@@ -2,8 +2,10 @@
 from future.utils import iteritems
 
 import random
+import sys
 
-from jmbase import get_log, jmprint
+from jmbase import get_log, jmprint, EXIT_ARGERROR
+from jmbitcoin import amount_to_str
 from jmclient import YieldGeneratorBasic, ygmain, jm_single
 
 # This is a maker for the purposes of generating a yield from held bitcoins
@@ -66,6 +68,10 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
                                              self.txfee * (1 + float(self.txfee_factor))))
         randomize_minsize = int(random.uniform(self.minsize * (1 - float(self.size_factor)),
                                                self.minsize * (1 + float(self.size_factor))))
+        if randomize_minsize < jm_single().DUST_THRESHOLD:
+            jlog.warn("Minsize was randomized to below dust; resetting to dust "
+                      "threshold: " + amount_to_str(jm_single().DUST_THRESHOLD))
+            randomize_minsize = jm_single().DUST_THRESHOLD
         possible_maxsize = mix_balance[max_mix] - max(jm_single().DUST_THRESHOLD, randomize_txfee)
         randomize_maxsize = int(random.uniform(possible_maxsize * (1 - float(self.size_factor)),
                                                possible_maxsize))
@@ -87,14 +93,17 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
                  'cjfee': str(randomize_cjfee)}
 
         # sanity check
-        assert order['minsize'] >= 0
-        assert order['maxsize'] > 0
+        assert order['minsize'] >= jm_single().DUST_THRESHOLD
         assert order['minsize'] <= order['maxsize']
         if order['ordertype'] in ['swreloffer', 'sw0reloffer']:
-            while order['txfee'] >= (float(order['cjfee']) * order['minsize']):
+            for i in range(20):
+                if order['txfee'] < (float(order['cjfee']) * order['minsize']):
+                    break
                 order['txfee'] = int(order['txfee'] / 2)
-                jlog.info('Warning: too high txfee to be profitable, halfing it to: ' + str(order['txfee']))
-
+                jlog.info('Warning: too high txfee to be profitable, halving it to: ' + str(order['txfee']))
+            else:
+                jlog.error("Tx fee reduction algorithm failed. Quitting.")
+                sys.exit(EXIT_ARGERROR)
         return [order]
 
 
