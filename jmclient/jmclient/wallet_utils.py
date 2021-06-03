@@ -95,30 +95,8 @@ The method is one of the following:
                       type='str',
                       dest='hd_path',
                       help='hd wallet path (e.g. m/0/0/0/000)')
-    parser.add_option('--key-type',  # note: keep in sync with map_key_type
-                      type='choice',
-                      choices=('standard', 'segwit-p2sh'),
-                      action='store',
-                      dest='key_type',
-                      default=None,
-                      help=("Key type when importing private keys.\n"
-                            "If your address starts with '1' use 'standard', "
-                            "if your address starts with '3' use 'segwit-p2sh'.\n"
-                            "Native segwit addresses (starting with 'bc') are "
-                            "not yet supported."))
 
     return parser
-
-
-def map_key_type(parser_key_choice):
-    if not parser_key_choice:
-        return parser_key_choice
-    if parser_key_choice == 'standard':
-        return TYPE_P2PKH
-    if parser_key_choice == 'segwit-p2sh':
-        return TYPE_P2SH_P2WPKH
-    raise Exception("Unknown key type choice '{}'.".format(parser_key_choice))
-
 
 """The classes in this module manage representations
 of wallet states; but they know nothing about Bitcoin,
@@ -1028,7 +1006,7 @@ def wallet_showseed(wallet):
     return text
 
 
-def wallet_importprivkey(wallet, mixdepth, key_type):
+def wallet_importprivkey(wallet, mixdepth):
     jmprint("WARNING: This imported key will not be recoverable with your 12 "
           "word mnemonic phrase. Make sure you have backups.", "warning")
     jmprint("WARNING: Make sure that the type of the public address previously "
@@ -1566,8 +1544,7 @@ def wallet_tool_main(wallet_root_path):
         #note: must be interactive (security)
         if options.mixdepth is None:
             parser.error("You need to specify a mixdepth with -m")
-        wallet_importprivkey(wallet_service, options.mixdepth,
-                             map_key_type(options.key_type))
+        wallet_importprivkey(wallet_service, options.mixdepth)
         return "Key import completed."
     elif method == "signmessage":
         if len(args) < 3:
