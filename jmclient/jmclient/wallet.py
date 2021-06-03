@@ -1619,13 +1619,10 @@ class ImportWalletMixin(object):
         args:
             mixdepth: int, mixdepth to import key into
             wif: str, private key in WIF format
-            key_type: int, must match a TYPE_* constant of this module,
-                used to verify against the key type extracted from WIF
 
         raises:
             WalletError: if key's network does not match wallet network
             WalletError: if key is not compressed and type is not P2PKH
-            WalletError: if key_type does not match data from WIF
 
         returns:
             path of imported key
