@@ -17,6 +17,10 @@ from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
 
+if sys.version_info < (3, 7):
+    print("ERROR: this script requires at least python 3.7")
+    exit(1)
+
 from jmbase.support import EXIT_FAILURE
 
 from jmbase import get_log
