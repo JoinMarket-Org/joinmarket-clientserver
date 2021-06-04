@@ -7,7 +7,7 @@ from jmdaemon import IRCMessageChannel, fidelity_bond_cmd_list
 from jmclient import get_irc_mchannels, load_test_config
 from jmdaemon.protocol import JM_VERSION, ORDER_KEYS
 from jmbase.support import hextobin
-from jmbitcoin.fidelity_bond import FidelityBondProof
+from jmclient.fidelity_bond import FidelityBondProof
 
 class DummyDaemon(object):
     def request_signature_verify(self, a, b, c, d, e,

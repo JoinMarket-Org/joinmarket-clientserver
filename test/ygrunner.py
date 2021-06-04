@@ -11,14 +11,25 @@
    --btcpwd=123456abcdef --btcconf=/blah/bitcoin.conf \
    --nirc=2 -s test/ygrunner.py
    '''
+from twisted.internet import task, reactor
 from common import make_wallets
 import pytest
 import random
+from datetime import datetime
 from jmbase import jmprint
 from jmclient import YieldGeneratorBasic, load_test_config, jm_single,\
-    JMClientProtocolFactory, start_reactor, SegwitWallet,\
+    JMClientProtocolFactory, start_reactor, SegwitWallet, WalletService,\
     SegwitLegacyWallet, cryptoengine, SNICKERClientProtocolFactory, SNICKERReceiver
+from jmclient.wallet_utils import wallet_gettimelockaddress
 
+# For quicker testing, restrict the range of timelock
+# addresses to avoid slow load of multiple bots.
+# Note: no need to revert this change as ygrunner runs
+# in isolation.
+from jmclient import FidelityBondMixin
+FidelityBondMixin.TIMELOCK_ERA_YEARS = 2
+FidelityBondMixin.TIMELOCK_EPOCH_YEAR = datetime.now().year
+FidelityBondMixin.TIMENUMBERS_PER_PUBKEY = 12
 
 class MaliciousYieldGenerator(YieldGeneratorBasic):
     """Overrides, randomly, some maker functions
@@ -80,18 +91,19 @@ class DeterministicMaliciousYieldGenerator(YieldGeneratorBasic):
             return (False, "malicious tx rejection")
         return super().on_tx_received(nick, txhex, offerinfo)
 
+
 @pytest.mark.parametrize(
-    "num_ygs, wallet_structures, mean_amt, malicious, deterministic",
+    "num_ygs, wallet_structures, fb_indices, mean_amt, malicious, deterministic",
     [
-        # 1sp 3yg, honest makers
-        (3, [[1, 3, 0, 0, 0]] * 4, 2, 0, False),
+        # 1sp 3yg, honest makers, one maker has FB:
+        (3, [[1, 3, 0, 0, 0]] * 4, [1, 2], 2, 0, False),
         # 1sp 3yg, malicious makers reject on auth and on tx 30% of time
         #(3, [[1, 3, 0, 0, 0]] * 4, 2, 30, False),
         # 1 sp 9 ygs, deterministically malicious 50% of time
         #(9, [[1, 3, 0, 0, 0]] * 10, 2, 50, True),
     ])
-def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
-                   malicious, deterministic):
+def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, fb_indices,
+                   mean_amt, malicious, deterministic):
     """Set up some wallets, for the ygs and 1 sp.
     Then start the ygs in background and publish
     the seed of the sp wallet for easy import into -qt
@@ -105,7 +117,8 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
     wallet_services = make_wallets(num_ygs + 1,
                            wallet_structures=wallet_structures,
                            mean_amt=mean_amt,
-                           walletclass=walletclass)
+                           walletclass=walletclass,
+                           fb_indices=fb_indices)
     #the sendpayment bot uses the last wallet in the list
     wallet_service = wallet_services[num_ygs]['wallet']
     jmprint("\n\nTaker wallet seed : " + wallet_services[num_ygs]['seed'])
@@ -160,12 +173,19 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
         else:
             ygclass = MaliciousYieldGenerator
     for i in range(num_ygs):
-        
         cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize, txfee_factor,
                cjfee_factor, size_factor]
         wallet_service_yg = wallet_services[i]["wallet"]
+
         wallet_service_yg.startService()
+
         yg = ygclass(wallet_service_yg, cfg)
+        if i in fb_indices:
+            # create a timelocked address and fund it;
+            # must be done after sync, so deferred:
+            wallet_service_yg.timelock_funded = False
+            sync_wait_loop = task.LoopingCall(get_addr_and_fund, yg)
+            sync_wait_loop.start(1.0, now=False)
         if malicious:
             yg.set_maliciousness(malicious, mtype="tx")
         clientfactory = JMClientProtocolFactory(yg, proto_type="MAKER")
@@ -182,6 +202,39 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, mean_amt,
                       jm_single().config.getint("DAEMON", "daemon_port"),
                       clientfactory, snickerfactory=snicker_factory,
                       daemon=daemon, rs=rs)
+
+def get_addr_and_fund(yg):
+    """ This function allows us to create
+    and publish a fidelity bond for a particular
+    yield generator object after the wallet has reached
+    a synced state and is therefore ready to serve up
+    timelock addresses. We create the TL address, fund it,
+    refresh the wallet and then republish our offers, which
+    will also publish the new FB.
+    """
+    if not yg.wallet_service.synced:
+        return
+    if yg.wallet_service.timelock_funded:
+        return
+    addr = wallet_gettimelockaddress(yg.wallet_service.wallet, "2021-11")
+    print("Got timelockaddress: {}".format(addr))
+
+    # pay into it; amount is randomized for now.
+    # Note that grab_coins already mines 1 block.
+    fb_amt = random.randint(1, 5)
+    jm_single().bc_interface.grab_coins(addr, fb_amt)
+
+    # we no longer have to run this loop (TODO kill with nonlocal)
+    yg.wallet_service.timelock_funded = True
+
+    # force wallet to check for the new coins so the new
+    # yg offers will include them:
+    yg.wallet_service.transaction_monitor()
+
+    # publish a new offer:
+    yg.offerlist = yg.create_my_orders()
+    yg.fidelity_bond = yg.get_fidelity_bond_template()
+    jmprint('updated offerlist={}'.format(yg.offerlist))
 
 @pytest.fixture(scope="module")
 def setup_ygrunner():
