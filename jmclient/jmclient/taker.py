@@ -85,7 +85,7 @@ class Taker(object):
         self.schedule = schedule
         self.order_chooser = order_chooser
         self.max_cj_fee = max_cj_fee
-        self.my_change_addr = custom_change_address
+        self.custom_change_address = custom_change_address
 
         #List (which persists between transactions) of makers
         #who have not responded or behaved maliciously at any
@@ -291,7 +291,9 @@ class Taker(object):
             #previously used for donations; TODO reimplement?
             raise NotImplementedError
         if self.cjamount != 0:
-            if self.my_change_addr is None:
+            if self.custom_change_address:
+                self.my_change_addr = self.custom_change_address
+            else:
                 try:
                     self.my_change_addr = self.wallet_service.get_internal_addr(self.mixdepth)
                 except:
