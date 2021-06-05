@@ -360,7 +360,11 @@ def wallet_showutxos(wallet_service, showprivkey):
         for u, av in utxos[md].items():
             success, us = utxo_to_utxostr(u)
             assert success
-            key = wallet_service.get_key_from_addr(av['address'])
+            key = wallet_service._get_key_from_path(av["path"])[0]
+            if FidelityBondMixin.is_timelocked_path(av["path"]):
+                key, locktime = key
+            else:
+                locktime = None
             tries = podle.get_podle_tries(u, key, max_tries)
             tries_remaining = max(0, max_tries - tries)
             mixdepth = wallet_service.wallet.get_details(av['path'])[0]
@@ -372,6 +376,8 @@ def wallet_showutxos(wallet_service, showprivkey):
                        'frozen': True if u in utxo_d else False}
             if showprivkey:
                 unsp[us]['privkey'] = wallet_service.get_wif_path(av['path'])
+            if locktime:
+                unsp[us]["locktime"] = str(datetime.utcfromtimestamp(locktime))
 
     used_commitments, external_commitments = podle.get_podle_commitments()
     for u, ec in external_commitments.items():
