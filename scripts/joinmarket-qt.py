@@ -1854,12 +1854,14 @@ class JMMainWindow(QMainWindow):
             mn_extension = pp_field.text()
         return message_e.toPlainText(), mn_extension
 
-    def autofreeze_warning_cb(self, utxostr):
+    def autofreeze_warning_cb(self, utxo):
         """ Handles coins sent to reused addresses,
         preventing forced address reuse, according to value of
         POLICY setting `max_sats_freeze_reuse` (see
         WalletService.check_for_reuse()).
         """
+        success, utxostr = utxo_to_utxostr(utxo)
+        assert success, "Autofreeze warning cb called with invalid utxo."
         msg = "New utxo has been automatically " +\
              "frozen to prevent forced address reuse:\n" + utxostr +\
              "\n You can unfreeze this utxo via the Coins tab."
