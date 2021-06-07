@@ -1250,7 +1250,11 @@ class PSBTWalletMixin(object):
         privkeys = []
         for k, v in self._utxos._utxo.items():
             for k2, v2 in v.items():
-                privkeys.append(self._get_key_from_path(v2[0]))
+                key = self._get_key_from_path(v2[0])
+                if FidelityBondMixin.is_timelocked_path(v2[0]) and len(key[0]) == 2:
+                    #key is ((privkey, locktime), engine) for timelocked addrs
+                    key = (key[0][0], key[1])
+                privkeys.append(key)
         jmckeys = list(btc.JMCKey(x[0][:-1]) for x in privkeys)
         new_keystore = btc.KeyStore.from_iterable(jmckeys)
 
