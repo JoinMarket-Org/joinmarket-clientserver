@@ -188,12 +188,6 @@ Makers didn't respond
 ```
 This will happen when aberrant makers don't complete the protocol (or strictly, when not enough of them do). As above, simply wait for regenerate-after-tweak occurs.
 
-```
-Transaction fee for sweep: X too far from expected: Y; check the setting 'max_sweep_fee_change' in joinmarket.cfg. Aborting this attempt.
-```
-This means that the total fees for this transaction (Bitcoin network fees and CoinJoin fees) exceeded the maximum amount as calculated on the basis of the tx_fees setting in joinmarket.cfg and the assumptions re inputs made by tumbler.py.
-
-
 <a name="tweaking" />
 
 ## Tweaking the schedule
