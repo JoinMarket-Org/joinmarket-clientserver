@@ -273,7 +273,7 @@ max_sweep_fee_change = 0.8
 # or terminal) via some other channel. It is not recommended to choose this
 # option when running schedules/tumbler.
 
-tx_broadcast = self
+tx_broadcast = random-peer
 
 # If makers do not respond while creating a coinjoin transaction,
 # the non-responding ones will be ignored. This is the minimum
