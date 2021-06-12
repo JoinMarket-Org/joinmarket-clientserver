@@ -19,19 +19,20 @@ You will need to:
 + Wait and be patient. The volume of joins is always dependent on the number of takers. A successful join may take a day or longer to appear.
 
 ## Configuring
-Open one of the two built-in yield generators: `yield-generator-basic.py` or `yg-privacyenhanced.py` in a text editor and edit the configuration. Currently these are the fields. Most of them can just be left at the default values.
+Open the configuration file, joinmarket.cfg in a text editor. Currently these are the generator-related fields. Most of them can just be left at the default values.
 
-	txfee = 1000
-	cjfee_a = 2000
-	cjfee_r = '0.0002' # 0.02% fee
+	txfee = 100
+	cjfee_a = 500
+	cjfee_r = 0.00002
 	ordertype = 'reloffer'
-	minsize = int(1.2 * txfee / float(cjfee)) #minimum size is such that you always net profit at least 20% of the miner fee
+	minsize = 100000
 
 Meaning of fields:
 + txfee. The yield generators contribution to the miner fee.
 + ordertype. One of 'reloffer', 'absoffer'
 + cjfee_r. Your offered coinjoin fee as a fraction of the coinjoin amount (for 'reloffer'). Takers pay this to you.
 + cjfee_a. Your offered coinjoin fee as an absolute number of satoshis (for 'absoffer').
++ minsize. Fraction, 0-1 / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
 
 ## Keeping Track of Returns
 
