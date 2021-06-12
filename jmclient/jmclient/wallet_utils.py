@@ -549,8 +549,8 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
         return walletview
 
 def cli_get_wallet_passphrase_check():
-    password = get_password("Enter new passphrase to encrypt wallet: ")
-    password2 = get_password("Reenter new passphrase to encrypt wallet: ")
+    password = get_password("Enter new password to encrypt wallet: ")
+    password2 = get_password("Reenter new password to encrypt wallet: ")
     if password != password2:
         jmprint('ERROR. Passwords did not match', "error")
         return False
@@ -574,8 +574,7 @@ def cli_user_mnemonic_entry():
     return (mnemonic_phrase, mnemonic_extension)
 
 def cli_do_use_mnemonic_extension():
-    uin = input("Would you like to use a two-factor mnemonic recovery "
-                    "phrase? write 'n' if you don't know what this is (y/n): ")
+    uin = input("Generating a BIP39 wallet: Would you like to use a two-factor mnemonic passphrase? Write 'n' if you don't know what this is (y/n): ")
     if len(uin) == 0 or uin[0] != 'y':
         jmprint("Not using mnemonic extension", "info")
         return False #no mnemonic extension
