@@ -3,6 +3,7 @@
 import base64
 import pprint
 import random
+from typing import Any, NamedTuple
 from twisted.internet import reactor, task
 
 import jmbitcoin as btc
@@ -24,7 +25,22 @@ jlog = get_log()
 class JMTakerError(Exception):
     pass
 
+class IoauthInputVerificationError(Exception):
+    def __init__(self, messages):
+        self.messages = messages
+        super().__init__(messages)
+
+
 class Taker(object):
+    class _MakerTxData(NamedTuple):
+        nick: Any
+        utxo_data: Any
+        total_input: Any
+        change_amount: Any
+        real_cjfee: Any
+        utxo_list: Any = None
+        cj_addr: Any = None
+        change_addr: Any = None
 
     def __init__(self,
                  wallet_service,
@@ -109,6 +125,7 @@ class Taker(object):
         self.txid = None
         self.schedule_index = -1
         self.utxos = {}
+        self.maker_utxo_data = {}
         self.tdestaddrs = [] if not tdestaddrs else tdestaddrs
         self.filter_orders_callback = callbacks[0]
         self.taker_info_callback = callbacks[1]
@@ -368,92 +385,33 @@ class Taker(object):
         if self.aborted:
             return (False, "User aborted")
 
-        #Temporary list used to aggregate all ioauth data that must be removed
-        rejected_counterparties = []
-
-        #Need to authorize against the btc pubkey first.
-        for nick, nickdata in ioauth_data.items():
-            utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
-            if not self.auth_counterparty(btc_sig, auth_pub, maker_pk):
-                jlog.debug(
-                "Counterparty encryption verification failed, aborting: " + nick)
-                #This counterparty must be rejected
-                rejected_counterparties.append(nick)
-
-            if not validate_address(cj_addr)[0] or not validate_address(change_addr)[0]:
-                jlog.warn("Counterparty provided invalid address: {}".format(
-                    (cj_addr, change_addr)))
-                # Interpreted as malicious
-                self.add_ignored_makers([nick])
-                rejected_counterparties.append(nick)
-
-        for rc in rejected_counterparties:
-            del ioauth_data[rc]
-
         self.maker_utxo_data = {}
 
-        for nick, nickdata in ioauth_data.items():
-            utxo_list, auth_pub, cj_addr, change_addr, _, _ = nickdata
-            utxo_data = jm_single().bc_interface.query_utxo_set(utxo_list)
-            self.utxos[nick] = utxo_list
-            if None in utxo_data:
-                jlog.warn(('ERROR outputs unconfirmed or already spent. '
-                           'utxo_data={}').format(pprint.pformat(utxo_data)))
-                jlog.warn('Disregarding this counterparty.')
-                del self.utxos[nick]
-                continue
+        verified_data = self._verify_ioauth_data(ioauth_data)
+        for maker_inputs in verified_data:
+            # We have succesfully processed the data from this nick
+            self.utxos[maker_inputs.nick] = maker_inputs.utxo_list
+            self.outputs.append({'address': maker_inputs.change_addr,
+                                 'value': maker_inputs.change_amount})
+            self.outputs.append({'address': maker_inputs.cj_addr,
+                                 'value': self.cjamount})
+            self.cjfee_total += maker_inputs.real_cjfee
+            self.maker_txfee_contributions +=\
+                self.orderbook[maker_inputs.nick]['txfee']
+            self.maker_utxo_data[maker_inputs.nick] = maker_inputs.utxo_data
+            jlog.info(
+                f"fee breakdown for {maker_inputs.nick} "
+                f"totalin={maker_inputs.total_input:d} "
+                f"cjamount={self.cjamount:d} "
+                f"txfee={self.orderbook[maker_inputs.nick]['txfee']:d} "
+                f"realcjfee={maker_inputs.real_cjfee:d}")
 
-            #Complete maker authorization:
-            #Extract the address fields from the utxos
-            #Construct the Bitcoin address for the auth_pub field
-            #Ensure that at least one address from utxos corresponds.
-            for inp in utxo_data:
-                try:
-                    if self.wallet_service.pubkey_has_script(
-                            auth_pub, inp['script']):
-                        break
-                except EngineError as e:
-                    pass
-            else:
-                jlog.warn("ERROR maker's (" + nick + ")"
-                          " authorising pubkey is not included "
-                          "in the transaction!")
-                #this will not be added to the transaction, so we will have
-                #to recheck if we have enough
-                continue
-            total_input = sum([d['value'] for d in utxo_data])
-            real_cjfee = calc_cj_fee(self.orderbook[nick]['ordertype'],
-                                     self.orderbook[nick]['cjfee'],
-                                     self.cjamount)
-            change_amount = (total_input - self.cjamount -
-                             self.orderbook[nick]['txfee'] + real_cjfee)
-
-            # certain malicious and/or incompetent liquidity providers send
-            # inputs totalling less than the coinjoin amount! this leads to
-            # a change output of zero satoshis; this counterparty must be removed.
-            if change_amount < jm_single().DUST_THRESHOLD:
-                fmt = ('ERROR counterparty requires sub-dust change. nick={}'
-                       ' totalin={:d} cjamount={:d} change={:d}').format
-                jlog.warn(fmt(nick, total_input, self.cjamount, change_amount))
-                jlog.warn("Invalid change, too small, nick= " + nick)
-                continue
-
-            self.outputs.append({'address': change_addr,
-                                 'value': change_amount})
-            fmt = ('fee breakdown for {} totalin={:d} '
-                   'cjamount={:d} txfee={:d} realcjfee={:d}').format
-            jlog.info(fmt(nick, total_input, self.cjamount, self.orderbook[
-                nick]['txfee'], real_cjfee))
-            self.outputs.append({'address': cj_addr, 'value': self.cjamount})
-            self.cjfee_total += real_cjfee
-            self.maker_txfee_contributions += self.orderbook[nick]['txfee']
-            self.maker_utxo_data[nick] = utxo_data
-            #We have succesfully processed the data from this nick:
             try:
-                self.nonrespondants.remove(nick)
+                self.nonrespondants.remove(maker_inputs.nick)
             except Exception as e:
-                jlog.warn("Failure to remove counterparty from nonrespondants list: " + str(nick) + \
-                          ", error message: " + repr(e))
+                jlog.warn(
+                    "Failure to remove counterparty from nonrespondants list:"
+                    f" {maker_inputs.nick}), error message: {repr(e)})")
 
         #Apply business logic of how many counterparties are enough; note that
         #this must occur after the above ioauth data processing, since we only now
@@ -556,6 +514,80 @@ class Taker(object):
         self.taker_info_callback("INFO", "Built tx, sending to counterparties.")
         return (True, list(self.maker_utxo_data.keys()),
                 bintohex(self.latest_tx.serialize()))
+
+    def _verify_ioauth_data(self, ioauth_data):
+        verified_data = []
+        # Need to authorize against the btc pubkey first.
+        for nick, nickdata in ioauth_data.items():
+            utxo_list, auth_pub, cj_addr, change_addr, btc_sig, maker_pk = nickdata
+            if not self.auth_counterparty(btc_sig, auth_pub, maker_pk):
+                jlog.debug(
+                    "Counterparty encryption verification failed, aborting: " + nick)
+                # This counterparty must be rejected
+                continue
+
+            if not validate_address(cj_addr)[0]\
+                    or not validate_address(change_addr)[0]:
+                jlog.warn("Counterparty provided invalid address: {}".format(
+                    (cj_addr, change_addr)))
+                # Interpreted as malicious
+                self.add_ignored_makers([nick])
+                continue
+
+            try:
+                maker_inputs_data = self._verify_ioauth_inputs(
+                    nick, utxo_list, auth_pub)
+            except IoauthInputVerificationError as e:
+                for msg in e.messages:
+                    jlog.warning(msg)
+                continue
+
+            verified_data.append(maker_inputs_data._replace(
+                utxo_list=utxo_list, cj_addr=cj_addr, change_addr=change_addr))
+        return verified_data
+
+    def _verify_ioauth_inputs(self, nick, utxo_list, auth_pub):
+        utxo_data = jm_single().bc_interface.query_utxo_set(utxo_list)
+        if None in utxo_data:
+            raise IoauthInputVerificationError([
+                "ERROR: outputs unconfirmed or already spent. utxo_data="
+                f"{pprint.pformat(utxo_data)}",
+                "Disregarding this counterparty."])
+
+        # Complete maker authorization:
+        # Extract the address fields from the utxos
+        # Construct the Bitcoin address for the auth_pub field
+        # Ensure that at least one address from utxos corresponds.
+        for inp in utxo_data:
+            try:
+                if self.wallet_service.pubkey_has_script(
+                        auth_pub, inp['script']):
+                    break
+            except EngineError as e:
+                pass
+        else:
+            raise IoauthInputVerificationError([
+                f"ERROR maker's ({nick}) authorising pubkey is not included "
+                "in the transaction!"])
+
+        total_input = sum([d['value'] for d in utxo_data])
+        real_cjfee = calc_cj_fee(self.orderbook[nick]['ordertype'],
+                                 self.orderbook[nick]['cjfee'],
+                                 self.cjamount)
+        change_amount = (total_input - self.cjamount -
+                         self.orderbook[nick]['txfee'] + real_cjfee)
+
+        # certain malicious and/or incompetent liquidity providers send
+        # inputs totalling less than the coinjoin amount! this leads to
+        # a change output of zero satoshis; this counterparty must be removed.
+        if change_amount < jm_single().DUST_THRESHOLD:
+            raise IoauthInputVerificationError([
+                f"ERROR counterparty requires sub-dust change. nick={nick} "
+                f"totalin={total_input:d} cjamount={self.cjamount:d} "
+                f"change={change_amount:d}",
+                f"Invalid change, too small, nick={nick}"])
+        return self._MakerTxData(nick, utxo_data, total_input, change_amount,
+                                 real_cjfee)
 
     @hexbin
     def auth_counterparty(self, btc_sig, auth_pub, maker_pk):
