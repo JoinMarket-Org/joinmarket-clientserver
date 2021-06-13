@@ -435,7 +435,9 @@ class Taker(object):
                 fmt = ('ERROR counterparty requires sub-dust change. nick={}'
                        ' totalin={:d} cjamount={:d} change={:d}').format
                 jlog.warn(fmt(nick, total_input, self.cjamount, change_amount))
-                jlog.warn("Invalid change, too small, nick= " + nick)
+                jlog.warn("Invalid change, too small, nick= " + nick + " Disregard of these counterparty utxos.")
+                # this counterparty utxos must be removed.
+                del self.utxos[nick]
                 continue
 
             self.outputs.append({'address': change_addr,
