@@ -520,7 +520,7 @@ class Taker(object):
             num_outs = len(self.outputs) + 2
             new_total_fee = estimate_tx_fee(num_ins, num_outs,
                                     txtype=self.wallet_service.get_txtype())
-            feeratio = self.total_txfee/new_total_fee
+            feeratio = new_total_fee/self.total_txfee
             jlog.debug("Ratio of actual to estimated sweep fee: {}".format(
                 feeratio))
             sweep_delta = float(jm_single().config.get("POLICY",
@@ -529,7 +529,7 @@ class Taker(object):
                 jlog.warn("Transaction fee for sweep: {} too far from expected:"
                           " {}; check the setting 'max_sweep_fee_change'"
                           " in joinmarket.cfg. Aborting this attempt.".format(
-                              self.total_txfee, new_total_fee))
+                              new_total_fee, self.total_txfee))
                 return (False, "Unacceptable feerate for sweep, giving up.")
         else:
             self.outputs.append({'address': self.my_change_addr,
