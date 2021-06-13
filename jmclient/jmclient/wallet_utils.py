@@ -95,30 +95,8 @@ The method is one of the following:
                       type='str',
                       dest='hd_path',
                       help='hd wallet path (e.g. m/0/0/0/000)')
-    parser.add_option('--key-type',  # note: keep in sync with map_key_type
-                      type='choice',
-                      choices=('standard', 'segwit-p2sh'),
-                      action='store',
-                      dest='key_type',
-                      default=None,
-                      help=("Key type when importing private keys.\n"
-                            "If your address starts with '1' use 'standard', "
-                            "if your address starts with '3' use 'segwit-p2sh'.\n"
-                            "Native segwit addresses (starting with 'bc') are "
-                            "not yet supported."))
 
     return parser
-
-
-def map_key_type(parser_key_choice):
-    if not parser_key_choice:
-        return parser_key_choice
-    if parser_key_choice == 'standard':
-        return TYPE_P2PKH
-    if parser_key_choice == 'segwit-p2sh':
-        return TYPE_P2SH_P2WPKH
-    raise Exception("Unknown key type choice '{}'.".format(parser_key_choice))
-
 
 """The classes in this module manage representations
 of wallet states; but they know nothing about Bitcoin,
@@ -775,7 +753,7 @@ def wallet_fetch_history(wallet, options):
     def print_row(index, time, tx_type, amount, delta, balance, cj_n,
                   total_fees, utxo_count, mixdepth_src, mixdepth_dst, txid):
         data = [index, datetime.fromtimestamp(time).strftime("%Y-%m-%d %H:%M"),
-                tx_type, btc.sat_to_str(amount), btc.sat_to_str_p(delta),
+                tx_type, btc.sat_to_str(abs(amount)), btc.sat_to_str_p(delta),
                 btc.sat_to_str(balance), skip_n1(cj_n), sat_to_str_na(total_fees),
                 '% 3d' % utxo_count, skip_n1(mixdepth_src), skip_n1(mixdepth_dst)]
         if options.verbosity % 2 == 0: data += [txid]
@@ -787,7 +765,7 @@ def wallet_fetch_history(wallet, options):
             'utxo-count', 'mixdepth-from', 'mixdepth-to']
     if options.verbosity % 2 == 0: field_names += ['txid']
     if options.csv:
-        jmprint('Bumping verbosity level to 4 due to --csv flag', "debug")
+        #jmprint('Bumping verbosity level to 4 due to --csv flag', "debug")
         options.verbosity = 4
     if options.verbosity > 0: jmprint(s().join(field_names), "info")
     if options.verbosity <= 2: cj_batch = [0]*8 + [[]]*2
@@ -888,22 +866,33 @@ def wallet_fetch_history(wallet, options):
                 fees = 0
             delta_balance = our_output_value - our_input_value
             mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
-        elif len(our_input_scripts) > 0 and len(our_output_scripts) == 2:
-            #payment to self
+        elif len(our_input_scripts) > 0 and len(our_output_scripts) == 2 and is_coinjoin:
             out_value = sum([output_script_values[a] for a in our_output_scripts])
-            if not is_coinjoin:
-                jmprint('this is wrong TODO handle non-coinjoin internal', "warning")
-            tx_type = 'cj internal'
             amount = cj_amount
             delta_balance = out_value - our_input_value
             mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
+            tx_type = 'cj internal'
             cj_script = list(set([a for a, v in output_script_values.items()
                 if v == cj_amount]).intersection(our_output_scripts))[0]
             mixdepth_dst = wallet.get_script_mixdepth(cj_script)
+        elif len(our_input_scripts) > 0 and len(our_output_scripts) == len(output_script_values):
+            out_value = sum([output_script_values[a] for a in our_output_scripts])
+            amount = sum([output_script_values[a] for a in our_output_scripts])
+            delta_balance = out_value - our_input_value
+            mixdepth_src = wallet.get_script_mixdepth(list(our_input_scripts)[0])
+            tx_type = 'internal   '
+            mixdepth_dst = wallet.get_script_mixdepth(list(our_output_scripts)[0])
         else:
-            tx_type = 'unknown type'
-            jmprint('our utxos: ' + str(len(our_input_scripts)) \
-                  + ' in, ' + str(len(our_output_scripts)) + ' out')
+            tx_type = 'unknown    '
+            out_value = sum([output_script_values[a] for a in our_output_scripts])
+            amount = out_value
+            delta_balance = out_value - our_input_value
+            mixdepth_src = wallet.get_script_mixdepth(
+                list(our_input_scripts)[0])
+            mixdepth_dst = wallet.get_script_mixdepth(
+                list(our_output_scripts)[0])
+            #jmprint('our utxos: ' + str(len(our_input_scripts)) \
+            #      + ' in, ' + str(len(our_output_scripts)) + ' out')
 
         if is_confirmed:
             balance += delta_balance
@@ -925,7 +914,7 @@ def wallet_fetch_history(wallet, options):
                         cj_batch[7] += utxo_count
                         cj_batch[8] += [mixdepth_src]
                         cj_batch[9] += [mixdepth_dst]
-                    elif tx_type != 'unknown type':
+                    else:
                         if n > 0:
                             # print the previously-accumulated batch
                             print_row('N='+"%2d"%n, cj_batch[1]/n, 'cj batch   ',
@@ -937,8 +926,7 @@ def wallet_fetch_history(wallet, options):
                         print_row(index, blocktime, tx_type, amount,
                               delta_balance, balance, cj_n, fees, utxo_count,
                               mixdepth_src, mixdepth_dst, tx['txid'])
-                elif options.verbosity >= 5 or \
-                    (options.verbosity >= 3 and tx_type != 'unknown type'):
+                elif options.verbosity >= 3:
                     print_row(index, blocktime, tx_type, amount,
                           delta_balance, balance, cj_n, fees, utxo_count,
                           mixdepth_src, mixdepth_dst, tx['txid'])
@@ -959,6 +947,9 @@ def wallet_fetch_history(wallet, options):
                       cj_batch[3], cj_batch[4], cj_batch[5]/n, cj_batch[6],
                       cj_batch[7]/n, min(cj_batch[8]), max(cj_batch[9]), '...')
 
+    # don't display summaries if csv export
+    if options.csv:
+        return ''
 
     bestblockhash = jm_single().bc_interface.get_best_block_hash()
     now = jm_single().bc_interface.get_block_time(bestblockhash)
@@ -1015,7 +1006,7 @@ def wallet_showseed(wallet):
     return text
 
 
-def wallet_importprivkey(wallet, mixdepth, key_type):
+def wallet_importprivkey(wallet, mixdepth):
     jmprint("WARNING: This imported key will not be recoverable with your 12 "
           "word mnemonic phrase. Make sure you have backups.", "warning")
     jmprint("WARNING: Make sure that the type of the public address previously "
@@ -1553,8 +1544,7 @@ def wallet_tool_main(wallet_root_path):
         #note: must be interactive (security)
         if options.mixdepth is None:
             parser.error("You need to specify a mixdepth with -m")
-        wallet_importprivkey(wallet_service, options.mixdepth,
-                             map_key_type(options.key_type))
+        wallet_importprivkey(wallet_service, options.mixdepth)
         return "Key import completed."
     elif method == "signmessage":
         if len(args) < 3:

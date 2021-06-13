@@ -433,7 +433,7 @@ class Taker(object):
             # a change output of zero satoshis; this counterparty must be removed.
             if change_amount < jm_single().DUST_THRESHOLD:
                 fmt = ('ERROR counterparty requires sub-dust change. nick={}'
-                       'totalin={:d} cjamount={:d} change={:d}').format
+                       ' totalin={:d} cjamount={:d} change={:d}').format
                 jlog.warn(fmt(nick, total_input, self.cjamount, change_amount))
                 jlog.warn("Invalid change, too small, nick= " + nick)
                 continue
