@@ -475,7 +475,7 @@ class Taker(object):
             # this is done with using the same estimate fee function and comparing
             # the totals; this ratio will correspond to the ratio of the feerates.
             num_ins = len([u for u in sum(self.utxos.values(), [])])
-            num_outs = len(self.outputs) + 2
+            num_outs = len(self.outputs) + 1
             new_total_fee = estimate_tx_fee(num_ins, num_outs,
                                     txtype=self.wallet_service.get_txtype())
             feeratio = self.total_txfee/new_total_fee
