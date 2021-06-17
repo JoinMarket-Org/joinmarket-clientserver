@@ -145,6 +145,16 @@ class TrialTestPayjoin3(PayjoinTestBase, unittest.TestCase):
         self.wallet_structure = [3, 1, 0, 0, 0]
         return self.do_test_payment(SegwitWallet, SegwitWallet, amt=4.5)
 
+class TrialTestPayjoin4(PayjoinTestBase, unittest.TestCase):
+    def reset_fee(self, res):
+        jm_single().config.set("POLICY", "txfees", self.old_txfees)
+    def test_low_feerate(self):
+        self.old_txfees = jm_single().config.get("POLICY", "tx_fees")
+        jm_single().config.set("POLICY", "tx_fees", "1300")
+        d = self.do_test_payment(SegwitWallet, SegwitWallet)
+        d.addCallback(self.reset_fee)
+        return d
+
 def bip78_receiver_response(response, manager):
     d = readBody(response)
     # if the response code is not 200 OK, we must assume payjoin
