@@ -64,7 +64,6 @@ def make_wallets(n,
                  start_index=0,
                  fixed_seeds=None,
                  test_wallet=False,
-                 passwords=None,
                  walletclass=SegwitWallet,
                  mixdepths=5,
                  fb_indices=[]):
@@ -80,7 +79,6 @@ def make_wallets(n,
        if walletclass=SegwitWallet.
        Returns: a dict of dicts of form {0:{'seed':seed,'wallet':Wallet object},1:..,}
        Default Wallet constructor is joinmarket.Wallet, else use TestWallet,
-       which takes a password parameter as in the list passwords.
        '''
     # FIXME: this is basically the same code as jmclient/test/commontest.py
     if len(wallet_structures) != n:
@@ -94,11 +92,6 @@ def make_wallets(n,
     for i in range(n):
         assert len(seeds[i]) == BIP32Wallet.ENTROPY_BYTES * 2
 
-        # FIXME: pwd is ignored (but do we really need this anyway?)
-        if test_wallet and passwords and i < len(passwords):
-            pwd = passwords[i]
-        else:
-            pwd = None
         if i in fb_indices:
             assert walletclass == SegwitWallet, "Cannot use FB except for native segwit."
             wc = WALLET_IMPLEMENTATIONS[get_configured_wallet_type(True)]
