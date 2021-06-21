@@ -281,44 +281,44 @@ class CancelButton(QPushButton):
         self.clicked.connect(dialog.reject)
 
 
-def check_password_strength(password):
+def check_passphrase_strength(passphrase):
     '''
-    Check the strength of the password entered by the user and return back the same
-    :param password: password entered by user in New Password
-    :return: password strength Weak or Medium or Strong
+    Check the strength of the passphrase entered by the user and return back the same
+    :param passphrase: passphrase entered by user in New Passphrase
+    :return: passphrase strength Weak or Medium or Strong
     '''
-    n = math.log(len(set(password)))
-    num = re.search("[0-9]", password) is not None and re.match(
-        "^[0-9]*$", password) is None
-    caps = password != password.upper() and password != password.lower()
-    extra = re.match("^[a-zA-Z0-9]*$", password) is None
-    score = len(password) * (n + caps + num + extra) / 20
-    password_strength = {0: "Weak", 1: "Medium", 2: "Strong", 3: "Very Strong"}
-    return password_strength[min(3, int(score))]
+    n = math.log(len(set(passphrase)))
+    num = re.search("[0-9]", passphrase) is not None and re.match(
+        "^[0-9]*$", passphrase) is None
+    caps = passphrase != passphrase.upper() and passphrase != passphrase.lower()
+    extra = re.match("^[a-zA-Z0-9]*$", passphrase) is None
+    score = len(passphrase) * (n + caps + num + extra) / 20
+    passphrase_strength = {0: "Weak", 1: "Medium", 2: "Strong", 3: "Very Strong"}
+    return passphrase_strength[min(3, int(score))]
 
 
-def update_password_strength(pw_strength_label, password):
+def update_passphrase_strength(pw_strength_label, passphrase):
     '''
-    call the function check_password_strength and update the label pw_strength 
-    interactively as the user is typing the password
+    call the function check_passphrase_strength and update the label pw_strength 
+    interactively as the user is typing the passphrase
     :param pw_strength_label: the label pw_strength
-    :param password: password entered in New Password text box
+    :param passphrase: passphrase entered in New Passphrase text box
     :return: None
     '''
-    if password:
+    if passphrase:
         colors = {"Weak": "Red",
                   "Medium": "Blue",
                   "Strong": "Green",
                   "Very Strong": "Green"}
-        strength = check_password_strength(password)
-        label = "Password Strength"+ ": "+"<font color=" + \
+        strength = check_passphrase_strength(passphrase)
+        label = "Passphrase Strength"+ ": "+"<font color=" + \
         colors[strength] + ">" + strength + "</font>"
     else:
         label = ""
     pw_strength_label.setText(label)
 
 
-def make_password_dialog(self, msg):
+def make_passphrase_dialog(self, msg):
 
     self.new_pw = QLineEdit()
     self.new_pw.setEchoMode(QLineEdit.EchoMode(2))
@@ -355,18 +355,18 @@ def make_password_dialog(self, msg):
     grid.addWidget(self.conf_pw, 2, 1)
     vbox.addLayout(grid)
 
-    #Password Strength Label
+    #Passphrase Strength Label
     self.pw_strength = QLabel()
     grid.addWidget(self.pw_strength, 3, 0, 1, 2)
     self.new_pw.textChanged.connect(
-        lambda: update_password_strength(self.pw_strength, self.new_pw.text()))
+        lambda: update_passphrase_strength(self.pw_strength, self.new_pw.text()))
 
     vbox.addStretch(1)
     vbox.addLayout(Buttons(CancelButton(self), OkButton(self)))
     return vbox
 
 
-class PasswordDialog(QDialog):
+class PassphraseDialog(QDialog):
 
     def __init__(self):
         super().__init__()
@@ -375,7 +375,7 @@ class PasswordDialog(QDialog):
     def initUI(self):
         self.setWindowTitle('Create a new passphrase')
         msg = "Enter a new passphrase"
-        self.setLayout(make_password_dialog(self, msg))
+        self.setLayout(make_passphrase_dialog(self, msg))
         self.show()
 
 

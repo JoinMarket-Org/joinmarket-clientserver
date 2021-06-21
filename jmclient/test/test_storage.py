@@ -25,7 +25,7 @@ class MockStorage(storage.Storage):
 
 
 def test_storage():
-    s = MockStorage(None, 'nonexistant', b'password', create=True)
+    s = MockStorage(None, 'nonexistant', b'passphrase', create=True)
     assert s.file_data.startswith(s.MAGIC_ENC)
     assert s.locked
     assert s.is_encrypted()
@@ -40,19 +40,19 @@ def test_storage():
     enc_data = s.file_data
 
     old_data = s.file_data
-    s.change_password(b'newpass')
+    s.change_passphrase(b'newpass')
     assert s.is_encrypted()
     assert not s.was_changed()
     assert s.file_data != old_data
 
     old_data = s.file_data
-    s.change_password(None)
+    s.change_passphrase(None)
     assert not s.is_encrypted()
     assert not s.was_changed()
     assert s.file_data != old_data
     assert s.file_data.startswith(s.MAGIC_UNENC)
 
-    s2 = MockStorage(enc_data, __file__, b'password')
+    s2 = MockStorage(enc_data, __file__, b'passphrase')
     assert s2.locked
     assert s2.is_encrypted()
     assert not s2.was_changed()
@@ -61,29 +61,29 @@ def test_storage():
 
 def test_storage_invalid():
     with pytest.raises(storage.StorageError):
-        MockStorage(None, 'nonexistant', b'password')
+        MockStorage(None, 'nonexistant', b'passphrase')
         pytest.fail("File does not exist")
 
-    s = MockStorage(None, 'nonexistant', b'password', create=True)
+    s = MockStorage(None, 'nonexistant', b'passphrase', create=True)
     with pytest.raises(storage.StorageError):
         MockStorage(s.file_data, __file__, b'wrongpass')
-        pytest.fail("Wrong password")
+        pytest.fail("Wrong passphrase")
 
     with pytest.raises(storage.StorageError):
         MockStorage(s.file_data, __file__)
-        pytest.fail("No password")
+        pytest.fail("No passphrase")
 
     with pytest.raises(storage.StorageError):
         MockStorage(b'garbagefile', __file__)
         pytest.fail("Non-wallet file, unencrypted")
 
     with pytest.raises(storage.StorageError):
-        MockStorage(b'garbagefile', __file__, b'password')
+        MockStorage(b'garbagefile', __file__, b'passphrase')
         pytest.fail("Non-wallet file, encrypted")
 
 def test_storage_readonly():
-    s = MockStorage(None, 'nonexistant', b'password', create=True)
-    s = MockStorage(s.file_data, __file__, b'password', read_only=True)
+    s = MockStorage(None, 'nonexistant', b'passphrase', create=True)
+    s = MockStorage(s.file_data, __file__, b'passphrase', read_only=True)
     s.data[b'mydata'] = b'test'
 
     assert not s.locked
@@ -93,7 +93,7 @@ def test_storage_readonly():
         s.save()
 
     with pytest.raises(storage.StorageError):
-        s.change_password(b'newpass')
+        s.change_passphrase(b'newpass')
 
 
 def test_storage_lock(tmpdir):

@@ -205,11 +205,11 @@ def set_logging_color(colored=False):
 def chunks(d, n):
     return [d[x:x + n] for x in range(0, len(d), n)]
 
-def get_password(msg): #pragma: no cover
-    password = getpass(msg)
-    if not isinstance(password, bytes):
-        password = password.encode('utf-8')
-    return password
+def get_passphrase(msg): #pragma: no cover
+    passphrase = getpass(msg)
+    if not isinstance(passphrase, bytes):
+        passphrase = passphrase.encode('utf-8')
+    return passphrase
 
 def lookup_appdata_folder(appname):
     """ Given an appname as a string,

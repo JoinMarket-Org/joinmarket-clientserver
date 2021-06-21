@@ -9,12 +9,12 @@ from .support import get_random_bytes
 
 
 class Argon2Hash(object):
-    def __init__(self, password, salt=None, hash_len=32, salt_len=16,
+    def __init__(self, passphrase, salt=None, hash_len=32, salt_len=16,
                  time_cost=500, memory_cost=1000, parallelism=4,
                  argon2_type=low_level.Type.I, version=19):
         """
         args:
-          password: password as bytes
+          passphrase: passphrase as bytes
           salt: salt in bytes or None to create random one, must have length >= 8
           hash_len: generated hash length in bytes
           salt_len: salt length in bytes, ignored if salt is not None, must be >= 8
@@ -33,7 +33,7 @@ class Argon2Hash(object):
             'version': version
         }
         self.salt = salt if salt is not None else get_random_bytes(salt_len)
-        self.hash = low_level.hash_secret_raw(password, self.salt,
+        self.hash = low_level.hash_secret_raw(passphrase, self.salt,
                                               **self.settings)
 
 
@@ -45,7 +45,7 @@ class RetryableStorageError(StorageError):
     pass
 
 
-class StoragePasswordError(RetryableStorageError):
+class StoragePassphraseError(RetryableStorageError):
     pass
 
 
@@ -69,11 +69,11 @@ class Storage(object):
     ENC_KEY_BYTES = 32  # AES-256
     SALT_LENGTH = 16
 
-    def __init__(self, path, password=None, create=False, read_only=False):
+    def __init__(self, path, passphrase=None, create=False, read_only=False):
         """
         args:
           path: file path to storage
-          password: bytes or None for unencrypted file
+          passphrase: bytes or None for unencrypted file
           create: create file if it does not exist
           read_only: do not change anything on the file system
         """
@@ -88,7 +88,7 @@ class Storage(object):
 
         if not os.path.isfile(path):
             if create and not read_only:
-                self._create_new(password)
+                self._create_new(passphrase)
                 self._save_file()
                 self.newly_created = True
             else:
@@ -96,7 +96,7 @@ class Storage(object):
         elif create:
             raise StorageError("File already exists.")
         else:
-            self._load_file(password)
+            self._load_file(passphrase)
 
         assert self.data is not None
         assert self._data_checksum is not None
@@ -115,13 +115,13 @@ class Storage(object):
         """
         return self._data_checksum != self._get_data_checksum()
 
-    def check_password(self, password):
-        return self._hash.hash == self._hash_password(password, self._hash.salt).hash
+    def check_passphrase(self, passphrase):
+        return self._hash.hash == self._hash_passphrase(passphrase, self._hash.salt).hash
 
-    def change_password(self, password):
+    def change_passphrase(self, passphrase):
         if self.read_only:
-            raise StorageError("Cannot change password of read-only file.")
-        self._set_hash(password)
+            raise StorageError("Cannot change passphrase of read-only file.")
+        self._set_hash(passphrase)
         self._save_file()
 
     def save(self):
@@ -156,15 +156,15 @@ class Storage(object):
     def _update_data_hash(self):
         self._data_checksum = self._get_data_checksum()
 
-    def _create_new(self, password):
+    def _create_new(self, passphrase):
         self.data = {}
-        self._set_hash(password)
+        self._set_hash(passphrase)
 
-    def _set_hash(self, password):
-        if password is None:
+    def _set_hash(self, passphrase):
+        if passphrase is None:
             self._hash = None
         else:
-            self._hash = self._hash_password(password)
+            self._hash = self._hash_passphrase(passphrase)
 
     def _save_file(self):
         assert self.read_only == False
@@ -175,7 +175,7 @@ class Storage(object):
         self._write_file(magic + enc_data)
         self._update_data_hash()
 
-    def _load_file(self, password):
+    def _load_file(self, passphrase):
         data = self._read_file()
         assert len(self.MAGIC_ENC) == len(self.MAGIC_UNENC) == 8
         magic = data[:8]
@@ -186,9 +186,9 @@ class Storage(object):
         data = data[8:]
 
         if magic == self.MAGIC_ENC:
-            if password is None:
-                raise RetryableStorageError("Password required to open wallet.")
-            data = self._decrypt_file(password, data)
+            if passphrase is None:
+                raise RetryableStorageError("Passphrase required to open wallet.")
+            data = self._decrypt_file(passphrase, data)
         else:
             assert magic == self.MAGIC_UNENC
 
@@ -241,14 +241,14 @@ class Storage(object):
         }
         return self._serialize(container)
 
-    def _decrypt_file(self, password, data):
-        assert password is not None
+    def _decrypt_file(self, passphrase, data):
+        assert passphrase is not None
 
         container = self._deserialize(data)
         assert b'enc' in container
         assert b'data' in container
 
-        self._hash = self._hash_password(password, container[b'enc'][b'salt'])
+        self._hash = self._hash_passphrase(passphrase, container[b'enc'][b'salt'])
 
         return self._decrypt(container[b'data'], container[b'enc'][b'iv'])
 
@@ -267,16 +267,16 @@ class Storage(object):
             dec_data = decrypter.feed(data)
             dec_data += decrypter.feed()
         except ValueError:
-            # in most "wrong password" cases the pkcs7 padding will be wrong
-            raise StoragePasswordError("Wrong password.")
+            # in most "wrong passphrase" cases the pkcs7 padding will be wrong
+            raise StoragePassphraseError("Wrong passphrase.")
 
         if not dec_data.startswith(self.MAGIC_DETECT_ENC):
-            raise StoragePasswordError("Wrong password.")
+            raise StoragePassphraseError("Wrong passphrase.")
         return dec_data[len(self.MAGIC_DETECT_ENC):]
 
     @classmethod
-    def _hash_password(cls, password, salt=None):
-        return Argon2Hash(password, salt,
+    def _hash_passphrase(cls, passphrase, salt=None):
+        return Argon2Hash(passphrase, salt,
                           hash_len=cls.ENC_KEY_BYTES, salt_len=cls.SALT_LENGTH)
 
     def _create_lock(self):
@@ -322,12 +322,12 @@ class VolatileStorage(Storage):
     This exists for easier testing.
     """
 
-    def __init__(self, password=None, data=None):
+    def __init__(self, passphrase=None, data=None):
         self.file_data = None
-        super().__init__('VOLATILE', password, create=True)
+        super().__init__('VOLATILE', passphrase, create=True)
         if data:
             self.file_data = data
-            self._load_file(password)
+            self._load_file(passphrase)
 
     def _create_lock(self):
         pass

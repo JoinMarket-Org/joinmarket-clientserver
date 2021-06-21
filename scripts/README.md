@@ -76,4 +76,4 @@ As above.
 
 ### genwallet.py
 
-Non-interactively generate a wallet, giving only wallet name and password. Returns wallet seed as `recovery_seed:`. Useful for automating JoinMarket deployments.
+Non-interactively generate a wallet, giving only wallet name and passphrase. Returns wallet seed as `recovery_seed:`. Useful for automating JoinMarket deployments.
