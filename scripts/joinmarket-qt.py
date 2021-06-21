@@ -78,7 +78,7 @@ from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
-    PasswordDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
+    PassphraseDialog, MyTreeWidget, JMQtMessageBox, BLUE_FG,\
     donation_more_message, BitcoinAmountEdit, JMIntValidator,\
     ReceiveBIP78Dialog, QRCodePopup
 
@@ -1955,7 +1955,7 @@ class JMMainWindow(QMainWindow):
                 "wallet.jmdat",
                 display_seed_callback=None,
                 enter_seed_callback=self.seedEntry,
-                enter_wallet_password_callback=self.getPassword,
+                enter_wallet_passphrase_callback=self.getPassphrase,
                 enter_wallet_file_name_callback=self.getWalletFileName,
                 enter_if_use_seed_extension=None,
                 enter_seed_extension_callback=None,
@@ -2012,7 +2012,7 @@ class JMMainWindow(QMainWindow):
             while not decrypted:
                 text, ok = QInputDialog.getText(self,
                                                 'Decrypt wallet',
-                                                'Enter your password:',
+                                                'Enter your passphrase:',
                                                 echo=QLineEdit.Password)
                 if not ok:
                     return
@@ -2047,7 +2047,7 @@ class JMMainWindow(QMainWindow):
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
                 wallet = open_test_wallet_maybe(wallet_path, str(firstarg),
-                        None, ask_for_password=False, password=pwd.encode('utf-8') if pwd else None,
+                        None, ask_for_passphrase=False, passphrase=pwd.encode('utf-8') if pwd else None,
                         gap_limit=jm_single().config.getint("GUI", "gaplimit"))
             except RetryableStorageError as e:
                 if rethrow:
@@ -2168,7 +2168,7 @@ class JMMainWindow(QMainWindow):
                            mbtype="crit", title="Error")
             return
         if not (self.checkPassphrase()
-                and wallet_change_passphrase(self.wallet_service, self.getPassword)):
+                and wallet_change_passphrase(self.wallet_service, self.getPassphrase)):
             JMQtMessageBox(self, "Failed to change passphrase.",
                            title="Error", mbtype="warn")
             return
@@ -2201,8 +2201,8 @@ class JMMainWindow(QMainWindow):
                            mbtype='info',
                            title="Error")
 
-    def getPassword(self):
-        pd = PasswordDialog()
+    def getPassphrase(self):
+        pd = PassphraseDialog()
         while True:
             for child in pd.findChildren(QLineEdit):
                 child.clear()
@@ -2223,8 +2223,8 @@ class JMMainWindow(QMainWindow):
                                title="Error")
                 continue
             break
-        self.textpassword = str(pd.new_pw.text())
-        return self.textpassword.encode('utf-8')
+        self.textpassphrase = str(pd.new_pw.text())
+        return self.textpassphrase.encode('utf-8')
 
     def getWalletFileName(self):
         walletname, ok = QInputDialog.getText(self, 'Choose wallet name',
@@ -2280,7 +2280,7 @@ class JMMainWindow(QMainWindow):
                     "generate", wallets_path, "wallet.jmdat",
                     display_seed_callback=self.displayWords,
                     enter_seed_callback=None,
-                    enter_wallet_password_callback=self.getPassword,
+                    enter_wallet_passphrase_callback=self.getPassphrase,
                     enter_wallet_file_name_callback=self.getWalletFileName,
                     enter_if_use_seed_extension=self.promptUseMnemonicExtension,
                     enter_seed_extension_callback=self.promptInputMnemonicExtension,
@@ -2296,7 +2296,7 @@ class JMMainWindow(QMainWindow):
 
             JMQtMessageBox(self, 'Wallet saved to ' + self.walletname,
                            title="Wallet created")
-        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassword)
+        self.loadWalletFromBlockchain(self.walletname, pwd=self.textpassphrase)
 
 def get_wallet_printout(wallet_service):
     """Given a WalletService object, retrieve the list of

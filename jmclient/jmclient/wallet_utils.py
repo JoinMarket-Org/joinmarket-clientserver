@@ -11,11 +11,11 @@ from collections import Counter
 from itertools import islice
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, WalletError, BaseWallet,
-    VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
+    VolatileStorage, StoragePassphraseError, is_segwit_mode, SegwitLegacyWallet,
     LegacyWallet, SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
     is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
 from jmclient.wallet_service import WalletService
-from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
+from jmbase.support import (get_passphrase, jmprint, EXIT_FAILURE,
                             EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex,
                             IndentedHelpFormatterWithNL)
 
@@ -613,12 +613,12 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
         return walletview
 
 def cli_get_wallet_passphrase_check():
-    password = get_password("Enter new passphrase to encrypt wallet: ")
-    password2 = get_password("Reenter new passphrase to encrypt wallet: ")
-    if password != password2:
-        jmprint('ERROR. Passwords did not match', "error")
+    passphrase = get_passphrase("Enter new passphrase to encrypt wallet: ")
+    passphrase2 = get_passphrase("Reenter new passphrase to encrypt wallet: ")
+    if passphrase != passphrase2:
+        jmprint('ERROR. Passphrases did not match', "error")
         return False
-    return password
+    return passphrase
 
 def cli_get_wallet_file_name(defaultname="wallet.jmdat"):
     return input('Input wallet file name (default: ' + defaultname + '): ')
@@ -661,7 +661,7 @@ def cli_do_support_fidelity_bonds():
         return True
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
-        display_seed_callback, enter_seed_callback, enter_wallet_password_callback,
+        display_seed_callback, enter_seed_callback, enter_wallet_passphrase_callback,
         enter_wallet_file_name_callback, enter_if_use_seed_extension,
         enter_seed_extension_callback, enter_do_support_fidelity_bonds, mixdepth=DEFAULT_MIXDEPTH):
     entropy = None
@@ -685,8 +685,8 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         raise Exception("unknown method for wallet creation: '{}'"
                         .format(method))
 
-    password = enter_wallet_password_callback()
-    if not password:
+    passphrase = enter_wallet_passphrase_callback()
+    if not passphrase:
         return False
 
     wallet_name = enter_wallet_file_name_callback()
@@ -699,7 +699,7 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     wallet_path = os.path.join(walletspath, wallet_name)
     support_fidelity_bonds = enter_do_support_fidelity_bonds()
     wallet_cls = get_wallet_cls(get_configured_wallet_type(support_fidelity_bonds))
-    wallet = create_wallet(wallet_path, password, mixdepth, wallet_cls,
+    wallet = create_wallet(wallet_path, passphrase, mixdepth, wallet_cls,
                            entropy=entropy,
                            entropy_extension=mnemonic_extension)
     mnemonic, mnext = wallet.get_mnemonic_words()
@@ -731,8 +731,8 @@ def wallet_generate_recover(method, walletspath,
         raise Exception("unknown method for wallet creation: '{}'"
                         .format(method))
 
-    password = cli_get_wallet_passphrase_check()
-    if not password:
+    passphrase = cli_get_wallet_passphrase_check()
+    if not passphrase:
         return ""
 
     wallet_name = cli_get_wallet_file_name()
@@ -740,7 +740,7 @@ def wallet_generate_recover(method, walletspath,
         wallet_name = default_wallet_name
     wallet_path = os.path.join(walletspath, wallet_name)
 
-    wallet = create_wallet(wallet_path, password, mixdepth,
+    wallet = create_wallet(wallet_path, passphrase, mixdepth,
                            wallet_cls=LegacyWallet, entropy=entropy)
     jmprint("Write down and safely store this wallet recovery seed\n\n{}\n"
           .format(wallet.get_mnemonic_words()[0]), "important")
@@ -1338,8 +1338,8 @@ def wallet_createwatchonly(wallet_root_path, master_pub_key):
 
     wallet_path = os.path.join(wallet_root_path, wallet_name)
 
-    password = cli_get_wallet_passphrase_check()
-    if not password:
+    passphrase = cli_get_wallet_passphrase_check()
+    if not passphrase:
         return ""
 
     entropy = FidelityBondMixin.get_xpub_from_fidelity_bond_master_pub_key(master_pub_key)
@@ -1348,7 +1348,7 @@ def wallet_createwatchonly(wallet_root_path, master_pub_key):
         return ""
     entropy = entropy.encode()
 
-    wallet = create_wallet(wallet_path, password,
+    wallet = create_wallet(wallet_path, passphrase,
         max_mixdepth=FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
         wallet_cls=FidelityBondWatchonlyWallet, entropy=entropy)
     return "Done"
@@ -1377,8 +1377,8 @@ def get_wallet_cls(wtype):
                           "".format(wtype))
     return cls
 
-def create_wallet(path, password, max_mixdepth, wallet_cls, **kwargs):
-    storage = Storage(path, password, create=True)
+def create_wallet(path, passphrase, max_mixdepth, wallet_cls, **kwargs):
+    storage = Storage(path, passphrase, create=True)
     wallet_cls.initialize(storage, get_network(), max_mixdepth=max_mixdepth,
                           **kwargs)
     storage.save()
@@ -1386,7 +1386,7 @@ def create_wallet(path, password, max_mixdepth, wallet_cls, **kwargs):
 
 
 def open_test_wallet_maybe(path, seed, max_mixdepth,
-                           test_wallet_cls=SegwitWallet, wallet_password_stdin=False, **kwargs):
+                           test_wallet_cls=SegwitWallet, wallet_passphrase_stdin=False, **kwargs):
     """
     Create a volatile test wallet if path is a hex-encoded string of length 64,
     otherwise run open_wallet().
@@ -1420,31 +1420,31 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
             #wallet instantiation insists on no unexpected kwargs,
             #but Qt caller opens both test and mainnet with same args,
             #hence these checks/deletes of unwanted args for tests.
-            if 'ask_for_password' in kwargs:
-                del kwargs['ask_for_password']
-            if 'password' in kwargs:
-                del kwargs['password']
+            if 'ask_for_passphrase' in kwargs:
+                del kwargs['ask_for_passphrase']
+            if 'passphrase' in kwargs:
+                del kwargs['passphrase']
             if 'read_only' in kwargs:
                 del kwargs['read_only']
             return test_wallet_cls(storage, **kwargs)
 
-    if wallet_password_stdin is True:
-        password = read_password_stdin()
-        return open_wallet(path, ask_for_password=False, password=password, mixdepth=max_mixdepth, **kwargs)
+    if wallet_passphrase_stdin is True:
+        passphrase = read_passphrase_stdin()
+        return open_wallet(path, ask_for_password=False, passphrase=passphrase, mixdepth=max_mixdepth, **kwargs)
 
     return open_wallet(path, mixdepth=max_mixdepth, **kwargs)
 
 
-def open_wallet(path, ask_for_password=True, password=None, read_only=False,
+def open_wallet(path, ask_for_passphrase=True, passphrase=None, read_only=False,
                 **kwargs):
     """
     Open the wallet file at path and return the corresponding wallet object.
 
     params:
         path: str, full path to wallet file
-        ask_for_password: bool, if False password is assumed unset and user
+        ask_for_passphrase: bool, if False, passphrase is assumed unset and user
             will not be asked to type it
-        password: password for storage, ignored if ask_for_password is True
+        passphrase: passphrase for storage, ignored if ask_for_passphrase is True
         read_only: bool, if True, open wallet in read-only mode
         kwargs: additional options to pass to wallet's init method
 
@@ -1460,14 +1460,14 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
                         "you need to convert it using the conversion script "
                         "at `scripts/convert_old_wallet.py`".format(path))
 
-    if ask_for_password and Storage.is_encrypted_storage_file(path):
+    if ask_for_passphrase and Storage.is_encrypted_storage_file(path):
         while True:
             try:
-                # do not try empty password, assume unencrypted on empty password
-                pwd = get_password("Enter passphrase to decrypt wallet: ") or None
-                storage = Storage(path, password=pwd, read_only=read_only)
-            except StoragePasswordError:
-                jmprint("Wrong password, try again.", "warning")
+                # do not try empty passphrase, assume unencrypted on empty passphrase
+                pwd = get_passphrase("Enter passphrase to decrypt wallet: ") or None
+                storage = Storage(path, passphrase=pwd, read_only=read_only)
+            except StoragePassphraseError:
+                jmprint("Wrong passphrase, try again.", "warning")
                 continue
             except Exception as e:
                 jmprint("Failed to load wallet, error message: " + repr(e),
@@ -1475,7 +1475,7 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
                 raise e
             break
     else:
-        storage = Storage(path, password, read_only=read_only)
+        storage = Storage(path, passphrase, read_only=read_only)
 
     wallet_cls = get_wallet_cls_from_storage(storage)
     wallet = wallet_cls(storage, **kwargs)
@@ -1504,7 +1504,7 @@ def get_wallet_path(file_name, wallet_dir=None):
     return os.path.join(wallet_dir, file_name)
 
 
-def read_password_stdin():
+def read_passphrase_stdin():
     return sys.stdin.readline().replace('\n','').encode('utf-8')
 
 

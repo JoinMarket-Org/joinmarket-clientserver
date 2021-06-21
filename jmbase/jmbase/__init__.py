@@ -1,6 +1,6 @@
 
 from .support import (get_log, chunks, debug_silence, jmprint,
-                      joinmarket_alert, core_alert, get_password,
+                      joinmarket_alert, core_alert, get_passphrase,
                       set_logging_level, set_logging_color,
                       lookup_appdata_folder, bintohex, bintolehex,
                       hextobin, lehextobin, utxostr_to_utxo,

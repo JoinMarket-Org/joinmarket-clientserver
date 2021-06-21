@@ -971,10 +971,10 @@ class BaseWallet(object):
         raise NotImplementedError()
 
     def check_wallet_passphrase(self, passphrase):
-        return self._storage.check_password(passphrase)
+        return self._storage.check_passphrase(passphrase)
 
     def change_wallet_passphrase(self, passphrase):
-        self._storage.change_password(passphrase)
+        self._storage.change_passphrase(passphrase)
 
     def yield_imported_paths(self, mixdepth):
         """

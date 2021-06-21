@@ -43,11 +43,12 @@ def add_base_options(parser):
                       default=False,
                       help=('choose to do detailed wallet sync, '
                             'used for recovering on new Core instance.'))
+    # keep "wallet-password-stdin" (not passphrase) to not break compatibility
     parser.add_option('--wallet-password-stdin',
                       action='store_true',
                       default=False,
                       dest='wallet_password_stdin',
-                      help='Read wallet password from stdin')
+                      help='Read wallet passphrase (password) from stdin')
     parser.add_option('--version',
                       action='callback',
                       callback=print_jm_version,

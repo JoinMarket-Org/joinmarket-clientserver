@@ -8,7 +8,7 @@ from collections import defaultdict
 from pyaes import AESModeOfOperationCBC, Decrypter
 from jmbase import JM_APP_NAME
 from jmclient import Storage, load_program_config, BTCEngine, BaseWallet
-from jmclient.wallet_utils import get_password, get_wallet_cls,\
+from jmclient.wallet_utils import get_passphrase, get_wallet_cls,\
     cli_get_wallet_passphrase_check, get_wallet_path, \
     get_configured_wallet_type
 
@@ -40,15 +40,15 @@ def decrypt_data(key, data):
 def decrypt_entropy_extension(enc_data, key):
     data = decrypt_data(key, unhexlify(enc_data))
     if data[-9] != b'\xff':
-        raise ConvertException("Wrong password.")
+        raise ConvertException("Wrong passphrase.")
     chunks = data.split(b'\xff')
     if len(chunks) < 3 or data[-8:] != hexlify(double_sha256(chunks[1]).decode('ascii')[:4]):
-        raise ConvertException("Wrong password.")
+        raise ConvertException("Wrong passphrase.")
     return chunks[1]
 
 
-def decrypt_wallet_data(data, password):
-    key = double_sha256(password)
+def decrypt_wallet_data(data, passphrase):
+    key = double_sha256(passphrase)
 
     enc_entropy = data.get('encrypted_seed') or data.get('encrypted_entropy')
     enc_entropy_ext = data.get('encrypted_mnemonic_extension')
@@ -75,7 +75,7 @@ def new_wallet_from_data(data, file_name):
     if new_pw is False:
         return False
 
-    storage = Storage(file_name, create=True, password=new_pw)
+    storage = Storage(file_name, create=True, passphrase=new_pw)
     wallet_cls = get_wallet_cls(wtype=get_configured_wallet_type(False))
 
     kwdata = {
@@ -113,15 +113,15 @@ def parse_old_wallet(fh):
     file_data = json.load(fh)
 
     if is_encrypted(file_data):
-        pw = get_password("Enter password for old wallet file: ")
+        pw = get_passphrase("Enter passphrase for old wallet file: ")
         try:
             decrypt_wallet_data(file_data, pw)
         except ValueError:
-            print("Failed to open wallet: bad password")
+            print("Failed to open wallet: bad passphrase")
             return
         except Exception as e:
             print("Error: {}".format(e))
-            print("Failed to open wallet. Wrong password?")
+            print("Failed to open wallet. Wrong passphrase?")
             return
 
     return file_data

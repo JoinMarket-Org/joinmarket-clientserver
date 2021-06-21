@@ -16,8 +16,8 @@ log = get_log()
 
 def main():
     parser = OptionParser(
-        usage='usage: %prog [options] wallet_file_name [password]',
-        description='Create a wallet with the given wallet name and password.'
+        usage='usage: %prog [options] wallet_file_name [passphrase]',
+        description='Create a wallet with the given wallet name and passphrase.'
     )
     add_base_options(parser)
     parser.add_option(
@@ -30,9 +30,9 @@ def main():
     (options, args) = parser.parse_args()
     wallet_name = args[0]
     if options.wallet_password_stdin:
-        password = wallet_utils.read_password_stdin()
+        passphrase = wallet_utils.read_passphrase_stdin()
     else:
-        assert len(args) > 1, "must provide password via stdin (see --help), or as second argument."
+        assert len(args) > 1, "must provide passphrase via stdin (see --help), or as second argument."
         password = args[1].encode("utf-8")
     seed = options.seed_file and Path(options.seed_file).read_text().rstrip()
 
@@ -45,7 +45,7 @@ def main():
         # Fidelity Bonds are not available for segwit legacy wallets
         walletclass = SegwitLegacyWallet
     entropy = seed and SegwitLegacyWallet.entropy_from_mnemonic(seed)
-    wallet = create_wallet(wallet_path, password, wallet_utils.DEFAULT_MIXDEPTH, walletclass, entropy=entropy)
+    wallet = create_wallet(wallet_path, passphrase, wallet_utils.DEFAULT_MIXDEPTH, walletclass, entropy=entropy)
     jmprint("recovery_seed:{}"
          .format(wallet.get_mnemonic_words()[0]), "important")
     wallet.close()
