@@ -63,7 +63,6 @@ def make_wallets(n,
                  start_index=0,
                  fixed_seeds=None,
                  test_wallet=False,
-                 passwords=None,
                  walletclass=SegwitWallet,
                  mixdepths=5):
     '''n: number of wallets to be created
@@ -74,7 +73,6 @@ def make_wallets(n,
        sdev_amt: if randomness in amouts is desired, specify here.
        Returns: a dict of dicts of form {0:{'seed':seed,'wallet':Wallet object},1:..,}
        Default Wallet constructor is joinmarket.Wallet, else use TestWallet,
-       which takes a password parameter as in the list passwords.
        '''
     # FIXME: this is basically the same code as jmclient/test/commontest.py
     if len(wallet_structures) != n:
@@ -87,12 +85,6 @@ def make_wallets(n,
     wallets = {}
     for i in range(n):
         assert len(seeds[i]) == BIP32Wallet.ENTROPY_BYTES * 2
-
-        # FIXME: pwd is ignored (but do we really need this anyway?)
-        if test_wallet and passwords and i < len(passwords):
-            pwd = passwords[i]
-        else:
-            pwd = None
 
         w = open_test_wallet_maybe(seeds[i], seeds[i], mixdepths - 1,
                                    test_wallet_cls=walletclass)
