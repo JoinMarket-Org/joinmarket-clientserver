@@ -735,7 +735,7 @@ class PayjoinConverter(object):
             return (False, "Invalid request parameters.",
                               "original-psbt-rejected")
 
-        if afoi and not (self.manager.change_out_index == afoi):
+        if afoi is not None and not (self.manager.change_out_index == afoi):
             return (False, "additionalfeeoutputindex is "
                                     "not the change output. Joinmarket does "
                                     "not currently support this.",
@@ -817,7 +817,7 @@ class PayjoinConverter(object):
         # set the intended virtual size of our input:
         vsize = self.manager.get_vsize_for_input()
         our_fee_bump = 0
-        if afoi:
+        if afoi is not None:
             # We plan to reduce the change_out by a fee contribution.
             # Calculate the additional fee we think we need for our input,
             # to keep the same feerate as the original transaction (this also

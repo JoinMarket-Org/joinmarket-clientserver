@@ -9,7 +9,7 @@ from optparse import IndentedHelpFormatter
 import urllib.parse as urlparse
 
 # JoinMarket version
-JM_CORE_VERSION = '0.8.3dev'
+JM_CORE_VERSION = '0.8.3'
 
 # global Joinmarket constants
 JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
@@ -77,7 +77,11 @@ DUST_THRESHOLD = 2730
 class JoinMarketStreamHandler(ColorizingStreamHandler):
 
     def __init__(self):
-        super().__init__(colorizer=jm_colorizer, stream=sys.stdout)
+        if sys.stdout.isatty():
+            super().__init__(colorizer=jm_colorizer, stream=sys.stdout)
+        else:
+            super().__init__(colorizer=MonochromaticColorizer,
+                stream=sys.stdout)
 
     def emit(self, record):
         if joinmarket_alert[0]:
@@ -176,7 +180,11 @@ def jmprint(msg, level="info"):
     msg = msg.replace('}', '}}')
 
     fmtfn = eval(level)
-    print(jm_colorizer.colorize_message(fmtfn(msg)))
+    fmtd_msg = fmtfn(msg)
+    if sys.stdout.isatty():
+        print(jm_colorizer.colorize_message(fmtd_msg))
+    else:
+        print(fmtd_msg)
 
 def get_log():
     """
@@ -189,7 +197,7 @@ def set_logging_level(level):
     handler.setLevel(level)
 
 def set_logging_color(colored=False):
-    if colored:
+    if colored and sys.stdout.isatty():
         handler.colorizer = jm_colorizer
     else:
         handler.colorizer = MonochromaticColorizer()

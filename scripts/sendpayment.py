@@ -16,7 +16,9 @@ from jmclient import Taker, load_program_config, get_schedule,\
     jm_single, estimate_tx_fee, direct_send, WalletService,\
     open_test_wallet_maybe, get_wallet_path, NO_ROUNDING, \
     get_sendpayment_parser, get_max_cj_fee_values, check_regtest, \
-    parse_payjoin_setup, send_payjoin
+    parse_payjoin_setup, send_payjoin, general_custom_change_warning, \
+    nonwallet_custom_change_warning, sweep_custom_change_warning, \
+    detect_script_type, EngineError
 from twisted.python.log import startLogging
 from jmbase.support import get_log, jmprint, \
     EXIT_FAILURE, EXIT_ARGERROR, DUST_THRESHOLD
@@ -202,9 +204,46 @@ def main():
             log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
                 .format(exp_tx_fees_ratio))
 
+    custom_change = None
+    if options.customchange != '':
+        addr_valid, errormsg = validate_address(options.customchange)
+        if not addr_valid:
+            parser.error(
+                "The custom change address provided is not valid\n{}".format(
+                errormsg))
+            sys.exit(EXIT_ARGERROR)
+        custom_change = options.customchange
+        if destaddr and custom_change == destaddr:
+            parser.error("The custom change address cannot be the same as the "
+                         "destination address.")
+            sys.exit(EXIT_ARGERROR)
+        if sweeping:
+            parser.error(sweep_custom_change_warning)
+            sys.exit(EXIT_ARGERROR)
+        if bip78url:
+            parser.error("Custom change is not currently supported "
+                "with Payjoin. Please retry without a custom change address.")
+            sys.exit(EXIT_ARGERROR)
+        if options.makercount > 0:
+            if not options.answeryes and input(
+                general_custom_change_warning + " (y/n):")[0] != "y":
+                sys.exit(EXIT_ARGERROR)
+            change_spk = wallet_service.addr_to_script(custom_change)
+            engine_recognized = True
+            try:
+                change_addr_type = detect_script_type(change_spk)
+            except EngineError:
+                engine_recognized = False
+            if (not engine_recognized) or (
+                change_addr_type != wallet_service.TYPE):
+                if not options.answeryes and input(
+                    nonwallet_custom_change_warning + " (y/n):")[0] != "y":
+                    sys.exit(EXIT_ARGERROR)
+
     if options.makercount == 0 and not bip78url:
         tx = direct_send(wallet_service, amount, mixdepth, destaddr,
-                         options.answeryes, with_final_psbt=options.with_psbt)
+                         options.answeryes, with_final_psbt=options.with_psbt,
+                         custom_change_addr=custom_change)
         if options.with_psbt:
             log.info("This PSBT is fully signed and can be sent externally for "
                      "broadcasting:")
@@ -315,7 +354,8 @@ def main():
                       schedule,
                       order_chooser=chooseOrdersFunc,
                       max_cj_fee=maxcjfee,
-                      callbacks=(filter_orders_callback, None, taker_finished))
+                      callbacks=(filter_orders_callback, None, taker_finished),
+                      custom_change_address=custom_change)
     clientfactory = JMClientProtocolFactory(taker)
 
     if jm_single().config.get("BLOCKCHAIN", "network") == "regtest":

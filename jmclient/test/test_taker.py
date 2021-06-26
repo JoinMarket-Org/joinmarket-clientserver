@@ -13,8 +13,8 @@ from base64 import b64encode
 from jmbase import utxostr_to_utxo, hextobin
 from jmclient import load_test_config, jm_single, set_commitment_file,\
     get_commitment_file, SegwitWallet, Taker, VolatileStorage,\
-    get_network, WalletService, NO_ROUNDING, BTC_P2PKH,\
-    NotEnoughFundsException
+    get_network, WalletService, NO_ROUNDING, NotEnoughFundsException,\
+    BTC_P2SH_P2WPKH, BTC_P2PKH, BTC_P2WPKH
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
     t_maker_response, t_chosen_orders, t_dummy_ext
 from commontest import default_max_cj_fee
@@ -146,7 +146,7 @@ def dummy_filter_orderbook(orders_fees, cjamount):
     return True
 
 def get_taker(schedule=None, schedule_len=0, on_finished=None,
-              filter_orders=None):
+              filter_orders=None, custom_change=None):
     if not schedule:
         #note, for taker.initalize() this will result in junk
         schedule = [['a', 'b', 'c', 'd', 'e', 'f']]*schedule_len
@@ -154,7 +154,8 @@ def get_taker(schedule=None, schedule_len=0, on_finished=None,
     on_finished_callback = on_finished if on_finished else taker_finished
     filter_orders_callback = filter_orders if filter_orders else dummy_filter_orderbook
     taker = Taker(WalletService(DummyWallet()), schedule, default_max_cj_fee,
-                  callbacks=[filter_orders_callback, None, on_finished_callback])
+                  callbacks=[filter_orders_callback, None, on_finished_callback],
+                  custom_change_address=custom_change)
     taker.wallet_service.current_blockheight = 10**6
     return taker
 
@@ -438,9 +439,45 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
         a = taker.coinjoin_address()
     taker.wallet_service.wallet.inject_addr_get_failure = True
     taker.my_cj_addr = "dummy"
+    taker.my_change_addr = None
     assert not taker.prepare_my_bitcoin_data()
     #clean up
     return clean_up()
+
+def test_custom_change(setup_taker):
+    # create three random custom change addresses, one of each
+    # known type in Joinmarket.
+    privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,4)]]
+    scripts = [a.key_to_script(i) for a, i in zip([BTC_P2PKH, BTC_P2SH_P2WPKH, BTC_P2WPKH], privs)]
+    addrs = [a.privkey_to_address(i) for a, i in zip([BTC_P2PKH, BTC_P2SH_P2WPKH, BTC_P2WPKH], privs)]
+    schedule = [(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)]
+    for script, addr in zip(scripts, addrs):
+        taker = get_taker(schedule, custom_change=addr)
+        orderbook = copy.deepcopy(t_orderbook)
+        res = taker.initialize(orderbook)
+        taker.orderbook = copy.deepcopy(t_chosen_orders)
+        maker_response = copy.deepcopy(t_maker_response)
+        res = taker.receive_utxos(maker_response)
+        assert res[0]
+        # ensure that the transaction created for signing has
+        # the address we intended with the right amount:
+        custom_change_found = False
+        for out in taker.latest_tx.vout:
+            # input utxo is 20M; amount is 2M; as per logs:
+            # totalin=200000000
+            # my_txfee=12930
+            # makers_txfee=3000
+            # cjfee_total=12000 => changevalue=179975070
+            # note that there is a small variation in the size of
+            # the transaction (a few bytes) for the different scriptPubKey
+            # type, but this is currently ignored by the Taker, who makes
+            # fee estimate purely based on the number of ins and outs;
+            # this will never be too far off anyway.
+            if out.scriptPubKey == script and out.nValue == 179975070:
+                # must be only one
+                assert not custom_change_found
+                custom_change_found = True
+        assert custom_change_found
 
 @pytest.mark.parametrize(
     "schedule_len",

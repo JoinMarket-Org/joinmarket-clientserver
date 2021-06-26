@@ -519,6 +519,13 @@ def get_sendpayment_parser():
                       'broadcasting the transaction. '
                       'Currently only works with direct '
                       'send (-N 0).')
+    parser.add_option('-u',
+                      '--custom-change',
+                      type="str",
+                      dest='customchange',
+                      default='',
+                      help='specify address to receive change '
+                      ', by default use in-wallet address.')
 
     add_common_options(parser)
     return parser
