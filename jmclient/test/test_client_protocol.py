@@ -20,6 +20,7 @@ from commontest import default_max_cj_fee
 import json
 import jmbitcoin as bitcoin
 import twisted
+import base64
 twisted.internet.base.DelayedCall.debug = True
 
 test_completed = False
@@ -99,7 +100,7 @@ class DummyMaker(Maker):
         # success, utxos, auth_pub, cj_addr, change_addr, btc_sig
         return True, [], b"", '', '', ''
 
-    def on_tx_received(self, nick, txhex, offerinfo):
+    def on_tx_received(self, nick, tx, offerinfo):
         # success, sigs
         return True, []
 
@@ -185,8 +186,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, offers, use_fidelity_bond):
-        show_receipt("JMSETUP", role, offers, use_fidelity_bond)
+    def on_JM_SETUP(self, role, initdata, use_fidelity_bond):
+        show_receipt("JMSETUP", role, initdata, use_fidelity_bond)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -208,8 +209,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         success = False if amount == -1 else True
         show_receipt("JMFILL", amount, commitment, revelation, filled_offers)
         d = self.callRemote(JMFillResponse,
-                                success=success,
-                                ioauth_data = json.dumps(['dummy', 'list']))
+                            success=success,
+                            ioauth_data=['dummy', 'list'])
         return {'accepted': True}
 
     @JMMakeTx.responder
@@ -390,13 +391,14 @@ class TestMakerClientProtocol(unittest.TestCase):
     def test_JMAuthReceived(self):
         yield self.init_client()
         yield self.callClient(
-            JMAuthReceived, nick='testnick', offer='{}',
-            commitment='testcommitment', revelation='{}', amount=100000,
+            JMAuthReceived, nick='testnick', offer={},
+            commitment='testcommitment', revelation={}, amount=100000,
             kphex='testkphex')
 
     @inlineCallbacks
     def test_JMTXReceived(self):
         yield self.init_client()
         yield self.callClient(
-            JMTXReceived, nick='testnick', txhex=t_raw_signed_tx,
-            offer='{"cjaddr":"2MwfecDHsQTm4Gg3RekQdpqAMR15BJrjfRF"}')
+            JMTXReceived, nick='testnick',
+            tx=base64.b16decode(t_raw_signed_tx, casefold=True),
+            offer={"cjaddr":"2MwfecDHsQTm4Gg3RekQdpqAMR15BJrjfRF"})

@@ -118,7 +118,7 @@ class Maker(object):
         return (True, utxos, auth_pub, cj_addr, change_addr, btc_sig)
 
     @hexbin
-    def on_tx_received(self, nick, tx_from_taker, offerinfo):
+    def on_tx_received(self, nick, tx, offerinfo):
         """Called when the counterparty has sent an unsigned
         transaction. Sigs are created and returned if and only
         if the transaction passes verification checks (see
@@ -129,9 +129,9 @@ class Maker(object):
         if not isinstance(offerinfo["offer"]["cjfee"], str):
             offerinfo["offer"]["cjfee"] = bintohex(offerinfo["offer"]["cjfee"])
         try:
-            tx = btc.CMutableTransaction.deserialize(tx_from_taker)
+            tx = btc.CMutableTransaction.deserialize(tx)
         except Exception as e:
-            return (False, 'malformed txhex. ' + repr(e))
+            return (False, 'malformed tx. ' + repr(e))
         # if the above deserialization was successful, the human readable
         # parsing will be also:
         jlog.info('obtained tx\n' + btc.human_readable_transaction(tx))

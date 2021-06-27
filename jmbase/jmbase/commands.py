@@ -3,8 +3,10 @@ Commands defining client-server (daemon)
 messaging protocol (*not* Joinmarket p2p protocol).
 Used for AMP asynchronous messages.
 """
-from twisted.protocols.amp import Boolean, Command, Integer, Unicode
+from twisted.protocols.amp import Boolean, Command, Integer, Unicode, ListOf,\
+    String
 from .bigstring import BigUnicode
+from .arguments import JsonEncodable
 
 
 class DaemonNotReady(Exception):
@@ -29,7 +31,7 @@ class JMInit(JMCommand):
     """
     arguments = [(b'bcsource', Unicode()),
                  (b'network', Unicode()),
-                 (b'irc_configs', Unicode()),
+                 (b'irc_configs', JsonEncodable()),
                  (b'minmakers', Integer()),
                  (b'maker_timeout_sec', Integer()),
                  (b'dust_threshold', Integer())]
@@ -47,7 +49,7 @@ class JMSetup(JMCommand):
     role, passes initial offers for announcement (for TAKER, this data is "none")
     """
     arguments = [(b'role', Unicode()),
-                 (b'offers', Unicode()),
+                 (b'initdata', JsonEncodable()),
                  (b'use_fidelity_bond', Boolean())]
 
 class JMMsgSignature(JMCommand):
@@ -82,13 +84,13 @@ class JMFill(JMCommand):
     arguments = [(b'amount', Integer()),
                  (b'commitment', Unicode()),
                  (b'revelation', Unicode()),
-                 (b'filled_offers', Unicode())]
+                 (b'filled_offers', JsonEncodable())]
 
 class JMMakeTx(JMCommand):
     """Send a hex encoded raw bitcoin transaction
     to a set of counterparties
     """
-    arguments = [(b'nick_list', Unicode()),
+    arguments = [(b'nick_list', ListOf(Unicode())),
                  (b'txhex', Unicode())]
 
 class JMPushTx(JMCommand):
@@ -106,9 +108,9 @@ class JMAnnounceOffers(JMCommand):
     to the daemon, along with new announcement
     and cancellation lists (deltas).
     """
-    arguments = [(b'to_announce', Unicode()),
-                 (b'to_cancel', Unicode()),
-                 (b'offerlist', Unicode())]
+    arguments = [(b'to_announce', JsonEncodable()),
+                 (b'to_cancel', JsonEncodable()),
+                 (b'offerlist', JsonEncodable())]
 
 class JMFidelityBondProof(JMCommand):
     """Send requested fidelity bond proof message"""
@@ -120,7 +122,7 @@ class JMIOAuth(JMCommand):
     verifying Taker's auth message
     """
     arguments = [(b'nick', Unicode()),
-                 (b'utxolist', Unicode()),
+                 (b'utxolist', JsonEncodable()),
                  (b'pubkey', Unicode()),
                  (b'cjaddr', Unicode()),
                  (b'changeaddr', Unicode()),
@@ -131,7 +133,7 @@ class JMTXSigs(JMCommand):
     sent by TAKER
     """
     arguments = [(b'nick', Unicode()),
-                 (b'sigs', Unicode())]
+                 (b'sigs', ListOf(Unicode()))]
 
 """COMMANDS FROM DAEMON TO CLIENT
 =================================
@@ -197,7 +199,7 @@ class JMFillResponse(JMCommand):
     """Returns ioauth data from MAKER if successful.
     """
     arguments = [(b'success', Boolean()),
-                 (b'ioauth_data', Unicode())]
+                 (b'ioauth_data', JsonEncodable())]
 
 class JMSigReceived(JMCommand):
     """Returns an individual bitcoin transaction signature
@@ -221,9 +223,9 @@ class JMAuthReceived(JMCommand):
     before setting up encryption and continuing.
     """
     arguments = [(b'nick', Unicode()),
-                 (b'offer', Unicode()),
+                 (b'offer', JsonEncodable()),
                  (b'commitment', Unicode()),
-                 (b'revelation', Unicode()),
+                 (b'revelation', JsonEncodable()),
                  (b'amount', Integer()),
                  (b'kphex', Unicode())]
 
@@ -232,8 +234,8 @@ class JMTXReceived(JMCommand):
     by TAKER, along with offerdata to verify fees.
     """
     arguments = [(b'nick', Unicode()),
-                 (b'txhex', Unicode()),
-                 (b'offer', Unicode())]
+                 (b'tx', String()),
+                 (b'offer', JsonEncodable())]
 
 class JMTXBroadcast(JMCommand):
     """ Accept a bitcoin transaction
@@ -241,7 +243,7 @@ class JMTXBroadcast(JMCommand):
     and relay it to the client for network
     broadcast.
     """
-    arguments = [(b'txhex', Unicode())]
+    arguments = [(b'tx', String())]
 
 """SNICKER related commands.
 """
@@ -251,12 +253,12 @@ class SNICKERReceiverInit(JMCommand):
     See documentation of `netconfig` in
     jmdaemon.HTTPPassThrough.on_INIT
     """
-    arguments = [(b'netconfig', Unicode())]
+    arguments = [(b'netconfig', JsonEncodable())]
 
 class SNICKERProposerInit(JMCommand):
     """ As for receiver.
     """
-    arguments = [(b'netconfig', Unicode())]
+    arguments = [(b'netconfig', JsonEncodable())]
 
 class SNICKERReceiverUp(JMCommand):
     arguments = []
@@ -307,7 +309,7 @@ class BIP78SenderInit(JMCommand):
     See documentation of `netconfig` in
     jmdaemon.HTTPPassThrough.on_INIT
     """
-    arguments = [(b'netconfig', Unicode())]
+    arguments = [(b'netconfig', JsonEncodable())]
 
 class BIP78SenderUp(JMCommand):
     arguments = []
@@ -319,7 +321,7 @@ class BIP78SenderOriginalPSBT(JMCommand):
     to be sent as an http request to the receiver.
     """
     arguments = [(b'body', BigUnicode()),
-                 (b'params', Unicode())]
+                 (b'params', JsonEncodable())]
 
 class BIP78SenderReceiveProposal(JMCommand):
     """ Sends the payjoin proposal PSBT, received
@@ -341,7 +343,7 @@ class BIP78SenderReceiveError(JMCommand):
 class BIP78ReceiverInit(JMCommand):
     """ Initialization data for a BIP78 hidden service.
     """
-    arguments = [(b'netconfig', Unicode())]
+    arguments = [(b'netconfig', JsonEncodable())]
 
 class BIP78ReceiverUp(JMCommand):
     """ Returns onion hostname to client when
@@ -356,7 +358,7 @@ class BIP78ReceiverOriginalPSBT(JMCommand):
     parameters in the url, from the daemon to the client.
     """
     arguments = [(b'body', BigUnicode()),
-                 (b'params', Unicode())]
+                 (b'params', JsonEncodable())]
 
 class BIP78ReceiverSendProposal(JMCommand):
     """ Receives a payjoin proposal PSBT from

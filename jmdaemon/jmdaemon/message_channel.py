@@ -1028,21 +1028,21 @@ class MessageChannel(object):
                 elif _chunks[0] == 'tx':
                     b64tx = _chunks[1]
                     try:
-                        txhex = binascii.hexlify(base64.b64decode(b64tx)).decode('ascii')
+                        tx = base64.b64decode(b64tx)
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
                         return
                     if self.on_seen_tx:
-                        self.on_seen_tx(nick, txhex)
+                        self.on_seen_tx(nick, tx)
                 elif _chunks[0] == 'push':
                     b64tx = _chunks[1]
                     try:
-                        txhex = binascii.hexlify(base64.b64decode(b64tx)).decode('ascii')
+                        tx = base64.b64decode(b64tx)
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
                         return
                     if self.on_push_tx:
-                        self.on_push_tx(nick, txhex)
+                        self.on_push_tx(nick, tx)
             except (IndexError, ValueError):
                 # TODO proper error handling
                 log.debug('cj peer error TODO handle')
