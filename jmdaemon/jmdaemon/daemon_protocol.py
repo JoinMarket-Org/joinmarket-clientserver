@@ -100,11 +100,11 @@ class BIP78ReceiverResource(JMHTTPResource):
 
     def __init__(self, info_callback, shutdown_callback, post_request_handler):
         """ The POST request handling callback has function signature:
-	args: (request-body-content-in-bytes,)
-	returns: (errormsg, errcode, httpcode, response-in-bytes)
-	If the request was successful, errormsg should be true and response
-	should be in bytes, to be sent in the return value of render_POST().
-	"""
+        args: (request-body-content-in-bytes,)
+        returns: (errormsg, errcode, httpcode, response-in-bytes)
+        If the request was successful, errormsg should be true and response
+        should be in bytes, to be sent in the return value of render_POST().
+        """
         self.post_request_handler = post_request_handler
         super().__init__(info_callback, shutdown_callback)
 
@@ -157,6 +157,7 @@ class BIP78ReceiverResource(JMHTTPResource):
         self.info_callback("Shutting down, payjoin negotiation failed.")
         self.shutdown_callback()
 
+
 class HTTPPassThrough(amp.AMP):
     """ This class supports passing through
     requests over HTTPS or over a socks proxy to a remote
@@ -204,9 +205,9 @@ class HTTPPassThrough(amp.AMP):
 
     def getRequest(self, server, success_callback, url=None, headers=None):
         """ Make GET request to server server, if response received OK,
-	passed to success_callback, which must have function signature
+        passed to success_callback, which must have function signature
         (response, server).
-	"""
+        """
         agent, destination_url = self.getAgentDestination(server)
         if url:
             destination_url = destination_url + url
@@ -228,7 +229,7 @@ class HTTPPassThrough(amp.AMP):
     def postRequest(self, body, server, success_callback,
                     url=None, params=None, headers=None):
         """ Pass body of post request as string, will be encoded here.
-	"""
+        """
         agent, destination_url = self.getAgentDestination(server,
                                                     params=params)
         if url:
@@ -301,25 +302,25 @@ class BIP78ServerProtocol(HTTPPassThrough):
 
     def info_callback(self, msg):
         """ Informational messages are all passed
-	to the client. TODO makes sense to log locally
-	too, in case daemon is isolated?.
-	"""
+        to the client. TODO makes sense to log locally
+        too, in case daemon is isolated?.
+        """
         d = self.callRemote(BIP78InfoMsg, infomsg=msg)
         self.defaultCallbacks(d)
 
     def onion_hostname_callback(self, hostname):
         """ On successful start of HS, we pass hostname
-	to client, who can use this to build the full URI.
-	"""
+        to client, who can use this to build the full URI.
+        """
         d = self.callRemote(BIP78ReceiverUp,
                             hostname=hostname)
         self.defaultCallbacks(d)
 
     def post_request_handler(self, request, body, params):
         """ Fired when a sender has sent a POST request
-	to our hidden service. Argument `body` should be a base64
+        to our hidden service. Argument `body` should be a base64
         string and params should be a dict.
-	"""
+        """
         self.post_request = request
         d = self.callRemote(BIP78ReceiverOriginalPSBT, body=body,
                             params=bdict_sdict_convert(params))
@@ -381,8 +382,8 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
     @SNICKERProposerPostProposals.responder
     def on_SNICKER_PROPOSER_POST_PROPOSALS(self, proposals, server):
         """ Receives a list of proposals to be posted to a specific
-	server.
-	"""
+        server.
+        """
         self.postRequest(proposals, server, self.receive_proposals_response)
         return {"accepted": True}
 
@@ -418,7 +419,7 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
 
     def receive_proposals_from_server(self, response, server):
         """ Parses the response from one server.
-	"""
+        """
         # if the response code is not 200 OK, we must let the client
         # know that this server is not responding as expected.
         if int(response.code) != 200:
@@ -484,7 +485,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     def defaultErrback(self, failure):
         """TODO better network error handling.
-	"""
+        """
         failure.trap(ConnectionAborted, ConnectionClosed,
                      ConnectionDone, ConnectionLost)
 
@@ -630,8 +631,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @JMMakeTx.responder
     def on_JM_MAKE_TX(self, nick_list, txhex):
         """Taker sends the prepared unsigned transaction
-	to all the Makers in nick_list
-	"""
+        to all the Makers in nick_list
+        """
         if not self.jm_state == 4:
             log.msg("Make tx was called in wrong state, rejecting")
             return {'accepted': False}
@@ -649,9 +650,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @JMAnnounceOffers.responder
     def on_JM_ANNOUNCE_OFFERS(self, to_announce, to_cancel, offerlist):
         """Called by Maker to reset his current offerlist;
-	Daemon decides what messages (cancel, announce) to
-	send to the message channel.
-	"""
+        Daemon decides what messages (cancel, announce) to
+        send to the message channel.
+        """
         if self.role != "MAKER":
             return
         self.offerlist = offerlist
@@ -670,9 +671,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @JMIOAuth.responder
     def on_JM_IOAUTH(self, nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig):
         """Daemon constructs full !ioauth message to be sent on message
-	channel based on data from Maker. Relevant data (utxos, addresses)
-	are stored in the active_orders dict keyed by the nick of the Taker.
-	"""
+        channel based on data from Maker. Relevant data (utxos, addresses)
+        are stored in the active_orders dict keyed by the nick of the Taker.
+        """
         if not self.role == "MAKER":
             return
         if nick not in self.active_orders:
@@ -791,7 +792,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         if nick not in self.active_orders:
             return
-        ao =self.active_orders[nick]
+        ao = self.active_orders[nick]
         #ask the client to validate the commitment and prepare the utxo data
         d = self.callRemote(JMAuthReceived,
                             nick=nick,
@@ -805,8 +806,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @maker_only
     def on_commitment_seen(self, nick, commitment):
         """Triggered when we see a commitment for blacklisting
-	appear in the public pit channel.
-	"""
+        appear in the public pit channel.
+        """
         #just add if necessary, ignore return value.
         check_utxo_blacklist(commitment, persist=True)
         log.msg("Received commitment broadcast by other maker: " + str(
@@ -815,10 +816,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @maker_only
     def on_commitment_transferred(self, nick, commitment):
         """Triggered when a privmsg is received from another maker
-	with a commitment to announce in public (obfuscation of source).
+        with a commitment to announce in public (obfuscation of source).
         We simply post it in public (not affected by whether we ourselves
         are *accepting* commitment broadcasts.
-	"""
+        """
         self.mcc.pubmsg("!hp2 " + commitment)
 
     @maker_only
@@ -831,8 +832,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     @maker_only
     def on_seen_tx(self, nick, tx):
         """Passes the txhex to the Maker for verification
-	and signing. Note the security checks occur in Maker.
-	"""
+        and signing. Note the security checks occur in Maker.
+        """
         if nick not in self.active_orders:
             return
         #we send a copy of the entire "active_orders" entry except the cryptobox,
@@ -900,11 +901,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         with self.sig_lock:
             d = self.callRemote(JMRequestMsgSig,
-                            nick=str(nick),
-                            cmd=str(cmd),
-                            msg=str(msg),
-                            msg_to_be_signed=str(msg_to_be_signed),
-                            hostid=str(hostid))
+                                nick=str(nick),
+                                cmd=str(cmd),
+                                msg=str(msg),
+                                msg_to_be_signed=str(msg_to_be_signed),
+                                hostid=str(hostid))
             self.defaultCallbacks(d)
 
     def request_signature_verify(self, msg, fullmsg, sig, pubkey, nick, hashlen,
@@ -939,8 +940,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     def transfer_commitment(self, commit):
         """Send this commitment via privmsg to one (random)
-	other maker.
-	"""
+        other maker.
+        """
         crow = self.db.execute(
                         'SELECT DISTINCT counterparty FROM orderbook ORDER BY ' +
                         'RANDOM() LIMIT 1;'

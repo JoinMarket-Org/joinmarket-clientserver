@@ -199,8 +199,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         orderbook = ["aaaa" for _ in range(15)]
         fidelitybonds = ["bbbb" for _ in range(15)]
         d = self.callRemote(JMOffers,
-                        orderbook=json.dumps(orderbook),
-                        fidelitybonds=json.dumps(fidelitybonds))
+                            orderbook=json.dumps(orderbook),
+                            fidelitybonds=json.dumps(fidelitybonds))
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -217,16 +217,16 @@ class JMTestServerProtocol(JMBaseProtocol):
     def on_JM_MAKE_TX(self, nick_list, txhex):
         show_receipt("JMMAKETX", nick_list, txhex)
         d = self.callRemote(JMSigReceived,
-                               nick="dummynick",
-                               sig="xxxsig")
+                            nick="dummynick",
+                            sig="xxxsig")
         self.defaultCallbacks(d)
         #add dummy calls to check message sign and message verify
         d2 = self.callRemote(JMRequestMsgSig,
-                                    nick="dummynickforsign",
-                                    cmd="command1",
-                                    msg="msgforsign",
-                                    msg_to_be_signed="fullmsgforsign",
-                                    hostid="hostid1")
+                             nick="dummynickforsign",
+                             cmd="command1",
+                             msg="msgforsign",
+                             msg_to_be_signed="fullmsgforsign",
+                             hostid="hostid1")
         self.defaultCallbacks(d2)
         #To test, this must include a valid ecdsa sig
         fullmsg = "fullmsgforverify"
@@ -234,18 +234,18 @@ class JMTestServerProtocol(JMBaseProtocol):
         pub = bintohex(bitcoin.privkey_to_pubkey(priv))
         sig = bitcoin.ecdsa_sign(fullmsg, priv)
         d3 = self.callRemote(JMRequestMsgSigVerify,
-                                        msg="msgforverify",
-                                        fullmsg=fullmsg,
-                                        sig=sig,
-                                        pubkey=pub,
-                                        nick="dummynickforverify",
-                                        hashlen=4,
-                                        max_encoded=5,
-                                        hostid="hostid2")
+                             msg="msgforverify",
+                             fullmsg=fullmsg,
+                             sig=sig,
+                             pubkey=pub,
+                             nick="dummynickforverify",
+                             hashlen=4,
+                             max_encoded=5,
+                             hostid="hostid2")
         self.defaultCallbacks(d3)
         d4 = self.callRemote(JMSigReceived,
-                                nick="dummynick",
-                                sig="dummysig")
+                             nick="dummynick",
+                             sig="dummysig")
         self.defaultCallbacks(d4)        
         return {'accepted': True}
             

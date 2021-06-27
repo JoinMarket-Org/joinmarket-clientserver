@@ -101,7 +101,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMFILLRESPONSE", success, ioauth_data)
         reactor.callLater(1, self.maketx, ioauth_data)
         return {'accepted': True}
-    
+
     def maketx(self, ioauth_data):
         nl = list(ioauth_data)
         d = self.callRemote(JMMakeTx,
@@ -118,18 +118,18 @@ class JMTestClientProtocol(JMBaseProtocol):
         nick = str(list(t_chosen_orders.keys())[0])
         b64tx = base64.b64encode(b"deadbeef").decode('ascii')
         d1 = self.callRemote(JMMsgSignatureVerify,
-                            verif_result=True,
-                            nick=nick,
-                            fullmsg="!push " + b64tx + " abc def",
-                            hostid="dummy")
+                             verif_result=True,
+                             nick=nick,
+                             fullmsg="!push " + b64tx + " abc def",
+                             hostid="dummy")
         self.defaultCallbacks(d1)
         #unverified
         d2 = self.callRemote(JMMsgSignatureVerify,
-                            verif_result=False,
-                            nick=nick,
-                            fullmsg="!push " + b64tx + " abc def",
-                            hostid="dummy")
-        self.defaultCallbacks(d2)        
+                             verif_result=False,
+                             nick=nick,
+                             fullmsg="!push " + b64tx + " abc def",
+                             hostid="dummy")
+        self.defaultCallbacks(d2)
         d = self.callRemote(JMFill,
                             amount=100,
                             commitment="dummycommitment",
@@ -173,7 +173,7 @@ class JMTestClientProtocol(JMBaseProtocol):
 
 class JMTestClientProtocolFactory(protocol.ClientFactory):
     protocol = JMTestClientProtocol
-        
+
 
 def show_receipt(name, *args):
     tmsg("Received msgtype: " + name + ", args: " + ",".join([str(x) for x in args]))
@@ -209,7 +209,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
                                  o["minsize"], o["maxsize"],
                                  o["txfee"], o["cjfee"])
         return super().on_JM_REQUEST_OFFERS()
-        
+
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
                    maker_timeout_sec, dust_threshold):
@@ -226,14 +226,14 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         OrderbookWatch.set_msgchan(self, self.mcc)
         #register taker-specific msgchan callbacks here
         self.mcc.register_taker_callbacks(self.on_error, self.on_pubkey,
-                                                      self.on_ioauth, self.on_sig)
+                                          self.on_ioauth, self.on_sig)
         self.mcc.set_daemon(self)
         self.restart_mc_required = True
         d = self.callRemote(JMInitProto,
-                                   nick_hash_length=NICK_HASH_LENGTH,
-                                   nick_max_encoded=NICK_MAX_ENCODED,
-                                   joinmarket_nick_header=JOINMARKET_NICK_HEADER,
-                                   joinmarket_version=JM_VERSION)
+                            nick_hash_length=NICK_HASH_LENGTH,
+                            nick_max_encoded=NICK_MAX_ENCODED,
+                            joinmarket_nick_header=JOINMARKET_NICK_HEADER,
+                            joinmarket_version=JM_VERSION)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -267,7 +267,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
 
 class JMDaemonTestServerProtocolFactory(ServerFactory):
     protocol = JMDaemonTestServerProtocol
-    
+
     def buildProtocol(self, addr):
         return JMDaemonTestServerProtocol(self)
 

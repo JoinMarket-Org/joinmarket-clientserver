@@ -443,7 +443,7 @@ class JMMakerClientProtocol(JMClientProtocol):
     def on_JM_AUTH_RECEIVED(self, nick, offer, commitment, revelation, amount,
                             kphex):
         retval = self.client.on_auth_received(nick, offer,
-                                            commitment, revelation, amount, kphex)
+                                              commitment, revelation, amount, kphex)
         if not retval[0]:
             jlog.info("Maker refuses to continue on receiving auth.")
         else:
@@ -512,7 +512,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         return {"accepted": True}
 
     def tx_match(self, txd):
-        for k,v in self.finalized_offers.items():
+        for k, v in self.finalized_offers.items():
             # Tx considered defined by its output set
             if v["txd"].vout == txd.vout:
                 offerinfo = v
