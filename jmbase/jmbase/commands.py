@@ -91,14 +91,14 @@ class JMMakeTx(JMCommand):
     to a set of counterparties
     """
     arguments = [(b'nick_list', ListOf(Unicode())),
-                 (b'txhex', Unicode())]
+                 (b'tx', String())]
 
 class JMPushTx(JMCommand):
     """Pass a raw hex transaction to a specific
     counterparty (maker) for pushing (anonymity feature in JM)
     """
     arguments = [(b'nick', Unicode()),
-                 (b'txhex', Unicode())]
+                 (b'tx', String())]
 
 """MAKER specific commands
 """

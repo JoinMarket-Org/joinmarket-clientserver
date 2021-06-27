@@ -160,7 +160,7 @@ def test_setup_mc():
     mcc.privmsg(cp1+"XXX", "fill", "0")
     #trigger check_privmsg decorator
     mcc.send_error(cp1, "errormsg")
-    mcc.push_tx(cp1, "deadbeef")
+    mcc.push_tx(cp1, b"deadbeef")
     #kill the chan on which the cp is marked active;
     #note dummychannel has no actual shutdown (call it anyway),
     #so change its status manually.
@@ -215,13 +215,13 @@ def test_setup_mc():
     mcc.fill_orders(new_offers, 1000, "dummypubkey", "dummycommit")
     #now send a dummy transaction to this same set.
     #first fails with no crypto box.
-    mcc.send_tx(cps, "deadbeef")
+    mcc.send_tx(cps, b"deadbeef")
     #Now initialize the boxes
     for c in cps:
         dummydaemon.crypto_boxes[c] = ["a", DummyBox()]
-    mcc.send_tx(cps, "deadbeef")
+    mcc.send_tx(cps, b"deadbeef")
     #try to send the transaction to a wrong cp:
-    mcc.send_tx(["notrealcp"], "deadbeef")
+    mcc.send_tx(["notrealcp"], b"deadbeef")
     
     #At this stage, dmcs0,2 should be "up" and 1 should be "down":
     assert mcc.mc_status[dmcs[0]] == 1

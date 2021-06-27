@@ -629,19 +629,19 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         return {'accepted': True}
 
     @JMMakeTx.responder
-    def on_JM_MAKE_TX(self, nick_list, txhex):
+    def on_JM_MAKE_TX(self, nick_list, tx):
         """Taker sends the prepared unsigned transaction
         to all the Makers in nick_list
         """
         if not self.jm_state == 4:
             log.msg("Make tx was called in wrong state, rejecting")
             return {'accepted': False}
-        self.mcc.send_tx(nick_list, txhex)
+        self.mcc.send_tx(nick_list, tx)
         return {'accepted': True}
 
     @JMPushTx.responder
-    def on_JM_PushTx(self, nick, txhex):
-        self.mcc.push_tx(nick, txhex)
+    def on_JM_PushTx(self, nick, tx):
+        self.mcc.push_tx(nick, tx)
         return {'accepted': True}
 
     """Maker specific responders

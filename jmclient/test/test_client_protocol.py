@@ -65,7 +65,8 @@ class DummyTaker(Taker):
         if self.failutxos:
             return (False, "dummyreason")
         else:
-            return (True, [x*64 + ":01" for x in ["a", "b", "c"]], t_raw_signed_tx)
+            return (True, [x*64 + ":01" for x in ["a", "b", "c"]],
+                    base64.b16decode(t_raw_signed_tx, casefold=True))
 
 
     def on_sig(self, nick, sigb64):
@@ -214,8 +215,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMMakeTx.responder
-    def on_JM_MAKE_TX(self, nick_list, txhex):
-        show_receipt("JMMAKETX", nick_list, txhex)
+    def on_JM_MAKE_TX(self, nick_list, tx):
+        show_receipt("JMMAKETX", nick_list, tx)
         d = self.callRemote(JMSigReceived,
                             nick="dummynick",
                             sig="xxxsig")

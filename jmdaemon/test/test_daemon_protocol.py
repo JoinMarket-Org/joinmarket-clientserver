@@ -106,7 +106,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         nl = list(ioauth_data)
         d = self.callRemote(JMMakeTx,
                             nick_list=nl,
-                            txhex="deadbeef")
+                            tx=b"deadbeef")
         self.defaultCallbacks(d)
 
     @JMOffers.responder
@@ -258,10 +258,10 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         return super().on_JM_FILL(amount, commitment, revelation, filled_offers)
 
     @JMMakeTx.responder
-    def on_JM_MAKE_TX(self, nick_list, txhex):
+    def on_JM_MAKE_TX(self, nick_list, tx):
         for n in nick_list:
             reactor.callLater(1, self.on_sig, n, "dummytxsig")
-        return super().on_JM_MAKE_TX(nick_list, txhex)
+        return super().on_JM_MAKE_TX(nick_list, tx)
 
 
 

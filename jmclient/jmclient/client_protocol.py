@@ -360,10 +360,10 @@ class JMClientProtocol(BaseClientProtocol):
         self.defaultCallbacks(d)
         return {'accepted': True}
 
-    def make_tx(self, nick_list, txhex):
+    def make_tx(self, nick_list, tx):
         d = self.callRemote(commands.JMMakeTx,
                             nick_list=nick_list,
-                            txhex=txhex)
+                            tx=tx)
         self.defaultCallbacks(d)
 
 class JMMakerClientProtocol(JMClientProtocol):
@@ -677,8 +677,8 @@ class JMTakerClientProtocol(JMClientProtocol):
                     self.client.on_finished_callback(False, False, 0.0)
                 return {'accepted': False}
             else:
-                nick_list, txhex = retval[1:]
-                reactor.callLater(0, self.make_tx, nick_list, txhex)
+                nick_list, tx = retval[1:]
+                reactor.callLater(0, self.make_tx, nick_list, tx)
                 return {'accepted': True}
 
     @commands.JMOffers.responder
@@ -716,17 +716,16 @@ class JMTakerClientProtocol(JMClientProtocol):
     def on_JM_SIG_RECEIVED(self, nick, sig):
         retval = self.client.on_sig(nick, sig)
         if retval:
-            nick_to_use, txhex = retval
-            self.push_tx(nick_to_use, txhex)
+            nick_to_use, tx = retval
+            self.push_tx(nick_to_use, tx)
         return {'accepted': True}
 
     def get_offers(self):
         d = self.callRemote(commands.JMRequestOffers)
         self.defaultCallbacks(d)
 
-    def push_tx(self, nick_to_push, txhex_to_push):
-        d = self.callRemote(commands.JMPushTx, nick=str(nick_to_push),
-                            txhex=str(txhex_to_push))
+    def push_tx(self, nick_to_push, tx):
+        d = self.callRemote(commands.JMPushTx, nick=str(nick_to_push), tx=tx)
         self.defaultCallbacks(d)
 
 class SNICKERClientProtocolFactory(protocol.ClientFactory):

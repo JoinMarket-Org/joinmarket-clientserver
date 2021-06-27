@@ -89,8 +89,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMMakeTx.responder
-    def on_JM_MAKE_TX(self, nick_list, txhex):
-        show_receipt("JMMAKETX", nick_list, txhex)
+    def on_JM_MAKE_TX(self, nick_list, tx):
+        show_receipt("JMMAKETX", nick_list, tx)
         d = self.callRemote(JMSigReceived,
                             nick="dummynick",
                             sig="xxxsig")
@@ -175,7 +175,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMFILLRESPONSE", success, ioauth_data)
         d = self.callRemote(JMMakeTx,
                             nick_list=['nick1', 'nick2', 'nick3'],
-                            txhex="deadbeef")
+                            tx=b"deadbeef")
         self.defaultCallbacks(d)
         return {'accepted': True}
 

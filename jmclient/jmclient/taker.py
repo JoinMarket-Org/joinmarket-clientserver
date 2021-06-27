@@ -524,7 +524,7 @@ class Taker(object):
 
         self.taker_info_callback("INFO", "Built tx, sending to counterparties.")
         return (True, list(self.maker_utxo_data.keys()),
-                bintohex(self.latest_tx.serialize()))
+                self.latest_tx.serialize())
 
     def _verify_ioauth_data(self, ioauth_data):
         verified_data = []
@@ -943,7 +943,7 @@ class Taker(object):
             self.on_finished_callback(False, fromtx=True)
         else:
             if nick_to_use:
-                return (nick_to_use, bintohex(self.latest_tx.serialize()))
+                return (nick_to_use, self.latest_tx.serialize())
         #if push was not successful, return None
 
     def self_sign_and_push(self):
