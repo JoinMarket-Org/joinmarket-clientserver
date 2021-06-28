@@ -1,0 +1,54 @@
+name: Python package
+
+on: [push, pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6, 3.7, 3.8, 3.9]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Cache venv
+        id: cache-venv
+        uses: actions/cache@v2
+        env:
+          cache-name: venv
+        with:
+          path: jmvenv
+          key: ${{ runner.os }}-${{ matrix.python-version }}-${{ env.cache-name }}-${{ hashFiles('requirements/*.txt', 'install.sh', '*/setup.py') }}
+      - name: Setup joinmarket + virtualenv
+        if: steps.cache-venv.outputs.cache-hit != 'true'
+        run: |
+          sudo apt update
+          ./install.sh --develop --with-qt
+          ./jmvenv/bin/python -m pip install --upgrade pip
+          ./jmvenv/bin/pip install -r requirements/base.txt
+          ./jmvenv/bin/pip install -r requirements/testing.txt
+      - name: Lint with flake8
+        run: ./jmvenv/bin/flake8 -v jmclient jmbase jmbitcoin jmdaemon scripts
+      - name: Cache bitcoind
+        uses: actions/cache@v2
+        env:
+          cache-name: bitcoind
+        with:
+          path: ~/bitcoin/*/bin/bitcoin*
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('test/testrunner/install_bitcoind.sh') }}
+      - name: Install bitcoind
+        run: ./test/testrunner/install_bitcoind.sh
+      - name: Cache miniircd
+        uses: actions/cache@v2
+        env:
+          cache-name: miniircd
+        with:
+          path: miniircd/miniircd
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('test/run_tests.sh') }}
+      - name: Run tests
+        run: source ./jmvenv/bin/activate && ./test/run_tests.sh
