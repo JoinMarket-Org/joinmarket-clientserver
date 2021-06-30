@@ -77,7 +77,8 @@ def teardown():
     for m in miniircd_procs:
         m.kill()
     #shut down bitcoin and remove the regtest dir
-    local_command([bitcoin_path + "bitcoin-cli", "-regtest", "-rpcuser=" + bitcoin_rpcusername,
+    local_command([os.path.join(bitcoin_path, "bitcoin-cli"), "-regtest",
+                    "-rpcuser=" + bitcoin_rpcusername,
                    "-rpcpassword=" + bitcoin_rpcpassword, "stop"])
     #note, it is better to clean out ~/.bitcoin/regtest but too
     #dangerous to automate it here perhaps
@@ -108,14 +109,16 @@ def setup(request):
         miniircd_procs.append(miniircd_proc)
 
     # determine bitcoind version
-    bitcoind_version_string = subprocess.check_output([bitcoin_path + "bitcoind", "-version"]).split(b'\n')[0]
+    bitcoind_version_string = subprocess.check_output([
+        os.path.join(bitcoin_path, "bitcoind"), "-version"]).split(b'\n')[0]
     bitcoind_version = get_bitcoind_version(bitcoind_version_string)
 
     #start up regtest blockchain
     bitcoin_args = ["-regtest", "-daemon", "-conf=" + bitcoin_conf]
 
-    btc_proc = subprocess.call([bitcoin_path + "bitcoind"] + bitcoin_args)
-    root_cmd = [bitcoin_path + "bitcoin-cli", "-regtest",
+    btc_proc = subprocess.call([os.path.join(bitcoin_path, "bitcoind")] +
+        bitcoin_args)
+    root_cmd = [os.path.join(bitcoin_path, "bitcoin-cli"), "-regtest",
                        "-rpcuser=" + bitcoin_rpcusername,
                        "-rpcpassword=" + bitcoin_rpcpassword]
     # Bitcoin Core v0.21+ does not create default wallet
