@@ -150,7 +150,9 @@ class TrialTestPayjoin4(PayjoinTestBase, unittest.TestCase):
         jm_single().config.set("POLICY", "txfees", self.old_txfees)
     def test_low_feerate(self):
         self.old_txfees = jm_single().config.get("POLICY", "tx_fees")
-        jm_single().config.set("POLICY", "tx_fees", "1300")
+        # set such that randomization cannot pull it below minfeerate
+        # (default of 1.1 sat/vbyte):
+        jm_single().config.set("POLICY", "tx_fees", "1376")
         d = self.do_test_payment(SegwitWallet, SegwitWallet)
         d.addCallback(self.reset_fee)
         return d
