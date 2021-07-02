@@ -243,7 +243,7 @@ def main():
     if options.makercount == 0 and not bip78url:
         tx = direct_send(wallet_service, amount, mixdepth, destaddr,
                          options.answeryes, with_final_psbt=options.with_psbt,
-                         custom_change_addr=custom_change)
+                         optin_rbf=options.rbf, custom_change_addr=custom_change)
         if options.with_psbt:
             log.info("This PSBT is fully signed and can be sent externally for "
                      "broadcasting:")

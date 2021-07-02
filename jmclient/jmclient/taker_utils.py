@@ -80,6 +80,7 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             return
 
     txtype = wallet_service.get_txtype()
+    outtype = wallet_service.get_outtype(destination)
     if amount == 0:
         #doing a sweep
         utxos = wallet_service.get_utxos_by_mixdepth()[mixdepth]
@@ -111,15 +112,15 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 + "\n\nWARNING: This transaction if broadcasted will PERMANENTLY DESTROY your bitcoins\n"
         else:
             #regular sweep (non-burn)
-            fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype)
+            fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype, outtype=outtype)
             outs = [{"address": destination, "value": total_inputs_val - fee_est}]
     else:
         #not doing a sweep; we will have change
         #8 inputs to be conservative
-        initial_fee_est = estimate_tx_fee(8,2, txtype=txtype)
+        initial_fee_est = estimate_tx_fee(8,2, txtype=txtype, outtype=outtype)
         utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est)
         if len(utxos) < 8:
-            fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype)
+            fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype, outtype=outtype)
         else:
             fee_est = initial_fee_est
         total_inputs_val = sum([va['value'] for u, va in utxos.items()])

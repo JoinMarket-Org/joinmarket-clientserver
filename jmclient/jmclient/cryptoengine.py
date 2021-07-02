@@ -10,10 +10,13 @@ from .configure import get_network, jm_single
 #NOTE: before fidelity bonds and watchonly wallet, each of these types corresponded
 # to one wallet type and one engine, not anymore
 #with fidelity bond wallets and watchonly fidelity bond wallet, the wallet class
-# can have two engines, one for single-sig addresses and the other for timelocked addresses
+# can have two engines, one for single-sig addresses and the other for timelocked addresses.
+# It is also necessary to preserve the order of the wallet types when making modifications
+# as they are mapped to a different Engine when using wallets. Failure to do this would
+# make existing wallets unsable.
 TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N, TYPE_TIMELOCK_P2WSH, \
     TYPE_SEGWIT_WALLET_FIDELITY_BONDS, TYPE_WATCHONLY_FIDELITY_BONDS, \
-    TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH = range(9)
+    TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH, TYPE_P2WSH = range(10)
 NET_MAINNET, NET_TESTNET, NET_SIGNET = range(3)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET,
     'signet': NET_SIGNET}
@@ -42,6 +45,8 @@ def detect_script_type(script_str):
         return TYPE_P2SH_P2WPKH
     elif script.is_witness_v0_keyhash():
         return TYPE_P2WPKH
+    elif script.is_witness_v0_scripthash():
+        return TYPE_P2WSH
     raise EngineError("Unknown script type for script '{}'"
                       .format(bintohex(script_str)))
 
