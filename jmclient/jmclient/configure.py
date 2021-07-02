@@ -164,6 +164,24 @@ socks5_port = 9050
 ##usessl = false
 ##socks5 = true
 
+[MESSAGING:server4]
+host = irc.oftc.net
+## force IPv4 only
+# host = irc4.oftc.net
+## force IPv6 only
+# host = irc6.oftc.net
+channel = joinmarket-pit
+port = 6697
+## alternative TLS port
+# port = 9999
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
+
+## for tor
+# socks5 = true
+
 [LOGGING]
 # Set the log level for the output to the terminal/console
 # Possible choices: DEBUG / INFO / WARNING / ERROR
