@@ -1238,6 +1238,10 @@ def wallet_gettimelockaddress(wallet, locktime_string):
     jmprint("Coins sent to this address will be not be spendable until "
         + lock_datetime.strftime("%B %Y") + ". Full date: "
         + str(lock_datetime))
+    jmprint("WARNING: Only send coins here which are from coinjoins or otherwise"
+        + " not linked to your identity. Also, use a sweep transaction when funding the"
+        + " timelocked address, i.e. Don't create a change address. See the privacy warnings in"
+        + " fidelity-bonds.md")
     addr = wallet.get_address_from_path(path)
     return addr
 
