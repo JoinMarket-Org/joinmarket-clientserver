@@ -246,7 +246,8 @@ class WalletViewAccount(WalletViewBase):
         self.account_name = account_name
         self.xpub = xpub
         if branches:
-            assert len(branches) in [2, 3, 4] #3 if imported keys, 4 if fidelity bonds
+            assert len(branches) in [2, 3, 4, 5] #3 if imported keys, 4 if fidelity bonds
+                #5 if all those plus imported
             assert all([isinstance(x, WalletViewBranch) for x in branches])
         self.branches = branches
 
