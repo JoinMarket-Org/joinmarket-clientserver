@@ -901,7 +901,7 @@ class PayjoinConverter(object):
         assert signresult.num_inputs_final == len(receiver_utxos)
         assert not signresult.is_final
 
-        # with signing succcessful, remove the utxo field from the
+        # with signing successful, remove the utxo field from the
         # counterparty's input (this is required by BIP78). Note we don't
         # do this on PSBT creation as the psbt signing code throws ValueError
         # unless utxos are present.

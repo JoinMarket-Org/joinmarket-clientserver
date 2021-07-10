@@ -284,7 +284,7 @@ tx_broadcast = random-peer
 # If makers do not respond while creating a coinjoin transaction,
 # the non-responding ones will be ignored. This is the minimum
 # amount of makers which we are content with for the coinjoin to
-# succceed. Less makers means that the whole process will restart
+# succeed. Less makers means that the whole process will restart
 # after a timeout.
 minimum_makers = 4
 
