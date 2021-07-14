@@ -135,6 +135,24 @@ class Storage(object):
         self._save_file()
 
     @classmethod
+    def _lock_filename(cls, path):
+        (path_head, path_tail) = os.path.split(path)
+        return os.path.join(path_head, '.' + path_tail + '.lock')
+
+    @classmethod
+    def get_file_locking_status(cls, path):
+        lock_filename = cls._lock_filename(path)
+        if os.path.exists(lock_filename):
+            with open(lock_filename, 'r') as f:
+                try:
+                    locked_by_pid = int(f.read())
+                except ValueError:
+                    locked_by_pid = None
+            return (lock_filename, locked_by_pid)
+        else:
+            return (lock_filename, None)
+
+    @classmethod
     def is_storage_file(cls, path):
         return cls._get_file_magic(path) in (cls.MAGIC_ENC, cls.MAGIC_UNENC)
 
@@ -282,21 +300,17 @@ class Storage(object):
     def _create_lock(self):
         if self.read_only:
             return
-        (path_head, path_tail) = os.path.split(self.path)
-        lock_filename = os.path.join(path_head, '.' + path_tail + '.lock')
-        self._lock_file = lock_filename
-        if os.path.exists(self._lock_file):
-            with open(self._lock_file, 'r') as f:
-                try:
-                    locked_by_pid = int(f.read())
-                except ValueError:
-                    locked_by_pid = None
-            self._lock_file = None
+
+        (lock_filename, locked_by_pid) = self.get_file_locking_status(self.path)
+        if locked_by_pid is not None:
             raise RetryableStorageError(
                                "File is currently in use (locked by pid {}). "
                                "If this is a leftover from a crashed instance "
                                "you need to remove the lock file `{}` manually." .
                                format(locked_by_pid, lock_filename))
+
+        self._lock_file = lock_filename
+        
         #FIXME: in python >=3.3 use mode x
         with open(self._lock_file, 'w') as f:
             f.write(str(os.getpid()))
