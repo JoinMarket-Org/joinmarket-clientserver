@@ -2182,7 +2182,7 @@ class FidelityBondMixin(object):
 
     For example, if TIMENUMBER_UNIT = 2 (i.e. every time number is two months)
     then there are 6 timelocks per year so just 600 possible
-    addresses per century per pubkey. Easily searchable when recovering a
+    addresses per century. Easily searchable when recovering a
     wallet from seed phrase. Therefore the user doesn't need to store any
     dates, the seed phrase is sufficent for recovery.
     """
@@ -2196,15 +2196,7 @@ class FidelityBondMixin(object):
     MONTHS_IN_YEAR = 12
 
     TIMELOCK_ERA_YEARS = 80
-    TIMENUMBERS_PER_PUBKEY = TIMELOCK_ERA_YEARS * MONTHS_IN_YEAR // TIMENUMBER_UNIT
-
-    """
-    As each pubkey corresponds to hundreds of addresses, to reduce load the
-    given gap limit will be reduced by this factor. Also these timelocked
-    addresses are never handed out to takers so there wont be a problem of
-    having many used addresses with no transactions on them.
-    """
-    TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR = 6
+    TIMENUMBER_COUNT = TIMELOCK_ERA_YEARS * MONTHS_IN_YEAR // TIMENUMBER_UNIT
 
     _TIMELOCK_ENGINE = ENGINES[TYPE_TIMELOCK_P2WSH]
 
@@ -2222,7 +2214,7 @@ class FidelityBondMixin(object):
         """
         converts a time number to a unix timestamp
         """
-        if not 0 <= timenumber < cls.TIMENUMBERS_PER_PUBKEY:
+        if not 0 <= timenumber < cls.TIMENUMBER_COUNT:
             raise ValueError()
         year = cls.TIMELOCK_EPOCH_YEAR + (timenumber*cls.TIMENUMBER_UNIT) // cls.MONTHS_IN_YEAR
         month = cls.TIMELOCK_EPOCH_MONTH + (timenumber*cls.TIMENUMBER_UNIT) % cls.MONTHS_IN_YEAR
@@ -2243,7 +2235,7 @@ class FidelityBondMixin(object):
             raise ValueError()
         timenumber = (dt.year - cls.TIMELOCK_EPOCH_YEAR)*(cls.MONTHS_IN_YEAR //
             cls.TIMENUMBER_UNIT) + ((dt.month - cls.TIMELOCK_EPOCH_MONTH) // cls.TIMENUMBER_UNIT)
-        if timenumber < 0 or timenumber > cls.TIMENUMBERS_PER_PUBKEY:
+        if timenumber < 0 or timenumber > cls.TIMENUMBER_COUNT:
             raise ValueError("datetime out of range")
         return timenumber
 
@@ -2266,13 +2258,12 @@ class FidelityBondMixin(object):
 
     def _populate_script_map(self):
         super()._populate_script_map()
-        for md in self._index_cache:
-            address_type = self.BIP32_TIMELOCK_ID
-            for i in range(self._index_cache[md][address_type]):
-                for timenumber in range(self.TIMENUMBERS_PER_PUBKEY):
-                    path = self.get_path(md, address_type, i, timenumber)
-                    script = self.get_script_from_path(path)
-                    self._script_map[script] = path
+        md = self.FIDELITY_BOND_MIXDEPTH
+        address_type = self.BIP32_TIMELOCK_ID
+        for timenumber in range(self.TIMENUMBER_COUNT):
+            path = self.get_path(md, address_type, timenumber, timenumber)
+            script = self.get_script_from_path(path)
+            self._script_map[script] = path
 
     def add_utxo(self, txid, index, script, value, height=None):
         super().add_utxo(txid, index, script, value, height)

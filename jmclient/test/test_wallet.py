@@ -279,7 +279,7 @@ def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-    index = wallet.get_next_unused_index(m, address_type)
+    index = timenumber
     script = wallet.get_script_and_update_map(m, address_type, index,
         timenumber)
     addr = wallet.script_to_addr(script)

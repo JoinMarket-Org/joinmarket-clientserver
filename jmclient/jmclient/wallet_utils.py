@@ -473,27 +473,23 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
         if m == FidelityBondMixin.FIDELITY_BOND_MIXDEPTH and \
                 isinstance(wallet_service.wallet, FidelityBondMixin):
             address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-            unused_index = wallet_service.get_next_unused_index(m, address_type)
-            timelocked_gaplimit = (wallet_service.wallet.gap_limit
-                    // FidelityBondMixin.TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR)
             entrylist = []
-            for k in range(unused_index + timelocked_gaplimit):
-                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
-                    path = wallet_service.get_path(m, address_type, k, timenumber)
-                    addr = wallet_service.get_address_from_path(path)
-                    timelock = datetime.utcfromtimestamp(path[-1])
+            for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
+                path = wallet_service.get_path(m, address_type, timenumber, timenumber)
+                addr = wallet_service.get_address_from_path(path)
+                timelock = datetime.utcfromtimestamp(path[-1])
 
-                    balance = sum([utxodata["value"] for utxo, utxodata in
-                        utxos[m].items() if path == utxodata["path"]])
-                    status = timelock.strftime("%Y-%m-%d") + " [" + (
-                        "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
-                    privkey = ""
-                    if showprivkey:
-                        privkey = wallet_service.get_wif_path(path)
-                    if displayall or balance > 0:
-                        entrylist.append(WalletViewEntry(
-                            wallet_service.get_path_repr(path), m, address_type, k,
-                            addr, [balance, balance], priv=privkey, used=status))
+                balance = sum([utxodata["value"] for utxo, utxodata in
+                    utxos[m].items() if path == utxodata["path"]])
+                status = timelock.strftime("%Y-%m-%d") + " [" + (
+                    "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
+                privkey = ""
+                if showprivkey:
+                    privkey = wallet_service.get_wif_path(path)
+                if displayall or balance > 0:
+                    entrylist.append(WalletViewEntry(
+                        wallet_service.get_path_repr(path), m, address_type, k,
+                        addr, [balance, balance], priv=privkey, used=status))
             xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
             path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
             branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
@@ -1229,10 +1225,10 @@ def wallet_gettimelockaddress(wallet, locktime_string):
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-    index = wallet.get_next_unused_index(m, address_type)
     lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
     timenumber = FidelityBondMixin.timestamp_to_time_number(timegm(
         lock_datetime.timetuple()))
+    index = timenumber
 
     path = wallet.get_path(m, address_type, index, timenumber)
     jmprint("path = " + wallet.get_path_repr(path), "info")

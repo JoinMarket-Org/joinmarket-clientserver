@@ -923,18 +923,8 @@ class WalletService(Service):
         if isinstance(self.wallet, FidelityBondMixin):
             md = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
             address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-            saved_indices[md] += [0]
-            next_unused = self.get_next_unused_index(md, address_type)
-            for index in range(next_unused):
-                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
-                    addresses.add(self.get_addr(md, address_type, index, timenumber))
-            for index in range(self.gap_limit // FidelityBondMixin.TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR):
-                index += next_unused
-                assert self.wallet.get_index_cache_and_increment(md, address_type) == index
-                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
-                    self.wallet.get_script_and_update_map(md, address_type, index, timenumber)
-                    addresses.add(self.get_addr(md, address_type, index, timenumber))
-            self.wallet.set_next_index(md, address_type, next_unused)
+            for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
+                addresses.add(self.get_addr(md, address_type, timenumber, timenumber))
 
         return addresses, saved_indices
 
@@ -949,17 +939,6 @@ class WalletService(Service):
                 for index in range(gap_limit):
                     addresses.add(self.get_new_addr(md, address_type))
                 self.set_next_index(md, address_type, old_next)
-
-        if isinstance(self.wallet, FidelityBondMixin):
-            md = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
-            address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-            old_next = self.get_next_unused_index(md, address_type)
-            for ii in range(gap_limit // FidelityBondMixin.TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR):
-                index = self.wallet.get_index_cache_and_increment(md, address_type)
-                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
-                    self.wallet.get_script_and_update_map(md, address_type, index, timenumber)
-                    addresses.add(self.get_addr(md, address_type, index, timenumber))
-            self.set_next_index(md, address_type, old_next)
 
         return addresses
 
