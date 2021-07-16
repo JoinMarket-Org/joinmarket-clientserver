@@ -108,6 +108,25 @@ handler = QtHandler()
 handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
 log.addHandler(handler)
 
+
+from jmqtui import Ui_OpenWalletDialog
+class JMOpenWalletDialog(QDialog, Ui_OpenWalletDialog):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setupUi(self)
+
+        self.chooseWalletButton.clicked.connect(self.chooseWalletFile)
+
+    def chooseWalletFile(self):
+        wallets_path = os.path.join(jm_single().datadir, 'wallets')
+        (filename, _) = QFileDialog.getOpenFileName(self,
+                                                'Choose Wallet File',
+                                                wallets_path,
+                                                options=QFileDialog.DontUseNativeDialog)
+        if filename:
+            self.walletFileEdit.setText(filename)
+
+
 class HelpLabel(QLabel):
 
     def __init__(self, text, help_text, wtitle):
@@ -2354,6 +2373,25 @@ mainWindow.setWindowTitle(appWindowTitle + suffix)
 tabWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 mainWindow.setCentralWidget(tabWidget)
 tabWidget.currentChanged.connect(onTabChange)
+
 mainWindow.show()
 reactor.runReturn()
+
+# Upon launching the app, allow the user to choose a wallet to open
+openWalletDialog = JMOpenWalletDialog()
+openWalletDialog.show()
+
+if openWalletDialog.exec_() == QDialog.Accepted:
+    wallet_path = openWalletDialog.walletFileEdit.text()
+    if not os.path.isabs(wallet_path):
+        wallet_path = os.path.join(jm_single().datadir, 'wallets', wallet_path)
+    
+    try:
+        mainWindow.loadWalletFromBlockchain(wallet_path, openWalletDialog.passphraseEdit.text())
+    except Exception as e:
+        JMQtMessageBox(None,
+                    str(e),
+                    mbtype='warn',
+                    title="Error")
+
 sys.exit(app.exec_())
