@@ -1464,71 +1464,84 @@ class JMWalletTab(QWidget):
         popup.show()
 
     def updateWalletInfo(self, walletinfo=None):
-        nm = jm_single().config.getint("GUI", "max_mix_depth")
-        l = self.walletTree
+        max_mixdepth_count = jm_single().config.getint("GUI", "max_mix_depth")
 
+        previous_expand_states = []
         # before deleting, note whether items were expanded
-        esrs = []
-        for i in range(l.topLevelItemCount()):
-            tli = l.invisibleRootItem().child(i)
+        for i in range(self.walletTree.topLevelItemCount()):
+            tli = self.walletTree.invisibleRootItem().child(i)
             # must check top and also the two subitems (branches):
             expandedness = tuple(
                 x.isExpanded() for x in [tli, tli.child(0), tli.child(1)])
-            esrs.append(expandedness)
-        l.clear()
-        if walletinfo:
-            rows, mbalances, xpubs, total_bal = walletinfo
-            if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
-                self.wallet_name = mainWindow.testwalletname
+            previous_expand_states.append(expandedness)
+
+        self.walletTree.clear()
+
+        # Skip the remaining of this method if wallet info doesn't exist
+        if walletinfo == None:
+            return
+            
+        rows, mbalances, xpubs, total_bal = walletinfo
+        if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
+            self.wallet_name = mainWindow.testwalletname
+        else:
+            self.wallet_name = os.path.basename(
+                mainWindow.wallet_service.get_storage_location())
+        if total_bal is None:
+            if jm_single().bc_interface is not None:
+                total_bal = " (syncing..)"
             else:
-                self.wallet_name = os.path.basename(
-                    mainWindow.wallet_service.get_storage_location())
-            if total_bal is None:
-                if jm_single().bc_interface is not None:
-                    total_bal = " (syncing..)"
-                else:
-                    total_bal = " (unknown, no blockchain source available)"
-            self.label1.setText("CURRENT WALLET: " + self.wallet_name +
-                                ', total balance: ' + total_bal)
-            l.show()
+                total_bal = " (unknown, no blockchain source available)"
+        self.label1.setText("CURRENT WALLET: " + self.wallet_name +
+                            ', total balance: ' + total_bal)
+        self.walletTree.show()
 
         if jm_single().bc_interface is None and self.wallet_name != 'NONE':
             return
 
-        for i in range(nm):
+        for mixdepth in range(max_mixdepth_count):
             if walletinfo:
-                mdbalance = mbalances[i]
+                mdbalance = mbalances[mixdepth]
             else:
                 mdbalance = "{0:.8f}".format(0)
-            m_item = QTreeWidgetItem(["Mixdepth " + str(i) + " , balance: " +
+            m_item = QTreeWidgetItem(["Mixdepth " + str(mixdepth) + " , balance: " +
                                       mdbalance, '', '', '', ''])
-            l.addChild(m_item)
+            self.walletTree.addChild(m_item)
+            
             # if expansion states existed, reinstate them:
-            if len(esrs) == nm:
-                m_item.setExpanded(esrs[i][0])
+            if len(previous_expand_states) == max_mixdepth_count:
+                m_item.setExpanded(previous_expand_states[mixdepth][0])
+            # by default, if the balance of the mix depth is greater than 0, expand it
+            elif float(mdbalance) > 0:
+                m_item.setExpanded(True)
 
             for forchange in [0, 1]:
                 heading = "EXTERNAL" if forchange == 0 else "INTERNAL"
                 if walletinfo and heading == "EXTERNAL":
-                    heading_end = ' ' + xpubs[i][forchange]
+                    heading_end = ' ' + xpubs[mixdepth][forchange]
                     heading += heading_end
                 seq_item = QTreeWidgetItem([heading, '', '', '', ''])
                 m_item.addChild(seq_item)
-                # by default, external is expanded, but remember user choice:
-                if not forchange:
-                    seq_item.setExpanded(True)
-                if len(esrs) == nm:
-                    seq_item.setExpanded(esrs[i][forchange+1])
+
+                # by default, the external addresses of mixdepth 0 is expanded
+                should_expand = mixdepth == 0 and not forchange
                 if not walletinfo:
                     item = QTreeWidgetItem(['None', '', '', ''])
                     seq_item.addChild(item)
                 else:
-                    for j in range(len(rows[i][forchange])):
-                        item = QTreeWidgetItem(rows[i][forchange][j])
+                    for j in range(len(rows[mixdepth][forchange])):
+                        item = QTreeWidgetItem(rows[mixdepth][forchange][j])
                         item.setFont(0, QFont(MONOSPACE_FONT))
-                        if rows[i][forchange][j][3] != 'new':
+                        if rows[mixdepth][forchange][j][3] != 'new':
                             item.setForeground(3, QBrush(QColor('red')))
+                        # by default, if the balance is non zero, it is also expanded
+                        if float(rows[mixdepth][forchange][j][2]) > 0:
+                            should_expand = True
                         seq_item.addChild(item)
+                # Remember user choice, if expansion states existed, reinstate them:
+                if len(previous_expand_states) == max_mixdepth_count:
+                    should_expand = previous_expand_states[mixdepth][forchange+1]
+                seq_item.setExpanded(should_expand)
 
 
 class JMMainWindow(QMainWindow):
