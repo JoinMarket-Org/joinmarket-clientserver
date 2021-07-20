@@ -6,6 +6,7 @@ Used for AMP asynchronous messages.
 from twisted.protocols.amp import Boolean, Command, Integer, Unicode
 from .bigstring import BigUnicode
 
+
 class DaemonNotReady(Exception):
     pass
 
@@ -45,7 +46,8 @@ class JMSetup(JMCommand):
     role, passes initial offers for announcement (for TAKER, this data is "none")
     """
     arguments = [(b'role', Unicode()),
-                 (b'initdata', Unicode())]
+                 (b'offers', Unicode()),
+                 (b'use_fidelity_bond', Boolean())]
 
 class JMMsgSignature(JMCommand):
     """A response to a request for a bitcoin signature
@@ -106,6 +108,11 @@ class JMAnnounceOffers(JMCommand):
     arguments = [(b'to_announce', Unicode()),
                  (b'to_cancel', Unicode()),
                  (b'offerlist', Unicode())]
+
+class JMFidelityBondProof(JMCommand):
+    """Send requested fidelity bond proof message"""
+    arguments = [(b'nick', Unicode()),
+                 (b'proof', Unicode())]
 
 class JMIOAuth(JMCommand):
     """Send contents of !ioauth message after
@@ -182,7 +189,8 @@ class JMOffers(JMCommand):
     """Return the entire contents of the
     orderbook to TAKER, as a json-ified dict.
     """
-    arguments = [(b'orderbook', BigUnicode())]
+    arguments = [(b'orderbook', BigUnicode()),
+                 (b'fidelitybonds', BigUnicode())]
 
 class JMFillResponse(JMCommand):
     """Returns ioauth data from MAKER if successful.
@@ -199,6 +207,11 @@ class JMSigReceived(JMCommand):
 
 """MAKER-specific commands
 """
+
+class JMFidelityBondProofRequest(JMCommand):
+    """MAKER wants to announce a fidelity bond proof message"""
+    arguments = [(b'takernick', Unicode()),
+                 (b'makernick', Unicode())]
 
 class JMAuthReceived(JMCommand):
     """Return the commitment and revelation

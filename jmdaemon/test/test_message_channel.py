@@ -194,13 +194,13 @@ def test_setup_mc():
     del mcc.active_channels[cp1]
     mcc.prepare_privmsg(cp1, "auth", "a b c")
     #try announcing orders; first public
-    mcc.announce_orders(t_orderbook)
+    mcc.announce_orders(t_orderbook, nick=None, fidelity_bond_proof_msg=None, new_mc=None)
     #try on fake mc
-    mcc.announce_orders(t_orderbook, new_mc="fakemc")
+    mcc.announce_orders(t_orderbook, nick=None, fidelity_bond_proof_msg=None, new_mc="fakemc")
     #direct to one cp
-    mcc.announce_orders(t_orderbook, nick=cp1)
+    mcc.announce_orders(t_orderbook, nick=cp1, fidelity_bond_proof_msg=None, new_mc=None)
     #direct to one cp on one mc
-    mcc.announce_orders(t_orderbook, nick=cp1, new_mc=dmcs[0])
+    mcc.announce_orders(t_orderbook, nick=cp1, fidelity_bond_proof_msg=None, new_mc=dmcs[0])
     #Next, set up 6 counterparties and fill their offers,
     #send txs to them
     cps = [make_valid_nick(i) for i in range(1, 7)]

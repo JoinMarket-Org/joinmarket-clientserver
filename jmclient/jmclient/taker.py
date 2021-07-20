@@ -7,13 +7,14 @@ from typing import Any, NamedTuple
 from twisted.internet import reactor, task
 
 import jmbitcoin as btc
-from jmclient.configure import jm_single, validate_address
+from jmclient.configure import jm_single, validate_address, get_interest_rate
 from jmbase import get_log, bintohex, hexbin
 from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
                               choose_sweep_orders)
-from jmclient.wallet import estimate_tx_fee, compute_tx_locktime
+from jmclient.wallet import estimate_tx_fee, compute_tx_locktime, FidelityBondMixin
 from jmclient.podle import generate_podle, get_podle_commitments
 from jmclient.wallet_service import WalletService
+from jmclient.fidelity_bond import FidelityBondProof
 from .output import generate_podle_error_string
 from .cryptoengine import EngineError
 from .schedule import NO_ROUNDING
@@ -166,7 +167,7 @@ class Taker(object):
                 return
         self.honest_only = truefalse
 
-    def initialize(self, orderbook):
+    def initialize(self, orderbook, fidelity_bonds_info):
         """Once the daemon is active and has returned the current orderbook,
         select offers, re-initialize variables and prepare a commitment,
         then send it to the protocol to fill offers.
@@ -226,6 +227,11 @@ class Taker(object):
             self.maker_txfee_contributions = 0
             self.latest_tx = None
             self.txid = None
+
+        fidelity_bond_values = calculate_fidelity_bond_values(fidelity_bonds_info)
+        for offer in orderbook:
+            #having no fidelity bond is like having a zero value fidelity bond
+            offer["fidelity_bond_value"] = fidelity_bond_values.get(offer["counterparty"], 0)
 
         sweep = True if self.cjamount == 0 else False
         if not self.filter_orderbook(orderbook, sweep):
@@ -987,3 +993,41 @@ def round_to_significant_figures(d, sf):
             sigfiged = int(round(d/power10*sf_power10)*power10/sf_power10)
             return sigfiged
     raise RuntimeError()
+
+def calculate_fidelity_bond_values(fidelity_bonds_info):
+    if len(fidelity_bonds_info) == 0:
+        return {}
+    interest_rate = get_interest_rate()
+    blocks = jm_single().bc_interface.get_current_block_height()
+    mediantime = jm_single().bc_interface.get_best_block_median_time()
+
+    validated_bonds = {}
+    for bond_data in fidelity_bonds_info:
+        try:
+            fb_proof = FidelityBondProof.parse_and_verify_proof_msg(
+                bond_data["counterparty"], bond_data["takernick"], bond_data["proof"])
+        except ValueError:
+            continue
+        if fb_proof.utxo in validated_bonds:
+            continue
+        utxo_data = FidelityBondMixin.get_validated_timelocked_fidelity_bond_utxo(
+            fb_proof.utxo, fb_proof.utxo_pub, fb_proof.locktime,
+            fb_proof.cert_expiry, blocks)
+        if utxo_data is not None:
+            validated_bonds[fb_proof.utxo] = (fb_proof, utxo_data)
+
+    fidelity_bond_values = {
+        bond_data.maker_nick:
+            FidelityBondMixin.calculate_timelocked_fidelity_bond_value(
+                utxo_data["value"],
+                jm_single().bc_interface.get_block_time(
+                    jm_single().bc_interface.get_block_hash(
+                        blocks - utxo_data["confirms"] + 1
+                    )
+                ),
+                bond_data.locktime,
+                mediantime,
+                interest_rate)
+        for bond_data, utxo_data in validated_bonds.values()
+    }
+    return fidelity_bond_values

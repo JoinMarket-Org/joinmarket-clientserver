@@ -6,7 +6,7 @@ from jmclient import (select, select_gradual, select_greedy, select_greediest,
                       choose_orders, choose_sweep_orders, weighted_order_choose)
 from jmclient.support import (calc_cj_fee, rand_exp_array,
                               rand_norm_array, rand_weighted_choice,
-                              cheapest_order_choose)
+                              cheapest_order_choose, fidelity_bond_weighted_order_choose)
 from taker_test_data import t_orderbook
 import copy
 
@@ -72,6 +72,11 @@ def test_choose_orders():
     assert len(orders_fees[0]) == 1
     #test the hated 'cheapest'
     orders_fees = choose_orders(orderbook, 100000000, 3, cheapest_order_choose)
+    assert len(orders_fees[0]) == 3
+    #test the fidelity bond one
+    for i, o in enumerate(orderbook):
+        o["fidelity_bond_value"] = i+1
+    orders_fees = choose_orders(orderbook, 100000000, 3, fidelity_bond_weighted_order_choose)
     assert len(orders_fees[0]) == 3
     #test sweep
     result, cjamount, total_fee = choose_sweep_orders(orderbook, 50000000,

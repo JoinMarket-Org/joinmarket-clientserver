@@ -63,8 +63,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, initdata):
-        show_receipt("JMSETUP", role, initdata)
+    def on_JM_SETUP(self, role, offers, use_fidelity_bond):
+        show_receipt("JMSETUP", role, offers, use_fidelity_bond)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -75,7 +75,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         #build a huge orderbook to test BigString Argument
         orderbook = ["aaaa" for _ in range(2**15)]
         d = self.callRemote(JMOffers,
-                        orderbook=json.dumps(orderbook))
+                        orderbook=json.dumps(orderbook),
+                        fidelitybonds="dummyfidelitybonds")
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -156,7 +157,8 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            initdata="none")
+                            offers="{}",
+                            use_fidelity_bond=False)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -177,8 +179,8 @@ class JMTestClientProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMOffers.responder
-    def on_JM_OFFERS(self, orderbook):
-        show_receipt("JMOFFERS", orderbook)
+    def on_JM_OFFERS(self, orderbook, fidelitybonds):
+        show_receipt("JMOFFERS", orderbook, fidelitybonds)
         d = self.callRemote(JMFill,
                             amount=100,
                             commitment="dummycommitment",

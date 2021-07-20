@@ -80,7 +80,7 @@ def create_orders(makers):
         maker.try_to_create_my_orders()
 
 def init_coinjoin(taker, makers, orderbook, cj_amount):
-    init_data = taker.initialize(orderbook)
+    init_data = taker.initialize(orderbook, [])
     assert init_data[0], "taker.initialize error"
     active_orders = init_data[4]
     maker_data = {}

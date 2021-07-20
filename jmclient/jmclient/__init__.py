@@ -14,7 +14,7 @@ from .taker import Taker
 from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportWalletMixin,
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
                      SegwitWallet, SegwitLegacyWallet, FidelityBondMixin,
-                     FidelityBondWatchonlyWallet, SegwitLegacyWalletFidelityBonds,
+                     FidelityBondWatchonlyWallet, SegwitWalletFidelityBonds,
                      UTXOManager, WALLET_IMPLEMENTATIONS, compute_tx_locktime)
 from .storage import (Argon2Hash, Storage, StorageError, RetryableStorageError,
                       StoragePasswordError, VolatileStorage)
@@ -24,7 +24,7 @@ from .configure import (load_test_config, process_shutdown,
     load_program_config, jm_single, get_network, update_persist_config,
     validate_address, is_burn_destination, get_irc_mchannels,
     get_blockchain_interface_instance, set_config, is_segwit_mode,
-    is_native_segwit_mode, JMPluginService)
+    is_native_segwit_mode, JMPluginService, get_interest_rate, get_bondless_makers_allowance)
 from .blockchaininterface import (BlockchainInterface,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .snicker_receiver import SNICKERError, SNICKERReceiver

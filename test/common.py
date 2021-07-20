@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(data_dir))
 
 from jmbase import get_log
 from jmclient import open_test_wallet_maybe, BIP32Wallet, SegwitWallet, \
-    estimate_tx_fee, jm_single, WalletService, BaseWallet
+    estimate_tx_fee, jm_single, WalletService, BaseWallet, WALLET_IMPLEMENTATIONS
+from jmclient.wallet_utils import get_configured_wallet_type
 import jmbitcoin as btc
 from jmbase import chunks
 
@@ -65,13 +66,18 @@ def make_wallets(n,
                  test_wallet=False,
                  passwords=None,
                  walletclass=SegwitWallet,
-                 mixdepths=5):
+                 mixdepths=5,
+                 fb_indices=[]):
     '''n: number of wallets to be created
        wallet_structure: array of n arrays , each subarray
        specifying the number of addresses to be populated with coins
        at each depth (for now, this will only populate coins into 'receive' addresses)
        mean_amt: the number of coins (in btc units) in each address as above
        sdev_amt: if randomness in amouts is desired, specify here.
+       fb_indices: a list of integers in range(n), and for each of those we will
+       use the fidelity bond wallet type (note: to actually *use* the FB feature
+       the calling code will have to create the FB utxo, itself). Only supported
+       if walletclass=SegwitWallet.
        Returns: a dict of dicts of form {0:{'seed':seed,'wallet':Wallet object},1:..,}
        Default Wallet constructor is joinmarket.Wallet, else use TestWallet,
        which takes a password parameter as in the list passwords.
@@ -93,9 +99,14 @@ def make_wallets(n,
             pwd = passwords[i]
         else:
             pwd = None
-
+        if i in fb_indices:
+            assert walletclass == SegwitWallet, "Cannot use FB except for native segwit."
+            wc = WALLET_IMPLEMENTATIONS[get_configured_wallet_type(True)]
+            print("for index: {}, we got wallet type: {}".format(i, wc))
+        else:
+            wc = walletclass
         w = open_test_wallet_maybe(seeds[i], seeds[i], mixdepths - 1,
-                                   test_wallet_cls=walletclass)
+                                   test_wallet_cls=wc)
 
         wallet_service = WalletService(w)
         wallets[i + start_index] = {'seed': seeds[i].decode('ascii'),

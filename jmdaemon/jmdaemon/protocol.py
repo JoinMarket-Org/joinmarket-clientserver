@@ -20,6 +20,8 @@ offertypes = {"reloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
 
 offername_list = list(offertypes.keys())
 
+fidelity_bond_cmd_list = ["tbond"]
+
 ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
               'cjfee']
 

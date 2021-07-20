@@ -7,6 +7,7 @@ from decimal import InvalidOperation, Decimal
 from numbers import Integral
 
 from jmdaemon.protocol import JM_VERSION
+from jmdaemon import fidelity_bond_sanity_check
 from jmbase.support import get_log, joinmarket_alert, DUST_THRESHOLD
 log = get_log()
 
@@ -21,13 +22,12 @@ def dict_factory(cursor, row):
 class JMTakerError(Exception):
     pass
 
-
 class OrderbookWatch(object):
 
     def set_msgchan(self, msgchan):
         self.msgchan = msgchan
         self.msgchan.register_orderbookwatch_callbacks(self.on_order_seen,
-                                                       self.on_order_cancel)
+                               self.on_order_cancel, self.on_fidelity_bond_seen)
         self.msgchan.register_channel_callbacks(
             self.on_welcome, self.on_set_topic, None, self.on_disconnect,
             self.on_nick_leave, None)
@@ -41,6 +41,8 @@ class OrderbookWatch(object):
             self.db.execute("CREATE TABLE orderbook(counterparty TEXT, "
                             "oid INTEGER, ordertype TEXT, minsize INTEGER, "
                             "maxsize INTEGER, txfee INTEGER, cjfee TEXT);")
+            self.db.execute("CREATE TABLE fidelitybonds(counterparty TEXT, "
+                "takernick TEXT, proof TEXT);");
         finally:
             self.dblock.release()
 
@@ -134,10 +136,28 @@ class OrderbookWatch(object):
         finally:
             self.dblock.release()
 
+    def on_fidelity_bond_seen(self, nick, bond_type, fidelity_bond_proof_msg):
+        taker_nick = self.msgchan.nick
+        maker_nick = nick
+        if not fidelity_bond_sanity_check.fidelity_bond_sanity_check(fidelity_bond_proof_msg):
+            log.debug("Failed to verify fidelity bond for {}, skipping."
+                      .format(maker_nick))
+            return
+        try:
+            self.dblock.acquire(True)
+            self.db.execute("DELETE FROM fidelitybonds WHERE counterparty=?;",
+                            (nick, ))
+            self.db.execute("INSERT INTO fidelitybonds VALUES(?, ?, ?);",
+                (nick, taker_nick, fidelity_bond_proof_msg))
+        finally:
+            self.dblock.release()
+
     def on_nick_leave(self, nick):
         try:
             self.dblock.acquire(True)
             self.db.execute('DELETE FROM orderbook WHERE counterparty=?;',
+                            (nick,))
+            self.db.execute('DELETE FROM fidelitybonds WHERE counterparty=?;',
                             (nick,))
         finally:
             self.dblock.release()
@@ -146,5 +166,6 @@ class OrderbookWatch(object):
         try:
             self.dblock.acquire(True)
             self.db.execute('DELETE FROM orderbook;')
+            self.db.execute('DELETE FROM fidelitybonds;')
         finally:
             self.dblock.release()

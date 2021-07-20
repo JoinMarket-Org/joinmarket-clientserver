@@ -165,11 +165,11 @@ def test_filter_rejection(setup_taker):
         return False
     taker = get_taker(filter_orders=filter_orders_reject)
     taker.schedule = [[0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING]]
-    res = taker.initialize(t_orderbook)
+    res = taker.initialize(t_orderbook, [])
     assert not res[0]
     taker = get_taker(filter_orders=filter_orders_reject)
     taker.schedule = [[0, 0, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING]]
-    res = taker.initialize(t_orderbook)
+    res = taker.initialize(t_orderbook, [])
     assert not res[0]
 
 @pytest.mark.parametrize(
@@ -258,7 +258,7 @@ def test_make_commitment(setup_taker, mixdepth, cjamt, failquery, external,
 def test_not_found_maker_utxos(setup_taker):
     taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)])
     orderbook = copy.deepcopy(t_orderbook)
-    res = taker.initialize(orderbook)
+    res = taker.initialize(orderbook, [])
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
     maker_response = copy.deepcopy(t_maker_response)
     jm_single().bc_interface.setQUSFail(True)
@@ -270,7 +270,7 @@ def test_not_found_maker_utxos(setup_taker):
 def test_auth_pub_not_found(setup_taker):
     taker = get_taker([(0, 20000000, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)])
     orderbook = copy.deepcopy(t_orderbook)
-    res = taker.initialize(orderbook)
+    res = taker.initialize(orderbook, [])
     taker.orderbook = copy.deepcopy(t_chosen_orders) #total_cjfee unaffected, all same
     maker_response = copy.deepcopy(t_maker_response)
     utxos = [utxostr_to_utxo(x)[1] for x in [
@@ -351,11 +351,11 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     if schedule[0][1] == 0.2:
         #triggers calc-ing amount based on a fraction
         jm_single().mincjamount = 50000000 #bigger than 40m = 0.2 * 200m
-        res = taker.initialize(orderbook)
+        res = taker.initialize(orderbook, [])
         assert res[0]
         assert res[1] == jm_single().mincjamount
         return clean_up()
-    res = taker.initialize(orderbook)
+    res = taker.initialize(orderbook, [])
     if toomuchcoins or ignored:
         assert not res[0]
         return clean_up()
@@ -427,7 +427,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
         
     assert res[0]
     #re-calling will trigger "finished" code, since schedule is "complete".
-    res = taker.initialize(orderbook)
+    res = taker.initialize(orderbook, [])
     assert not res[0]
 
     #some exception cases: no coinjoin address, no change address:
@@ -454,7 +454,7 @@ def test_custom_change(setup_taker):
     for script, addr in zip(scripts, addrs):
         taker = get_taker(schedule, custom_change=addr)
         orderbook = copy.deepcopy(t_orderbook)
-        res = taker.initialize(orderbook)
+        res = taker.initialize(orderbook, [])
         taker.orderbook = copy.deepcopy(t_chosen_orders)
         maker_response = copy.deepcopy(t_maker_response)
         res = taker.receive_utxos(maker_response)

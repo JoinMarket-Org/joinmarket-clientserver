@@ -88,6 +88,10 @@ required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
                     'POLICY': ['absurd_fee_per_kb', 'taker_utxo_retries',
                                'taker_utxo_age', 'taker_utxo_amtpercent']}
 
+_DEFAULT_INTEREST_RATE = "0.015"
+
+_DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.125"
+
 defaultconfig = \
     """
 [DAEMON]
@@ -290,6 +294,21 @@ minimum_makers = 4
 # The default is to ALWAYS freeze a utxo to an already used address,
 # whatever the value of it, and this is set with the value -1.
 max_sats_freeze_reuse = -1
+
+# Interest rate used when calculating the value of fidelity bonds created
+# by locking bitcoins in timelocked addresses
+# See also:
+# https://gist.github.com/chris-belcher/87ebbcbb639686057a389acb9ab3e25b#determining-interest-rate-r
+# Set as a real number, i.e. 1 = 100% and 0.01 = 1%
+interest_rate = """ + _DEFAULT_INTEREST_RATE + """
+
+# Some makers run their bots to mix their funds not just to earn money
+# So to improve privacy very slightly takers dont always choose a maker based
+# on his fidelity bond but allow a certain small percentage to be chosen completely
+# randomly without taking into account fidelity bonds
+# This parameter sets how many makers on average will be chosen regardless of bonds
+# A real number, i.e. 1 = 100%, 0.125 = 1/8 = 1 in every 8 makers on average will be bondless
+bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 
 ##############################
 #THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
@@ -537,6 +556,14 @@ _BURN_DESTINATION = "BURN"
 
 def is_burn_destination(destination):
     return destination == _BURN_DESTINATION
+
+def get_interest_rate():
+    return float(global_singleton.config.get('POLICY', 'interest_rate',
+        fallback=_DEFAULT_INTEREST_RATE))
+
+def get_bondless_makers_allowance():
+    return float(global_singleton.config.get('POLICY', 'bondless_makers_allowance',
+        fallback=_DEFAULT_BONDLESS_MAKERS_ALLOWANCE))
 
 def remove_unwanted_default_settings(config):
     for section in config.sections():

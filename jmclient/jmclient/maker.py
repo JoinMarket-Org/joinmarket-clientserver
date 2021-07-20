@@ -21,6 +21,7 @@ class Maker(object):
         self.wallet_service = wallet_service
         self.nextoid = -1
         self.offerlist = None
+        self.fidelity_bond = None
         self.sync_wait_loop = task.LoopingCall(self.try_to_create_my_orders)
         # don't fire on the first tick since reactor is still starting up
         # and may not shutdown appropriately if we immediately recognize
@@ -38,6 +39,7 @@ class Maker(object):
         if not self.wallet_service.synced:
             return
         self.offerlist = self.create_my_orders()
+        self.fidelity_bond = self.get_fidelity_bond_template()
         self.sync_wait_loop.stop()
         if not self.offerlist:
             jlog.info("Failed to create offers, giving up.")
@@ -277,3 +279,11 @@ class Maker(object):
         """Performs actions on receipt of 1st confirmation of
         a transaction into a block (e.g. announce orders)
         """
+
+    def get_fidelity_bond_template(self):
+        """
+        Generates information about a fidelity bond which will be announced
+        By default returns no fidelity bond
+        Does not contain nick signature which has to be calculated individually
+        """
+        return None

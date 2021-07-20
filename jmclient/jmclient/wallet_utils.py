@@ -21,7 +21,7 @@ from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
                             IndentedHelpFormatterWithNL)
 
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
-    TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
+    TYPE_SEGWIT_WALLET_FIDELITY_BONDS
 from .output import fmt_utxo
 import jmbitcoin as btc
 
@@ -246,7 +246,8 @@ class WalletViewAccount(WalletViewBase):
         self.account_name = account_name
         self.xpub = xpub
         if branches:
-            assert len(branches) in [2, 3, 4] #3 if imported keys, 4 if fidelity bonds
+            assert len(branches) in [2, 3, 4, 5] #3 if imported keys, 4 if fidelity bonds
+                #5 if all those plus imported
             assert all([isinstance(x, WalletViewBranch) for x in branches])
         self.branches = branches
 
@@ -360,7 +361,11 @@ def wallet_showutxos(wallet_service, showprivkey):
         for u, av in utxos[md].items():
             success, us = utxo_to_utxostr(u)
             assert success
-            key = wallet_service.get_key_from_addr(av['address'])
+            key = wallet_service._get_key_from_path(av["path"])[0]
+            if FidelityBondMixin.is_timelocked_path(av["path"]):
+                key, locktime = key
+            else:
+                locktime = None
             tries = podle.get_podle_tries(u, key, max_tries)
             tries_remaining = max(0, max_tries - tries)
             mixdepth = wallet_service.wallet.get_details(av['path'])[0]
@@ -372,6 +377,8 @@ def wallet_showutxos(wallet_service, showprivkey):
                        'frozen': True if u in utxo_d else False}
             if showprivkey:
                 unsp[us]['privkey'] = wallet_service.get_wif_path(av['path'])
+            if locktime:
+                unsp[us]["locktime"] = str(datetime.utcfromtimestamp(locktime))
 
     used_commitments, external_commitments = podle.get_podle_commitments()
     for u, ec in external_commitments.items():
@@ -466,27 +473,23 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
         if m == FidelityBondMixin.FIDELITY_BOND_MIXDEPTH and \
                 isinstance(wallet_service.wallet, FidelityBondMixin):
             address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-            unused_index = wallet_service.get_next_unused_index(m, address_type)
-            timelocked_gaplimit = (wallet_service.wallet.gap_limit
-                    // FidelityBondMixin.TIMELOCK_GAP_LIMIT_REDUCTION_FACTOR)
             entrylist = []
-            for k in range(unused_index + timelocked_gaplimit):
-                for timenumber in range(FidelityBondMixin.TIMENUMBERS_PER_PUBKEY):
-                    path = wallet_service.get_path(m, address_type, k, timenumber)
-                    addr = wallet_service.get_address_from_path(path)
-                    timelock = datetime.utcfromtimestamp(path[-1])
+            for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
+                path = wallet_service.get_path(m, address_type, timenumber, timenumber)
+                addr = wallet_service.get_address_from_path(path)
+                timelock = datetime.utcfromtimestamp(path[-1])
 
-                    balance = sum([utxodata["value"] for utxo, utxodata in
-                        utxos[m].items() if path == utxodata["path"]])
-                    status = timelock.strftime("%Y-%m-%d") + " [" + (
-                        "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
-                    privkey = ""
-                    if showprivkey:
-                        privkey = wallet_service.get_wif_path(path)
-                    if displayall or balance > 0:
-                        entrylist.append(WalletViewEntry(
-                            wallet_service.get_path_repr(path), m, address_type, k,
-                            addr, [balance, balance], priv=privkey, used=status))
+                balance = sum([utxodata["value"] for utxo, utxodata in
+                    utxos[m].items() if path == utxodata["path"]])
+                status = timelock.strftime("%Y-%m-%d") + " [" + (
+                    "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
+                privkey = ""
+                if showprivkey:
+                    privkey = wallet_service.get_wif_path(path)
+                if displayall or balance > 0:
+                    entrylist.append(WalletViewEntry(
+                        wallet_service.get_path_repr(path), m, address_type, k,
+                        addr, [balance, balance], priv=privkey, used=status))
             xpub_key = wallet_service.get_bip32_pub_export(m, address_type)
             path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
             branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
@@ -633,13 +636,8 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
     if not wallet_name:
         wallet_name = default_wallet_name
     wallet_path = os.path.join(walletspath, wallet_name)
-
-    # disable creating fidelity bond wallets for now until the
-    # rest of the fidelity bond feature is created
-    #support_fidelity_bonds = enter_do_support_fidelity_bonds()
-    support_fidelity_bonds = False
+    support_fidelity_bonds = enter_do_support_fidelity_bonds()
     wallet_cls = get_wallet_cls(get_configured_wallet_type(support_fidelity_bonds))
-
     wallet = create_wallet(wallet_path, password, mixdepth, wallet_cls,
                            entropy=entropy,
                            entropy_extension=mnemonic_extension)
@@ -1227,16 +1225,20 @@ def wallet_gettimelockaddress(wallet, locktime_string):
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-    index = wallet.get_next_unused_index(m, address_type)
     lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
     timenumber = FidelityBondMixin.timestamp_to_time_number(timegm(
         lock_datetime.timetuple()))
+    index = timenumber
 
     path = wallet.get_path(m, address_type, index, timenumber)
     jmprint("path = " + wallet.get_path_repr(path), "info")
     jmprint("Coins sent to this address will be not be spendable until "
         + lock_datetime.strftime("%B %Y") + ". Full date: "
         + str(lock_datetime))
+    jmprint("WARNING: Only send coins here which are from coinjoins or otherwise"
+        + " not linked to your identity. Also, use a sweep transaction when funding the"
+        + " timelocked address, i.e. Don't create a change address. See the privacy warnings in"
+        + " fidelity-bonds.md")
     addr = wallet.get_address_from_path(path)
     return addr
 
@@ -1296,8 +1298,8 @@ def get_configured_wallet_type(support_fidelity_bonds):
     if not support_fidelity_bonds:
         return configured_type
 
-    if configured_type == TYPE_P2SH_P2WPKH:
-        return TYPE_SEGWIT_LEGACY_WALLET_FIDELITY_BONDS
+    if configured_type == TYPE_P2WPKH:
+        return TYPE_SEGWIT_WALLET_FIDELITY_BONDS
     else:
         raise ValueError("Fidelity bonds not supported with the configured "
             "options of segwit and native. Edit joinmarket.cfg")

@@ -474,6 +474,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.crypto_boxes = {}
         self.sig_lock = threading.Lock()
         self.active_orders = {}
+        self.use_fidelity_bond = False
 
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
@@ -551,7 +552,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, initdata):
+    def on_JM_SETUP(self, role, offers, use_fidelity_bond):
         assert self.jm_state == 0
         self.role = role
         self.crypto_boxes = {}
@@ -565,8 +566,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if self.role == "TAKER":
             self.mcc.pubmsg(COMMAND_PREFIX + "orderbook")
         elif self.role == "MAKER":
-            self.offerlist = json.loads(initdata)
-            self.mcc.announce_orders(self.offerlist)
+            self.offerlist = json.loads(offers)
+            self.use_fidelity_bond = use_fidelity_bond
+            self.mcc.announce_orders(self.offerlist, None, None, None)
         self.jm_state = 1
         return {'accepted': True}
 
@@ -592,10 +594,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         This call is stateless."""
         rows = self.db.execute('SELECT * FROM orderbook;').fetchall()
         self.orderbook = [dict([(k, o[k]) for k in ORDER_KEYS]) for o in rows]
-        log.msg("About to send orderbook of size: " + str(len(self.orderbook)))
         string_orderbook = json.dumps(self.orderbook)
-        d = self.callRemote(JMOffers,
-                        orderbook=string_orderbook)
+
+        fbond_rows = self.db.execute("SELECT * FROM fidelitybonds;").fetchall()
+        fidelitybonds = [fb for fb in fbond_rows]
+        string_fidelitybonds = json.dumps(fidelitybonds)
+
+        log.msg("About to send orderbook (size=" + str(len(self.orderbook))
+            + " with fidelity bonds (size=" + str(len(fidelitybonds)))
+        d = self.callRemote(JMOffers, orderbook=string_orderbook,
+            fidelitybonds=string_fidelitybonds)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -655,7 +663,13 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if len(to_cancel) > 0:
             self.mcc.cancel_orders(to_cancel)
         if len(to_announce) > 0:
-            self.mcc.announce_orders(to_announce, None, None)
+            self.mcc.announce_orders(to_announce, None, None, None)
+        return {"accepted": True}
+
+    @JMFidelityBondProof.responder
+    def on_JM_FIDELITY_BOND_PROOF(self, nick, proof):
+        """Called by maker client as a reply to a request of a fidelity bond proof"""
+        self.mcc.announce_orders(self.offerlist, nick, proof, new_mc=None)
         return {"accepted": True}
 
     @JMIOAuth.responder
@@ -711,7 +725,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     def on_orderbook_requested(self, nick, mc=None):
         """Dealt with by daemon, assuming offerlist is up to date
         """
-        self.mcc.announce_orders(self.offerlist, nick, mc)
+        if self.use_fidelity_bond:
+            taker_nick = nick
+            maker_nick = self.mcc.nick
+            d = self.callRemote(JMFidelityBondProofRequest,
+                takernick=taker_nick,
+                makernick=maker_nick)
+            self.defaultCallbacks(d)
+        else:
+            self.mcc.announce_orders(self.offerlist, nick, fidelity_bond_proof_msg=None,
+                new_mc=mc)
 
     @maker_only
     def on_order_fill(self, nick, oid, amount, taker_pk, commit):
@@ -1014,6 +1037,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         log.msg("Message channels being shutdown by daemon")
         if self.mcc:
             self.mcc.shutdown()
+
 
 class JMDaemonServerProtocolFactory(ServerFactory):
     protocol = JMDaemonServerProtocol

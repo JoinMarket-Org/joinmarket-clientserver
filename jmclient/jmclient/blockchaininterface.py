@@ -190,7 +190,7 @@ class BitcoinCoreInterface(BlockchainInterface):
     def get_block(self, blockheight):
         """Returns full serialized block at a given height.
         """
-        block_hash = self._rpc('getblockhash', [blockheight])
+        block_hash = self.get_block_hash(blockheight)
         block = self._rpc('getblock', [block_hash, False])
         if not block:
             return False
@@ -503,6 +503,9 @@ class BitcoinCoreInterface(BlockchainInterface):
     def get_block_time(self, blockhash):
         return self._get_block_header_data(blockhash, 'time')
 
+    def get_block_hash(self, height):
+        return self._rpc("getblockhash", [height])
+
     def get_tx_merkle_branch(self, txid, blockhash=None):
         if not blockhash:
             tx = self._rpc("gettransaction", [txid])
@@ -522,7 +525,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         return core_proof[80:]
 
     def verify_tx_merkle_branch(self, txid, block_height, merkle_branch):
-        block_hash = self._rpc("getblockhash", [block_height])
+        block_hash = self.get_block_hash(block_height)
         core_proof = self._rpc("getblockheader", [block_hash, False]) + \
             binascii.hexlify(merkle_branch).decode()
         ret = self._rpc("verifytxoutproof", [core_proof])
