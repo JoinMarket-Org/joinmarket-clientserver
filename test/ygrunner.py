@@ -11,14 +11,14 @@
    --btcpwd=123456abcdef --btcconf=/blah/bitcoin.conf \
    --nirc=2 -s test/ygrunner.py
    '''
-from twisted.internet import task, reactor
+from twisted.internet import task
 from common import make_wallets
 import pytest
 import random
 from datetime import datetime
 from jmbase import jmprint
 from jmclient import YieldGeneratorBasic, load_test_config, jm_single,\
-    JMClientProtocolFactory, start_reactor, SegwitWallet, WalletService,\
+    JMClientProtocolFactory, start_reactor, SegwitWallet,\
     SegwitLegacyWallet, cryptoengine, SNICKERClientProtocolFactory, SNICKERReceiver
 from jmclient.wallet_utils import wallet_gettimelockaddress
 
