@@ -871,15 +871,15 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
     # starts in jmclient.payjoin:
         if usessl:
             if factory:
-            reactor.connectSSL(host, jmcport, factory, ClientContextFactory())
+                reactor.connectSSL(host, jmcport, factory, ClientContextFactory())
             if snickerfactory:
-            reactor.connectSSL(host, snickerport, snickerfactory,
+                reactor.connectSSL(host, snickerport, snickerfactory,
                                ClientContextFactory())
         else:
             if factory:
-            reactor.connectTCP(host, jmcport, factory)
+                reactor.connectTCP(host, jmcport, factory)
             if snickerfactory:
-            reactor.connectTCP(host, snickerport, snickerfactory)
+                reactor.connectTCP(host, snickerport, snickerfactory)
     if rs:
         if not gui:
             reactor.run(installSignalHandlers=ish)

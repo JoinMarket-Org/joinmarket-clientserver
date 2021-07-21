@@ -61,7 +61,7 @@ from .maker import Maker
 from .yieldgenerator import YieldGenerator, YieldGeneratorBasic, ygmain, \
      YieldGeneratorService
 from .snicker_receiver import SNICKERError, SNICKERReceiver, SNICKERReceiverService
-from .payjoin import (parse_payjoin_setup, send_payjoin, PayjoinServer,
+from .payjoin import (parse_payjoin_setup, send_payjoin,
                       JMBIP78ReceiverManager)
 # Set default logging handler to avoid "No handler found" warnings.
 
