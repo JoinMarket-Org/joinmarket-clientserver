@@ -73,6 +73,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
     detect_script_type, general_custom_change_warning, \
     nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError
+from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
     config_types, QtHandler, XStream, Buttons, OkButton, CancelButton,\
@@ -1470,17 +1471,18 @@ class JMWalletTab(QWidget):
         # before deleting, note whether items were expanded
         for i in range(self.walletTree.topLevelItemCount()):
             tli = self.walletTree.invisibleRootItem().child(i)
-            # must check top and also the two subitems (branches):
-            expandedness = tuple(
-                x.isExpanded() for x in [tli, tli.child(0), tli.child(1)])
+            # expandedness is a list beginning with the top level expand state,
+            # followed by the expand state of its children
+            expandedness = [tli.isExpanded()]
+            for j in range(tli.childCount()):
+                expandedness.append(tli.child(j).isExpanded())
             previous_expand_states.append(expandedness)
-
         self.walletTree.clear()
 
         # Skip the remaining of this method if wallet info doesn't exist
-        if walletinfo == None:
+        if not walletinfo:
             return
-            
+
         rows, mbalances, xpubs, total_bal = walletinfo
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") == "regtest":
             self.wallet_name = mainWindow.testwalletname
@@ -1500,14 +1502,11 @@ class JMWalletTab(QWidget):
             return
 
         for mixdepth in range(max_mixdepth_count):
-            if walletinfo:
-                mdbalance = mbalances[mixdepth]
-            else:
-                mdbalance = "{0:.8f}".format(0)
+            mdbalance = mbalances[mixdepth]
             m_item = QTreeWidgetItem(["Mixdepth " + str(mixdepth) + " , balance: " +
                                       mdbalance, '', '', '', ''])
             self.walletTree.addChild(m_item)
-            
+
             # if expansion states existed, reinstate them:
             if len(previous_expand_states) == max_mixdepth_count:
                 m_item.setExpanded(previous_expand_states[mixdepth][0])
@@ -1515,32 +1514,41 @@ class JMWalletTab(QWidget):
             elif float(mdbalance) > 0:
                 m_item.setExpanded(True)
 
-            for forchange in [0, 1]:
-                heading = "EXTERNAL" if forchange == 0 else "INTERNAL"
-                if walletinfo and heading == "EXTERNAL":
-                    heading_end = ' ' + xpubs[mixdepth][forchange]
-                    heading += heading_end
+            for address_type in [
+                BaseWallet.ADDRESS_TYPE_EXTERNAL,
+                BaseWallet.ADDRESS_TYPE_INTERNAL,
+                FidelityBondMixin.BIP32_TIMELOCK_ID]:
+                if address_type == FidelityBondMixin.BIP32_TIMELOCK_ID \
+                    and (mixdepth != FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+                         or not isinstance(mainWindow.wallet_service.wallet, FidelityBondMixin)):
+                    continue
+
+                if address_type == BaseWallet.ADDRESS_TYPE_EXTERNAL:
+                    heading = "EXTERNAL " + xpubs[mixdepth][address_type]
+                elif address_type == BaseWallet.ADDRESS_TYPE_INTERNAL:
+                    heading = "INTERNAL"
+                elif address_type == FidelityBondMixin.BIP32_TIMELOCK_ID:
+                    heading = "TIMELOCK"
+                else:
+                    heading = ""
+
                 seq_item = QTreeWidgetItem([heading, '', '', '', ''])
                 m_item.addChild(seq_item)
 
                 # by default, the external addresses of mixdepth 0 is expanded
-                should_expand = mixdepth == 0 and not forchange
-                if not walletinfo:
-                    item = QTreeWidgetItem(['None', '', '', ''])
+                should_expand = mixdepth == 0 and address_type == BaseWallet.ADDRESS_TYPE_EXTERNAL
+                for address_index in range(len(rows[mixdepth][address_type])):
+                    item = QTreeWidgetItem(rows[mixdepth][address_type][address_index])
+                    item.setFont(0, QFont(MONOSPACE_FONT))
+                    if rows[mixdepth][address_type][address_index][3] != 'new':
+                        item.setForeground(3, QBrush(QColor('red')))
+                    # by default, if the balance is non zero, it is also expanded
+                    if float(rows[mixdepth][address_type][address_index][2]) > 0:
+                        should_expand = True
                     seq_item.addChild(item)
-                else:
-                    for j in range(len(rows[mixdepth][forchange])):
-                        item = QTreeWidgetItem(rows[mixdepth][forchange][j])
-                        item.setFont(0, QFont(MONOSPACE_FONT))
-                        if rows[mixdepth][forchange][j][3] != 'new':
-                            item.setForeground(3, QBrush(QColor('red')))
-                        # by default, if the balance is non zero, it is also expanded
-                        if float(rows[mixdepth][forchange][j][2]) > 0:
-                            should_expand = True
-                        seq_item.addChild(item)
                 # Remember user choice, if expansion states existed, reinstate them:
                 if len(previous_expand_states) == max_mixdepth_count:
-                    should_expand = previous_expand_states[mixdepth][forchange+1]
+                    should_expand = previous_expand_states[mixdepth][address_type+1]
                 seq_item.setExpanded(should_expand)
 
 
@@ -1973,8 +1981,6 @@ class JMMainWindow(QMainWindow):
                 return False
             # only used for GUI display on regtest:
             self.testwalletname = wallet.seed = str(firstarg)
-        if isinstance(wallet, FidelityBondMixin):
-            raise Exception("Fidelity bond wallets not supported by Qt")
         if 'listunspent_args' not in jm_single().config.options('POLICY'):
             jm_single().config.set('POLICY', 'listunspent_args', '[0]')
         assert wallet, "No wallet loaded"
