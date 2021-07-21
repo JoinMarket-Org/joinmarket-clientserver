@@ -7,7 +7,6 @@ import jmbitcoin as btc
 from jmclient.configure import jm_single
 from jmbase import (get_log, utxo_to_utxostr,
                     hextobin, bintohex)
-from twisted.application.service import Service
 
 jlog = get_log()
 
