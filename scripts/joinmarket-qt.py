@@ -1556,13 +1556,13 @@ class JMMainWindow(QMainWindow):
         # the wallet we will interact with
         self.wallet_service = None
 
-        # the monitoring loop that queries
-        # the walletservice to update the GUI
-        self.walletRefresh = None
-
         # keep track of whether wallet sync message
         # was already shown
         self.syncmsg = ""
+
+        # loop used for initial sync:
+        self.walletRefresh = None
+        self.update_registered = False
 
         # BIP 78 Receiver manager object, only
         # created when user starts a payjoin event:
@@ -1989,6 +1989,7 @@ class JMMainWindow(QMainWindow):
             self.walletRefresh.stop()
 
         self.wallet_service = WalletService(wallet)
+
         # in case an RPC error occurs in the constructor:
         if self.wallet_service.rpc_error:
             JMQtMessageBox(self,self.wallet_service.rpc_error,
@@ -2005,13 +2006,19 @@ class JMMainWindow(QMainWindow):
         self.wallet_service.autofreeze_warning_cb = self.autofreeze_warning_cb
         self.wallet_service.startService()
         self.syncmsg = ""
-        self.walletRefresh = task.LoopingCall(self.updateWalletInfo)
+        self.walletRefresh = task.LoopingCall(self.updateWalletInfo, None, None)
         self.walletRefresh.start(5.0)
 
         self.statusBar().showMessage("Reading wallet from blockchain ...")
         return True
 
-    def updateWalletInfo(self):
+    def updateWalletInfo(self, txd, txid):
+        """ TODO: see use of `jmclient.BaseWallet.process_new_tx` in
+        `jmclient.WalletService.transaction_monitor`;
+        we could similarly find the exact utxos to update in the view,
+        though it's not entirely trivial, using the provided arguments.
+        For now we can just recreate the entire view, as this event is rare.
+        """
         t = self.centralWidget().widget(0)
         if not self.wallet_service:  #failure to sync in constructor means object is not created
             newsyncmsg = "Unable to sync wallet - see error in console."
@@ -2026,6 +2033,15 @@ class JMMainWindow(QMainWindow):
         elif not self.wallet_service.synced:
             return
         else:
+            # sync phase is finished; we now wait for callbacks:
+            if self.walletRefresh and self.walletRefresh.running:
+                self.walletRefresh.stop()
+                self.walletRefresh = None
+            # the callback allows us to update our view only on changes:
+            if not self.update_registered:
+                self.wallet_service.register_callbacks(
+                    [self.updateWalletInfo], None, "all")
+                self.update_registered = True
             try:
                 t.updateWalletInfo(get_wallet_printout(self.wallet_service))
             except Exception:
