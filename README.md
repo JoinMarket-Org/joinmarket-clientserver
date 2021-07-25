@@ -66,7 +66,8 @@ If you are running Joinmarket-Qt, you can instead use the [walkthrough](docs/JOI
 
 If you used the old version of Joinmarket, the notes in the [scripts readme](scripts/README.md) help to understand what has and hasn't changed about the scripts (warning: this refers to changes from several years ago, so may be slightly outdated).
 
-If you are looking for the available makers, run the [orderbook](docs/orderbook.md).
+If you are looking for the available makers, run the [orderbook](docs/orderbook.md). 
+Public mainnet mirror: [JoinMarket Browser Interface Orderbook](https://nixbitcoin.org/obwatcher) [(🧅 tor)](http://qvzlxbjvyrhvsuyzz5t63xx7x336dowdvt7wfj53sisuun4i4rdtbzid.onion/obwatcher)
 
 ### PayJoin
 
