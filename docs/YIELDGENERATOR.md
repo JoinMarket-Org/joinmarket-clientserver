@@ -1,7 +1,7 @@
 A "yield generator" is a JoinMarket bot which does market-making of CoinJoins to produce an income as a join "Maker". The bot connects to the JoinMarket trading pit on the available messaging channels, announces its offers and waits. Market "Takers" will communicate with it to create a CoinJoin transaction.
 
 ## A few words about incentives
-The first thing to understand is that this is not a bank account with a guaranteed interest rate. You are selling a product, namely coinjoins, and your customers can take it or leave it depending on your offered fee, range of available coinjoin amount, internet speed, latency and so on. Most of the actual decision-making is done by software bots rather than humans but the same principles apply. The algorithm for market takers remembers yield generators they previously dealt with and avoid those who did not offer a good experience. You have an incentive to be on your best behavior.
+The first thing to understand is that this is not a bank account with a guaranteed interest rate. You are selling a product, namely coinjoins, and your customers can take it or leave it depending on your offered fee, range of available coinjoin amount, value of advertised fidelity bond, internet speed, latency and so on. Most of the actual decision-making is done by software bots rather than humans but the same principles apply. The algorithm for market takers remembers yield generators they previously dealt with and avoid those who did not offer a good experience. You have an incentive to be on your best behavior.
 
 ### Things You Need
 + A local Bitcoin full node running with JoinMarket. No other Bitcoin blockchain access is currently supported. Your node can be pruned.
@@ -17,21 +17,35 @@ You will need to:
 + Edit `yg-privacyenhanced.py` or `yield-generator-basic.py` (former is recommended) at the top of the file with your chosen fee selections, then run this variant yield-generator.py on a permanently-on computer with a stable internet connection. For example:
         (jmvenv)$ python yg-privacyenhanced.py yournewwallet.jmdat
 + Wait and be patient. The volume of joins is always dependent on the number of takers. A successful join may take a day or longer to appear.
++ (Optional) [Create and advertise a fidelity bond](fidelity-bonds.md) to increase your coinjoin volume
 
 ## Configuring
-Open one of the two built-in yield generators: `yield-generator-basic.py` or `yg-privacyenhanced.py` in a text editor and edit the configuration. Currently these are the fields. Most of them can just be left at the default values.
+Open the configuration file `joinmarket.cfg` and edit the `[YIELDGENERATOR]` section to configure relevant values. Most of them can just be left at the default values.
 
-	txfee = 1000
-	cjfee_a = 2000
-	cjfee_r = '0.0002' # 0.02% fee
-	ordertype = 'reloffer'
-	minsize = int(1.2 * txfee / float(cjfee)) #minimum size is such that you always net profit at least 20% of the miner fee
+    [YIELDGENERATOR]
+    # [string, 'reloffer' or 'absoffer'], which fee type to actually use
+    ordertype = reloffer
 
-Meaning of fields:
-+ txfee. The yield generators contribution to the miner fee.
-+ ordertype. One of 'reloffer', 'absoffer'
-+ cjfee_r. Your offered coinjoin fee as a fraction of the coinjoin amount (for 'reloffer'). Takers pay this to you.
-+ cjfee_a. Your offered coinjoin fee as an absolute number of satoshis (for 'absoffer').
+    # [satoshis, any integer] / absolute offer fee you wish to receive for coinjoins (cj)
+    cjfee_a = 500
+
+    # [fraction, any str between 0-1] / relative offer fee you wish to receive based on a cj's amount
+    cjfee_r = 0.00002
+
+    # [fraction, 0-1] / variance around the average fee. Ex: 200 fee, 0.2 var = fee is btw 160-240
+    cjfee_factor = 0.1
+
+    # [satoshis, any integer] / the average transaction fee you're adding to coinjoin transactions
+    txfee = 100
+
+    # [fraction, 0-1] / variance around the average fee. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
+    txfee_factor = 0.3
+
+    # [satoshis, any integer] / minimum size of your cj offer. Lower cj amounts will be disregarded
+    minsize = 100000
+
+    # [fraction, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
+    size_factor = 0.1
 
 ## Keeping Track of Returns
 
