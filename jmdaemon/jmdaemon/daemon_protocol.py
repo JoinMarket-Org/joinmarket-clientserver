@@ -495,7 +495,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
-                   maker_timeout_sec):
+                   maker_timeout_sec, dust_threshold):
         """Reads in required configuration from client for a new
         session; feeds back joinmarket messaging protocol constants
         (required for nick creation).
@@ -503,6 +503,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         one is shutdown in preparation.
         """
         self.maker_timeout_sec = int(maker_timeout_sec)
+        # used in OrderbookWatch:
+        self.dust_threshold = int(dust_threshold)
         self.minmakers = int(minmakers)
         irc_configs = json.loads(irc_configs)
         #(bitcoin) network only referenced in channel name construction

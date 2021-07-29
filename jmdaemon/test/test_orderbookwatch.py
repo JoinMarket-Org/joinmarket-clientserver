@@ -30,6 +30,9 @@ def get_ob():
     ob = OrderbookWatch()
     ob.on_welcome = on_welcome
     ob.set_msgchan(mc)
+    # would usually be set in JMInit; we use
+    # a fake small value to allow small orders:
+    ob.dust_threshold = 2
     return ob
 
 @pytest.mark.parametrize(

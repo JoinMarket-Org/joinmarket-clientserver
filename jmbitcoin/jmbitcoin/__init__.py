@@ -14,6 +14,9 @@ if os.path.exists(expected_secp_location):
     import bitcointx
     bitcointx.set_custom_secp256k1_path(expected_secp_location)
 
+# Bitcoin network level utxo amount limit:
+DUST_THRESHOLD = 2730
+
 from jmbitcoin.secp256k1_main import *
 from jmbitcoin.secp256k1_transaction import *
 from jmbitcoin.secp256k1_deterministic import *
