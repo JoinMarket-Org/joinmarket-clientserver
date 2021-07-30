@@ -9,7 +9,7 @@ from optparse import IndentedHelpFormatter
 import urllib.parse as urlparse
 
 # JoinMarket version
-JM_CORE_VERSION = '0.9.0dev'
+JM_CORE_VERSION = '0.9.0'
 
 # global Joinmarket constants
 JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
