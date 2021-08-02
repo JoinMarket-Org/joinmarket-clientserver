@@ -123,7 +123,7 @@ class DummyMaker(Maker):
             'txfee': 0
         }]
 
-    def oid_to_order(self, cjorder, oid, amount):
+    def oid_to_order(self, cjorder, amount):
         # utxos, cj_addr, change_addr
         return [], '', ''
 

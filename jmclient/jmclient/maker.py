@@ -107,9 +107,8 @@ class Maker(object):
         self.wallet_service.save_wallet()
         # Construct data for auth request back to taker.
         # Need to choose an input utxo pubkey to sign with
-        # (no longer using the coinjoin pubkey from 0.2.0)
-        # Just choose the first utxo in self.utxos and retrieve key from wallet.
-        auth_address = utxos[list(utxos.keys())[0]]['address']
+        # Just choose the first utxo in utxos and retrieve key from wallet.
+        auth_address = next(iter(utxos.values()))['address']
         auth_key = self.wallet_service.get_key_from_addr(auth_address)
         auth_pub = btc.privkey_to_pubkey(auth_key)
         # kphex was auto-converted by @hexbin but we actually need to sign the
@@ -262,7 +261,7 @@ class Maker(object):
         """
 
     @abc.abstractmethod
-    def oid_to_order(self, cjorder, oid, amount):
+    def oid_to_order(self, cjorder, amount):
         """Must convert an order with an offer/order id
         into a set of utxos to fill the order.
         Also provides the output addresses for the Taker.

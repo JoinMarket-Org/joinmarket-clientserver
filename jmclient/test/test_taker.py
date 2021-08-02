@@ -79,7 +79,8 @@ class DummyWallet(SegwitWallet):
         return retval
 
     def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
-                     maxheight=None, includeaddr=False):
+                     maxheight=None, includeaddr=False,
+                     require_auth_address=False):
         if amount > self.get_balance_by_mixdepth()[mixdepth]:
             raise NotEnoughFundsException(amount, self.get_balance_by_mixdepth()[mixdepth])
         # comment as for get_utxos_by_mixdepth:
