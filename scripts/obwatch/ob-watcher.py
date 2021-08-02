@@ -16,7 +16,7 @@ from future.moves.urllib.parse import parse_qs
 from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
-from datetime import datetime
+from datetime import datetime, timedelta
 
 if sys.version_info < (3, 7):
     print("ERROR: this script requires at least python 3.7")
@@ -352,7 +352,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 utxo_value_str = "No data"
             else:
                 bond_value_str = satoshi_to_unit_power(bond_value, 2*unit_to_power[btc_unit])
-                conf_time_str = str(datetime.utcfromtimestamp(conf_time))
+                conf_time_str = str(datetime.utcfromtimestamp(0) + timedelta(seconds=conf_time))
                 utxo_value_str = satoshi_to_unit(utxo_data["value"], None, btc_unit, 0)
             bondtable += ("<tr>"
                 + elem(bond_data.maker_nick)

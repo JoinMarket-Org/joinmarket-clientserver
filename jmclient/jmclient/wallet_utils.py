@@ -4,7 +4,7 @@ import json
 import os
 import sqlite3
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from calendar import timegm
 from optparse import OptionParser
 from numbers import Integral
@@ -378,7 +378,7 @@ def wallet_showutxos(wallet_service, showprivkey):
             if showprivkey:
                 unsp[us]['privkey'] = wallet_service.get_wif_path(av['path'])
             if locktime:
-                unsp[us]["locktime"] = str(datetime.utcfromtimestamp(locktime))
+                unsp[us]["locktime"] = str(datetime.utcfromtimestamp(0) + timedelta(seconds=locktime))
 
     used_commitments, external_commitments = podle.get_podle_commitments()
     for u, ec in external_commitments.items():
@@ -477,7 +477,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
                 path = wallet_service.get_path(m, address_type, timenumber, timenumber)
                 addr = wallet_service.get_address_from_path(path)
-                timelock = datetime.utcfromtimestamp(path[-1])
+                timelock = datetime.utcfromtimestamp(0) + timedelta(seconds=path[-1])
 
                 balance = sum([utxodata["value"] for utxo, utxodata in
                     utxos[m].items() if path == utxodata["path"]])
