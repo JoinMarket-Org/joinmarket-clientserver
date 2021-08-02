@@ -21,12 +21,12 @@ class JMBaseProtocol(amp.AMP):
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop()
+            raise Exception(response)
 
     def defaultErrback(self, failure):
         failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone,
                      ConnectionLost, UnknownRemoteError)
-        reactor.stop()
+        raise Exception(failure)
 
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
