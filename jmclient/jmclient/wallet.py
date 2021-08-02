@@ -2273,7 +2273,7 @@ class FidelityBondMixin(object):
         path = self.script_to_path(script)
         if not self.is_timelocked_path(path):
             return
-        if datetime.utcfromtimestamp(path[-1]) > datetime.now():
+        if (datetime.utcfromtimestamp(0) + timedelta(seconds=path[-1])) > datetime.now():
             #freeze utxo if its timelock is in the future
             self.disable_utxo(txid, index, disable=True)
 
