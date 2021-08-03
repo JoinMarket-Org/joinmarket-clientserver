@@ -163,7 +163,7 @@ You must spend them from JoinMarket itself.
 Fidelity bonds UTXOs are valuable as soon as they confirmed. The simplified formula for a fidelity
 bond value with locked coins is:
 
-    bond_value = (locked_coins * exp(interest_rate * locktime))^2
+    bond_value = (locked_coins * (exp(interest_rate * locktime) - 1))^2
 
 A few important things to notice:
 * The bond value goes as the _square_ of sacrificed value. For example if your sacrificed value is
