@@ -104,6 +104,9 @@ then either, mix afterwards as well. If your timelocked address expires and you 
 coins to another timelocked address then you don't need to mix in between, because no
 privacy-relevant information linked to you has been leaked.
 
+This can all be done with `sendpayment.py` and coin control (i.e. freezing the UTXOs that you dont
+want to spend).
+
 ### Obtaining time-locked addresses
 
 The `wallet-tool.py` script supports a new method `gettimelockaddress` used for
