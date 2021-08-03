@@ -2221,13 +2221,10 @@ class FidelityBondMixin(object):
         return timegm(datetime(year, month, *cls.TIMELOCK_DAY_AND_SHORTER).timetuple())
 
     @classmethod
-    def timestamp_to_time_number(cls, timestamp):
+    def datetime_to_time_number(cls, dt):
         """
         converts a datetime object to a time number
         """
-        #workaround for the year 2038 problem on 32 bit systems
-        #see https://stackoverflow.com/questions/10588027/converting-timestamps-larger-than-maxint-into-datetime-objects
-        dt = datetime.utcfromtimestamp(0) + timedelta(seconds=timestamp)
         if (dt.month - cls.TIMELOCK_EPOCH_MONTH) % cls.TIMENUMBER_UNIT != 0:
             raise ValueError()
         day_and_shorter_tuple = (dt.day, dt.hour, dt.minute, dt.second, dt.microsecond)
@@ -2238,6 +2235,16 @@ class FidelityBondMixin(object):
         if timenumber < 0 or timenumber > cls.TIMENUMBER_COUNT:
             raise ValueError("datetime out of range")
         return timenumber
+
+    @classmethod
+    def timestamp_to_time_number(cls, timestamp):
+        """
+        converts a unix timestamp to a time number
+        """
+        #workaround for the year 2038 problem on 32 bit systems
+        #see https://stackoverflow.com/questions/10588027/converting-timestamps-larger-than-maxint-into-datetime-objects
+        dt = datetime.utcfromtimestamp(0) + timedelta(seconds=timestamp)
+        return cls.datetime_to_time_number(dt)
 
     @classmethod
     def is_timelocked_path(cls, path):

@@ -5,7 +5,6 @@ import os
 import sqlite3
 import sys
 from datetime import datetime, timedelta
-from calendar import timegm
 from optparse import OptionParser
 from numbers import Integral
 from collections import Counter
@@ -1226,8 +1225,7 @@ def wallet_gettimelockaddress(wallet, locktime_string):
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
     lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
-    timenumber = FidelityBondMixin.timestamp_to_time_number(timegm(
-        lock_datetime.timetuple()))
+    timenumber = FidelityBondMixin.datetime_to_time_number(lock_datetime)
     index = timenumber
 
     path = wallet.get_path(m, address_type, index, timenumber)
