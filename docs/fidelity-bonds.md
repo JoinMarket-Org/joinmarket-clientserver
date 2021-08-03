@@ -32,8 +32,8 @@ bonds](https://gist.github.com/chris-belcher/18ea0e6acdb885a2bfbdee43dcd6b5af/)
 
 ## How to use fidelity bonds as a taker
 
-In JoinMarket version v0.9 or later takers will by default use fidelity bonds
-without any input needed from the user.
+In JoinMarket version v0.9 or later takers will by default use fidelity bonds. The user gains
+very strong protection from sybil attacks without needing to do anything different.
 
 The orderbook watcher script now displays information about any fidelity bonds
 advertised by makers, as well as calculating how strong the system is against
@@ -104,6 +104,9 @@ then either, mix afterwards as well. If your timelocked address expires and you 
 coins to another timelocked address then you don't need to mix in between, because no
 privacy-relevant information linked to you has been leaked.
 
+This can all be done with `sendpayment.py` and coin control (i.e. freezing the UTXOs that you dont
+want to spend).
+
 ### Obtaining time-locked addresses
 
 The `wallet-tool.py` script supports a new method `gettimelockaddress` used for
@@ -163,7 +166,7 @@ You must spend them from JoinMarket itself.
 Fidelity bonds UTXOs are valuable as soon as they confirmed. The simplified formula for a fidelity
 bond value with locked coins is:
 
-    bond_value = (locked_coins * exp(interest_rate * locktime))^2
+    bond_value = (locked_coins * (exp(interest_rate * locktime) - 1))^2
 
 A few important things to notice:
 * The bond value goes as the _square_ of sacrificed value. For example if your sacrificed value is
