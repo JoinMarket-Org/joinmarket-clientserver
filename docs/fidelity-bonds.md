@@ -32,8 +32,8 @@ bonds](https://gist.github.com/chris-belcher/18ea0e6acdb885a2bfbdee43dcd6b5af/)
 
 ## How to use fidelity bonds as a taker
 
-In JoinMarket version v0.9 or later takers will by default use fidelity bonds
-without any input needed from the user.
+In JoinMarket version v0.9 or later takers will by default use fidelity bonds. The user gains
+very strong protection from sybil attacks without needing to do anything different.
 
 The orderbook watcher script now displays information about any fidelity bonds
 advertised by makers, as well as calculating how strong the system is against
