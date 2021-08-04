@@ -98,7 +98,7 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 
 ### Community
 
-+ IRC: `#joinmarket` on irc.libera.chat https://kiwiirc.com/nextclient/irc.libera.chat#joinmarket (logs can be found [here](http://gnusha.org/joinmarket/))
++ IRC: `#joinmarket` on irc.libera.chat https://kiwiirc.com/nextclient/irc.libera.chat#joinmarket (logs can be found [here](https://gnusha.org/joinmarket/))
 
 + IRC on tor: `#joinmarket` on [Hackint](https://www.hackint.org/). This channel is bridged to the above Libera Chat channel.
 
