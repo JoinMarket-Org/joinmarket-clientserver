@@ -366,7 +366,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 + elem(bond_data.maker_nick)
                 + elem(bintohex(bond_data.utxo[0]) + ":" + str(bond_data.utxo[1]))
                 + elem(bond_value_str)
-                + elem(datetime.utcfromtimestamp(bond_data.locktime).strftime("%Y-%m-%d"))
+                + elem((datetime.utcfromtimestamp(0) + timedelta(seconds=bond_data.locktime)).strftime("%Y-%m-%d"))
                 + elem(utxo_value_str)
                 + elem(conf_time_str)
                 + elem(str(bond_data.cert_expiry*RETARGET_INTERVAL))
