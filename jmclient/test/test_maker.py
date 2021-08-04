@@ -1,7 +1,9 @@
 #!/usr/bin/env python
+import datetime
 
 import jmbitcoin as btc
-from jmclient import Maker, load_test_config, jm_single, WalletService
+from jmclient import Maker, load_test_config, jm_single, WalletService, VolatileStorage, \
+    SegwitWalletFidelityBonds, get_network
 import jmclient
 from commontest import DummyBlockchainInterface
 from test_taker import DummyWallet
@@ -162,6 +164,24 @@ def test_verify_unsigned_tx_nonsw_valid(setup_env_nodeps):
         [next(p2sh_gen)[0] for s in range(4)], offertype='reloffer')
 
     assert maker.verify_unsigned_tx(tx, offerlist) == (True, None), "nonsw cj with only p2sh outputs"
+
+
+def test_freeze_timelocked_utxos(setup_env_nodeps):
+    storage = VolatileStorage()
+    SegwitWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitWalletFidelityBonds(storage)
+    ts = wallet.datetime_to_time_number(
+        datetime.datetime.strptime("2021-07", "%Y-%m"))
+    tl_path = wallet.get_path(
+        wallet.FIDELITY_BOND_MIXDEPTH, wallet.BIP32_TIMELOCK_ID, ts)
+    tl_script = wallet.get_script_from_path(tl_path)
+    utxo = (b'a'*32, 0)
+    wallet.add_utxo(utxo[0], utxo[1], tl_script, 100000000)
+    assert not wallet._utxos.is_disabled(*utxo)
+
+    maker = OfflineMaker(WalletService(wallet))
+    maker.freeze_timelocked_utxos()
+    assert wallet._utxos.is_disabled(*utxo)
 
 
 @pytest.fixture
