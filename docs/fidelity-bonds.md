@@ -156,10 +156,10 @@ Coins living on time-locked addresses are automatically frozen with
 JoinMarket's coin control feature, so before spending you need to unfreeze the
 coins using `python3 wallet-tool.py <walletname> -m 0 freeze`.
 
-Once unfrozen and untimelocked the coins can be spent normally with the scripts
-`sendpayment.py`, `tumber.py`, or yield generator. NB You cannot export the private keys (which is
-always disadvised, anyway) of timelocked addresses to any other wallets, as they use custom scripts.
-You must spend them from JoinMarket itself.
+Once unfrozen and untimelocked the coins can be spent with a non-coinjoin transaction with
+`sendpayment.py -N 0`. NB You cannot export the private keys (which is always disadvised, anyway)
+of timelocked addresses to any other wallets, as they use custom scripts. You must spend them from
+JoinMarket itself.
 
 ### How many coins to lock up and for how long?
 
