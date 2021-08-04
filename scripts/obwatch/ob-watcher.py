@@ -210,11 +210,28 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         if not rows or not fbonds:
             return []
 
+        fidelitybonds = []
         if jm_single().bc_interface != None:
             (fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times) =\
                 get_fidelity_bond_data(self.taker)
-            fidelity_bond_values_dict = dict([(bond_data["counterparty"], bond_value)
+            fidelity_bond_values_dict = dict([(bond_data.maker_nick, bond_value)
                 for (bond_data, _), bond_value in zip(fidelity_bond_data, fidelity_bond_values)])
+            for ((parsed_bond, bond_utxo_data), fidelity_bond_value, bond_outpoint_conf_time)\
+                    in zip(fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times):
+                fb = {
+                    "counterparty": parsed_bond.maker_nick,
+                    "utxo": {"txid": bintohex(parsed_bond.utxo[0]),
+                        "vout": parsed_bond.utxo[1]},
+                    "bond_value": fidelity_bond_value,
+                    "locktime": parsed_bond.locktime,
+                    "amount":  bond_utxo_data["value"],
+                    "address": bond_utxo_data["address"],
+                    "utxo_confirmations": bond_utxo_data["confirms"],
+                    "utxo_confirmation_timestamp": bond_outpoint_conf_time,
+                    "utxo_pub": bintohex(parsed_bond.utxo_pub),
+                    "cert_expiry": parsed_bond.cert_expiry
+                }
+                fidelitybonds.append(fb)
         else:
             fidelity_bond_values_dict = {}
 
@@ -229,15 +246,6 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                     o['cjfee'] = str(Decimal(o['cjfee']))
             o["fidelity_bond_value"] = fidelity_bond_values_dict.get(o["counterparty"], 0)
             offers.append(o)
-
-        BIN_KEYS = ["txid", "utxopubkey"]
-        fidelitybonds = []
-        for fbond in fbonds:
-            o = dict(fbond)
-            for k in BIN_KEYS:
-                o[k] = bintohex(o[k])
-            o["fidelity_bond_value"] = fidelity_bond_values_dict.get(o["counterparty"], 0)
-            fidelitybonds.append(o)
 
         return {"offers": offers, "fidelitybonds": fidelitybonds}
 
