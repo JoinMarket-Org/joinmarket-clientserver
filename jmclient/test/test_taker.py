@@ -5,6 +5,7 @@ import jmbitcoin as bitcoin
 import binascii
 import os
 import copy
+import random
 import shutil
 import pytest
 import json
@@ -12,7 +13,7 @@ import struct
 from base64 import b64encode
 from jmbase import utxostr_to_utxo, hextobin
 from jmclient import load_test_config, jm_single, set_commitment_file,\
-    get_commitment_file, SegwitWallet, Taker, VolatileStorage,\
+    get_commitment_file, LegacyWallet, Taker, VolatileStorage,\
     get_network, WalletService, NO_ROUNDING, NotEnoughFundsException,\
     BTC_P2SH_P2WPKH, BTC_P2PKH, BTC_P2WPKH
 from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
@@ -25,7 +26,7 @@ def convert_utxos(utxodict):
         return_dict[utxostr_to_utxo(uk)[1]] = val
     return return_dict
 
-class DummyWallet(SegwitWallet):
+class DummyWallet(LegacyWallet):
     def __init__(self):
         storage = VolatileStorage()
         super().initialize(storage, get_network(), max_mixdepth=5)
@@ -45,7 +46,7 @@ class DummyWallet(SegwitWallet):
                 self._script_map[script] = path
 
     def add_extra_utxo(self, txid, index, value, md,
-                       address="mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
+                       script=None,
                        i=0):
         # note branch and index, path will be ignored in these test cases,
         # the tree is not real.
@@ -53,12 +54,17 @@ class DummyWallet(SegwitWallet):
         # we will need to return a script and an address, although it
         # won't be used; note we can't use base class get_utxos_by_mixdepth
         # because the paths are fake.
+        if not script:
+            address = "mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ"
+            script = self._ENGINE.address_to_script(address)
+        else:
+            address = bitcoin.CCoinAddress.from_scriptPubKey(script)
         if md not in self.ex_utxos:
             self.ex_utxos[md] = {}
         self.ex_utxos[md].update({(txid, index): {"mixdepth": md,
                             "address": address,
                             "value": value,
-                            "script": self._ENGINE.address_to_script(address),
+                            "script": script,
                             "path": (b'dummy', md, i)}})
 
     def remove_extra_utxo(self, txid, index, md):
@@ -135,6 +141,16 @@ class DummyWallet(SegwitWallet):
     def _is_my_bip32_path(self, path):
         return True
 
+    def is_standard_wallet_script(self, path):
+        if path[0] == "nonstandard_path":
+            return False
+        return True
+
+    def script_to_addr(self, script):
+        if self.script_to_path(script)[0] == "nonstandard_path":
+            return "dummyaddr"
+        return super().script_to_addr(script)
+
 
 def dummy_order_chooser():
     return t_chosen_orders
@@ -191,6 +207,12 @@ def test_filter_rejection(setup_taker):
         # make the confs in the spending mixdepth insufficient, while those
         # in another mixdepth are OK; must fail:
         (0, 110000000, False, False, False, 20, 5, {"confchange": {0: 1}}),
+        # add one timelock script in mixdepth 0, must succeed without
+        # trying to use it as PoDLE:
+        (0, 110000000, False, False, True, 20, 5, {"custom-script": {0: [44000000]}}),
+        # add one timelock script in mixdepth 0, must fail because only
+        # the timelocked UTXO is big enough:
+        (0, 1110000000, False, False, False, 20, 5, {"custom-script": {0: [1000000000]}}),
     ])
 def test_make_commitment(setup_taker, mixdepth, cjamt, failquery, external,
                          expected_success, amtpercent, age, mixdepth_extras):
@@ -229,6 +251,22 @@ def test_make_commitment(setup_taker, mixdepth, cjamt, failquery, external,
                 # set the utxos in mixdepth k2 to have confs v2:
                 cdict = taker.wallet_service.get_utxos_by_mixdepth()[k2]
                 jm_single().bc_interface.set_confs({utxo: v2 for utxo in cdict.keys()})
+        elif k == "custom-script":
+            # note: this is inspired by fidelity bonds, and currently
+            # uses scripts of that specific timelock type, but is really
+            # only testing the general concept: that commitments must
+            # not be made on any non-standard script type.
+            for k2, v2 in v.items():
+                priv = os.urandom(32) + b"\x01"
+                tl = random.randrange(1430454400, 1430494400)
+                script_inner = bitcoin.mk_freeze_script(
+                    bitcoin.privkey_to_pubkey(priv), tl)
+                script_outer = bitcoin.redeem_script_to_p2wsh_script(
+                    script_inner)
+                taker.wallet_service.wallet._script_map[
+                    script_outer] = ("nonstandard_path",)
+                taker.wallet_service.add_extra_utxo(os.urandom(32),
+                                    0, v2, k2, script=script_outer)
         else:
             for value in v:
                 taker.wallet_service.add_extra_utxo(

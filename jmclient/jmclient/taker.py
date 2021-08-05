@@ -744,16 +744,16 @@ class Taker(object):
         This will allow future upgrades to provide different style commitments
         by subclassing Taker and changing the commit_type_byte; existing makers
         will simply not accept this new type of commitment.
-        In case of success, return the commitment and its opening.
-        In case of failure returns (None, None) and constructs a detailed
-        log for the user to read and discern the reason.
+        In case of success, return the (commitment, commitment opening).
+        In case of failure returns (None, None, err) where 'err' is a detailed
+        error string for the user to read and discern the reason.
         """
 
         def filter_by_coin_age_amt(utxos, age, amt):
             results = jm_single().bc_interface.query_utxo_set(utxos,
                                                     includeconf=True)
             newresults = []
-            too_old = []
+            too_new = []
             too_small = []
             for i, r in enumerate(results):
                 #results return "None" if txo is spent; drop this
@@ -762,27 +762,31 @@ class Taker(object):
                 valid_age = r['confirms'] >= age
                 valid_amt = r['value'] >= amt
                 if not valid_age:
-                    too_old.append(utxos[i])
+                    too_new.append(utxos[i])
                 if not valid_amt:
                     too_small.append(utxos[i])
                 if valid_age and valid_amt:
                     newresults.append(utxos[i])
-            return newresults, too_old, too_small
+            return newresults, too_new, too_small
 
         def priv_utxo_pairs_from_utxos(utxos, age, amt):
             #returns pairs list of (priv, utxo) for each valid utxo;
-            #also returns lists "too_old" and "too_small" for any
+            #also returns lists "too_new" and "too_small" for any
             #utxos that did not satisfy the criteria for debugging.
             priv_utxo_pairs = []
-            new_utxos, too_old, too_small = filter_by_coin_age_amt(list(utxos.keys()),
+            new_utxos, too_new, too_small = filter_by_coin_age_amt(list(utxos.keys()),
                                                                    age, amt)
             new_utxos_dict = {k: v for k, v in utxos.items() if k in new_utxos}
             for k, v in new_utxos_dict.items():
+                # filter out any non-standard utxos:
+                path = self.wallet_service.script_to_path(v["script"])
+                if not self.wallet_service.is_standard_wallet_script(path):
+                    continue
                 addr = self.wallet_service.script_to_addr(v["script"])
                 priv = self.wallet_service.get_key_from_addr(addr)
                 if priv:  #can be null from create-unsigned
                     priv_utxo_pairs.append((priv, k))
-            return priv_utxo_pairs, too_old, too_small
+            return priv_utxo_pairs, too_new, too_small
 
         commit_type_byte = "P"
         tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
