@@ -134,8 +134,7 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
     if mixdepth == FidelityBondMixin.FIDELITY_BOND_MIXDEPTH and \
             isinstance(wallet_service.wallet, FidelityBondMixin):
         for outpoint, utxo in utxos.items():
-            path = wallet_service.script_to_path(
-                wallet_service.addr_to_script(utxo["address"]))
+            path = wallet_service.script_to_path(utxo["script"])
             if not FidelityBondMixin.is_timelocked_path(path):
                 continue
             path_locktime = path[-1]
