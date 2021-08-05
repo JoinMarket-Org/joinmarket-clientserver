@@ -287,7 +287,10 @@ class Storage(object):
         self._lock_file = lock_filename
         if os.path.exists(self._lock_file):
             with open(self._lock_file, 'r') as f:
-                locked_by_pid = f.read()
+                try:
+                    locked_by_pid = int(f.read())
+                except ValueError:
+                    locked_by_pid = None
             self._lock_file = None
             raise RetryableStorageError(
                                "File is currently in use (locked by pid {}). "
