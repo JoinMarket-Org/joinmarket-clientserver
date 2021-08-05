@@ -2319,7 +2319,7 @@ class FidelityBondMixin(object):
         md = self.FIDELITY_BOND_MIXDEPTH
         address_type = self.BIP32_TIMELOCK_ID
         for timenumber in range(self.TIMENUMBER_COUNT):
-            path = self.get_path(md, address_type, timenumber, timenumber)
+            path = self.get_path(md, address_type, timenumber)
             script = self.get_script_from_path(path)
             self._script_map[script] = path
 
@@ -2355,13 +2355,14 @@ class FidelityBondMixin(object):
         else:
             return super()._get_key_from_path(path)
 
-    def get_path(self, mixdepth=None, address_type=None, index=None, timenumber=None):
+    def get_path(self, mixdepth=None, address_type=None, index=None):
         if address_type == None or address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID,
                 self.BIP32_BURN_ID) or index == None:
             return super().get_path(mixdepth, address_type, index)
         elif address_type == self.BIP32_TIMELOCK_ID:
-            assert timenumber != None
-            timestamp = self._time_number_to_timestamp(timenumber)
+            # index is re-purposed as timenumber
+            assert index is not None
+            timestamp = self._time_number_to_timestamp(index)
             return tuple(chain(self._get_bip32_export_path(mixdepth, address_type),
                                (index, timestamp)))
         else:
@@ -2399,12 +2400,12 @@ class FidelityBondMixin(object):
     def _get_default_used_indices(self):
         return {x: [0, 0, 0, 0] for x in range(self.max_mixdepth + 1)}
 
-    def get_script(self, mixdepth, address_type, index, timenumber=None):
-        path = self.get_path(mixdepth, address_type, index, timenumber)
+    def get_script(self, mixdepth, address_type, index):
+        path = self.get_path(mixdepth, address_type, index)
         return self.get_script_from_path(path)
 
-    def get_addr(self, mixdepth, address_type, index, timenumber=None):
-        script = self.get_script(mixdepth, address_type, index, timenumber)
+    def get_addr(self, mixdepth, address_type, index):
+        script = self.get_script(mixdepth, address_type, index)
         return self.script_to_addr(script)
 
     def add_burner_output(self, path, txhex, block_height, merkle_branch,

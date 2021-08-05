@@ -242,13 +242,12 @@ def test_bip32_addresses_p2sh_p2wpkh(setup_wallet, mixdepth, internal, index, ad
     assert wif == wallet.get_wif(mixdepth, internal, index)
     assert address == wallet.get_addr(mixdepth, internal, index)
 
-@pytest.mark.parametrize('index,timenumber,address,wif', [
-    [0, 0, 'bcrt1qgysu2eynn6klarz200ctgev7gqhhp7hwsdaaec3c7h0ltmc3r68q87c2d3', 'cVASAS6bpC5yctGmnsKaDz7D8CxEwccUtpjSNBQzeV2fw8ox8RR9'],
-    [0, 50, 'bcrt1qyrdhyqzj87vq20e853x7gzhx9lp8ta6cd8mwp8haqex8r4vrg2wsf7rcxm', 'cVASAS6bpC5yctGmnsKaDz7D8CxEwccUtpjSNBQzeV2fw8ox8RR9'],
-    [5, 0, 'bcrt1quunmmsudhpsuksa2ke8m6aj7757mst966mqq50nckx9wdrs4y6fs9gjuww', 'cUgT5jRjYi6i8Fc7TirJrrvhbs7ceSqJ6USKboVrLYghJKDzEQHQ'],
-    [9, 1, 'bcrt1qvpgmrn5a7yc0h2j6fp8jhtwzd8eetlt7hsu3cn098qftzp4t2h6sp5p35p', 'cW7H2pv6Rr5NWaTAnDC6r7bviHwDsAwyqh4XdZTE4xf2H2DB2hmb']
+@pytest.mark.parametrize('timenumber,address,wif', [
+    [0, 'bcrt1qgysu2eynn6klarz200ctgev7gqhhp7hwsdaaec3c7h0ltmc3r68q87c2d3', 'cVASAS6bpC5yctGmnsKaDz7D8CxEwccUtpjSNBQzeV2fw8ox8RR9'],
+    [50, 'bcrt1q0cnscj0hlf6xqzlqwk7swngd3kmvd6unn49j9h4zgg68kg8fd7gq0r87lf', 'cMtnaLzC2EW3URnmAapRnPQECGwGruxqXJpAnuRjKup3pkWfrxRE'],
+    [1, 'bcrt1q26vw0q28rz2r2ktehp8w5yfzkzskrc4fxqdhzjy0f88kzhjvlfrs7fyas6', 'cU8G1YAAxGZMqNsXxApBAahb8pbxhxryDshFdX5eRT9FV4gHNVXT']
 ])
-def test_bip32_timelocked_addresses(setup_wallet, index, timenumber, address, wif):
+def test_bip32_timelocked_addresses(setup_wallet, timenumber, address, wif):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
 
     entropy = unhexlify('2e0339ba89b4a1272cdf78b27ee62669ee01992a59e836e2807051be128ca817')
@@ -260,10 +259,10 @@ def test_bip32_timelocked_addresses(setup_wallet, index, timenumber, address, wi
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
 
     #wallet needs to know about the script beforehand
-    wallet.get_script_and_update_map(mixdepth, address_type, index, timenumber)
+    wallet.get_script_and_update_map(mixdepth, address_type, timenumber)
 
-    assert address == wallet.get_addr(mixdepth, address_type, index, timenumber)
-    assert wif == wallet.get_wif_path(wallet.get_path(mixdepth, address_type, index, timenumber))
+    assert address == wallet.get_addr(mixdepth, address_type, timenumber)
+    assert wif == wallet.get_wif_path(wallet.get_path(mixdepth, address_type, timenumber))
 
 @pytest.mark.parametrize('timenumber,locktime_string', [
     [0, "2020-01"],
@@ -279,9 +278,7 @@ def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-    index = timenumber
-    script = wallet.get_script_and_update_map(m, address_type, index,
-        timenumber)
+    script = wallet.get_script_and_update_map(m, address_type, timenumber)
     addr = wallet.script_to_addr(script)
 
     addr_from_method = wallet_gettimelockaddress(wallet, locktime_string)
@@ -405,11 +402,10 @@ def test_timelocked_output_signing(setup_wallet):
     SegwitWalletFidelityBonds.initialize(storage, get_network())
     wallet = SegwitWalletFidelityBonds(storage)
 
-    index = 0
     timenumber = 0
     script = wallet.get_script_and_update_map(
         FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
-        FidelityBondMixin.BIP32_TIMELOCK_ID, index, timenumber)
+        FidelityBondMixin.BIP32_TIMELOCK_ID, timenumber)
     utxo = fund_wallet_addr(wallet, wallet.script_to_addr(script))
     timestamp = wallet._time_number_to_timestamp(timenumber)
 
@@ -931,7 +927,7 @@ def test_is_standard_wallet_script_nonstandard(setup_wallet):
     assert wallet.is_standard_wallet_script(import_path)
     ts = wallet.datetime_to_time_number(
         datetime.datetime.strptime("2021-07", "%Y-%m"))
-    tl_path = wallet.get_path(0, wallet.BIP32_TIMELOCK_ID, 0, ts)
+    tl_path = wallet.get_path(0, wallet.BIP32_TIMELOCK_ID, ts)
     assert not wallet.is_standard_wallet_script(tl_path)
 
 
