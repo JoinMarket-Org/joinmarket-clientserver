@@ -591,8 +591,14 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
         global_singleton.datadir, global_singleton.config_location)
 
     remove_unwanted_default_settings(global_singleton.config)
-    loadedFiles = global_singleton.config.read([global_singleton.config_location
-                                               ])
+    try:
+        loadedFiles = global_singleton.config.read(
+            [global_singleton.config_location])
+    except UnicodeDecodeError:
+        jmprint("Error loading `joinmarket.cfg`, invalid file format.",
+            "info")
+        sys.exit(EXIT_FAILURE)
+
     #Hack required for electrum; must be able to enforce a different
     #blockchain interface even in default/new load.
     if bs:
