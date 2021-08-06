@@ -22,6 +22,11 @@ jlog = get_log()
 
 MAX_MIX_DEPTH = 5
 
+
+class NoIoauthInputException(Exception):
+    pass
+
+
 class YieldGenerator(Maker):
     """A maker for the purposes of generating a yield from held
     bitcoins, offering from the maximum mixdepth and trying to offer
@@ -172,9 +177,18 @@ class YieldGeneratorBasic(YieldGenerator):
         if not filtered_mix_balance:
             return None, None, None
         jlog.debug('mix depths that have enough = ' + str(filtered_mix_balance))
-        mixdepth = self.select_input_mixdepth(filtered_mix_balance, offer, amount)
-        if mixdepth is None:
+
+        try:
+            mixdepth, utxos = self._get_order_inputs(
+                filtered_mix_balance, offer, required_amount)
+        except NoIoauthInputException:
+            jlog.error(
+                'unable to fill order, no suitable IOAUTH UTXO found. In '
+                'order to spend coins (UTXOs) from a mixdepth using coinjoin,'
+                ' there needs to be at least one standard wallet UTXO (not '
+                'fidelity bond or different address type).')
             return None, None, None
+
         jlog.info('filling offer, mixdepth=' + str(mixdepth) + ', amount=' + str(amount))
 
         cj_addr = self.select_output_address(mixdepth, offer, amount)
@@ -183,11 +197,34 @@ class YieldGeneratorBasic(YieldGenerator):
         jlog.info('sending output to address=' + str(cj_addr))
 
         change_addr = self.wallet_service.get_internal_addr(mixdepth)
-
-        utxos = self.wallet_service.select_utxos(mixdepth, required_amount,
-                                        minconfs=1, includeaddr=True)
-
         return utxos, cj_addr, change_addr
+
+    def _get_order_inputs(self, filtered_mix_balance, offer, required_amount):
+        """
+        Select inputs from some applicable mixdepth that has a utxo suitable
+        for ioauth.
+
+        params:
+            filtered_mix_balance: see get_available_mixdepths() output
+            offer: offer dict
+            required_amount: int, total inputs value in sat
+
+        returns:
+            mixdepth, utxos (int, dict)
+
+        raises:
+            NoIoauthInputException: if no provided mixdepth has a suitable utxo
+        """
+        while filtered_mix_balance:
+            mixdepth = self.select_input_mixdepth(
+                filtered_mix_balance, offer, required_amount)
+            utxos = self.wallet_service.select_utxos(
+                mixdepth, required_amount, minconfs=1, includeaddr=True,
+                require_auth_address=True)
+            if utxos:
+                return mixdepth, utxos
+            filtered_mix_balance.pop(mixdepth)
+        raise NoIoauthInputException()
 
     def on_tx_confirmed(self, offer, txid, confirmations):
         if offer["cjaddr"] in self.tx_unconfirm_timestamp:

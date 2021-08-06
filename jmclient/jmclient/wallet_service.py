@@ -864,16 +864,17 @@ class WalletService(Service):
             return self.current_blockheight - minconfs + 1
 
     def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
-                     minconfs=None, includeaddr=False):
+                     minconfs=None, includeaddr=False, require_auth_address=False):
         """ Request utxos from the wallet in a particular mixdepth to satisfy
         a certain total amount, optionally set the selector function (or use
         the currently configured function set by the wallet, and optionally
         require a minimum of minconfs confirmations (default none means
         unconfirmed are allowed).
         """
-        return self.wallet.select_utxos(mixdepth, amount, utxo_filter=utxo_filter,
-                select_fn=select_fn, maxheight=self.minconfs_to_maxheight(minconfs),
-                includeaddr=includeaddr)
+        return self.wallet.select_utxos(
+            mixdepth, amount, utxo_filter=utxo_filter, select_fn=select_fn,
+            maxheight=self.minconfs_to_maxheight(minconfs),
+            includeaddr=includeaddr, require_auth_address=require_auth_address)
 
     def get_balance_by_mixdepth(self, verbose=True,
                                 include_disabled=False,

@@ -23,7 +23,7 @@ from math import exp
 from .configure import jm_single
 from .blockchaininterface import INF_HEIGHT
 from .support import select_gradual, select_greedy, select_greediest, \
-    select
+    select, NotEnoughFundsException
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
     TYPE_P2WPKH, TYPE_TIMELOCK_P2WSH, TYPE_SEGWIT_WALLET_FIDELITY_BONDS,\
     TYPE_WATCHONLY_FIDELITY_BONDS, TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH,\
@@ -662,7 +662,8 @@ class BaseWallet(object):
         return (removed_utxos, added_utxos)
 
     def select_utxos(self, mixdepth, amount, utxo_filter=None,
-                      select_fn=None, maxheight=None, includeaddr=False):
+                     select_fn=None, maxheight=None, includeaddr=False,
+                     require_auth_address=False):
         """
         Select a subset of available UTXOS for a given mixdepth whose value is
         greater or equal to amount. If `includeaddr` is True, adds an `address`
@@ -674,10 +675,17 @@ class BaseWallet(object):
             amount: int, total minimum amount of all selected utxos
             utxo_filter: list of (txid, index), utxos not to select
             maxheight: only select utxos with blockheight <= this.
+            require_auth_address: if True, output utxos must include a
+                standard wallet address. The first item of the output dict is
+                guaranteed to be a suitable utxo. Result will be empty if no
+                such utxo set could be found.
 
         returns:
             {(txid, index): {'script': bytes, 'path': tuple, 'value': int}}
 
+        raises:
+            NotEnoughFundsException: if mixdepth does not have utxos with
+                enough value to satisfy amount
         """
         assert isinstance(mixdepth, numbers.Integral)
         assert isinstance(amount, numbers.Integral)
@@ -688,14 +696,33 @@ class BaseWallet(object):
             assert len(i) == 2
             assert isinstance(i[0], bytes)
             assert isinstance(i[1], numbers.Integral)
-        ret = self._utxos.select_utxos(
+        utxos = self._utxos.select_utxos(
             mixdepth, amount, utxo_filter, select_fn, maxheight=maxheight)
 
-        for data in ret.values():
+        total_value = 0
+        standard_utxo = None
+        for key, data in utxos.items():
+            if self.is_standard_wallet_script(data['path']):
+                standard_utxo = key
+            total_value += data['value']
             data['script'] = self.get_script_from_path(data['path'])
             if includeaddr:
                 data["address"] = self.get_address_from_path(data["path"])
-        return ret
+
+        if require_auth_address and not standard_utxo:
+            # try to select more utxos, hoping for a standard one
+            try:
+                return self.select_utxos(
+                    mixdepth, total_value + 1, utxo_filter, select_fn,
+                    maxheight, includeaddr, require_auth_address)
+            except NotEnoughFundsException:
+                # recursive utxo selection was unsuccessful, give up
+                return {}
+        elif require_auth_address:
+            utxos = collections.OrderedDict(utxos)
+            utxos.move_to_end(standard_utxo, last=False)
+
+        return utxos
 
     def disable_utxo(self, txid, index, disable=True):
         self._utxos.disable_utxo(txid, index, disable)
@@ -888,6 +915,16 @@ class BaseWallet(object):
             iterator of wallet paths
         """
         return iter([])
+
+    def is_standard_wallet_script(self, path):
+        """
+        Check if the path's script is of the same type as the standard wallet
+        key type.
+
+        return:
+            bool
+        """
+        raise NotImplementedError()
 
     def is_known_addr(self, addr):
         """
@@ -1725,6 +1762,12 @@ class ImportWalletMixin(object):
     def _is_imported_path(cls, path):
         return len(path) == 3 and path[0] == cls._IMPORTED_ROOT_PATH
 
+    def is_standard_wallet_script(self, path):
+        if self._is_imported_path(path):
+            engine = self._get_key_from_path(path)[1]
+            return engine == self._ENGINE
+        return super().is_standard_wallet_script(path)
+
     def path_repr_to_path(self, pathstr):
         spath = pathstr.encode('ascii').split(b'/')
         if not self._is_imported_path(spath):
@@ -2030,6 +2073,9 @@ class BIP32Wallet(BaseWallet):
     def _is_my_bip32_path(self, path):
         return path[0] == self._key_ident
 
+    def is_standard_wallet_script(self, path):
+        return self._is_my_bip32_path(path)
+
     def get_new_script(self, mixdepth, address_type):
         if self.disable_new_scripts:
             raise RuntimeError("Obtaining new wallet addresses "
@@ -2221,13 +2267,10 @@ class FidelityBondMixin(object):
         return timegm(datetime(year, month, *cls.TIMELOCK_DAY_AND_SHORTER).timetuple())
 
     @classmethod
-    def timestamp_to_time_number(cls, timestamp):
+    def datetime_to_time_number(cls, dt):
         """
         converts a datetime object to a time number
         """
-        #workaround for the year 2038 problem on 32 bit systems
-        #see https://stackoverflow.com/questions/10588027/converting-timestamps-larger-than-maxint-into-datetime-objects
-        dt = datetime.utcfromtimestamp(0) + timedelta(seconds=timestamp)
         if (dt.month - cls.TIMELOCK_EPOCH_MONTH) % cls.TIMENUMBER_UNIT != 0:
             raise ValueError()
         day_and_shorter_tuple = (dt.day, dt.hour, dt.minute, dt.second, dt.microsecond)
@@ -2240,6 +2283,16 @@ class FidelityBondMixin(object):
         return timenumber
 
     @classmethod
+    def timestamp_to_time_number(cls, timestamp):
+        """
+        converts a unix timestamp to a time number
+        """
+        #workaround for the year 2038 problem on 32 bit systems
+        #see https://stackoverflow.com/questions/10588027/converting-timestamps-larger-than-maxint-into-datetime-objects
+        dt = datetime.utcfromtimestamp(0) + timedelta(seconds=timestamp)
+        return cls.datetime_to_time_number(dt)
+
+    @classmethod
     def is_timelocked_path(cls, path):
         return len(path) > 4 and path[4] == cls.BIP32_TIMELOCK_ID
 
@@ -2248,6 +2301,11 @@ class FidelityBondMixin(object):
         priv, engine = self._get_key_from_path(first_path)
         pub = engine.privkey_to_pubkey(priv)
         return sha256(sha256(pub).digest()).digest()[:3]
+
+    def is_standard_wallet_script(self, path):
+        if self.is_timelocked_path(path):
+            return False
+        return super().is_standard_wallet_script(path)
 
     @classmethod
     def get_xpub_from_fidelity_bond_master_pub_key(cls, mpk):

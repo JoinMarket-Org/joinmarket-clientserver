@@ -1,5 +1,5 @@
 '''Wallet functionality tests.'''
-
+import datetime
 import os
 import json
 from binascii import hexlify, unhexlify
@@ -905,6 +905,35 @@ def test_create_wallet(setup_wallet, password, wallet_cls):
         new_wallet.get_addr(0,0,0)) == firstkey
     os.remove(wallet_name)
     btc.select_chain_params("bitcoin/regtest")
+
+
+@pytest.mark.parametrize('wallet_cls', [
+    SegwitLegacyWallet, SegwitWallet, SegwitWalletFidelityBonds
+])
+def test_is_standard_wallet_script(setup_wallet, wallet_cls):
+    storage = VolatileStorage()
+    wallet_cls.initialize(
+        storage, get_network(), max_mixdepth=0)
+    wallet = wallet_cls(storage)
+    script = wallet.get_new_script(0, 1)
+    assert wallet.is_known_script(script)
+    path = wallet.script_to_path(script)
+    assert wallet.is_standard_wallet_script(path)
+
+
+def test_is_standard_wallet_script_nonstandard(setup_wallet):
+    storage = VolatileStorage()
+    SegwitWalletFidelityBonds.initialize(
+        storage, get_network(), max_mixdepth=0)
+    wallet = SegwitWalletFidelityBonds(storage)
+    import_path = wallet.import_private_key(
+        0, 'cRAGLvPmhpzJNgdMT4W2gVwEW3fusfaDqdQWM2vnWLgXKzCWKtcM')
+    assert wallet.is_standard_wallet_script(import_path)
+    ts = wallet.datetime_to_time_number(
+        datetime.datetime.strptime("2021-07", "%Y-%m"))
+    tl_path = wallet.get_path(0, wallet.BIP32_TIMELOCK_ID, 0, ts)
+    assert not wallet.is_standard_wallet_script(tl_path)
+
 
 @pytest.fixture(scope='module')
 def setup_wallet(request):
