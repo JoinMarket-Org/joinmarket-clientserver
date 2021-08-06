@@ -8,3 +8,4 @@ pytest-cov>=2.4.0,<2.6
 python-coveralls
 mock
 flake8
+freezegun
