@@ -905,6 +905,12 @@ class BaseWallet(object):
     def change_wallet_passphrase(self, passphrase):
         self._storage.change_password(passphrase)
 
+    def set_wallet_ygoutput_xpub(self, ygouput_xpub):
+        self._storage.data[b'ygoutput_xpub'] = ygouput_xpub
+    
+    def get_ygoutput_xpub(self):
+        return self._storage.data[b'ygoutput_xpub'].decode('utf-8')
+
     def yield_imported_paths(self, mixdepth):
         """
         Get an iterator for all imported keys in given mixdepth.

@@ -558,6 +558,9 @@ def cli_get_wallet_passphrase_check():
         return False
     return password
 
+def cli_get_ygoutput_xpub():
+    return get_password("Enter the xpub for yield generator output: ")
+
 def cli_get_wallet_file_name(defaultname="wallet.jmdat"):
     return input('Input wallet file name (default: ' + defaultname + '): ')
 
@@ -692,6 +695,12 @@ def wallet_change_passphrase(walletservice,
     if passphrase:
         walletservice.change_wallet_passphrase(passphrase)
         return True
+
+def wallet_set_ygoutput_xpub(walletservice,
+                             enter_ygoutput_xpub_callback=cli_get_ygoutput_xpub):
+    ygouput_xpub = enter_ygoutput_xpub_callback()
+    walletservice.set_wallet_ygoutput_xpub(ygouput_xpub)
+    return True
 
 
 def dict_factory(cursor, row):
@@ -1001,6 +1010,10 @@ def wallet_showseed(wallet):
     if extension:
         text += "\nWallet mnemonic extension: {}\n".format(extension.decode('utf-8'))
     return text
+
+
+def wallet_showygoutputxpub(wallet):
+    return wallet.get_ygoutput_xpub()
 
 
 def wallet_importprivkey(wallet, mixdepth):
@@ -1453,13 +1466,13 @@ def wallet_tool_main(wallet_root_path):
     noseed_methods = ['generate', 'recover', 'createwatchonly']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
                'history', 'showutxos', 'freeze', 'gettimelockaddress',
-               'addtxoutproof', 'changepass']
+               'addtxoutproof', 'changepass', 'setygoutputxpub', 'showygoutputxpub']
     methods.extend(noseed_methods)
     noscan_methods = ['showseed', 'importprivkey', 'dumpprivkey', 'signmessage',
-                      'changepass']
+                      'changepass', 'showygoutputxpub']
     readonly_methods = ['display', 'displayall', 'summary', 'showseed',
                         'history', 'showutxos', 'dumpprivkey', 'signmessage',
-                        'gettimelockaddress']
+                        'gettimelockaddress', 'showygoutputxpub']
 
     if len(args) < 1:
         parser.error('Needs a wallet file or method')
@@ -1538,10 +1551,15 @@ def wallet_tool_main(wallet_root_path):
     elif method == "changepass":
         retval = wallet_change_passphrase(wallet_service)
         return "Changed encryption passphrase OK" if retval else "Failed"
+    elif method == "setygoutputxpub":
+        retval = wallet_set_ygoutput_xpub(wallet_service)
+        return "Set yield generator output xpub OK" if retval else "Failed"
     elif method == "showutxos":
         return wallet_showutxos(wallet_service, options.showprivkey)
     elif method == "showseed":
         return wallet_showseed(wallet_service)
+    elif method == "showygoutputxpub":
+        return wallet_showygoutputxpub(wallet_service)
     elif method == "dumpprivkey":
         return wallet_dumpprivkey(wallet_service, options.hd_path)
     elif method == "importprivkey":
