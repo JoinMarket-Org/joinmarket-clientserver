@@ -925,7 +925,7 @@ class WalletService(Service):
             md = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
             address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
             for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
-                addresses.add(self.get_addr(md, address_type, timenumber, timenumber))
+                addresses.add(self.get_addr(md, address_type, timenumber))
 
         return addresses, saved_indices
 

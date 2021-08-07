@@ -474,7 +474,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
             entrylist = []
             for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
-                path = wallet_service.get_path(m, address_type, timenumber, timenumber)
+                path = wallet_service.get_path(m, address_type, timenumber)
                 addr = wallet_service.get_address_from_path(path)
                 timelock = datetime.utcfromtimestamp(0) + timedelta(seconds=path[-1])
 
@@ -1226,9 +1226,8 @@ def wallet_gettimelockaddress(wallet, locktime_string):
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
     lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
     timenumber = FidelityBondMixin.datetime_to_time_number(lock_datetime)
-    index = timenumber
 
-    path = wallet.get_path(m, address_type, index, timenumber)
+    path = wallet.get_path(m, address_type, timenumber)
     jmprint("path = " + wallet.get_path_repr(path), "info")
     jmprint("Coins sent to this address will be not be spendable until "
         + lock_datetime.strftime("%B %Y") + ". Full date: "

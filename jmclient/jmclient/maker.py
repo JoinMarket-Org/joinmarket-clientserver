@@ -1,7 +1,7 @@
-#! /usr/bin/env python
 import base64
 import sys
 import abc
+import atexit
 
 import jmbitcoin as btc
 from jmbase import bintohex, hexbin, get_log, EXIT_FAILURE, stop_reactor
@@ -38,6 +38,7 @@ class Maker(object):
         """
         if not self.wallet_service.synced:
             return
+        self.freeze_timelocked_utxos()
         self.offerlist = self.create_my_orders()
         self.fidelity_bond = self.get_fidelity_bond_template()
         self.sync_wait_loop.stop()
@@ -252,6 +253,32 @@ class Maker(object):
                 if len(oldorder_s) > 0:
                     self.offerlist.remove(oldorder_s[0])
             self.offerlist += to_announce
+
+    def freeze_timelocked_utxos(self):
+        """
+        Freeze all wallet's timelocked UTXOs. These cannot be spent in a
+        coinjoin because of protocol limitations.
+        """
+        if not hasattr(self.wallet_service.wallet, 'FIDELITY_BOND_MIXDEPTH'):
+            return
+
+        frozen_utxos = []
+        md_utxos = self.wallet_service.get_utxos_by_mixdepth()
+        for tx, details \
+                in md_utxos[self.wallet_service.FIDELITY_BOND_MIXDEPTH].items():
+            if self.wallet_service.is_timelocked_path(details['path']):
+                self.wallet_service.disable_utxo(*tx)
+                frozen_utxos.append(tx)
+                path_repr = self.wallet_service.get_path_repr(details['path'])
+                jlog.info(
+                    f"Timelocked UTXO at '{path_repr}' has been "
+                    f"auto-frozen. They cannot be spent by makers.")
+
+        def unfreeze():
+            for tx in frozen_utxos:
+                self.wallet_service.disable_utxo(*tx, disable=False)
+
+        atexit.register(unfreeze)
 
     @abc.abstractmethod
     def create_my_orders(self):
