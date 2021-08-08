@@ -5,6 +5,7 @@ import time
 import sys
 from decimal import Decimal
 from copy import deepcopy
+from jmclient.cryptoengine import BTC_P2WPKH
 from twisted.internet import reactor
 from twisted.internet import task
 from twisted.application.service import Service
@@ -926,6 +927,13 @@ class WalletService(Service):
             address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
             for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
                 addresses.add(self.get_addr(md, address_type, timenumber))
+
+        ygoutput_xpub = self.wallet.get_ygoutput_xpub()
+        if ygoutput_xpub:
+            for i in range(30):
+                pubkey = btc.bip32_descend(ygoutput_xpub, [0, i])
+                external_address = BTC_P2WPKH.pubkey_to_address(pubkey)
+                self.import_non_wallet_address(external_address)
 
         return addresses, saved_indices
 
