@@ -1224,7 +1224,12 @@ def wallet_gettimelockaddress(wallet, locktime_string):
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
+
     lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
+    if jm_single().config.get("BLOCKCHAIN", "network") == "mainnet" and lock_datetime <= datetime.now():
+        jmprint("Error: locktime must be a future date", "error")
+        return ""
+
     timenumber = FidelityBondMixin.datetime_to_time_number(lock_datetime)
 
     path = wallet.get_path(m, address_type, timenumber)

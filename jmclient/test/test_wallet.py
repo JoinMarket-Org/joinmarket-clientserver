@@ -15,6 +15,7 @@ from jmclient import load_test_config, jm_single, BaseWallet, \
     create_wallet, open_test_wallet_maybe, \
     FidelityBondMixin, FidelityBondWatchonlyWallet, wallet_gettimelockaddress
 from test_blockchaininterface import sync_test_wallet
+from freezegun import freeze_time
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -242,6 +243,7 @@ def test_bip32_addresses_p2sh_p2wpkh(setup_wallet, mixdepth, internal, index, ad
     assert wif == wallet.get_wif(mixdepth, internal, index)
     assert address == wallet.get_addr(mixdepth, internal, index)
 
+
 @pytest.mark.parametrize('timenumber,address,wif', [
     [0, 'bcrt1qgysu2eynn6klarz200ctgev7gqhhp7hwsdaaec3c7h0ltmc3r68q87c2d3', 'cVASAS6bpC5yctGmnsKaDz7D8CxEwccUtpjSNBQzeV2fw8ox8RR9'],
     [50, 'bcrt1q0cnscj0hlf6xqzlqwk7swngd3kmvd6unn49j9h4zgg68kg8fd7gq0r87lf', 'cMtnaLzC2EW3URnmAapRnPQECGwGruxqXJpAnuRjKup3pkWfrxRE'],
@@ -264,6 +266,7 @@ def test_bip32_timelocked_addresses(setup_wallet, timenumber, address, wif):
     assert address == wallet.get_addr(mixdepth, address_type, timenumber)
     assert wif == wallet.get_wif_path(wallet.get_path(mixdepth, address_type, timenumber))
 
+
 @pytest.mark.parametrize('timenumber,locktime_string', [
     [0, "2020-01"],
     [20, "2021-09"],
@@ -271,7 +274,9 @@ def test_bip32_timelocked_addresses(setup_wallet, timenumber, address, wif):
     [150, "2032-07"],
     [350, "2049-03"]
 ])
+@freeze_time("2019-12")
 def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
+    jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
     storage = VolatileStorage()
     SegwitWalletFidelityBonds.initialize(storage, get_network())
     wallet = SegwitWalletFidelityBonds(storage)
@@ -284,6 +289,19 @@ def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
     addr_from_method = wallet_gettimelockaddress(wallet, locktime_string)
 
     assert addr == addr_from_method
+
+
+@freeze_time("2021-01")
+def test_gettimelockaddress_in_past(setup_wallet):
+    jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
+    storage = VolatileStorage()
+    SegwitWalletFidelityBonds.initialize(storage, get_network())
+    wallet = SegwitWalletFidelityBonds(storage)
+
+    assert wallet_gettimelockaddress(wallet, "2020-01") == ""
+    assert wallet_gettimelockaddress(wallet, "2021-01") == ""
+    assert wallet_gettimelockaddress(wallet, "2021-02") != ""
+
 
 @pytest.mark.parametrize('index,wif', [
     [0, 'cVQbz7DB5JQ1TGsg9Dbm32VtJbXBHaj39Yc9QLkaGpRgXcibHTDH'],
@@ -305,6 +323,7 @@ def test_bip32_burn_keys(setup_wallet, index, wif):
     wallet.set_next_index(mixdepth, address_type, index, force=True)
 
     assert wif == wallet.get_wif_path(wallet.get_path(mixdepth, address_type, index))
+
 
 def test_import_key(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
