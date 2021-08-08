@@ -82,10 +82,13 @@ class YieldGeneratorBasic(YieldGenerator):
     thus is somewhat suboptimal in giving more information to spies.
     """
     def __init__(self, wallet_service, offerconfig):
-        # note the randomizing entries are ignored in this base class:
+        #note the randomizing entries are ignored in this base class:
+
         self.txfee, self.cjfee_a, self.cjfee_r, self.ordertype, self.minsize, \
             self.txfee_factor, self.cjfee_factor, self.size_factor = offerconfig
         super().__init__(wallet_service)
+
+        
 
     def create_my_orders(self):
         mix_balance = self.get_available_mixdepths()
@@ -295,6 +298,7 @@ class YieldGeneratorService(Service):
         """
         if self.running:
             jlog.info("Shutting down YieldGenerator service.")
+            print("client fac is ",self.clientfactory)
             self.clientfactory.proto_client.request_mc_shutdown()
             super().stopService()
 

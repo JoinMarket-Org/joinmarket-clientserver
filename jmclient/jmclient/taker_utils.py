@@ -21,7 +21,7 @@ Utility functions for tumbler-style takers;
 Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
 
-def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
+def direct_send(wallet_service, amount, mixdepth, destination, answeryes=True,
                 accept_callback=None, info_callback=None, error_callback=None,
                 return_transaction=False, with_final_psbt=False,
                 optin_rbf=False, custom_change_addr=None):
@@ -189,15 +189,19 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
         log.info(sending_info)
         if not answeryes:
             if not accept_callback:
+                
                 if input('Would you like to push to the network? (y/n):')[0] != 'y':
+                    
                     log.info("You chose not to broadcast the transaction, quitting.")
                     return False
             else:
+                
                 accepted = accept_callback(human_readable_transaction(tx),
                                            destination, actual_amount, fee_est,
                                            custom_change_addr)
                 if not accepted:
                     return False
+        print("here is ",jm_single().bc_interface.pushtx(tx.serialize()))
         if jm_single().bc_interface.pushtx(tx.serialize()):
             txid = bintohex(tx.GetTxid()[::-1])
             successmsg = "Transaction sent: " + txid

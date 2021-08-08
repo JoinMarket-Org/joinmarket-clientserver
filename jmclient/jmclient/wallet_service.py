@@ -714,7 +714,7 @@ class WalletService(Service):
         import_needed = self.bci.import_addresses_if_needed(addresses,
             wallet_name)
         if import_needed:
-            self.display_rescan_message_and_system_exit(self.restart_callback)
+            #self.display_rescan_message_and_system_exit(self.restart_callback)
             return
 
         if isinstance(self.wallet, FidelityBondMixin):
