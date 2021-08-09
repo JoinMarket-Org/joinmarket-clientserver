@@ -5,6 +5,7 @@ import os
 import time
 import abc
 import base64
+from jmclient.cryptoengine import BTC_P2WPKH
 from twisted.python.log import startLogging
 from optparse import OptionParser
 from jmbase import get_log
@@ -260,6 +261,32 @@ class YieldGeneratorBasic(YieldGenerator):
         an order spending from the given input mixdepth.  Can return None if
         there is no suitable output, in which case the order is
         aborted."""
+
+        try:
+            min_wallet_balance = 400 * 1000 * 1000
+            store_away_min_amount = 100 * 1000 * 1000
+            total_balance = 0
+            balance_by_mixdepth = self.wallet_service.get_balance_by_mixdepth()
+            jlog.info("balance_by_mixdepth: " + str(balance_by_mixdepth))
+            for i in range(5):
+                total_balance += balance_by_mixdepth[i]
+            jlog.info("total_balance: " + str(total_balance))
+            
+            if amount > store_away_min_amount:
+                jlog.info("amount " + str(amount) + " is greater than store_away_min_amount")
+                if total_balance - amount > min_wallet_balance:
+                    jlog.info("remaining amount " + str(total_balance - amount) + " is greater than min_wallet_balance")
+                    ygoutput_xpub = self.wallet_service.wallet.get_ygoutput_xpub()
+                    if ygoutput_xpub:
+                        for i in range(30):
+                            pubkey = btc.bip32_descend(ygoutput_xpub, [0, i])
+                            external_address = BTC_P2WPKH.pubkey_to_address(pubkey)
+                            if not self.wallet_service.has_address_been_used(external_address):
+                                jlog.info("Would send output to address: " + external_address)
+                                break
+        except:
+            print('Something went wrong in select_output_address')
+
         cjoutmix = (input_mixdepth + 1) % (self.wallet_service.mixdepth + 1)
         return self.wallet_service.get_internal_addr(cjoutmix)
 
