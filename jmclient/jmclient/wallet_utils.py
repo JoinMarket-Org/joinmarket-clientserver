@@ -19,7 +19,7 @@ from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
                             EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex,
                             IndentedHelpFormatterWithNL)
 
-from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
+from .cryptoengine import BTC_P2WPKH, TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
     TYPE_SEGWIT_WALLET_FIDELITY_BONDS
 from .output import fmt_utxo
 import jmbitcoin as btc
@@ -152,7 +152,7 @@ class WalletViewEntry(WalletViewBase):
         self.account = account
         assert address_type in [SegwitWallet.BIP32_EXT_ID,
             SegwitWallet.BIP32_INT_ID, -1, FidelityBondMixin.BIP32_TIMELOCK_ID,
-            FidelityBondMixin.BIP32_BURN_ID]
+            FidelityBondMixin.BIP32_BURN_ID, 4]
         self.address_type = address_type
         assert isinstance(aindex, Integral)
         assert aindex >= 0
@@ -211,10 +211,10 @@ class WalletViewBranch(WalletViewBase):
         self.account = account
         assert address_type in [SegwitWallet.BIP32_EXT_ID,
             SegwitWallet.BIP32_INT_ID, -1, FidelityBondMixin.BIP32_TIMELOCK_ID,
-            FidelityBondMixin.BIP32_BURN_ID]
+            FidelityBondMixin.BIP32_BURN_ID, 4]
         self.address_type = address_type
         if xpub:
-            assert xpub.startswith('xpub') or xpub.startswith('tpub')
+            assert xpub.startswith('xpub') or xpub.startswith('tpub') or xpub.startswith('zpub')
         self.xpub = xpub if xpub else ""
         self.branchentries = branchentries
 
@@ -233,6 +233,8 @@ class WalletViewBranch(WalletViewBase):
         start = "external addresses" if self.address_type == 0 else "internal addresses"
         if self.address_type == -1:
             start = "Imported keys"
+        if self.address_type == 4:
+            start = "External addresses"
         return self.serclass(self.separator.join([start, self.wallet_path_repr,
                                                   self.xpub]))
 
@@ -534,6 +536,27 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
             branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
                 xpub=xpub_key))
+        
+        if m == 0:
+            ygoutput_xpub = wallet_service.wallet.get_ygoutput_xpub()
+            if ygoutput_xpub:
+                entrylist = []
+                address_type = 4
+                unused_index = wallet_service.get_next_unused_index(m, address_type)
+                for i in range(unused_index):
+                    pubkey = btc.bip32_descend(ygoutput_xpub, [0, i])
+                    external_address = BTC_P2WPKH.pubkey_to_address(pubkey)
+
+                    path = wallet_service.get_path(m, address_type, i)
+                    balance = wallet_service.external_address_balance(external_address)
+                    used = 'used' if wallet_service.has_address_been_used(external_address) else 'new'
+
+                    path_repr = wallet_service.get_path_repr(path)
+                    entrylist.append(WalletViewEntry(path_repr, m, address_type, i, external_address,
+                            [balance, balance], used=used))
+                path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
+                branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
+                                                    xpub=ygoutput_xpub))
 
         ipb = get_imported_privkey_branch(wallet_service, m, showprivkey)
         if ipb:

@@ -766,6 +766,16 @@ class WalletService(Service):
             self.rewind_wallet_indices(used_indices, saved_indices)
             self.synced = True
 
+    def external_address_balance(self, external_address):
+        if not external_address in self.external_utxos:
+            return 0
+        utxos = self.external_utxos[external_address]
+        balance = 0
+        
+        for utxo in utxos:
+            balance += int(Decimal(str(utxo['amount'])) * Decimal('1e8'))
+        return balance
+
     def sync_unspent(self):
         st = time.time()
         # block height needs to be real time for addition to our utxos:
@@ -776,6 +786,7 @@ class WalletService(Service):
             return
         wallet_name = self.get_wallet_name()
         self.reset_utxos()
+        self.external_utxos = {}
 
         unspent_list = self.bci.listunspent()
         # filter on label, but note (a) in certain circumstances (in-
@@ -787,6 +798,10 @@ class WalletService(Service):
             self.bci.is_address_labeled(x, self.EXTERNAL_WALLET_LABEL))]
         for utxo in our_unspent_list:
             if not self.is_known_addr(utxo['address']):
+                address = utxo['address']
+                if not address in self.external_utxos:
+                    self.external_utxos[address] = []
+                self.external_utxos[address].append(utxo)
                 continue
             # The result of bitcoin core's listunspent RPC call does not have
             # a "height" field, only "confirmations".
@@ -933,7 +948,9 @@ class WalletService(Service):
             for i in range(30):
                 pubkey = btc.bip32_descend(ygoutput_xpub, [0, i])
                 external_address = BTC_P2WPKH.pubkey_to_address(pubkey)
+                addresses.add(external_address)
                 self.import_non_wallet_address(external_address)
+                self.set_next_index(0, 4, 10, force=True)
 
         return addresses, saved_indices
 

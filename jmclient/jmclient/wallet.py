@@ -1984,7 +1984,7 @@ class BIP32Wallet(BaseWallet):
 
     @classmethod
     def _get_supported_address_types(cls):
-        return (cls.BIP32_EXT_ID, cls.BIP32_INT_ID)
+        return (cls.BIP32_EXT_ID, cls.BIP32_INT_ID, 4)
 
     def get_script_from_path(self, path):
         if not self._is_my_bip32_path(path):
@@ -2352,7 +2352,7 @@ class FidelityBondMixin(object):
 
     @classmethod
     def _get_supported_address_types(cls):
-        return (cls.BIP32_EXT_ID, cls.BIP32_INT_ID, cls.BIP32_TIMELOCK_ID, cls.BIP32_BURN_ID)
+        return (cls.BIP32_EXT_ID, cls.BIP32_INT_ID, cls.BIP32_TIMELOCK_ID, cls.BIP32_BURN_ID, 4)
 
     def _get_key_from_path(self, path):
         if self.is_timelocked_path(path):
@@ -2366,7 +2366,7 @@ class FidelityBondMixin(object):
 
     def get_path(self, mixdepth=None, address_type=None, index=None):
         if address_type == None or address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID,
-                self.BIP32_BURN_ID) or index == None:
+                self.BIP32_BURN_ID, 4) or index == None:
             return super().get_path(mixdepth, address_type, index)
         elif address_type == self.BIP32_TIMELOCK_ID:
             # index is re-purposed as timenumber
