@@ -909,10 +909,10 @@ class BaseWallet(object):
         self._storage.data[b'ygoutput_xpub'] = ygouput_xpub
     
     def get_ygoutput_xpub(self):
-        ygoutput_xpub = self._storage.data[b'ygoutput_xpub']
-        if ygoutput_xpub:
-            ygoutput_xpub = ygoutput_xpub.decode('utf-8')
-        return ygoutput_xpub
+        if b'ygoutput_xpub' in self._storage.data:
+            return self._storage.data[b'ygoutput_xpub'].decode('utf-8')
+        else:
+            return None
 
     def yield_imported_paths(self, mixdepth):
         """
