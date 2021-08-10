@@ -475,7 +475,7 @@ class Taker(object):
                 # fees is acceptable
                 jlog.info(
                 ('WARNING CHANGE NOT BEING USED\nCHANGEVALUE = {}').format(
-                    btc.amount_to_str(my_change_value)))
+                    my_change_value))
             # we need to check whether the *achieved* txfee-rate is outside
             # the range allowed by the user in config; if not, abort the tx.
             # this is done with using the same estimate fee function and comparing

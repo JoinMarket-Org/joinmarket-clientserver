@@ -338,7 +338,9 @@ def test_auth_pub_not_found(setup_taker):
          2, False, None, None), #tumble style non-int amounts
         #edge case triggers that don't fail
         ([(0, 0, 4, "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf", 0, NO_ROUNDING)], False, False,
-         2, False, None, None), #sweep rounding error case
+         2, False, None, None), #sweep rounding error case 1
+        ([(0, 0, 4, "mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS", 0, NO_ROUNDING)], False, False,
+         2, False, None, None), #sweep rounding error case 2
         ([(0, 199856001, 3, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, None, None), #trigger sub dust change for taker
         #edge case triggers that do fail
@@ -448,12 +450,20 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     if schedule[0][3] == "mxeLuX8PP7qLkcM8uarHmdZyvP1b5e1Ynf":
         #to trigger rounding error for sweep (change non-zero),
         #modify the total_input via the values in self.input_utxos;
-        #the amount to trigger a 2 satoshi change is found by trial-error.
+        #the amount to trigger a small + satoshi change is found by trial-error.
         #TODO note this test is not adequate, because the code is not;
         #the code does not *DO* anything if a condition is unexpected.
         taker.input_utxos = copy.deepcopy(t_utxos_by_mixdepth)[0]
         for k,v in iteritems(taker.input_utxos):
             v["value"] = int(0.999805228 * v["value"])
+        res = taker.receive_utxos(maker_response)
+        assert res[0]
+        return clean_up()
+    if schedule[0][3] == "mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS":
+        # as above, but small -ve change instead of +ve.
+        taker.input_utxos = copy.deepcopy(t_utxos_by_mixdepth)[0]
+        for k,v in iteritems(taker.input_utxos):
+            v["value"] = int(0.999805028 * v["value"])
         res = taker.receive_utxos(maker_response)
         assert res[0]
         return clean_up()
