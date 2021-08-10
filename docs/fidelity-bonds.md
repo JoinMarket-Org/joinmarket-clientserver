@@ -157,7 +157,17 @@ JoinMarket's coin control feature, so before spending you need to unfreeze the
 coins using `python3 wallet-tool.py <walletname> -m 0 freeze`.
 
 Once unfrozen and untimelocked the coins can be spent with a non-coinjoin transaction with
-`sendpayment.py -N 0`. NB You cannot export the private keys (which is always disadvised, anyway)
+`sendpayment.py -N 0`.
+
+It is **not** possible to passively spend these untimelocked coins in your yield generator;
+they are auto frozen while the yield generator runs, because their signing scripts are not
+compatible with the current Joinmarket protocol.
+
+It **is** possible to spend these untimelocked coins in a coinjoin as a taker.
+
+It is not *currently* possible to spend these untimelocked coins in a PSBT, until our PSBT code is updated to support these custom scripts.
+
+NB You cannot export the private keys (which is always disadvised, anyway)
 of timelocked addresses to any other wallets, as they use custom scripts. You must spend them from
 JoinMarket itself.
 
