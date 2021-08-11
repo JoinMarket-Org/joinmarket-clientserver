@@ -1222,14 +1222,13 @@ def wallet_gettimelockaddress(wallet, locktime_string):
         jmprint("Error: not a fidelity bond wallet", "error")
         return ""
 
-    m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
-    address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-
     lock_datetime = datetime.strptime(locktime_string, "%Y-%m")
     if jm_single().config.get("BLOCKCHAIN", "network") == "mainnet" and lock_datetime <= datetime.now():
         jmprint("Error: locktime must be a future date", "error")
         return ""
 
+    m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
+    address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
     timenumber = FidelityBondMixin.datetime_to_time_number(lock_datetime)
 
     path = wallet.get_path(m, address_type, timenumber)
@@ -1237,6 +1236,10 @@ def wallet_gettimelockaddress(wallet, locktime_string):
     jmprint("Coins sent to this address will be not be spendable until "
         + lock_datetime.strftime("%B %Y") + ". Full date: "
         + str(lock_datetime))
+    jmprint("WARNING: You should send coins to this address only once."
+        + " Only single biggest value UTXO will be announced as a fidelity bond."
+        + " Sending coins to this address multiple times will not increase"
+        + " fidelity bond value.")
     jmprint("WARNING: Only send coins here which are from coinjoins or otherwise"
         + " not linked to your identity. Also, use a sweep transaction when funding the"
         + " timelocked address, i.e. Don't create a change address. See the privacy warnings in"
