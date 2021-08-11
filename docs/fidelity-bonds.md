@@ -54,16 +54,17 @@ passing the relevant CLI option when running a script (for example
 list of options.
 
 
-## How to use fidelity bonds as a yield-generator
+## How to create and use a fidelity bond as a yield-generator
 
-You need to create a fidelity bond wallet and run the yield-generator script on it. The yield
-generator will automatically announce the most valuable fidelity bond in its wallet. Fidelity bonds
-are only supported for native segwit wallets.
+You need to create a fidelity bond wallet and run the yield-generator script on it. In practice the
+vast majority of wallets will contain just a single fidelity bond. If the wallet for some reason
+has multiple fidelity bonds then the yield generator will automatically announce the most valuable
+fidelity bond in its wallet. Fidelity bonds are only supported for native segwit wallets.
 
-### Creating a JoinMarket wallet which supports fidelity bonds
+### Creating a JoinMarket wallet which supports creating a fidelity bond
 
 When generating a JoinMarket wallet on the command line, supporting versions
-will offer an option to make the wallet support fidelity bonds.
+will offer an option to make the wallet support creating a fidelity bond.
 
     (jmvenv) $ python3 wallet-tool.py generate
     Would you like to use a two-factor mnemonic recovery phrase? write 'n' if you don't know what this is (y/n): n
@@ -83,7 +84,7 @@ as a backup. It is also recommended to write down the name of the creating walle
 "JoinMarket" and that the fidelity bond option was enabled. Writing the wallet
 creation date is also useful as it can help with rescanning.
 
-#### Adding fidelity bonds to an existing wallet
+#### Adding fidelity bond support to an existing wallet
 
 On any **native segwit** wallet this can be done by using the `recover` method:
 
@@ -93,7 +94,7 @@ And then choosing `yes` to create a fidelity bond wallet.
 
 #### Note on privacy
 
-Bitcoin transactions which create fidelity bonds will be published to the entire world, so before
+A Bitcoin transaction which creates a fidelity bond will be published to the entire world, so before
 creating them make sure the coins are not linked to any of your privacy-relevant information.
 Perhaps mix with JoinMarket. Also, use a sweep transaction which does not create a change output
 when funding the timelocked address. Change addresses can also leak privacy information and the
@@ -107,12 +108,12 @@ privacy-relevant information linked to you has been leaked.
 This can all be done with `sendpayment.py` and coin control (i.e. freezing the UTXOs that you dont
 want to spend).
 
-### Obtaining time-locked addresses
+### Obtaining a time-locked address
 
 The `wallet-tool.py` script supports a new method `gettimelockaddress` used for
-obtaining time-locked addresses. If coins are sent to these addresses they will
-be locked up until the timelock date passes. Only mixdepth zero can have
-fidelity bonds in it.
+obtaining time-locked addresses. If bitcoins are sent to these addresses they will
+be locked up until the timelock date passes. Only mixdepth zero can have a
+fidelity bond in it.
 
 This example creates an address which locks any coins sent to it until January 2025.
 
@@ -171,10 +172,10 @@ NB You cannot export the private keys (which is always disadvised, anyway)
 of timelocked addresses to any other wallets, as they use custom scripts. You must spend them from
 JoinMarket itself.
 
-### How many coins to lock up and for how long?
+### What amount of bitcoins to lock up and for how long?
 
-Fidelity bonds UTXOs are valuable as soon as they confirmed. The simplified formula for a fidelity
-bond value with locked coins is:
+A fidelity bond is valuable as soon as the transaction creating it becomes confirmed. The
+simplified formula for a fidelity bond's value is:
 
     bond_value = (locked_coins * (exp(interest_rate * locktime) - 1))^2
 
@@ -207,14 +208,28 @@ At any time you can use the orderbook watcher script to see your own fidelity bo
 
 Consider also the [warning on the bitcoin wiki page on timelocks](https://en.bitcoin.it/wiki/Timelock#Far-future_locks).
 
-I would recommend locking as many coins as you are comfortable with for a period of between 6
+I would recommend locking as many bitcoins as you are comfortable with for a period of between 6
 months and 2 years. Perhaps at the very start lock for only 1 month or 2 months(?) It's a
 marketplace and the rules are known to all, so ultimately you'll have to make your own decision.
 
-### Can I add coins to a fidelity bond that already exists?
+### Can my yield-generator use multiple timelocked addresses or UTXO?
 
-No. Sending more coins to the same timelocked address will not add to the existing fidelity bond,
-but instead create a new one with the same locktime.
+Alternatively: Can I add more bitcoins to a fidelity bond that already exists?
+
+No. Creating a new transaction which sends more bitcoins to a timelocked address will not add to
+the existing fidelity bond, but instead create a new one. The two fidelity bonds will not be
+combined. A yield-generator only announces a single fidelity bond transaction UTXO, and it choses
+the most valuable one.
+
+As a yield-generator, you are generally stuck with the fidelity bond you create until it expires.
+You can still create a new fidelity bond and use that instead, but the old one will be unused. If you want
+to increase the value of a fidelity bond the best way to do that is to wait until it expires and
+then spend from the timelocked address combining with extra UTXOs you want to add, into a new
+timelocked address. You can use JoinMarket's coin control feature to control this.
+
+This is one reason why a yield-generator who creates a fidelity bond for the first time should only
+lock up coins for a relatively short time, so that they can try out the whole thing, and don't
+have to wait too long before they add more coins.
 
 ### Creating watch-only fidelity bond wallets
 
