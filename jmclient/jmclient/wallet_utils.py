@@ -1413,7 +1413,7 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
         while True:
             try:
                 # do not try empty password, assume unencrypted on empty password
-                pwd = get_password("Enter passphrase to decrypt wallet: ") or None
+                pwd = get_password("Enter passphrase to decrypt wallet {}: ".format(path)) or None
                 storage = Storage(path, password=pwd, read_only=read_only)
             except StoragePasswordError:
                 jmprint("Wrong password, try again.", "warning")
