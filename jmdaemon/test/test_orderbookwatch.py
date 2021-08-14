@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 import pytest
 
 from jmdaemon.orderbookwatch import OrderbookWatch

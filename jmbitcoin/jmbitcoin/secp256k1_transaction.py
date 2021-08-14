@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # note, only used for non-cryptographic randomness:
 import random
 import json

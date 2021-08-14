@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from future.utils import iteritems
 from commontest import DummyBlockchainInterface
 import jmbitcoin as bitcoin

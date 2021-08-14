@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import copy
 import random
 import sys

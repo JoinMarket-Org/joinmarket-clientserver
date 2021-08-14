@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from commontest import DummyBlockchainInterface
 import pytest
 
