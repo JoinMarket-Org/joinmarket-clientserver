@@ -1276,7 +1276,7 @@ class TxHistoryTab(QWidget):
                            lambda: app.clipboard().setText(address))
         menu.addAction("Copy transaction id to clipboard",
                        lambda: app.clipboard().setText(str(item.text(2))))
-        menu.addAction("Copy full tx info to clipboard",
+        menu.addAction("Copy full transaction info to clipboard",
                        lambda: app.clipboard().setText(
                            ','.join([str(item.text(_)) for _ in range(4)])))
         menu.exec_(self.tHTW.viewport().mapToGlobal(position))
@@ -1448,14 +1448,16 @@ class JMWalletTab(QWidget):
         menu = QMenu()
         if address_valid:
             menu.addAction("Copy address to clipboard",
-                           lambda: app.clipboard().setText(txt))
+                           lambda: app.clipboard().setText(txt),
+                           shortcut=QKeySequence(QKeySequence.Copy))
             # Show QR code option only for new addresses to avoid address reuse
             if item.text(3) == "new":
                 menu.addAction("Show QR code",
                                lambda: self.openQRCodePopup(txt))
         if xpub_exists:
-            menu.addAction("Copy extended pubkey to clipboard",
-                           lambda: app.clipboard().setText(xpub))
+            menu.addAction("Copy extended public key to clipboard",
+                           lambda: app.clipboard().setText(xpub),
+                           shortcut=QKeySequence(QKeySequence.Copy))
         #TODO add more items to context menu
         if address_valid or xpub_exists:
             menu.exec_(self.walletTree.viewport().mapToGlobal(position))
