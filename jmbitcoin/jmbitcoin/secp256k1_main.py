@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import base64
 import struct
 import coincurve as secp256k1

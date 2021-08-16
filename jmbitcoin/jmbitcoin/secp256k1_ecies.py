@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 import coincurve as secp256k1
 import base64
 import hmac

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #Proof Of Discrete Logarithm Equivalence
 #For algorithm steps, see https://gist.github.com/AdamISZ/9cbba5e9408d23813ca8
 import os
