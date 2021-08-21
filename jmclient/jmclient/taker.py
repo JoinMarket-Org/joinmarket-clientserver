@@ -122,6 +122,10 @@ class Taker(object):
         #processing.
         self.nonrespondants = []
 
+        # extra change addresses for custom taker, used to match
+        # counterparty change addresses for extra joining:
+        self.my_extra_change_addrs = []
+
         self.waiting_for_conf = False
         self.txid = None
         self.schedule_index = -1
@@ -319,6 +323,15 @@ class Taker(object):
             else:
                 try:
                     self.my_change_addr = self.wallet_service.get_internal_addr(self.mixdepth)
+                    # add a change out per counterparty (still keep the extra +1 for leftovers)
+                    # since these are now going to have an anon set, we push them to new coinjoin
+                    # out mixdepths (they are technically coinjoins), but not the same as
+                    # the main cjout mixdepth. TODO: argue all day about this. Or implement
+                    # "multiple custom change outs to external wallets". Or whatever.
+                    for i in range(self.n_counterparties):
+                        self.my_extra_change_addrs.append(
+                            self.wallet_service.get_internal_addr(
+                                (self.mixdepth + 2 + i )% self.wallet_service.mixdepth))
                 except:
                     self.taker_info_callback("ABORT", "Failed to get a change address")
                     return False
@@ -332,8 +345,11 @@ class Taker(object):
             total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
             jlog.info('total estimated amount spent = ' + btc.amount_to_str(total_amount))
             try:
-                self.input_utxos = self.wallet_service.select_utxos(self.mixdepth, total_amount,
-                                                        minconfs=1)
+                # one approach: spend everything, representing our best effort to
+                # to match all the counterparties change values. TODO: something else.
+                self.input_utxos = self.wallet_service.select_utxos(self.mixdepth,
+                    self.wallet_service.get_balance_by_mixdepth(
+                        )[self.mixdepth]-1, minconfs=1)
             except Exception as e:
                 self.taker_info_callback("ABORT",
                                     "Unable to select sufficient coins: " + repr(e))
@@ -437,8 +453,12 @@ class Taker(object):
         my_total_in = sum([va['value'] for u, va in self.input_utxos.items()])
         if self.my_change_addr:
             #Estimate fee per choice of next/3/6 blocks targetting.
+            # TODO: use `maker_input.change_amount` fields to figure out,
+            # using our own total value, how many we can match, and change
+            # the `len(self.my_extra_change_addrs)` to that figure instead.
             estimated_fee = estimate_tx_fee(
-                len(sum(self.utxos.values(), [])), len(self.outputs) + 2,
+                len(sum(self.utxos.values(), [])), len(self.outputs) + 2 + len(
+                self.my_extra_change_addrs),
                 txtype=self.wallet_service.get_txtype())
             jlog.info("Based on initial guess: " +
                       btc.amount_to_str(self.total_txfee) +
@@ -496,8 +516,22 @@ class Taker(object):
                               new_total_fee, self.total_txfee))
                 return (False, "Unacceptable feerate for sweep, giving up.")
         else:
+            # Note we loop over maker data, not extra_change_addrs,
+            # since the latter list was calculated before we saw responses;
+            # there may be less than we hoped.
+            for i, maker_inputs in enumerate(verified_data):
+                if my_change_value <= maker_inputs.change_amount + \
+                   jm_single().DUST_THRESHOLD:
+                    jlog.debug("Ran out of change to make more "
+                    "outputs; required {} but had only {} left.".format(
+                        maker_inputs.change_amount, my_change_value))
+                    break
+                self.outputs.append({'address': self.my_extra_change_addrs[i],
+                                     'value': maker_inputs.change_amount})
+                my_change_value -= maker_inputs.change_amount
             self.outputs.append({'address': self.my_change_addr,
                                  'value': my_change_value})
+
         self.utxo_tx = [u for u in sum(self.utxos.values(), [])]
         self.outputs.append({'address': self.coinjoin_address(),
                              'value': self.cjamount})
