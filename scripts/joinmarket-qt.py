@@ -56,7 +56,7 @@ donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 JM_GUI_VERSION = '24dev'
 
 from jmbase import get_log, stop_reactor
-from jmbase.support import DUST_THRESHOLD, EXIT_FAILURE, utxo_to_utxostr,\
+from jmbase.support import EXIT_FAILURE, utxo_to_utxostr,\
     hextobin, JM_CORE_VERSION
 import jmbitcoin as btc
 from jmclient import load_program_config, get_network, update_persist_config,\
@@ -370,11 +370,11 @@ class SpendTab(QWidget):
         except ValueError as e:
             JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
             return False
-        if amount_sat < DUST_THRESHOLD:
+        if amount_sat < jm_single().DUST_THRESHOLD:
             JMQtMessageBox(self,
                        "Amount " + btc.amount_to_str(amount_sat) +
                        " is below dust threshold " +
-                       btc.amount_to_str(DUST_THRESHOLD) + ".",
+                       btc.amount_to_str(jm_single().DUST_THRESHOLD) + ".",
                        mbtype='warn',
                        title="Error")
             return False

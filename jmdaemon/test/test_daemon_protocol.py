@@ -66,7 +66,8 @@ class JMTestClientProtocol(JMBaseProtocol):
                             network="dummynetwork",
                             irc_configs=json.dumps(irc),
                             minmakers=2,
-                            maker_timeout_sec=3)
+                            maker_timeout_sec=3,
+                            dust_threshold=27300)
         self.defaultCallbacks(d)
 
     @JMInitProto.responder
@@ -213,8 +214,9 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
-                   maker_timeout_sec):
+                   maker_timeout_sec, dust_threshold):
         self.maker_timeout_sec = int(maker_timeout_sec)
+        self.dust_threshold = int(dust_threshold)
         self.minmakers = int(minmakers)
         mcs = [DummyMC(None)]
         self.mcc = MessageChannelCollection(mcs)

@@ -21,7 +21,7 @@ from jmclient import Taker, load_program_config, get_schedule,\
     detect_script_type, EngineError
 from twisted.python.log import startLogging
 from jmbase.support import get_log, jmprint, \
-    EXIT_FAILURE, EXIT_ARGERROR, DUST_THRESHOLD
+    EXIT_FAILURE, EXIT_ARGERROR
 
 import jmbitcoin as btc
 
@@ -102,10 +102,10 @@ def main():
                 jmprint("The required options for burning coins are zero makers"
                     + " (-N 0), sweeping (amount = 0) and not using BIP78 Payjoin", "info")
             sys.exit(EXIT_ARGERROR)
-        if sweeping == False and amount < DUST_THRESHOLD:
+        if sweeping == False and amount < jm_single().DUST_THRESHOLD:
             jmprint('ERROR: Amount ' + btc.amount_to_str(amount) +
                 ' is below dust threshold ' +
-                btc.amount_to_str(DUST_THRESHOLD) + '.', "error")
+                btc.amount_to_str(jm_single().DUST_THRESHOLD) + '.', "error")
             sys.exit(EXIT_ARGERROR)
         if (options.makercount != 0 and
             options.makercount < jm_single().config.getint(

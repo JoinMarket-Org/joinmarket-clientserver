@@ -166,9 +166,9 @@ class JMTestServerProtocol(JMBaseProtocol):
 
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
-                   maker_timeout_sec):
+                   maker_timeout_sec, dust_threshold):
         show_receipt("JMINIT", bcsource, network, irc_configs, minmakers,
-                     maker_timeout_sec)
+                     maker_timeout_sec, dust_threshold)
         d = self.callRemote(JMInitProto,
                             nick_hash_length=1,
                             nick_max_encoded=2,

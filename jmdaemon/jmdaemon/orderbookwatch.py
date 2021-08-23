@@ -8,7 +8,7 @@ from numbers import Integral
 
 from jmdaemon.protocol import JM_VERSION
 from jmdaemon import fidelity_bond_sanity_check
-from jmbase.support import get_log, joinmarket_alert, DUST_THRESHOLD
+from jmbase.support import get_log, joinmarket_alert
 log = get_log()
 
 
@@ -88,8 +88,8 @@ class OrderbookWatch(object):
                 log.debug("Got invalid minsize: {} from {}".format(
                     minsize, counterparty))
                 return
-            if int(minsize) < DUST_THRESHOLD:
-                minsize = DUST_THRESHOLD
+            if int(minsize) < self.dust_threshold:
+                minsize = self.dust_threshold
                 log.debug("{} has dusty minsize, capping at {}".format(
                     counterparty, minsize))
                 # do not pass return, go not drop this otherwise fine offer

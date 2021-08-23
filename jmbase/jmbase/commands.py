@@ -31,7 +31,8 @@ class JMInit(JMCommand):
                  (b'network', Unicode()),
                  (b'irc_configs', Unicode()),
                  (b'minmakers', Integer()),
-                 (b'maker_timeout_sec', Integer())]
+                 (b'maker_timeout_sec', Integer()),
+                 (b'dust_threshold', Integer())]
     errors = {DaemonNotReady: b'daemon is not ready'}
 
 class JMStartMC(JMCommand):

@@ -71,9 +71,6 @@ joinmarket_alert = ['']
 core_alert = ['']
 debug_silence = [False]
 
-#TODO pass this through from client, bitcoin paramater:
-DUST_THRESHOLD = 2730
-
 class JoinMarketStreamHandler(ColorizingStreamHandler):
 
     def __init__(self):
