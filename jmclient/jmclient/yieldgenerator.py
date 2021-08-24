@@ -399,7 +399,7 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
         parser.error('Needs a wallet')
         sys.exit(EXIT_ARGERROR)
 
-    load_program_config(config_path=options["datadir"])
+    load_program_config(config_path=options["datadir"], ln_backend_needed=True)
 
     # As per previous note, override non-default command line settings:
     for x in ["ordertype", "txfee_contribution", "txfee_contribution_factor",

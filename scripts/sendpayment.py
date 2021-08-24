@@ -53,7 +53,9 @@ def pick_order(orders, n): #pragma: no cover
 def main():
     parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
-    load_program_config(config_path=options.datadir)
+    ln_backend_needed = True if options.makercount != 0 else False
+    load_program_config(config_path=options.datadir,
+                        ln_backend_needed=ln_backend_needed)
 
     if options.schedule == '':
         if ((len(args) < 2) or

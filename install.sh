@@ -38,6 +38,47 @@ http_get ()
     fi
 }
 
+ln_deps_install ()
+{
+    ln_deb_deps=( \
+        'autoconf' \
+        'automake' \
+        'build-essential' \
+        'git' \
+        'libtool' \
+        'libgmp-dev' \
+        'libsqlite3-dev' \
+        'python3-mako' \
+        'net-tools' \
+        'zlib1g-dev' \
+        'libsodium-dev' \
+        'gettext' )
+
+    ln_dar_deps=( \
+        'autoconf' \
+        'automake' \
+        'libtool' \
+        'python3' \
+        'gmp' \
+        'gnu-sed' \
+        'gettext' \
+        'libsodium' )
+
+    if [[ ${use_os_deps_check} != '1' ]]; then
+        echo "Checking OS package manager's dependencies disabled. Trying to build."
+        return 0
+    elif [[ ${install_os} == 'debian' ]]; then
+        deb_deps_install "${ln_deb_deps[@]}"
+        return "$?"
+    elif [[ ${install_os} == 'darwin' ]]; then
+        dar_deps_install "${ln_dar_deps[@]}"
+        return "$?"
+    else
+        echo "OS can not be determined. Trying to build."
+        return 0
+    fi
+}
+
 deps_install ()
 {
     debian_deps=( \
@@ -48,11 +89,13 @@ deps_install ()
         'libtool' \
         'python3-dev' \
         'virtualenv' \
-        'python3-pip' )
+        'python3-pip' \
+        'unzip' )
 
     darwin_deps=( \
         'automake' \
-        'libtool' )
+        'libtool' \
+        'unzip' )
 
     if ! is_python3; then
         echo "Python 2 is no longer supported. Please use a compatible Python 3 version."
@@ -138,6 +181,8 @@ venv_setup ()
     source "${jm_source}/jmvenv/bin/activate" || return 1
     pip install --upgrade pip
     pip install --upgrade setuptools
+    pip install mako
+    pip install mrkd
     deactivate
 }
 
@@ -152,7 +197,11 @@ dep_get ()
     if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         return 1
     fi
-    tar -xzf "${pkg_name}" -C ../
+    if [[ $1 == *zip ]]; then
+        unzip -o "${pkg_name}" -d ../
+    else
+        tar -xzf "${pkg_name}" -C ../
+    fi
     popd
 }
 
@@ -269,6 +318,36 @@ libsecp256k1_install()
     popd
 }
 
+clightning_build ()
+{
+    ./configure \
+        --enable-developer \
+        --enable-experimental-features \
+        --prefix="${jm_root}"
+    $make
+}
+
+clightning_install ()
+{
+    # note: the normal tarball source is broken and must not be used according to:
+    # https://github.com/ElementsProject/lightning/issues/3900#issuecomment-668330656
+    # we use links like:
+    # https://github.com/ElementsProject/lightning/releases/download/v0.10.2/clightning-v0.10.2.zip
+    clightning_version='clightning-v0.10.2'
+    clightning_lib_sha="3c9dcb686217b2efe0e988e90b95777c4591e3335e259e01a94af87e0bf01809"
+    clightning_lib_url='https://github.com/ElementsProject/lightning/releases/download/v0.10.2'
+    if ! dep_get "${clightning_version}.zip" "${clightning_lib_sha}" "${clightning_lib_url}"; then
+        return 1
+    fi
+    pushd "${clightning_version}"
+    if clightning_build; then
+        PREFIX=. $make install
+    else
+        return 1
+    fi
+    popd
+}
+
 libsodium_build ()
 {
     $make uninstall
@@ -366,6 +445,9 @@ parse_flags ()
             --without-qt)
                 with_qt='0'
                 ;;
+            --with-ln-messaging)
+                with_ln_messaging='1'
+                ;;
             "")
                 break
                 ;;
@@ -379,6 +461,7 @@ Options:
 --disable-os-deps-check     skip OS package manager's dependency check
 --disable-secp-check        do not run libsecp256k1 tests (default is to run them)
 --python, -p                python version (only python3 versions are supported)
+--with-ln-messaging     build and use c-lightning for message channels
 --with-qt                   build the Qt GUI
 --without-qt                don't build the Qt GUI
 "
@@ -463,8 +546,20 @@ main ()
         return 1
     fi
     source "${jm_root}/bin/activate"
+    if [[ ${with_ln_messaging} == "1" ]]; then
+        if ! ln_deps_install; then
+            echo "Lightning dependencies could not be installed. Exiting."
+            return 1
+        fi
+    fi
     mkdir -p "deps/cache"
     pushd deps
+    if [[ ${with_ln_messaging} == "1" ]]; then
+        if ! clightning_install; then
+            echo "c-lightning was required, but not built. Exiting."
+            return 1
+        fi
+    fi
     if ! libsecp256k1_install; then
         echo "libsecp256k1 was not built. Exiting."
         return 1

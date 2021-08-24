@@ -96,7 +96,7 @@ class DeterministicMaliciousYieldGenerator(YieldGeneratorBasic):
     "num_ygs, wallet_structures, fb_indices, mean_amt, malicious, deterministic",
     [
         # 1sp 3yg, honest makers, one maker has FB:
-        (3, [[1, 3, 0, 0, 0]] * 4, [1, 2], 2, 0, False),
+        (3, [[1, 3, 0, 0, 0]] * 4, [], 2, 0, False),
         # 1sp 3yg, malicious makers reject on auth and on tx 30% of time
         #(3, [[1, 3, 0, 0, 0]] * 4, 2, 30, False),
         # 1 sp 9 ygs, deterministically malicious 50% of time
@@ -173,6 +173,27 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, fb_indices,
             ygclass = DeterministicMaliciousYieldGenerator
         else:
             ygclass = MaliciousYieldGenerator
+    # Note for tests of Lightning message channels:
+    # (this data is not really needed *here* as the bots
+    # retrieve their keys on startup with `getinfo`, but is here
+    # for reference).
+    #
+    # These nodes are generated with private keys (using --dev-force-privkey):
+    # (note of course that c-lightning must be built with --enable-developer)
+    # 121212121212121212121212121212121212121212121212121212121212121$i
+    # with $i 1..3
+    #
+    # l1-regtest:
+    #  lightningd: Server started with public key 03df15dbd9e20c811cc5f4155745e89540a0b83f33978317cebe9dfc46c5253c55,
+    #  alias HOPPINGSET-v0.10.1rc2-modded (color #03df15) and lightningd v0.10.1rc2-modded
+    # l2-regtest:
+    #  lightningd: Server started with public key 036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f7,
+    #  alias GREENSPAWN-v0.10.1rc2-modded (color #036360) and lightningd v0.10.1rc2-modded
+    # l3-regtest:
+    # lightningd: Server started with public key 02edde301d65a673fc8a37e9c8d34878adfbc561f66afbcc37db9bc9fbf5088ef5,
+    # alias HOPPINGSQUIRREL-0.10.1rc2-modded (color #02edde) and lightningd v0.10.1rc2-modded
+    # We will treat the first of these three, with port 7171 on localhost, as the directory node for the tests
+
     for i in range(num_ygs):
         cfg = [txfee_contribution, cjfee_a, cjfee_r, ordertype, minsize,
                txfee_contribution_factor, cjfee_factor, size_factor]
