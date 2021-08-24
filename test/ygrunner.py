@@ -96,7 +96,7 @@ class DeterministicMaliciousYieldGenerator(YieldGeneratorBasic):
     "num_ygs, wallet_structures, fb_indices, mean_amt, malicious, deterministic",
     [
         # 1sp 3yg, honest makers, one maker has FB:
-        (3, [[1, 3, 0, 0, 0]] * 4, [1, 2], 2, 0, False),
+        (3, [[1, 3, 0, 0, 0]] * 4, [], 2, 0, False),
         # 1sp 3yg, malicious makers reject on auth and on tx 30% of time
         #(3, [[1, 3, 0, 0, 0]] * 4, 2, 30, False),
         # 1 sp 9 ygs, deterministically malicious 50% of time
@@ -173,6 +173,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, fb_indices,
             ygclass = DeterministicMaliciousYieldGenerator
         else:
             ygclass = MaliciousYieldGenerator
+
     for i in range(num_ygs):
         cfg = [txfee_contribution, cjfee_a, cjfee_r, ordertype, minsize,
                txfee_contribution_factor, cjfee_factor, size_factor]

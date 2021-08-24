@@ -140,6 +140,9 @@ rpc_wallet_file =
 ## SERVER 1/3) Darkscience IRC (Tor, IP)
 ################################################################################
 [MESSAGING:server1]
+# by default the legacy format without a `type` field is
+# understood to be IRC, but you can, optionally, add it:
+# type = irc
 channel = joinmarket-pit
 port = 6697
 usessl = true
@@ -154,24 +157,47 @@ socks5 = false
 #socks5_host = localhost
 #socks5_port = 9050
 
-## SERVER 2/3) hackint IRC (Tor, IP)
-################################################################################
-[MESSAGING:server2]
-channel = joinmarket-pit
+[MESSAGING:onion1]
+# onion based message channels must have the exact type 'onion'
+# (while the section name above can be MESSAGING:whatever), and there must
+# be only ONE such message channel configured (note the directory servers
+# can be multiple, below):
+type = onion
 
-# For traditional IP (default):
-host = irc.hackint.org
-port = 6697
-usessl = true
-socks5 = false
+socks5_host = localhost
+socks5_port = 9050
 
-# For Tor (recommended as clearnet alternative):
-#host = ncwkrwxpq2ikcngxq3dy2xctuheniggtqeibvgofixpzvrwpa77tozqd.onion
-#port = 6667
-#usessl = false
-#socks5 = true
-#socks5_host = localhost
-#socks5_port = 9050
+# the tor control configuration.
+# for most people running the tor daemon
+# on Linux, no changes are required here:
+tor_control_host = localhost
+# or, to use a UNIX socket
+# tor_control_host = unix:/var/run/tor/control
+tor_control_port = 9051
+
+# the host/port actually serving the hidden service
+# (note the *virtual port*, that the client uses,
+# is hardcoded to 80):
+onion_serving_host = 127.0.0.1
+onion_serving_port = 8080
+
+# directory node configuration
+#
+# This is mandatory for directory nodes (who must also set their
+# own *.onion:port as the only directory in directory_nodes, below),
+# but NOT TO BE USED by non-directory nodes (which is you, unless
+# you know otherwise!), as it will greatly degrade your privacy.
+# (note the default is no value, don't replace it with "").
+hidden_service_dir =
+#
+# This is a comma separated list (comma can be omitted if only one item).
+# Each item has format host:port ; both are required, though port will
+# be 80 if created in this code.
+directory_nodes = rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:80
+
+# This setting is ONLY for developer regtest setups,
+# running multiple bots at once. Don't alter it otherwise
+regtest_count = 0,0
 
 ## SERVER 3/3) ILITA IRC (Tor - disabled by default)
 ################################################################################
@@ -484,7 +510,7 @@ def set_config(cfg, bcint=None):
         global_singleton.bc_interface = bcint
 
 
-def get_irc_mchannels():
+def get_mchannels():
     SECTION_NAME = 'MESSAGING'
     # FIXME: remove in future release
     if jm_single().config.has_section(SECTION_NAME):
@@ -495,16 +521,30 @@ def get_irc_mchannels():
         return _get_irc_mchannels_old()
 
     SECTION_NAME += ':'
-    irc_sections = []
+    sections = []
     for s in jm_single().config.sections():
         if s.startswith(SECTION_NAME):
-            irc_sections.append(s)
-    assert irc_sections
+            sections.append(s)
+    assert sections
 
-    req_fields = [("host", str), ("port", int), ("channel", str), ("usessl", str)]
+    irc_fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
+              ("socks5", str), ("socks5_host", str), ("socks5_port", str)]
+    onion_fields = [("type", str), ("directory_nodes", str), ("regtest_count", str),
+                    ("socks5_host", str), ("socks5_port", int),
+                    ("tor_control_host", str), ("tor_control_port", int),
+                    ("onion_serving_host", str), ("onion_serving_port", int),
+                    ("hidden_service_dir", str)]
 
     configs = []
-    for section in irc_sections:
+
+    # processing the IRC sections:
+    for section in sections:
+        if jm_single().config.has_option(section, "type"):
+            # legacy IRC configs do not have "type" but just
+            # in case, we'll allow the "irc" type:
+            if not jm_single().config.get(section, "type").lower(
+                ) == "irc":
+                break
         server_data = {}
 
         # check if socks5 is enabled for tor and load relevant config if so
@@ -516,13 +556,30 @@ def get_irc_mchannels():
             server_data["socks5_host"] = jm_single().config.get(section, "socks5_host")
             server_data["socks5_port"] = jm_single().config.get(section, "socks5_port")
 
-        for option, otype in req_fields:
+        for option, otype in irc_fields:
             val = jm_single().config.get(section, option)
             server_data[option] = otype(val)
         server_data['btcnet'] = get_network()
         configs.append(server_data)
-    return configs
 
+    # processing the onion sections:
+    for section in sections:
+        if not jm_single().config.has_option(section, "type") or \
+        not jm_single().config.get(section, "type").lower() == "onion":
+            continue
+        onion_data = {}
+        for option, otype in onion_fields:
+            try:
+                val = jm_single().config.get(section, option)
+            except NoOptionError:
+                continue
+            onion_data[option] = otype(val)
+        onion_data['btcnet'] = get_network()
+        # Just to allow a dynamic set of var:
+        onion_data["section-name"] = section
+        configs.append(onion_data)
+
+    return configs
 
 def _get_irc_mchannels_old():
     fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
@@ -651,28 +708,6 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
               "settings and restart joinmarket.", "info")
         sys.exit(EXIT_FAILURE)
 
-    #These are left as sanity checks but currently impossible
-    #since any edits are overlays to the default, these sections/options will
-    #always exist.
-    # FIXME: This check is a best-effort attempt. Certain incorrect section
-    # names can pass and so can non-first invalid sections.
-    for s in required_options: #pragma: no cover
-        # check for sections
-        avail = None
-        if not global_singleton.config.has_section(s):
-            for avail in global_singleton.config.sections():
-                if avail.startswith(s):
-                    break
-            else:
-                raise Exception(
-                    "Config file does not contain the required section: " + s)
-        # then check for specific options
-        k = avail or s
-        for o in required_options[s]:
-            if not global_singleton.config.has_option(k, o):
-                raise Exception("Config file does not contain the required "
-                                "option '{}' in section '{}'.".format(o, k))
-
     loglevel = global_singleton.config.get("LOGGING", "console_log_level")
     try:
         set_logging_level(loglevel)
@@ -742,6 +777,11 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
             if not os.path.exists(plogsdir):
                 os.makedirs(plogsdir)
             p.set_log_dir(plogsdir)
+    # Check if a onion message channel was configured, and if so,
+    # check there is only 1; multiple directory nodes will be inside the config.
+    chans = get_mchannels()
+    onion_chans = [x for x in chans if "type" in x and x["type"] == "onion"]
+    assert len(onion_chans) < 2
 
 def load_test_config(**kwargs):
     if "config_path" not in kwargs:

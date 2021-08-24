@@ -6,7 +6,7 @@ from twisted.trial import unittest
 from twisted.internet import reactor, task
 from jmdaemon import IRCMessageChannel, MessageChannelCollection
 #needed for test framework
-from jmclient import (load_test_config, get_irc_mchannels, jm_single)
+from jmclient import (load_test_config, get_mchannels, jm_single)
 
 si = 1
 class DummyDaemon(object):
@@ -95,7 +95,7 @@ def junk_fill(mc):
 
 def getmc(nick):
     dm = DummyDaemon()
-    mc = DummyMC(get_irc_mchannels()[0], nick, dm)
+    mc = DummyMC(get_mchannels()[0], nick, dm)
     mc.register_orderbookwatch_callbacks(on_order_seen=on_order_seen)
     mc.register_taker_callbacks(on_pubkey=on_pubkey)
     mc.on_connect = on_connect
@@ -108,7 +108,7 @@ class TrialIRC(unittest.TestCase):
 
     def setUp(self):
         load_test_config()
-        print(get_irc_mchannels()[0])
+        print(get_mchannels()[0])
         jm_single().maker_timeout_sec = 1
         dm, mc, mcc = getmc("irc_publisher")
         dm2, mc2, mcc2 = getmc("irc_receiver")

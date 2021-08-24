@@ -7,8 +7,9 @@ from .enc_wrapper import (as_init_encryption, init_keypair, init_pubkey,
 from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
                        NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER,
                        COMMITMENT_PREFIXES)
-from .irc import IRCMessageChannel
 
+from .irc import IRCMessageChannel
+from .onionmc import OnionMessageChannel
 from jmbase import (is_hs_uri, get_tor_agent, JMHiddenService,
                     get_nontor_agent, BytesProducer, wrapped_urlparse,
                     bdict_sdict_convert, JMHTTPResource)
@@ -527,10 +528,15 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                 self.mc_shutdown()
             self.irc_configs = irc_configs
             self.restart_mc_required = True
-            mcs = [IRCMessageChannel(c,
-                                     daemon=self,
-                                     realname='btcint=' + bcsource)
-                   for c in self.irc_configs]
+            mcs = []
+            for c in self.irc_configs:
+                if "type" in c and c["type"] == "onion":
+                    mcs.append(OnionMessageChannel(c, daemon=self))
+                else:
+                    # default is IRC; TODO allow others
+                    mcs.append(IRCMessageChannel(c,
+                                         daemon=self,
+                                         realname='btcint=' + bcsource))
             self.mcc = MessageChannelCollection(mcs)
             OrderbookWatch.set_msgchan(self, self.mcc)
             #register taker-specific msgchan callbacks here
@@ -947,6 +953,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         incomplete transaction is wiped.
         """
         self.jm_state = 0  #uninited
+        self.mcc.set_nick(nick)
         if self.restart_mc_required:
             self.mcc.run()
             self.restart_mc_required = False
@@ -954,7 +961,6 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #if we are not restarting the MC,
             #we must simulate the on_welcome message:
             self.on_welcome()
-        self.mcc.set_nick(nick)
 
     def transfer_commitment(self, commit):
         """Send this commitment via privmsg to one (random)

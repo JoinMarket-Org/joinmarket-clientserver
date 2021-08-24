@@ -44,7 +44,7 @@ if 'matplotlib' in sys.modules:
     import matplotlib.pyplot as plt
 
 from jmclient import jm_single, load_program_config, calc_cj_fee, \
-     get_irc_mchannels, add_base_options
+     get_mchannels, add_base_options
 from jmdaemon import OrderbookWatch, MessageChannelCollection, IRCMessageChannel
 #TODO this is only for base58, find a solution for a client without jmbitcoin
 import jmbitcoin as btc
@@ -804,7 +804,7 @@ def main():
     (options, args) = parser.parse_args()
     load_program_config(config_path=options.datadir)
     hostport = (options.host, options.port)
-    mcs = [ObIRCMessageChannel(c) for c in get_irc_mchannels()]
+    mcs = [ObIRCMessageChannel(c) for c in get_mchannels()]
     mcc = MessageChannelCollection(mcs)
     mcc.set_nick(get_dummy_nick())
     taker = ObBasic(mcc, hostport)
