@@ -14,6 +14,7 @@ from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
     LegacyWallet, SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
     is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
+from jmclient.wallet import SegwitLegacyWatchonlyWallet, SegwitWatchonlyWallet, WatchonlyMixin
 from jmclient.wallet_service import WalletService
 from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
                             EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex,
@@ -51,7 +52,8 @@ The method is one of the following:
 (gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`.
 (addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with
     -H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof.
-(createwatchonly) Create a watch-only fidelity bond wallet.
+(createwatchonly) Create a watch-only wallet.
+(createfbwatchonly) Create a watch-only fidelity bond wallet.
 (setlabel) Set the label associated with the given address.
 """
     parser = OptionParser(usage='usage: %prog [options] [wallet file] [method] [args..]',
@@ -237,7 +239,7 @@ class WalletViewBranch(WalletViewBase):
             FidelityBondMixin.BIP32_BURN_ID]
         self.address_type = address_type
         if xpub:
-            assert xpub.startswith('xpub') or xpub.startswith('tpub')
+            assert xpub.startswith('xpub') or xpub.startswith('tpub') or xpub.startswith('ypub') or xpub.startswith('zpub')
         self.xpub = xpub if xpub else ""
         self.branchentries = branchentries
 
@@ -1338,7 +1340,7 @@ def wallet_addtxoutproof(wallet_service, hdpath, txoutproof):
         new_merkle_branch, block_index)
     return "Done"
 
-def wallet_createwatchonly(wallet_root_path, master_pub_key):
+def wallet_createwatchonly(wallet_root_path, master_pub_key, is_fidelity_bond_wallet = False):
 
     wallet_name = cli_get_wallet_file_name(defaultname="watchonly.jmdat")
     if not wallet_name:
@@ -1349,17 +1351,39 @@ def wallet_createwatchonly(wallet_root_path, master_pub_key):
 
     password = cli_get_wallet_passphrase_check()
     if not password:
+        jmprint("The passphrase can not be empty", "error")
         return ""
 
-    entropy = FidelityBondMixin.get_xpub_from_fidelity_bond_master_pub_key(master_pub_key)
-    if not entropy:
-        jmprint("Error with provided master pub key", "error")
-        return ""
+    if is_fidelity_bond_wallet:
+        entropy = FidelityBondMixin.get_xpub_from_fidelity_bond_master_pub_key(master_pub_key)
+        if not entropy:
+            jmprint("Error with provided master public key", "error")
+            return ""
+    else:
+        entropy = master_pub_key
     entropy = entropy.encode()
 
-    wallet = create_wallet(wallet_path, password,
-        max_mixdepth=FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
-        wallet_cls=FidelityBondWatchonlyWallet, entropy=entropy)
+    if is_fidelity_bond_wallet:
+        create_wallet(wallet_path, password,
+            max_mixdepth=FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
+            wallet_cls=FidelityBondWatchonlyWallet, entropy=entropy)
+    else:
+        if master_pub_key.startswith('zpub'):
+            wallet_cls = SegwitWatchonlyWallet
+        elif master_pub_key.startswith('ypub'):
+            wallet_cls = SegwitLegacyWatchonlyWallet
+        else:
+            if is_native_segwit_mode():
+                wallet_cls = SegwitWatchonlyWallet
+            elif is_segwit_mode():
+                wallet_cls = SegwitLegacyWatchonlyWallet
+            else:
+                jmprint("Only segwit wallets are supported for watch only mode", "error")
+                return ""
+
+        create_wallet(wallet_path, password,
+                max_mixdepth=WatchonlyMixin.WATCH_ONLY_MIXDEPTH,
+                wallet_cls=wallet_cls, entropy=entropy)
     return "Done"
 
 def get_configured_wallet_type(support_fidelity_bonds):
@@ -1526,7 +1550,7 @@ def wallet_tool_main(wallet_root_path):
     check_regtest(blockchain_start=False)
     # full path to the wallets/ subdirectory in the user data area:
     wallet_root_path = os.path.join(jm_single().datadir, wallet_root_path)
-    noseed_methods = ['generate', 'recover', 'createwatchonly']
+    noseed_methods = ['generate', 'recover', 'createwatchonly', 'createfbwatchonly']
     methods = ['display', 'displayall', 'summary', 'showseed', 'importprivkey',
                'history', 'showutxos', 'freeze', 'gettimelockaddress',
                'addtxoutproof', 'changepass', 'setlabel']
@@ -1649,6 +1673,11 @@ def wallet_tool_main(wallet_root_path):
                 + 'Core\'s RPC call gettxoutproof', "error")
             sys.exit(EXIT_ARGERROR)
         return wallet_addtxoutproof(wallet_service, options.hd_path, args[2])
+    elif method == "createfbwatchonly":
+        if len(args) < 2:
+            jmprint("args: [master public key]", "error")
+            sys.exit(EXIT_ARGERROR)
+        return wallet_createwatchonly(wallet_root_path, args[1], is_fidelity_bond_wallet=True)
     elif method == "createwatchonly":
         if len(args) < 2:
             jmprint("args: [master public key]", "error")
