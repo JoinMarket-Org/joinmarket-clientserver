@@ -2518,14 +2518,10 @@ class SegwitLegacyWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, S
 class SegwitWallet(ImportWalletMixin, BIP39WalletMixin, PSBTWalletMixin, SNICKERWalletMixin, BIP84Wallet):
     TYPE = TYPE_P2WPKH
 
-class SegwitWalletFidelityBonds(FidelityBondMixin, SegwitWallet):
-    TYPE = TYPE_SEGWIT_WALLET_FIDELITY_BONDS
 
-
-class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP84Wallet):
-    TYPE = TYPE_WATCHONLY_FIDELITY_BONDS
-    _ENGINE = ENGINES[TYPE_WATCHONLY_P2WPKH]
-    _TIMELOCK_ENGINE = ENGINES[TYPE_WATCHONLY_TIMELOCK_P2WSH]
+class WatchonlyMixin(object):
+    # When watching an external wallet, we only watch account 0
+    WATCH_ONLY_MIXDEPTH = 0
 
     @classmethod
     def _verify_entropy(cls, ent):
@@ -2534,6 +2530,21 @@ class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP84Wallet):
     @classmethod
     def _derive_bip32_master_key(cls, master_entropy):
         return btc.bip32_deserialize(master_entropy.decode())
+
+
+class SegwitWatchonlyWallet(WatchonlyMixin, BIP84Wallet):
+    TYPE = TYPE_WATCHONLY_P2WPKH
+    _ENGINE = ENGINES[TYPE_WATCHONLY_P2WPKH]
+
+    
+class SegwitWalletFidelityBonds(FidelityBondMixin, SegwitWallet):
+    TYPE = TYPE_SEGWIT_WALLET_FIDELITY_BONDS
+
+
+class FidelityBondWatchonlyWallet(FidelityBondMixin, WatchonlyMixin, BIP84Wallet):
+    TYPE = TYPE_WATCHONLY_FIDELITY_BONDS
+    _ENGINE = ENGINES[TYPE_WATCHONLY_P2WPKH]
+    _TIMELOCK_ENGINE = ENGINES[TYPE_WATCHONLY_TIMELOCK_P2WSH]
 
     def _get_bip32_export_path(self, mixdepth=None, address_type=None):
         path = super()._get_bip32_export_path(mixdepth, address_type)
@@ -2544,6 +2555,7 @@ WALLET_IMPLEMENTATIONS = {
     LegacyWallet.TYPE: LegacyWallet,
     SegwitLegacyWallet.TYPE: SegwitLegacyWallet,
     SegwitWallet.TYPE: SegwitWallet,
+    SegwitWatchonlyWallet.TYPE: SegwitWatchonlyWallet,
     SegwitWalletFidelityBonds.TYPE: SegwitWalletFidelityBonds,
     FidelityBondWatchonlyWallet.TYPE: FidelityBondWatchonlyWallet
 }

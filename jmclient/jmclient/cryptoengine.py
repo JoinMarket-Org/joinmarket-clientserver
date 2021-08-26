@@ -435,6 +435,11 @@ class BTC_Watchonly_P2WPKH(BTC_P2WPKH):
             master_key, BTC_Watchonly_Timelocked_P2WSH.get_watchonly_path(path))
 
     @classmethod
+    def derive_bip32_priv_export(cls, master_key, path):
+        #return pub key instead of priv key in watchonly wallet
+        return BTC_Watchonly_P2WPKH.derive_bip32_pub_export(master_key, path)
+
+    @classmethod
     def sign_transaction(cls, tx, index, privkey, amount,
                          hashcode=btc.SIGHASH_ALL, **kwargs):
         raise RuntimeError("Cannot spend from watch-only wallets")
