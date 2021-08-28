@@ -1368,8 +1368,7 @@ def open_test_wallet_maybe(path, seed, max_mixdepth,
             return test_wallet_cls(storage, **kwargs)
 
     if wallet_password_stdin is True:
-        stdin = sys.stdin.read()
-        password = stdin.encode('utf-8')
+        password = read_password_stdin()
         return open_wallet(path, ask_for_password=False, password=password, mixdepth=max_mixdepth, **kwargs)
 
     return open_wallet(path, mixdepth=max_mixdepth, **kwargs)
@@ -1442,6 +1441,10 @@ def get_wallet_path(file_name, wallet_dir=None):
     if not wallet_dir:
         wallet_dir = os.path.join(jm_single().datadir, 'wallets')
     return os.path.join(wallet_dir, file_name)
+
+
+def read_password_stdin():
+    return sys.stdin.read().encode('utf-8')
 
 
 def wallet_tool_main(wallet_root_path):

@@ -3,7 +3,6 @@
 # A script for noninteractively creating wallets.
 # The implementation is similar to wallet_generate_recover_bip39 in jmclient/wallet_utils.py
 
-import sys
 import os
 from optparse import OptionParser
 from jmclient import (
@@ -23,7 +22,7 @@ def main():
     (options, args) = parser.parse_args()
     wallet_name = args[0]
     if options.wallet_password_stdin:
-        password = sys.stdin.read().encode("utf-8")
+        password = wallet_utils.read_password_stdin()
     else:
         assert len(args) > 1, "must provide password via stdin (see --help), or as second argument."
         password = args[1].encode("utf-8")
