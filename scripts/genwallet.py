@@ -5,6 +5,7 @@
 
 import os
 from optparse import OptionParser
+from pathlib import Path
 from jmclient import (
     load_program_config, add_base_options, SegwitWalletFidelityBonds, SegwitLegacyWallet,
     create_wallet, jm_single, wallet_utils
@@ -19,6 +20,13 @@ def main():
         description='Create a wallet with the given wallet name and password.'
     )
     add_base_options(parser)
+    parser.add_option(
+        '--recovery-seed-file',
+        dest='seed_file',
+        default=None,
+        help=('File containing a mnemonic recovery phrase. If provided, the wallet '
+              'is recovered from this seed instead of being newly generated.')
+    )
     (options, args) = parser.parse_args()
     wallet_name = args[0]
     if options.wallet_password_stdin:
@@ -26,6 +34,7 @@ def main():
     else:
         assert len(args) > 1, "must provide password via stdin (see --help), or as second argument."
         password = args[1].encode("utf-8")
+    seed = options.seed_file and Path(options.seed_file).read_text().rstrip()
 
     load_program_config(config_path=options.datadir)
     wallet_root_path = os.path.join(jm_single().datadir, "wallets")
@@ -35,7 +44,8 @@ def main():
     else:
         # Fidelity Bonds are not available for segwit legacy wallets
         walletclass = SegwitLegacyWallet
-    wallet = create_wallet(wallet_path, password, wallet_utils.DEFAULT_MIXDEPTH, walletclass)
+    entropy = seed and SegwitLegacyWallet.entropy_from_mnemonic(seed)
+    wallet = create_wallet(wallet_path, password, wallet_utils.DEFAULT_MIXDEPTH, walletclass, entropy=entropy)
     jmprint("recovery_seed:{}"
          .format(wallet.get_mnemonic_words()[0]), "important")
     wallet.close()
