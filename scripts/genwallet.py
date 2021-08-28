@@ -7,7 +7,7 @@ import sys
 import os
 from optparse import OptionParser
 from jmclient import (
-    load_program_config, add_base_options, SegwitWallet, SegwitLegacyWallet,
+    load_program_config, add_base_options, SegwitWalletFidelityBonds, SegwitLegacyWallet,
     create_wallet, jm_single, wallet_utils
 )
 from jmbase.support import get_log, jmprint
@@ -32,8 +32,9 @@ def main():
     wallet_root_path = os.path.join(jm_single().datadir, "wallets")
     wallet_path = os.path.join(wallet_root_path, wallet_name)
     if jm_single().config.get("POLICY", "native") == "true":
-        walletclass = SegwitWallet
+        walletclass = SegwitWalletFidelityBonds
     else:
+        # Fidelity Bonds are not available for segwit legacy wallets
         walletclass = SegwitLegacyWallet
     wallet = create_wallet(wallet_path, password, wallet_utils.DEFAULT_MIXDEPTH, walletclass)
     jmprint("recovery_seed:{}"
