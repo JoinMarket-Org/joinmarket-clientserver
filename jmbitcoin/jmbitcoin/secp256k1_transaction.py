@@ -110,10 +110,12 @@ def estimate_tx_size(ins, outs, txtype='p2pkh', outtype=None):
     '''Estimate transaction size.
     The txtype field as detailed below is used to distinguish
     the type, but there is at least one source of meaningful roughness:
-    we assume the output types are the same as the input (to be fair,
-    outputs only contribute a little to the overall total). This combined
-    with a few bytes variation in signature sizes means we will expect,
-    say, 10% inaccuracy here.
+    we assume that the scriptPubKey type of all the outputs are the same as
+    the input, unless `outtype` is specified, in which case *one* of
+    the outputs is assumed to be that other type, with all of the other
+    outputs being of the same type as before.
+    This, combined with a few bytes variation in signature sizes means
+    we will sometimes see small inaccuracies in this estimate.
 
     Assuming p2pkh:
     out: 8+1+3+20+2=34, in: 32+4+1+1+~72+1+33+4=148,
