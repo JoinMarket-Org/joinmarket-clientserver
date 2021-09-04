@@ -72,7 +72,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     BTCEngine, FidelityBondMixin, wallet_change_passphrase, \
     parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
     detect_script_type, general_custom_change_warning, \
-    nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError
+    nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError,\
+    TYPE_P2WPKH
 from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
@@ -1463,7 +1464,17 @@ class JMWalletTab(QWidget):
             menu.exec_(self.walletTree.viewport().mapToGlobal(position))
 
     def openQRCodePopup(self, address):
-        popup = QRCodePopup(self, address, btc.encode_bip21_uri(address, {}))
+        bip21_uri = btc.encode_bip21_uri(address, {})
+        # From BIP173 (bech32) spec:
+        #   For presentation, lowercase is usually preferable, but inside
+        #   QR codes uppercase SHOULD be used, as those permit the use of
+        #   alphanumeric mode, which is 45% more compact than the normal
+        #   byte mode.
+        # So we keep case for QR popup title, but convert BIP21 URI to be
+        # encoded in QR code to uppercase, if possible.
+        if detect_script_type(mainWindow.wallet_service.addr_to_script(address)) == TYPE_P2WPKH:
+            bip21_uri = bip21_uri.upper()
+        popup = QRCodePopup(self, address, bip21_uri)
         popup.show()
 
     def updateWalletInfo(self, walletinfo=None):
