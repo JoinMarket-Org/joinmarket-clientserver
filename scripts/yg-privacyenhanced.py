@@ -29,21 +29,54 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         the first mixdepth available after the largest such interval.
         This forces the biggest UTXOs to stay in a bulk of few mixdepths so
         that the maker can always maximize the size of his orders even when
-        some coins are sent from the last to the first mixdepth"""
+        some coins are sent from the last to the first mixdepth.
+        In the edge case where several mixdepths are as efficient, we
+        select the one which maximize the balance of the receiving mixdepth,
+        except when all mixdepths can be used, in which case we estimate which
+        one was less used to received orders for the longest and we use it to
+        use the otherwise locked amount and consolidate UTXOs."""
+        # Total number of mixdepths
+        mix_total = self.wallet_service.mixdepth + 1
+        # Balances in each mixdepth
+        mix_balance = self.get_available_mixdepths()
         # We sort the available depths for linear scaling of the interval search
         available = sorted(available.keys())
+        # Case where all mixdepths can fill the order: we search the mixdepth which
+        # stopped receiving funds the longest by looking at balances around the
+        # current mixdepth with most of the funds
+        if len(available) == mix_total:
+            # Index of the mixdepth with more funds than others
+            M = max(range(mix_total), key = mix_balance.get)
+            # Case where it is certain that M has not been used to fill an order since M - 1
+            # received funds because more funds would be in the mixdepth M + 1 than M - 1
+            if mix_balance[(M+1)%(mix_total)] < mix_balance[(M-1)%(mix_total)]:
+                # M can have been used or not to fill an order before M - 1 received funds
+                # So mixdepth M + 2 or M + 1 (respectively) did not received any funds for the
+                # longest. We select the one with least funds, expected for such a mixdepth.
+                return min([(M+1)%(mix_total), (M+2)%(mix_total)], key = mix_balance.get)
+            # If M was already used when M - 1 received funds, either M already had more funds
+            # than others so M + 2 did received for the longest, either M + 1 was used as the
+            # mixdepth with most of the funds to fill a big order before and M became
+            # the one with more funds when M - 1 was used. So M + 2 did received funds but
+            # not M + 3. We select the one with least funds, expected for such a mixdepth.
+            else: return min([(M+2)%(mix_total), (M+3)%(mix_total)], key = mix_balance.get)
         # For an available mixdepth, the smallest interval starting from this mixdepth
         # containing all the other available mixdepths necessarily ends at the previous
         # available mixdepth in the cyclic order. The successive difference of sorted
         # depths is then the length of the largest interval ending at the same mixdepth
         # without any available mixdepths, modulo the number of mixdepths if 0 is in it
         # which is only the case for the first (in linear order) available mixdepth case
-        intervals = ([self.wallet_service.mixdepth + 1 + available[0] - available[-1]] + \
+        intervals = ([mix_total + available[0] - available[-1]] + \
                     [(available[i+1] - available[i]) for i in range(len(available)-1)])
+        max_length = max(intervals)
         # We return the mixdepth value at which the largest interval without
         # available mixdepths ends. Selecting this mixdepth will send the CoinJoin
         # outputs closer to the others available mixdepths which are after in cyclical order
-        return available[max(range(len(available)), key = intervals.__getitem__)]
+        # In case several mixdepth have the same largest interval length, we choose
+        # the one maximizing balance of receiving mixdepth to maximize the chances of using
+        # it with bigger orders.
+        candidates = [i for i, val in enumerate(intervals) if val == max_length]
+        return available[max(candidates, key = lambda m: mix_balance[(available[m]+1)%(mix_total)])]
     
     def create_my_orders(self):
         mix_balance = self.get_available_mixdepths()
