@@ -398,13 +398,17 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     then return its serialization directly if serialized,
     else return the WalletView object.
     """
-    def get_addr_status(addr_path, utxos, is_new, is_internal):
+    def get_addr_status(addr_path, utxos, utxos_enabled, is_new, is_internal):
         addr_balance = 0
         status = []
+        has_frozen_utxo = False
         for utxo, utxodata in utxos.items():
             if addr_path != utxodata['path']:
                 continue
             addr_balance += utxodata['value']
+            if utxo not in utxos_enabled:
+                has_frozen_utxo = True
+
             #TODO it is a failure of abstraction here that
             # the bitcoin core interface is used directly
             #the function should either be removed or added to bci
@@ -428,12 +432,16 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
         elif len(status) == 1:
             out_status = status[0]
 
+        if has_frozen_utxo:
+            out_status += ' [FROZEN]'
+
         return addr_balance, out_status
 
     acctlist = []
-    # TODO - either optionally not show disabled utxos, or
-    # mark them differently in display (labels; colors)
+
     utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True)
+    utxos_enabled = wallet_service.get_utxos_by_mixdepth()
+
     if mixdepth:
         md_range = range(mixdepth, mixdepth + 1)
     else:
@@ -453,17 +461,18 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             for k in range(unused_index + wallet_service.gap_limit):
                 path = wallet_service.get_path(m, address_type, k)
                 addr = wallet_service.get_address_from_path(path)
-                balance, used = get_addr_status(
-                    path, utxos[m], k >= unused_index, address_type)
+
+                balance, status = get_addr_status(
+                    path, utxos[m], utxos_enabled[m], k >= unused_index, address_type)
                 if showprivkey:
                     privkey = wallet_service.get_wif_path(path)
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
-                        (used == 'new' and address_type == 0)):
+                        (status == 'new' and address_type == 0)):
                     entrylist.append(WalletViewEntry(
                         wallet_service.get_path_repr(path), m, address_type, k, addr,
-                        [balance, balance], priv=privkey, used=used))
+                        [balance, balance], priv=privkey, used=status))
             wallet_service.set_next_index(m, address_type, unused_index)
             path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
             branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
@@ -478,10 +487,19 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                 addr = wallet_service.get_address_from_path(path)
                 timelock = datetime.utcfromtimestamp(0) + timedelta(seconds=path[-1])
 
-                balance = sum([utxodata["value"] for utxo, utxodata in
-                    utxos[m].items() if path == utxodata["path"]])
+                balance = 0
+                has_frozen_utxo = False
+                for utxo, utxodata in utxos[m].items():
+                    if path == utxodata["path"]:
+                        balance += utxodata["value"]
+                        if not utxo in utxos_enabled[m]:
+                            has_frozen_utxo = True
+
                 status = timelock.strftime("%Y-%m-%d") + " [" + (
                     "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
+                if has_frozen_utxo:
+                    status += ' [FROZEN]'
+                
                 privkey = ""
                 if showprivkey:
                     privkey = wallet_service.get_wif_path(path)
