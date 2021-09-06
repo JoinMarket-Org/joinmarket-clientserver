@@ -87,7 +87,7 @@ class Maker(object):
         reqd_amt = int(amount * jm_single().config.getint(
             "POLICY", "taker_utxo_amtpercent") / 100.0)
         if res[0]['value'] < reqd_amt:
-            reason = "commitment utxo too small: " + str(res[0]['value'])
+            reason = "commitment utxo too small: {:,}".format(res[0]['value'])
             return reject(reason)
 
         try:

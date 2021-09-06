@@ -189,7 +189,7 @@ class YieldGeneratorBasic(YieldGenerator):
                 'fidelity bond or different address type).')
             return None, None, None
 
-        jlog.info('filling offer, mixdepth=' + str(mixdepth) + ', amount=' + str(amount))
+        jlog.info('filling offer, mixdepth={}, amount={:,}'.format(mixdepth, amount))
 
         cj_addr = self.select_output_address(mixdepth, offer, amount)
         if cj_addr is None:
