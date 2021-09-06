@@ -328,7 +328,9 @@ class Taker(object):
             #find sufficient utxos extremely rare. Indeed, a doubling of 'normal'
             #txfee indicates undesirable behaviour on maker side anyway.
             self.total_txfee = estimate_tx_fee(3, 2,
-                txtype=self.wallet_service.get_txtype()) * self.n_counterparties
+                txtype=self.wallet_service.get_txtype()) * (self.n_counterparties - 1) + \
+                estimate_tx_fee(3, 2, txtype=self.wallet_service.get_txtype(),
+                                outtype=self.wallet_service.get_outtype(self.coinjoin_address()))
             total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
             jlog.info('total estimated amount spent = ' + btc.amount_to_str(total_amount))
             try:
@@ -351,8 +353,9 @@ class Taker(object):
             jlog.debug("Estimated ins: "+str(est_ins))
             est_outs = 2*self.n_counterparties + 1
             jlog.debug("Estimated outs: "+str(est_outs))
-            self.total_txfee = estimate_tx_fee(est_ins, est_outs,
-                                            txtype=self.wallet_service.get_txtype())
+            self.total_txfee = estimate_tx_fee(
+                est_ins, est_outs, txtype=self.wallet_service.get_txtype(),
+                outtype=self.wallet_service.get_outtype(self.coinjoin_address()))
             jlog.debug("We have a fee estimate: "+str(self.total_txfee))
             total_value = sum([va['value'] for va in self.input_utxos.values()])
             if self.wallet_service.get_txtype() == "p2pkh":
@@ -439,7 +442,8 @@ class Taker(object):
             #Estimate fee per choice of next/3/6 blocks targetting.
             estimated_fee = estimate_tx_fee(
                 len(sum(self.utxos.values(), [])), len(self.outputs) + 2,
-                txtype=self.wallet_service.get_txtype())
+                txtype=self.wallet_service.get_txtype(),
+                outtype=self.wallet_service.get_outtype(self.coinjoin_address()))
             jlog.info("Based on initial guess: " +
                       btc.amount_to_str(self.total_txfee) +
                       ", we estimated a miner fee of: " +
@@ -483,7 +487,8 @@ class Taker(object):
             num_ins = len([u for u in sum(self.utxos.values(), [])])
             num_outs = len(self.outputs) + 1
             new_total_fee = estimate_tx_fee(num_ins, num_outs,
-                                    txtype=self.wallet_service.get_txtype())
+                                    txtype=self.wallet_service.get_txtype(),
+                                    outtype=self.wallet_service.get_outtype(self.coinjoin_address()))
             feeratio = new_total_fee/self.total_txfee
             jlog.debug("Ratio of actual to estimated sweep fee: {}".format(
                 feeratio))

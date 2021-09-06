@@ -24,10 +24,10 @@ from .configure import jm_single
 from .blockchaininterface import INF_HEIGHT
 from .support import select_gradual, select_greedy, select_greediest, \
     select, NotEnoughFundsException
-from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH,\
+from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WSH,\
     TYPE_P2WPKH, TYPE_TIMELOCK_P2WSH, TYPE_SEGWIT_WALLET_FIDELITY_BONDS,\
     TYPE_WATCHONLY_FIDELITY_BONDS, TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH,\
-    ENGINES
+    ENGINES, detect_script_type
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
@@ -47,7 +47,7 @@ class Mnemonic(MnemonicParent):
     def detect_language(cls, code):
         return "english"
 
-def estimate_tx_fee(ins, outs, txtype='p2pkh', extra_bytes=0):
+def estimate_tx_fee(ins, outs, txtype='p2pkh', outtype=None, extra_bytes=0):
     '''Returns an estimate of the number of satoshis required
     for a transaction with the given number of inputs and outputs,
     based on information from the blockchain interface.
@@ -68,11 +68,11 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh', extra_bytes=0):
             " greater than absurd value " +
             btc.fee_per_kb_to_str(absurd_fee) + ", quitting.")
     if txtype in ['p2pkh', 'p2shMofN']:
-        tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype) + extra_bytes
+        tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype, outtype) + extra_bytes
         return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
     elif txtype in ['p2wpkh', 'p2sh-p2wpkh']:
         witness_estimate, non_witness_estimate = btc.estimate_tx_size(
-            ins, outs, txtype)
+            ins, outs, txtype, outtype)
         non_witness_estimate += extra_bytes
         return int(int((
             non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
@@ -412,6 +412,19 @@ class BaseWallet(object):
             return 'p2wpkh'
         assert False
 
+    def get_outtype(self, addr):
+        script_type = detect_script_type(
+            btc.CCoinAddress(addr).to_scriptPubKey())
+        if script_type == TYPE_P2PKH:
+            return 'p2pkh'
+        elif script_type == TYPE_P2WPKH:
+            return 'p2wpkh'
+        elif script_type == TYPE_P2SH_P2WPKH:
+            return 'p2sh-p2wpkh'
+        elif script_type == TYPE_P2WSH:
+            return 'p2wsh'
+        assert False
+
     def sign_tx(self, tx, scripts, **kwargs):
         """
         Add signatures to transaction for inputs referenced by scripts.
@@ -635,7 +648,7 @@ class BaseWallet(object):
         wallet, and returns [(index, CTxIn),..] for each.
         """
         retval = []
-        for i, txin in len(tx.vin):
+        for i, txin in enumerate(tx.vin):
             pub, msg = btc.extract_pubkey_from_witness(tx, i)
             if not pub:
                 # this can certainly occur since other inputs
@@ -1292,6 +1305,26 @@ class PSBTWalletMixin(object):
                     #key is ((privkey, locktime), engine) for timelocked addrs
                     key = (key[0][0], key[1])
                 privkeys.append(key)
+
+        # in the rare situation that we want to sign a psbt using private keys
+        # to utxos that we've stopped tracking, let's also find inputs that
+        # belong to us and add those private keys as well
+        for vin in new_psbt.inputs:
+            try:
+                path = self.script_to_path(vin.utxo.scriptPubKey)
+                key = self._get_key_from_path(path)
+                if key not in privkeys:
+                    privkeys.append(key)
+            except AssertionError:
+                # we can safely assume that an exception means we do not
+                # have the ability to sign for this input
+                continue
+            except AttributeError:
+                # shouldn't happen for properly constructed psbts
+                # however, psbts with no utxo information will raise
+                # an AttributeError exception. we simply ignore it.
+                continue
+
         jmckeys = list(btc.JMCKey(x[0][:-1]) for x in privkeys)
         new_keystore = btc.KeyStore.from_iterable(jmckeys)
 

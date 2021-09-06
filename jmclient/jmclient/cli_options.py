@@ -520,6 +520,11 @@ def get_sendpayment_parser():
                       'broadcasting the transaction. '
                       'Currently only works with direct '
                       'send (-N 0).')
+    parser.add_option('--rbf',
+                      action='store_true',
+                      dest='rbf',
+                      default=False,
+                      help='enable opt-in rbf')
     parser.add_option('-u',
                       '--custom-change',
                       type="str",

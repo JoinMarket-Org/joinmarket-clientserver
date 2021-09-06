@@ -11,7 +11,7 @@ from commontest import make_wallets, make_sign_and_push, ensure_bip65_activated
 import jmbitcoin as bitcoin
 import pytest
 from jmbase import get_log
-from jmclient import load_test_config, jm_single
+from jmclient import load_test_config, jm_single, direct_send, estimate_tx_fee, compute_tx_locktime
 
 log = get_log()
 #just a random selection of pubkeys for receiving multisigs;
@@ -86,6 +86,7 @@ def test_absurd_fees(setup_tx_creation):
     ins_full = wallet_service.select_utxos(0, amount)
     with pytest.raises(ValueError) as e_info:
         txid = make_sign_and_push(ins_full, wallet_service, amount, estimate_fee=True)
+    jm_single().bc_interface.absurd_fees = False
 
 def test_create_sighash_txs(setup_tx_creation):
     #non-standard hash codes:
@@ -136,6 +137,97 @@ def test_spend_p2wpkh(setup_tx_creation):
             assert False, msg
     txid = jm_single().bc_interface.pushtx(tx.serialize())
     assert txid
+
+def test_spend_then_rbf(setup_tx_creation):
+    """ Test plan: first, create a normal spend with
+    rbf enabled in direct_send, then broadcast but
+    do not mine a block. Then create a re-spend of
+    the same utxos with a higher fee and check
+    that broadcast succeeds.
+    """
+    # First phase: broadcast with RBF enabled.
+    #
+    # set a baseline feerate:
+    old_feerate = jm_single().config.get("POLICY", "tx_fees")
+    jm_single().config.set("POLICY", "tx_fees", "20000")
+    # set up a single wallet with some coins:
+    wallet_service = make_wallets(1, [[2, 0, 0, 0, 1]], 3)[0]['wallet']
+    wallet_service.sync_wallet(fast=True)
+    # ensure selection of two utxos, doesn't really matter
+    # but a more general case than only one:
+    amount = 350000000
+    # destination doesn't matter; this is easiest:
+    destn = wallet_service.get_internal_addr(1)
+    # While `direct_send` usually encapsulates utxo selection
+    # for user, here we need to know what was chosen, hence
+    # we return the transaction object, not directly broadcast.
+    tx1 = direct_send(wallet_service, amount, 0,
+                      destn, answeryes=True,
+                      return_transaction=True,
+                      optin_rbf=True)
+    assert tx1
+    # record the utxos for reuse:
+    assert isinstance(tx1, bitcoin.CTransaction)
+    utxos_objs = (x.prevout for x in tx1.vin)
+    utxos = [(x.hash[::-1], x.n) for x in utxos_objs]
+    # in order to sign on those utxos, we need their script and value.
+    scrs = {}
+    vals = {}
+    for u, details in wallet_service.get_utxos_by_mixdepth()[0].items():
+        if u in utxos:
+            scrs[u] = details["script"]
+            vals[u] = details["value"]
+    assert len(scrs.keys()) == 2
+    assert len(vals.keys()) == 2
+
+    # This will go to mempool but not get mined because
+    # we don't call `tick_forward_chain`.
+    push_succeed = jm_single().bc_interface.pushtx(tx1.serialize())
+    if push_succeed:
+        # mimics real operations with transaction monitor:
+        wallet_service.process_new_tx(tx1)
+    else:
+        assert False
+
+    # Second phase: bump fee.
+    #
+    # we set a larger fee rate.
+    jm_single().config.set("POLICY", "tx_fees", "30000")
+    # just a different destination to avoid confusion:
+    destn2 = wallet_service.get_internal_addr(2)
+    # We reuse *both* utxos so total fees are comparable
+    # (modulo tiny 1 byte differences in signatures).
+    # Ordinary wallet operations would remove the first-spent utxos,
+    # so for now we build a PSBT using the code from #921 to select
+    # the same utxos (it could be done other ways).
+    # Then we broadcast the PSBT and check it is allowed
+
+    # before constructing the outputs, we need a good fee estimate,
+    # using the bumped feerate:
+    fee = estimate_tx_fee(2, 2, wallet_service.get_txtype())
+    # reset the feerate:
+    total_input_val = sum(vals.values())
+    jm_single().config.set("POLICY", "tx_fees", old_feerate)
+    outs = [{"address": destn2, "value": 1000000},
+            {"address": wallet_service.get_internal_addr(0),
+             "value": total_input_val - 1000000 - fee}]
+    tx2 = bitcoin.mktx(utxos, outs, version=2,
+                       locktime=compute_tx_locktime())
+    spent_outs = []
+    for u in utxos:
+        spent_outs.append(bitcoin.CTxOut(nValue=vals[u],
+                            scriptPubKey=scrs[u]))
+    psbt_unsigned = wallet_service.create_psbt_from_tx(tx2,
+                                    spent_outs=spent_outs)
+    signresultandpsbt, err = wallet_service.sign_psbt(
+        psbt_unsigned.serialize(), with_sign_result=True)
+    assert not err
+    signresult, psbt_signed = signresultandpsbt
+    tx2_signed = psbt_signed.extract_transaction()
+    # the following assertion is sufficient, because
+    # tx broadcast would fail if the replacement were
+    # not allowed by Core:
+    assert jm_single().bc_interface.pushtx(tx2_signed.serialize())
 
 def test_spend_freeze_script(setup_tx_creation):
     ensure_bip65_activated()

@@ -18,6 +18,31 @@ from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
                                        SCRIPT_VERIFY_STRICTENC,
                                        SIGVERSION_WITNESS_V0)
 
+# for each transaction type, different output script pubkeys may result in
+# a difference in the number of bytes accounted for while estimating the
+# transaction size, this variable stores the difference and is factored in
+# when calculating the correct transaction size. For example, for a p2pkh
+# transaction, if one of the outputs is a p2wsh pubkey, then the transaction
+# would need 9 extra bytes to account for the difference in script pubkey
+# sizes
+OUTPUT_EXTRA_BYTES = {
+    'p2pkh': {
+        'p2wpkh': -3,
+        'p2sh-p2wpkh': -2,
+        'p2wsh': 9
+    },
+    'p2wpkh': {
+        'p2pkh': 3,
+        'p2sh-p2wpkh': 1,
+        'p2wsh': 12
+    },
+    'p2sh-p2wpkh': {
+        'p2pkh': 2,
+        'p2wpkh': -1,
+        'p2wsh': 11
+    }
+}
+
 def human_readable_transaction(tx, jsonified=True):
     """ Given a CTransaction object, output a human
     readable json-formatted string (suitable for terminal
@@ -81,52 +106,67 @@ def human_readable_output(txoutput):
         pass # non standard script
     return outdict
 
-def estimate_tx_size(ins, outs, txtype='p2pkh'):
+def estimate_tx_size(ins, outs, txtype='p2pkh', outtype=None):
     '''Estimate transaction size.
     The txtype field as detailed below is used to distinguish
     the type, but there is at least one source of meaningful roughness:
-    we assume the output types are the same as the input (to be fair,
-    outputs only contribute a little to the overall total). This combined
-    with a few bytes variation in signature sizes means we will expect,
-    say, 10% inaccuracy here.
+    we assume that the scriptPubKey type of all the outputs are the same as
+    the input, unless `outtype` is specified, in which case *one* of
+    the outputs is assumed to be that other type, with all of the other
+    outputs being of the same type as before.
+    This, combined with a few bytes variation in signature sizes means
+    we will sometimes see small inaccuracies in this estimate.
 
     Assuming p2pkh:
-    out: 8+1+3+2+20=34, in: 1+32+4+1+1+~73+1+1+33=147,
-    ver:4,seq:4, +2 (len in,out)
-    total ~= 34*len_out + 147*len_in + 10 (sig sizes vary slightly)
+    out: 8+1+3+20+2=34, in: 32+4+1+1+~72+1+33+4=148,
+    ver: 4, locktime:4, +2 (len in,out)
+    total = 34*len_out + 148*len_in + 10 (sig sizes vary slightly)
+
     Assuming p2sh M of N multisig:
     "ins" must contain M, N so ins= (numins, M, N) (crude assuming all same)
-    74*M + 34*N + 45 per input, so total ins ~ len_ins * (45+74M+34N)
-    so total ~ 34*len_out + (45+74M+34N)*len_in + 10
+    73*M + 34*N + 45 per input, so total ins ~ len_ins * (45+73M+34N)
+    so total ~ 32*len_out + (45+73M+34N)*len_in + 10
+
     Assuming p2sh-p2wpkh:
-    witness are roughly 3+~73+33 for each input
+    witness are roughly 1+1+~72+1+33 for each input
     (txid, vin, 4+20 for witness program encoded as scriptsig, 4 for sequence)
     non-witness input fields are roughly 32+4+4+20+4=64, so total becomes
-    n_in * 64 + 4(ver) + 4(locktime) + n_out*34
+    n_in * 64 + 4(ver) + 2(marker, flag) + 2(n_in, n_out) + 4(locktime) + n_out*32
+
     Assuming p2wpkh native:
     witness as previous case
     non-witness loses the 24 witnessprogram, replaced with 1 zero,
     in the scriptSig, so becomes:
-    n_in * 41 + 4(ver) + 4(locktime) +2 (len in, out) + n_out*34
+    4 + 1 + 1 + (n_in) + (vin) + (n_out) + (vout) + (witness) + (locktime)
+    non-witness: 4(ver) +2 (marker, flag) + n_in*41 + 4(locktime) +2 (len in, out) + n_out*31
+    witness: 1 + 1 + 72 + 1 + 33
     '''
     if txtype == 'p2pkh':
-        return 10 + ins * 147 + 34 * outs
+        return 4 + 4 + 2 + ins*148 + 34*outs + (
+            OUTPUT_EXTRA_BYTES[txtype][outtype]
+            if outtype and outtype in OUTPUT_EXTRA_BYTES[txtype] else 0)
     elif txtype == 'p2sh-p2wpkh':
         #return the estimate for the witness and non-witness
         #portions of the transaction, assuming that all the inputs
         #are of segwit type p2sh-p2wpkh
         # Note as of Jan19: this misses 2 bytes (trivial) for len in, out
         # and also overestimates output size by 2 bytes.
-        witness_estimate = ins*109
-        non_witness_estimate = 4 + 4 + outs*34 + ins*64
+        witness_estimate = ins*108
+        non_witness_estimate = 4 + 4 + 4 + outs*32 + ins*64 + (
+            OUTPUT_EXTRA_BYTES[txtype][outtype]
+            if outtype and outtype in OUTPUT_EXTRA_BYTES[txtype] else 0)
         return (witness_estimate, non_witness_estimate)
     elif txtype == 'p2wpkh':
-        witness_estimate = ins*109
-        non_witness_estimate = 4 + 4 + 2 + outs*31 + ins*41
+        witness_estimate = ins*108
+        non_witness_estimate = 4 + 4 + 4 + outs*31 + ins*41 + (
+            OUTPUT_EXTRA_BYTES[txtype][outtype]
+            if outtype and outtype in OUTPUT_EXTRA_BYTES[txtype] else 0)
         return (witness_estimate, non_witness_estimate)
     elif txtype == 'p2shMofN':
         ins, M, N = ins
-        return 10 + (45 + 74*M + 34*N) * ins + 34 * outs
+        return 4 + 4 + 2 + (45 + 73*M + 34*N)*ins + outs*32 + (
+            OUTPUT_EXTRA_BYTES['p2sh-p2wpkh'][outtype]
+            if outtype and outtype in OUTPUT_EXTRA_BYTES['p2sh-p2wpkh'] else 0)
     else:
         raise NotImplementedError("Transaction size estimation not" +
                                   "yet implemented for type: " + txtype)
