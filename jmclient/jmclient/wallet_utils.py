@@ -88,6 +88,10 @@ The method is one of the following:
                       default=1,
                       help=('History method verbosity, 0 (least) to 6 (most), '
                             '<=2 batches earnings, even values also list TXIDs'))
+    parser.add_option('--hide-new-addr',
+                      action='store_true',
+                      dest='hidenewaddr',
+                      help='Hide new addresses when display wallet balance')
     parser.add_option('-H',
                       '--hd',
                       action='store',
@@ -393,7 +397,7 @@ def wallet_showutxos(wallet_service, showprivkey):
 
 
 def wallet_display(wallet_service, showprivkey, displayall=False,
-        serialized=True, summarized=False, mixdepth=None):
+        serialized=True, summarized=False, mixdepth=None, hidenewaddr=False):
     """build the walletview object,
     then return its serialization directly if serialized,
     else return the WalletView object.
@@ -460,7 +464,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                 else:
                     privkey = ''
                 if (displayall or balance > 0 or
-                        (used == 'new' and address_type == 0)):
+                        (not hidenewaddr and used == 'new' and address_type == 0)):
                     entrylist.append(WalletViewEntry(
                         wallet_service.get_path_repr(path), m, address_type, k, addr,
                         [balance, balance], priv=privkey, used=used))
@@ -1519,7 +1523,7 @@ def wallet_tool_main(wallet_root_path):
     #Now the wallet/data is prepared, execute the script according to the method
     if method == "display":
         return wallet_display(wallet_service, options.showprivkey,
-            mixdepth=options.mixdepth)
+            mixdepth=options.mixdepth, hidenewaddr=options.hidenewaddr)
     elif method == "displayall":
         return wallet_display(wallet_service, options.showprivkey,
             displayall=True, mixdepth=options.mixdepth)
