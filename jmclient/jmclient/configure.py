@@ -493,15 +493,6 @@ def _get_irc_mchannels_old():
         configs.append(newconfig)
     return configs
 
-
-def get_config_irc_channel(channel_name):
-    channel = "#" + channel_name
-    if get_network() == 'testnet':
-        channel += '-test'
-    elif get_network() == 'signet':
-        channel += '-sig'
-    return channel
-
 class JMPluginService(object):
     """ Allows us to configure on-startup
     any additional service (such as SNICKER).

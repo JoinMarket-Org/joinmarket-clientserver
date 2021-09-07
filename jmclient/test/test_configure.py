@@ -1,9 +1,8 @@
 '''test configure module.'''
 
 import pytest
-from jmclient import load_test_config, jm_single, get_irc_mchannels
-from jmclient.configure import (get_config_irc_channel,
-                                get_blockchain_interface_instance)
+from jmclient import load_test_config, jm_single
+from jmclient.configure import get_blockchain_interface_instance
 
 
 def test_attribute_dict():
@@ -21,16 +20,6 @@ def test_load_config(tmpdir):
     with pytest.raises(SystemExit):
         load_test_config(config_path=str(tmpdir), bs="regtest")
     jm_single().config_location = "joinmarket.cfg"
-    load_test_config()
-
-
-def test_config_get_irc_channel():
-    load_test_config()
-    channel = "dummy"
-    assert get_config_irc_channel(channel) == "#dummy-test"
-    jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
-    assert get_config_irc_channel(channel) == "#dummy"
-    get_irc_mchannels()
     load_test_config()
 
 
