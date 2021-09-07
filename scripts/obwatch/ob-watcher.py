@@ -721,6 +721,10 @@ class ObBasic(OrderbookWatch):
     def __init__(self, msgchan, hostport):
         self.hostport = hostport
         self.set_msgchan(msgchan)
+        # in client-server, this is passed by client
+        # in INIT message. Here, we have no Joinmarket client,
+        # but we have access to the client config in this script:
+        self.dust_threshold = jm_single().DUST_THRESHOLD
 
     def on_welcome(self):
         """TODO: It will probably be a bit
