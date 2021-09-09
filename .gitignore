@@ -32,4 +32,4 @@ scripts/jm-tx-history.txt
 scripts/snicker/joinmarket.cfg
 scripts/snicker/snicker-proposals.txt
 scripts/snicker/candidates.txt
-
+.qt_for_python/

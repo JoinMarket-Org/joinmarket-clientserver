@@ -4,7 +4,7 @@ from setuptools import setup
 setup(name='joinmarketclient',
       version='0.9.2dev',
       description='Joinmarket client library for Bitcoin coinjoins',
-      url='http://github.com/Joinmarket-Org/joinmarket-clientserver/jmclient',
+      url='https://github.com/JoinMarket-Org/joinmarket-clientserver/tree/master/jmclient',
       author='',
       author_email='',
       license='GPL',
