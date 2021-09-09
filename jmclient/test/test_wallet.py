@@ -13,9 +13,12 @@ from jmclient import load_test_config, jm_single, BaseWallet, \
     VolatileStorage, get_network, cryptoengine, WalletError,\
     SegwitWallet, WalletService, SegwitWalletFidelityBonds,\
     create_wallet, open_test_wallet_maybe, \
-    FidelityBondMixin, FidelityBondWatchonlyWallet, wallet_gettimelockaddress
+    FidelityBondMixin, FidelityBondWatchonlyWallet,\
+    wallet_gettimelockaddress, UnknownAddressForLabel
 from test_blockchaininterface import sync_test_wallet
 from freezegun import freeze_time
+from bitcointx.wallet import CCoinAddressError
+
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 
@@ -555,6 +558,30 @@ def test_remove_old_utxos(setup_wallet):
     assert balances[1] == 10**8
     assert balances[2] == 0
     assert len(balances) == wallet.max_mixdepth + 1
+
+
+def test_address_labels(setup_wallet):
+    wallet = get_populated_wallet(num=2)
+    addr1 = wallet.get_internal_addr(0)
+    addr2 = wallet.get_internal_addr(1)
+    assert wallet.get_address_label(addr2) is None
+    assert wallet.get_address_label(addr2) is None
+    wallet.set_address_label(addr1, "test")
+    # utf-8 characters here are on purpose, to test utf-8 encoding / decoding
+    wallet.set_address_label(addr2, "glāžšķūņu rūķīši")
+    assert wallet.get_address_label(addr1) == "test"
+    assert wallet.get_address_label(addr2) == "glāžšķūņu rūķīši"
+    wallet.set_address_label(addr1, "")
+    wallet.set_address_label(addr2, None)
+    assert wallet.get_address_label(addr2) is None
+    assert wallet.get_address_label(addr2) is None
+    with pytest.raises(UnknownAddressForLabel):
+        wallet.get_address_label("2MzY5yyonUY7zpHspg7jB7WQs1uJxKafQe4")
+        wallet.set_address_label("2MzY5yyonUY7zpHspg7jB7WQs1uJxKafQe4",
+            "test")
+    with pytest.raises(CCoinAddressError):
+        wallet.get_address_label("badaddress")
+        wallet.set_address_label("badaddress", "test")
 
 
 def test_initialize_twice(setup_wallet):
