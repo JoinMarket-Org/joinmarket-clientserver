@@ -536,8 +536,9 @@ class SpendTab(QWidget):
         innerTopLayout.setSpacing(4)
         self.single_join_tab.setLayout(innerTopLayout)
 
-        donateLayout = self.getDonateLayout()
-        innerTopLayout.addLayout(donateLayout, 0, 0, 1, 2)
+        #Temporarily disabled
+        # donateLayout = self.getDonateLayout()
+        # innerTopLayout.addLayout(donateLayout, 0, 0, 1, 2)
 
         recipientLabel = QLabel('Recipient address / URI')
         recipientLabel.setToolTip(
