@@ -4,7 +4,7 @@ import os
 setup(name='joinmarketui',
       version='0.9.2dev',
       description='Joinmarket client library for Bitcoin coinjoins',
-      url='http://github.com/Joinmarket-Org/joinmarket-clientserver/jmfg',
+      url='https://github.com/JoinMarket-Org/joinmarket-clientserver/tree/master/jmqtui',
       author='',
       author_email='',
       license='GPL',
