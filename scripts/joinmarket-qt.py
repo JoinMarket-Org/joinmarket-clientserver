@@ -1459,9 +1459,12 @@ class JMWalletTab(QWidget):
             menu.addAction("Copy extended public key to clipboard",
                            lambda: app.clipboard().setText(xpub),
                            shortcut=QKeySequence(QKeySequence.Copy))
+        menu.addAction("Refresh wallet",
+                       lambda: mainWindow.updateWalletInfo(None, "all"),
+                       shortcut=QKeySequence(QKeySequence.Refresh))
+
         #TODO add more items to context menu
-        if address_valid or xpub_exists:
-            menu.exec_(self.walletTree.viewport().mapToGlobal(position))
+        menu.exec_(self.walletTree.viewport().mapToGlobal(position))
 
     def openQRCodePopup(self, address):
         bip21_uri = btc.encode_bip21_uri(address, {})
