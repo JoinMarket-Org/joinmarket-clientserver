@@ -114,6 +114,7 @@ class JMOpenWalletDialog(QDialog, Ui_OpenWalletDialog):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
+        self.passphraseEdit.setFocus()
 
         self.chooseWalletButton.clicked.connect(self.chooseWalletFile)
 
@@ -125,6 +126,7 @@ class JMOpenWalletDialog(QDialog, Ui_OpenWalletDialog):
                                                 options=QFileDialog.DontUseNativeDialog)
         if filename:
             self.walletFileEdit.setText(filename)
+            self.passphraseEdit.setFocus()
 
 
 class HelpLabel(QLabel):
@@ -1635,9 +1637,10 @@ class JMMainWindow(QMainWindow):
     def initUI(self):
         self.statusBar().showMessage("Ready")
         self.setGeometry(300, 300, 250, 150)
-        loadAction = QAction('&Load...', self)
-        loadAction.setStatusTip('Load wallet from file')
-        loadAction.triggered.connect(self.selectWallet)
+        openWalletAction = QAction('&Open...', self)
+        openWalletAction.setStatusTip('Open JoinMarket wallet file')
+        openWalletAction.setShortcut(QKeySequence.Open)
+        openWalletAction.triggered.connect(self.openWallet)
         generateAction = QAction('&Generate...', self)
         generateAction.setStatusTip('Generate new wallet')
         generateAction.triggered.connect(self.generateWallet)
@@ -1657,7 +1660,7 @@ class JMMainWindow(QMainWindow):
         receivePayjoinAction.setStatusTip('Receive BIP78 style payment')
         receivePayjoinAction.triggered.connect(self.receiver_bip78_init)
         quitAction = QAction(QIcon('exit.png'), '&Quit', self)
-        quitAction.setShortcut('Ctrl+Q')
+        quitAction.setShortcut(QKeySequence.Quit)
         quitAction.setStatusTip('Quit application')
         quitAction.triggered.connect(qApp.quit)
 
@@ -1666,7 +1669,7 @@ class JMMainWindow(QMainWindow):
 
         menubar = self.menuBar()
         walletMenu = menubar.addMenu('&Wallet')
-        walletMenu.addAction(loadAction)
+        walletMenu.addAction(openWalletAction)
         walletMenu.addAction(generateAction)
         walletMenu.addAction(recoverAction)
         walletMenu.addAction(showSeedAction)
@@ -1960,6 +1963,28 @@ class JMMainWindow(QMainWindow):
                                    title="Wallet created")
         self.initWallet(seed=self.walletname)
 
+    def openWallet(self):
+        wallet_loaded = False
+        wallet_file_text = "wallet.jmdat"
+        error_text = ""
+
+        while not wallet_loaded:
+            openWalletDialog = JMOpenWalletDialog()
+            openWalletDialog.walletFileEdit.setText(wallet_file_text)
+            openWalletDialog.errorMessageLabel.setText(error_text)
+            if openWalletDialog.exec_() == QDialog.Accepted:
+                wallet_file_text = openWalletDialog.walletFileEdit.text()
+                wallet_path = wallet_file_text
+                if not os.path.isabs(wallet_path):
+                    wallet_path = os.path.join(jm_single().datadir, 'wallets', wallet_path)
+
+                try:
+                    wallet_loaded = mainWindow.loadWalletFromBlockchain(wallet_path, openWalletDialog.passphraseEdit.text(), rethrow=True)
+                except Exception as e:
+                    error_text = str(e)
+            else:
+                break
+
     def selectWallet(self, testnet_seed=None):
         if jm_single().config.get("BLOCKCHAIN", "blockchain_source") != "regtest":
             # guaranteed to exist as load_program_config was called on startup:
@@ -2006,7 +2031,7 @@ class JMMainWindow(QMainWindow):
             #ignore return value as there is no decryption failure possible
             self.loadWalletFromBlockchain(firstarg, pwd)
 
-    def loadWalletFromBlockchain(self, firstarg=None, pwd=None):
+    def loadWalletFromBlockchain(self, firstarg=None, pwd=None, rethrow=False):
         if firstarg:
             wallet_path = get_wallet_path(str(firstarg), None)
             try:
@@ -2014,11 +2039,14 @@ class JMMainWindow(QMainWindow):
                         None, ask_for_password=False, password=pwd.encode('utf-8') if pwd else None,
                         gap_limit=jm_single().config.getint("GUI", "gaplimit"))
             except RetryableStorageError as e:
-                JMQtMessageBox(self,
-                               str(e),
-                               mbtype='warn',
-                               title="Error")
-                return False
+                if rethrow:
+                    raise e
+                else:
+                    JMQtMessageBox(self,
+                                str(e),
+                                mbtype='warn',
+                                title="Error")
+                    return False
             # only used for GUI display on regtest:
             self.testwalletname = wallet.seed = str(firstarg)
         if 'listunspent_args' not in jm_single().config.options('POLICY'):
@@ -2385,21 +2413,7 @@ tabWidget.currentChanged.connect(onTabChange)
 mainWindow.show()
 reactor.runReturn()
 
-# Upon launching the app, allow the user to choose a wallet to open
-openWalletDialog = JMOpenWalletDialog()
-openWalletDialog.show()
-
-if openWalletDialog.exec_() == QDialog.Accepted:
-    wallet_path = openWalletDialog.walletFileEdit.text()
-    if not os.path.isabs(wallet_path):
-        wallet_path = os.path.join(jm_single().datadir, 'wallets', wallet_path)
-    
-    try:
-        mainWindow.loadWalletFromBlockchain(wallet_path, openWalletDialog.passphraseEdit.text())
-    except Exception as e:
-        JMQtMessageBox(None,
-                    str(e),
-                    mbtype='warn',
-                    title="Error")
+# Upon launching the app, ask the user to choose a wallet to open
+mainWindow.openWallet()
 
 sys.exit(app.exec_())

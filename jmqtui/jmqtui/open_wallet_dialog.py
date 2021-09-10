@@ -92,6 +92,30 @@ class Ui_OpenWalletDialog(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout_2)
 
+        self.horizontalLayout_4 = QHBoxLayout()
+        self.horizontalLayout_4.setSpacing(10)
+        self.horizontalLayout_4.setObjectName(u"horizontalLayout_4")
+        self.errorMessageLabel = QLabel(OpenWalletDialog)
+        self.errorMessageLabel.setObjectName(u"errorMessageLabel")
+        palette = QPalette()
+        brush = QBrush(QColor(239, 41, 41, 255))
+        brush.setStyle(Qt.SolidPattern)
+        palette.setBrush(QPalette.Active, QPalette.WindowText, brush)
+        palette.setBrush(QPalette.Inactive, QPalette.WindowText, brush)
+        brush1 = QBrush(QColor(190, 190, 190, 255))
+        brush1.setStyle(Qt.SolidPattern)
+        palette.setBrush(QPalette.Disabled, QPalette.WindowText, brush1)
+        self.errorMessageLabel.setPalette(palette)
+        font = QFont()
+        font.setBold(True)
+        font.setWeight(75)
+        self.errorMessageLabel.setFont(font)
+
+        self.horizontalLayout_4.addWidget(self.errorMessageLabel)
+
+
+        self.verticalLayout.addLayout(self.horizontalLayout_4)
+
         self.verticalSpacer = QSpacerItem(20, 150, QSizePolicy.Minimum, QSizePolicy.Minimum)
 
         self.verticalLayout.addItem(self.verticalSpacer)
@@ -114,9 +138,9 @@ class Ui_OpenWalletDialog(object):
 
         self.verticalLayout.addLayout(self.horizontalLayout_3)
 
-        self.verticalLayout.setStretch(2, 1)
-        QWidget.setTabOrder(self.passphraseEdit, self.chooseWalletButton)
-        QWidget.setTabOrder(self.chooseWalletButton, self.walletFileEdit)
+        self.verticalLayout.setStretch(3, 1)
+        QWidget.setTabOrder(self.walletFileEdit, self.chooseWalletButton)
+        QWidget.setTabOrder(self.chooseWalletButton, self.passphraseEdit)
 
         self.retranslateUi(OpenWalletDialog)
         self.buttonBox.accepted.connect(OpenWalletDialog.accept)
@@ -132,5 +156,6 @@ class Ui_OpenWalletDialog(object):
         self.walletFileEdit.setPlaceholderText("")
         self.chooseWalletButton.setText(QCoreApplication.translate("OpenWalletDialog", u"Choose...", None))
         self.label_2.setText(QCoreApplication.translate("OpenWalletDialog", u"Passphrase:", None))
+        self.errorMessageLabel.setText("")
     # retranslateUi
 
