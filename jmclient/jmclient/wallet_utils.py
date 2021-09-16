@@ -227,21 +227,19 @@ class WalletViewBranch(WalletViewBase):
     def serialize(self, entryseparator="\n", summarize=False):
         if summarize:
             return ""
-        else:
-            lines = [self.serialize_branch_header()]
-            for we in self.branchentries:
-                lines.append(we.serialize())
-            footer = "Balance:" + self.separator + self.get_fmt_balance()
-            lines.append(footer)
-            return self.serclass(entryseparator.join(lines))
+        lines = [self.serialize_branch_header()]
+        for we in self.branchentries:
+            lines.append(we.serialize())
+        footer = "Balance:" + self.separator + self.get_fmt_balance()
+        lines.append(footer)
+        return self.serclass(entryseparator.join(lines))
 
     def serialize_json(self, summarize=False):
         if summarize:
             return {}
-        else:
-            return {"branch": self.serialize_branch_header(),
-                    "balance": self.get_fmt_balance(),
-             "entries": [x.serialize_json() for x in self.branchentries]}
+        return {"branch": self.serialize_branch_header(),
+                "balance": self.get_fmt_balance(),
+         "entries": [x.serialize_json() for x in self.branchentries]}
 
     def serialize_branch_header(self):
         start = "external addresses" if self.address_type == 0 else "internal addresses"

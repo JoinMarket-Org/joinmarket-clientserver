@@ -7,6 +7,7 @@ import abc
 import base64
 from twisted.python.log import startLogging
 from twisted.application.service import Service
+from twisted.internet import task
 from optparse import OptionParser
 from jmbase import get_log
 from jmclient import (Maker, jm_single, load_program_config,
@@ -267,6 +268,9 @@ class YieldGeneratorBasic(YieldGenerator):
         cjoutmix = (input_mixdepth + 1) % (self.wallet_service.mixdepth + 1)
         return self.wallet_service.get_internal_addr(cjoutmix)
 
+class YieldGeneratorServiceSetupFailed(Exception):
+    pass
+
 class YieldGeneratorService(Service):
     def __init__(self, wallet_service, daemon_host, daemon_port, yg_config):
         self.wallet_service = wallet_service
@@ -274,6 +278,10 @@ class YieldGeneratorService(Service):
         self.daemon_port = daemon_port
         self.yg_config = yg_config
         self.yieldgen = None
+        # setup,cleanup functions are to be run before
+        # starting, shutting down the service:
+        self.setup_fns = []
+        self.cleanup_fns = []
 
     def startService(self):
         """ We instantiate the Maker class only
@@ -283,6 +291,9 @@ class YieldGeneratorService(Service):
         not-yet-synced wallet services, so there is
         no need to check this here.
         """
+        for setup in self.setup_fns:
+            if not setup():
+                raise YieldGeneratorServiceSetupFailed
         # TODO genericise to any YG class:
         self.yieldgen = YieldGeneratorBasic(self.wallet_service, self.yg_config)
         self.clientfactory = JMClientProtocolFactory(self.yieldgen, proto_type="MAKER")
@@ -290,7 +301,32 @@ class YieldGeneratorService(Service):
         # the connection to the daemon backend; note daemon=False, i.e. the daemon
         # backend is assumed to be started elsewhere; we just connect to it with a client.
         start_reactor(self.daemon_host, self.daemon_port, self.clientfactory, rs=False)
+        # monitor the Maker object, just to check if it's still in an "up" state, marked
+        # by the aborted instance var:
+        self.monitor_loop = task.LoopingCall(self.monitor)
+        self.monitor_loop.start(0.5)
         super().startService()
+
+    def monitor(self):
+        if self.yieldgen.aborted:
+            self.monitor_loop.stop()
+            self.stopService()
+
+    def addSetup(self, setup):
+        """ Setup functions as callbacks:
+        arguments - none
+        returns: must return True if the setup step
+        was successful, or False otherwise.
+        """
+        self.setup_fns.append(setup)
+
+    def addCleanup(self, cleanup):
+        """ Cleanup functions as callbacks:
+        no arguments, and no return (we don't
+        intend to stop shutting down if the cleanup
+        doesn't work somehow).
+        """
+        self.cleanup_fns.append(cleanup)
 
     def stopService(self):
         """ TODO need a method exposed to gracefully
@@ -298,9 +334,13 @@ class YieldGeneratorService(Service):
         """
         if self.running:
             jlog.info("Shutting down YieldGenerator service.")
-            print("client fac is ",self.clientfactory)
             self.clientfactory.proto_client.request_mc_shutdown()
             super().stopService()
+            for cleanup in self.cleanup_fns:
+                cleanup()
+
+    def isRunning(self):
+        return self.running == 1
 
 def ygmain(ygclass, nickserv_password='', gaplimit=6):
     import sys

@@ -7,7 +7,6 @@ import jmbitcoin as btc
 from jmclient.configure import jm_single
 from jmbase import (get_log, utxo_to_utxostr,
                     hextobin, bintohex)
-from twisted.application.service import Service
 
 jlog = get_log()
 
@@ -48,9 +47,7 @@ class SNICKERReceiverService(Service):
         super().stopService()
 
     def isRunning(self):
-        if self.running == 1:
-            return True
-        return False
+        return self.running == 1
 
 class SNICKERReceiver(object):
     supported_flags = []

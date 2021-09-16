@@ -4,7 +4,7 @@ import abc
 import atexit
 
 import jmbitcoin as btc
-from jmbase import bintohex, hexbin, get_log, EXIT_FAILURE, stop_reactor
+from jmbase import bintohex, hexbin, get_log, EXIT_FAILURE
 from jmclient.wallet_service import WalletService
 from jmclient.configure import jm_single
 from jmclient.support import calc_cj_fee
@@ -39,12 +39,18 @@ class Maker(object):
         if not self.wallet_service.synced:
             return
         self.freeze_timelocked_utxos()
-        self.offerlist = self.create_my_orders()
+        try:
+            self.offerlist = self.create_my_orders()
+        except AssertionError:
+            jlog.error("Failed to create offers.")
+            self.aborted = True
+            return
         self.fidelity_bond = self.get_fidelity_bond_template()
         self.sync_wait_loop.stop()
         if not self.offerlist:
-            jlog.info("Failed to create offers, giving up.")
-            stop_reactor()
+            jlog.error("Failed to create offers.")
+            self.aborted = True
+            return
         jlog.info('offerlist={}'.format(self.offerlist))
 
     @hexbin

@@ -1044,8 +1044,9 @@ def start_daemon(host, port, factory, usessl=False, sslkey=None, sslcert=None):
     if usessl:
         assert sslkey
         assert sslcert
-        reactor.listenSSL(
+        serverconn = reactor.listenSSL(
             port, factory, ssl.DefaultOpenSSLContextFactory(sslkey, sslcert),
             interface=host)
     else:
-        reactor.listenTCP(port, factory, interface=host)
+        serverconn = reactor.listenTCP(port, factory, interface=host)
+    return serverconn
