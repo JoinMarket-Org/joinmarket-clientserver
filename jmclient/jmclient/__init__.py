@@ -3,6 +3,7 @@ import logging
 
 from .support import (calc_cj_fee, choose_sweep_orders, choose_orders,
                       cheapest_order_choose, weighted_order_choose,
+                      fidelity_bond_weighted_order_choose,
                       rand_norm_array, rand_exp_array,
                       rand_weighted_choice, select,
                       select_gradual, select_greedy, select_greediest,

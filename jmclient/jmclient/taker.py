@@ -9,7 +9,7 @@ from twisted.internet import reactor, task
 import jmbitcoin as btc
 from jmclient.configure import jm_single, validate_address, get_interest_rate
 from jmbase import get_log, bintohex, hexbin
-from jmclient.support import (calc_cj_fee, weighted_order_choose, choose_orders,
+from jmclient.support import (calc_cj_fee, fidelity_bond_weighted_order_choose, choose_orders,
                               choose_sweep_orders)
 from jmclient.wallet import estimate_tx_fee, compute_tx_locktime, FidelityBondMixin
 from jmclient.podle import generate_podle, get_podle_commitments
@@ -47,7 +47,7 @@ class Taker(object):
                  wallet_service,
                  schedule,
                  max_cj_fee,
-                 order_chooser=weighted_order_choose,
+                 order_chooser=fidelity_bond_weighted_order_choose,
                  callbacks=None,
                  tdestaddrs=None,
                  custom_change_address=None,
