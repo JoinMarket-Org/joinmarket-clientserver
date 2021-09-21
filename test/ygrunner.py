@@ -54,12 +54,12 @@ class MaliciousYieldGenerator(YieldGeneratorBasic):
                 jmprint("Counterparty commitment rejected maliciously", "debug")
                 return (False,)
         return super().on_auth_received(nick, offer, commitment, cr, amount, kphex)
-    def on_tx_received(self, nick, txhex, offerinfo):
+    def on_tx_received(self, nick, tx, offerinfo):
         if self.txmal:
             if random.randint(1, 100) < self.mfrac:
                 jmprint("Counterparty tx rejected maliciously", "debug")
                 return (False, "malicious tx rejection")
-        return super().on_tx_received(nick, txhex, offerinfo)
+        return super().on_tx_received(nick, tx, offerinfo)
 
 class DeterministicMaliciousYieldGenerator(YieldGeneratorBasic):
     """Overrides, randomly chosen persistently, some maker functions
@@ -85,11 +85,11 @@ class DeterministicMaliciousYieldGenerator(YieldGeneratorBasic):
             jmprint("Counterparty commitment rejected maliciously", "debug")
             return (False,)
         return super().on_auth_received(nick, offer, commitment, cr, amount, kphex)
-    def on_tx_received(self, nick, txhex, offerinfo):
+    def on_tx_received(self, nick, tx, offerinfo):
         if self.txmal:
             jmprint("Counterparty tx rejected maliciously", "debug")
             return (False, "malicious tx rejection")
-        return super().on_tx_received(nick, txhex, offerinfo)
+        return super().on_tx_received(nick, tx, offerinfo)
 
 
 @pytest.mark.parametrize(

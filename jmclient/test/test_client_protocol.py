@@ -20,6 +20,7 @@ from commontest import default_max_cj_fee
 import json
 import jmbitcoin as bitcoin
 import twisted
+import base64
 twisted.internet.base.DelayedCall.debug = True
 
 test_completed = False
@@ -64,7 +65,8 @@ class DummyTaker(Taker):
         if self.failutxos:
             return (False, "dummyreason")
         else:
-            return (True, [x*64 + ":01" for x in ["a", "b", "c"]], t_raw_signed_tx)
+            return (True, [x*64 + ":01" for x in ["a", "b", "c"]],
+                    base64.b16decode(t_raw_signed_tx, casefold=True))
 
 
     def on_sig(self, nick, sigb64):
@@ -99,7 +101,7 @@ class DummyMaker(Maker):
         # success, utxos, auth_pub, cj_addr, change_addr, btc_sig
         return True, [], b"", '', '', ''
 
-    def on_tx_received(self, nick, txhex, offerinfo):
+    def on_tx_received(self, nick, tx, offerinfo):
         # success, sigs
         return True, []
 
@@ -185,8 +187,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, offers, use_fidelity_bond):
-        show_receipt("JMSETUP", role, offers, use_fidelity_bond)
+    def on_JM_SETUP(self, role, initdata, use_fidelity_bond):
+        show_receipt("JMSETUP", role, initdata, use_fidelity_bond)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -198,8 +200,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         orderbook = ["aaaa" for _ in range(15)]
         fidelitybonds = ["bbbb" for _ in range(15)]
         d = self.callRemote(JMOffers,
-                        orderbook=json.dumps(orderbook),
-                        fidelitybonds=json.dumps(fidelitybonds))
+                            orderbook=json.dumps(orderbook),
+                            fidelitybonds=json.dumps(fidelitybonds))
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -208,24 +210,24 @@ class JMTestServerProtocol(JMBaseProtocol):
         success = False if amount == -1 else True
         show_receipt("JMFILL", amount, commitment, revelation, filled_offers)
         d = self.callRemote(JMFillResponse,
-                                success=success,
-                                ioauth_data = json.dumps(['dummy', 'list']))
+                            success=success,
+                            ioauth_data=['dummy', 'list'])
         return {'accepted': True}
 
     @JMMakeTx.responder
-    def on_JM_MAKE_TX(self, nick_list, txhex):
-        show_receipt("JMMAKETX", nick_list, txhex)
+    def on_JM_MAKE_TX(self, nick_list, tx):
+        show_receipt("JMMAKETX", nick_list, tx)
         d = self.callRemote(JMSigReceived,
-                               nick="dummynick",
-                               sig="xxxsig")
+                            nick="dummynick",
+                            sig="xxxsig")
         self.defaultCallbacks(d)
         #add dummy calls to check message sign and message verify
         d2 = self.callRemote(JMRequestMsgSig,
-                                    nick="dummynickforsign",
-                                    cmd="command1",
-                                    msg="msgforsign",
-                                    msg_to_be_signed="fullmsgforsign",
-                                    hostid="hostid1")
+                             nick="dummynickforsign",
+                             cmd="command1",
+                             msg="msgforsign",
+                             msg_to_be_signed="fullmsgforsign",
+                             hostid="hostid1")
         self.defaultCallbacks(d2)
         #To test, this must include a valid ecdsa sig
         fullmsg = "fullmsgforverify"
@@ -233,18 +235,18 @@ class JMTestServerProtocol(JMBaseProtocol):
         pub = bintohex(bitcoin.privkey_to_pubkey(priv))
         sig = bitcoin.ecdsa_sign(fullmsg, priv)
         d3 = self.callRemote(JMRequestMsgSigVerify,
-                                        msg="msgforverify",
-                                        fullmsg=fullmsg,
-                                        sig=sig,
-                                        pubkey=pub,
-                                        nick="dummynickforverify",
-                                        hashlen=4,
-                                        max_encoded=5,
-                                        hostid="hostid2")
+                             msg="msgforverify",
+                             fullmsg=fullmsg,
+                             sig=sig,
+                             pubkey=pub,
+                             nick="dummynickforverify",
+                             hashlen=4,
+                             max_encoded=5,
+                             hostid="hostid2")
         self.defaultCallbacks(d3)
         d4 = self.callRemote(JMSigReceived,
-                                nick="dummynick",
-                                sig="dummysig")
+                             nick="dummynick",
+                             sig="dummysig")
         self.defaultCallbacks(d4)        
         return {'accepted': True}
             
@@ -390,13 +392,14 @@ class TestMakerClientProtocol(unittest.TestCase):
     def test_JMAuthReceived(self):
         yield self.init_client()
         yield self.callClient(
-            JMAuthReceived, nick='testnick', offer='{}',
-            commitment='testcommitment', revelation='{}', amount=100000,
+            JMAuthReceived, nick='testnick', offer={},
+            commitment='testcommitment', revelation={}, amount=100000,
             kphex='testkphex')
 
     @inlineCallbacks
     def test_JMTXReceived(self):
         yield self.init_client()
         yield self.callClient(
-            JMTXReceived, nick='testnick', txhex=t_raw_signed_tx,
-            offer='{"cjaddr":"2MwfecDHsQTm4Gg3RekQdpqAMR15BJrjfRF"}')
+            JMTXReceived, nick='testnick',
+            tx=base64.b16decode(t_raw_signed_tx, casefold=True),
+            offer={"cjaddr":"2MwfecDHsQTm4Gg3RekQdpqAMR15BJrjfRF"})

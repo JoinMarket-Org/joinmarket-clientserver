@@ -21,12 +21,12 @@ class JMBaseProtocol(amp.AMP):
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop()
+            raise Exception(response)
 
     def defaultErrback(self, failure):
         failure.trap(ConnectionAborted, ConnectionClosed, ConnectionDone,
                      ConnectionLost, UnknownRemoteError)
-        reactor.stop()
+        raise Exception(failure)
 
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
@@ -63,8 +63,8 @@ class JMTestServerProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMSetup.responder
-    def on_JM_SETUP(self, role, offers, use_fidelity_bond):
-        show_receipt("JMSETUP", role, offers, use_fidelity_bond)
+    def on_JM_SETUP(self, role, initdata, use_fidelity_bond):
+        show_receipt("JMSETUP", role, initdata, use_fidelity_bond)
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -84,36 +84,36 @@ class JMTestServerProtocol(JMBaseProtocol):
     def on_JM_FILL(self, amount, commitment, revelation, filled_offers):
         show_receipt("JMFILL", amount, commitment, revelation, filled_offers)
         d = self.callRemote(JMFillResponse,
-                                success=True,
-                                ioauth_data = json.dumps(['dummy', 'list']))
+                            success=True,
+                            ioauth_data=['dummy', 'list'])
         return {'accepted': True}
 
     @JMMakeTx.responder
-    def on_JM_MAKE_TX(self, nick_list, txhex):
-        show_receipt("JMMAKETX", nick_list, txhex)
+    def on_JM_MAKE_TX(self, nick_list, tx):
+        show_receipt("JMMAKETX", nick_list, tx)
         d = self.callRemote(JMSigReceived,
-                               nick="dummynick",
-                               sig="xxxsig")
+                            nick="dummynick",
+                            sig="xxxsig")
         self.defaultCallbacks(d)
         #add dummy calls to check message sign and message verify
         d2 = self.callRemote(JMRequestMsgSig,
-                                    nick="dummynickforsign",
-                                    cmd="command1",
-                                    msg="msgforsign",
-                                    msg_to_be_signed="fullmsgforsign",
-                                    hostid="hostid1")
+                             nick="dummynickforsign",
+                             cmd="command1",
+                             msg="msgforsign",
+                             msg_to_be_signed="fullmsgforsign",
+                             hostid="hostid1")
         self.defaultCallbacks(d2)
         d3 = self.callRemote(JMRequestMsgSigVerify,
-                                        msg="msgforverify",
-                                        fullmsg="fullmsgforverify",
-                                        sig="xxxsigforverify",
-                                        pubkey="pubkey1",
-                                        nick="dummynickforverify",
-                                        hashlen=4,
-                                        max_encoded=5,
-                                        hostid="hostid2")
+                             msg="msgforverify",
+                             fullmsg="fullmsgforverify",
+                             sig="xxxsigforverify",
+                             pubkey="pubkey1",
+                             nick="dummynickforverify",
+                             hashlen=4,
+                             max_encoded=5,
+                             hostid="hostid2")
         self.defaultCallbacks(d3)
-        d4 = self.callRemote(JMTXBroadcast, txhex="deadbeef")
+        d4 = self.callRemote(JMTXBroadcast, tx=b"deadbeef")
         self.defaultCallbacks(d4)
         return {'accepted': True}
             
@@ -137,7 +137,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         d = self.callRemote(JMInit,
                             bcsource="dummyblockchain",
                             network="dummynetwork",
-                            irc_configs=json.dumps(['dummy', 'irc', 'config']),
+                            irc_configs=['dummy', 'irc', 'config'],
                             minmakers=7,
                             maker_timeout_sec=8,
                             dust_threshold=1500)
@@ -158,7 +158,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         show_receipt("JMUP")
         d = self.callRemote(JMSetup,
                             role="TAKER",
-                            offers="{}",
+                            initdata=None,
                             use_fidelity_bond=False)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -174,8 +174,8 @@ class JMTestClientProtocol(JMBaseProtocol):
     def on_JM_FILL_RESPONSE(self, success, ioauth_data):
         show_receipt("JMFILLRESPONSE", success, ioauth_data)
         d = self.callRemote(JMMakeTx,
-                            nick_list= json.dumps(['nick1', 'nick2', 'nick3']),
-                            txhex="deadbeef")
+                            nick_list=['nick1', 'nick2', 'nick3'],
+                            tx=b"deadbeef")
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -186,7 +186,7 @@ class JMTestClientProtocol(JMBaseProtocol):
                             amount=100,
                             commitment="dummycommitment",
                             revelation="dummyrevelation",
-                            filled_offers=json.dumps(['list', 'of', 'filled', 'offers']))
+                            filled_offers=['list', 'of', 'filled', 'offers'])
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -222,8 +222,8 @@ class JMTestClientProtocol(JMBaseProtocol):
         return {'accepted': True}
 
     @JMTXBroadcast.responder
-    def on_JM_TX_BROADCAST(self, txhex):
-        show_receipt("JMTXBROADCAST", txhex)
+    def on_JM_TX_BROADCAST(self, tx):
+        show_receipt("JMTXBROADCAST", tx)
         return {"accepted": True}
 
 class JMTestClientProtocolFactory(protocol.ClientFactory):

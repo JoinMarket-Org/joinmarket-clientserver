@@ -9,7 +9,7 @@ import pytest
 import copy
 from twisted.internet import reactor
 
-from jmbase import get_log, hextobin
+from jmbase import get_log
 from jmclient import load_test_config, jm_single,\
     YieldGeneratorBasic, Taker, LegacyWallet, SegwitLegacyWallet, SegwitWallet,\
     NO_ROUNDING
@@ -206,7 +206,7 @@ def test_coinjoin_mixdepth_wrap_taker(monkeypatch, tmpdir, setup_cj):
     taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
     assert taker_final_result is not False
 
-    tx = btc.CMutableTransaction.deserialize(hextobin(txdata[2]))
+    tx = btc.CMutableTransaction.deserialize(txdata[2])
 
     wallet_service = wallet_services[-1]
     # TODO change for new tx monitoring:
@@ -261,7 +261,7 @@ def test_coinjoin_mixdepth_wrap_maker(monkeypatch, tmpdir, setup_cj):
     taker_final_result = do_tx_signing(taker, makers, active_orders, txdata)
     assert taker_final_result is not False
 
-    tx = btc.CMutableTransaction.deserialize(hextobin(txdata[2]))
+    tx = btc.CMutableTransaction.deserialize(txdata[2])
 
     for i in range(MAKER_NUM):
         wallet_service = wallet_services[i]

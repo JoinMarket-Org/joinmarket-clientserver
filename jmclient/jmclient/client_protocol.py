@@ -73,13 +73,13 @@ class BIP78ClientProtocol(BaseClientProtocol):
                          "tls_whitelist": ",".join(self.tls_whitelist),
                          "servers": [self.manager.server]}
             d = self.callRemote(commands.BIP78SenderInit,
-                                netconfig=json.dumps(netconfig))
+                                netconfig=netconfig)
         else:
             netconfig = {"port": 80,
                          "tor_control_host": jcg("PAYJOIN", "tor_control_host"),
                          "tor_control_port": jcg("PAYJOIN", "tor_control_port")}
             d = self.callRemote(commands.BIP78ReceiverInit,
-                                netconfig=json.dumps(netconfig))
+                                netconfig=netconfig)
         self.defaultCallbacks(d)
 
     @commands.BIP78ReceiverUp.responder
@@ -89,7 +89,6 @@ class BIP78ClientProtocol(BaseClientProtocol):
 
     @commands.BIP78ReceiverOriginalPSBT.responder
     def on_BIP78_RECEIVER_ORIGINAL_PSBT(self, body, params):
-        params = json.loads(params)
         # TODO: we don't need binary key/vals client side, but will have to edit
         # PayjoinConverter for that:
         retval = self.success_callback(body.encode("utf-8"), bdict_sdict_convert(
@@ -121,7 +120,7 @@ class BIP78ClientProtocol(BaseClientProtocol):
     def on_BIP78_SENDER_UP(self):
         d = self.callRemote(commands.BIP78SenderOriginalPSBT,
                             body=self.manager.initial_psbt.to_base64(),
-                            params=json.dumps(self.params))
+                            params=self.params)
         self.defaultCallbacks(d)
         return {"accepted": True}
 
@@ -168,10 +167,10 @@ class SNICKERClientProtocol(BaseClientProtocol):
 
         if isinstance(self.client, SNICKERReceiver):
             d = self.callRemote(commands.SNICKERReceiverInit,
-                                netconfig=json.dumps(netconfig))
+                                netconfig=netconfig)
         else:
             d = self.callRemote(commands.SNICKERProposerInit,
-                                netconfig=json.dumps(netconfig))
+                                netconfig=netconfig)
             self.defaultCallbacks(d)
 
     def shutdown(self):
@@ -361,10 +360,10 @@ class JMClientProtocol(BaseClientProtocol):
         self.defaultCallbacks(d)
         return {'accepted': True}
 
-    def make_tx(self, nick_list, txhex):
+    def make_tx(self, nick_list, tx):
         d = self.callRemote(commands.JMMakeTx,
-                            nick_list= json.dumps(nick_list),
-                            txhex=txhex)
+                            nick_list=nick_list,
+                            tx=tx)
         self.defaultCallbacks(d)
 
 class JMMakerClientProtocol(JMClientProtocol):
@@ -394,7 +393,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         self.offers_ready_loop.stop()
         d = self.callRemote(commands.JMSetup,
                             role="MAKER",
-                            offers=json.dumps(self.client.offerlist),
+                            initdata=self.client.offerlist,
                             use_fidelity_bond=(self.client.fidelity_bond is not None))
         self.defaultCallbacks(d)
 
@@ -423,7 +422,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         d = self.callRemote(commands.JMInit,
                             bcsource=blockchain_source,
                             network=network,
-                            irc_configs=json.dumps(irc_configs),
+                            irc_configs=irc_configs,
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec,
                             dust_threshold=jm_single().DUST_THRESHOLD)
@@ -443,10 +442,8 @@ class JMMakerClientProtocol(JMClientProtocol):
     @commands.JMAuthReceived.responder
     def on_JM_AUTH_RECEIVED(self, nick, offer, commitment, revelation, amount,
                             kphex):
-        offer = json.loads(offer)
-        revelation = json.loads(revelation)
         retval = self.client.on_auth_received(nick, offer,
-                                            commitment, revelation, amount, kphex)
+                                              commitment, revelation, amount, kphex)
         if not retval[0]:
             jlog.info("Maker refuses to continue on receiving auth.")
         else:
@@ -461,7 +458,7 @@ class JMMakerClientProtocol(JMClientProtocol):
             auth_pub_hex = bintohex(auth_pub)
             d = self.callRemote(commands.JMIOAuth,
                                 nick=nick,
-                                utxolist=json.dumps(utxos_strkeyed),
+                                utxolist=utxos_strkeyed,
                                 pubkey=auth_pub_hex,
                                 cjaddr=cj_addr,
                                 changeaddr=change_addr,
@@ -470,17 +467,15 @@ class JMMakerClientProtocol(JMClientProtocol):
         return {"accepted": True}
 
     @commands.JMTXReceived.responder
-    def on_JM_TX_RECEIVED(self, nick, txhex, offer):
-        offer = json.loads(offer)
-        retval = self.client.on_tx_received(nick, txhex, offer)
+    def on_JM_TX_RECEIVED(self, nick, tx, offer):
+        retval = self.client.on_tx_received(nick, tx, offer)
         if not retval[0]:
             jlog.info("Maker refuses to continue on receipt of tx")
         else:
             sigs = retval[1]
             self.finalized_offers[nick] = offer
-            tx = btc.CMutableTransaction.deserialize(hextobin(txhex))
+            tx = btc.CMutableTransaction.deserialize(tx)
             self.finalized_offers[nick]["txd"] = tx
-            txid = tx.GetTxid()[::-1]
             # we index the callback by the out-set of the transaction,
             # because the txid is not known until all scriptSigs collected
             # (hence this is required for Makers, but not Takers).
@@ -497,14 +492,12 @@ class JMMakerClientProtocol(JMClientProtocol):
                             txinfo, self.unconfirm_callback, "unconfirmed",
                 "transaction with outputs: " + str(txinfo) + " not broadcast.")
 
-            d = self.callRemote(commands.JMTXSigs,
-                                nick=nick,
-                                sigs=json.dumps(sigs))
+            d = self.callRemote(commands.JMTXSigs, nick=nick, sigs=sigs)
             self.defaultCallbacks(d)
         return {"accepted": True}
 
     @commands.JMTXBroadcast.responder
-    def on_JM_TX_BROADCAST(self, txhex):
+    def on_JM_TX_BROADCAST(self, tx):
         """ Makers have no issue broadcasting anything,
         so only need to prevent crashes.
         Note in particular we don't check the return value,
@@ -512,15 +505,14 @@ class JMMakerClientProtocol(JMClientProtocol):
         our (maker)'s concern.
         """
         try:
-            txbin = hextobin(txhex)
-            jm_single().bc_interface.pushtx(txbin)
+            jm_single().bc_interface.pushtx(tx)
         except:
             jlog.info("We received an invalid transaction broadcast "
-                      "request: " + txhex)
+                      "request: " + tx.hex())
         return {"accepted": True}
 
     def tx_match(self, txd):
-        for k,v in self.finalized_offers.items():
+        for k, v in self.finalized_offers.items():
             # Tx considered defined by its output set
             if v["txd"].vout == txd.vout:
                 offerinfo = v
@@ -547,9 +539,9 @@ class JMMakerClientProtocol(JMClientProtocol):
         "transaction with outputs " + str(txinfo) + " not confirmed.")
 
         d = self.callRemote(commands.JMAnnounceOffers,
-                            to_announce=json.dumps(to_announce),
-                            to_cancel=json.dumps(to_cancel),
-                            offerlist=json.dumps(self.client.offerlist))
+                            to_announce=to_announce,
+                            to_cancel=to_cancel,
+                            offerlist=self.client.offerlist)
         self.defaultCallbacks(d)
         return True
 
@@ -564,9 +556,9 @@ class JMMakerClientProtocol(JMClientProtocol):
                                                      txid, confirms)
         self.client.modify_orders(to_cancel, to_announce)
         d = self.callRemote(commands.JMAnnounceOffers,
-                        to_announce=json.dumps(to_announce),
-                        to_cancel=json.dumps(to_cancel),
-                        offerlist=json.dumps(self.client.offerlist))
+                            to_announce=to_announce,
+                            to_cancel=to_cancel,
+                            offerlist=self.client.offerlist)
         self.defaultCallbacks(d)
         return True
 
@@ -601,7 +593,7 @@ class JMTakerClientProtocol(JMClientProtocol):
         d = self.callRemote(commands.JMInit,
                             bcsource=blockchain_source,
                             network=network,
-                            irc_configs=json.dumps(irc_configs),
+                            irc_configs=irc_configs,
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec,
                             dust_threshold=jm_single().DUST_THRESHOLD)
@@ -641,7 +633,7 @@ class JMTakerClientProtocol(JMClientProtocol):
     def on_JM_UP(self):
         d = self.callRemote(commands.JMSetup,
                             role="TAKER",
-                            offers="{}",
+                            initdata=None,
                             use_fidelity_bond=False)
         self.defaultCallbacks(d)
         return {'accepted': True}
@@ -669,13 +661,12 @@ class JMTakerClientProtocol(JMClientProtocol):
         the ioauth data and returns the proposed
         transaction, passes the phase 2 initiating data to the daemon.
         """
-        ioauth_data = json.loads(ioauth_data)
         if not success:
             jlog.info("Makers who didnt respond: " + str(ioauth_data))
             self.client.add_ignored_makers(ioauth_data)
             return {'accepted': True}
         else:
-            jlog.info("Makers responded with: " + json.dumps(ioauth_data))
+            jlog.info("Makers responded with: " + str(ioauth_data))
             retval = self.client.receive_utxos(ioauth_data)
             if not retval[0]:
                 jlog.info("Taker is not continuing, phase 2 abandoned.")
@@ -686,8 +677,8 @@ class JMTakerClientProtocol(JMClientProtocol):
                     self.client.on_finished_callback(False, False, 0.0)
                 return {'accepted': False}
             else:
-                nick_list, txhex = retval[1:]
-                reactor.callLater(0, self.make_tx, nick_list, txhex)
+                nick_list, tx = retval[1:]
+                reactor.callLater(0, self.make_tx, nick_list, tx)
                 return {'accepted': True}
 
     @commands.JMOffers.responder
@@ -717,7 +708,7 @@ class JMTakerClientProtocol(JMClientProtocol):
                             amount=amt,
                             commitment=str(cmt),
                             revelation=str(rev),
-                            filled_offers=json.dumps(foffers))
+                            filled_offers=foffers)
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -725,17 +716,16 @@ class JMTakerClientProtocol(JMClientProtocol):
     def on_JM_SIG_RECEIVED(self, nick, sig):
         retval = self.client.on_sig(nick, sig)
         if retval:
-            nick_to_use, txhex = retval
-            self.push_tx(nick_to_use, txhex)
+            nick_to_use, tx = retval
+            self.push_tx(nick_to_use, tx)
         return {'accepted': True}
 
     def get_offers(self):
         d = self.callRemote(commands.JMRequestOffers)
         self.defaultCallbacks(d)
 
-    def push_tx(self, nick_to_push, txhex_to_push):
-        d = self.callRemote(commands.JMPushTx, nick=str(nick_to_push),
-                            txhex=str(txhex_to_push))
+    def push_tx(self, nick_to_push, tx):
+        d = self.callRemote(commands.JMPushTx, nick=str(nick_to_push), tx=tx)
         self.defaultCallbacks(d)
 
 class SNICKERClientProtocolFactory(protocol.ClientFactory):

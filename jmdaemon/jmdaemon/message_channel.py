@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 import abc
 import base64
-import binascii
 import threading
 from twisted.internet import reactor
 from jmdaemon import encrypt_encode, decode_decrypt, COMMAND_PREFIX,\
@@ -351,14 +350,14 @@ class MessageChannelCollection(object):
         self.prepare_privmsg(nick, "error", errormsg)
 
     @check_privmsg
-    def push_tx(self, nick, txhex):
+    def push_tx(self, nick, tx):
         #TODO supporting sending to arbitrary nicks
         #adds quite a bit of complexity, not supported
         #initially; will fail if nick is not part of TX
-        txb64 = base64.b64encode(binascii.unhexlify(txhex)).decode('ascii')
+        txb64 = base64.b64encode(tx).decode('ascii')
         self.prepare_privmsg(nick, "push", txb64)
 
-    def send_tx(self, nick_list, txhex):
+    def send_tx(self, nick_list, tx):
         """Push out the transaction to nicks
         in groups by their message channel.
         """
@@ -376,10 +375,10 @@ class MessageChannelCollection(object):
             else:
                 tx_nick_sets[self.active_channels[nick]].append(nick)
         for mc, nl in tx_nick_sets.items():
-            self.prepare_send_tx(mc, nl, txhex)
+            self.prepare_send_tx(mc, nl, tx)
 
-    def prepare_send_tx(self, mc, nick_list, txhex):
-        txb64 = base64.b64encode(binascii.unhexlify(txhex)).decode('ascii')
+    def prepare_send_tx(self, mc, nick_list, tx):
+        txb64 = base64.b64encode(tx).decode('ascii')
         for nick in nick_list:
             self.prepare_privmsg(nick, "tx", txb64, mc=mc)
 
@@ -853,10 +852,10 @@ class MessageChannel(object):
             msg += ' ' + commitment
             self.privmsg(c, 'fill', msg)
 
-    def push_tx(self, nick, txhex):
+    def push_tx(self, nick, tx):
         #Note: not currently used; will require prepare_privmsg call so
         #not in this class (see send_error)
-        txb64 = base64.b64encode(binascii.unhexlify(txhex)).decode('ascii')
+        txb64 = base64.b64encode(tx).decode('ascii')
         self.privmsg(nick, 'push', txb64)
 
     def send_error(self, nick, errormsg):
@@ -1028,21 +1027,21 @@ class MessageChannel(object):
                 elif _chunks[0] == 'tx':
                     b64tx = _chunks[1]
                     try:
-                        txhex = binascii.hexlify(base64.b64decode(b64tx)).decode('ascii')
+                        tx = base64.b64decode(b64tx)
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
                         return
                     if self.on_seen_tx:
-                        self.on_seen_tx(nick, txhex)
+                        self.on_seen_tx(nick, tx)
                 elif _chunks[0] == 'push':
                     b64tx = _chunks[1]
                     try:
-                        txhex = binascii.hexlify(base64.b64decode(b64tx)).decode('ascii')
+                        tx = base64.b64decode(b64tx)
                     except TypeError as e:
                         self.send_error(nick, 'bad base64 tx. ' + repr(e))
                         return
                     if self.on_push_tx:
-                        self.on_push_tx(nick, txhex)
+                        self.on_push_tx(nick, tx)
             except (IndexError, ValueError):
                 # TODO proper error handling
                 log.debug('cj peer error TODO handle')
