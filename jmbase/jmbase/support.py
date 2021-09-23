@@ -170,11 +170,12 @@ def jmprint(msg, level="info"):
     if not level in jm_color_map.keys():
         raise Exception("Unsupported formatting")
 
-    # .colorize_message function does a .format() on the string,
-    # which does not work with string-ified json; this should
-    # result in output as intended:
-    msg = msg.replace('{', '{{')
-    msg = msg.replace('}', '}}')
+    if sys.stdout.isatty():
+        # .colorize_message function does a .format() on the string,
+        # which does not work with string-ified json; this should
+        # result in output as intended:
+        msg = msg.replace('{', '{{')
+        msg = msg.replace('}', '}}')
 
     fmtfn = eval(level)
     fmtd_msg = fmtfn(msg)
