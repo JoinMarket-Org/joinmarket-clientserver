@@ -31,8 +31,9 @@ log = get_log()
 def pick_order(orders, n): #pragma: no cover
     jmprint("Considered orders:", "info")
     for i, o in enumerate(orders):
-        jmprint("    %2d. %20s, CJ fee: %6s, tx fee: %6d" %
-              (i, o[0]['counterparty'], str(o[0]['cjfee']), o[0]['txfee']), "info")
+        jmprint("    %2d. %20s, CJ fee: %6s, tx fee: %6d, FB value: %f" %
+            (i, o[0]['counterparty'], str(o[0]['cjfee']), o[0]['txfee'],
+                o[0]['fidelity_bond_value']), "info")
     pickedOrderIndex = -1
     if i == 0:
         jmprint("Only one possible pick, picking it.", "info")
