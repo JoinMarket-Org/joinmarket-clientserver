@@ -152,21 +152,20 @@ socks5_port = 9050
 #usessl = false
 #socks5 = true
 
-#Agora sometimes seems to be unreliable. Not active by default for that reason.
-#[MESSAGING:server3]
-#host = agora.anarplex.net
-#channel = joinmarket-pit
-#port = 14716
-#usessl = true
-#socks5 = false
-#socks5_host = localhost
-#socks5_port = 9050
-#
-##for tor
-##host = vxecvd6lc4giwtasjhgbrr3eop6pzq6i5rveracktioneunalgqlwfad.onion
-##port = 6667
-##usessl = false
-##socks5 = true
+[MESSAGING:server3]
+host = agora.anarplex.net
+channel = joinmarket-pit
+port = 14716
+usessl = true
+socks5 = false
+socks5_host = localhost
+socks5_port = 9050
+
+#for tor
+#host = vxecvd6lc4giwtasjhgbrr3eop6pzq6i5rveracktioneunalgqlwfad.onion
+#port = 6667
+#usessl = false
+#socks5 = true
 
 [LOGGING]
 # Set the log level for the output to the terminal/console
