@@ -222,7 +222,7 @@ class WalletService(Service):
             if reactor.running:
                 reactor.stop()
             return
-        jlog.info("Starting transaction monitor in walletservice")
+        jlog.info("Starting transaction monitor in walletservice for {}".format(self.get_wallet_name()))
         self.monitor_loop = task.LoopingCall(
             self.transaction_monitor)
         self.monitor_loop.start(5.0)

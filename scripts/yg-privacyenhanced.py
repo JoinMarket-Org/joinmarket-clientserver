@@ -20,9 +20,9 @@ jlog = get_log()
 
 class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
 
-    def __init__(self, wallet_service, offerconfig):
-        super().__init__(wallet_service, offerconfig)
-
+    def __init__(self, wallet_service, offerconfig, cswallet_service = None, csconfig = None):
+        super().__init__(wallet_service, offerconfig, cswallet_service, csconfig)
+        
     def select_input_mixdepth(self, available, offer, amount):
         """Mixdepths are in cyclic order and we select the mixdepth to
         maximize the largest interval of non-available mixdepths by choosing
