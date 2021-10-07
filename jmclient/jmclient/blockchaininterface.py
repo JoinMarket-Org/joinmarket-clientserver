@@ -152,9 +152,13 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         return result
 
     def estimate_fee_per_kb(self, N):
+        tx_fees_factor = float(jm_single().config.get('POLICY',
+            'tx_fees_factor'))
         if super().fee_per_kb_has_been_manually_set(N):
             # use a floor of 1000 to not run into node relay problems
-            return int(max(1000, random.uniform(N * float(0.8), N * float(1.2))))
+            return int(max(1000,
+                random.uniform(N * float(1 - tx_fees_factor),
+                N * float(1 + tx_fees_factor))))
         fee = self.wallet.network.synchronous_get(('blockchain.estimatefee', [N]
                                                   ))
         fee_per_kb_sat = int(float(fee) * 100000000)
@@ -432,15 +436,20 @@ class BitcoinCoreInterface(BlockchainInterface):
         mempoolminfee_in_sat_randomized = random.uniform(
             mempoolminfee_in_sat, mempoolminfee_in_sat * float(1.2))
 
+        tx_fees_factor = float(jm_single().config.get('POLICY',
+            'tx_fees_factor'))
         if super().fee_per_kb_has_been_manually_set(N):
-            N_res = random.uniform(N * float(0.8), N * float(1.2))
+            N_res = random.uniform(N * float(1 - tx_fees_factor),
+                N * float(1 + tx_fees_factor))
             if N_res < mempoolminfee_in_sat:
                 log.info("Using this mempool min fee as tx feerate: " +
                     btc.fee_per_kb_to_str(mempoolminfee_in_sat) + ".")
                 return int(mempoolminfee_in_sat_randomized)
             else:
-                log.info("Using this manually set tx feerate (randomized " +
-                    "for privacy): " + btc.fee_per_kb_to_str(N_res) + ".")
+                msg = "Using this manually set tx feerate"
+                if tx_fees_factor != 0:
+                    msg = msg + " (randomized for privacy)"
+                log.info(msg + ": " + btc.fee_per_kb_to_str(N_res) + ".")
                 return int(N_res)
 
         # Special bitcoin core case: sometimes the highest priority
@@ -460,8 +469,9 @@ class BitcoinCoreInterface(BlockchainInterface):
             # the 'feerate' key is found and contains a positive value:
             if estimate and estimate > 0:
                 estimate_in_sat = btc.btc_to_sat(estimate)
-                retval = random.uniform(estimate_in_sat * float(0.8),
-                    estimate_in_sat * float(1.2))
+                retval = random.uniform(
+                    estimate_in_sat * float(1 - tx_fees_factor),
+                    estimate_in_sat * float(1 + tx_fees_factor))
                 break
         else:  # cannot get a valid estimate after `tries` tries:
             retval = 10000
@@ -474,9 +484,11 @@ class BitcoinCoreInterface(BlockchainInterface):
                 btc.fee_per_kb_to_str(mempoolminfee_in_sat) + ".")
             return int(mempoolminfee_in_sat_randomized)
         else:
-            log.info("Using bitcoin network feerate for " + str(N) +
-                " block confirmation target (randomized for privacy): " +
-                btc.fee_per_kb_to_str(retval))
+            msg = "Using bitcoin network feerate for " + str(N) + \
+                " block confirmation target"
+            if tx_fees_factor != 0:
+                msg = msg + " (randomized for privacy)"
+            log.info(msg + ": " + btc.fee_per_kb_to_str(retval))
             return int(retval)
 
     def get_current_block_height(self):
