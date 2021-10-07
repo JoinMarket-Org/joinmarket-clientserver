@@ -286,10 +286,10 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
                       help='type of order; can be either reloffer or absoffer')
     parser.add_option('-t', '--txfee', action='store', type='int',
                       dest='txfee', default=None,
-                      help='minimum miner fee in satoshis')
+                      help='the average transaction fee contribution you\'re adding to coinjoin transactions')
     parser.add_option('-f', '--txfee-factor', action='store', type='float',
                       dest='txfee_factor', default=None,
-                      help='variance around the average fee, decimal fraction')
+                      help='variance around the average transaction fee contribution, decimal fraction')
     parser.add_option('-a', '--cjfee-a', action='store', type='string',
                       dest='cjfee_a', default=None,
                       help='requested coinjoin fee (absolute) in satoshis')
