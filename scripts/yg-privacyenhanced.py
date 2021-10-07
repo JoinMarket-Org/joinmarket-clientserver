@@ -53,21 +53,24 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
         if self.ordertype in ['swreloffer', 'sw0reloffer']:
             f = self.cjfee_r
         elif self.ordertype in ['swabsoffer', 'sw0absoffer']:
-            f = str(self.txfee + self.cjfee_a)
+            f = str(self.txfee_contribution + self.cjfee_a)
         mix_balance = dict([(m, b) for m, b in iteritems(mix_balance)
                             if b > self.minsize])
         if len(mix_balance) == 0:
             jlog.error('You do not have the minimum required amount of coins'
                        ' to be a maker: ' + str(self.minsize) + \
-                       '\nTry setting txfee to zero and/or lowering the minsize.')
+                       '\nTry setting txfee_contribution to zero and/or '
+                       'lowering the minsize.')
             return []
         max_mix = max(mix_balance, key=mix_balance.get)
 
         # randomizing the different values
-        randomize_txfee = int(random.uniform(self.txfee * (1 - float(self.txfee_factor)),
-                                             self.txfee * (1 + float(self.txfee_factor))))
-        randomize_minsize = int(random.uniform(self.minsize * (1 - float(self.size_factor)),
-                                               self.minsize * (1 + float(self.size_factor))))
+        randomize_txfee = int(random.uniform(
+            self.txfee_contribution * (1 - float(self.txfee_contribution_factor)),
+            self.txfee_contribution * (1 + float(self.txfee_contribution_factor))))
+        randomize_minsize = int(random.uniform(
+            self.minsize * (1 - float(self.size_factor)),
+            self.minsize * (1 + float(self.size_factor))))
         if randomize_minsize < jm_single().DUST_THRESHOLD:
             jlog.warn("Minsize was randomized to below dust; resetting to dust "
                       "threshold: " + amount_to_str(jm_single().DUST_THRESHOLD))

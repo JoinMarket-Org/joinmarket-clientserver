@@ -83,10 +83,10 @@ class YieldGeneratorBasic(YieldGenerator):
     thus is somewhat suboptimal in giving more information to spies.
     """
     def __init__(self, wallet_service, offerconfig):
-        #note the randomizing entries are ignored in this base class:
-
-        self.txfee, self.cjfee_a, self.cjfee_r, self.ordertype, self.minsize, \
-            self.txfee_factor, self.cjfee_factor, self.size_factor = offerconfig
+        # note the randomizing entries are ignored in this base class:
+        self.txfee_contribution, self.cjfee_a, self.cjfee_r, self.ordertype,\
+            self.minsize, self.txfee_contribution_factor, self.cjfee_factor,\
+            self.size_factor = offerconfig
         super().__init__(wallet_service)
 
         
@@ -103,16 +103,16 @@ class YieldGeneratorBasic(YieldGenerator):
             f = self.cjfee_r
             #minimum size bumped if necessary such that you always profit
             #least 50% of the miner fee
-            self.minsize = max(int(1.5 * self.txfee / float(self.cjfee_r)),
-                self.minsize)
+            self.minsize = max(int(1.5 * self.txfee_contribution /
+                float(self.cjfee_r)), self.minsize)
         elif self.ordertype in ('absoffer', 'swabsoffer', 'sw0absoffer'):
-            f = str(self.txfee + self.cjfee_a)
+            f = str(self.txfee_contribution + self.cjfee_a)
         order = {'oid': 0,
                  'ordertype': self.ordertype,
                  'minsize': self.minsize,
                  'maxsize': mix_balance[max_mix] - max(
-                     jm_single().DUST_THRESHOLD, self.txfee),
-                 'txfee': self.txfee,
+                     jm_single().DUST_THRESHOLD, self.txfee_contribution),
+                 'txfee': self.txfee_contribution,
                  'cjfee': f}
 
         # sanity check
@@ -362,11 +362,11 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
     parser.add_option('-o', '--ordertype', action='store', type='string',
                       dest='ordertype', default=None,
                       help='type of order; can be either reloffer or absoffer')
-    parser.add_option('-t', '--txfee', action='store', type='int',
-                      dest='txfee', default=None,
+    parser.add_option('-t', '--txfee-contribution', action='store', type='int',
+                      dest='txfee_contribution', default=None,
                       help='the average transaction fee contribution you\'re adding to coinjoin transactions')
-    parser.add_option('-f', '--txfee-factor', action='store', type='float',
-                      dest='txfee_factor', default=None,
+    parser.add_option('-f', '--txfee-contribution-factor', action='store', type='float',
+                      dest='txfee_contribution_factor', default=None,
                       help='variance around the average transaction fee contribution, decimal fraction')
     parser.add_option('-a', '--cjfee-a', action='store', type='string',
                       dest='cjfee_a', default=None,
@@ -402,21 +402,22 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
     load_program_config(config_path=options["datadir"])
 
     # As per previous note, override non-default command line settings:
-    for x in ["ordertype", "txfee", "txfee_factor", "cjfee_a", "cjfee_r",
-              "cjfee_factor", "minsize", "size_factor"]:
+    for x in ["ordertype", "txfee_contribution", "txfee_contribution_factor",
+              "cjfee_a", "cjfee_r", "cjfee_factor", "minsize", "size_factor"]:
         if options[x] is None:
             options[x] = jm_single().config.get("YIELDGENERATOR", x)
     wallet_name = args[0]
     ordertype = options["ordertype"]
-    txfee = int(options["txfee"])
-    txfee_factor = float(options["txfee_factor"])
+    txfee_contribution = int(options["txfee_contribution"])
+    txfee_contribution_factor = float(options["txfee_contribution_factor"])
     cjfee_factor = float(options["cjfee_factor"])
     size_factor = float(options["size_factor"])
     if ordertype == 'reloffer':
         cjfee_r = options["cjfee_r"]
         # minimum size is such that you always net profit at least 20%
         #of the miner fee
-        minsize = max(int(1.2 * txfee / float(cjfee_r)), int(options["minsize"]))
+        minsize = max(int(1.2 * txfee_contribution / float(cjfee_r)),
+            int(options["minsize"]))
         cjfee_a = None
     elif ordertype == 'absoffer':
         cjfee_a = int(options["cjfee_a"])
@@ -458,9 +459,9 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
     ordertype = prefix + ordertype
     jlog.debug("Set the offer type string to: " + ordertype)
 
-    maker = ygclass(wallet_service, [txfee, cjfee_a, cjfee_r,
-                             ordertype, minsize, txfee_factor,
-                             cjfee_factor, size_factor])
+    maker = ygclass(wallet_service,
+        [txfee_contribution, cjfee_a, cjfee_r, ordertype, minsize,
+         txfee_contribution_factor, cjfee_factor, size_factor])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
     if jm_single().config.get("SNICKER", "enabled") == "true":

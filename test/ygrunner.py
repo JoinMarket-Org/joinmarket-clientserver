@@ -134,19 +134,20 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, fb_indices,
 
     # As per previous note, override non-default command line settings:
     options = {}
-    for x in ["ordertype", "txfee", "txfee_factor", "cjfee_a", "cjfee_r",
-              "cjfee_factor", "minsize", "size_factor"]:
+    for x in ["ordertype", "txfee_contribution", "txfee_contribution_factor",
+              "cjfee_a", "cjfee_r", "cjfee_factor", "minsize", "size_factor"]:
         options[x] = jm_single().config.get("YIELDGENERATOR", x)
     ordertype = options["ordertype"]
-    txfee = int(options["txfee"])
-    txfee_factor = float(options["txfee_factor"])
+    txfee_contribution = int(options["txfee_contribution"])
+    txfee_contribution_factor = float(options["txfee_contribution_factor"])
     cjfee_factor = float(options["cjfee_factor"])
     size_factor = float(options["size_factor"])
     if ordertype == 'reloffer':
         cjfee_r = options["cjfee_r"]
         # minimum size is such that you always net profit at least 20%
         #of the miner fee
-        minsize = max(int(1.2 * txfee / float(cjfee_r)), int(options["minsize"]))
+        minsize = max(int(1.2 * txfee_contribution / float(cjfee_r)),
+            int(options["minsize"]))
         cjfee_a = None
     elif ordertype == 'absoffer':
         cjfee_a = int(options["cjfee_a"])
@@ -173,8 +174,8 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, fb_indices,
         else:
             ygclass = MaliciousYieldGenerator
     for i in range(num_ygs):
-        cfg = [txfee, cjfee_a, cjfee_r, ordertype, minsize, txfee_factor,
-               cjfee_factor, size_factor]
+        cfg = [txfee_contribution, cjfee_a, cjfee_r, ordertype, minsize,
+               txfee_contribution_factor, cjfee_factor, size_factor]
         wallet_service_yg = wallet_services[i]["wallet"]
 
         wallet_service_yg.startService()
