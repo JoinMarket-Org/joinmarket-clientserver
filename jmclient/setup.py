@@ -11,6 +11,6 @@ setup(name='joinmarketclient',
       packages=['jmclient'],
       install_requires=['joinmarketbase==0.9.2', 'mnemonic', 'argon2_cffi',
                         'bencoder.pyx>=2.0.0', 'pyaes', 'klein==20.6.0',
-                        'pyjwt==2.1.0', 'autobahn==20.7.1'],
+                        'pyjwt==2.1.0', 'autobahn==20.12.3'],
       python_requires='>=3.6',
       zip_safe=False)
