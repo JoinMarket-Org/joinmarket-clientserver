@@ -20,6 +20,15 @@ from jmclient import (jm_single, get_irc_mchannels,
                       SNICKERReceiver, process_shutdown)
 import jmbitcoin as btc
 
+# module level variable representing the port
+# on which the daemon is running.
+# note that this var is only set if we are running
+# client+daemon in one process.
+daemon_serving_port = -1
+daemon_serving_host = ""
+
+def get_daemon_serving_params():
+    return (daemon_serving_host, daemon_serving_port)
 
 jlog = get_log()
 
@@ -365,6 +374,15 @@ class JMClientProtocol(BaseClientProtocol):
                             nick_list=nick_list,
                             tx=tx)
         self.defaultCallbacks(d)
+
+    def request_mc_shutdown(self):
+        """ To ensure that lingering message channel
+        connections are shut down when the client itself
+        is shutting down.
+        """
+        d = self.callRemote(commands.JMShutdown)
+        self.defaultCallbacks(d)
+        return {'accepted': True}
 
 class JMMakerClientProtocol(JMClientProtocol):
     def __init__(self, factory, maker, nick_priv=None):
@@ -779,9 +797,18 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
     #(Cannot start the reactor in tests)
     #Not used in prod (twisted logging):
     #startLogging(stdout)
-    usessl = True if jm_single().config.get("DAEMON",
-                                            "use_ssl") != 'false' else False
+    global daemon_serving_host
+    global daemon_serving_port
 
+    # in case we are starting connections but not the
+    # reactor, we can return a handle to the connections so
+    # that they can be cleaned up properly.
+    # TODO: currently *only* used in tests, with only one
+    # server protocol listening.
+    serverconn = None
+    clientconn = None
+
+    usessl = jm_single().config.get("DAEMON", "use_ssl") != 'false'
     jmcport, snickerport, bip78port = [port]*3
     if daemon:
         try:
@@ -806,7 +833,7 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
             orgp = p[0]
             while True:
                 try:
-                    start_daemon(host, p[0] - port_offset, f, usessl,
+                    serverconn = start_daemon(host, p[0] - port_offset, f, usessl,
                         './ssl/key.pem', './ssl/cert.pem')
                     jlog.info("{} daemon listening on port {}".format(
                         name, str(p[0] - port_offset)))
@@ -819,15 +846,19 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
                                    "listen on any of them. Quitting.")
                         sys.exit(EXIT_FAILURE)
                     p[0] += 1
-            return p[0]
+            return (p[0], serverconn)
 
         if jm_coinjoin:
             # TODO either re-apply this port incrementing logic
             # to other protocols, or re-work how the ports work entirely.
-            jmcport = start_daemon_on_port(port_a, dfactory, "Joinmarket", 0)
+            jmcport, serverconn = start_daemon_on_port(port_a, dfactory,
+                                                       "Joinmarket", 0)
+            daemon_serving_port = jmcport
+            daemon_serving_host = host
         # (See above) For now these other two are just on ports that are 1K offsets.
         if snickerfactory:
-            snickerport = start_daemon_on_port(port_a, sdfactory, "SNICKER", 1000) - 1000
+            snickerport, serverconn = start_daemon_on_port(port_a, sdfactory,
+                                                    "SNICKER", 1000) - 1000
         if bip78:
             start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
 
@@ -845,10 +876,10 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
             reactor.connectSSL(host, jmcport, factory, ClientContextFactory())
         if snickerfactory:
             reactor.connectSSL(host, snickerport, snickerfactory,
-                           ClientContextFactory())
+                               ClientContextFactory())
     else:
         if factory:
-            reactor.connectTCP(host, jmcport, factory)
+            clientconn = reactor.connectTCP(host, jmcport, factory)
         if snickerfactory:
             reactor.connectTCP(host, snickerport, snickerfactory)
     if rs:
@@ -856,3 +887,4 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
             reactor.run(installSignalHandlers=ish)
         if isinstance(jm_single().bc_interface, RegtestBitcoinCoreInterface):
             jm_single().bc_interface.shutdown_signal = True
+    return (serverconn, clientconn)

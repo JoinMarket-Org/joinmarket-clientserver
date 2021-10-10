@@ -1,0 +1,820 @@
+openapi: 3.0.0
+info:
+  description: Joinmarket wallet API
+  version: "1"
+  title: Joinmarket wallet API
+paths:
+  /wallet/create:
+    post:
+      summary: create a new wallet
+      operationId: createwallet
+      description: Give a filename (.jmdat must be included) and a password, create the wallet and get back the seedphrase for the newly persisted wallet file. The wallettype variable must be one of "sw" - segwit native, "sw-legacy" - segwit legacy or "sw-fb" - segwit native with fidelity bonds supported, the last of which is the default. Note that this operation cannot be performed when a wallet is already loaded (unlocked).
+      responses:
+        '201':
+          $ref: '#/components/responses/Create-201-OK'
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '409':
+          $ref: '#/components/responses/409-AlreadyExists'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWalletRequest'
+        description: wallet creation parameters
+  /wallet/{walletname}/unlock:
+    post:
+      summary: decrypt an existing wallet
+      operationId: unlockwallet
+      description: Give the password for the specified (existing) wallet file, and it will be decrypted ready for use. Note that this operation cannot be performed when another wallet is already loaded (unlocked).
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/Unlock-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+        '409':
+          $ref: '#/components/responses/409-AlreadyExists'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnlockWalletRequest'
+        description: wallet unlocking parameters
+  /wallet/{walletname}/lock:
+    get:
+      security:
+        - bearerAuth: []
+      summary: block access to a currently decrypted wallet
+      operationId: lockwallet
+      description: After this (authenticated) action, the wallet will not be readable or writeable.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/Unlock-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+  /wallet/{walletname}/display:
+    get:
+      security:
+        - bearerAuth: []
+      summary: get detailed breakdown of wallet contents by account.
+      operationId: displaywallet
+      description: get detailed breakdown of wallet contents by account.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/Display-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+  /session:
+    get:
+      summary: get current status of backend
+      operationId: session
+      description: get whether a wallet is loaded and whether coinjoin/maker are happening.
+      responses:
+        '200':
+          $ref: "#/components/responses/Session-200-OK"
+  /wallet/all:
+    get:
+      summary: get current available wallets
+      operationId: listwallets
+      description: get all wallet filenames in standard location as a list
+      responses:
+        '200':
+          $ref: "#/components/responses/ListWallets-200-OK"
+  /wallet/{walletname}/address/new/{mixdepth}:
+    get:
+      security:
+        - bearerAuth: []
+      summary: get a fresh address in the given account for depositing funds.
+      operationId: getaddress
+      description: get a fresh address in the given account for depositing funds.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+        - name: mixdepth
+          in: path
+          description: account or mixdepth to source the address from (0..4)
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/GetAddress-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+  /wallet/{walletname}/address/timelock/new/{lockdate}:
+    get:
+      security:
+        - bearerAuth: []
+      summary: get a fresh timelock address
+      operationId: gettimelockaddress
+      description: get a new timelocked address, for depositing funds, to create a fidelity bond, which will automatically be used when the maker is started. specify the date in YYYY-mm as the last path parameter. Note that mixdepth is not specified as timelock addresses are always in mixdepth(account) zero.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+            example: wallet.jmdat
+        - name: lockdate
+          in: path
+          description: month whose first day will be the end of the timelock, for this address.
+          required: true
+          schema:
+            type: string # note- not a standard date-time string for OpenAPI, so not marked as such
+            example: "2021-09"
+      responses:
+        '200':
+          $ref: "#/components/responses/GetAddress-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+  /wallet/{walletname}/utxos:
+    get:
+      security:
+        - bearerAuth: []
+      summary: list details of all utxos currently in the wallet.
+      operationId: listutxos
+      description: list details of all utxos currently in the wallet.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+            example: "2021-09"
+      responses:
+        '200':
+          $ref: "#/components/responses/ListUtxos-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+  /wallet/{walletname}/taker/direct-send:
+    post:
+      security:
+        - bearerAuth: []
+      summary: create and broadcast a transaction (without coinjoin)
+      operationId: directsend
+      description: create and broadcast a transaction (without coinjoin)
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectSendRequest'
+        description: transaction creation parameters
+      responses:
+        '200':
+          $ref: "#/components/responses/DirectSend-200-Accepted"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '409':
+          $ref: '#/components/responses/409-TransactionFailed'
+  /wallet/{walletname}/maker/start:
+    post:
+      security:
+        - bearerAuth: []
+      summary: Start the yield generator service.
+      operationId: startmaker
+      description: Start the yield generator service with the configuration settings specified in the POST request. Note that if fidelity bonds are enabled in the wallet, and a timelock address has been generated, and then funded, the fidelity bond will automatically be advertised without any specific configuration in this request.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+            example: wallet.jmdat
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartMakerRequest'
+        description: yield generator config parameters
+      responses:
+        # note we use a default response, no data returned:
+        '202':
+          $ref: "#/components/responses/202-Accepted"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '503':
+          $ref: '#/components/responses/503-ServiceUnavailable'
+  /wallet/{walletname}/maker/stop:
+    get:
+      security:
+        - bearerAuth: []
+      summary: stop the yield generator service
+      operationId: stopmaker
+      description: stop the yield generator service
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      responses:
+        '202':
+          $ref: "#/components/responses/202-Accepted"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: "#/components/responses/401-Unauthorized"
+  /wallet/{walletname}/taker/coinjoin:
+    post:
+      security:
+        - bearerAuth: []
+      summary: initiate a coinjoin as taker
+      operationId: docoinjoin
+      description: initiate a coinjoin as taker
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoCoinjoinRequest'
+        description: taker side coinjoin parameters
+      responses:
+        '202':
+          $ref: "#/components/responses/202-Accepted"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+        '409':
+          $ref: '#/components/responses/409-NoConfig'
+        '503':
+          $ref: '#/components/responses/503-ServiceUnavailable'
+  /wallet/{walletname}/configset:
+    post:
+      security:
+        - bearerAuth: []
+      summary: change a config variable
+      operationId: configsetting
+      description: change a config variable (for the duration of this backend daemon process instance)
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigSetRequest'
+        description: config editing parameters
+      responses:
+        '200':
+          $ref: "#/components/responses/ConfigSet-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '409':
+          $ref: '#/components/responses/409-NoConfig'
+  /wallet/{walletname}/configget:
+    post:
+      security:
+        - bearerAuth: []
+      summary: get the value of a specific config setting
+      operationId: configget
+      description: Get the value of a specific config setting. Note values are always returned as string.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigGetRequest'
+      responses:
+        '200':
+          $ref: "#/components/responses/ConfigGet-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: "#/components/responses/401-Unauthorized"
+        '409':
+          $ref: '#/components/responses/409-NoConfig'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ConfigSetRequest:
+      type: object
+      required:
+        - section
+        - field
+        - value
+      properties:
+        section:
+          type: string
+        field:
+          type: string
+        value:
+          type: string
+    ConfigGetRequest:
+      type: object
+      required:
+        - section
+        - field
+      properties:
+        section:
+          type: string
+        field:
+          type: string
+    ConfigGetResponse:
+      type: object
+      required:
+        - configvalue
+      properties:
+        configvalue:
+          type: string
+    ConfigSetResponse:
+      type: object
+    DoCoinjoinRequest:
+      type: object
+      required:
+        - mixdepth
+        - amount_sats
+        - counterparties
+        - destination
+      properties:
+        mixdepth:
+          type: integer
+          example: 0
+        amount_sats:
+          type: integer
+          example: 100000000
+        counterparties:
+          type: integer
+          example: 9
+        destination:
+          type: string
+          example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
+            
+    StartMakerRequest:
+      type: object
+      required:
+        - txfee
+        - cjfee_a
+        - cjfee_r
+        - ordertype
+        - minsize
+      properties:
+        txfee:
+          type: string
+          example: "0"
+        cjfee_a:
+          type: string
+          example: "5000"
+        cjfee_r:
+          type: string
+          example: "0.00004"
+        ordertype:
+          type: string
+          example: "reloffer"
+        minsize:
+          type: string
+          example: "8000000"
+    GetAddressResponse:
+      type: string
+      example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
+    ListWalletsResponse:
+      type: object
+      properties:
+        wallets:
+          type: array
+          items:
+            type: string
+            example: wallet.jmdat
+    SessionResponse:
+      type: object
+      required:
+        - session
+        - maker_running
+        - coinjoin_in_process
+        - wallet_name
+      properties:
+        session:
+          type: boolean
+        maker_running:
+          type: boolean
+        coinjoin_in_process:
+          type: boolean
+        wallet_name:
+          type: string
+          example: wallet.jmdat
+    ListUtxosResponse:
+      type: object
+      properties:
+        utxos: 
+          type: array
+          items: 
+            type: object
+            properties: 
+              utxo: 
+                type: string
+              address: 
+                type: string
+              value: 
+                type: integer
+              tries: 
+                type: integer
+              tries_remaining: 
+                type: integer
+              external: 
+                type: boolean
+              mixdepth: 
+                type: integer
+              confirmations: 
+                type: integer
+              frozen: 
+                type: boolean
+    WalletDisplayResponse:
+      type: object
+      required:
+        - walletname
+        - walletinfo
+      properties: 
+        walletname: 
+          type: string
+        walletinfo: 
+          type: object
+          required:
+            - wallet_name
+            - total_balance
+            - accounts
+          properties: 
+            wallet_name: 
+              type: string
+            total_balance: 
+              type: string
+            accounts: 
+              type: array
+              items: 
+                type: object
+                properties: 
+                  account: 
+                    type: string
+                  account_balance: 
+                    type: string
+                  branches: 
+                    type: array
+                    items: 
+                      type: object
+                      properties: 
+                        branch: 
+                          type: string
+                        balance: 
+                          type: string
+                        entries: 
+                          type: array
+                          items: 
+                            type: object
+                            properties: 
+                              hd_path: 
+                                type: string
+                              address: 
+                                type: string
+                              amount: 
+                                type: string
+                              labels: 
+                                type: string
+
+    CreateWalletResponse:
+      type: object
+      required:
+        - walletname
+        - token
+        - seedphrase
+      properties:
+        walletname:
+          type: string
+          example: wallet.jmdat
+        token:
+          type: string
+          format: byte
+        seedphrase:
+          type: string
+    UnlockWalletResponse:
+      type: object
+      required:
+        - walletname
+        - token
+      properties:
+        walletname:
+          type: string
+          example: wallet.jmdat
+        token:
+          type: string
+          format: byte
+    DirectSendResponse:
+      type: object
+      required:
+        - txinfo
+      properties:
+        txinfo:
+          type: object
+          properties:
+            hex:
+              type: string
+            inputs:
+              type: array
+              items:
+                type: object
+                properties:
+                  outpoint:
+                    type: string
+                  scriptSig:
+                    type: string
+                  nSequence:
+                    type: number
+                  witness:
+                    type: string
+            outputs:
+              type: array
+              items:
+                type: object
+                properties:
+                  value_sats:
+                    type: number
+                  scriptPubKey:
+                    type: string
+                  address:
+                    type: string
+            txid:
+              type: string
+            nLockTime:
+              type: number
+            nVersion:
+              type: number
+    LockWalletResponse:
+      type: object
+      required:
+        - walletname
+        - already_locked
+      properties:
+        walletname:
+          type: string
+          example: wallet.jmdat
+        already_locked:
+          type: boolean
+          example: false
+    CreateWalletRequest:
+      type: object
+      required:
+        - walletname
+        - password
+        - wallettype
+      properties:
+        walletname:
+          type: string
+          example: wallet.jmdat
+        password:
+          type: string
+          format: password
+          example: hunter2
+        wallettype:
+          type: string
+          example: "sw-fb"
+    UnlockWalletRequest:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+          format: password
+          example: hunter2
+    DirectSendRequest:
+      type: object
+      required:
+        - mixdepth
+        - amount_sats
+        - destination
+      properties:
+        mixdepth:
+          type: integer
+          example: 0
+        amount_sats:
+          type: integer
+          example: 100000000
+        destination:
+          type: string
+          example: bcrt1qu7k4dppungsqp95nwc7ansqs9m0z95h72j9mze
+    ErrorMessage:
+        type: object
+        properties:
+          message:
+            type: string
+
+  responses:
+    # Success responses
+    DirectSend-200-Accepted:
+      description: "transaction broadcast OK."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DirectSendResponse"
+    ListUtxos-200-OK:
+      description: "successful retrieval of utxo list"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ListUtxosResponse"
+    ConfigGet-200-OK:
+      description: "successful retrieval of config value"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ConfigGetResponse"
+    ConfigSet-200-OK:
+      description: "successful update of config value"
+      content:
+        application/json:
+           schema:
+             $ref: "#/components/schemas/ConfigSetResponse"
+    GetAddress-200-OK:
+      description: "successful retrieval of new address"
+      content:
+        application/json:
+           schema:
+             $ref: "#/components/schemas/GetAddressResponse"
+    ListWallets-200-OK:
+      description: "successful response to listwallets"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ListWalletsResponse"
+    Session-200-OK:
+      description: "successful heartbeat response"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SessionResponse"
+    Create-201-OK:
+      description: "wallet created successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateWalletResponse"
+    Unlock-200-OK:
+      description: "wallet unlocked successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/UnlockWalletResponse"
+    Display-200-OK:
+      description: "wallet display contents retrieved successfully."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/WalletDisplayResponse"
+    Lock-200-OK:
+      description: "wallet locked successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/LockWalletResponse"
+    202-Accepted:
+      description: The request has been submitted successfully for processing, but the processing has not been completed. 
+    204-NoResultFound:
+      description: No result found for matching search criteria.
+    # Clientside error responses
+    400-BadRequest:
+      description: Bad request format.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    401-Unauthorized:
+      description: Unable to authorise the credentials that were supplied.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    409-AlreadyExists:
+      description: Unable to complete request because object already exists.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    409-NoConfig:
+      description: Unable to complete request because config settings are missing.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    409-TransactionFailed:
+      description: Transaction failed to broadcast.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    404-NotFound:
+      description: Item not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    422-UnprocessableEntity:
+      description: Business rule validation failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    429-TooManyRequests:
+      description: There are too many requests in a given amount of time.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    # Serverside error responses
+    503-ServiceUnavailable:
+      description: The server is not ready to process the request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
+    5XX-UnexpectedError:
+      description: There was an internal issue calling the service.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorMessage'
