@@ -389,6 +389,9 @@ class JMMakerClientProtocol(JMClientProtocol):
         self.factory = factory
         #used for keeping track of transactions for the unconf/conf callbacks
         self.finalized_offers = {}
+        # used to keep track of any updates to the wallet that
+        # are not part of the coinjoin protocol:
+        self.processed_noncj_txs = set()
         JMClientProtocol.__init__(self, factory, maker, nick_priv)
 
     @commands.JMUp.responder
@@ -400,6 +403,47 @@ class JMMakerClientProtocol(JMClientProtocol):
         self.offers_ready_loop.start(2.0)
         return {'accepted': True}
 
+    def update_offers_callback(self, txd, txid):
+        """ This is called for *all* transactions;
+        so since it's an "all" callback, it returns no
+        indication of "completion" to the wallet monitoring
+        loop and just decides if it needs to send out a
+        new offer to the pit, once it confirms (no point
+        re-offering *now*, since ygs only use confirmed
+        coins).
+        """
+        if txid in self.processed_noncj_txs:
+            return
+        jlog.debug("new non-cj transaction seen.")
+        offerinfo = self.tx_match(txd)
+        if offerinfo:
+            # we ignore our coinjoins as they are
+            # handled by our (un)confirm_callback
+            return
+        # to force re-examination of already seen txid,
+        # as we do for normal unconf callbacks:
+        self.client.wallet_service.active_txids.add(txid)
+        # it's cleaner to do this asynchronously; otherwise,
+        # we're adding to the callback list while looping over it:
+        reactor.callLater(0.0, self.client.wallet_service.register_callbacks,
+            [self.update_offers_confirm_callback], txid, "confirmed")
+        self.processed_noncj_txs.add(txid)
+
+    def update_offers_confirm_callback(self, txd, txid, confirms):
+        """ Once a new deposit or withdrawal is confirmed,
+        we need to update offers.
+        """
+        jlog.debug("new transaction {} seen in wallet with {} "
+                   "confirms, updating offers.".format(txid, confirms))
+        to_cancel, to_announce = self.client.create_new_orders()
+        self.client.modify_orders(to_cancel, to_announce)
+        d = self.callRemote(commands.JMAnnounceOffers,
+                            to_announce=to_announce,
+                            to_cancel=to_cancel,
+                            offerlist=self.client.offerlist)
+        self.defaultCallbacks(d)
+        return True
+
     def submitOffers(self):
         self.offers_ready_loop_counter += 1
         if self.offers_ready_loop_counter == 300:
@@ -409,6 +453,10 @@ class JMMakerClientProtocol(JMClientProtocol):
         if not self.client.offerlist:
             return
         self.offers_ready_loop.stop()
+        # keep an eye on any new transactions; deposits must
+        # update the maker's offers in the pit:
+        self.client.wallet_service.register_callbacks(
+            [self.update_offers_callback], None, "all")
         d = self.callRemote(commands.JMSetup,
                             role="MAKER",
                             initdata=self.client.offerlist,
@@ -544,8 +592,7 @@ class JMMakerClientProtocol(JMClientProtocol):
         offerinfo = self.tx_match(txd)
         if not offerinfo:
             return False
-        to_cancel, to_announce = self.client.on_tx_unconfirmed(offerinfo,
-                                                               txid)
+        to_cancel, to_announce = self.client.on_tx_unconfirmed(offerinfo)
         self.client.modify_orders(to_cancel, to_announce)
 
         txinfo = tuple((x.scriptPubKey, x.nValue) for x in txd.vout)

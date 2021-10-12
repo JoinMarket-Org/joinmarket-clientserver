@@ -239,6 +239,30 @@ class Maker(object):
             return (False, (fmt(times_seen_cj_addr, times_seen_change_addr)))
         return (True, None)
 
+    def create_new_orders(self):
+        """ Takes the offerlist created by a present-time
+        query of the utxos in the wallet, and converts them
+        into a delta to be announced: a list of offers to
+        be cancelled, and a list to be newly announced.
+        """
+        newoffers = self.create_my_orders()
+
+        old_oid_offers = {x['oid']: x for x in self.offerlist}
+        new_oids = {x['oid'] for x in newoffers}
+
+        to_cancel, to_announce = [], []
+
+        for new_offer in newoffers:
+            old_offer = old_oid_offers.get(new_offer['oid'])
+            if old_offer is None or old_offer != new_offer:
+                to_announce.append(new_offer)
+
+        for old_oid in old_oid_offers:
+            if old_oid not in new_oids:
+                to_cancel.append(old_oid)
+
+        return to_cancel, to_announce
+
     def modify_orders(self, to_cancel, to_announce):
         """This code is called on unconfirm and confirm callbacks,
         and replaces existing orders with new ones, or just cancels
