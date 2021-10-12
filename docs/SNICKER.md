@@ -44,7 +44,7 @@ For the time constraints, consider these points:
 
 * This is *somewhat* experimental; better run it on signet for now, mainnet is not advised.
 * If you do run it on mainnet, make an effort to keep backups of your jmdat wallet file; recovery with seed only is possible (a tool is provided), but it's a pain.
-* This basically allows coinjoins to be proposed and executed without any interaction by the participants, even over a message channel. You can run it passsively in a yield generator, for example. You can even be paid some small amount of sats for that to happen. But the coinjoins are only 2-party.
+* This basically allows coinjoins to be proposed and executed without any interaction by the participants, even over a message channel. You can run it passively in a yield generator, for example. You can even be paid some small amount of sats for that to happen. But the coinjoins are only 2-party.
 
 <a name="longer" />
 
