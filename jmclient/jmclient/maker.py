@@ -215,7 +215,7 @@ class Maker(object):
         my_total_in = sum([va['value'] for va in utxos.values()])
         real_cjfee = calc_cj_fee(ordertype, cjfee, amount)
         expected_change_value = (my_total_in - amount - txfee + real_cjfee)
-        jlog.info('potentially earned = {}'.format(real_cjfee - txfee))
+        jlog.info('potentially earned = {}'.format(btc.amount_to_str(real_cjfee - txfee)))
         jlog.info('mycjaddr, mychange = {}, {}'.format(cjaddr, changeaddr))
 
         #The remaining checks are needed to ensure
