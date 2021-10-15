@@ -52,7 +52,7 @@ new config:
     socks5_port = 9050
 
     #for tor
-    #host = agora3cdw6kdty5y.onion
+    #host = vxecvd6lc4giwtasjhgbrr3eop6pzq6i5rveracktioneunalgqlwfad.onion
     #port = 6667
     #usessl = false
     #socks5 = true
