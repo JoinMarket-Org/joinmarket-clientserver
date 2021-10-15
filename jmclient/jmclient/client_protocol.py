@@ -13,6 +13,7 @@ import json
 import hashlib
 import os
 import sys
+import random
 from jmbase import (get_log, EXIT_FAILURE, hextobin, bintohex,
                     utxo_to_utxostr, bdict_sdict_convert)
 from jmclient import (jm_single, get_irc_mchannels,
@@ -411,6 +412,8 @@ class JMMakerClientProtocol(JMClientProtocol):
         new offer to the pit, once it confirms (no point
         re-offering *now*, since ygs only use confirmed
         coins).
+        To avoid fingerprinting makers based on these updates,
+        a randomized delay is added.
         """
         if txid in self.processed_noncj_txs:
             return
@@ -433,15 +436,19 @@ class JMMakerClientProtocol(JMClientProtocol):
         """ Once a new deposit or withdrawal is confirmed,
         we need to update offers.
         """
-        jlog.debug("new transaction {} seen in wallet with {} "
-                   "confirms, updating offers.".format(txid, confirms))
-        to_cancel, to_announce = self.client.create_new_orders()
-        self.client.modify_orders(to_cancel, to_announce)
-        d = self.callRemote(commands.JMAnnounceOffers,
-                            to_announce=to_announce,
-                            to_cancel=to_cancel,
-                            offerlist=self.client.offerlist)
-        self.defaultCallbacks(d)
+        def really_update_offers():
+            to_cancel, to_announce = self.client.create_new_orders()
+            self.client.modify_orders(to_cancel, to_announce)
+            d = self.callRemote(commands.JMAnnounceOffers,
+                                to_announce=to_announce,
+                                to_cancel=to_cancel,
+                                offerlist=self.client.offerlist)
+            self.defaultCallbacks(d)
+        delay = random.randint(600, 600*10)
+        jlog.info("new transaction {} seen in wallet with {} "
+                   "confirms, updating offers after {} seconds.".format(
+                       txid, confirms, delay))
+        reactor.callLater(delay, really_update_offers)
         return True
 
     def submitOffers(self):
