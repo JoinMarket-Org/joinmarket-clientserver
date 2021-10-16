@@ -403,7 +403,7 @@ cjfee_r = 0.00002
 cjfee_factor = 0.1
 
 # [satoshis, any integer] / the average transaction fee you're adding to coinjoin transactions
-txfee_contribuion = 100
+txfee_contribution = 100
 
 # [fraction, 0-1] / variance around the average fee. Ex: 1000 fee, 0.2 var = fee is btw 800-1200
 txfee_contribution_factor = 0.3
