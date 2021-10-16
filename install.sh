@@ -60,7 +60,10 @@ deps_install ()
         return 1
     fi
 
-    if [[ ${install_os} == 'debian' ]]; then
+    if [[ ${use_os_deps_check} != '1' ]]; then
+        echo "Checking OS package manager's dependencies disabled. Trying to build."
+        return 0
+    elif [[ ${install_os} == 'debian' ]]; then
         deb_deps_install "${debian_deps[@]}"
         return "$?"
     elif [[ ${install_os} == 'darwin' ]]; then
@@ -336,6 +339,9 @@ parse_flags ()
             --develop)
                 develop_build='1'
                 ;;
+            --disable-os-deps-check)
+                use_os_deps_check='0'
+                ;;
             --disable-secp-check)
                 use_secp_check='0'
                 ;;
@@ -370,11 +376,12 @@ Usage: "${0}" [options]
 
 Options:
 
---develop               code remains editable in place (currently always enabled)
---disable-secp-check    do not run libsecp256k1 tests (default is to run them)
---python, -p            python version (only python3 versions are supported)
---with-qt               build the Qt GUI
---without-qt            don't build the Qt GUI
+--develop                   code remains editable in place (currently always enabled)
+--disable-os-deps-check     skip OS package manager's dependency check
+--disable-secp-check        do not run libsecp256k1 tests (default is to run them)
+--python, -p                python version (only python3 versions are supported)
+--with-qt                   build the Qt GUI
+--without-qt                don't build the Qt GUI
 "
                 return 1
                 ;;
@@ -437,6 +444,7 @@ main ()
     # flags
     develop_build=''
     python='python3'
+    use_os_deps_check='1'
     use_secp_check='1'
     with_qt=''
     reinstall='false'
