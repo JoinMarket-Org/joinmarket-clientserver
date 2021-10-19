@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from future.utils import iteritems
 
+x = "not really"
 '''
 Joinmarket GUI using PyQt for doing coinjoins.
 Some widgets copied and modified from https://github.com/spesmilo/electrum
