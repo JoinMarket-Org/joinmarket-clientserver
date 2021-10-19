@@ -774,6 +774,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         offer = offer_s[0]
         if amount < offer['minsize'] or amount > offer['maxsize']:
             self.mcc.send_error(nick, 'amount out of range')
+            return
         #prepare a pubkey for this valid transaction
         kp = init_keypair()
         try:
