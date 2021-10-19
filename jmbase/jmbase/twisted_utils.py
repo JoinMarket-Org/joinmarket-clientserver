@@ -2,7 +2,8 @@
 from zope.interface import implementer
 from twisted.internet.error import ReactorNotRunning
 from twisted.internet import reactor, defer
-from twisted.internet.endpoints import TCP4ClientEndpoint, UNIXClientEndpoint
+from twisted.internet.endpoints import (TCP4ClientEndpoint,
+                        UNIXClientEndpoint, serverFromString)
 from twisted.web.client import Agent, BrowserLikePolicyForHTTPS
 import txtorcon
 from txtorcon.web import tor_agent
@@ -105,6 +106,12 @@ def get_nontor_agent(tls_whitelist=[]):
                 contextFactory=WhitelistContextFactory(tls_whitelist))
     return agent
 
+def config_to_hs_ports(virtual_port, host, port):
+    # See https://github.com/meejah/txtorcon/blob/0c416cc8fe18b913cd0c7422935885a1bfecf4c0/txtorcon/onion.py#L1320
+    # for non default config, pass port mapping strings like:
+    # "80 127.0.0.1:1234"
+    return "{} {}:{}".format(virtual_port, host, port)
+
 class JMHiddenService(object):
     """ Wrapper class around the actions needed to
     create and serve on a hidden service; an object of
@@ -113,7 +120,8 @@ class JMHiddenService(object):
     """
     def __init__(self, resource, info_callback, error_callback,
                  onion_hostname_callback, tor_control_host,
-                 tor_control_port, serving_port = None,
+                 tor_control_port, serving_host, serving_port,
+                 virtual_port = None,
                  shutdown_callback = None):
         self.site = Site(resource)
         self.site.displayTracebacks = False
@@ -124,26 +132,29 @@ class JMHiddenService(object):
         # known and is 80 by default)
         self.onion_hostname_callback = onion_hostname_callback
         self.shutdown_callback = shutdown_callback
-        if not serving_port:
-            self.port = 80
+        if not virtual_port:
+            self.virtual_port = 80
         else:
-            self.port = serving_port
+            self.virtual_port = virtual_port
         self.tor_control_host = tor_control_host
         self.tor_control_port = tor_control_port
-        print("got these settings: ", self.port, self.site, self.tor_control_host, self.tor_control_port)
+        # note that defaults only exist in jmclient
+        # config object, so no default here:
+        self.serving_host = serving_host
+        self.serving_port = serving_port
 
     def start_tor(self):
         """ This function executes the workflow
         of starting the hidden service and returning its hostname
         """
         self.info_callback("Attempting to start onion service on port: {} "
-                           "...".format(self.port))
+                           "...".format(self.virtual_port))
         if str(self.tor_control_host).startswith('unix:'):
             control_endpoint = UNIXClientEndpoint(reactor,
                                     self.tor_control_host[5:])
         else:
             control_endpoint = TCP4ClientEndpoint(reactor,
-                            self.tor_control_host,self.tor_control_port)
+                            self.tor_control_host, self.tor_control_port)
         d = txtorcon.connect(reactor, control_endpoint)
         d.addCallback(self.create_onion_ep)
         d.addErrback(self.setup_failed)
@@ -158,20 +169,27 @@ class JMHiddenService(object):
 
     def create_onion_ep(self, t):
         self.tor_connection = t
-        return t.create_onion_endpoint(self.port, private_key=txtorcon.DISCARD)
+        portmap_string = config_to_hs_ports(self.virtual_port,
+                                self.serving_host, self.serving_port)
+        return t.create_onion_service(
+            ports=[portmap_string], private_key=txtorcon.DISCARD)
 
-    def onion_listen(self, onion_ep):
-        return onion_ep.listen(self.site)
+    def onion_listen(self, onion):
+        # 'onion' arg is the created EphemeralOnionService object;
+        # now we know it exists, we start serving the Site on the
+        # relevant port:
+        self.onion =  onion
+        serverstring = "tcp:{}:interface={}".format(self.serving_port,
+                                                    self.serving_host)
+        onion_endpoint = serverFromString(reactor, serverstring)
+        return onion_endpoint.listen(self.site)
 
     def print_host(self, ep):
-        """ Callback fired once the HS is available;
-        we let the caller know the hidden service onion hostname,
-        which is not otherwise available to them:
+        """ Callback fired once the HS is available
+        and the site is up ready to receive requests.
+        The hidden service hostname will be used in the BIP21 uri.
         """
-        # Note that ep,getHost().onion_port must return the same
-        # port as we chose in self.port; if not there is an error.
-        assert ep.getHost().onion_port == self.port
-        self.onion_hostname_callback(ep.getHost().onion_uri)
+        self.onion_hostname_callback(self.onion.hostname)
 
     def shutdown(self):
         self.tor_connection.protocol.transport.loseConnection()

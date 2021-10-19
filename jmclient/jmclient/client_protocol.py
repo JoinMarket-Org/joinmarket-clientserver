@@ -86,7 +86,9 @@ class BIP78ClientProtocol(BaseClientProtocol):
         else:
             netconfig = {"port": 80,
                          "tor_control_host": jcg("PAYJOIN", "tor_control_host"),
-                         "tor_control_port": jcg("PAYJOIN", "tor_control_port")}
+                         "tor_control_port": jcg("PAYJOIN", "tor_control_port"),
+                         "onion_serving_host": jcg("PAYJOIN", "onion_serving_host"),
+                         "onion_serving_port": jcg("PAYJOIN", "onion_serving_port")}
             d = self.callRemote(commands.BIP78ReceiverInit,
                                 netconfig=netconfig)
         self.defaultCallbacks(d)
