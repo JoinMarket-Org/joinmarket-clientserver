@@ -42,14 +42,15 @@ class CustomUtxoWallet(SegwitLegacyWallet):
             assert self.get_addr_mixdepth(u['address']) == expected
 
 
-def create_yg_basic(balances, txfee=0, cjfee_a=0, cjfee_r=0,
+def create_yg_basic(balances, txfee_contribution=0, cjfee_a=0, cjfee_r=0,
                     ordertype='swabsoffer', minsize=0):
     """Constructs a YieldGeneratorBasic instance with a fake wallet.  The
     wallet will have the given balances at mixdepths, and the offer params
     will be set as given here."""
 
     wallet = CustomUtxoWallet(balances)
-    offerconfig = (txfee, cjfee_a, cjfee_r, ordertype, minsize, None, None, None)
+    offerconfig = (txfee_contribution, cjfee_a, cjfee_r, ordertype, minsize,
+        None, None, None)
 
     yg = YieldGeneratorBasic(WalletService(wallet), offerconfig)
 
@@ -71,8 +72,8 @@ class CreateMyOrdersTests(unittest.TestCase):
 
     def test_abs_fee(self):
         jm_single().DUST_THRESHOLD = 10
-        yg = create_yg_basic([0, 2000000, 1000000], txfee=1000, cjfee_a=10,
-                             ordertype='swabsoffer', minsize=100000)
+        yg = create_yg_basic([0, 2000000, 1000000], txfee_contribution=1000,
+                cjfee_a=10, ordertype='swabsoffer', minsize=100000)
         self.assertEqual(yg.create_my_orders(), [
           {'oid': 0,
            'ordertype': 'swabsoffer',
@@ -84,8 +85,8 @@ class CreateMyOrdersTests(unittest.TestCase):
 
     def test_rel_fee(self):
         jm_single().DUST_THRESHOLD = 10
-        yg = create_yg_basic([0, 2000000, 1000000], txfee=1000, cjfee_r=0.1,
-                             ordertype='sw0reloffer', minsize=10)
+        yg = create_yg_basic([0, 2000000, 1000000], txfee_contribution=1000,
+                cjfee_r=0.1, ordertype='sw0reloffer', minsize=10)
         self.assertEqual(yg.create_my_orders(), [
           {'oid': 0,
            'ordertype': 'sw0reloffer',
@@ -97,8 +98,8 @@ class CreateMyOrdersTests(unittest.TestCase):
 
     def test_dust_threshold(self):
         jm_single().DUST_THRESHOLD = 1000
-        yg = create_yg_basic([0, 2000000, 1000000], txfee=10, cjfee_a=10,
-                             ordertype='swabsoffer', minsize=100000)
+        yg = create_yg_basic([0, 2000000, 1000000], txfee_contribution=10,
+                cjfee_a=10, ordertype='swabsoffer', minsize=100000)
         self.assertEqual(yg.create_my_orders(), [
           {'oid': 0,
            'ordertype': 'swabsoffer',
@@ -110,8 +111,8 @@ class CreateMyOrdersTests(unittest.TestCase):
 
     def test_minsize_above_maxsize(self):
         jm_single().DUST_THRESHOLD = 10
-        yg = create_yg_basic([0, 20000, 10000], txfee=1000, cjfee_a=10,
-                             ordertype='swabsoffer', minsize=100000)
+        yg = create_yg_basic([0, 20000, 10000], txfee_contribution=1000,
+                cjfee_a=10, ordertype='swabsoffer', minsize=100000)
         self.assertEqual(yg.create_my_orders(), [])
 
 
@@ -121,13 +122,13 @@ class OidToOrderTests(unittest.TestCase):
     def call_oid_to_order(self, yg, amount):
         """Calls oid_to_order on the given yg instance.  It passes the
         txfee and abs fee from yg as offer."""
-        offer = {'txfee': yg.txfee,
+        offer = {'txfee': yg.txfee_contribution,
                  'cjfee': str(yg.cjfee_a),
                  'ordertype': 'swabsoffer'}
         return yg.oid_to_order(offer, amount)
 
     def test_not_enough_balance(self):
-        yg = create_yg_basic([100], txfee=0, cjfee_a=10)
+        yg = create_yg_basic([100], txfee_contribution=0, cjfee_a=10)
         self.assertEqual(self.call_oid_to_order(yg, 1000), (None, None, None))
 
     def test_chooses_single_utxo(self):
@@ -144,7 +145,8 @@ class OidToOrderTests(unittest.TestCase):
         # right at the dust threshold.  The wallet won't be able to find
         # any extra inputs, though.
         jm_single().DUST_THRESHOLD = 410
-        yg = create_yg_basic([10, 1000, 10], txfee=100, cjfee_a=10)
+        yg = create_yg_basic([10, 1000, 10], txfee_contribution=100,
+                cjfee_a=10)
         self.assertEqual(self.call_oid_to_order(yg, 500), (None, None, None))
 
     def test_extra_with_dust_threshold(self):
@@ -152,7 +154,8 @@ class OidToOrderTests(unittest.TestCase):
         # need to include the extra_utxo from the wallet as well to get
         # over the threshold.
         jm_single().DUST_THRESHOLD = 410
-        yg = create_yg_basic([10, 1000, 10], txfee=100, cjfee_a=10)
+        yg = create_yg_basic([10, 1000, 10], txfee_contribution=100,
+                cjfee_a=10)
         yg.wallet_service.wallet.add_utxo_at_mixdepth(1, 500)
         utxos, cj_addr, change_addr = self.call_oid_to_order(yg, 500)
         self.assertEqual(len(utxos), 2)
@@ -172,7 +175,8 @@ class OfferReannouncementTests(unittest.TestCase):
         """Constructs a fake yg instance that has an offer with the given
         maxsize.  Returns it together with the offer."""
         jm_single().DUST_THRESHOLD = 10
-        yg = create_yg_basic([100 + maxsize], txfee=100, ordertype='swabsoffer')
+        yg = create_yg_basic([100 + maxsize], txfee_contribution=100,
+                ordertype='swabsoffer')
         offers = yg.create_my_orders()
         self.assertEqual(len(offers), 1)
         self.assertEqual(offers[0]['maxsize'], maxsize)
