@@ -388,7 +388,7 @@ tor_control_port = 9051
 # the host/port actually serving the hidden service
 # (note the *virtual port*, that the client uses,
 # is hardcoded to 80):
-onion_serving_host = localhost
+onion_serving_host = 127.0.0.1
 onion_serving_port = 8080
 
 # in some exceptional case the HS may be SSL configured,
