@@ -26,6 +26,7 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 * GUI to support Taker role, including tumbler/automated coinjoin sequence.
 * PayJoin - [BIP78](https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki) to pay users of other wallets (e.g. merchants), as well as between two compatible wallet users (Joinmarket, Wasabi, others). This is a way to boost fungibility/privacy while paying.
 * Protection from [forced address reuse](https://en.bitcoin.it/wiki/Privacy#Forced_address_reuse) attacks.
+* Address labeling
 
 ### Quickstart - RECOMMENDED INSTALLATION METHOD (Linux and macOS only)
 

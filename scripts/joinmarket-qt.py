@@ -1325,7 +1325,7 @@ class CoinsTab(QWidget):
 
     def getHeaders(self):
         '''Function included in case dynamic in future'''
-        return ['Txid:n', 'Amount in BTC', 'Address']
+        return ['Txid:n', 'Amount in BTC', 'Address', 'Label']
 
     def updateUtxos(self):
         """ Note that this refresh of the display only accesses in-process
@@ -1333,7 +1333,7 @@ class CoinsTab(QWidget):
         """
         self.cTW.clear()
         def show_blank():
-            m_item = QTreeWidgetItem(["No coins", "", ""])
+            m_item = QTreeWidgetItem(["No coins", "", "", ""])
             self.cTW.addChild(m_item)
             self.cTW.show()
 
@@ -1355,15 +1355,15 @@ class CoinsTab(QWidget):
         for i in range(jm_single().config.getint("GUI", "max_mix_depth")):
             uem = utxos_enabled.get(i)
             udm = utxos_disabled.get(i)
-            m_item = QTreeWidgetItem(["Mixdepth " + str(i), '', ''])
+            m_item = QTreeWidgetItem(["Mixdepth " + str(i), '', '', ''])
             self.cTW.addChild(m_item)
             for heading in ["NOT FROZEN", "FROZEN"]:
                 um = uem if heading == "NOT FROZEN" else udm
-                seq_item = QTreeWidgetItem([heading, '', ''])
+                seq_item = QTreeWidgetItem([heading, '', '', ''])
                 m_item.addChild(seq_item)
                 seq_item.setExpanded(True)
                 if um is None:
-                    item = QTreeWidgetItem(['None', '', ''])
+                    item = QTreeWidgetItem(['None', '', '', ''])
                     seq_item.addChild(item)
                 else:
                     for k, v in um.items():
@@ -1373,7 +1373,7 @@ class CoinsTab(QWidget):
                         assert success
                         s = "{0:.08f}".format(v['value']/1e8)
                         a = mainWindow.wallet_service.script_to_addr(v["script"])
-                        item = QTreeWidgetItem([t, s, a])
+                        item = QTreeWidgetItem([t, s, a, v["label"]])
                         item.setFont(0, QFont(MONOSPACE_FONT))
                         #if rows[i][forchange][j][3] != 'new':
                         #    item.setForeground(3, QBrush(QColor('red')))
@@ -1450,7 +1450,7 @@ class JMWalletTab(QWidget):
 
     def getHeaders(self):
         '''Function included in case dynamic in future'''
-        return ['Address', 'Index', 'Balance', 'Used/New']
+        return ['Address', 'Index', 'Balance', 'Used/New', 'Label']
 
     def create_menu(self, position):
         item = self.walletTree.currentItem()
@@ -1471,6 +1471,9 @@ class JMWalletTab(QWidget):
             menu.addAction("Copy address to clipboard",
                            lambda: app.clipboard().setText(txt),
                            shortcut=QKeySequence(QKeySequence.Copy))
+            if item.text(4):
+                menu.addAction("Copy label to clipboard",
+                            lambda: app.clipboard().setText(item.text(4)))
             # Show QR code option only for new addresses to avoid address reuse
             if item.text(3) == "new":
                 menu.addAction("Show QR code",
@@ -2262,7 +2265,7 @@ def get_wallet_printout(wallet_service):
     We retrieve a WalletView abstraction, and iterate over
     sub-objects to arrange the per-mixdepth and per-address lists.
     The format of the returned data is:
-    rows: is of format [[[addr,index,bal,used],[addr,...]]*5,
+    rows: is of format [[[addr,index,bal,used,label],[addr,...]]*5,
     [[addr, index,..], [addr, index..]]*5]
     mbalances: is a simple array of 5 mixdepth balances
     xpubs: [[xpubext, xpubint], ...]
@@ -2283,7 +2286,8 @@ def get_wallet_printout(wallet_service):
                 rows[-1][i].append([entry.serialize_address(),
                                     entry.serialize_wallet_position(),
                                     entry.serialize_amounts(),
-                                    entry.serialize_extra_data()])
+                                    entry.serialize_used(),
+                                    entry.serialize_label()])
     # in case the wallet is not yet synced, don't return an incorrect
     # 0 balance, but signal incompleteness:
     total_bal = walletview.get_fmt_balance() if wallet_service.synced else None

@@ -16,7 +16,8 @@ from .wallet import (Mnemonic, estimate_tx_fee, WalletError, BaseWallet, ImportW
                      BIP39WalletMixin, BIP32Wallet, BIP49Wallet, LegacyWallet,
                      SegwitWallet, SegwitLegacyWallet, FidelityBondMixin,
                      FidelityBondWatchonlyWallet, SegwitWalletFidelityBonds,
-                     UTXOManager, WALLET_IMPLEMENTATIONS, compute_tx_locktime)
+                     UTXOManager, WALLET_IMPLEMENTATIONS, compute_tx_locktime,
+                     UnknownAddressForLabel)
 from .storage import (Argon2Hash, Storage, StorageError, RetryableStorageError,
                       StoragePasswordError, VolatileStorage)
 from .cryptoengine import (BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, BTC_P2WPKH, EngineError,

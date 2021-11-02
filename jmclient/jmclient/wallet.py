@@ -42,6 +42,12 @@ class WalletError(Exception):
     pass
 
 
+class UnknownAddressForLabel(Exception):
+
+    def __init__(self, addr):
+        super().__init__('Unknown address for this wallet: ' + addr)
+
+
 class Mnemonic(MnemonicParent):
     @classmethod
     def detect_language(cls, code):
@@ -276,6 +282,43 @@ class UTXOManager(object):
             self.selector is o.selector
 
 
+class AddressLabelsManager(object):
+    STORAGE_KEY = b'addr_labels'
+
+    def __init__(self, storage):
+        self.storage = storage
+        self._addr_labels = None
+        self._load_storage()
+        assert self._addr_labels is not None
+
+    @classmethod
+    def initialize(cls, storage):
+        storage.data[cls.STORAGE_KEY] = {}
+
+    def _load_storage(self):
+        if self.STORAGE_KEY in self.storage.data:
+            self._addr_labels = self.storage.data[self.STORAGE_KEY]
+        else:
+            self._addr_labels = {}
+
+    def save(self):
+        self.storage.data[self.STORAGE_KEY] = self._addr_labels
+
+    def get_label(self, address):
+        address = bytes(address, 'ascii')
+        if address in self._addr_labels:
+            return self._addr_labels[address].decode()
+        else:
+            return None
+
+    def set_label(self, address, label):
+        address = bytes(address, 'ascii')
+        if label:
+            self._addr_labels[address] = bytes(label, 'utf-8')
+        elif address in self._addr_labels:
+            del self._addr_labels[address]
+
+
 class BaseWallet(object):
     TYPE = None
 
@@ -303,6 +346,7 @@ class BaseWallet(object):
         self.gap_limit = gap_limit
         self._storage = storage
         self._utxos = None
+        self._addr_labels = None
         # highest mixdepth ever used in wallet, important for synching
         self.max_mixdepth = None
         # effective maximum mixdepth to be used by joinmarket
@@ -350,6 +394,7 @@ class BaseWallet(object):
                             .format(self.TYPE))
         self.network = self._storage.data[b'network'].decode('ascii')
         self._utxos = UTXOManager(self._storage, self.merge_algorithm)
+        self._addr_labels = AddressLabelsManager(self._storage)
 
     def get_storage_location(self):
         """ Return the location of the
@@ -364,6 +409,7 @@ class BaseWallet(object):
         Write data to associated storage object and trigger persistent update.
         """
         self._utxos.save()
+        self._addr_labels.save()
 
     @classmethod
     def initialize(cls, storage, network, max_mixdepth=2, timestamp=None,
@@ -395,6 +441,7 @@ class BaseWallet(object):
         storage.data[b'wallet_type'] = cls.TYPE
 
         UTXOManager.initialize(storage)
+        AddressLabelsManager.initialize(storage)
 
         if write:
             storage.save()
@@ -784,10 +831,12 @@ class BaseWallet(object):
                     continue
                 script = self.get_script_from_path(path)
                 addr = self.get_address_from_path(path)
+                label = self.get_address_label(addr)
                 script_utxos[md][utxo] = {'script': script,
                                           'path': path,
                                           'value': value,
-                                          'address': addr}
+                                          'address': addr,
+                                          'label': label}
                 if includeheight:
                     script_utxos[md][utxo]['height'] = height
         return script_utxos
@@ -1048,11 +1097,25 @@ class BaseWallet(object):
                     return False
         return True
 
+    def set_address_label(self, addr, label):
+        if self.is_known_addr(addr):
+            self._addr_labels.set_label(addr, label)
+            self.save()
+        else:
+            raise UnknownAddressForLabel(addr)
+
+    def get_address_label(self, addr):
+        if self.is_known_addr(addr):
+            return self._addr_labels.get_label(addr)
+        else:
+            raise UnknownAddressForLabel(addr)
+
     def close(self):
         self._storage.close()
 
     def __del__(self):
         self.close()
+
 
 class PSBTWalletMixin(object):
     """
