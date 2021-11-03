@@ -82,6 +82,28 @@ deps_install ()
     fi
 }
 
+tor_deps_install ()
+{
+    debian_deps=( \
+        'libevent-dev' \
+        'libssl-dev' \
+        'zlib1g-dev' )
+
+    # TODO: darwin_deps
+
+    if [[ ${use_os_deps_check} != '1' ]]; then
+        return 0
+    elif [[ ${install_os} == 'debian' ]]; then
+        deb_deps_install "${debian_deps[@]}"
+        return "$?"
+    elif [[ ${install_os} == 'darwin' ]]; then
+        echo "FixMe: Darwin deps not specified. Trying to build."
+        return 0
+    else
+        return 0
+    fi
+}
+
 deb_deps_check ()
 {
     apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
@@ -325,6 +347,49 @@ libsodium_install ()
     popd
 }
 
+tor_build ()
+{
+    $make uninstall
+    $make distclean
+    ./configure \
+        --disable-system-torrc \
+        --disable-seccomp \
+        --disable-libscrypt \
+        --disable-module-relay \
+        --disable-lzma \
+        --disable-zstd \
+        --disable-asciidoc \
+        --disable-manpage \
+        --disable-html-manual \
+        --prefix="${jm_root}"
+    $make
+    if ! $make check; then
+        return 1
+    fi
+}
+
+tor_install ()
+{
+    tor_version='tor-0.4.6.8'
+    tor_tar="${tor_version}.tar.gz"
+    tor_sha='15ce1a37b4cc175b07761e00acdcfa2c08f0d23d6c3ab9c97c464bd38cc5476a'
+    tor_url='https://dist.torproject.org'
+
+    if ! dep_get "${tor_tar}" "${tor_sha}" "${tor_url}"; then
+        return 1
+    fi
+    pushd "${tor_version}"
+    if tor_build; then
+        $make install
+        # Create blank tor config, it will default to running socks5 proxy
+        # at 127.0.0.1:9050 and should be enough for us.
+        > "${jm_root}/etc/tor/torrc"
+    else
+        return 1
+    fi
+    popd
+}
+
 joinmarket_install ()
 {
     reqs=( 'base.txt' )
@@ -379,6 +444,9 @@ parse_flags ()
                 echo 'ERROR: "--python" requires a non-empty option argument.'
                 return 1
                 ;;
+            --with-local-tor)
+                build_local_tor='1'
+                ;;
             --with-qt)
                 with_qt='1'
                 ;;
@@ -403,6 +471,7 @@ Options:
 --disable-secp-check        do not run libsecp256k1 tests (default is to run them)
 --docker-install            system wide install as root for minimal Docker installs
 --python, -p                python version (only python3 versions are supported)
+--with-local-tor            build Tor locally and autostart when needed
 --with-qt                   build the Qt GUI
 --without-qt                don't build the Qt GUI
 "
@@ -459,6 +528,7 @@ main ()
     # flags
     develop_build=''
     python='python3'
+    build_local_tor=''
     use_os_deps_check='1'
     use_secp_check='1'
     with_qt=''
@@ -495,6 +565,12 @@ main ()
         fi
         source "${jm_root}/bin/activate"
     fi
+    if [[ ${build_local_tor} == "1" ]]; then
+        if ! tor_deps_install; then
+            echo "Tor dependencies could not be installed. Exiting."
+            return 1
+        fi
+    fi
     mkdir -p "deps/cache"
     pushd deps
     if ! libsecp256k1_install; then
@@ -508,6 +584,12 @@ main ()
     if ! libsodium_install; then
         echo "Libsodium was not built. Exiting."
         return 1
+    fi
+    if [[ ${build_local_tor} == "1" ]]; then
+        if ! tor_install; then
+            echo "Building local Tor was requested, but not built. Exiting."
+            return 1
+        fi
     fi
     popd
     if ! joinmarket_install; then

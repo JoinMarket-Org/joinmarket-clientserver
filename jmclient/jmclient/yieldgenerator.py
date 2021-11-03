@@ -14,7 +14,7 @@ from jmclient import (Maker, jm_single, load_program_config,
                       JMClientProtocolFactory, start_reactor, calc_cj_fee,
                       WalletService, add_base_options, SNICKERReceiver,
                       SNICKERClientProtocolFactory, FidelityBondMixin,
-                      get_interest_rate, fmt_utxo)
+                      get_interest_rate, fmt_utxo, check_and_start_tor)
 from .wallet_utils import open_test_wallet_maybe, get_wallet_path
 from jmbase.support import EXIT_ARGERROR, EXIT_FAILURE, get_jm_version_str
 import jmbitcoin as btc
@@ -400,6 +400,8 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
         sys.exit(EXIT_ARGERROR)
 
     load_program_config(config_path=options["datadir"])
+
+    check_and_start_tor()
 
     # As per previous note, override non-default command line settings:
     for x in ["ordertype", "txfee_contribution", "txfee_contribution_factor",

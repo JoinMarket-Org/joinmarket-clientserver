@@ -26,7 +26,8 @@ from .configure import (load_test_config, process_shutdown,
     load_program_config, jm_single, get_network, update_persist_config,
     validate_address, is_burn_destination, get_irc_mchannels,
     get_blockchain_interface_instance, set_config, is_segwit_mode,
-    is_native_segwit_mode, JMPluginService, get_interest_rate, get_bondless_makers_allowance)
+    is_native_segwit_mode, JMPluginService, get_interest_rate,
+    get_bondless_makers_allowance, check_and_start_tor)
 from .blockchaininterface import (BlockchainInterface,
                                   RegtestBitcoinCoreInterface, BitcoinCoreInterface)
 from .snicker_receiver import SNICKERError, SNICKERReceiver

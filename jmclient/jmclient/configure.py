@@ -3,7 +3,11 @@ import io
 import logging
 import os
 import re
+import socket
 import sys
+import subprocess
+import atexit
+from signal import SIGINT
 
 from configparser import ConfigParser, NoOptionError
 
@@ -748,6 +752,34 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
             if not os.path.exists(plogsdir):
                 os.makedirs(plogsdir)
             p.set_log_dir(plogsdir)
+
+def gracefully_kill_subprocess(p):
+    # See https://stackoverflow.com/questions/43274476/is-there-a-way-to-check-if-a-subprocess-is-still-running
+    if p.poll() is None:
+        p.send_signal(SIGINT)
+
+def check_and_start_tor():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    result = sock.connect_ex(("127.0.0.1", 9050))
+    sock.close()
+    if result == 0:
+        return
+    log.info("Nobody listens on 127.0.0.1:9050, trying to start Tor.")
+    tor_bin = os.path.join(sys.prefix, "bin", "tor")
+    if not os.path.exists(tor_bin):
+        log.info("Can't find our custom tor.")
+        return
+    command = [tor_bin, "-f", os.path.join(sys.prefix,
+        "etc", "tor", "torrc")]
+    # output messages from tor if loglevel is debug, they might be useful
+    if global_singleton.config.get("LOGGING", "console_log_level") == "DEBUG":
+        tor_stdout = sys.stdout
+    else:
+        tor_stdout = open(os.devnull, 'w')
+    tor_subprocess = subprocess.Popen(command, stdout=tor_stdout,
+        stderr=subprocess.STDOUT, close_fds=True)
+    atexit.register(gracefully_kill_subprocess, tor_subprocess)
+    log.debug("Started Tor subprocess with pid " + str(tor_subprocess.pid))
 
 def load_test_config(**kwargs):
     if "config_path" not in kwargs:

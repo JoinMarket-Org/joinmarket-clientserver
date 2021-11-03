@@ -24,7 +24,7 @@ if sys.version_info < (3, 7):
 
 from jmbase.support import EXIT_FAILURE
 from jmbase import bintohex
-from jmclient import FidelityBondMixin, get_interest_rate
+from jmclient import FidelityBondMixin, get_interest_rate, check_and_start_tor
 from jmclient.fidelity_bond import FidelityBondProof
 
 import sybil_attack_calculations as sybil
@@ -803,6 +803,7 @@ def main():
                       default=62601)
     (options, args) = parser.parse_args()
     load_program_config(config_path=options.datadir)
+    check_and_start_tor()
     hostport = (options.host, options.port)
     mcs = [ObIRCMessageChannel(c) for c in get_irc_mchannels()]
     mcc = MessageChannelCollection(mcs)
