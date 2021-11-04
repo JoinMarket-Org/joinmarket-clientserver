@@ -161,7 +161,8 @@ class JsonRpc(object):
             #Failure means keepalive timed out, just make a new one
             self.conn = http.client.HTTPConnection(self.host, self.port)
         if not response_received:
-            raise JsonRpcConnectionError("Unable to connect over RPC")
+            raise JsonRpcConnectionError("Unable to connect over RPC to " +
+                self.host + ":" + str(self.port))
         if response["id"] != currentId:
             raise JsonRpcConnectionError("invalid id returned by query")
 
