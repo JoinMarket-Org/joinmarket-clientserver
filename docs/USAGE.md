@@ -112,16 +112,19 @@ but it *stores addresses as watch-only in the Bitcoin Core wallet*, and the rele
 wallet they're talking to. As a result it's strongly recommended to use this feature, as it isolates those watch-only addresses
 being stored in Bitcoin Core, from any other usage you might have for that Core instance.
 
-If you don't do this, Joinmarket will use the default Core wallet `wallet.dat` to store these watch-only addresses in.
+If you don't do this, and there is one, Joinmarket will use the default Core wallet `wallet.dat` to store these watch-only addresses in.
+If there isn't one, start will fail with a JsonRpcError `Wallet file verification failed. Failed to load database path '…'. Path does not exist.`.
+Make sure to follow the following step.
 
 With `bitcoind` running, do:
 
 ```
-bitcoin-cli createwallet "jm_wallet"
+bitcoin-cli -named createwallet wallet_name=jm_wallet descriptors=false
 ```
 
 The "jm_wallet" name is just an example. You can set any name. Alternative to this `bitcoin-cli` command: you can set a line with `wallet=..` in your
-`bitcoin.conf` before starting Core (see the Bitcoin Core documentation for details).
+`bitcoin.conf` before starting Core (see the Bitcoin Core documentation for details). At the moment, only legacy wallets (`descriptors=false`)
+work with Joinmarket. This means that Bitcoin Core needs to have been built with legacy wallet (Berkeley DB) support.
 
 After you create the wallet in the Bitcoin Core, you should set it in the `joinmarket.cfg`:
 
