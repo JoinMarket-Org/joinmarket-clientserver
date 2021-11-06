@@ -28,7 +28,7 @@ def local_command(command, bg=False, redirect=''):
         elif OS == 'Linux':
             command.extend(['>', '/dev/null', '2>&1'])
         else:
-            print("OS not recognised, quitting.")
+            pytest.exit("OS not recognised, quitting.")
     elif redirect:
         command.extend(['>', redirect])
 
@@ -122,8 +122,18 @@ def setup(request):
                        "-rpcuser=" + bitcoin_rpcusername,
                        "-rpcpassword=" + bitcoin_rpcpassword]
     # Bitcoin Core v0.21+ does not create default wallet
-    local_command(root_cmd + ["-rpcwait"] +
-        ["createwallet", "jm-test-wallet"])
+    # From Bitcoin Core 0.21.0 there is support for descriptor wallets, which
+    # are default from 23.x+ (including 22.99.0 development versions), which
+    # does not support both private keys and watchonly in the same wallet.
+    # Unfortunatelly, we currently require that for tests. So never create
+    # descriptor wallet here for now.
+    if bitcoind_version[0] >= 22:
+        local_command(root_cmd + ["-rpcwait"] + ["-named"] +
+            ["createwallet",
+                "wallet_name=jm-test-wallet", "descriptors=false"])
+    else:
+        local_command(root_cmd + ["-rpcwait"] +
+            ["createwallet", "jm-test-wallet"])
     local_command(root_cmd + ["loadwallet", "jm-test-wallet"])
     for i in range(2):
         cpe = local_command(root_cmd + ["-rpcwallet=jm-test-wallet"] +

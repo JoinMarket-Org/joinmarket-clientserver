@@ -195,6 +195,12 @@ class BitcoinCoreInterface(BlockchainInterface):
             if not wallet_name in loaded_wallets:
                 self._rpc("loadwallet", [wallet_name])
 
+        # We need to know is this legacy or descriptors wallet because there
+        # will be different RPC calls needed for address import.
+        walletInfo = self._rpc("getwalletinfo", [])
+        self.descriptors = ("descriptors" in walletInfo and
+            walletInfo["descriptors"])
+
     def is_address_imported(self, addr):
         return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
 
@@ -220,7 +226,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         if method not in ['importaddress', 'walletpassphrase', 'getaccount',
                           'gettransaction', 'getrawtransaction', 'gettxout',
                           'importmulti', 'listtransactions', 'getblockcount',
-                          'scantxoutset', 'getblock', 'getblockhash']:
+                          'scantxoutset', 'getblock', 'getblockhash',
+                          'importdescriptors', 'getdescriptorinfo']:
             log.debug('rpc: ' + method + " " + str(args))
         try:
             res = self.jsonRpc.call(method, args)
@@ -252,15 +259,24 @@ class BitcoinCoreInterface(BlockchainInterface):
         Do NOT use for in-run imports, use rpc('importaddress',..) instead.
         """
         requests = []
-        for addr in addr_list:
-            requests.append({
-                "scriptPubKey": {"address": addr},
-                "timestamp": 0,
-                "label": wallet_name,
-                "watchonly": True
-            })
-
-        result = self._rpc('importmulti', [requests, {"rescan": False}])
+        if self.descriptors:
+            for addr in addr_list:
+                requests.append({
+                    "desc": self._rpc('getdescriptorinfo',
+                        ["addr(" + addr + ")"])["descriptor"],
+                    "timestamp": "now",
+                    "label": wallet_name
+                })
+            result = self._rpc('importdescriptors', [requests])
+        else:
+            for addr in addr_list:
+                requests.append({
+                    "scriptPubKey": {"address": addr},
+                    "timestamp": 0,
+                    "label": wallet_name,
+                    "watchonly": True
+                })
+            result = self._rpc('importmulti', [requests, {"rescan": False}])
 
         num_failed = 0
         for row in result:
