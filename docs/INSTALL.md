@@ -2,6 +2,7 @@
 * [Installation on Linux](#installation-on-linux)
 * [Installation on macOS](#installation-on-macos)
 * [Installation on Windows](#installation-on-windows)
+* [Installation on NetBSD](#installation-on-netbsd)
 * [Alternative/custom installation](#alternativecustom-installation)
 
 ### Notes on upgrading, binaries and compatibility
@@ -129,6 +130,27 @@ If you have installed this "full" version of the client, you can use it with the
     cd scripts
     python joinmarket-qt.py
     ```
+
+### Installation on NetBSD
+
+Setup instructions on virtualized NetBSD 9.2 installation with pre-installed NetBSD distribution 'compiler sets', without python virtualenv.
+
+Build requirements from pkgsrc (recommended) or pkgin:
+
+	pkgin install automake autoconf autogen git gmake libtool libsecp256k1 libsodium pkg-config pkgconf python39 py39-setuptools py39-pkgconfig py39-sqlite3 py39-wheel py39-pep517 py39-toml py39-cryptography py39-asn1crypto py39-pip wget
+
+Build coincurve: (building from master fails at the moment)
+
+	wget https://github.com/ofek/coincurve/archive/refs/tags/v15.0.1.tar.gz
+	tar -xf v15.0.1.tar.gz && cd coincurve-15.0.1
+	sed -i 's/OpenBSD/NetBSD/g' setup.py
+	CPPFLAGS="-I/usr/pkg/include" LDFLAGS="-L/usr/pkg/lib" python3.9 setup.py install
+	
+Then install this repo:
+
+	git clone https://github.com/JoinMarket-Org/joinmarket-clientserver
+	cd joinmarket-clientserver
+	CPPFLAGS="-I/usr/pkg/include" LDFLAGS="-L/usr/pkg/lib" MAKE=gmake pip3.9 install -r requirements/base.txt
 
 ### Installation on Windows
 
