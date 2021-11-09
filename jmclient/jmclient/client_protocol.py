@@ -860,7 +860,8 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
         # (See above) For now these other two are just on ports that are 1K offsets.
         if snickerfactory:
             snickerport, serverconn = start_daemon_on_port(port_a, sdfactory,
-                                                    "SNICKER", 1000) - 1000
+                                                    "SNICKER", 1000)
+            snickerport = snickerport - 1000
         if bip78:
             start_daemon_on_port(port_a, bip78factory, "BIP78", 2000)
 
