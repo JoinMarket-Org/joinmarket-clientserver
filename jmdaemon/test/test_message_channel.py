@@ -17,8 +17,11 @@ import traceback
 import threading
 import binascii
 import jmbitcoin as bitcoin
+from jmbase import bintohex
 from dummy_mc import DummyMessageChannel
 
+# note: completely invalid sig is fine, as long as it's encoded right:
+dummy_sig_str = bintohex(b"\x02"*33) + " " + base64.b64encode(b"\x01"*72).decode()
 
 jlog = get_log()
 
@@ -151,8 +154,8 @@ def test_setup_mc():
     #Simulate order receipt on 2 of 3 msgchans from this nick;
     #note that it will have its active chan set to mc "1" because that
     #is the last it was seen on:
-    dmcs[0].on_privmsg(cp1, "!reloffer 0 4000 5000 100 0.2 abc def")
-    dmcs[1].on_privmsg(cp1, "!reloffer 0 4000 5000 100 0.2 abc def")
+    dmcs[0].on_privmsg(cp1, "!reloffer 0 4000 5000 100 0.2 " + dummy_sig_str)
+    dmcs[1].on_privmsg(cp1, "!reloffer 0 4000 5000 100 0.2 " + dummy_sig_str)
     time.sleep(0.5)
     #send back a response
     mcc.privmsg(cp1, "fill", "0")
@@ -210,7 +213,7 @@ def test_setup_mc():
     #first, pretend they all showed up on all 3 mcs:
     for m in dmcs:
         for cp in cps:
-            m.on_privmsg(cp, "!reloffer 0 400000 500000 100 0.002 abc def")
+            m.on_privmsg(cp, "!reloffer 0 400000 500000 100 0.002 " + dummy_sig_str)
     #next, call main fill function
     mcc.fill_orders(new_offers, 1000, "dummypubkey", "dummycommit")
     #now send a dummy transaction to this same set.
@@ -242,7 +245,7 @@ def test_setup_mc():
     #have the cps rearrive
     for m in dmcs:
         for cp in cps:
-            m.on_privmsg(cp, "!reloffer 0 4000 5000 100 0.2 abc def")
+            m.on_privmsg(cp, "!reloffer 0 4000 5000 100 0.2 " + dummy_sig_str)
 
     #####################################################################
     #next series of messages are to test various normal and abnormal
@@ -255,7 +258,7 @@ def test_setup_mc():
     #invalid missing field
     dmcs[0].on_pubmsg(cps[2], "!hp2")
     #receive commitment via privmsg to trigger commitment_transferred
-    dmcs[0].on_privmsg(cps[2], "!hp2 deadbeef abc def")
+    dmcs[0].on_privmsg(cps[2], "!hp2 deadbeef " + dummy_sig_str)
     #simulate receipt of order cancellation
     #valid
     dmcs[0].on_pubmsg(cps[2], "!cancel 2")
