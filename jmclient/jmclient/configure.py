@@ -119,7 +119,7 @@ blockchain_source = bitcoin-rpc
 network = mainnet
 rpc_host = localhost
 # default ports are 8332 for mainnet, 18443 for regtest, 18332 for testnet, 38332 for signet
-rpc_port = 8332
+rpc_port =
 rpc_user = bitcoin
 rpc_password = password
 rpc_wallet_file =
@@ -740,6 +740,17 @@ def get_blockchain_interface_instance(_config):
     if source in ('bitcoin-rpc', 'regtest', 'bitcoin-rpc-no-history'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
         rpc_port = _config.get("BLOCKCHAIN", "rpc_port")
+        if rpc_port == '':
+            if network == 'mainnet':
+                rpc_port = 8332
+            elif network == 'regtest':
+                rpc_port = 18443
+            elif network == 'testnet':
+                rpc_port = 18332
+            elif network == 'signet':
+                rpc_port = 38332
+            else:
+                raise ValueError('wrong network configured: ' + network)
         rpc_user, rpc_password = get_bitcoin_rpc_credentials(_config)
         rpc_wallet_file = _config.get("BLOCKCHAIN", "rpc_wallet_file")
         rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password,
