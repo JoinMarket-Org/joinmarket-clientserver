@@ -80,7 +80,15 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             return
 
     txtype = wallet_service.get_txtype()
+
+    # if the output is of a script type not currently
+    # handled by our wallet code, we can't use information
+    # to help us calculate fees, but fall back to default.
+    # This is represented by a return value `None`.
+    # Note that this does *not* imply we accept any nonstandard
+    # output script, because we already called `validate_address`.
     outtype = wallet_service.get_outtype(destination)
+
     if amount == 0:
         #doing a sweep
         utxos = wallet_service.get_utxos_by_mixdepth()[mixdepth]

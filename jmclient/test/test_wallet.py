@@ -7,7 +7,7 @@ from binascii import hexlify, unhexlify
 import pytest
 import jmbitcoin as btc
 from commontest import ensure_bip65_activated
-from jmbase import get_log, hextobin
+from jmbase import get_log, hextobin, bintohex
 from jmclient import load_test_config, jm_single, BaseWallet, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
@@ -416,6 +416,36 @@ def test_signing_simple(setup_wallet, wallet_cls, type_check):
     type_check(tx)
     txout = jm_single().bc_interface.pushtx(tx.serialize())
     assert txout
+
+# note that address validation is tested separately;
+# this test functions only to make sure that given a valid
+# taproot address, we can actually spend to it
+@pytest.mark.parametrize('hexspk', [
+    "512091b64d5324723a985170e4dc5a0f84c041804f2cd12660fa5dec09fc21783605",
+    "5120147c9c57132f6e7ecddba9800bb0c4449251c92a1e60371ee77557b6620f3ea3",
+    "5120712447206d7a5238acc7ff53fbe94a3b64539ad291c7cdbc490b7577e4b17df5",
+])
+def test_spend_to_p2traddr(setup_wallet, hexspk):
+    storage = VolatileStorage()
+    SegwitWallet.initialize(storage, get_network(), entropy=b"\xaa"*16)
+    wallet = SegwitWallet(storage)
+    utxo = fund_wallet_addr(wallet, wallet.get_internal_addr(0))
+    sPK = btc.CScript(hextobin(hexspk))
+    tx = btc.mktx([utxo],
+            [{"address": str(btc.CCoinAddress.from_scriptPubKey(sPK)),
+              "value": 10**8 - 9000}])
+    script = wallet.get_script(0, BaseWallet.ADDRESS_TYPE_INTERNAL, 0)
+    success, msg = wallet.sign_tx(tx, {0: (script, 10**8)})
+    assert success, msg
+    txout = jm_single().bc_interface.pushtx(tx.serialize())
+    assert txout
+    # probably unnecessary, but since we are sanity checking:
+    # does the output of the in-mempool tx have the sPK we expect?
+    txid = tx.GetTxid()[::-1]
+    txres = btc.CTransaction.deserialize(hextobin(jm_single().bc_interface._rpc(
+        "getrawtransaction", [bintohex(txid), True])["hex"]))
+    assert txres.vout[0].scriptPubKey == sPK
+    assert txres.vout[0].nValue == 10**8 - 9000
 
 def test_timelocked_output_signing(setup_wallet):
     jm_single().config.set('BLOCKCHAIN', 'network', 'testnet')
