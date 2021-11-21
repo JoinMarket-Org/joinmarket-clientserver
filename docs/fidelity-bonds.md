@@ -115,12 +115,14 @@ obtaining time-locked addresses. If bitcoins are sent to these addresses they wi
 be locked up until the timelock date passes. Only mixdepth zero can have a
 fidelity bond in it.
 
-This example creates an address which locks any coins sent to it until January 2025.
+This example creates an address which locks any coins sent to it until June 2025.
 
-    (jmvenv) $ python3 wallet-tool.py testfidelity.jmdat gettimelockaddress 2025-1
+    (jmvenv) $ python3 wallet-tool.py testfidelity.jmdat gettimelockaddress 2025-6
     Enter wallet decryption passphrase: 
     path = m/84'/1'/0'/2/0:1748736000
     Coins sent to this address will be not be spendable until June 2025. Full date: 2025-06-01 00:00:00
+    WARNING: You should send coins to this address only once. Only single biggest value UTXO will be announced as a fidelity bond. Sending coins to this address multiple times will not increase fidelity bond value.
+    WARNING: Only send coins here which are from coinjoins or otherwise not linked to your identity. Also, use a sweep transaction when funding the timelocked address, i.e. Don't create a change address. See the privacy warnings in fidelity-bonds.md
     bcrt1qvcjcggpcw2rzk4sks94r3nxj5xhgkqm4p9h54c7mtr695se27efqqxnu0k
 
 
