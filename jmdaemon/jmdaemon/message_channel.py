@@ -8,6 +8,7 @@ from jmdaemon import encrypt_encode, decode_decrypt, COMMAND_PREFIX,\
     encrypted_commands, commitment_broadcast_list, offername_list,\
     fidelity_bond_cmd_list
 from jmbase.support import get_log
+from jmbase import hextobin
 from functools import wraps
 
 log = get_log()
@@ -918,7 +919,6 @@ class MessageChannel(object):
         #Other ill formatted messages will be caught in the try block.
         if len(message) < 2:
             return
-
         if message[0] != COMMAND_PREFIX:
             log.debug('message not a cmd')
             return
@@ -926,16 +926,31 @@ class MessageChannel(object):
         if cmd_string not in plaintext_commands + encrypted_commands:
             log.debug('cmd not in cmd_list, line="' + message + '"')
             return
+        badsigmsg = "Sig not properly appended to privmsg, ignoring"
         #Verify nick ownership
-        sig = message[1:].split(' ')[-2:]
+        try:
+            pub, sig = message[1:].split(' ')[-2:]
+        except Exception:
+            log.debug(badsigmsg)
+            return
         #reconstruct original message without cmd
         rawmessage = ' '.join(message[1:].split(' ')[1:-2])
-        #sanity check that the sig was appended properly
-        if len(sig) != 2 or len(rawmessage) == 0:
-            log.debug("Sig not properly appended to privmsg, ignoring")
+        # can happen if not enough fields for command, (stuff), pub, sig:
+        if len(rawmessage) == 0:
+            log.debug(badsigmsg)
+            return
+        # Sanitising signature before attempting to verify:
+        # Note that the sig itself can be any garbage, because `ecdsa_verify`
+        # swallows any fail and returns False; but the pubkey is assumed
+        # to be hex-encoded, and the signature base64 encoded, so check early:
+        try:
+            dummypub = hextobin(pub)
+            dummysig = base64.b64decode(sig)
+        except Exception:
+            log.debug(badsigmsg)
             return
         self.daemon.request_signature_verify(
-            rawmessage + str(self.hostid), message, sig[1], sig[0], nick,
+            rawmessage + str(self.hostid), message, sig, pub, nick,
             NICK_HASH_LENGTH, NICK_MAX_ENCODED, str(self.hostid))
 
     def on_verified_privmsg(self, nick, message):
