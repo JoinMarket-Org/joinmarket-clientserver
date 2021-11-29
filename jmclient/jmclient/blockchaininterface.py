@@ -168,7 +168,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
 
 class BitcoinCoreInterface(BlockchainInterface):
 
-    def __init__(self, jsonRpc, network):
+    def __init__(self, jsonRpc, network, wallet_name):
         super().__init__()
         self.jsonRpc = jsonRpc
         blockchainInfo = self._rpc("getblockchaininfo", [])
@@ -187,6 +187,13 @@ class BitcoinCoreInterface(BlockchainInterface):
                 (not (actualNet == "regtest" and network == "testnet")):
             #special case of regtest and testnet having the same addr format
             raise Exception('wrong network configured')
+
+        if wallet_name:
+            self.jsonRpc.setURL("/wallet/" + wallet_name)
+            # Check that RPC wallet is loaded. If not, try to load it.
+            loaded_wallets = self._rpc("listwallets", [])
+            if not wallet_name in loaded_wallets:
+                self._rpc("loadwallet", [wallet_name])
 
     def is_address_imported(self, addr):
         return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
@@ -608,8 +615,8 @@ class RegtestBitcoinCoreMixin():
 
 class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin):
 
-    def __init__(self, jsonRpc, network):
-        super().__init__(jsonRpc, network)
+    def __init__(self, jsonRpc, network, wallet_name):
+        super().__init__(jsonRpc, network, wallet_name)
         self.import_addresses_call_count = 0
         self.wallet_name = None
         self.scan_result = None
@@ -682,8 +689,8 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
 # with > 100 blocks.
 class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin): #pragma: no cover
 
-    def __init__(self, jsonRpc):
-        super().__init__(jsonRpc, 'regtest')
+    def __init__(self, jsonRpc, wallet_name):
+        super().__init__(jsonRpc, 'regtest', wallet_name)
         self.pushtx_failure_prob = 0
         self.tick_forward_chain_interval = -1
         self.absurd_fees = False
