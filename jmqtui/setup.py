@@ -2,7 +2,7 @@ from setuptools import setup
 import os
 
 setup(name='joinmarketui',
-      version='0.9.4dev',
+      version='0.9.4',
       description='Joinmarket client library for Bitcoin coinjoins',
       url='https://github.com/JoinMarket-Org/joinmarket-clientserver/tree/master/jmqtui',
       author='',
