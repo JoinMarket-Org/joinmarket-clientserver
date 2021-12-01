@@ -93,8 +93,9 @@ class IRCMessageChannel(MessageChannel):
         self.hostid = configdata['host'] + str(configdata['port'])
         self.socks5 = configdata["socks5"]
         self.usessl = configdata["usessl"]
-        self.socks5_host = configdata["socks5_host"]
-        self.socks5_port = int(configdata["socks5_port"])
+        if self.socks5.lower() == 'true':
+            self.socks5_host = configdata["socks5_host"]
+            self.socks5_port = int(configdata["socks5_port"])
         self.channel = get_config_irc_channel(configdata["channel"],
                                               configdata["btcnet"])
         self.userrealname = (username, realname)

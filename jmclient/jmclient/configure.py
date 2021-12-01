@@ -496,13 +496,22 @@ def get_irc_mchannels():
             irc_sections.append(s)
     assert irc_sections
 
-    fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
-              ("socks5", str), ("socks5_host", str), ("socks5_port", str)]
+    req_fields = [("host", str), ("port", int), ("channel", str), ("usessl", str)]
 
     configs = []
     for section in irc_sections:
         server_data = {}
-        for option, otype in fields:
+
+        # check if socks5 is enabled for tor and load relevant config if so
+        try:
+            server_data["socks5"] = jm_single().config.get(section, "socks5")
+        except NoOptionError:
+            server_data["socks5"] = "false"
+        if server_data["socks5"].lower() == 'true':
+            server_data["socks5_host"] = jm_single().config.get(section, "socks5_host")
+            server_data["socks5_port"] = jm_single().config.get(section, "socks5_port")
+
+        for option, otype in req_fields:
             val = jm_single().config.get(section, option)
             server_data[option] = otype(val)
         server_data['btcnet'] = get_network()
