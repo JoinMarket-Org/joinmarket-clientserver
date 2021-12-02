@@ -44,11 +44,17 @@ class DummyRpcClient(object):
         self.path = path
 
     def call(self, method, obj=None):
-        "Call of method {} with data {} occurred in DummyRpcClient".format(method, obj)
+        print("Call of method {} with data {} occurred in "
+              "DummyRpcClient".format(method, obj))
         if method == "getinfo":
             return mock_getinfo_result
         else:
             return {}
+
+    def sendcustommsg(self, peerid, msg):
+        print("simulating send of msg to peer: {}".format(
+            peerid))
+        return self.call("sendcustommsg", obj=msg)
 
 def on_connect(x):
     print('simulated on-connect')

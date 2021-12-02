@@ -479,6 +479,19 @@ Options:
             with_qt='1'
         fi
     fi
+    if [[ ${with_ln_messaging} ]]; then
+        read -p "
+        INFO: Installing c-lightning is not needed
+        if you already have your own c-lightning node,
+        accessible over RPC. Are you sure you want to
+        build and install a bundled copy of c-lightning
+        in Joinmarket? [y|n]: "
+        if [[ ${REPLY} =~ y|Y ]]; then
+            with_ln_messaging='1'
+        else
+            with_ln_messaging='0'
+        fi
+    fi
 }
 
 os_is_deb ()
