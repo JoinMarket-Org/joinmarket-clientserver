@@ -9,7 +9,7 @@ from autobahn.twisted.websocket import WebSocketClientFactory, \
 
 from jmbase import get_nontor_agent, hextobin, BytesProducer, get_log
 from jmbitcoin import CTransaction
-from jmclient import (load_test_config, jm_single,
+from jmclient import (load_test_config, jm_single, SegwitWalletFidelityBonds,
                       JMWalletDaemon, validate_address, start_reactor)
 from jmclient.wallet_rpc import api_version_string
 from commontest import make_wallets
@@ -71,7 +71,7 @@ class WalletRPCTestBase(object):
         # the sync for test, by some means or other.
         self.daemon.wallet_service = make_wallets_to_list(make_wallets(
             1, wallet_structures=[wallet_structures[0]],
-            mean_amt=self.mean_amt))[0]
+            mean_amt=self.mean_amt, wallet_cls=SegwitWalletFidelityBonds))[0]
         jm_single().bc_interface.tickchain()
         sync_wallets([self.daemon.wallet_service])
         # dummy tx example to force a notification event:
@@ -173,7 +173,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr = root + "/wallet/create"
         addr = addr.encode()
         body = BytesProducer(json.dumps({"walletname": testfileloc,
-                "password": "hunter2", "wallettype": "sw"}).encode())
+                "password": "hunter2", "wallettype": "sw-fb"}).encode())
         yield self.do_request(agent, b"POST", addr, body,
                               self.process_create_wallet_response)
 
@@ -262,6 +262,18 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr += "/wallet/"
         addr += self.daemon.wallet_name
         addr += "/address/new/3"
+        addr = addr.encode()
+        yield self.do_request(agent, b"GET", addr, None,
+                              self.process_new_addr_response)
+
+    @defer.inlineCallbacks
+    def test_gettimelockaddress(self):
+        self.daemon.auth_disabled = True
+        agent = get_nontor_agent()
+        addr = self.get_route_root()
+        addr += "/wallet/"
+        addr += self.daemon.wallet_name
+        addr += "/address/timelock/new/2023-02"
         addr = addr.encode()
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_new_addr_response)

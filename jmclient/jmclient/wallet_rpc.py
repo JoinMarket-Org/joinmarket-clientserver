@@ -694,20 +694,20 @@ class JMWalletDaemon(Service):
             return make_jmwalletd_response(request, address=address)
 
         @app.route('/wallet/<string:walletname>/address/timelock/new/<string:lockdate>', methods=['GET'])
-        def gettimelockaddress(self, request, walletname):
+        def gettimelockaddress(self, request, walletname, lockdate):
             self.check_cookie(request)
             if not self.wallet_service:
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
             try:
-                timelockaddress = wallet_gettimelockaddress(self.wallet_service,
-                                                        lockdate)
-            except Exception as e:
-                return InvalidRequestFormat()
+                timelockaddress = wallet_gettimelockaddress(
+                    self.wallet_service.wallet, lockdate)
+            except Exception:
+                raise InvalidRequestFormat()
             if timelockaddress == "":
-                return InvalidRequestFormat()
-            return make_jmwalletd_response(request, address=address)
+                raise InvalidRequestFormat()
+            return make_jmwalletd_response(request, address=timelockaddress)
 
         @app.route('/wallet/<string:walletname>/configget', methods=["POST"])
         def configget(self, request, walletname):
