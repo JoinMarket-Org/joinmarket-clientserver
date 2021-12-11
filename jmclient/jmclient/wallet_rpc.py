@@ -529,7 +529,7 @@ class JMWalletDaemon(Service):
             config_json["cjfee_factor"] = None
             config_json["size_factor"] = None
 
-            self.services["maker"] = YieldGeneratorService(self.wallet_service,
+            self.services["maker"] = YieldGeneratorService(self.wallet_service.wallet,
                                     dhost, dport,
                                     [config_json[x] for x in ["txfee", "cjfee_a",
                                     "cjfee_r", "ordertype", "minsize",
