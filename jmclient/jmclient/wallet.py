@@ -250,6 +250,19 @@ class UTXOManager(object):
                             'value': utxos[s['utxo']][1]}
                 for s in selected}
 
+    def select_utxos_from_paths(self, mixdepth, input_paths, amount):
+        assert isinstance(mixdepth, numbers.Integral)
+        utxos = self._utxo[mixdepth]
+        # select everything from the input_paths list
+        available = [{'utxo': utxo, 'value': val}
+            for utxo, (addr, val, height) in utxos.items() if addr in input_paths]
+        # do not select anything disabled
+        available = [u for u in available if not self.is_disabled(*u['utxo'])]
+        selected = self.selector(available, amount)
+        return {s['utxo']: {'path': utxos[s['utxo']][0],
+                            'value': utxos[s['utxo']][1]}
+                for s in selected}
+
     def get_balance_by_mixdepth(self, max_mixdepth=float('Inf'),
                                 include_disabled=True, maxheight=None):
         """ By default this returns a dict of aggregated bitcoin
@@ -781,6 +794,35 @@ class BaseWallet(object):
         elif require_auth_address:
             utxos = collections.OrderedDict(utxos)
             utxos.move_to_end(standard_utxo, last=False)
+
+        return utxos
+
+    def select_utxos_from_addrs(self, mixdepth, input_addrs, amount):
+        """
+        Select a subset of available UTXOS from a given list of addresses whose values
+        added together is greater or equal to amount.
+
+        args:
+            mixdepth: int, mixdepth to select utxos from, must be smaller or
+                equal to wallet.max_mixdepth
+            input_addrs: list of strings, the addresses to select utxos from, must belong
+                to the mixdepth specified
+            amount: int, total minimum amount of all selected utxos
+
+        returns:
+            {(txid, index): {'script': bytes, 'path': tuple, 'value': int}}
+
+        raises:
+            NotEnoughFundsException: if mixdepth does not have utxos with
+                enough value to satisfy amount
+        """
+        assert isinstance(amount, numbers.Integral)
+        input_paths = [self.addr_to_path(addr) for addr in input_addrs]
+        utxos = self._utxos.select_utxos_from_paths(
+            mixdepth, input_paths, amount)
+
+        for _, data in utxos.items():
+            data['script'] = self.get_script_from_path(data['path'])
 
         return utxos
 

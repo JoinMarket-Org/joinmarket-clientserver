@@ -493,6 +493,12 @@ def get_sendpayment_parser():
                       dest='mixdepth',
                       help='mixing depth to spend from, default=0',
                       default=0)
+    parser.add_option('-i',
+                      '--input-addrs',
+                      action='append',
+                      dest='input_addrs',
+                      help='input addresses to spend from, must belong to the same mixing depth, default=[]',
+                      default=[])
     parser.add_option('-a',
                       '--amtmixdepths',
                       action='store',

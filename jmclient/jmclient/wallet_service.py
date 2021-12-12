@@ -863,6 +863,12 @@ class WalletService(Service):
         else:
             return self.current_blockheight - minconfs + 1
 
+    def select_utxos_from_addrs(self, mixdepth, input_addrs, amount):
+        """ Request utxos from the specified addresses of the wallet to satisfy
+        a certain total amount.
+        """
+        return self.wallet.select_utxos_from_addrs(mixdepth, input_addrs, amount)
+
     def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
                      minconfs=None, includeaddr=False, require_auth_address=False):
         """ Request utxos from the wallet in a particular mixdepth to satisfy
