@@ -1452,7 +1452,7 @@ class JMWalletTab(QWidget):
 
     def getHeaders(self):
         '''Function included in case dynamic in future'''
-        return ['Address', 'Index', 'Balance', 'Used/New', 'Label']
+        return ['Address', 'Index', 'Balance', 'Status', 'Label']
 
     def create_menu(self, position):
         item = self.walletTree.currentItem()
@@ -2293,7 +2293,7 @@ def get_wallet_printout(wallet_service):
     We retrieve a WalletView abstraction, and iterate over
     sub-objects to arrange the per-mixdepth and per-address lists.
     The format of the returned data is:
-    rows: is of format [[[addr,index,bal,used,label],[addr,...]]*5,
+    rows: is of format [[[addr,index,bal,status,label],[addr,...]]*5,
     [[addr, index,..], [addr, index..]]*5]
     mbalances: is a simple array of 5 mixdepth balances
     xpubs: [[xpubext, xpubint], ...]
@@ -2314,7 +2314,7 @@ def get_wallet_printout(wallet_service):
                 rows[-1][i].append([entry.serialize_address(),
                                     entry.serialize_wallet_position(),
                                     entry.serialize_amounts(),
-                                    entry.serialize_used(),
+                                    entry.serialize_status(),
                                     entry.serialize_label()])
     # in case the wallet is not yet synced, don't return an incorrect
     # 0 balance, but signal incompleteness:
