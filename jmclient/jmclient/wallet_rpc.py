@@ -846,3 +846,13 @@ class JMWalletDaemon(Service):
             _, self.coinjoin_connection = start_reactor(dhost, dport,
                                 self.clientfactory, rs=False)
             return make_jmwalletd_response(request, status=202)
+
+        @app.route('/wallet/<walletname>/getseed', methods=['GET'])
+        def getseed(self, request, walletname):
+            self.check_cookie(request)
+            if not self.wallet_service:
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                raise InvalidRequestFormat()
+            seedphrase, _ = self.wallet_service.get_mnemonic_words()
+            return make_jmwalletd_response(request, seedphrase=seedphrase)

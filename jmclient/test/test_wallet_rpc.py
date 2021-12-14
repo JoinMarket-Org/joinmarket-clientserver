@@ -459,6 +459,24 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         self.addCleanup(clientconn.disconnect)
         self.addCleanup(self.scon.stopListening)
         assert json.loads(response.decode("utf-8")) == {}
+
+    @defer.inlineCallbacks
+    def test_get_seed(self):
+        self.daemon.auth_disabled = True
+        agent = get_nontor_agent()
+        addr = self.get_route_root()
+        addr += "/wallet/"
+        addr += self.daemon.wallet_name
+        addr += "/getseed"
+        addr = addr.encode()
+        yield self.do_request(agent, b"GET", addr, None,
+                              self.process_get_seed_response)
+
+    def process_get_seed_response(self, response, code):
+        assert code == 200
+        json_body = json.loads(response.decode('utf-8'))
+        assert json_body["seedphrase"]
+
 """
 Sample listutxos response for reference:
 
