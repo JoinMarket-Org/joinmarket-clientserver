@@ -179,7 +179,7 @@ socks5 = false
 #socks5_host = localhost
 #socks5_port = 9050
 
-## SERVER 4/4) ILITA IRC (Tor — disabled by default)
+## SERVER 4/4) ILITA IRC (Tor - disabled by default)
 ################################################################################
 #[MESSAGING:server4]
 #channel = joinmarket-pit
