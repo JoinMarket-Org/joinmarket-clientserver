@@ -33,16 +33,19 @@ def get_utxo_info(upriv, utxo_binary=False):
         raise
     utxo_to_return = utxo_bin if utxo_binary else u
     return utxo_to_return, priv
-    
+
+def print_failed_addr_match(utxostr, addr1, addr2):
+    jmprint("privkey corresponds to the wrong address for utxo: " + utxostr, "error")
+    jmprint("blockchain returned address: {}".format(addr2), "error")
+    jmprint("your privkey gave this address: " + addr1, "error")
+    return False
+
 def validate_utxo_data(utxo_datas, retrieve=False, utxo_address_type="p2wpkh"):
     """For each (utxo, privkey), first
     convert the privkey and convert to address,
     then use the blockchain instance to look up
     the utxo and check that its address field matches.
     If retrieve is True, return the set of utxos and their values.
-    If segwit is true, assumes a p2sh wrapped p2wpkh, i.e.
-    native segwit is NOT currently supported here. If segwit
-    is false, p2pkh is assumed.
     """
     results = []
     for u, priv in utxo_datas:
@@ -52,10 +55,8 @@ def validate_utxo_data(utxo_datas, retrieve=False, utxo_address_type="p2wpkh"):
             sys.exit(EXIT_FAILURE)
         jmprint('validating this utxo: ' + utxostr, "info")
         # as noted in `ImportWalletMixin` code comments, there is not
-        # yet a functional auto-detection of key type from WIF, so the
-        # second argument is ignored; we assume p2sh-p2wpkh if segwit=True,
-        # p2pkh if segwit=False, and p2wpkh if segwit="native" (slightly
-        # ugly, just done for backwards compat.).
+        # yet a functional auto-detection of key type from WIF, hence
+        # the need for this additional switch:
         if utxo_address_type == "p2wpkh":
             engine = BTC_P2WPKH
         elif utxo_address_type == "p2sh-p2wpkh":
@@ -71,11 +72,9 @@ def validate_utxo_data(utxo_datas, retrieve=False, utxo_address_type="p2wpkh"):
         if len(res) != 1 or None in res:
             jmprint("utxo not found on blockchain: " + utxostr, "error")
             return False
-        if res[0]['address'] != addr:
-            jmprint("privkey corresponds to the wrong address for utxo: " + utxostr, "error")
-            jmprint("blockchain returned address: {}".format(res[0]['address']), "error")
-            jmprint("your privkey gave this address: " + addr, "error")
-            return False
+        returned_addr = engine.script_to_address(res[0]['script'])
+        if returned_addr != addr:
+            return print_failed_addr_match(utxostr, addr, returned_addr)
         if retrieve:
             results.append((u, res[0]['value']))
     jmprint('all utxos validated OK', "success")
