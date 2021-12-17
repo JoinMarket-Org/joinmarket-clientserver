@@ -69,7 +69,7 @@ def parse_host_port(path: str) -> HostPortInfo:
         if eidx == -1:
             raise ValueError('Port number missing.')
         host = path[0:eidx]
-        if re.match('\d+\.\d+\.\d+\.\d+$', host): # matches IPv4 address format
+        if re.match(r'\d+\.\d+\.\d+\.\d+$', host): # matches IPv4 address format
             addrtype = AddrType.IPv4
         else:
             addrtype = AddrType.NAME
@@ -137,14 +137,24 @@ class SocketToBackend(object):
         logging.info('Connecting to {}:{} (addrtype {}, proxytype {}, proxytarget {})...'.format(
             self.url.target.host, self.url.target.port, self.url.target.addrtype,
                 self.url.proxytype, self.url.proxytarget))
-        self.sock.connect((self.url.target.host, self.url.target.port))
+        try:
+            self.sock.connect((self.url.target.host, self.url.target.port))
+        except Exception as e:
+            plugin.log("JMCL failed to connect to backend at host, port: {}, {} "
+                       "with exception: {}".format(self.url.target.host,
+                                                   self.url.target.port, repr(e)))
+            return
         plugin.log('Connected to JM backend at: {}'.format(self.destination))
         plugin.is_connected_to_backend = True
 
     def sendLine(self, msg: bytes) -> None:
         # TODO no length check here; should be accepted
         # by backend if len(msg) < basic.LineReceiver.MAX_LENGTH
-        self.sock.sendall(msg + self.delimiter)
+        try:
+            self.sock.sendall(msg + self.delimiter)
+        except Exception as e:
+            plugin.log("JMCL failed to send message, exception: {}".format(
+                repr(e)))
 
 backend_line_sender = SocketToBackend()
 

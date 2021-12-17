@@ -434,7 +434,7 @@ class JMMakerClientProtocol(JMClientProtocol):
                                                    "blockchain_source")
         #needed only for channel naming convention
         network = jm_single().config.get("BLOCKCHAIN", "network")
-        irc_configs = get_mchannels()
+        irc_configs = self.factory.get_mchannels()
         #only here because Init message uses this field; not used by makers TODO
         minmakers = jm_single().config.getint("POLICY", "minimum_makers")
         maker_timeout_sec = jm_single().maker_timeout_sec
@@ -600,7 +600,7 @@ class JMTakerClientProtocol(JMClientProtocol):
                                                    "blockchain_source")
         #needed only for channel naming convention
         network = jm_single().config.get("BLOCKCHAIN", "network")
-        irc_configs = get_mchannels()
+        irc_configs = self.factory.get_mchannels()
         minmakers = jm_single().config.getint("POLICY", "minimum_makers")
         maker_timeout_sec = jm_single().maker_timeout_sec
 
@@ -792,6 +792,14 @@ class JMClientProtocolFactory(protocol.ClientFactory):
 
     def buildProtocol(self, addr):
         return self.protocol(self, self.client)
+
+    def get_mchannels(self):
+        """ A transparent wrapper that allows override,
+        so that a script can return a customised set of
+        message channel configs; currently used for testing
+        multiple bots on regtest.
+        """
+        return get_mchannels()
 
 def start_reactor(host, port, factory=None, snickerfactory=None,
                   bip78=False, jm_coinjoin=True, ish=True,

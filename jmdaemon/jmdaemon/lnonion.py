@@ -1,9 +1,7 @@
 from jmdaemon.message_channel import MessageChannel
 from jmdaemon.protocol import COMMAND_PREFIX, JM_VERSION
-from jmbase import get_log, bintohex, hextobin, stop_reactor, JM_APP_NAME
+from jmbase import get_log, bintohex, hextobin, JM_APP_NAME
 from pyln.client import LightningRpc, RpcError
-from io import BytesIO
-import struct
 import json
 import copy
 from typing import Callable
@@ -20,13 +18,14 @@ JM_MESSAGE_TYPES = {"privmsg": 685, "pubmsg": 687}
 # Used for some control message construction, as detailed below.
 NICK_PEERLOCATOR_SEPARATOR = ";"
 
-# location_string must be set before sending, otherwise
-# invalid:
+# location_string and nick must be set before sending,
+# otherwise invalid:
 client_handshake_json = {"app-name": JM_APP_NAME,
  "directory": False,
  "location-string": "",
  "proto-ver": JM_VERSION,
- "features": {}
+ "features": {},
+ "nick": ""
 }
 
 # default acceptance false; code must switch it on:
@@ -35,7 +34,8 @@ server_handshake_json = {"app-name": JM_APP_NAME,
   "proto-ver-min": JM_VERSION,
   "proto-ver-max": JM_VERSION,
   "features": {},
-  "accepted": False
+  "accepted": False,
+  "nick": ""
  }
 
 # states that keep track of relationship to a peer
@@ -91,7 +91,8 @@ json serialized:
    "directory": false,
    "location-string": "hex-key@host:port",
    "proto-ver": 5,
-   "features": {}
+   "features": {},
+   "nick": "J5***"
   }
 Note that `proto-ver` is the version specified as `JM_VERSION` in jmdaemon.protocol.
 (It has not changed for many years, it only specifies the syntax of the messages).
@@ -105,6 +106,7 @@ json serialized:
   "proto-ver-max": 5,
   "features": {}
   "accepted": true,
+  "nick": "J5**"
  }
 
  Non-directory nodes should send `handshake` to directory nodes,
@@ -114,6 +116,10 @@ json serialized:
  * the `directory` field of the peer is false
  * the `app-name` is joinmarket
  * the set of features requested is both recognized and accepted (currently: none)
+ * the nick used by this entity/bot across all message channels, used for cross-channel message spoofing protection
+
+Notice that more than one nick is NOT allowed per LN node; this is deferred to
+future updates.
 
  In case those conditions are met, return `"accepted": true`, else return
  `"accepted": false` and immediately disconnect the new peer.
@@ -138,28 +144,15 @@ will be ignored until the above two-way handshake is complete.
 
 #### OTHER CONTROL MESSAGES
 
-The messages `getpeerlist` and `peerlist` are special messages sent to and
-from directory servers.
-
-The syntax of `getpeerlist` is:
-
-from-nick || NICK_PEERLOCATOR_SEPARATOR || peer-location
-
-`from_nick` must be a valid Joinmarket nick belonging to the sending node.
-The `peer-location` field can either be a 66 character hex-encoded pubkey or a full peer location
-as `pubkey@host:port`.
-
-This message is crucial to the network function, since only from here does the directory node know
-the match between the nick (which is cryptographically signed in Joinmarket across channels) and the
-LN node pubkey. Notice that more than one nick is NOT allowed per LN node; this is deferred to
-future updates.
-
 The syntax of `peerlist` is:
 
 nick || NICK_PEERLOCATOR_SEPARATOR || peer-location || "," ... (repeated)
 
-i.e. a serialization of two-element tuples, each of which is a Joinmarket nick followed by a peer
-location, as for the `getpeerlist` message.
+i.e. a serialized list of two-element tuples, each of which is a Joinmarket nick
+followed by a peer location.
+
+`peerlist` may be sent by directory nodes to non-directory nodes at any time,
+but currently it is sent according to a specific rule described below.
 
 #### LOCAL CONTROL MESSAGES
 
@@ -168,32 +161,66 @@ namely the `connect` and `disconnect` events triggered at the LN level. These ar
 the *state* of existing peers that we have recorded as connected at some point, to ourselves.
 
 The mechanisms here are loosely synchronizing a database of JM peers, with obviously the directory
-node(s) acting as a queryable resource. It's notable that there are no guarantees of accuracy or
+node(s) acting as the data provider. It's notable that there are no guarantees of accuracy or
 synchrony here.
 
-PARSING OF RECEIVED JM_MESSAGES
-===
+### PARSING OF RECEIVED JM_MESSAGES
+
 
 The text will be utf-encoded before being hexlified, and therefore the following actions are needed of the receiver:
 
-Extract rawtlv field which is received as encoded json:
+Extract the peerid of the sender, and the actual message, received as encoded json:
 
-json.loads(msg.decode("utf-8"))["unknown_fields"][0]["value"]
+* peerid: json.loads(msg.decode("utf-8"))["peer_id"]
+* message: json.loads(msg.decode("utf-8"))["payload"]
+(which is prepended by a two byte message_type; see below).
 
-(the ["number"] key is used to check for control messages, see below for details).
+##### peerid:
 
-Then: unhexlify, converting to binary, then .decode("utf-8") again, converting to a string.
+This field comes in three potential forms (as hex):
+"00" : special null peerid indicating a local control message (see above).
+"hex-key": peerid without connection information, allowing us to record the existence of a peer,
+           but not to send messages to it directly (only via the directory node).
+"hex-key@host:port": peerid with connection information, allowing us to attempt to connect to it,
+           and send private messages to it directly.
 
-Split the string by COMMAND PREFIX and parse as `from nick, to nick, command, message(s)`.
+##### payload:
 
-These arguments can be passed into Joinmarket's normal message channel processing, and should be
+This is parsed by:
+
+1. Take the first two hex-encoded bytes and convert to an integer: this is the
+                   message type. Take the remaining part of the hex string and unhexlify,
+                   converting to binary, then .decode("utf-8") again, converting to a string.
+                   This means encoding is sometimes very inefficient, if the underlying string actually
+                   contains hex or other encoding, but can't really be changed until the underlying
+                   Joinmarket messaging protocol is changed.
+
+2. Split the decoded string by COMMAND PREFIX and parse as `from nick, to nick, command, message(s)`
+           (see above for syntax).
+
+The resulting messages can be passed into Joinmarket's normal message channel processing, and should be
 identical to that coming from IRC.
 
 However, before doing so, we need to identify "public messages" versus private, which does not
 have as natural a meaning here as it does on IRC; we impose it by using a to-nick value of PUBLIC
-and by sending the message type `687` to the lightning plugin `jmcl.py` instead of the default
-message type `685` for privmsgs to a single counterparty. This will instruct the directory server
+and by sending the message_type `687` to the Lightning RPC instead of the default
+message_type `685` for privmsgs to a single counterparty. This will instruct the directory node
 to send the message to every peer it knows about.
+
+### GETTING INFORMATION ABOUT PEERS FOR DIRECT CONNECTIONS
+
+To avoid passing huge lists of peers around, the directory node takes a "lazy" approach to
+sharing connection info between peers:
+
+When Peer J51 asks to privmsg J52 (which it discovered when receiving a privmsg from J52, usually
+here that would be in response to a `!orderbook` pubmsg by J51), the directory node does as instructed,
+but then sends also a `peerlist` message to J51, containing the full network location of J52.
+
+Given this new information, J51 opportunistically tries to connect to J52 directly and if the network
+connection succeeds, sends a handshake to J52. If J52 responds with acceptance, the direct messaging
+connection is established, and from then on, until J51 sees a disconnect event for that network peer,
+he will divert any `privmsg` to that party to use the direct connection instead of the directory node.
+
 """
 
 """ this passthrough protocol allows
@@ -260,27 +287,6 @@ class TCPPassThroughFactory(ServerFactory):
             self.listeners.remove(listener)
         except ValueError:
             pass
-
-""" Taken from @cdecker's https://github.com/lightningd/plugins/blob/master/noise/primitives.py
-    Of note: we could import this functionality from our backend (jmbitcoin <- python-bitcointx),
-    however jmdaemon must not rely on the jmbitcoin package.
-"""
-def varint_encode(i, w):
-    """Encode an integer `i` into the writer `w`
-    """
-    if i < 0xFD:
-        w.write(struct.pack("!B", i))
-    elif i <= 0xFFFF:
-        w.write(struct.pack("!BH", 0xFD, i))
-    elif i <= 0xFFFFFFFF:
-        w.write(struct.pack("!BL", 0xFE, i))
-    else:
-        w.write(struct.pack("!BQ", 0xFF, i))
-
-def int_to_var_bytes(i):
-    b = BytesIO()
-    varint_encode(i, b)
-    return b.getvalue()
 
 class LNOnionPeerError(Exception):
     pass
@@ -473,9 +479,9 @@ class LNCustomMessage(object):
     @classmethod
     def from_sendcustommsg_decode(cls, msg:
                                      str):
-        """ This is not the reverse operation to encode,
-        since we receive, via the plugin hook to the
-        receive custom msg event.
+        """ This is ~ the reverse operation to encode,
+        but note that we receive, via the plugin hook,
+        to the receive_msg event.
         """
         try:
             type_hex = msg[:4]
@@ -484,34 +490,6 @@ class LNCustomMessage(object):
             raise LNCustomMsgFormatError
         msgtype = int(type_hex, 16)
         text = hextobin(message_hex).decode("utf-8")
-        return cls(text, msgtype)
-
-# NOT CURRENTLY IN USE:
-class LNOnionMessage(object):
-    """ Encapsulates the messages passed over the wire
-    from c-lightning, allow conversion into the text
-    strings used in Joinmarket message channels.
-    """
-    def __init__(self, text: str, msgtype: int):
-        self.text = text
-        self.msgtype = msgtype
-
-    def encode(self) -> str:
-        bintext = self.text.encode("utf-8")
-        hextext = bintohex(bintext)
-        self.encoded = bintohex(int_to_var_bytes(
-            self.msgtype)) + bintohex(int_to_var_bytes(
-            len(bintext))) + hextext
-        return self.encoded
-
-    @classmethod
-    def from_sendonionmessage_decode(cls, msg:
-                    str, msgtype: int):
-        """ This is not the reverse operation to encode,
-        since we receive the messages as output of
-        c-lightning's `sendonionmessage`.
-        """
-        text = hextobin(msg).decode("utf-8")
         return cls(text, msgtype)
 
 class LNOnionMessageChannel(MessageChannel):
@@ -557,8 +535,10 @@ class LNOnionMessageChannel(MessageChannel):
         # directories but us.
         self.genesis_node = False
 
-        # monitoring loop for getting up to date peer lists:
-        self.peer_request_loop = None
+        # waiting loop for all directories to have
+        # connected (note we could use a deferred but
+        # the rpc connection calls are not using twisted)
+        self.wait_for_directories_loop = None
 
     def get_rpc_client(self, path):
         return LightningRpc(path)
@@ -617,6 +597,7 @@ class LNOnionMessageChannel(MessageChannel):
         peerid = self.get_peerid_by_nick(nick)
         if peerid:
             peer = self.get_peer_by_id(peerid)
+            assert isinstance(peer, LNOnionPeer)
         # notice the order matters here!:
         if not peerid or not peer or not peer.status() == PEER_STATUS_HANDSHAKED:
             # If we are trying to message a peer via their nick, we
@@ -682,15 +663,6 @@ class LNOnionMessageChannel(MessageChannel):
                                         handshake_callback=None)
 
     def connect_to_directories(self):
-        """ First job of the bot is to get an
-        up to date peer list (assuming it is not the seeding
-        node).
-        It does that by: (a) connecting to a directory node
-        (unless it itself is a directory node, in which case it does
-        nothing here), and then (b) handshaking with the dn to
-        ensure compatibility. After these two steps, it can (c)
-        send the `getpeerlist` control message.
-        """
         if self.genesis_node:
             # we are a directory and we have no directory peers;
             # just start.
@@ -703,11 +675,12 @@ class LNOnionMessageChannel(MessageChannel):
                 p.connect(self.rpc_client)
             except LNOnionPeerConnectionError:
                 pass
-        # after all the connections are in place, we can
-        # start our continuous request for peer updates:
+        # do not trigger on_welcome event until all directories
+        # configured are ready:
         self.on_welcome_sent = False
-        self.peer_request_loop = task.LoopingCall(self.send_getpeers)
-        self.peer_request_loop.start(10.0)
+        self.wait_for_directories_loop = task.LoopingCall(
+            self.wait_for_directories)
+        self.wait_for_directories_loop.start(10.0)
 
     def handshake_as_client(self, peer: LNOnionPeer) -> None:
         assert peer.status() == PEER_STATUS_CONNECTED
@@ -716,6 +689,7 @@ class LNOnionMessageChannel(MessageChannel):
             return
         our_hs = copy.deepcopy(client_handshake_json)
         our_hs["location-string"] = self.self_as_peer.peer_location()
+        our_hs["nick"] = self.nick
         # We fire and forget the handshake; successful setting
         # of the `is_handshaked` var in the Peer object will depend
         # on a valid/success return via the custommsg hook in the plugin.
@@ -864,6 +838,13 @@ class LNOnionMessageChannel(MessageChannel):
         encoded_msg = LNCustomMessage(privmsg,
                         JM_MESSAGE_TYPES["privmsg"]).encode()
         self._send(peerid, encoded_msg)
+        # If possible, we forward the from-nick's network location
+        # to the to-nick peer, so they can just talk directly next time.
+        peerid_from = self.get_peerid_by_nick(from_nick)
+        if not peerid_from:
+            return
+        peer_to = self.get_peer_by_id(peerid)
+        self.send_peers(peer_to, peerid_filter=[peerid_from])
 
     def process_control_message(self, peerid: str, msgtype: int,
                                 msgval: str) -> bool:
@@ -927,6 +908,7 @@ class LNOnionMessageChannel(MessageChannel):
             self.add_peer(msgval.split("@")[0], connection=True,
                           overwrite_connection=True)
         elif msgtype == LOCAL_CONTROL_MESSAGE_TYPES["disconnect"]:
+            log.debug("We got a disconnect event: {}".format(msgval))
             self.add_peer(msgval, connection=False,
                           overwrite_connection=True)
         else:
@@ -944,6 +926,7 @@ class LNOnionMessageChannel(MessageChannel):
             log.warn("Unexpected handshake from unknown peer: {}, "
                      "ignoring.".format(peerid))
             return
+        assert isinstance(peer, LNOnionPeer)
         if not peer.status() == PEER_STATUS_CONNECTED:
             # we were not waiting for it:
             log.warn("Unexpected handshake from peer: {}, "
@@ -971,9 +954,11 @@ class LNOnionMessageChannel(MessageChannel):
                 proto_max = handshake_json["proto-ver-max"]
                 features = handshake_json["features"]
                 accepted = handshake_json["accepted"]
+                nick = handshake_json["nick"]
                 assert isinstance(proto_max, int)
                 assert isinstance(proto_min, int)
                 assert isinstance(features, dict)
+                assert isinstance(nick, str)
             except Exception as e:
                 log.warn("Invalid handshake message from: {}, exception: {}, message: {},"
                          "ignoring".format(peerid, repr(e), message))
@@ -991,6 +976,7 @@ class LNOnionMessageChannel(MessageChannel):
                 return
             # We received a valid, accepting dn-handshake. Update the peer.
             peer.update_status(PEER_STATUS_HANDSHAKED)
+            peer.set_nick(nick)
         else:
             # it means, we are receiving an initial handshake
             # message from a 'client' (non-dn) peer.
@@ -1004,8 +990,10 @@ class LNOnionMessageChannel(MessageChannel):
                 proto_ver = handshake_json["proto-ver"]
                 features = handshake_json["features"]
                 full_location_string = handshake_json["location-string"]
+                nick = handshake_json["nick"]
                 assert isinstance(proto_ver, int)
                 assert isinstance(features, dict)
+                assert isinstance(nick, str)
             except Exception as e:
                 log.warn("(not dn) Invalid handshake message from: {}, exception: {}, message: {},"
                          "ignoring".format(peerid, repr(e), message))
@@ -1020,9 +1008,11 @@ class LNOnionMessageChannel(MessageChannel):
             # allow publishing their location via `getpeerlist`:
             if not peer.set_location(full_location_string):
                 accepted = False
+            peer.set_nick(nick)
             # client peer's handshake message was valid; send ours, and
             # then mark this peer as successfully handshaked:
             our_hs = copy.deepcopy(server_handshake_json)
+            our_hs["nick"] = self.nick
             our_hs["accepted"] = accepted
             self.handshake_as_directory(peer, our_hs)
             if accepted:
@@ -1136,56 +1126,34 @@ class LNOnionMessageChannel(MessageChannel):
         return [p for p in self.peers if (not p.directory) and p.status() == \
                 PEER_STATUS_HANDSHAKED]
 
-    """ CONTROL MESSAGES SENT BY US
-    """
-    def send_getpeers(self):
+    def wait_for_directories(self):
         """ This message is sent to all currently connected
         directory nodes.
         If it fails we must update our directory node list or quit.
         """
-        #Notice this is checking for *handshaked* dps:
+        # Notice this is checking for *handshaked* dps:
         if len(self.get_connected_directory_peers()) == 0:
             return
-        for dp in self.get_connected_directory_peers():
-            # This message embeds the connection information
-            # for *ourselves* to add to peer lists of other
-            # nodes.
-            msg = self.self_as_peer.get_nick_peerlocation_ser()
-            log.info("Sending our loc for getpeerlist message: {}".format(msg))
-            success = self._send(dp.peerid, LNCustomMessage(msg,
-                    CONTROL_MESSAGE_TYPES["getpeerlist"]).encode())
-            if not success:
-                # a failure of the RPC call is interpreted as a failure
-                # to connect. We must drop this dn, with a warning,
-                # and we must shut down this loop and the whole program
-                # if we have no directory peers left.
-                log.warn("Losing connection to directory: " + dp.peerid)
-                dp.update_status(PEER_STATUS_DISCONNECTED)
-                if len(self.get_connected_directory_peers()) == 0:
-                    # we cannot continue if we have no existing directory
-                    # peers.
-                    self.peer_request_loop.stop()
-                    self.shutdown()
-                    stop_reactor()
-                    break
-        # Signal that we're ready, the first time all the connections
-        # are up.
-        # (we needed to wait until we had a fresh peer list).
         # This is what triggers the start of taker/maker workflows.
         if not self.on_welcome_sent:
             self.on_welcome(self)
             self.on_welcome_sent = True
+            self.wait_for_directories_loop.stop()
 
-    def send_peers(self, requesting_peer):
+    """ CONTROL MESSAGES SENT BY US
+    """
+    def send_peers(self, requesting_peer, peerid_filter=[]):
         """ This message is sent by directory peers on request
         by non-directory peers.
+        If peerid_filter is specified, only peers whose peerid is in
+        this list will be sent. (TODO this is inefficient).
         The peerlist message should have this format:
         (1) entries comma separated
         (2) each entry is serialized nick then the NICK_PEERLOCATOR_SEPARATOR
             then *either* 66 char hex peerid, *or* peerid@host:port
-        (3) However since it's very likely that this message
-            is long enough to exceed a 1300 byte limit, we
-            must split it into multiple messages (TODO).
+        (3) However this message might be long enough to exceed a 1300 byte limit,
+            if we don't use a filter, so we may need to split it into multiple
+            messages (TODO).
         """
         if not requesting_peer.status() == PEER_STATUS_HANDSHAKED:
             raise LNOnionPeerConnectionError(
@@ -1195,8 +1163,10 @@ class LNOnionMessageChannel(MessageChannel):
             # don't send a peer to itself
             if p.peerid == requesting_peer.peerid:
                 continue
+            if len(peerid_filter) > 0 and p.peerid not in peerid_filter:
+                continue
             if not p.status() == PEER_STATUS_HANDSHAKED:
-                # don't advertise what is not online (?)
+                # don't advertise what is not online.
                 continue
             # peers that haven't sent their nick yet are not
             # privmsg-reachable; don't send them

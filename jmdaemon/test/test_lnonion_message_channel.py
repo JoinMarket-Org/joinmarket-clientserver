@@ -80,17 +80,17 @@ def junk_pubmsgs(mc):
     mc.pubmsg("!orderbook!orderbook")
 
 def junk_longmsgs(mc):
-    # TODO: not currently using real `sendonionmessage`,
+    # TODO: not currently using real `sendcustommsg`,
     # so testing a longer than expected message is pointless.
     # in future mock or use the real lightning rpc call.
     # Leaving here for now as it doesn't hurt.
-    mc.pubmsg("junk and crap"*40)
+    mc.pubmsg("junk and crap"*15)
 
 def junk_announce(mc):
     #try a long order announcement in public
     #because we don't want to build a real orderbook,
     #TODO: how to test that the sent format was correct?
-    mc._announce_orders(["!abc def gh 0001"]*30)
+    mc._announce_orders(["!abc def gh 0001"]*15)
 
 def junk_fill(mc):
     #send a fill with an invalid pubkey to the existing yg;
@@ -100,7 +100,7 @@ def junk_fill(mc):
     mc._pubmsg("!reloffer stuff")
     # TODO: What happens if we send messages larger than the onion
     # packet size limit? As per above, need real LN parsing.
-    mc._privmsg(nick2, "tx", "aa"*5000)
+    mc._privmsg(nick2, "tx", "aa"*500)
     mc.send_error(nick2, "fly you fools!")
     return mc
 
@@ -125,8 +125,9 @@ class LNOnionTest(unittest.TestCase):
         self.old_config = copy.deepcopy(jm_single().config)
         jm_single().config.remove_section("MESSAGING:server1")
         jm_single().config.remove_section("MESSAGING:server2")
+        if "MESSAGING:lightning1" in jm_single().config.sections():
+            jm_single().config.remove_section("MESSAGING:lightning1")
         jm_single().config.add_section("MESSAGING:lightning1")
-        
         jm_single().config.set("MESSAGING:lightning1", "type", "ln-onion")
         jm_single().config.set("MESSAGING:lightning1", "directory-nodes",
             "03df15dbd9e20c811cc5f4155745e89540a0b83f33978317cebe9dfc46c5253c55@127.0.0.1:9835")
@@ -155,10 +156,16 @@ class LNOnionTest(unittest.TestCase):
         # telling us that he's there:
         self.mc.receive_msg(mock_control_message1)
         self.mc.receive_msg(mock_control_connected_message)
-        # and then we mock him sending out a pubmsg; this is needed,
+        # since LN connections require a handshake before we can accept
+        # messages or talk to peers, as clients, we simulate the reception
+        # of the client handshake from this peer:
+        self.mc.receive_msg(mock_client_handshake_message)
+        # note that we should send out our 'server' handshake back to him,
+        # but this is outside the simulation.
+        # Next, we mock him sending out a pubmsg; this is needed,
         # because msgchans only register nicks 'active' on that mc via
-        # the on_pubmsg_trigger; otherwise they might be connected, but they
-        # are not 'active':
+        # the on_pubmsg_trigger; otherwise they might be connected, and
+        # they might be handshaked, but they are not 'active'!:
         self.mc.receive_msg(mock_receiver_pubmsg)
         # absence of 'peer not found' in response to this
         # privmsg will mean the above worked:

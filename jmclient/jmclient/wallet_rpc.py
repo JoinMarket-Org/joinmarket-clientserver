@@ -159,6 +159,9 @@ class JMWalletDaemon(Service):
         # ensure shut down does not leave dangling services:
         atexit.register(self.stopService)
 
+    def get_client_factory(self):
+        return JMClientProtocolFactory(self.taker)
+
     def activate_coinjoin_state(self, state):
         """ To be set when a maker or taker
         operation is initialized; they cannot
@@ -393,7 +396,8 @@ class JMWalletDaemon(Service):
                         walletname=self.wallet_name,
                         token=encoded_token)
 
-    def taker_finished(self, res, fromtx=False, waittime=0.0, txdetails=None):
+    def taker_finished(self, res, fromtx=False,
+                               waittime=0.0, txdetails=None):
         # This is a slimmed down version compared with what is seen in
         # the CLI code, since that code encompasses schedules with multiple
         # entries; for now, the RPC only supports single joins.
@@ -868,13 +872,13 @@ class JMWalletDaemon(Service):
             self.taker = Taker(self.wallet_service, schedule,
                                max_cj_fee = max_cj_fee,
                                callbacks=(self.filter_orders_callback,
-                                          None,  self.taker_finished))
+                                None, self.taker_finished))
             # TODO ; this makes use of a pre-existing hack to allow
             # selectively disabling the stallMonitor function that checks
             # if transactions went through or not; here we want to cleanly
             # destroy the Taker after an attempt is made, successful or not.
             self.taker.testflag = True
-            self.clientfactory = JMClientProtocolFactory(self.taker)
+            self.clientfactory = self.get_client_factory()
 
             dhost, dport = self.check_daemon_ready()
 

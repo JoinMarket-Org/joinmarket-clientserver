@@ -59,7 +59,7 @@ class JMTestClientProtocol(JMBaseProtocol):
 
     def clientStart(self):
         self.sigs_received = 0
-        irc = get_mchannels()
+        irc = [get_mchannels()[0]]
         d = self.callRemote(JMInit,
                             bcsource="dummyblockchain",
                             network="dummynetwork",
