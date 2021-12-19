@@ -50,7 +50,7 @@ def test_query_utxo_set(setup_wallets):
         includeconf=True, includeunconf=True)
     assert len(res1) == 1
     assert len(res2) == 2
-    assert all([x in res1[0] for x in ['script', 'address', 'value']])
+    assert all([x in res1[0] for x in ['script', 'value']])
     assert not 'confirms' in res1[0]
     assert 'confirms' in res2[0]
     assert 'confirms' in res2[1]

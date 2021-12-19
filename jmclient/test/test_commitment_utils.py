@@ -1,8 +1,8 @@
 from commontest import DummyBlockchainInterface
 import pytest
 
-from jmbase import utxostr_to_utxo
-from jmclient import (load_test_config, jm_single)
+from jmbase import utxostr_to_utxo, hextobin
+from jmclient import (load_test_config, jm_single, BTC_P2WPKH)
 from jmclient.commitment_utils import get_utxo_info, validate_utxo_data
 from jmbitcoin import select_chain_params
 
@@ -20,7 +20,7 @@ def test_get_utxo_info():
     success, fakeutxo_bin = utxostr_to_utxo(fakeutxo)
     assert success
     fake_query_results = [{'value': 200000000,
-                                'address': iaddr,
+                                'script': BTC_P2WPKH.address_to_script(iaddr),
                                 'utxo': fakeutxo_bin,
                                 'confirms': 20}]    
     dbci.insert_fake_query_results(fake_query_results)
@@ -29,15 +29,15 @@ def test_get_utxo_info():
     assert u == fakeutxo
     assert priv == privkey
     #invalid format
-    with pytest.raises(Exception) as e_info:
+    with pytest.raises(Exception):
         u, priv = get_utxo_info(fakeutxo + privkey)
     #invalid index
     fu2 = "ab"*32 + ":-1"
-    with pytest.raises(Exception) as e_info:
+    with pytest.raises(Exception):
         u, priv = get_utxo_info(fu2 + "," + privkey)
     #invalid privkey
     p2 = privkey[:-1] + 'j'
-    with pytest.raises(Exception) as e_info:
+    with pytest.raises(Exception):
         u, priv = get_utxo_info(fakeutxo + "," + p2)
 
     utxodatas = [(fakeutxo_bin, privkey)]
@@ -46,7 +46,7 @@ def test_get_utxo_info():
     #try to retrieve
     retval = validate_utxo_data(utxodatas, True)
     assert retval[0] == (fakeutxo_bin, 200000000)
-    fake_query_results[0]['address'] = "fakeaddress"
+    fake_query_results[0]['script'] = hextobin("76a91479b000887626b294a914501a4cd226b58b23598388ac")
     dbci.insert_fake_query_results(fake_query_results)
     #validate should fail for wrong address
     retval = validate_utxo_data(utxodatas, False)
@@ -58,4 +58,4 @@ def test_get_utxo_info():
     assert not retval
     dbci.setQUSFail(False)
     select_chain_params("bitcoin/regtest")
-    jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
+    jm_single().config.set("BLOCKCHAIN", "network", "regtest")
