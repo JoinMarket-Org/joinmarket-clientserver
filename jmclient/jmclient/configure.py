@@ -787,19 +787,21 @@ def get_blockchain_interface_instance(_config):
                 raise ValueError('wrong network configured: ' + network)
         rpc_user, rpc_password = get_bitcoin_rpc_credentials(_config)
         rpc_wallet_file = _config.get("BLOCKCHAIN", "rpc_wallet_file")
-        rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password,
-            rpc_wallet_file)
+        rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password)
         if source == 'bitcoin-rpc': #pragma: no cover
-            bc_interface = BitcoinCoreInterface(rpc, network)
+            bc_interface = BitcoinCoreInterface(rpc, network,
+                rpc_wallet_file)
             if testnet:
                 btc.select_chain_params("bitcoin/testnet")
             else:
                 btc.select_chain_params("bitcoin")
         elif source == 'regtest':
-            bc_interface = RegtestBitcoinCoreInterface(rpc)
+            bc_interface = RegtestBitcoinCoreInterface(rpc,
+                rpc_wallet_file)
             btc.select_chain_params("bitcoin/regtest")
         elif source == "bitcoin-rpc-no-history":
-            bc_interface = BitcoinCoreNoHistoryInterface(rpc, network)
+            bc_interface = BitcoinCoreNoHistoryInterface(rpc, network,
+                rpc_wallet_file)
             if testnet or network == "regtest":
                 # in tests, for bech32 regtest addresses, for bc-no-history,
                 # this will have to be reset manually:
