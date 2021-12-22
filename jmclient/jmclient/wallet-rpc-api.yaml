@@ -492,6 +492,10 @@ components:
                 type: string
               address: 
                 type: string
+              path:
+                type: string
+              label:
+                type: string
               value: 
                 type: integer
               tries: 

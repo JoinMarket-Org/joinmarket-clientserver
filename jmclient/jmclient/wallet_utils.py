@@ -408,6 +408,7 @@ def wallet_showutxos(wallet_service, showprivkey):
             tries_remaining = max(0, max_tries - tries)
             mixdepth = wallet_service.wallet.get_details(av['path'])[0]
             unsp[us] = {'address': av['address'],
+                       'path': wallet_service.get_path_repr(av['path']),
                        'label': av['label'] if av['label'] else "",
                        'value': av['value'],
                        'tries': tries, 'tries_remaining': tries_remaining,
