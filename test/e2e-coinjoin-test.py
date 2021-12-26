@@ -21,7 +21,9 @@ import pytest
 import random
 import json
 from datetime import datetime
-from jmbase import get_nontor_agent, BytesProducer, jmprint, get_log, stop_reactor
+from jmbase import (get_nontor_agent, BytesProducer, jmprint,
+                    get_log, stop_reactor, hextobin, bintohex)
+from jmbitcoin import privkey_to_pubkey
 from jmclient import (YieldGeneratorBasic, load_test_config, jm_single,
     JMClientProtocolFactory, start_reactor, SegwitWallet, get_mchannels,
     SegwitLegacyWallet, SNICKERClientProtocolFactory, SNICKERReceiver,
@@ -42,6 +44,10 @@ FidelityBondMixin.TIMENUMBERS_PER_PUBKEY = 12
 
 wallet_name = "test-ln-yg-runner.jmdat"
 
+mean_amt = 2.0
+
+directory_node_indices = [1, 2]
+
 # Note for tests of Lightning message channels:
 # (this data is not really needed *here* as the bots
 # retrieve their keys on startup with RPC `getinfo`, but is here
@@ -50,7 +56,7 @@ wallet_name = "test-ln-yg-runner.jmdat"
 # These nodes are generated with private keys (using --dev-force-privkey):
 # (note of course that c-lightning must be built with --enable-developer)
 # 121212121212121212121212121212121212121212121212121212121212121$i
-# with $i 1..3
+# with $i 1..3 (or n in general, see 'regtest-count' below.
 #
 # the passthrough ports are 4910$i and they all run on localhost (this is default for regtest).
 # the lightning node ports are 9735+$i
@@ -86,16 +92,28 @@ wallet_name = "test-ln-yg-runner.jmdat"
 # only way in which the daemon processing is dependent on the config (the other elements
 # all occur during the aforementioned setup).
 #
-def get_ln_messaging_config_regtest(run_num: int):
+def get_ln_messaging_config_regtest(run_num: int, dns=[1]):
     """ Sets a ln messaging channel section for a regtest instance
-    indexed by `run_num`.
+    indexed by `run_num`. The indices to be used as directory nodes
+    should be passed as `dns`, as a list of ints.
     """
     rpc_location = os.path.join(jm_single().datadir,
                     "lightning-regtest"+str(run_num),
                     "regtest", "lightning-rpc")
     passthrough_port = 49100 + run_num
-    # This node corresponds to run_num=1:
-    dn_nodes_list = "03df15dbd9e20c811cc5f4155745e89540a0b83f33978317cebe9dfc46c5253c55@127.0.0.1:9736"
+    def location_string(directory_node_run_num):
+        return bintohex(privkey_to_pubkey(
+            hextobin("12"*31 + "1" + str(
+                directory_node_run_num) + "01"))) + "@127.0.0.1:" + str(
+            9735 + directory_node_run_num)
+    if run_num in dns:
+        # means *we* are a dn, and dns currently
+        # do not use other dns:
+        dns_to_use = [location_string(run_num)]
+    else:
+        dns_to_use = [location_string(a) for a in dns]
+    dn_nodes_list = ",".join(dns_to_use)
+    log.info("For node: {}, set dn list to: {}".format(run_num, dn_nodes_list))
     return {"type": "ln-onion",
             "lightning-rpc": rpc_location,
             "passthrough-port": passthrough_port,
@@ -103,6 +121,11 @@ def get_ln_messaging_config_regtest(run_num: int):
 
 class RegtestJMClientProtocolFactory(JMClientProtocolFactory):
     i = 1
+    def set_directory_nodes(self, dns):
+        # a list of integers representing the directory nodes
+        # for this test:
+        self.dns = dns
+
     def get_mchannels(self):
         # swaps out any existing lightning configs
         # in the config settings on startup, for one
@@ -116,7 +139,7 @@ class RegtestJMClientProtocolFactory(JMClientProtocolFactory):
                 continue
             new_chans.append(c)
         if ln_found:
-            new_chans.append(get_ln_messaging_config_regtest(self.i))
+            new_chans.append(get_ln_messaging_config_regtest(self.i, self.dns))
         return new_chans
 
 class JMWalletDaemonT(JMWalletDaemon):
@@ -183,21 +206,11 @@ class TWalletRPCManager(object):
         yield handler(body)
         return True
 
-@pytest.mark.parametrize(
-    "num_ygs, wallet_structures, fb_indices, mean_amt",
-    [
-        # 1sp 2yg, honest makers, one maker has FB:
-        (3, [[1, 3, 0, 0, 0]] * 4, [], 2),
-        # 1sp 3yg
-        #(3, [[1, 3, 0, 0, 0]] * 4, [], 2),
-        # 1 sp 9 ygs
-        #(9, [[1, 3, 0, 0, 0]] * 10, [], 2),
-    ])
-def test_start_ygs(setup_ln_ygrunner, num_ygs, wallet_structures, fb_indices,
-                   mean_amt):
-    """Set up some wallets, for the ygs and 1 sp.
-    Then start the ygs in background and publish
-    the seed of the sp wallet for easy import into -qt
+def test_start_yg_and_taker_setup(setup_ln_ygrunner):
+    """Set up some wallets, for the ygs and 1 taker.
+    Then start LN and the ygs in the background, then fire
+    a startup of a wallet daemon for the taker who then
+    makes a coinjoin payment.
     """
     if jm_single().config.get("POLICY", "native") == "true":
         walletclass = SegwitWallet
@@ -205,20 +218,23 @@ def test_start_ygs(setup_ln_ygrunner, num_ygs, wallet_structures, fb_indices,
         # TODO add Legacy
         walletclass = SegwitLegacyWallet
 
+    start_bot_num, end_bot_num = [int(x) for x in jm_single().config.get(
+        "MESSAGING:lightning1", "regtest-count").split(",")]
+    num_ygs = end_bot_num - start_bot_num
+    # specify the number of wallets and bots of each type:
     wallet_services = make_wallets(num_ygs + 1,
-                           wallet_structures=wallet_structures,
-                           mean_amt=mean_amt,
-                           walletclass=walletclass,
-                           fb_indices=fb_indices)
+                           wallet_structures=[[1, 3, 0, 0, 0]] * (num_ygs + 1),
+                           mean_amt=2.0,
+                           walletclass=walletclass)
     #the sendpayment bot uses the last wallet in the list
-    wallet_service = wallet_services[num_ygs]['wallet']
-    jmprint("\n\nTaker wallet seed : " + wallet_services[num_ygs]['seed'])
+    wallet_service = wallet_services[end_bot_num - 1]['wallet']
+    jmprint("\n\nTaker wallet seed : " + wallet_services[end_bot_num - 1]['seed'])
     # for manual audit if necessary, show the maker's wallet seeds
     # also (note this audit should be automated in future, see
     # test_full_coinjoin.py in this directory)
     jmprint("\n\nMaker wallet seeds: ")
-    for i in range(num_ygs):
-        jmprint("Maker seed: " + wallet_services[i]['seed'])
+    for i in range(start_bot_num, end_bot_num):
+        jmprint("Maker seed: " + wallet_services[i - 1]['seed'])
     jmprint("\n")
     wallet_service.sync_wallet(fast=True)
     ygclass = YieldGeneratorBasic
@@ -259,38 +275,27 @@ def test_start_ygs(setup_ln_ygrunner, num_ygs, wallet_structures, fb_indices,
 
     ordertype = prefix + ordertype
 
-    for i in range(num_ygs):
+    for i in range(start_bot_num, end_bot_num):
         cfg = [txfee_contribution, cjfee_a, cjfee_r, ordertype, minsize,
                txfee_contribution_factor, cjfee_factor, size_factor]
-        wallet_service_yg = wallet_services[i]["wallet"]
+        wallet_service_yg = wallet_services[i - 1]["wallet"]
 
         wallet_service_yg.startService()
 
         yg = ygclass(wallet_service_yg, cfg)
-        if i in fb_indices:
-            # create a timelocked address and fund it;
-            # must be done after sync, so deferred:
-            wallet_service_yg.timelock_funded = False
-            sync_wait_loop = task.LoopingCall(get_addr_and_fund, yg)
-            sync_wait_loop.start(1.0, now=False)
         clientfactory = RegtestJMClientProtocolFactory(yg, proto_type="MAKER")
         # This ensures that the right rpc/port config is passed into the daemon,
         # for this specific bot:
-        clientfactory.i = i + 1
-        if jm_single().config.get("SNICKER", "enabled") == "true":
-            snicker_r = SNICKERReceiver(wallet_service_yg)
-            servers = jm_single().config.get("SNICKER", "servers").split(",")
-            snicker_factory = SNICKERClientProtocolFactory(snicker_r, servers)
-        else:
-            snicker_factory = None
+        clientfactory.i = i
+        # This ensures that this bot knows which other bots are directory nodes:
+        clientfactory.set_directory_nodes(directory_node_indices)
         nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
         daemon = True if nodaemon == 1 else False
         #rs = True if i == num_ygs - 1 else False
         start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
-                      clientfactory, snickerfactory=snicker_factory,
-                      daemon=daemon, rs=False)
-    reactor.callLater(1.0, start_test_taker, wallet_services[num_ygs]['wallet'], 4)
+                      clientfactory, daemon=daemon, rs=False)
+    reactor.callLater(1.0, start_test_taker, wallet_services[end_bot_num - 1]['wallet'], 4)
     reactor.run()
 
 @defer.inlineCallbacks
@@ -316,6 +321,7 @@ def start_test_taker(wallet_service, i):
         clientfactory = RegtestJMClientProtocolFactory(mgr.daemon.taker,
                                                        proto_type="TAKER")
         clientfactory.i = i
+        clientfactory.set_directory_nodes(directory_node_indices)
         return clientfactory
 
     mgr.daemon.get_client_factory = get_client_factory
