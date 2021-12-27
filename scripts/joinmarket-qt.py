@@ -55,7 +55,7 @@ donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 #Version of this Qt script specifically
 JM_GUI_VERSION = '27dev'
 
-from jmbase import get_log, stop_reactor
+from jmbase import get_log, stop_reactor, set_custom_stop_reactor
 from jmbase.support import EXIT_FAILURE, utxo_to_utxostr,\
     hextobin, JM_CORE_VERSION
 import jmbitcoin as btc
@@ -1623,9 +1623,20 @@ class JMMainWindow(QMainWindow):
         self.reactor = reactor
         self.initUI()
 
+        # a flag to indicate that shutdown should not
+        # depend on user input
+        self.unconditional_shutdown = False
+
     def closeEvent(self, event):
-        quit_msg = "Are you sure you want to quit?"
-        reply = JMQtMessageBox(self, quit_msg, mbtype='question')
+        if self.unconditional_shutdown:
+            JMQtMessageBox(self,
+                           "RPC connection is lost; shutting down.",
+                           mbtype='crit',
+                           title="Error")
+            reply = QMessageBox.Yes
+        else:
+            quit_msg = "Are you sure you want to quit?"
+            reply = JMQtMessageBox(self, quit_msg, mbtype='question')
         if reply == QMessageBox.Yes:
             event.accept()
             if self.reactor.threadpool is not None:
@@ -2412,6 +2423,18 @@ tabWidget.currentChanged.connect(onTabChange)
 
 mainWindow.show()
 reactor.runReturn()
+
+# Qt does not stop automatically when we stop the qt5reactor, and
+# also we don't want to close without warning the user;
+# patch our stop_reactor method to include the necessary cleanup:
+def qt_shutdown():
+    # checking ensures we only fire the close
+    # event once even if stop_reactor is called
+    # multiple times (which it often is):
+    if mainWindow.isVisible():
+        mainWindow.unconditional_shutdown = True
+        mainWindow.close()
+set_custom_stop_reactor(qt_shutdown)
 
 # Upon launching the app, ask the user to choose a wallet to open
 mainWindow.openWallet()
