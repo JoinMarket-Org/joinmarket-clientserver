@@ -17,12 +17,8 @@ from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
     EXIT_FAILURE, EXIT_ARGERROR
 
 log = get_log()
-logsdir = os.path.join(os.path.dirname(
-    jm_single().config_location), "logs")
-
 
 def main():
-    tumble_log = get_tumble_log(logsdir)
     (options, args) = get_tumbler_parser().parse_args()
     options_org = options
     options = vars(options)
@@ -30,6 +26,9 @@ def main():
         jmprint('Error: Needs a wallet file', "error")
         sys.exit(EXIT_ARGERROR)
     load_program_config(config_path=options['datadir'])
+    logsdir = os.path.join(os.path.dirname(
+        jm_single().config_location), "logs")
+    tumble_log = get_tumble_log(logsdir)
 
     if jm_single().bc_interface is None:
         jmprint('Error: Needs a blockchain source', "error")
