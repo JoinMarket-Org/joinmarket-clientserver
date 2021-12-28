@@ -940,11 +940,13 @@ class BaseWallet(object):
         args:
             message: bytes
             path: path tuple
-        returns:
+        returns as tuple:
+            address of key that signed
             signature as base64-encoded string
         """
         priv, engine = self._get_key_from_path(path)
-        return engine.sign_message(priv, message)
+        addr = engine.privkey_to_address(priv)
+        return addr, engine.sign_message(priv, message)
 
     def get_wallet_name(self):
         """ Returns the name used as a label for this

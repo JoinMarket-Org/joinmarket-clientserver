@@ -1117,8 +1117,7 @@ def wallet_signmessage(wallet, hdpath, message, out_str=True):
         return "Error: no message specified"
 
     path = wallet.path_repr_to_path(hdpath)
-    sig = wallet.sign_message(msg, path)
-    addr = wallet.get_address_from_path(path)
+    addr, sig = wallet.sign_message(msg, path)
     if not out_str:
         return (sig, message, addr)
     return ("Signature: {}\nMessage: {}\nAddress: {}\n"
