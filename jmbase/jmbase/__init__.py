@@ -12,7 +12,7 @@ from .support import (get_log, chunks, debug_silence, jmprint,
 from .proof_of_work import get_pow, verify_pow
 from .twisted_utils import (stop_reactor, is_hs_uri, get_tor_agent,
                             get_nontor_agent, JMHiddenService,
-                            JMHTTPResource)
+                            JMHTTPResource, set_custom_stop_reactor)
 from .bytesprod import BytesProducer
 from .commands import *
 

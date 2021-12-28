@@ -9,6 +9,9 @@ import txtorcon
 from txtorcon.web import tor_agent
 from txtorcon import TorControlProtocol, TorConfig
 
+_custom_stop_reactor_is_set = False
+custom_stop_reactor = None
+
 # This removes `CONF_CHANGED` requests
 # over the Tor control port, which aren't needed for our use case.
 def patch_add_event_listener(self, evt, callback):
@@ -70,7 +73,19 @@ class WhitelistContextFactory(object):
             return CertificateOptions(verify=False)
         return self.default_policy.creatorForNetloc(hostname, port)
 
+def set_custom_stop_reactor(fn):
+    global _custom_stop_reactor_is_set
+    global custom_stop_reactor
+    _custom_stop_reactor_is_set = True
+    custom_stop_reactor = fn
+
 def stop_reactor():
+    if not _custom_stop_reactor_is_set:
+        _stop_reactor()
+    else:
+        custom_stop_reactor()
+
+def _stop_reactor():
     """ The value of the bool `reactor.running`
     does not reliably tell us whether the
     reactor is running (!). There are startup
@@ -82,8 +97,6 @@ def stop_reactor():
         reactor.stop()
     except ReactorNotRunning:
         pass
-
-
 
 def is_hs_uri(s):
     x = wrapped_urlparse(s)
