@@ -5,7 +5,7 @@ The Issues list is for specific bugs or feature requests.
 
 * PEP8 compliance.
 * Details which may or may not be included in PEP8 might be, consistent variable naming conventions, and use of single/double quotes.
-* ~~Porting to Python 3~~. This is done in that we are now Py2 and Py3 compatible as of 0.5.0; but we may deprecate Py2 soon.
+* ~~Porting to Python 3~~. This is done in that we are now Py2 and Py3 compatible as of 0.5.0; ~~but we may deprecate Py2 soon~~ Python2 is now deprecated, as is Python3 below 3.6.
 
 ~~A note on the above - took a look at it last December, but had problems in particular with some twisted elements, specifically `txsocksx`~~ Done as of 0.4.2, now switched to txtorcon.
 
@@ -76,9 +76,11 @@ Windows binaries are now being built in an automated way via #641. The same proc
 
 Some minor progress on this can be seen in #670 and in the repo https://github.com/JoinMarket-Org/jmcontrolcenter
 
+Much more progress after merge of #996, we have a full RPC-API including a spec definition. There is now more than one independent web interface under development, see https://github.com/joinmarket-webui/jm-web-client and https://github.com/manasgandy/joinmarket-gui.
+
 ### Bitcoin
 
-We use coincurve as a binding to libsecp256k1.
+~~We use coincurve as a binding to libsecp256k1.~~
 ~~The current jmbitcoin package morphed over many iterations from the original pybitcointools base code.~~
 ~~We need to rework it considerably as it is very messy architecturally, particularly in regard to data types.~~
 ~~A full rewrite is likely the best option, including in particular the removal of data type flexibility; use binary~~
@@ -88,14 +90,16 @@ We use coincurve as a binding to libsecp256k1.
 ~~probable need to support taproot and Schnorr (without yet implementing it).~~
 
 This was all done in the switch to [python-bitcointx](https://github.com/Simplexum/python-bitcointx) included in 0.7.0 via #536 .
-Complete removal of coincurve for all functions is still to be done.
+~~Complete removal of coincurve for all functions is still to be done.~~ Now done via #1134
+
+Taproot support needs to be added, see #1084.
 
 
 ### Extra features.
 
 PayJoin is already implemented, ~~though not in GUI, that could be added.~~ Full BIP78 Payjoin now in GUI also.
 
-Maker functionality is not in GUI, that could quite plausibly be added and is quite widely requested. - See #487, this is now largely functional but still needs work.
+Maker functionality is not in GUI, that could quite plausibly be added and is quite widely requested. - See #487, this is now largely functional but still needs work. However this is probably superseded by work on the RPC-API, see above under "Alternative implementations".
 
 ~~SNICKER exists currently as a proposed code update but is not quite ready, see #403.~~ "Full" SNICKER functionality is now merged via #768, albeit it will need more testing before it can be auto-switched on for mainnet yieldgenerators.
 

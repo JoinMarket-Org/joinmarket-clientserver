@@ -58,7 +58,7 @@ class PoDLE(object):
             if len(priv) == 33 and priv[-1:] == b"\x01":
                 priv = priv[:-1]
             self.priv = podle_PrivateKey(priv)
-            self.P = self.priv.public_key
+            self.P = self.priv.pub
         if P2:
             self.P2 = podle_PublicKey(P2)
         else:
@@ -81,7 +81,7 @@ class PoDLE(object):
             raise PoDLEError("Cannot construct commitment, no P2 available")
         if not isinstance(self.P2, podle_PublicKey_class):
             raise PoDLEError("Cannot construct commitment, P2 is not a pubkey")
-        self.commitment = hashlib.sha256(self.P2.format()).digest()
+        self.commitment = hashlib.sha256(self.P2).digest()
         return self.commitment
 
     def generate_podle(self, index=0, k=None):
@@ -118,14 +118,13 @@ class PoDLE(object):
         if not k:
             k = os.urandom(32)
         J = getNUMS(self.i)
-        KG = podle_PrivateKey(k).public_key
-        KJ = multiply(k, J.format(), return_serialized=False)
+        KG = podle_PrivateKey(k).pub
+        KJ = multiply(k, J, return_serialized=False)
         self.P2 = getP2(self.priv, J)
         self.get_commitment()
-        self.e = hashlib.sha256(b''.join([x.format(
-        ) for x in [KG, KJ, self.P, self.P2]])).digest()
+        self.e = hashlib.sha256(b''.join([KG, KJ, self.P, self.P2])).digest()
         k_int, priv_int, e_int = (int.from_bytes(x,
-            byteorder="big") for x in [k, self.priv.secret, self.e])
+            byteorder="big") for x in [k, self.priv.secret_bytes, self.e])
         sig_int = (k_int + priv_int * e_int) % N
         self.s = (sig_int).to_bytes(32, byteorder="big")
         return self.reveal()
@@ -140,8 +139,8 @@ class PoDLE(object):
             self.get_commitment()
         return {'used': self.used,
                 'utxo': self.u,
-                'P': self.P.format(),
-                'P2': self.P2.format(),
+                'P': self.P,
+                'P2': self.P2,
                 'commit': self.commitment,
                 'sig': self.s,
                 'e': self.e}
@@ -184,17 +183,17 @@ class PoDLE(object):
 
         for J in [getNUMS(i) for i in index_range]:
             sig_priv = podle_PrivateKey(self.s)
-            sG = sig_priv.public_key
-            sJ = multiply(self.s, J.format())
+            sG = sig_priv.pub
+            sJ = multiply(self.s, J)
             e_int = int.from_bytes(self.e, byteorder="big")
             minus_e = (-e_int % N).to_bytes(32, byteorder="big")
-            minus_e_P = multiply(minus_e, self.P.format())
-            minus_e_P2 = multiply(minus_e, self.P2.format())
-            KGser = add_pubkeys([sG.format(), minus_e_P])
+            minus_e_P = multiply(minus_e, self.P)
+            minus_e_P2 = multiply(minus_e, self.P2)
+            KGser = add_pubkeys([sG, minus_e_P])
             KJser = add_pubkeys([sJ, minus_e_P2])
             #check 2: e =?= H(K_G || K_J || P || P2)
-            e_check = hashlib.sha256(KGser + KJser + self.P.format() +
-                                     self.P2.format()).digest()
+            e_check = hashlib.sha256(KGser + KJser + self.P +
+                                     self.P2).digest()
             if e_check == self.e:
                 return True
         #commitment fails for any NUMS in the provided range
@@ -245,6 +244,9 @@ def getNUMS(index=0):
             claimed_point = b"\x02" + hashed_seed
             try:
                 nums_point = podle_PublicKey(claimed_point)
+                # CPubKey does not throw ValueError or otherwise
+                # on invalid initialization data; it must be inspected:
+                assert nums_point.is_fullyvalid()
                 return nums_point
             except:
                 continue
@@ -260,7 +262,7 @@ def verify_all_NUMS(write=False):
     """
     nums_points = {}
     for i in range(256):
-        nums_points[i] = bintohex(getNUMS(i).format())
+        nums_points[i] = bintohex(getNUMS(i))
     if write:
         with open("nums_basepoints.txt", "wb") as f:
             from pprint import pformat
@@ -276,9 +278,9 @@ def getP2(priv, nums_pt):
     just the most easy way to manipulate it in the
     library), calculate priv*nums_pt
     """
-    priv_raw = priv.secret
+    priv_raw = priv.secret_bytes
     return multiply(priv_raw,
-                    nums_pt.format(),
+                    nums_pt,
                     return_serialized=False)
 
 # functions which interact with the external persistence of podle data:

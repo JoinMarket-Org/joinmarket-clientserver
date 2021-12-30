@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-'''Tests coincurve binding to libsecp256k1 ecdh module code'''
+'''Tests python-bitcointx binding to libsecp256k1 ecdh module code'''
 
 import hashlib
 import jmbitcoin as btc
@@ -15,7 +15,7 @@ def test_ecdh():
     2. Calculate the corresponding public keys.
     3. Do ECDH on the cartesian product (x, Y), with x private
     and Y public keys, for all combinations.
-    4. Compare the result from CoinCurve with the manual
+    4. Compare the result from secp256k1_main.ecdh with the manual
     multiplication xY following by hash (sha256). Note that
     sha256(xY) is the default hashing function used for ECDH
     in libsecp256k1.
@@ -31,15 +31,15 @@ def test_ecdh():
             key, hex_key, prop_dict = a
             if prop_dict["isPrivkey"]:
                 c, k = btc.read_privkey(hextobin(hex_key))
-                extracted_privkeys.append(k)
+                extracted_privkeys.append(k + b"\x01")
     extracted_pubkeys = [btc.privkey_to_pubkey(x) for x in extracted_privkeys]
     for p in extracted_privkeys:
         for P in extracted_pubkeys:
             c, k = btc.read_privkey(p)
-            shared_secret = btc.ecdh(k, P)
+            shared_secret = btc.ecdh(k + b"\x01", P)
             assert len(shared_secret) == 32
             # try recreating the shared secret manually:
-            pre_secret = btc.multiply(p, P)
+            pre_secret = btc.multiply(k, P)
             derived_secret = hashlib.sha256(pre_secret).digest()
             assert derived_secret == shared_secret
 

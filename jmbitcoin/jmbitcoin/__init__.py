@@ -1,5 +1,3 @@
-import coincurve as secp256k1
-
 # If user has compiled and installed libsecp256k1 via
 # JM installation script install.sh, use that;
 # if not, it is assumed to be present at the system level

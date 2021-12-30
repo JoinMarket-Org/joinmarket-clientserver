@@ -1,10 +1,10 @@
-import coincurve as secp256k1
 import base64
 import hmac
 import hashlib
 import pyaes
 import os
 import jmbitcoin as btc
+from bitcointx.core.key import CPubKey
 
 ECIES_MAGIC_BYTES = b'BIE1'
 
@@ -68,9 +68,8 @@ def ecies_decrypt(privkey, encrypted):
     if magic != ECIES_MAGIC_BYTES:
         raise ECIESDecryptionError()
     ephemeral_pubkey = encrypted[4:37]
-    try:
-        testR = secp256k1.PublicKey(ephemeral_pubkey)
-    except:
+    testR = CPubKey(ephemeral_pubkey)
+    if not testR.is_fullyvalid():
         raise ECIESDecryptionError()
     ciphertext = encrypted[37:-32]
     mac = encrypted[-32:]
