@@ -183,11 +183,11 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
 
         # now *lock* the existing, which will shut down the wallet
         # service associated.
-        addr = root + "/wallet/" + self.daemon.wallet_name + "/lock"
+        addr = root + "/wallet/lock"
         addr = addr.encode()
         jlog.info("Using address: {}".format(addr))
         yield self.do_request(agent, b"GET", addr, None,
-                self.process_lock_response, token=self.jwt_token)
+                self.process_lock_response)
         # wallet service should now be stopped.
         addr = root + "/wallet/" + self.daemon.wallet_name + "/unlock"
         addr = addr.encode()

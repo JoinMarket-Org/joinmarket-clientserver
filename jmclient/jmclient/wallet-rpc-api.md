@@ -50,36 +50,22 @@ Give the password for the specified (existing) wallet file, and it will be decry
 | 404 | Item not found. |
 | 409 | Unable to complete request because object already exists. |
 
-### /wallet/{walletname}/lock
+### /wallet/lock
 
 #### GET
 ##### Summary
 
-block access to a currently decrypted wallet
+block access to the currently decrypted wallet
 
 ##### Description
 
-After this (authenticated) action, the wallet will not be readable or writeable.
-
-##### Parameters
-
-| Name | Located in | Description | Required | Schema |
-| ---- | ---------- | ----------- | -------- | ---- |
-| walletname | path | name of wallet including .jmdat | Yes | string |
+After this action, the wallet will not be readable or writeable.
 
 ##### Responses
 
 | Code | Description |
 | ---- | ----------- |
-| 200 | wallet unlocked successfully |
-| 400 | Bad request format. |
-| 401 | Unable to authorise the credentials that were supplied. |
-
-##### Security
-
-| Security Schema | Scopes |
-| --- | --- |
-| bearerAuth | |
+| 200 | wallet locked successfully |
 
 ### /wallet/{walletname}/display
 

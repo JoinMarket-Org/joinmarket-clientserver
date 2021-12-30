@@ -572,12 +572,9 @@ class JMWalletDaemon(Service):
             self.services["maker"].stopService()
             return make_jmwalletd_response(request, status=202)
 
-        @app.route('/wallet/<string:walletname>/lock', methods=['GET'])
-        def lockwallet(self, request, walletname):
+        @app.route('/wallet/lock', methods=['GET'])
+        def lockwallet(self, request):
             print_req(request)
-            self.check_cookie(request)
-            if self.wallet_service and not self.wallet_name == walletname:
-                raise InvalidRequestFormat()
             if not self.wallet_service:
                 jlog.warn("Called lock, but no wallet loaded")
                 # we could raise NoWalletFound here, but is
@@ -590,7 +587,7 @@ class JMWalletDaemon(Service):
                 self.wss_factory.valid_token = None
                 self.wallet_service = None
                 already_locked = False
-            return make_jmwalletd_response(request, walletname=walletname,
+            return make_jmwalletd_response(request, walletname=self.wallet_name,
                                            already_locked=already_locked)
 
         @app.route('/wallet/create', methods=["POST"])

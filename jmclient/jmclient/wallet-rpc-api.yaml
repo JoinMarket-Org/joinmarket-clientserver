@@ -53,27 +53,14 @@ paths:
             schema:
               $ref: '#/components/schemas/UnlockWalletRequest'
         description: wallet unlocking parameters
-  /wallet/{walletname}/lock:
+  /wallet/lock:
     get:
-      security:
-        - bearerAuth: []
-      summary: block access to a currently decrypted wallet
+      summary: block access to the currently decrypted wallet
       operationId: lockwallet
-      description: After this (authenticated) action, the wallet will not be readable or writeable.
-      parameters:
-        - name: walletname
-          in: path
-          description: name of wallet including .jmdat
-          required: true
-          schema:
-            type: string
+      description: After this action, the wallet will not be readable or writeable.
       responses:
         '200':
-          $ref: "#/components/responses/Unlock-200-OK"
-        '400':
-          $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: "#/components/responses/Lock-200-OK"
   /wallet/{walletname}/display:
     get:
       security:
