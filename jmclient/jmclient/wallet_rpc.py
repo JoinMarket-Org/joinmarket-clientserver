@@ -363,6 +363,7 @@ class JMWalletDaemon(Service):
         # respond to requests, we return the status to the client:
         if('seedphrase' in kwargs):
             return make_jmwalletd_response(request,
+                        status=201,
                         walletname=self.wallet_name,
                         token=encoded_token,
                         seedphrase=kwargs.get('seedphrase'))
@@ -556,7 +557,7 @@ class JMWalletDaemon(Service):
                 self.services["maker"].startService()
             except YieldGeneratorServiceSetupFailed:
                 raise ServiceAlreadyStarted()
-            return make_jmwalletd_response(request)
+            return make_jmwalletd_response(request, status=202)
 
         @app.route('/wallet/<string:walletname>/maker/stop', methods=['GET'])
         def stop_maker(self, request, walletname):
@@ -569,7 +570,7 @@ class JMWalletDaemon(Service):
                CJ_MAKER_RUNNING:
                 raise ServiceNotStarted()
             self.services["maker"].stopService()
-            return make_jmwalletd_response(request)
+            return make_jmwalletd_response(request, status=202)
 
         @app.route('/wallet/<string:walletname>/lock', methods=['GET'])
         def lockwallet(self, request, walletname):
@@ -834,4 +835,4 @@ class JMWalletDaemon(Service):
 
             _, self.coinjoin_connection = start_reactor(dhost, dport,
                                 self.clientfactory, rs=False)
-            return make_jmwalletd_response(request)
+            return make_jmwalletd_response(request, status=202)

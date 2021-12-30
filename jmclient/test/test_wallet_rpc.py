@@ -11,7 +11,7 @@ from jmbase import get_nontor_agent, hextobin, BytesProducer, get_log
 from jmbitcoin import CTransaction
 from jmclient import (load_test_config, jm_single, SegwitWalletFidelityBonds,
                       JMWalletDaemon, validate_address, start_reactor)
-from jmclient.wallet_rpc import api_version_string
+from jmclient.wallet_rpc import api_version_string, CJ_MAKER_RUNNING, CJ_NOT_RUNNING
 from commontest import make_wallets
 from test_coinjoin import make_wallets_to_list, sync_wallets
 
@@ -142,10 +142,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
     @defer.inlineCallbacks
     def response_handler(self, response, handler):
         body = yield readBody(response)
-        # these responses should always be 200 OK.
-        assert response.code == 200
         # handlers check the body is as expected; no return.
-        yield handler(body)
+        yield handler(body, response.code)
         return True
 
     @defer.inlineCallbacks
@@ -198,14 +196,16 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
                               self.process_unlock_response)
 
 
-    def process_create_wallet_response(self, response):
+    def process_create_wallet_response(self, response, code):
+        assert code == 201
         json_body = json.loads(response.decode("utf-8"))
         assert json_body["walletname"] == testfileloc
         self.jwt_token = json_body["token"]
         # we don't use this in test, but it must exist:
         assert json_body["seedphrase"]
 
-    def process_list_wallets_response(self, body):
+    def process_list_wallets_response(self, body, code):
+        assert code == 200
         json_body = json.loads(body.decode("utf-8"))
         assert json_body["wallets"] == [testfileloc]
 
@@ -237,13 +237,15 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_wallet_display_response)
 
-    def process_direct_send_response(self, response):
+    def process_direct_send_response(self, response, code):
+        assert code == 200
         json_body = json.loads(response.decode("utf-8"))
         assert "txinfo" in json_body
         # TODO tx check
         print(json_body["txinfo"])
 
-    def process_wallet_display_response(self, response):
+    def process_wallet_display_response(self, response, code):
+        assert code == 200
         json_body = json.loads(response.decode("utf-8"))
         latest_balance = float(json_body["walletinfo"]["total_balance"])
         jlog.info("Wallet display currently shows balance: {}".format(
@@ -267,6 +269,47 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
                               self.process_new_addr_response)
 
     @defer.inlineCallbacks
+    def test_maker_start_stop(self):
+        """ Tests that we can start the maker service.
+        As for the taker coinjoin test, this is currently
+        a simple/artificial test, only checking return status
+        codes and state updates, but not checking that an actual
+        backend maker service is started.
+        """
+        self.daemon.auth_disabled = True
+        agent = get_nontor_agent()
+        addr_start = self.get_route_root()
+        addr_start += "/wallet/"
+        addr_start += self.daemon.wallet_name
+        addr = addr_start + "/maker/start"
+        addr = addr.encode()
+        body = BytesProducer(json.dumps({"txfee": "0",
+            "cjfee_a": "1000", "cjfee_r": "0.0002",
+            "ordertype": "reloffer", "minsize": "1000000"}).encode())
+        yield self.do_request(agent, b"POST", addr, body,
+                              self.process_maker_start)
+        # For the second phase, since we are not currently processing
+        # via actual backend connections, we need to mock the client
+        # protocol instance that requests shutdown of all message channels:
+        class DummyMakerClientProto(object):
+            def request_mc_shutdown(self):
+                jlog.info("Message channel shutdown request registered.")
+        self.daemon.services["maker"].clientfactory.proto_client = \
+            DummyMakerClientProto()
+        addr = addr_start + "/maker/stop"
+        addr = addr.encode()
+        yield self.do_request(agent, b"GET", addr, None,
+                              self.process_maker_stop)
+
+    def process_maker_start(self, request, code):
+        assert code == 202
+        assert self.daemon.coinjoin_state == CJ_MAKER_RUNNING
+
+    def process_maker_stop(self, request, code):
+        assert code == 202
+        assert self.daemon.coinjoin_state == CJ_NOT_RUNNING
+
+    @defer.inlineCallbacks
     def test_gettimelockaddress(self):
         self.daemon.auth_disabled = True
         agent = get_nontor_agent()
@@ -278,7 +321,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_new_addr_response)
 
-    def process_new_addr_response(self, response):
+    def process_new_addr_response(self, response, code):
+        assert code == 200
         json_body = json.loads(response.decode("utf-8"))
         assert validate_address(json_body["address"])[0]
 
@@ -294,7 +338,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_listutxos_response)
 
-    def process_listutxos_response(self, response):
+    def process_listutxos_response(self, response, code):
+        assert code == 200
         json_body = json.loads(response.decode("utf-8"))
         # some fragility in test structure here: what utxos we
         # have depend on what other tests occurred.
@@ -315,17 +360,20 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_session_response)
 
-    def process_session_response(self, response):
+    def process_session_response(self, response, code):
+        assert code == 200
         json_body = json.loads(response.decode("utf-8"))
         assert json_body["maker_running"] is False
         assert json_body["coinjoin_in_process"] is False
 
-    def process_unlock_response(self, response):
+    def process_unlock_response(self, response, code):
+        assert code == 200
         json_body = json.loads(response.decode("utf-8"))
         assert json_body["walletname"] == testfileloc
         self.jwt_token = json_body["token"]
 
-    def process_lock_response(self, response):
+    def process_lock_response(self, response, code):
+        assert code == 200
         json_body = json.loads(response.decode("utf-8"))
         assert json_body["walletname"] == testfileloc
 
@@ -361,7 +409,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"POST", addr, body,
                               self.process_do_coinjoin_response)
 
-    def process_do_coinjoin_response(self, response):
+    def process_do_coinjoin_response(self, response, code):
+        assert code == 202
         # response code is already checked to be 200
         clientconn = self.daemon.coinjoin_connection
         # backend's AMP connection must be cleaned up, otherwise
