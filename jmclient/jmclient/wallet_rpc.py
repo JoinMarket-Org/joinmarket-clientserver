@@ -215,6 +215,8 @@ class JMWalletDaemon(Service):
         # Currently valid authorization tokens must be removed
         # from the daemon:
         self.cookie = None
+        if self.wss_factory:
+            self.wss_factory.valid_token = None
         # if the wallet-daemon is shut down, all services
         # it encapsulates must also be shut down.
         for name, service in self.services.items():
@@ -323,9 +325,17 @@ class JMWalletDaemon(Service):
         (currently THE wallet, daemon does not yet support multiple).
         This is maintained for 30 minutes currently, or until the user
         switches to a new wallet.
+        If an existing wallet_service was in place, it needs to be stopped.
         Here we must also register transaction update callbacks, to fire
         events in the websocket connection.
         """
+        if self.wallet_service:
+            # we allow a new successful authorization (with password)
+            # to shut down the currently running service(s), if there
+            # are any.
+            # This will stop all supporting services and wipe
+            # state (so wallet, maker service and cookie/token):
+            self.stopService()
         # any random secret is OK, as long as it is not deducible/predictable:
         secret_key = bintohex(os.urandom(16))
         encoded_token = jwt.encode({"wallet": wallet_name,
@@ -355,9 +365,10 @@ class JMWalletDaemon(Service):
         self.wallet_service.register_callbacks(
             [self.wss_factory.sendTxNotification], None)
         self.wallet_service.startService()
-        # now that the service is intialized, we want to
+        # now that the base WalletService is started, we want to
         # make sure that any websocket clients use the correct
-        # token:
+        # token. The wss_factory should have been created on JMWalletDaemon
+        # startup, so any failure to exist here is a logic error:
         self.wss_factory.valid_token = encoded_token
         # now that the WalletService instance is active and ready to
         # respond to requests, we return the status to the client:
@@ -639,6 +650,9 @@ class JMWalletDaemon(Service):
         def unlockwallet(self, request, walletname):
             """ If a user succeeds in authenticating and opening a
             wallet, we start the corresponding wallet service.
+            Notice that in the case the user fails for any reason,
+            then any existing wallet service, and corresponding token,
+            will remain active.
             """
             print_req(request)
             assert isinstance(request.content, BytesIO)
@@ -646,29 +660,25 @@ class JMWalletDaemon(Service):
             if not auth_json:
                 raise InvalidRequestFormat()
             password = auth_json["password"]
-            if self.wallet_service is None:
-                wallet_path = get_wallet_path(walletname, None)
-                try:
-                    wallet = open_test_wallet_maybe(
-                            wallet_path, walletname, 4,
-                            password=password.encode("utf-8"),
-                            ask_for_password=False)
-                except StoragePasswordError:
-                    raise NotAuthorized()
-                except RetryableStorageError:
-                    # .lock file exists
-                    raise LockExists()
-                except StorageError:
-                    # wallet is not openable
-                    raise NoWalletFound()
-                except Exception:
-                    # wallet file doesn't exist or is wrong format
-                    raise NoWalletFound()
-                return self.initialize_wallet_service(request, wallet, walletname)
-            else:
-                jlog.warn('Tried to unlock wallet, but one is already unlocked.')
-                jlog.warn('Currently only one active wallet at a time is supported.')
-                raise WalletAlreadyUnlocked()
+
+            wallet_path = get_wallet_path(walletname, None)
+            try:
+                wallet = open_test_wallet_maybe(
+                        wallet_path, walletname, 4,
+                        password=password.encode("utf-8"),
+                        ask_for_password=False)
+            except StoragePasswordError:
+                raise NotAuthorized()
+            except RetryableStorageError:
+                # .lock file exists
+                raise LockExists()
+            except StorageError:
+                # wallet is not openable
+                raise NoWalletFound()
+            except Exception:
+                # wallet file doesn't exist or is wrong format
+                raise NoWalletFound()
+            return self.initialize_wallet_service(request, wallet, walletname)
 
         #This route should return list of current wallets created.
         @app.route('/wallet/all', methods=['GET'])

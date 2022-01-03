@@ -69,7 +69,7 @@ paths:
             type: string
       responses:
         '200':
-          $ref: "#/components/responses/Unlock-200-OK"
+          $ref: "#/components/responses/Lock-200-OK"
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
