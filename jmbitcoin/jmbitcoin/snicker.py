@@ -8,6 +8,8 @@ from jmbitcoin.secp256k1_main import *
 from jmbitcoin.secp256k1_transaction import *
 from collections import Counter
 
+from bitcointx.core.key import CKey, CPubKey
+
 SNICKER_MAGIC_BYTES = b'SNICKER'
 
 # Flags may be added in future versions
@@ -20,8 +22,10 @@ def snicker_pubkey_tweak(pub, tweak):
     Return value is also a 33 byte string serialization
     of the resulting pubkey (compressed).
     """
-    base_pub = secp256k1.PublicKey(pub)
-    return base_pub.add(tweak).format()
+    base_pub = CPubKey(pub)
+    # convert the tweak to a new pubkey
+    tweak_pub = CKey(tweak, compressed=True).pub
+    return add_pubkeys([base_pub, tweak_pub])
 
 def snicker_privkey_tweak(priv, tweak):
     """ use secp256k1 library to perform tweak.
@@ -30,10 +34,13 @@ def snicker_privkey_tweak(priv, tweak):
     Return value isa 33 byte string serialization
     of the resulting private key/secret (with compression flag).
     """
-    if len(priv) == 33 and priv[-1] == 1:
-        priv = priv[:-1]
-    base_priv = secp256k1.PrivateKey(priv)
-    return base_priv.add(tweak).secret + b'\x01'
+    if len(priv) == 32:
+        priv += b"\x01"
+    if len(tweak) == 32:
+        tweak += b"\x01"
+    assert priv[-1] == 1
+    assert tweak[-1] == 1
+    return add_privkeys(priv, tweak)
 
 def verify_snicker_output(tx, pub, tweak, spk_type="p2wpkh"):
     """ A convenience function to check that one output address in a transaction

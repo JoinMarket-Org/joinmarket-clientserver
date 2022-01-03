@@ -4,6 +4,7 @@ signature conversion.'''
 
 import jmbitcoin as btc
 import binascii
+from jmbase import bintohex
 import json
 import pytest
 import os
@@ -14,7 +15,11 @@ def test_valid_sigs(setup_ecc):
     for v in vectors['vectors']:
         msg, sig, priv = (binascii.unhexlify(
             v[a]) for a in ["msg", "sig", "privkey"])
-        assert sig == btc.ecdsa_raw_sign(msg, priv, rawmsg=True)+ b'\x01'
+        res = btc.ecdsa_raw_sign(msg, priv, rawmsg=True)+ b'\x01'
+        if not sig == res:
+            print("failed on sig {} from msg {} with priv {}".format(bintohex(sig), bintohex(msg), bintohex(priv)))
+            print("we got instead: {}".format(bintohex(res)))
+            assert False
         # check that the signature verifies against the key(pair)
         pubkey = btc.privkey_to_pubkey(priv)
         assert btc.ecdsa_raw_verify(msg, pubkey, sig[:-1], rawmsg=True)

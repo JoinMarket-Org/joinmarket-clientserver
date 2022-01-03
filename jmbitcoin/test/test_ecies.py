@@ -10,18 +10,9 @@ import json
 testdir = os.path.dirname(os.path.realpath(__file__))
 
 def test_ecies():
-    """Using private key test vectors from Bitcoin Core.
-    1. Import a set of private keys from the json file.
-    2. Calculate the corresponding public keys.
-    3. Do ECDH on the cartesian product (x, Y), with x private
-    and Y public keys, for all combinations.
-    4. Compare the result from CoinCurve with the manual
-    multiplication xY following by hash (sha256). Note that
-    sha256(xY) is the default hashing function used for ECDH
-    in libsecp256k1.
-
-    Since there are about 20 private keys in the json file, this
-    creates around 400 test cases (note xX is still valid).
+    """Tests encryption and decryption of random messages using
+    the ECIES module.
+    TODO these tests are very minimal.
     """
     with open(os.path.join(testdir,"base58_keys_valid.json"), "r") as f:
         json_data = f.read()
