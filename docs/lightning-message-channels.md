@@ -57,7 +57,7 @@ If you are running this for the first time you need to go through a full install
 a@b:/path/to/joinmarket-clientserver$ ./install.sh --with-ln-messaging
 ```
 
-and then follow the installation process as normal; note that it warns you that the c-lightning bundling isn't necessary, but go ahead and accept, because that's your choice here. As usual with this install process, don't forget the final step of activating the virtualenv. To be absolutely clear: the `with-ln-messaging` flag will *compile* and install an instance of [c-lightning](https://github.com/ElementsProject/lightning), locally (see below for where).
+and then follow the installation process as normal; note that it warns you that the c-lightning bundling isn't necessary, but go ahead and accept, because that's your choice here. As usual with this install process, don't forget the final step of activating the virtualenv. To be absolutely clear: the `--with-ln-messaging` flag will *compile* and install an instance of [c-lightning](https://github.com/ElementsProject/lightning), locally (see below for where).
 
 Before starting up a coinjoin bot, examine the new config section which can be created by running `python wallet-tool.py somewallet.jmdat` as usual with your current `joinmarket.cfg` backed up to a different file name. You should see this new section:
 
@@ -148,4 +148,83 @@ Enter the directory nodes you want to use in `joinmarket.cfg` as per above, comm
 
 ### As a directory node.
 
-This requires a long running bot, best on some VPS or other reliable setup. There is one change required: in `jmclient.configure.start_ln`, where the `lnconfiglines` are written, change from `autotor` to `statictor` (you can keep the entire rest of the configuration the same. This means that every time you restart you will use the same `.onion` address, which is of course necessary here. Further, make this `.onion` (in the correct pubkey@host:port format) be the only entry in `directory-nodes` in your Joinmarket.cfg. When you start up you will see a message `this is the genesis node` which will confirm to you that you are running as a directory. (Note, this will change to be more flexible shortly, probably with a specific config flag).
+**This last section is for people with a lot of technical knowledge in this area, who would like to help by running a directory node. You can ignore it if that does not apply.**.
+
+This requires a long running bot. It should be on a server you can keep running permanently, so perhaps a VPS, but in any case, very high uptime. For reliability it also makes sense to configure to run as a systemd service.
+
+A note: in this early stage, the usage of Lightning is only really network-layer stuff, and the usage of bitcoin, is none; feel free to add elements that remove any need for a backend bitcoin blockchain, but beware: future upgrades *could* mean that the directory node really does need the bitcoin backend.
+
+#### Joinmarket-specific configuration
+
+There is one change required: in `jmclient.configure.start_ln`, where the `lnconfiglines` are written, change from `autotor` to `statictor` (you can keep the entire rest of the configuration the same. This means that every time you restart you will use the same `.onion` address, which is of course necessary here. Further, make this `.onion` (in the correct pubkey@host:port format) be the only entry in `directory-nodes` in your Joinmarket.cfg. When you start up you will see a message `this is the genesis node` which will confirm to you that you are running as a directory. (Note, this will change to be more flexible shortly, probably with a specific config flag).
+
+#### Bundled or not?
+
+(See above in this document for what 'bundled' means here and how to configure). Answer: It should work both ways.
+
+#### Suggested setup of a service:
+
+You will need three components: bitcoind, lightningd (i.e. c-lightning) and Joinmarket itself. Since this task is going to be attempted by someone with significant technical knowledge, only an outline is provided here; several details will need to be filled in. Here is a sketch of how the systemd service files can be set up for signet:
+
+If someone wants to put together a docker setup of this for a more "one-click install", that would be great.
+
+1. bitcoin-signet.service
+
+```
+[Unit]
+Description=bitcoind signet
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/bitcoind -signet
+User=user
+
+[Install]
+WantedBy=multi-user.target
+```
+
+This is deliberately a super-basic setup (see above). Don't forget to setup your `bitcoin.conf` as usual, for the bitcoin user, and make it match (specifically in terms of RPC) what you set up for Lightning below.
+
+2. ln-signet.service
+
+```
+[Unit]
+Description=c-lightning on signet daemon with joinmarket plugin
+Requires=bitcoin-signet.service
+After=bitcoin-signet.service
+
+[Service]
+ExecStart=/usr/local/bin/lightningd --conf=/home/user/.lightning/config --plugin=/path/to/joinmarket-clientserver/jmdaemon/jmdaemon/jmcl.py --jmport=49100
+Type=simple
+User=user
+
+[Install]
+WantedBy=multi-user.target
+```
+
+The above is for a non-bundled c-lightning. Make sure to populate `/home/user/.lightning/config` appropriately in this case (see above in this doc for what it should contain).
+
+3.
+
+```
+[Unit]
+Description=joinmarket directory node on signet
+Requires=ln-signet.service
+After=ln-signet.service
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -c 'cd /path/to/joinmarket-clientserver && source jmvenv/bin/activate && cd scripts && echo -n "password" | python yg-privacyenhanced.py --wallet-password-stdin --datadir=/custom/joinmarket-datadir some-signet-wallet.jmdat'
+User=user
+
+[Install]
+WantedBy=multi-user.target
+```
+
+To state the obvious, the idea here is that this last service will run the JM directory node and have a dependency on the previous two, to ensure they start up in the correct order.
+
+Re: password echo, obviously this kind of password entry is bad; for now we needn't worry as these nodes don't need to carry any real coins (and it's better they don't!). Later we may need to change that (though of course you can use standard measures to protect the box).
+
+TODO: add some material on network hardening/firewalls here, I guess.
