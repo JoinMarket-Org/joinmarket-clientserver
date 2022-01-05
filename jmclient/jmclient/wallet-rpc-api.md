@@ -438,6 +438,37 @@ Get the value of a specific config setting. Note values are always returned as s
 | --- | --- |
 | bearerAuth | |
 
+### /wallet/{walletname}/getseed
+
+#### GET
+##### Summary
+
+get the mnemonic recovery phrase with the optional passphrase
+
+##### Description
+
+Get the mnemonic recovery phrase with the optional passphrase. Not the response is a sentence with few line breaks.
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| walletname | path | name of the wallet including .jmdat | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 200 | seedphrase retrieved successfully |
+| 400 | Bad request format. |
+| 401 | Unable to authorise the credentials that were supplied. |
+
+##### Security
+
+| Security Schema | Scopes |
+| --- | --- |
+| bearerAuth | |
+
 ### Models
 
 #### ConfigSetRequest
@@ -543,6 +574,12 @@ Get the value of a specific config setting. Note values are always returned as s
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | txinfo | object |  | Yes |
+
+#### GetSeedResponse
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| seedphrase | string |  | Yes |
 
 #### LockWalletResponse
 

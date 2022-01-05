@@ -368,6 +368,32 @@ paths:
           $ref: "#/components/responses/401-Unauthorized"
         '409':
           $ref: '#/components/responses/409-NoConfig'
+  /wallet/{walletname}/getseed:
+    get:
+      security:
+        - bearerAuth: []
+      summary: get the mnemonic recovery phrase with the optional passphrase
+      operationId: getseed
+      description: Get the mnemonic recovery phrase with the optional passphrase. Not the response is a sentence with few line breaks.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of the wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetSeedResponse'
+      responses:
+        '200':
+          $ref: "#/components/responses/GetSeed-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: "#/components/responses/401-Unauthorized"
 components:
   securitySchemes:
     bearerAuth:
@@ -628,6 +654,13 @@ components:
               type: number
             nVersion:
               type: number
+    GetSeedResponse:
+      type: object
+      required:
+        - seedphrase
+      properties:
+        seedphrase:
+          type: string
     LockWalletResponse:
       type: object
       required:
@@ -756,6 +789,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/LockWalletResponse"
+    GetSeed-200-OK:
+      description: "seedphrase retrieved successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/GetSeedResponse"
     202-Accepted:
       description: The request has been submitted successfully for processing, but the processing has not been completed. 
     204-NoResultFound:
