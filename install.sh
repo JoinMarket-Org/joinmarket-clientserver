@@ -255,8 +255,8 @@ libsecp256k1_build()
 
 libsecp256k1_install()
 {
-    secp256k1_lib_tar='f2d9aeae6d5a7c7fbbba8bbb38b1849b784beef7'
-    secp256k1_lib_sha="bdcb0373cc830271733841cf507ad2bb95d61be558f5334c8ad304d127ee4da9"
+    secp256k1_lib_tar='490022745164b56439688b0fc04f9bd43578e5c3'
+    secp256k1_lib_sha="4c87e32bff6815fb632a0ffd5bc89f2f7dfce11bd8501f1c779cf1e8e354c3c9"
     secp256k1_lib_url='https://github.com/bitcoin-core/secp256k1/archive'
     if ! dep_get "${secp256k1_lib_tar}.tar.gz" "${secp256k1_lib_sha}" "${secp256k1_lib_url}"; then
         return 1
