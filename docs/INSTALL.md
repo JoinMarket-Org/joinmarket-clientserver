@@ -24,7 +24,7 @@ is actually newer in version number, than what was there already.
 
 To install everything (client and server), install these packages:
 
-    sudo apt-get install python3-dev python3-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev libgmp-dev
+    sudo apt-get install python3-dev python3-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev
 
 (+ `libsodium-dev` if you can find it, else build after)
 
