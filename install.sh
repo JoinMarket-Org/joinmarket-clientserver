@@ -46,7 +46,6 @@ deps_install ()
         'automake' \
         'pkg-config' \
         'libtool' \
-        'libgmp-dev' \
         'python3-dev' \
         'virtualenv' \
         'python3-pip' )
