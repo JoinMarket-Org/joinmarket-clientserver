@@ -790,8 +790,21 @@ class JMWalletDaemon(Service):
             utxos_response = self.get_listutxos_response(utxos)
             return make_jmwalletd_response(request, utxos=utxos_response)
 
+        # route to abort a currently running coinjoin
+        @app.route('/wallet/<string:walletname>/taker/stop', methods=['GET'])
+        def stopcoinjoin(self, request, walletname):
+            self.check_cookie(request)
+            if not self.wallet_service:
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                raise InvalidRequestFormat()
+            if not self.coinjoin_state == CJ_TAKER_RUNNING:
+                raise ServiceNotStarted()
+            self.taker_finished(False)
+            return make_jmwalletd_response(request, status=202)
+
         #route to start a coinjoin transaction
-        @app.route('/wallet/<string:walletname>/taker/coinjoin',methods=['POST'])
+        @app.route('/wallet/<string:walletname>/taker/coinjoin', methods=['POST'])
         def docoinjoin(self, request, walletname):
             self.check_cookie(request)
             if not self.wallet_service:

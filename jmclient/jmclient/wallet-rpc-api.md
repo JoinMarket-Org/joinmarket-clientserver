@@ -268,6 +268,7 @@ create and broadcast a transaction (without coinjoin)
 | ---- | ----------- |
 | 200 | transaction broadcast OK. |
 | 400 | Bad request format. |
+| 404 | Item not found. |
 | 401 | Unable to authorise the credentials that were supplied. |
 | 409 | Transaction failed to broadcast. |
 
@@ -301,6 +302,7 @@ Start the yield generator service with the configuration settings specified in t
 | 202 | The request has been submitted successfully for processing, but the processing has not been completed. |
 | 400 | Bad request format. |
 | 401 | Unable to authorise the credentials that were supplied. |
+| 404 | Item not found. |
 | 503 | The server is not ready to process the request. |
 
 ##### Security
@@ -333,6 +335,7 @@ stop the yield generator service
 | 202 | The request has been submitted successfully for processing, but the processing has not been completed. |
 | 400 | Bad request format. |
 | 401 | Unable to authorise the credentials that were supplied. |
+| 404 | Item not found. |
 
 ##### Security
 
@@ -367,6 +370,38 @@ initiate a coinjoin as taker
 | 404 | Item not found. |
 | 409 | Unable to complete request because config settings are missing. |
 | 503 | The server is not ready to process the request. |
+
+##### Security
+
+| Security Schema | Scopes |
+| --- | --- |
+| bearerAuth | |
+
+### /wallet/{walletname}/taker/stop
+
+#### GET
+##### Summary
+
+stop a running coinjoin attempt
+
+##### Description
+
+stop a running coinjoin attempt
+
+##### Parameters
+
+| Name | Located in | Description | Required | Schema |
+| ---- | ---------- | ----------- | -------- | ---- |
+| walletname | path | name of wallet including .jmdat | Yes | string |
+
+##### Responses
+
+| Code | Description |
+| ---- | ----------- |
+| 202 | The request has been submitted successfully for processing, but the processing has not been completed. |
+| 400 | Bad request format. |
+| 401 | Unable to authorise the credentials that were supplied. |
+| 404 | Item not found. |
 
 ##### Security
 
