@@ -613,7 +613,11 @@ components:
                                 type: string
                               amount: 
                                 type: string
-                              labels: 
+                              status:
+                                type: string
+                              label:
+                                type: string
+                              extradata:
                                 type: string
 
     CreateWalletResponse:

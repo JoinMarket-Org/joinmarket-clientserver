@@ -187,7 +187,9 @@ class WalletViewEntry(WalletViewBase):
         return {"hd_path": self.wallet_path_repr,
                 "address": self.serialize_address(),
                 "amount": self.serialize_amounts(),
-                "labels": self.serialize_extra_data()}
+                "status": self.serialize_status(),
+                "label": self.serialize_label(),
+                "extradata": self.serialize_extra_data()}
 
     def serialize_wallet_position(self):
         return self.wallet_path_repr.ljust(20)
