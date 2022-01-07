@@ -21,8 +21,7 @@ from jmclient import Taker, jm_single, \
     create_wallet, get_max_cj_fee_values, \
     StorageError, StoragePasswordError, JmwalletdWebSocketServerFactory, \
     JmwalletdWebSocketServerProtocol, RetryableStorageError, \
-    SegwitWalletFidelityBonds, wallet_gettimelockaddress, \
-    YieldGeneratorServiceSetupFailed
+    SegwitWalletFidelityBonds, wallet_gettimelockaddress
 from jmbase.support import get_log
 
 jlog = get_log()
@@ -82,6 +81,11 @@ class ServiceNotStarted(Exception):
 # raised when a requested transaction did
 # not successfully broadcast.
 class TransactionFailed(Exception):
+    pass
+
+# raised when we tried to start a Maker,
+# but the wallet was empty/not enough.
+class NotEnoughCoinsForMaker(Exception):
     pass
 
 def get_ssl_context(cert_directory):
@@ -288,6 +292,12 @@ class JMWalletDaemon(Service):
         # TODO 409 as 'conflicted state' may not be ideal?
         request.setResponseCode(409)
         return self.err(request, "Transaction failed.")
+
+    @app.handle_errors(NotEnoughCoinsForMaker)
+    def not_enough_coins(self, request, failure):
+        # as above, 409 may not be ideal
+        request.setResponseCode(409)
+        return self.err(request, "Maker could not start, no coins.")
 
     def check_cookie(self, request):
         #part after bearer is what we need
@@ -560,14 +570,26 @@ class JMWalletDaemon(Service):
                 self.activate_coinjoin_state(CJ_NOT_RUNNING)
             def setup():
                 # note this returns False if we cannot update the state.
-                return self.activate_coinjoin_state(CJ_MAKER_RUNNING)
+                if not self.activate_coinjoin_state(CJ_MAKER_RUNNING):
+                    raise ServiceAlreadyStarted()
+            # don't even start up the service if there aren't any coins
+            # to offer:
+            def setup_sanitycheck_balance():
+                # note: this will only be non-zero if coins are confirmed.
+                # note: a call to start_maker necessarily is after a successful
+                # sync has already happened (this is different from CLI yg).
+                # note: an edge case of dusty amounts is lost here; it will get
+                # picked up by Maker.try_to_create_my_orders().
+                if not len(self.wallet_service.get_balance_by_mixdepth(
+                    verbose=False, minconfs=1)) > 0:
+                    raise NotEnoughCoinsForMaker()
+
             self.services["maker"].addCleanup(cleanup)
             self.services["maker"].addSetup(setup)
+            self.services["maker"].addSetup(setup_sanitycheck_balance)
             # Service startup now checks and updates coinjoin state:
-            try:
-                self.services["maker"].startService()
-            except YieldGeneratorServiceSetupFailed:
-                raise ServiceAlreadyStarted()
+            self.services["maker"].startService()
+
             return make_jmwalletd_response(request, status=202)
 
         @app.route('/wallet/<string:walletname>/maker/stop', methods=['GET'])
