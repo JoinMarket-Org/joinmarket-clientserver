@@ -158,7 +158,11 @@ A note: in this early stage, the usage of Lightning is only really network-layer
 
 There is one change required: in `jmclient.configure.start_ln`, where the `lnconfiglines` are written, change from `autotor` to `statictor` (you can keep the entire rest of the configuration the same. This means that every time you restart you will use the same `.onion` address, which is of course necessary here. Further, make this `.onion` (in the correct pubkey@host:port format) be the only entry in `directory-nodes` in your Joinmarket.cfg. When you start up you will see a message `this is the genesis node` which will confirm to you that you are running as a directory. (Note, this will change to be more flexible shortly, probably with a specific config flag).
 
-#### Bundled or not?
+##### Question: How to configure the `directory-nodes` list in our `joinmarket.cfg` for this directory node bot?
+
+Answer: **you must only enter your own node in this list!** (otherwise you may find your bot infinitely rebroadcasting messages).
+
+#### Question: Bundled or not?
 
 (See above in this document for what 'bundled' means here and how to configure). Answer: It should work both ways.
 

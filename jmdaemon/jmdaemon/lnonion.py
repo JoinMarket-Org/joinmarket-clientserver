@@ -4,7 +4,7 @@ from jmbase import get_log, bintohex, hextobin, JM_APP_NAME
 from pyln.client import LightningRpc, RpcError
 import json
 import copy
-from typing import Callable
+from typing import Callable, Union
 from twisted.internet import reactor, task
 from twisted.internet.protocol import ServerFactory
 from twisted.protocols.basic import LineReceiver
@@ -83,7 +83,8 @@ class TCPPassThroughProtocol(LineReceiver):
             try:
                 listener.receive_msg(json.loads(data))
             except json.decoder.JSONDecodeError as e:
-                log.error("Error receiving data: {}, {}".format(data, repr(e)))
+                log.warn("Received invalid data: {}, {}. ignoring.".format(
+                    data, repr(e)))
 
 
 class TCPPassThroughFactory(ServerFactory):
@@ -99,7 +100,7 @@ class TCPPassThroughFactory(ServerFactory):
         # listeners will all receive
         # all messages; they must have
         # a `receive_msg` method that
-        # process messages in JSON.
+        # processes messages in JSON.
         self.listeners = []
 
     def buildProtocol(self, addr):
@@ -151,7 +152,7 @@ class LNOnionPeer(object):
         #and return None.
         self.handshake_callback = handshake_callback
 
-    def update_status(self, destn_status):
+    def update_status(self, destn_status: int) -> None:
         """ Wrapping state updates to enforce:
         (a) that the handshake is triggered by connection
         outwards, and (b) to ensure no illegal state transitions.
@@ -173,25 +174,26 @@ class LNOnionPeer(object):
             allowed_updates = [PEER_STATUS_CONNECTED]
         if destn_status in ignored_updates:
             # TODO: this happens sometimes from 2->1; why?
-            log.debug("Attempt to update status of peer from {} to {} ignored.".format(
-                self._status, destn_status))
+            log.debug("Attempt to update status of peer from {} "
+                      "to {} ignored.".format(self._status, destn_status))
             return
-        assert destn_status in allowed_updates, "couldn't update state from {} to {}".format(self._status, destn_status)
+        assert destn_status in allowed_updates, ("couldn't update state "
+                        "from {} to {}".format(self._status, destn_status))
         self._status = destn_status
         # the handshakes are always initiated by a client:
         if destn_status == PEER_STATUS_CONNECTED:
             log.info("We are calling the handshake callback as client.")
             self.handshake_callback(self)
 
-    def status(self):
+    def status(self) -> int:
         """ Simple getter function for the wrapped _status:
         """
         return self._status
 
-    def set_nick(self, nick):
+    def set_nick(self, nick: str) -> None:
         self.nick = nick
 
-    def get_nick_peerlocation_ser(self):
+    def get_nick_peerlocation_ser(self) -> str:
         if not self.nick:
             raise LNOnionPeerError("Cannot serialize "
                 "identifier string without nick.")
@@ -201,7 +203,7 @@ class LNOnionPeer(object):
     @classmethod
     def from_location_string(cls, locstr: str,
                 directory: bool=False,
-                handshake_callback: Callable=None):
+                handshake_callback: Callable=None) -> 'LNOnionPeer':
         peerid, hostport = locstr.split("@")
         host, port = hostport.split(":")
         port = int(port)
@@ -216,7 +218,7 @@ class LNOnionPeer(object):
         self.hostname = hostname
         self.port = port
 
-    def peer_location_or_id(self):
+    def peer_location_or_id(self) -> str:
         try:
             return self.peer_location()
         except AssertionError:
@@ -234,6 +236,7 @@ class LNOnionPeer(object):
             assert peerid == self.peerid
             host, port = hostport.split(":")
             portint = int(port)
+            assert portint > 0
         except Exception as e:
             log.debug("Failed to update host and port of this peer ({}), "
                       "error: {}".format(self.peerid, repr(e)))
@@ -242,7 +245,7 @@ class LNOnionPeer(object):
         self.port = portint
         return True
 
-    def peer_location(self):
+    def peer_location(self) -> str:
         assert (self.hostname and self.port > 0)
         return self.peerid + "@" + self.hostname + ":" + str(self.port)
 
@@ -289,7 +292,7 @@ class LNOnionPeer(object):
 
 class LNOnionDirectoryPeer(LNOnionPeer):
     delay = 4.0
-    def try_to_connect(self, rpc):
+    def try_to_connect(self, rpcclient: LightningRpc) -> None:
         # Delay deliberately expands out to very
         # long times as yg-s tend to be very long
         # running bots:
@@ -299,7 +302,7 @@ class LNOnionDirectoryPeer(LNOnionPeer):
                      "after 20 attempts, giving up.".format(self.peerid))
             return
         try:
-            self.connect(rpc)
+            self.connect(rpcclient)
         except LNOnionPeerConnectionError:
             reactor.callLater(self.delay, self.try_to_connect)
 
@@ -320,7 +323,7 @@ class LNCustomMessage(object):
 
     @classmethod
     def from_sendcustommsg_decode(cls, msg:
-                                     str):
+                                     str) -> 'LNCustomMessage':
         """ This is ~ the reverse operation to encode,
         but note that we receive, via the plugin hook,
         to the receive_msg event.
@@ -336,10 +339,10 @@ class LNCustomMessage(object):
 
 class LNOnionMessageChannel(MessageChannel):
     """ Uses the plugin architecture to hook
-    the `sendonionmessage` feature of c-lightning
+    the `sendcustommsg` feature of c-lightning
     to receive messages over the LN onion network,
     and the provided RPC client LightningRPC to send
-    messages.
+    messages using the same command.
     See the file jmcl.py for the actual Lightning plugin,
     which must be loaded in a running instance of c-lightning,
     for this to work.
@@ -373,8 +376,9 @@ class LNOnionMessageChannel(MessageChannel):
         # will be needed to send messages:
         self.rpc_client = None
 
-        # special "genesis" bootstrap case; there are no
-        # directories but us.
+        # intended to represent the special case of 'we are the
+        # only directory node known', however for now dns don't interact
+        # so this has no role. TODO probably remove it.
         self.genesis_node = False
 
         # waiting loop for all directories to have
@@ -386,7 +390,7 @@ class LNOnionMessageChannel(MessageChannel):
         return LightningRpc(path)
 
 # ABC implementation section
-    def run(self):
+    def run(self) -> None:
         self.rpc_client = self.get_rpc_client(self.clnrpc_socket_path)
         # now the RPC is up, let's find out our own details,
         # so we can forward them to peers:
@@ -395,11 +399,12 @@ class LNOnionMessageChannel(MessageChannel):
         # that we're ready to listen:
         self.tcp_passthrough_factory.add_tcp_listener(self)
         # at this point the only peers added are directory
-        # nodes from config, so we connect to all, and
-        # after connecting, we retrieve the peer lists available:
+        # nodes from config; we try to connect to all.
+        # We will get other peers to add to our list once they
+        # start sending us messages.
         reactor.callLater(0.0, self.connect_to_directories)
 
-    def get_pubmsg(self, msg, source_nick=None):
+    def get_pubmsg(self, msg:str, source_nick:str ="") -> str:
         """ Converts a message into the known format for
         pubmsgs; if we are not sending this (because we
         are a directory, forwarding it), `source_nick` must be set.
@@ -408,14 +413,15 @@ class LNOnionMessageChannel(MessageChannel):
         nick = source_nick if source_nick else self.nick
         return nick + COMMAND_PREFIX + "PUBLIC" + msg
  
-    def get_privmsg(self, nick, cmd, message, source_nick=None):
+    def get_privmsg(self, nick: str, cmd: str, message: str,
+                    source_nick=None) -> None:
         """ See `get_pubmsg` for comment on `source_nick`.
         """
         from_nick = source_nick if source_nick else self.nick
         return from_nick + COMMAND_PREFIX + nick + COMMAND_PREFIX + \
                cmd + " " + message
 
-    def _pubmsg(self, msg):
+    def _pubmsg(self, msg:str) -> None:
         """ Best effort broadcast of message `msg`:
         send the message to every known directory node,
         with the PUBLIC message type and nick.
@@ -432,14 +438,13 @@ class LNOnionMessageChannel(MessageChannel):
             else:
                 self._send(peerid, msg)
 
-    def _privmsg(self, nick, cmd, msg):
+    def _privmsg(self, nick: str, cmd: str, msg:str) -> None:
         log.debug("Privmsging to: {}, {}, {}".format(nick, cmd, msg))
         encoded_privmsg = LNCustomMessage(self.get_privmsg(nick, cmd, msg),
                             JM_MESSAGE_TYPES["privmsg"]).encode()
         peerid = self.get_peerid_by_nick(nick)
         if peerid:
             peer = self.get_peer_by_id(peerid)
-            assert isinstance(peer, LNOnionPeer)
         # notice the order matters here!:
         if not peerid or not peer or not peer.status() == PEER_STATUS_HANDSHAKED:
             # If we are trying to message a peer via their nick, we
@@ -448,6 +453,7 @@ class LNOnionMessageChannel(MessageChannel):
             log.debug("Privmsg peer: {} but don't have peerid; "
                      "sending via directory.".format(nick))
             try:
+                # TODO change this to redundant or switching?
                 peerid = self.get_connected_directory_peers()[0].peerid
             except Exception as e:
                 log.warn("Failed to send privmsg because no "
@@ -455,14 +461,14 @@ class LNOnionMessageChannel(MessageChannel):
                 return
         self._send(peerid, encoded_privmsg)
 
-    def _announce_orders(self, offerlist):
+    def _announce_orders(self, offerlist: list) -> None:
         for offer in offerlist:
             self._pubmsg(offer)
 
 # End ABC implementation section
 
 
-    def get_our_peer_info(self):
+    def get_our_peer_info(self) -> None:
         """ Create a special LNOnionPeer object,
         outside of our peerlist, to refer to ourselves.
         """
@@ -506,7 +512,7 @@ class LNOnionMessageChannel(MessageChannel):
                                         self_dir, nick=self.nick,
                                         handshake_callback=None)
 
-    def connect_to_directories(self):
+    def connect_to_directories(self) -> None:
         if self.genesis_node:
             # we are a directory and we have no directory peers;
             # just start.
@@ -549,10 +555,10 @@ class LNOnionMessageChannel(MessageChannel):
                    LNCustomMessage(json.dumps(our_hs),
                     CONTROL_MESSAGE_TYPES["dn-handshake"]).encode())
 
-    def get_directory_peers(self):
+    def get_directory_peers(self) -> list:
         return [ p.peerid for p in self.peers if p.directory is True]
 
-    def get_peerid_by_nick(self, nick):
+    def get_peerid_by_nick(self, nick:str) -> Union[LNOnionPeer, None]:
         for p in self.get_all_connected_peers():
             if p.nick == nick:
                 return p.peerid
@@ -590,7 +596,7 @@ class LNOnionMessageChannel(MessageChannel):
         """ TODO
         """
 
-    def receive_msg(self, data):
+    def receive_msg(self, data: dict) -> None:
         """ The entry point for all data coming over LN into our process.
         This includes control messages from the plugin that inform
         us about updates to peers. Our local messages will come in with
@@ -644,10 +650,11 @@ class LNOnionMessageChannel(MessageChannel):
             else:
                 self.on_privmsg(from_nick, msg)
         except Exception as e:
-            log.debug("Invalid joinmarket message: {}, error was: {}".format(msgval, repr(e)))
+            log.debug("Invalid joinmarket message: {}, error was: {}".format(
+                msgval, repr(e)))
             return
 
-    def forward_pubmsg_to_peers(self, msg, from_nick):
+    def forward_pubmsg_to_peers(self, msg: str, from_nick: str) -> None:
         """ Used by directory nodes currently. Takes a received
         message that was PUBLIC and broadcasts it to the non-directory
         peers.
@@ -655,18 +662,24 @@ class LNOnionMessageChannel(MessageChannel):
         assert self.self_as_peer.directory
         pubmsg = self.get_pubmsg(msg, source_nick=from_nick)
         msgtype = JM_MESSAGE_TYPES["pubmsg"]
-        # TODO: specifically with forwarding/broadcasting,
+        # NOTE!: Specifically with forwarding/broadcasting,
         # we introduce the danger of infinite re-broadcast,
         # if there is more than one party forwarding.
+        # For now we are having directory nodes not talk to
+        # each other (i.e. they are *required* to only configure
+        # themselves, not other dns). But this could happen by
+        # accident.
         encoded_msg = LNCustomMessage(pubmsg, msgtype).encode()
         for peer in self.get_connected_nondirectory_peers():
             # don't loop back to the sender:
             if peer.nick == from_nick:
                 continue
-            log.debug("Sending {}:{} to nondir peer {}".format(msgtype, pubmsg, peer.peerid))
+            log.debug("Sending {}:{} to nondir peer {}".format(
+                msgtype, pubmsg, peer.peerid))
             self._send(peer.peerid, encoded_msg)
 
-    def forward_privmsg_to_peer(self, nick, message, from_nick):
+    def forward_privmsg_to_peer(self, nick: str, message: str,
+                                from_nick: str) -> None:
         assert self.self_as_peer.directory
         peerid = self.get_peerid_by_nick(nick)
         if not peerid:
@@ -868,7 +881,7 @@ class LNOnionMessageChannel(MessageChannel):
             if accepted:
                 peer.update_status(PEER_STATUS_HANDSHAKED)
 
-    def get_peer_by_id(self, p: str):
+    def get_peer_by_id(self, p: str) -> Union[LNOnionPeer, bool]:
         """ Returns the LNOnionPeer with peerid p,
         if it is in self.peers, otherwise returns False.
         """
@@ -888,7 +901,9 @@ class LNOnionMessageChannel(MessageChannel):
         * the nick can be added
         * it can be marked as 'connected' if it was previously unconnected,
         with this conditional on whether the flag `overwrite_connection` is
-        set.
+        set. Note that this peer removal, unlike the peer addition above,
+        can also occur for directory nodes, if we lose connection (and then
+        we persistently try to reconnect; see LNOnionDirectoryPeer).
         """
         if with_nick:
             try:
@@ -965,24 +980,22 @@ class LNOnionMessageChannel(MessageChannel):
             raise LNOnionPeerError(
             "Invalid peer location string: {}".format(peer))
 
-    def get_all_connected_peers(self):
+    def get_all_connected_peers(self) -> list:
         return self.get_connected_directory_peers() + \
                self.get_connected_nondirectory_peers()
 
-    def get_connected_directory_peers(self):
+    def get_connected_directory_peers(self) -> list:
         return [p for p in self.peers if p.directory and p.status() == \
                 PEER_STATUS_HANDSHAKED]
 
-    def get_connected_nondirectory_peers(self):
+    def get_connected_nondirectory_peers(self) -> list:
         return [p for p in self.peers if (not p.directory) and p.status() == \
                 PEER_STATUS_HANDSHAKED]
 
-    def wait_for_directories(self):
-        """ This message is sent to all currently connected
-        directory nodes.
-        If it fails we must update our directory node list or quit.
-        """
-        # Notice this is checking for *handshaked* dps:
+    def wait_for_directories(self) -> None:
+        # Notice this is checking for *handshaked* dps;
+        # the handshake will have been initiated once a
+        # connection was seen in the plugin:
         if len(self.get_connected_directory_peers()) == 0:
             return
         # This is what triggers the start of taker/maker workflows.
@@ -993,7 +1006,8 @@ class LNOnionMessageChannel(MessageChannel):
 
     """ CONTROL MESSAGES SENT BY US
     """
-    def send_peers(self, requesting_peer, peerid_filter=[]):
+    def send_peers(self, requesting_peer: LNOnionPeer,
+                   peerid_filter: list=[]) -> None:
         """ This message is sent by directory peers on request
         by non-directory peers.
         If peerid_filter is specified, only peers whose peerid is in
