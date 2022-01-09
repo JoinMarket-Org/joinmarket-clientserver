@@ -130,7 +130,6 @@ class LNOnionPeerConnectionError(LNOnionPeerError):
 class LNCustomMsgFormatError(Exception):
     pass
 
-
 class LNOnionPeer(object):
 
     def __init__(self, peerid: str, hostname: str=None,
@@ -288,6 +287,22 @@ class LNOnionPeer(object):
                 "with error: {}".format(self.peer_location(), repr(e)))
         self.update_status(PEER_STATUS_DISCONNECTED)
 
+class LNOnionDirectoryPeer(LNOnionPeer):
+    delay = 4.0
+    def try_to_connect(self, rpc):
+        # Delay deliberately expands out to very
+        # long times as yg-s tend to be very long
+        # running bots:
+        self.delay *= 1.5
+        if self.delay > 10000:
+            log.warn("Cannot connect to directory node peer: {} "
+                     "after 20 attempts, giving up.".format(self.peerid))
+            return
+        try:
+            self.connect(rpc)
+        except LNOnionPeerConnectionError:
+            reactor.callLater(self.delay, self.try_to_connect)
+
 class LNCustomMessage(object):
     """ Encapsulates the messages passed over the wire
     to and from c-lightning using the `sendcustommsg` rpc.
@@ -347,7 +362,7 @@ class LNOnionMessageChannel(MessageChannel):
         self.peers = set()
         for dn in configdata["directory-nodes"].split(","):
             # note we don't use a nick for directories:
-            self.peers.add(LNOnionPeer.from_location_string(dn,
+            self.peers.add(LNOnionDirectoryPeer.from_location_string(dn,
                 directory=True, handshake_callback=self.handshake_as_client))
         # the protocol factory for receiving TCP message for us:
         self.tcp_passthrough_factory = TCPPassThroughFactory()
@@ -485,6 +500,8 @@ class LNOnionMessageChannel(MessageChannel):
         hostname = a["address"]
         port = a["port"]
         # TODO probably need to parse version, alias and network info
+        # TODO: could make class LNOnionDirectoryPeer if we are directory,
+        # but not needed for now.
         self.self_as_peer = LNOnionPeer(peerid, hostname, port,
                                         self_dir, nick=self.nick,
                                         handshake_callback=None)
@@ -738,6 +755,10 @@ class LNOnionMessageChannel(MessageChannel):
                           overwrite_connection=True)
         elif msgtype == LOCAL_CONTROL_MESSAGE_TYPES["disconnect"]:
             log.debug("We got a disconnect event: {}".format(msgval))
+            if msgval in [x.peerid for x in self.get_connected_directory_peers()]:
+                # we need to use the full peer locator string, so that
+                # add_peer knows it can try to reconnect:
+                msgval = self.get_peer_by_id(msgval).peer_location()
             self.add_peer(msgval, connection=False,
                           overwrite_connection=True)
         else:
@@ -922,7 +943,8 @@ class LNOnionMessageChannel(MessageChannel):
                     # Here, we have a full location string,
                     # and we are not currently connected. We
                     # try to connect asynchronously. We don't pay attention
-                    # to any return; this is opportunistic, only, currently.
+                    # to any return. This attempt is one-shot and opportunistic,
+                    # for non-dns, but will retry with exp-backoff for dns.
                     # Notice this is only possible for non-dns to other non-dns,
                     # since dns will never reach this point without an active
                     # connection.
