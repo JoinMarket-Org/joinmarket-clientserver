@@ -268,9 +268,6 @@ class YieldGeneratorBasic(YieldGenerator):
         cjoutmix = (input_mixdepth + 1) % (self.wallet_service.mixdepth + 1)
         return self.wallet_service.get_internal_addr(cjoutmix)
 
-class YieldGeneratorServiceSetupFailed(Exception):
-    pass
-
 class YieldGeneratorService(Service):
     def __init__(self, wallet_service, daemon_host, daemon_port, yg_config):
         self.wallet_service = wallet_service
@@ -292,8 +289,11 @@ class YieldGeneratorService(Service):
         no need to check this here.
         """
         for setup in self.setup_fns:
-            if not setup():
-                raise YieldGeneratorServiceSetupFailed
+            # we do not catch Exceptions in setup,
+            # deliberately; this must be caught and distinguished
+            # by whoever started the service.
+            setup()
+
         # TODO genericise to any YG class:
         self.yieldgen = YieldGeneratorBasic(self.wallet_service, self.yg_config)
         self.clientfactory = JMClientProtocolFactory(self.yieldgen, proto_type="MAKER")
