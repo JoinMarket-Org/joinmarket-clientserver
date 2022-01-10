@@ -267,6 +267,10 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
             "destination": "2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br"}).encode())
         yield self.do_request(agent, b"POST", addr, body,
                               self.process_direct_send_response)
+        # before querying the wallet display, set a label to check:
+        labeladdr = self.daemon.wallet_service.get_addr(0,0,0)
+        self.daemon.wallet_service.set_address_label(labeladdr,
+                                        "test-wallet-rpc-label")
         # force the wallet service txmonitor to wake up, to see the new
         # tx before querying /display:
         self.daemon.wallet_service.transaction_monitor()
@@ -288,11 +292,20 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
     def process_wallet_display_response(self, response, code):
         assert code == 200
         json_body = json.loads(response.decode("utf-8"))
-        latest_balance = float(json_body["walletinfo"]["total_balance"])
+        wi = json_body["walletinfo"]
+        latest_balance = float(wi["total_balance"])
         jlog.info("Wallet display currently shows balance: {}".format(
             latest_balance))
         assert latest_balance > self.mean_amt * 4.0 - 1.1
         assert latest_balance <= self.mean_amt * 4.0 - 1.0
+        # these samplings are an attempt to ensure object structure:
+        wia = wi["accounts"]
+        # note that only certain indices are present, based on funding
+        # and the direct-send tx above:
+        assert wia[0]["branches"][0]["entries"][0]["label"] == "test-wallet-rpc-label"
+        assert wia[0]["branches"][0]["entries"][0]["hd_path"] == "m/84'/1'/0'/0/0"
+        assert wia[1]["branches"][0]["entries"][1]["status"] == "used"
+        assert wia[1]["branches"][0]["entries"][1]["extradata"] == ""
 
     @defer.inlineCallbacks
     def test_getaddress(self):
