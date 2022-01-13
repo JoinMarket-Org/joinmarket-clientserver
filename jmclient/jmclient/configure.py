@@ -95,17 +95,20 @@ _DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.125"
 defaultconfig = \
     """
 [DAEMON]
-#set to 1 to run the daemon service within this process;
-#set to 0 if the daemon is run separately (using script joinmarketd.py)
+# set to 1 to run the daemon service within this process;
+# set to 0 if the daemon is run separately (using script joinmarketd.py)
 no_daemon = 1
-#port on which daemon serves; note that communication still
-#occurs over this port even if no_daemon = 1
+
+# Port on which daemon serves; note that communication still
+# occurs over this port even if no_daemon = 1
 daemon_port = 27183
-#currently, running the daemon on a remote host is
-#*NOT* supported, so don't change this variable
+
+# Currently, running the daemon on a remote host is
+# *NOT* supported, so don't change this variable
 daemon_host = localhost
-#by default the client-daemon connection is plaintext, set to 'true' to use TLS;
-#for this, you need to have a valid (self-signed) certificate installed
+
+# by default the client-daemon connection is plaintext, set to 'true' to use TLS;
+# for this, you need to have a valid (self-signed) certificate installed
 use_ssl = false
 
 [BLOCKCHAIN]
@@ -114,9 +117,11 @@ use_ssl = false
 # Use 'no-blockchain' to run the ob-watcher.py script in scripts/obwatch without current access
 # to Bitcoin Core; note that use of this option for any other purpose is currently unsupported.
 blockchain_source = bitcoin-rpc
+
 # options: signet, testnet, mainnet
 # Note: for regtest, use network = testnet
 network = mainnet
+
 rpc_host = localhost
 # default ports are 8332 for mainnet, 18443 for regtest, 18332 for testnet, 38332 for signet
 rpc_port =
@@ -139,11 +144,11 @@ channel = joinmarket-pit
 port = 6697
 usessl = true
 
-# for traditional IP (default):
+# For traditional IP (default):
 host = irc.darkscience.net
 socks5 = false
 
-# for Tor (recommended as clearnet alternative):
+# For Tor (recommended as clearnet alternative):
 #host = darkirc6tqgpnwd3blln3yfv5ckl47eg7llfxkmtovrv7c7iwohhb6ad.onion
 #socks5 = true
 #socks5_host = localhost
@@ -154,13 +159,13 @@ socks5 = false
 [MESSAGING:server2]
 channel = joinmarket-pit
 
-# for traditional IP (default):
+# For traditional IP (default):
 host = irc.hackint.org
 port = 6697
 usessl = true
 socks5 = false
 
-# for Tor (recommended as clearnet alternative):
+# For Tor (recommended as clearnet alternative):
 #host = ncwkrwxpq2ikcngxq3dy2xctuheniggtqeibvgofixpzvrwpa77tozqd.onion
 #port = 6667
 #usessl = false
@@ -173,13 +178,13 @@ socks5 = false
 [MESSAGING:server3]
 channel = joinmarket-pit
 
-# for traditional IP (default):
+# For traditional IP (default):
 host = agora.anarplex.net
 port = 14716
 usessl = true
 socks5 = false
 
-# for Tor (recommended as clearnet alternative):
+# For Tor (recommended as clearnet alternative):
 #host = vxecvd6lc4giwtasjhgbrr3eop6pzq6i5rveracktioneunalgqlwfad.onion
 #port = 6667
 #usessl = false
@@ -196,7 +201,7 @@ socks5 = false
 #socks5 = true
 #socks5_host = localhost
 
-# for Tor (recommended):
+# For Tor (recommended):
 #host = ilitafrzzgxymv6umx2ux7kbz3imyeko6cnqkvy4nisjjj4qpqkrptid.onion
 #socks5_port = 9050
 
@@ -231,27 +236,31 @@ native = true
 # but don't forget to bump your miner fees!
 merge_algorithm = default
 
-# The fee estimate is based on a projection of how many satoshis
-# per kB are needed to get in one of the next N blocks, N set here
-# as the value of 'tx_fees'. This cost estimate is high if you set
+# The fee estimate is based on a projection of how many sats/kilo-vbyte
+# are needed to get in one of the next N blocks. N is set here as
+# the value of 'tx_fees'. This cost estimate is high if you set
 # N=1, so we choose 3 for a more reasonable figure, as our default.
-# You can also set your own fee/kb: any number higher than 1000 will
-# be interpreted as the fee in satoshi per kB that you wish to use
-# example: N=30000 will use 30000 sat/kB as a fee, while N=5
-# will use the estimate from your selected blockchain source
+# You can also set your own fee/kilo-vbyte: any number higher than 1 thousand
+# will be interpreted as the fee in sats/kilo-vbyte that you wish to use.
+#
+# Example: N=30000 will use 30 thousand sats/kilo-vbyte (30 sats/vB) as a fee,
+# while N=5 will use the 5 block estimate from your selected blockchain source.
 tx_fees = 3
 
 # Transaction fee rate variance factor, 0.2 means 20% variation around
 # any manually chosen values, so if you set tx_fees=10000 and
-# tx_fees_factor=0.2, it might use any value between 8000 and 12000 for
-# your transactions.
+# tx_fees_factor=0.2, it might use any value between 8 thousand and 12 thousand
+# for your transactions.
 tx_fees_factor = 0.2
 
 # For users getting transaction fee estimates over an API,
-# place a sanity check limit on the satoshis-per-kB to be paid.
+# place a sanity check limit on the sats/kilo-vbyte to be paid.
 # This limit is also applied to users using Core, even though
 # Core has its own sanity check limit, which is currently
-# 1,000,000 satoshis.
+# 1 million satoshis.
+#
+# Example: N=350000 will use 350 thousand sats/kilo-vbyte (350 sats/vB) as a
+# maximum fee.
 absurd_fee_per_kb = 350000
 
 # In decimal, the maximum allowable change either lower or
@@ -262,7 +271,7 @@ absurd_fee_per_kb = 350000
 #
 # Example: max_sweep_fee_change = 0.4, with tx_fees = 10000,
 # means actual fee rate achieved in the sweep can be as low
-# as 6000 sats/kilo-vbyte up to 14000 sats/kilo-vbyte.
+# as 6 thousand sats/kilo-vbyte up to 14 thousand sats/kilo-vbyte.
 #
 # If this is not achieved, the transaction is aborted. For tumbler,
 # it will then be retried until successful.
@@ -277,17 +286,17 @@ max_sweep_fee_change = 0.8
 #max_cj_fee_abs = x
 
 # Maximum relative coinjoin fee, in fractions of the coinjoin value
-# e.g. if your coinjoin amount is 2 btc (200000000 satoshi) and
+# e.g. if your coinjoin amount is 2 btc (200 million satoshi) and
 # max_cj_fee_rel = 0.001 (0.1%), the maximum fee allowed would
-# be 0.002 btc (200000 satoshi)
+# be 0.002 btc (200 million satoshi)
 #max_cj_fee_rel = x
 
-# the range of confirmations passed to the `listunspent` bitcoind RPC call
+# The range of confirmations passed to the `listunspent` bitcoind RPC call
 # 1st value is the inclusive minimum, defaults to one confirmation
 # 2nd value is the exclusive maximum, defaults to most-positive-bignum (Google Me!)
 # leaving it unset or empty defers to bitcoind's default values, ie [1, 9999999]
 #listunspent_args = []
-# that's what you should do, unless you have a specific reason, eg:
+# That's what you should do, unless you have a specific reason, eg:
 #  !!! WARNING !!! CONFIGURING THIS WHILE TAKING LIQUIDITY FROM
 #  !!! WARNING !!! THE PUBLIC ORDERBOOK LEAKS YOUR INPUT MERGES
 #  spend from unconfirmed transactions:  listunspent_args = [0]
@@ -303,15 +312,15 @@ max_sweep_fee_change = 0.8
 # self = broadcast transaction with your own bitcoin node.
 #
 # random-peer = everyone who took part in the coinjoin has a chance of broadcasting
-# note: if your counterparties do not support it, you will fall back
+# Note: if your counterparties do not support it, you will fall back
 # to broadcasting via your own node.
 #
 # not-self = never broadcast with your own bitcoin node.
-# note: in this case if your counterparties do not broadcast for you, you
+#
+# Note: in this case if your counterparties do not broadcast for you, you
 # will have to broadcast the tx manually (you can take the tx hex from the log
 # or terminal) via some other channel. It is not recommended to choose this
 # option when running schedules/tumbler.
-
 tx_broadcast = random-peer
 
 # If makers do not respond while creating a coinjoin transaction,
@@ -346,32 +355,32 @@ interest_rate = """ + _DEFAULT_INTEREST_RATE + """
 bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 
 ##############################
-#THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
-#DON'T ALTER THEM UNLESS YOU UNDERSTAND THE IMPLICATIONS.
+# THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
+# DON'T ALTER THEM UNLESS YOU UNDERSTAND THE IMPLICATIONS.
 ##############################
 
-# number of retries allowed for a specific utxo, to prevent DOS/snooping.
+# Number of retries allowed for a specific utxo, to prevent DOS/snooping.
 # Lower settings make snooping more expensive, but also prevent honest users
 # from retrying if an error occurs.
 taker_utxo_retries = 3
 
-# number of confirmations required for the commitment utxo mentioned above.
+# Number of confirmations required for the commitment utxo mentioned above.
 # this effectively rate-limits a snooper.
 taker_utxo_age = 5
 
-# percentage of coinjoin amount that the commitment utxo must have
+# Percentage of coinjoin amount that the commitment utxo must have
 # as a minimum BTC amount. Thus 20 means a 1BTC coinjoin requires the
 # utxo to be at least 0.2 btc.
 taker_utxo_amtpercent = 20
 
-#Set to 1 to accept broadcast PoDLE commitments from other bots, and
-#add them to your blacklist (only relevant for Makers).
-#There is no way to spoof these values, so the only "risk" is that
-#someone fills your blacklist file with a lot of data.
+# Set to 1 to accept broadcast PoDLE commitments from other bots, and
+# add them to your blacklist (only relevant for Makers).
+# There is no way to spoof these values, so the only "risk" is that
+# someone fills your blacklist file with a lot of data.
 accept_commitment_broadcasts = 1
 
-#Location of your commitments.json file (stores commitments you've used
-#and those you want to use in future), relative to the scripts directory.
+# Location of your commitments.json file (stores commitments you've used
+# and those you want to use in future), relative to the scripts directory.
 commit_file_location = cmtdata/commitments.json
 
 ##############################
@@ -379,7 +388,7 @@ commit_file_location = cmtdata/commitments.json
 ##############################
 
 [PAYJOIN]
-# for the majority of situations, the defaults
+# For the majority of situations, the defaults
 # need not be altered - they will ensure you don't pay
 # a significantly higher fee.
 # MODIFICATION OF THESE SETTINGS IS DISADVISED.
@@ -387,7 +396,7 @@ commit_file_location = cmtdata/commitments.json
 # Payjoin protocol version; currently only '1' is supported.
 payjoin_version = 1
 
-# servers can change their destination address by default (0).
+# Servers can change their destination address by default (0).
 # if '1', they cannot. Note that servers can explicitly request
 # that this is activated, in which case we respect that choice.
 disable_output_substitution = 0
@@ -403,21 +412,23 @@ disable_output_substitution = 0
 # to that of our change output, unless there is none in which case this is disabled.
 max_additional_fee_contribution = default
 
-# this is the minimum satoshis per vbyte we allow in the payjoin
+# This is the minimum sats/vbyte we allow in the payjoin
 # transaction; note it is decimal, not integer.
 min_fee_rate = 1.1
 
-# for payjoins as sender (i.e. client) to hidden service endpoints,
+# For payjoins as sender (i.e. client) to hidden service endpoints,
 # the socks5 configuration:
 onion_socks5_host = localhost
 onion_socks5_port = 9050
 
-# for payjoin onion service creation:
+# For payjoin onion service creation:
 # the tor control configuration:
 tor_control_host = localhost
+
 # or, to use a UNIX socket
 # control_host = unix:/var/run/tor/control
 tor_control_port = 9051
+
 # the host/port actually serving the hidden service
 # (note the *virtual port*, that the client uses,
 # is hardcoded to 80):
@@ -458,23 +469,22 @@ size_factor = 0.1
 gaplimit = 6
 
 [SNICKER]
-
-# any other value than 'true' will be treated as False,
+# Any other value than 'true' will be treated as False,
 # and no SNICKER actions will be enabled in that case:
 enabled = false
 
-# in satoshis, we require any SNICKER to pay us at least
+# In satoshis, we require any SNICKER to pay us at least
 # this much (can be negative), otherwise we will refuse
 # to sign it:
 lowest_net_gain = 0
 
-# comma separated list of servers (if port is omitted as :port, it
+# Comma separated list of servers (if port is omitted as :port, it
 # is assumed to be 80) which we will poll against (all, in sequence); note
 # that they are allowed to be *.onion or cleartext servers, and no
 # scheme (http(s) etc) needs to be added to the start.
 servers = cn5lfwvrswicuxn3gjsxoved6l2gu5hdvwy5l3ev7kg6j7lbji2k7hqd.onion,
 
-# how many minutes between each polling event to each server above:
+# How many minutes between each polling event to each server above:
 polling_interval_minutes = 60
 """
 
