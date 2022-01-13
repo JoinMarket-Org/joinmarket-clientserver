@@ -217,7 +217,7 @@ def get_addr_and_fund(yg):
         return
     if yg.wallet_service.timelock_funded:
         return
-    addr = wallet_gettimelockaddress(yg.wallet_service.wallet, "2021-11")
+    addr = wallet_gettimelockaddress(yg.wallet_service.wallet, "2023-11")
     print("Got timelockaddress: {}".format(addr))
 
     # pay into it; amount is randomized for now.
