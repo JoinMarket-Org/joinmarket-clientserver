@@ -295,7 +295,7 @@ def test_start_yg_and_taker_setup(setup_ln_ygrunner):
         start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
                       clientfactory, daemon=daemon, rs=False)
-    reactor.callLater(1.0, start_test_taker, wallet_services[end_bot_num - 1]['wallet'], 4)
+    reactor.callLater(1.0, start_test_taker, wallet_services[end_bot_num - 1]['wallet'], end_bot_num)
     reactor.run()
 
 @defer.inlineCallbacks
