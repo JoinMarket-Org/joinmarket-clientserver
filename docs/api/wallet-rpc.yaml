@@ -123,6 +123,16 @@ paths:
           $ref: "#/components/responses/ListWallets-200-OK"
         '404':
           $ref: '#/components/responses/404-NotFound'
+  /wallet/yieldgen/report:
+    get:
+      summary: get latest report on yield generating activity
+      operationId: yieldgenreport
+      description: get list of coinjoins taken part in as maker (across all wallets)
+      responses:
+        '200':
+          $ref: "#/components/responses/YieldGenReport-200-OK"
+        '404':
+          $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/address/new/{mixdepth}:
     get:
       security:

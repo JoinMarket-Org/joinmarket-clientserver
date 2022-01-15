@@ -88,6 +88,11 @@ class TransactionFailed(Exception):
 class NotEnoughCoinsForMaker(Exception):
     pass
 
+# raised when we cannot read data from our
+# yigen-statement csv file:
+class YieldGeneratorDataUnreadable(Exception):
+    pass
+
 def get_ssl_context(cert_directory):
     """Construct an SSL context factory from the user's privatekey/cert.
     TODO:
@@ -298,6 +303,11 @@ class JMWalletDaemon(Service):
         # as above, 409 may not be ideal
         request.setResponseCode(409)
         return self.err(request, "Maker could not start, no coins.")
+
+    @app.handle_errors(YieldGeneratorDataUnreadable)
+    def yieldgenerator_report_unavailable(self, request, failure):
+        request.setResponseCode(404)
+        return self.err(request, "Yield generator report not available.")
 
     def check_cookie(self, request):
         #part after bearer is what we need
@@ -599,6 +609,29 @@ class JMWalletDaemon(Service):
                 raise ServiceNotStarted()
             self.services["maker"].stopService()
             return make_jmwalletd_response(request, status=202)
+
+        def get_json_yigen_report(self):
+            try:
+                datadir = os.path.join(jm_single().config.datadir, "logs")
+                with open(os.path.join(datadir, "yigen-statement.csv"), "rb") as f:
+                    yigen_data_raw = f.readlines()
+                return json.loads(yigen_data_raw)
+            except:
+                raise YieldGeneratorDataUnreadable()
+
+        @app.route('/wallet/yieldgen/report', methods=['GET'])
+        def yieldgen_report(self, request):
+            # Note that this is *not* a maker function, and
+            # not wallet specific (the report aggregates over time,
+            # even with different wallets), and does not require
+            # an authenticated session (it reads the filesystem, like
+            # /all)
+            # note: can raise, most particularly if file has not been
+            # created because maker never ran (or deleted):
+            yigen_data = self.get_json_yigen_report()
+            # this is the successful case; note the object can
+            # be an empty list:
+            return make_jmwalletd_response(request, yigen_data=yigen_data)
 
         @app.route('/wallet/<string:walletname>/lock', methods=['GET'])
         def lockwallet(self, request, walletname):
