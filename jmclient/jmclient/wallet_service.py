@@ -887,11 +887,13 @@ class WalletService(Service):
                                                    include_disabled=include_disabled,
                                                    maxheight=maxheight)
 
-    def get_internal_addr(self, mixdepth):
+    def import_addr(self, addr):
         if self.bci is not None and hasattr(self.bci, 'import_addresses'):
-            addr = self.wallet.get_internal_addr(mixdepth)
-            self.bci.import_addresses([addr],
-                                      self.wallet.get_wallet_name())
+            self.bci.import_addresses([addr], self.wallet.get_wallet_name())
+
+    def get_internal_addr(self, mixdepth):
+        addr = self.wallet.get_internal_addr(mixdepth)
+        self.import_addr(addr)
         return addr
 
     def collect_addresses_init(self):
@@ -944,10 +946,8 @@ class WalletService(Service):
         return addresses
 
     def get_external_addr(self, mixdepth):
-        if self.bci is not None and hasattr(self.bci, 'import_addresses'):
-            addr = self.wallet.get_external_addr(mixdepth)
-            self.bci.import_addresses([addr],
-                                      self.wallet.get_wallet_name())
+        addr = self.wallet.get_external_addr(mixdepth)
+        self.import_addr(addr)
         return addr
 
     def __getattr__(self, attr):

@@ -494,9 +494,12 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                 xpub_key = ""
 
             unused_index = wallet_service.get_next_unused_index(m, address_type)
+            gap_addrs = []
             for k in range(unused_index + wallet_service.gap_limit):
                 path = wallet_service.get_path(m, address_type, k)
                 addr = wallet_service.get_address_from_path(path)
+                if k >= unused_index:
+                    gap_addrs.append(addr)
                 label = wallet_service.get_address_label(addr)
                 balance, status = get_addr_status(
                     path, utxos[m], k >= unused_index, address_type)
@@ -509,6 +512,15 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                     entrylist.append(WalletViewEntry(
                         wallet_service.get_path_repr(path), m, address_type, k, addr,
                         [balance, balance], priv=privkey, status=status, label=label))
+            # ensure that we never display un-imported addresses (this will generally duplicate
+            # the import of each new address gap limit times, but one importmulti call
+            # per mixdepth is cheap enough.
+            # This only applies to the external branch, because it only applies to addresses
+            # displayed for user deposit.
+            # It also does not apply to fidelity bond addresses which are created manually.
+            if address_type == BaseWallet.ADDRESS_TYPE_EXTERNAL:
+                wallet_service.bci.import_addresses(gap_addrs,
+                                                    wallet_service.get_wallet_name())
             wallet_service.set_next_index(m, address_type, unused_index)
             path = wallet_service.get_path_repr(wallet_service.get_path(m, address_type))
             branchlist.append(WalletViewBranch(path, m, address_type, entrylist,
