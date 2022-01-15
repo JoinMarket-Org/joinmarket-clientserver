@@ -172,7 +172,7 @@ clightning-location = bundled
 # This is a comma separated list (comma can be omitted if only one item).
 # Each item has format pubkey@host:port ; all are required. Host can be
 # a *.onion address (tor v3 only).
-directory-nodes = 033e65b76c4a3c0b907fddbc57822dbff1cf7ce48d341b8cfaf11bd324ea2d433d@45ojrjlrl2wh6yrnihlb2kl6k752sonptt2rpuv4shbob7u    bxkdcmdqd.onion:9736
+directory-nodes = 033e65b76c4a3c0b907fddbc57822dbff1cf7ce48d341b8cfaf11bd324ea2d433d@45ojrjlrl2wh6yrnihlb2kl6k752sonptt2rpuv4shbob7ubxkdcmdqd.onion:9736
 # The port via which we receive data from the c-lightning plugin; if not bundled,
 # make sure it matches what you set in the jmcl.py plugin:
 passthrough-port = 49100
