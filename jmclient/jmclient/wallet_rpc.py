@@ -367,11 +367,6 @@ class JMWalletDaemon(Service):
             jlog.warn("Ignoring rescan request from backend wallet service: " + msg)
         self.wallet_service.add_restart_callback(dummy_restart_callback)
         self.wallet_name = wallet_name
-        # the daemon blocks here until the wallet synchronization
-        # from the blockchain interface completes; currently this is
-        # fine as long as the client handles the response asynchronously:
-        while not self.wallet_service.synced:
-            self.wallet_service.sync_wallet(fast=True)
         self.wallet_service.register_callbacks(
             [self.wss_factory.sendTxNotification], None)
         self.wallet_service.startService()
