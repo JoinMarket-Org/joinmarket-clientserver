@@ -25,7 +25,7 @@ def main():
     if len(args) < 1:
         jmprint('Error: Needs a wallet file', "error")
         sys.exit(EXIT_ARGERROR)
-    load_program_config(config_path=options['datadir'])
+    load_program_config(config_path=options['datadir'], ln_backend_needed=True)
     logsdir = os.path.join(os.path.dirname(
         jm_single().config_location), "logs")
     tumble_log = get_tumble_log(logsdir)

@@ -780,6 +780,9 @@ def load_program_config(config_path="", bs=None, plugin_services=[],
     lnchans = [x for x in chans if "type" in x and x["type"] == "ln-onion"]
     # only 1; multiple directories will be in this config section:
     assert len(lnchans) < 2
+    # The additional flag 'ln_backend_needed' exists to address
+    # the case of a user with Lightning configured, but doing a non-interactive
+    # operation; in this case, starting the Lightning backend is pointless.
     if lnchans and ln_backend_needed:
         lnchanconfig = lnchans[0]
         if lnchanconfig["clightning-location"] == "bundled":

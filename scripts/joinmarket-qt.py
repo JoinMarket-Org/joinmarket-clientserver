@@ -2343,7 +2343,7 @@ parser.remove_option("--wallet-password-stdin")
 
 config_load_error = False
 try:
-    load_program_config(config_path=options.datadir)
+    load_program_config(config_path=options.datadir, ln_backend_needed=True)
 except Exception as e:
     config_load_error = "Failed to setup joinmarket: "+repr(e)
     if "RPC" in repr(e):

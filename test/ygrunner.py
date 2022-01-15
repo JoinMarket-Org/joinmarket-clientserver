@@ -260,7 +260,7 @@ def get_addr_and_fund(yg):
 
 @pytest.fixture(scope="module")
 def setup_ygrunner():
-    load_test_config()
+    load_test_config(ln_backend_needed=True)
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().bc_interface.simulate_blocks()
     # handles the custom regtest hrp for bech32
