@@ -22,7 +22,7 @@ from jmclient import Taker, jm_single, \
     StorageError, StoragePasswordError, JmwalletdWebSocketServerFactory, \
     JmwalletdWebSocketServerProtocol, RetryableStorageError, \
     SegwitWalletFidelityBonds, wallet_gettimelockaddress
-from jmbase.support import get_log
+from jmbase.support import get_log, utxostr_to_utxo
 
 jlog = get_log()
 
@@ -789,6 +789,35 @@ class JMWalletDaemon(Service):
             except:
                 raise ConfigNotPresent()
             # null return indicates success in updating:
+            return make_jmwalletd_response(request)
+
+        @app.route('/wallet/<string:walletname>/freeze', methods=["POST"])
+        def freeze(self, request, walletname):
+            """ Freeze (true) or unfreeze (false), for spending a specified utxo
+            in this wallet. Note that this is persisted in the wallet file,
+            so the status survives across sessions. Note that re-application of
+            the same state is allowed and does not alter the 200 OK return.
+            """
+            self.check_cookie(request)
+            if not self.wallet_name == walletname:
+                raise InvalidRequestFormat()
+            freeze_json = self.get_POST_body(request, ["utxo-string", "freeze"])
+            if not freeze_json:
+                raise InvalidRequestFormat()
+            to_disable = freeze_json["freeze"]
+            valid, txidindex = utxostr_to_utxo(freeze_json["utxo-string"])
+            if not valid:
+                raise InvalidRequestFormat()
+            txid, index = txidindex
+            try:
+                # note: this does not raise or fail if the applied
+                # disable state (true/false) is the same as the current
+                # one; that is accepted and not an error.
+                self.wallet_service.disable_utxo(txid, index, to_disable)
+            except AssertionError:
+                # should be impossible because format checked by
+                # utxostr_to_utxo:
+                raise InvalidRequestFormat()
             return make_jmwalletd_response(request)
 
         def get_listutxos_response(self, utxos):
