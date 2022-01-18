@@ -399,6 +399,31 @@ paths:
           $ref: "#/components/responses/401-Unauthorized"
         '409':
           $ref: '#/components/responses/409-NoConfig'
+  /wallet/{walletname}/freeze:
+    post:
+      security:
+        - bearerAuth: []
+      summary: freeze or unfreeze an individual utxo for spending
+      operationId: freeze
+      description: freeze or unfreeze an individual utxo for spending
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreezeRequest'
+        description: utxo string and freeze toggle as boolean
+      responses:
+        '200':
+          $ref: "#/components/responses/Freeze-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
   /wallet/{walletname}/getseed:
     get:
       security:
@@ -432,6 +457,16 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    FreezeRequest:
+      type: object
+      required:
+        - utxo-string
+        - freeze
+      properties:
+        utxo-string:
+          type: string
+        freeze:
+          type: boolean
     ConfigSetRequest:
       type: object
       required:
@@ -463,6 +498,8 @@ components:
         configvalue:
           type: string
     ConfigSetResponse:
+      type: object
+    FreezeResponse:
       type: object
     DoCoinjoinRequest:
       type: object
@@ -830,6 +867,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/GetSeedResponse"
+    Freeze-200-OK:
+      description: "freeze or unfreeze utxo action completed successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/FreezeResponse"
     202-Accepted:
       description: The request has been submitted successfully for processing, but the processing has not been completed. 
     204-NoResultFound:

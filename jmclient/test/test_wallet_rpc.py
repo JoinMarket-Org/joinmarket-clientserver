@@ -381,16 +381,31 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         assert validate_address(json_body["address"])[0]
 
     @defer.inlineCallbacks
-    def test_listutxos(self):
+    def test_listutxos_and_freeze(self):
         self.daemon.auth_disabled = True
         agent = get_nontor_agent()
-        addr = self.get_route_root()
-        addr += "/wallet/"
-        addr += self.daemon.wallet_name
-        addr += "/utxos"
+        pre_addr = self.get_route_root()
+        pre_addr += "/wallet/"
+        pre_addr += self.daemon.wallet_name
+        addr = pre_addr + "/utxos"
         addr = addr.encode()
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_listutxos_response)
+        # Test of freezing is currently very primitive: we only
+        # check that the action was accepted; a full test would
+        # involve checking that spending the coin works or doesn't
+        # work, as expected.
+        addr = pre_addr + "/freeze"
+        addr = addr.encode()
+        utxostr = self.mixdepth1_utxos[0]["utxo"]
+        body = BytesProducer(json.dumps({"utxo-string": utxostr,
+            "freeze": True}).encode())
+        yield self.do_request(agent, b"POST", addr, body,
+                              self.process_utxo_freeze)
+        body = BytesProducer(json.dumps({"utxo-string": utxostr,
+            "freeze": False}).encode())
+        yield self.do_request(agent, b"POST", addr, body,
+                              self.process_utxo_freeze)
 
     def process_listutxos_response(self, response, code):
         assert code == 200
@@ -399,11 +414,15 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         # have depend on what other tests occurred.
         # For now, we at least check that we have 3 utxos in mixdepth
         # 1 because none of the other tests spend them:
-        mixdepth1_utxos = 0
+        mixdepth1_utxos = []
         for d in json_body["utxos"]:
             if d["mixdepth"] == 1:
-                mixdepth1_utxos += 1
-        assert mixdepth1_utxos == 3
+                mixdepth1_utxos.append(d)
+        assert len(mixdepth1_utxos) == 3
+        self.mixdepth1_utxos = mixdepth1_utxos
+
+    def process_utxo_freeze(self, response, code):
+        assert code == 200
 
     @defer.inlineCallbacks
     def test_session(self):
