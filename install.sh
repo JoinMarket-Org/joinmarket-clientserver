@@ -183,6 +183,7 @@ venv_setup ()
     pip install --upgrade setuptools
     pip install mako
     pip install mrkd
+    pip install mistune==0.8.4
     deactivate
 }
 
