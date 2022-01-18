@@ -10,6 +10,6 @@ setup(name='joinmarketbase',
       license='GPL',
       packages=['jmbase'],
       install_requires=['twisted==21.7.0', 'service-identity',
-                        'chromalog==1.0.5', 'pyln-client'],
+                        'chromalog==1.0.5', 'pyln-client==0.10.2post0'],
       python_requires='>=3.6',
       zip_safe=False)

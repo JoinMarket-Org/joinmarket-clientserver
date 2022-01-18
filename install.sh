@@ -320,7 +320,7 @@ libsecp256k1_install()
 
 clightning_build ()
 {
-    ./configure \
+    PG_CONFIG="" ./configure \
         --enable-developer \
         --enable-experimental-features \
         --prefix="${jm_root}"
