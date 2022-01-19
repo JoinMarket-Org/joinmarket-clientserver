@@ -1,5 +1,4 @@
 from setuptools import setup
-import os
 
 setup(name='joinmarketui',
       version='0.9.5dev',
@@ -16,4 +15,5 @@ setup(name='joinmarketui',
 # The following command should be executed whenever `open_wallet_dialog.ui` is updated.
 # We have commented out this command so that we wouldn't require every user of JoinMarket-qt
 # to install the correct version of pyside2-uic.
-# os.system('pyside2-uic jmqtui/open_wallet_dialog.ui -o jmqtui/open_wallet_dialog.py')
+#import os
+#os.system('pyside2-uic jmqtui/open_wallet_dialog.ui -o jmqtui/open_wallet_dialog.py')
