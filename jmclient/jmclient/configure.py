@@ -120,8 +120,16 @@ network = mainnet
 rpc_host = localhost
 # default ports are 8332 for mainnet, 18443 for regtest, 18332 for testnet, 38332 for signet
 rpc_port =
+
+# Use either rpc_user / rpc_password pair or rpc_cookie_file.
 rpc_user = bitcoin
 rpc_password = password
+#rpc_cookie_file =
+
+# rpc_wallet_file is Bitcoin Core wallet which is used for address and
+# transaction monitoring (it is watchonly, no private keys are stored there).
+# It must be created manually if does not exist, see docs/USAGE.md for more
+# information.
 rpc_wallet_file =
 
 ## SERVER 1/4) Darkscience IRC (Tor, IP)
