@@ -26,7 +26,7 @@ Note that for some methods, it's particularly important to deal with the HTTP re
 
 Current API version: v1.
 
-The [OpenAPI](https://github.com/OAI/OpenAPI-Specification) spec is given in [this yaml file](../jmclient/jmclient/wallet-rpc-api.yaml). Human readable documentation of the API is provided in [this document](../jmclient/jmclient/wallet-rpc-api.md), which is auto-generated with the node utility [swagger-markdown](https://www.npmjs.com/package/swagger-markdown).
+The [OpenAPI](https://github.com/OAI/OpenAPI-Specification) spec is given in [this yaml file](./api/wallet-rpc.yaml). Human readable documentation of the API is provided in the [documentation](https://JoinMarket-Org.github.io/joinmarket-clientserver/api).
 
 Those wishing to write client code should adhere to that specification.
 
@@ -71,8 +71,8 @@ When the backend switches from doing nothing, to running a coinjoin as taker ove
 
 where the values are:
 
-0 - Taker running  
-1 - Maker running  
+0 - Taker running
+1 - Maker running
 2 - Neither are running
 
 #### Transaction event
@@ -80,7 +80,7 @@ where the values are:
 When a transaction is seen for the first time in the Joinmarket wallet, a notification is sent to the client over the websocket as encoded json, containing the txid and a detailed human-readable deserialization of the transaction details. See this example:
 
 ```
-{"txid": "ca606efc5ba8f6669ba15e9262e5d38e745345ea96106d5a919688d1ff0da0cc", 
+{"txid": "ca606efc5ba8f6669ba15e9262e5d38e745345ea96106d5a919688d1ff0da0cc",
  "txdetails": {
     "hex": "02000000000102578770b2732aed421ffe62d54fd695cf281ca336e4f686d2adbb2e8c3bedb2570000000000ffffffff4719a259786b4237f92460629181edcc3424419592529103143090f07d85ec330100000000ffffffff0324fd9b0100000000160014d38fa4a6ac8db7495e5e2b5d219dccd412dd9bae24fd9b0100000000160014564aead56de8f4d445fc5b74a61793b5c8a819667af6c208000000001600146ec55c2e1d1a7a868b5ec91822bf40bba842bac502473044022078f8106a5645cc4afeef36d4addec391a5b058cc51053b42c89fcedf92f4db1002200cdf1b66a922863fba8dc1b1b1a0dce043d952fa14dcbe86c427fda25e930a53012102f1f750bfb73dbe4c7faec2c9c301ad0e02176cd47bcc909ff0a117e95b2aad7b02483045022100b9a6c2295a1b0f7605381d416f6ed8da763bd7c20f2402dd36b62dd9dd07375002207d40eaff4fc6ee219a7498abfab6bdc54b7ce006ac4b978b64bff960fbf5f31e012103c2a7d6e44acdbd503c578ec7d1741a44864780be0186e555e853eee86e06f11f00000000",
     "inputs": [
