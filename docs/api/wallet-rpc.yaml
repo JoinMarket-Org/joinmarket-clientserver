@@ -3,6 +3,12 @@ info:
   description: Joinmarket wallet API
   version: "1"
   title: Joinmarket wallet API
+  license:
+    name: GPLv3
+    url: https://www.gnu.org/licenses/gpl-3.0.html
+servers:
+- url: https://none
+  description: This API is called locally to a jmwalletd instance, acting as server, for each wallet owner, it is not public.
 paths:
   /wallet/create:
     post:
@@ -105,6 +111,8 @@ paths:
       responses:
         '200':
           $ref: "#/components/responses/Session-200-OK"
+        '404':
+          $ref: '#/components/responses/404-NotFound'
   /wallet/all:
     get:
       summary: get current available wallets
@@ -113,6 +121,8 @@ paths:
       responses:
         '200':
           $ref: "#/components/responses/ListWallets-200-OK"
+        '404':
+          $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/address/new/{mixdepth}:
     get:
       security:
@@ -875,8 +885,6 @@ components:
             $ref: "#/components/schemas/FreezeResponse"
     202-Accepted:
       description: The request has been submitted successfully for processing, but the processing has not been completed. 
-    204-NoResultFound:
-      description: No result found for matching search criteria.
     # Clientside error responses
     400-BadRequest:
       description: Bad request format.
@@ -920,27 +928,9 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorMessage'
-    422-UnprocessableEntity:
-      description: Business rule validation failure.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorMessage'
-    429-TooManyRequests:
-      description: There are too many requests in a given amount of time.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorMessage'
     # Serverside error responses
     503-ServiceUnavailable:
       description: The server is not ready to process the request.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorMessage'
-    5XX-UnexpectedError:
-      description: There was an internal issue calling the service.
       content:
         application/json:
           schema:
