@@ -123,6 +123,20 @@ paths:
           $ref: "#/components/responses/ListWallets-200-OK"
         '404':
           $ref: '#/components/responses/404-NotFound'
+  /wallet/yieldgen/report:
+    get:
+      summary: get latest report on yield generating activity
+      operationId: yieldgenreport
+      description: "Get list of coinjoins taken part in as maker (across all wallets).
+      Data returned as list of strings, each one in the same comma separated format as found in yigen-statement.csv.
+      Note that this returns all lines in the file, including the lines that are only present to represent the starting
+      of a bot. Those lines contain the word Connected and can be thus discarded.
+      The header line is also delivered and so can be ignored as per the client requirements."
+      responses:
+        '200':
+          $ref: "#/components/responses/YieldGenReport-200-OK"
+        '404':
+          $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/address/new/{mixdepth}:
     get:
       security:
@@ -567,6 +581,11 @@ components:
           items:
             type: string
             example: wallet.jmdat
+    YieldGenReportResponse:
+      type: array
+      items:
+        type: string
+        example: "2021/10/26 16:40:21,133986791,1,200000000,2680,2680,0.08,"
     SessionResponse:
       type: object
       required:
@@ -883,6 +902,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/FreezeResponse"
+    YieldGenReport-200-OK:
+      description: "get list of coinjoins taken part in as maker (across all wallets)"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/YieldGenReportResponse"
     202-Accepted:
       description: The request has been submitted successfully for processing, but the processing has not been completed. 
     # Clientside error responses
