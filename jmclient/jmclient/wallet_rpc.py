@@ -611,12 +611,18 @@ class JMWalletDaemon(Service):
             return make_jmwalletd_response(request, status=202)
 
         def get_json_yigen_report(self):
+            """ Returns a json object whose contents are:
+            a list of strings, each string is a comma separated record of
+            a coinjoin event, directly read from yigen-statement.csv without
+            further processing.
+            """
             try:
-                datadir = os.path.join(jm_single().config.datadir, "logs")
-                with open(os.path.join(datadir, "yigen-statement.csv"), "rb") as f:
-                    yigen_data_raw = f.readlines()
-                return json.loads(yigen_data_raw)
-            except:
+                datadir = os.path.join(jm_single().datadir, "logs")
+                with open(os.path.join(datadir, "yigen-statement.csv"), "r") as f:
+                    yigen_data = f.readlines()
+                return yigen_data
+            except Exception as e:
+                jlog.warn("Yigen report failed to find file: {}".format(repr(e)))
                 raise YieldGeneratorDataUnreadable()
 
         @app.route('/wallet/yieldgen/report', methods=['GET'])
