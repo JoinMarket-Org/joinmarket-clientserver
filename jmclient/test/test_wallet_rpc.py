@@ -71,11 +71,11 @@ class WalletRPCTestBase(object):
         # test down from 9 seconds to 1 minute 40s, which is too slow
         # to be acceptable. TODO: add a test with FB by speeding up
         # the sync for test, by some means or other.
-        self.daemon.wallet_service = make_wallets_to_list(make_wallets(
+        self.daemon.services["wallet"] = make_wallets_to_list(make_wallets(
             1, wallet_structures=[wallet_structures[0]],
             mean_amt=self.mean_amt, wallet_cls=SegwitWalletFidelityBonds))[0]
         jm_single().bc_interface.tickchain()
-        sync_wallets([self.daemon.wallet_service])
+        sync_wallets([self.daemon.services["wallet"]])
         # dummy tx example to force a notification event:
         self.test_tx = CTransaction.deserialize(hextobin(test_tx_hex_1))
 
@@ -176,7 +176,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         """
         # before starting, we have to shut down the existing
         # wallet service (usually this would be `lock`):
-        self.daemon.wallet_service = None
+        self.daemon.services["wallet"] = None
         self.daemon.stopService()
         self.daemon.auth_disabled = False
 
@@ -268,12 +268,12 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"POST", addr, body,
                               self.process_direct_send_response)
         # before querying the wallet display, set a label to check:
-        labeladdr = self.daemon.wallet_service.get_addr(0,0,0)
-        self.daemon.wallet_service.set_address_label(labeladdr,
+        labeladdr = self.daemon.services["wallet"].get_addr(0,0,0)
+        self.daemon.services["wallet"].set_address_label(labeladdr,
                                         "test-wallet-rpc-label")
         # force the wallet service txmonitor to wake up, to see the new
         # tx before querying /display:
-        self.daemon.wallet_service.transaction_monitor()
+        self.daemon.services["wallet"].transaction_monitor()
         addr = self.get_route_root()
         addr += "/wallet/"
         addr += self.daemon.wallet_name
