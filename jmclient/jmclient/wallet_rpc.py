@@ -217,19 +217,40 @@ class JMWalletDaemon(Service):
         return (listener_rpc, listener_ws)
 
     def stopService(self):
-        """ Encapsulates shut down actions.
+        """ Top-level service (JMWalletDaemon itself) shutdown.
+        """
+        self.stopSubServices()
+        super().stopService()
+
+    def stopSubServices(self):
+        """ This:
+        - shuts down the wallet service, and deletes its name.
+        - removes the currently valid auth token.
+        - shuts down any other running sub-services, such as yieldgenerator.
+        - shuts down (aborts) any taker-side coinjoining happening.
         """
         # Currently valid authorization tokens must be removed
         # from the daemon:
         self.cookie = None
         if self.wss_factory:
             self.wss_factory.valid_token = None
+        self.wallet_name = None
         # if the wallet-daemon is shut down, all services
         # it encapsulates must also be shut down.
         for name, service in self.services.items():
             if service:
                 service.stopService()
-        super().stopService()
+        # these Services cannot be guaranteed to be
+        # re-startable (the WalletService for example,
+        # is explicitly not). So we remove these references
+        # after stopping.
+        for n in self.services:
+            self.services[n] = None
+        # taker is not currently encapsulated with a Service;
+        # if it is running, shut down:
+        if self.coinjoin_state == CJ_TAKER_RUNNING:
+            self.taker.aborted = True
+            self.taker_finished(False)
 
     def err(self, request, message):
         """ Return errors in a standard format.
@@ -370,7 +391,7 @@ class JMWalletDaemon(Service):
             # are any.
             # This will stop all supporting services and wipe
             # state (so wallet, maker service and cookie/token):
-            self.stopService()
+            self.stopSubServices()
 
         self.services["wallet"] = WalletService(wallet)
         # restart callback needed, otherwise wallet creation will
@@ -656,11 +677,12 @@ class JMWalletDaemon(Service):
                 # lock multiple times:
                 already_locked = True
             else:
-                self.services["wallet"].stopService()
-                self.cookie = None
-                self.wss_factory.valid_token = None
-                self.services["wallet"] = None
-                self.wallet_name = None
+                # notice that here a wallet locking event shuts down
+                # everything.
+                # TODO: changing this so a maker can run in the background
+                # while locked, will require auto-detection of coinjoin
+                # state on future unlock.
+                self.stopSubServices()
                 already_locked = False
             return make_jmwalletd_response(request, walletname=walletname,
                                            already_locked=already_locked)
@@ -926,6 +948,9 @@ class JMWalletDaemon(Service):
                 raise InvalidRequestFormat()
             if not self.coinjoin_state == CJ_TAKER_RUNNING:
                 raise ServiceNotStarted()
+            # prevent the next step, responding to AMP messages
+            # from jmdaemon backend, from continuing:
+            self.taker.aborted = True
             self.taker_finished(False)
             return make_jmwalletd_response(request, status=202)
 
