@@ -598,7 +598,7 @@ class JMWalletDaemon(Service):
             # to fail):
             def cleanup():
                 self.activate_coinjoin_state(CJ_NOT_RUNNING)
-            def setup():
+            def setup_set_coinjoin_state():
                 # note this returns False if we cannot update the state.
                 if not self.activate_coinjoin_state(CJ_MAKER_RUNNING):
                     raise ServiceAlreadyStarted()
@@ -612,12 +612,19 @@ class JMWalletDaemon(Service):
                 # picked up by Maker.try_to_create_my_orders().
                 if not len(self.services["wallet"].get_balance_by_mixdepth(
                     verbose=False, minconfs=1)) > 0:
+                    # note: this raise will prevent the setup
+                    # of the service (and therefore the startup) from
+                    # proceeding:
                     raise NotEnoughCoinsForMaker()
 
             self.services["maker"].addCleanup(cleanup)
-            self.services["maker"].addSetup(setup)
+            # order of addition of service setup functions matters;
+            # if a precondition should prevent the update of the
+            # coinjoin_state, it must come first:
             self.services["maker"].addSetup(setup_sanitycheck_balance)
-            # Service startup now checks and updates coinjoin state:
+            self.services["maker"].addSetup(setup_set_coinjoin_state)
+            # Service startup now checks and updates coinjoin state,
+            # assuming setup is successful:
             self.services["maker"].startService()
 
             return make_jmwalletd_response(request, status=202)
