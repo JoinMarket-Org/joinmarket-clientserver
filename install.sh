@@ -394,7 +394,6 @@ Usage: ${0} [options]
 
 Options:
 
---develop                   code remains editable in place (currently always enabled)
 --disable-os-deps-check     skip OS package manager's dependency check
 --disable-secp-check        do not run libsecp256k1 tests (default is to run them)
 --docker-install            system wide install as root for minimal Docker installs
