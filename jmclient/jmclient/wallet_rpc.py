@@ -2,7 +2,6 @@ from jmbitcoin import *
 import datetime
 import os
 import json
-import atexit
 from io import BytesIO
 from jmclient.wallet_utils import wallet_showutxos
 from twisted.internet import reactor, ssl
@@ -159,8 +158,6 @@ class JMWalletDaemon(Service):
         # keep track of client side connections so they
         # can be shut down cleanly:
         self.coinjoin_connection = None
-        # ensure shut down does not leave dangling services:
-        atexit.register(self.stopService)
 
     def activate_coinjoin_state(self, state):
         """ To be set when a maker or taker
@@ -238,7 +235,7 @@ class JMWalletDaemon(Service):
         # if the wallet-daemon is shut down, all services
         # it encapsulates must also be shut down.
         for name, service in self.services.items():
-            if service:
+            if service and service.running == 1:
                 service.stopService()
         # these Services cannot be guaranteed to be
         # re-startable (the WalletService for example,
