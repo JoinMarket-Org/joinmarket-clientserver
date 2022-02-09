@@ -267,6 +267,17 @@ There, you need to install the client code (without Joinmarket's bitcoin):
 
     python setupall.py --client-only
 
+#### Docker Installation
+
+The [Dockerfile](Dockerfile) provided builds a minimal Docker image which can help in getting started with a custom Docker setup. An example of building and running the [wallet-tool.py](scripts/wallet-tool.py) script:
+
+```
+docker build -t joinmarket-test ./
+docker run --rm -it joinmarket-test bash -c "cd scripts && python3 wallet-tool.py --help"
+```
+
+A new Docker image can be built using `joinmarket-test` as a base using `FROM joinmarket-test`. See [Docker documentation](https://docs.docker.com/engine/reference/builder/) for more details.
+
 #### Development (or making other changes to the code)
 
 If you are a developer or you plan on modifying the code (for example to add customizations),
