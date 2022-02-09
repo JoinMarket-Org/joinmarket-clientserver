@@ -8,7 +8,7 @@ check_exists() {
 if check_exists gmake; then
     make=gmake
 else
-    make=make
+    make="make"
 fi
 
 sha256_verify ()
@@ -80,12 +80,12 @@ deps_install ()
 
 deb_deps_check ()
 {
-    apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
+    apt-cache policy "${deb_deps[@]}" | grep "Installed.*none"
 }
 
 deb_deps_install ()
 {
-    deb_deps=( ${@} )
+    deb_deps=( "${@}" )
     if deb_deps_check; then
         clear
         sudo_command=''
@@ -93,12 +93,12 @@ deb_deps_install ()
             echo "
                 sudo password required to run :
 
-                \`apt-get install ${deb_deps[@]}\`
+                \`apt-get install " "${deb_deps[@]}" "\`
                 "
             sudo_command="sudo"
         fi
 
-        if ! $sudo_command apt-get install -y --no-install-recommends ${deb_deps[@]}; then
+        if ! $sudo_command apt-get install -y --no-install-recommends "${deb_deps[@]}"; then
               return 1
         fi
     fi
@@ -106,8 +106,8 @@ deb_deps_install ()
 
 dar_deps_install ()
 {
-    dar_deps=( ${@} )
-    if ! brew install ${dar_deps[@]}; then
+    dar_deps=( "${@}" )
+    if ! brew install "${dar_deps[@]}"; then
         return 1
     fi
 
@@ -128,7 +128,7 @@ dar_deps_install ()
 check_skip_build ()
 {
     if [[ ${reinstall} == false ]] && [[ -d "$1" ]]; then
-        read -p "Directory ${1} exists.  Remove and recreate?  (y/n)  " q
+        read -r -p "Directory ${1} exists.  Remove and recreate?  (y/n)  " q
         if [[ "${q}" =~ Y|y ]]; then
             rm -rf "./${1}"
             mkdir -p "./${1}"
@@ -159,7 +159,7 @@ dep_get ()
 {
     pkg_name="$1" pkg_hash="$2" pkg_url="$3"
 
-    pushd cache
+    pushd cache || return 1
     if [ ! -f "${pkg_name}" ] || ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         http_get "${pkg_url}/${pkg_name}" "${pkg_name}"
     fi
@@ -167,7 +167,7 @@ dep_get ()
         return 1
     fi
     tar -xzf "${pkg_name}" -C ../
-    popd
+    popd || return 1
 }
 
 # add '--disable-docs' to libffi ./configure so makeinfo isn't needed
@@ -232,7 +232,7 @@ libffi_install ()
     if ! dep_get "${libffi_lib_tar}" "${libffi_lib_sha}" "${libffi_url}"; then
         return 1
     fi
-    pushd "${libffi_version}"
+    pushd "${libffi_version}" || return 1
     if ! libffi_patch_disable_docs; then
         return 1
     fi
@@ -241,7 +241,7 @@ libffi_install ()
     else
         return 1
     fi
-    popd
+    popd || return 1
 }
 
 libsecp256k1_build()
@@ -274,13 +274,13 @@ libsecp256k1_install()
     if ! dep_get "${secp256k1_lib_tar}.tar.gz" "${secp256k1_lib_sha}" "${secp256k1_lib_url}"; then
         return 1
     fi
-    pushd "secp256k1-${secp256k1_lib_tar}"
+    pushd "secp256k1-${secp256k1_lib_tar}" || return 1
     if libsecp256k1_build; then
         $make install
     else
         return 1
     fi
-    popd
+    popd || return 1
 }
 
 libsodium_build ()
@@ -312,13 +312,13 @@ libsodium_install ()
     if ! dep_get "${sodium_lib_tar}" "${sodium_lib_sha}" "${sodium_url}"; then
         return 1
     fi
-    pushd "${sodium_version}"
+    pushd "${sodium_version}" || return 1
     if libsodium_build; then
         $make install
     else
         return 1
     fi
-    popd
+    popd || return 1
 }
 
 joinmarket_install ()
@@ -329,7 +329,7 @@ joinmarket_install ()
         reqs+=( 'gui.txt' )
     fi
 
-    for req in ${reqs[@]}; do
+    for req in "${reqs[@]}"; do
         if [ "$with_jmvenv" == 1 ]; then pip_command=pip; else pip_command=pip3; fi
         $pip_command install -r "requirements/${req}" || return 1
     done
@@ -339,7 +339,7 @@ joinmarket_install ()
             echo "Installing XDG desktop entry"
             cp -f "$(dirname "$0")/docs/images/joinmarket_logo.png" \
                 ~/.local/share/icons/
-            cat "$(dirname "$0")/joinmarket-qt.desktop" | \
+            < "$(dirname "$0")/joinmarket-qt.desktop"\
                 sed "s/\\\$JMHOME/$(dirname "$(realpath "$0")" | sed 's/\//\\\//g')/" > \
                     ~/.local/share/applications/joinmarket-qt.desktop
         fi
@@ -351,7 +351,7 @@ parse_flags ()
     while :; do
         case $1 in
             --develop)
-                develop_build='1'
+                # Currently this flag does nothing.
                 ;;
             --disable-os-deps-check)
                 use_os_deps_check='0'
@@ -390,7 +390,7 @@ parse_flags ()
                 ;;
             *)
                 echo "
-Usage: "${0}" [options]
+Usage: ${0} [options]
 
 Options:
 
@@ -409,7 +409,7 @@ Options:
     done
 
     if [[ ${with_qt} == '' ]]; then
-        read -p "
+        read -r -p "
         INFO: Joinmarket-Qt for GUI Taker and Tumbler modes is available.
         Install Qt dependencies (~160mb) ? [y|n] : "
         if [[ ${REPLY} =~ y|Y ]]; then
@@ -453,7 +453,6 @@ install_get_os ()
 main ()
 {
     # flags
-    develop_build=''
     python='python3'
     use_os_deps_check='1'
     use_secp_check='1'
@@ -461,7 +460,7 @@ main ()
     with_jmvenv='1'
     with_sudo='1'
     reinstall='false'
-    if ! parse_flags ${@}; then
+    if ! parse_flags "${@}"; then
         return 1
     fi
 
@@ -471,7 +470,6 @@ main ()
     else
         jm_root=""
     fi
-    jm_deps="${jm_source}/deps"
     export PKG_CONFIG_PATH="${jm_root}/lib/pkgconfig:${PKG_CONFIG_PATH}"
     export LD_LIBRARY_PATH="${jm_root}/lib:${LD_LIBRARY_PATH}"
     export C_INCLUDE_PATH="${jm_root}/include:${C_INCLUDE_PATH}"
@@ -489,10 +487,11 @@ main ()
             echo "Joinmarket virtualenv could not be setup. Exiting."
             return 1
         fi
+        # shellcheck source=/dev/null
         source "${jm_root}/bin/activate"
     fi
     mkdir -p "deps/cache"
-    pushd deps
+    pushd deps || return 1
     if ! libsecp256k1_install; then
         echo "libsecp256k1 was not built. Exiting."
         return 1
@@ -505,7 +504,7 @@ main ()
         echo "Libsodium was not built. Exiting."
         return 1
     fi
-    popd
+    popd || return 1
     if ! joinmarket_install; then
         echo "Joinmarket was not installed. Exiting."
         if [ "$with_jmvenv" == 1 ]; then deactivate; fi
@@ -521,4 +520,4 @@ main ()
         from this directory, to activate virtualenv."
     fi
 }
-main ${@}
+main "${@}"
