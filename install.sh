@@ -4,6 +4,10 @@ check_exists() {
     command -v "$1" > /dev/null
 }
 
+num_cores() {
+    python -c 'import multiprocessing as mp; print(mp.cpu_count())'
+}
+
 # This is needed for systems where GNU is not the default make, like FreeBSD.
 if check_exists gmake; then
     make=gmake
@@ -475,7 +479,7 @@ main ()
     export PKG_CONFIG_PATH="${jm_root}/lib/pkgconfig:${PKG_CONFIG_PATH}"
     export LD_LIBRARY_PATH="${jm_root}/lib:${LD_LIBRARY_PATH}"
     export C_INCLUDE_PATH="${jm_root}/include:${C_INCLUDE_PATH}"
-    export MAKEFLAGS='-j'
+    export MAKEFLAGS="-j $(num_cores)"
 
     # os check
     install_os="$( install_get_os )"
