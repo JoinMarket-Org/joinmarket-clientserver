@@ -100,7 +100,8 @@ class WalletRPCTestBase(object):
     def tearDown(self):
         self.clean_out_wallet_files()
         for dc in reactor.getDelayedCalls():
-            dc.cancel()        
+            if not dc.cancelled:
+                dc.cancel()
         d1 = defer.maybeDeferred(self.listener_ws.stopListening)
         d2 = defer.maybeDeferred(self.listener_rpc.stopListening)
         if self.client_connector:

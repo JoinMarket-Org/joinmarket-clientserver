@@ -143,7 +143,7 @@ class WalletService(Service):
         should *not* be restarted, instead a new
         WalletService instance should be created.
         """
-        if self.monitor_loop:
+        if self.monitor_loop and self.monitor_loop.running:
             self.monitor_loop.stop()
         self.wallet.close()
         super().stopService()
