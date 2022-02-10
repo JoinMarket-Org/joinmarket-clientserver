@@ -669,8 +669,7 @@ class WalletService(Service):
         """
         res = []
         processed_txids = []
-        for r in self.bci._yield_transactions(
-            self.get_wallet_name()):
+        for r in self.bci._yield_transactions():
             txid = r["txid"]
             if txid not in processed_txids:
                 tx = self.bci.get_transaction(hextobin(txid))
@@ -720,7 +719,7 @@ class WalletService(Service):
         if isinstance(self.wallet, FidelityBondMixin):
             tx_receive = []
             burner_txes = []
-            for tx in self.bci._yield_transactions(wallet_name):
+            for tx in self.bci._yield_transactions():
                 if tx['category'] == 'receive':
                     tx_receive.append(tx)
                 elif tx["category"] == "send":
@@ -743,7 +742,7 @@ class WalletService(Service):
         else:
             #not fidelity bond wallet, significantly faster sync
             used_addresses_gen = set(tx['address']
-                                  for tx in self.bci._yield_transactions(wallet_name)
+                                  for tx in self.bci._yield_transactions()
                                   if tx['category'] == 'receive')
         # needed for address-reuse check:
         self.used_addresses = used_addresses_gen
