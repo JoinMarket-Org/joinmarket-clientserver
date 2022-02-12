@@ -1,8 +1,10 @@
 ![Release workflow status](https://github.com/JoinMarket-Org/joinmarket-clientserver/actions/workflows/unittests.yml/badge.svg)
+
 # Table of contents
 ---
-* [Table of contents](#table-of-contents)
-* [joinmarket-clientserver](#joinmarket-clientserver)
+
+* [Joinmarket](#joinmarket)
+* [Documentation](#documentation)
 * [Wallet features](#wallet-features)
 * [Quickstart - RECOMMENDED INSTALLATION METHOD (Linux and macOS only)](#quickstart---recommended-installation-method-linux-and-macos-only)
 * [More installation guides](#more-installation-guides)
@@ -16,7 +18,7 @@
 * [Other useful links](#other-useful-links)
 
 
-# joinmarket-clientserver
+# Joinmarket
 ---
 
 JoinMarket is software to create a special kind of bitcoin transaction called a CoinJoin transaction. Its aim is to improve the confidentiality and privacy of bitcoin transactions.
@@ -28,6 +30,12 @@ One group of participants (called market makers) will always be available to tak
 Widespread use of JoinMarket improves bitcoin's fungibility and privacy. This implementation of JoinMarket also implements [PayJoin](https://en.bitcoin.it/wiki/PayJoin).
 
 For a quick introduction to Joinmarket you can watch [this demonstration](https://youtu.be/hwmvZVQ4C4M) of installation and usage given by [Adam Gibson](https://github.com/AdamISZ) during the [Understanding Bitcoin conference](https://understandingbtc.com/) on April 6 2019.
+
+### Documentation
+---
+
+1. [Visit In-detail documentation on Github pages](https://joinmarket-org.github.io/joinmarket-clientserver/)
+2. [Visit RPC-API documentation](https://joinmarket-org.github.io/joinmarket-clientserver/api/)
 
 ### Wallet features
 ---
@@ -149,9 +157,3 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 Donate to help make JoinMarket even better: [Obtain a bitcoin address here](https://bitcoinprivacy.me/joinmarket-donations)
 
 JoinMarket is an open source project which does not have a funding model, fortunately the project itself has very low running costs as it is almost-fully decentralized and available to everyone for free. Developers contribute only as volunteers and donations are divided amongst them. Many developers have also been important in advocating for privacy and educating the wider bitcoin user base. Be part of the effort to improve bitcoin privacy and fungibility. Every donated coin helps us spend more time on JoinMarket instead of doing other stuff.
-
-### Other useful links
----
-1. [Visit In-detail documentation on Github pages](https://joinmarket-org.github.io/joinmarket-clientserver/)
-2. [Visit RPC-API documentation](https://joinmarket-org.github.io/joinmarket-clientserver/api/)
-
