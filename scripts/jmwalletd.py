@@ -30,6 +30,10 @@ def jmwalletd_main():
                    "blockchain source.")
         sys.exit(EXIT_FAILURE)
 
+    # if nothing was configured, we override bitcoind's options so that
+    # unconfirmed balance is included in the wallet display by default
+    if 'listunspent_args' not in jm_single().config.options('POLICY'):
+        jm_single().config.set('POLICY','listunspent_args', '[0]')
     jlog.info("Starting jmwalletd on port: " + str(options.port))
     jm_wallet_daemon = JMWalletDaemon(options.port, options.wss_port)
     jm_wallet_daemon.startService()
