@@ -1505,7 +1505,7 @@ def get_wallet_path(file_name, wallet_dir=None):
 
 
 def read_password_stdin():
-    return sys.stdin.read().encode('utf-8')
+    return sys.stdin.readline().replace('\n','').encode('utf-8')
 
 
 def wallet_tool_main(wallet_root_path):
