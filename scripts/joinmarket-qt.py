@@ -1211,13 +1211,13 @@ class SpendTab(QWidget):
                 if reply == QMessageBox.No:
                     return False
 
-            change_spk = mainWindow.wallet_service.addr_to_script(change_addr)
             engine_recognized = True
             try:
-                change_addr_type = detect_script_type(change_spk)
+                change_addr_type = mainWindow.wallet_service.get_outtype(
+                    change_addr)
             except EngineError:
                 engine_recognized = False
-            wallet_type = mainWindow.wallet_service.TYPE
+            wallet_type = mainWindow.wallet_service.get_txtype()
             if (not engine_recognized) or (
                 change_addr_type != wallet_type and makercount > 0):
                 reply = JMQtMessageBox(self,
