@@ -20,7 +20,7 @@ from jmclient import Taker, jm_single, \
     create_wallet, get_max_cj_fee_values, \
     StorageError, StoragePasswordError, JmwalletdWebSocketServerFactory, \
     JmwalletdWebSocketServerProtocol, RetryableStorageError, \
-    SegwitWalletFidelityBonds, wallet_gettimelockaddress
+    SegwitWalletFidelityBonds, wallet_gettimelockaddress, NotEnoughFundsException
 from jmbase.support import get_log, utxostr_to_utxo
 
 jlog = get_log()
@@ -546,6 +546,8 @@ class JMWalletDaemon(Service):
                         return_transaction=True, answeryes=True)
             except AssertionError:
                 raise InvalidRequestFormat()
+            except NotEnoughFundsException as e:
+                raise TransactionFailed(repr(e))
             if not tx:
                 # this should not really happen; not a coinjoin
                 # so tx should go through.
