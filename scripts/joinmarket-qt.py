@@ -1211,21 +1211,21 @@ class SpendTab(QWidget):
                 if reply == QMessageBox.No:
                     return False
 
-            engine_recognized = True
-            try:
-                change_addr_type = mainWindow.wallet_service.get_outtype(
-                    change_addr)
-            except EngineError:
-                engine_recognized = False
-            wallet_type = mainWindow.wallet_service.get_txtype()
-            if (not engine_recognized) or (
-                change_addr_type != wallet_type and makercount > 0):
-                reply = JMQtMessageBox(self,
+            if makercount > 0:
+                engine_recognized = True
+                try:
+                    change_addr_type = mainWindow.wallet_service.get_outtype(
+                        change_addr)
+                except EngineError:
+                    engine_recognized = False
+                wallet_type = mainWindow.wallet_service.get_txtype()
+                if not engine_recognized or change_addr_type != wallet_type:
+                    reply = JMQtMessageBox(self,
                                        nonwallet_custom_change_warning,
                                        mbtype='question',
                                        title="Warning")
-                if reply == QMessageBox.No:
-                    return False
+                    if reply == QMessageBox.No:
+                        return False
 
         return True
 
