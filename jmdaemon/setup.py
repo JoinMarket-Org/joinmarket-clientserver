@@ -9,6 +9,9 @@ setup(name='joinmarketdaemon',
       author_email='',
       license='GPL',
       packages=['jmdaemon'],
-      install_requires=['txtorcon', 'cryptography==3.3.2', 'pyopenssl', 'libnacl', 'joinmarketbase==0.9.5dev'],
+      install_requires=['txtorcon',
+        # See https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/1139
+        'cryptography==3.3.2;platform_system!="Darwin"', 'cryptography;platform_system=="Darwin"',
+        'pyopenssl', 'libnacl', 'joinmarketbase==0.9.5dev'],
       python_requires='>=3.6',
       zip_safe=False)
