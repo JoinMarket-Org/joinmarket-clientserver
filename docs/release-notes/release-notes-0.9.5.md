@@ -46,27 +46,27 @@ There are several commits, broken into two groups here:
 
 #### New endpoints/functionality
 
-`29b459a` Add freeze method to RPC-API
-`89896e0` Add yieldgen report endpoint to API
-`6e07e4f` Add /taker/stop endpoint to RPC
-`28fdaa1` Allow re-unlock of wallets via /unlock
-`3939714` Add status, label and extradata to RPC display
-`e598b35` Add RPC API endpoint for showseed
+* `29b459a` Add freeze method to RPC-API
+* `89896e0` Add yieldgen report endpoint to API
+* `6e07e4f` Add /taker/stop endpoint to RPC
+* `28fdaa1` Allow re-unlock of wallets via /unlock
+* `3939714` Add status, label and extradata to RPC display
+* `e598b35` Add RPC API endpoint for showseed
 
 #### Fixes to bugs in logic, improvements
 
-`a0b7b38` Return TransactionFailed when insufficient funds
-`30e96f8` Do not call stopService at exit in RPC daemon
-`7b822a4` Do not update coinjoin state if maker cannot start
-`d493343` Ensure coinjoin state is reset if wallet switches.
-`4389338` Make unconf unspent display default in jmwalletd
-`ed7b4e1` Fix bugs in unlock-lock logic
-`beaa8b0` fixes to API and return format
-`d4d3157` Unlock does not block waiting for sync
-`bd33b6d` RPC maker/start returns 409 error if no coins
-`e6ea9d0` Update HTTP status codes returned by RPC-API
-`fe46b7e` Allow RPC coinjoin taker_finished to accept unconf
-`66d7e46` Fix RPC timelockaddress call.
+* `a0b7b38` Return TransactionFailed when insufficient funds
+* `30e96f8` Do not call stopService at exit in RPC daemon
+* `7b822a4` Do not update coinjoin state if maker cannot start
+* `d493343` Ensure coinjoin state is reset if wallet switches.
+* `4389338` Make unconf unspent display default in jmwalletd
+* `ed7b4e1` Fix bugs in unlock-lock logic
+* `beaa8b0` fixes to API and return format
+* `d4d3157` Unlock does not block waiting for sync
+* `bd33b6d` RPC maker/start returns 409 error if no coins
+* `e6ea9d0` Update HTTP status codes returned by RPC-API
+* `fe46b7e` Allow RPC coinjoin taker_finished to accept unconf
+* `66d7e46` Fix RPC timelockaddress call.
 
 
 ### Changes to dependencies
