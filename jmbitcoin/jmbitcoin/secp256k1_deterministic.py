@@ -61,12 +61,23 @@ def bip32_deserialize(data):
     if Hash(dbin[:-4])[:4] != dbin[-4:]:
         raise Exception("Invalid checksum")
     vbytes = dbin[0:4]
+    if vbytes not in PRIVATE and vbytes not in PUBLIC:
+        raise Exception("Invalid vbytes {}".format(vbytes))
     depth = dbin[4]
     fingerprint = dbin[5:9]
-    i = struct.unpack(b'>L',dbin[9:13])[0]
+    child_num = struct.unpack(b'>L',dbin[9:13])[0]
+    if depth == 0 and (fingerprint != b'\x00'*4 or child_num != 0):
+        raise Exception("Invalid master key, depth = {}, fingerprint = {}, child_num = {}".format(depth, fingerprint, child_num))
     chaincode = dbin[13:45]
     key = dbin[46:78] + b'\x01' if vbytes in PRIVATE else dbin[45:78]
-    return (vbytes, depth, fingerprint, i, chaincode, key)
+    if vbytes in PUBLIC and not is_valid_pubkey(key):
+        raise Exception("Invalid public key")
+    if vbytes in PRIVATE:
+        if dbin[45] != 0:
+            raise Exception("Invalid private key")
+        # check for validity, this will raise exception
+        privkey_to_pubkey(key)
+    return (vbytes, depth, fingerprint, child_num, chaincode, key)
 
 def raw_bip32_privtopub(rawtuple):
     vbytes, depth, fingerprint, i, chaincode, key = rawtuple
