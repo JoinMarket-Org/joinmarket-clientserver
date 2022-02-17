@@ -288,7 +288,7 @@ max_sweep_fee_change = 0.8
 # Maximum relative coinjoin fee, in fractions of the coinjoin value
 # e.g. if your coinjoin amount is 2 btc (200 million satoshi) and
 # max_cj_fee_rel = 0.001 (0.1%), the maximum fee allowed would
-# be 0.002 btc (200 million satoshi)
+# be 0.002 btc (200 thousand satoshi)
 #max_cj_fee_rel = x
 
 # The range of confirmations passed to the `listunspent` bitcoind RPC call
