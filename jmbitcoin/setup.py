@@ -2,7 +2,7 @@ from setuptools import setup
 
 
 setup(name='joinmarketbitcoin',
-      version='0.9.5dev',
+      version='0.9.5',
       description='Joinmarket client library for Bitcoin coinjoins',
       url='https://github.com/JoinMarket-Org/joinmarket-clientserver/tree/master/jmbitcoin',
       author='',
