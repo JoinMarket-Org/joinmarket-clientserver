@@ -318,7 +318,7 @@ class JMWalletDaemon(Service):
     def not_enough_coins(self, request, failure):
         # as above, 409 may not be ideal
         request.setResponseCode(409)
-        return self.err(request, "Maker could not start, no coins.")
+        return self.err(request, "Maker could not start, no confirmed coins.")
 
     @app.handle_errors(YieldGeneratorDataUnreadable)
     def yieldgenerator_report_unavailable(self, request, failure):
