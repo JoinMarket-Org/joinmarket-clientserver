@@ -24,7 +24,6 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 * [Testing](#testing)
 * [Community](#community)
 * [Support JoinMarket and bitcoin privacy](#support-joinmarket-and-bitcoin-privacy)
-* [Other useful links](#other-useful-links)
 
 ### Documentation
 ---
