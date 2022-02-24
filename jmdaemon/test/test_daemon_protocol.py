@@ -59,11 +59,11 @@ class JMTestClientProtocol(JMBaseProtocol):
 
     def clientStart(self):
         self.sigs_received = 0
-        irc = [get_mchannels()[0]]
+        chan_configs = [get_mchannels()[0]]
         d = self.callRemote(JMInit,
                             bcsource="dummyblockchain",
                             network="dummynetwork",
-                            irc_configs=irc,
+                            chan_configs=chan_configs,
                             minmakers=2,
                             maker_timeout_sec=3,
                             dust_threshold=27300,
@@ -212,7 +212,7 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         return super().on_JM_REQUEST_OFFERS()
 
     @JMInit.responder
-    def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
+    def on_JM_INIT(self, bcsource, network, chan_configs, minmakers,
                    maker_timeout_sec, dust_threshold, blacklist_location):
         self.maker_timeout_sec = maker_timeout_sec
         self.dust_threshold = int(dust_threshold)

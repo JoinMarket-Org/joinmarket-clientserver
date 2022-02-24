@@ -11,7 +11,7 @@
    pytest \
    --btcroot=/path/to/bitcoin/bin/ \
    --btcpwd=123456abcdef --btcconf=/blah/bitcoin.conf \
-   -s test/ln-ygrunner.py
+   -s test/e2e-coinjoin-test.py
    '''
 from twisted.internet import reactor, defer
 from twisted.web.client import readBody, Headers
@@ -21,7 +21,7 @@ import random
 import json
 from datetime import datetime
 from jmbase import (get_nontor_agent, BytesProducer, jmprint,
-                    get_log, stop_reactor, hextobin, bintohex)
+                    get_log, stop_reactor)
 from jmclient import (YieldGeneratorBasic, load_test_config, jm_single,
     JMClientProtocolFactory, start_reactor, SegwitWallet, get_mchannels,
     SegwitLegacyWallet, JMWalletDaemon)
@@ -45,8 +45,7 @@ mean_amt = 2.0
 
 directory_node_indices = [1]
 
-#
-def get_onion_messaging_config_regtest(run_num: int, dns=[1], hsd=""):
+def get_onion_messaging_config_regtest(run_num: int, dns=[1], hsd="", mode="TAKER"):
     """ Sets a onion messaging channel section for a regtest instance
     indexed by `run_num`. The indices to be used as directory nodes
     should be passed as `dns`, as a list of ints.
@@ -72,6 +71,10 @@ def get_onion_messaging_config_regtest(run_num: int, dns=[1], hsd=""):
             "hidden_service_dir": "",
             "directory_nodes": dn_nodes_list,
             "regtest_count": "1, 1"}
+    if mode == "MAKER":
+        cf["serving"] = True
+    else:
+        cf["serving"] = False
     if run_num in dns:
         # only directories need to use fixed hidden service directories:
         cf["hidden_service_dir"] = hsd
@@ -85,11 +88,11 @@ class RegtestJMClientProtocolFactory(JMClientProtocolFactory):
         # for this test:
         self.dns = dns
 
-    def get_mchannels(self):
-        # swaps out any existing lightning configs
+    def get_mchannels(self, mode="TAKER"):
+        # swaps out any existing onionmc configs
         # in the config settings on startup, for one
         # that's indexed to the regtest counter var:
-        default_chans = get_mchannels()
+        default_chans = get_mchannels(mode=mode)
         new_chans = []
         onion_found = False
         hsd = ""
@@ -103,7 +106,7 @@ class RegtestJMClientProtocolFactory(JMClientProtocolFactory):
                 new_chans.append(c)
         if onion_found:
             new_chans.append(get_onion_messaging_config_regtest(
-                self.i, self.dns, hsd))
+                self.i, self.dns, hsd, mode=mode))
         return new_chans
 
 class JMWalletDaemonT(JMWalletDaemon):
@@ -183,7 +186,7 @@ def test_start_yg_and_taker_setup(setup_onion_ygrunner):
         walletclass = SegwitLegacyWallet
 
     start_bot_num, end_bot_num = [int(x) for x in jm_single().config.get(
-        "MESSAGING:onion1", "regtest_count").split(",")]
+        "MESSAGING:onion", "regtest_count").split(",")]
     num_ygs = end_bot_num - start_bot_num
     # specify the number of wallets and bots of each type:
     wallet_services = make_wallets(num_ygs + 1,
@@ -254,21 +257,21 @@ def test_start_yg_and_taker_setup(setup_onion_ygrunner):
         # This ensures that this bot knows which other bots are directory nodes:
         clientfactory.set_directory_nodes(directory_node_indices)
         nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-        daemon = True if nodaemon == 1 else False
+        daemon = bool(nodaemon)
         #rs = True if i == num_ygs - 1 else False
         start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),
                       clientfactory, daemon=daemon, rs=False)
-    reactor.callLater(1.0, start_test_taker, wallet_services[end_bot_num - 1]['wallet'], end_bot_num)
+    reactor.callLater(1.0, start_test_taker, wallet_services[end_bot_num - 1]['wallet'], end_bot_num, num_ygs)
     reactor.run()
 
 @defer.inlineCallbacks
-def start_test_taker(wallet_service, i):
+def start_test_taker(wallet_service, i, num_ygs):
     # this rpc manager has auth disabled,
     # and the wallet_service is set manually,
     # so no unlock etc.
     mgr = TWalletRPCManager()
-    mgr.daemon.wallet_service = wallet_service
+    mgr.daemon.services["wallet"] = wallet_service
     # because we are manually setting the wallet_service
     # of the JMWalletDaemon instance, we do not follow the
     # usual flow of `initialize_wallet_service`, we do not set
@@ -276,11 +279,9 @@ def start_test_taker(wallet_service, i):
     # sync the wallet, including bypassing any restart callback:
     def dummy_restart_callback(msg):
         log.warn("Ignoring rescan request from backend wallet service: " + msg)
-    mgr.daemon.wallet_service.add_restart_callback(dummy_restart_callback)
+    mgr.daemon.services["wallet"].add_restart_callback(dummy_restart_callback)
     mgr.daemon.wallet_name = wallet_name
-    while not mgr.daemon.wallet_service.synced:
-        mgr.daemon.wallet_service.sync_wallet(fast=True)
-    mgr.daemon.wallet_service.startService()
+    mgr.daemon.services["wallet"].startService()
     def get_client_factory():
         clientfactory = RegtestJMClientProtocolFactory(mgr.daemon.taker,
                                                        proto_type="TAKER")
@@ -290,18 +291,25 @@ def start_test_taker(wallet_service, i):
 
     mgr.daemon.get_client_factory = get_client_factory
     # before preparing the RPC call to the wallet daemon,
-    # we decide a coinjoin destination and amount. Choosing
-    # a destination in the wallet is a bit easier because
+    # we decide a coinjoin destination, counterparty count and amount.
+    # Choosing a destination in the wallet is a bit easier because
     # we can query the mixdepth balance at the end.
-    coinjoin_destination = mgr.daemon.wallet_service.get_internal_addr(4)
+    coinjoin_destination = mgr.daemon.services["wallet"].get_internal_addr(4)
     cj_amount = 22000000
+    def n_cps_from_n_ygs(n):
+        if n > 4:
+            return n - 2
+        if n > 2:
+            return 2
+        assert False, "Need at least 3 yield generators to test"
+    n_cps = n_cps_from_n_ygs(num_ygs)
     # once the taker is finished we sanity check before
     # shutting down:
     def dummy_taker_finished(res, fromtx=False,
                                waittime=0.0, txdetails=None):
         jmprint("Taker is finished")
         # check that the funds have arrived.
-        mbal = mgr.daemon.wallet_service.get_balance_by_mixdepth()[4]
+        mbal = mgr.daemon.services["wallet"].get_balance_by_mixdepth()[4]
         assert mbal == cj_amount
         jmprint("Funds: {} sats successfully arrived into mixdepth 4.".format(cj_amount))
         stop_reactor()
@@ -315,7 +323,7 @@ def start_test_taker(wallet_service, i):
     addr = addr.encode()
     body = BytesProducer(json.dumps({"mixdepth": "1",
         "amount_sats": cj_amount,
-        "counterparties": "2",
+        "counterparties": str(n_cps),
         "destination": coinjoin_destination}).encode())
     yield mgr.do_request(agent, b"POST", addr, body,
                           process_coinjoin_response)
@@ -323,39 +331,6 @@ def start_test_taker(wallet_service, i):
 def process_coinjoin_response(response):
     json_body = json.loads(response.decode("utf-8"))
     print("coinjoin response: {}".format(json_body))
-
-def get_addr_and_fund(yg):
-    """ This function allows us to create
-    and publish a fidelity bond for a particular
-    yield generator object after the wallet has reached
-    a synced state and is therefore ready to serve up
-    timelock addresses. We create the TL address, fund it,
-    refresh the wallet and then republish our offers, which
-    will also publish the new FB.
-    """
-    if not yg.wallet_service.synced:
-        return
-    if yg.wallet_service.timelock_funded:
-        return
-    addr = wallet_gettimelockaddress(yg.wallet_service.wallet, "2021-11")
-    print("Got timelockaddress: {}".format(addr))
-
-    # pay into it; amount is randomized for now.
-    # Note that grab_coins already mines 1 block.
-    fb_amt = random.randint(1, 5)
-    jm_single().bc_interface.grab_coins(addr, fb_amt)
-
-    # we no longer have to run this loop (TODO kill with nonlocal)
-    yg.wallet_service.timelock_funded = True
-
-    # force wallet to check for the new coins so the new
-    # yg offers will include them:
-    yg.wallet_service.transaction_monitor()
-
-    # publish a new offer:
-    yg.offerlist = yg.create_my_orders()
-    yg.fidelity_bond = yg.get_fidelity_bond_template()
-    jmprint('updated offerlist={}'.format(yg.offerlist))
 
 @pytest.fixture(scope="module")
 def setup_onion_ygrunner():

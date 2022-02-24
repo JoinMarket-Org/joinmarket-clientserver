@@ -27,11 +27,11 @@ class JMInit(JMCommand):
     """Communicates the client's required setup
     configuration.
     Blockchain source is communicated only as a naming
-    tag for messagechannels (currently IRC 'realname' field).
+    tag for messagechannels (for IRC, 'realname' field).
     """
     arguments = [(b'bcsource', Unicode()),
                  (b'network', Unicode()),
-                 (b'irc_configs', JsonEncodable()),
+                 (b'chan_configs', JsonEncodable()),
                  (b'minmakers', Integer()),
                  (b'maker_timeout_sec', Integer()),
                  (b'dust_threshold', Integer()),

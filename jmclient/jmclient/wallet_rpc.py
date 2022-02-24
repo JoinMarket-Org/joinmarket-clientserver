@@ -423,8 +423,7 @@ class JMWalletDaemon(Service):
                         walletname=self.wallet_name,
                         token=self.cookie)
 
-    def taker_finished(self, res, fromtx=False,
-                               waittime=0.0, txdetails=None):
+    def taker_finished(self, res, fromtx=False, waittime=0.0, txdetails=None):
         # This is a slimmed down version compared with what is seen in
         # the CLI code, since that code encompasses schedules with multiple
         # entries; for now, the RPC only supports single joins.
@@ -1007,7 +1006,7 @@ class JMWalletDaemon(Service):
             self.taker = Taker(self.services["wallet"], schedule,
                                max_cj_fee = max_cj_fee,
                                callbacks=(self.filter_orders_callback,
-                                None, self.taker_finished))
+                                          None, self.taker_finished))
             # TODO ; this makes use of a pre-existing hack to allow
             # selectively disabling the stallMonitor function that checks
             # if transactions went through or not; here we want to cleanly

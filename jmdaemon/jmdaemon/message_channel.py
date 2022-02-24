@@ -259,7 +259,7 @@ class MessageChannelCollection(object):
                                      for x in self.available_channels()
                                      if mc == x.hostid]
                 if len(matching_channels) != 1: #pragma: no cover
-                    #this can happen if an IRC goes down shortly before a message
+                    #this can happen if a m-channel goes down shortly before a message
                     #is supposed to be sent. There used to be an exception raise.
                     #to prevent a crash (especially in makers), we just inform
                     #the user about it for now
