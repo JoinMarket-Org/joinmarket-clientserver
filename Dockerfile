@@ -1,4 +1,4 @@
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 
 RUN mkdir -p /jm/clientserver
 WORKDIR /jm/clientserver
