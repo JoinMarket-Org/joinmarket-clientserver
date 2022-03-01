@@ -985,9 +985,6 @@ class JMWalletDaemon(Service):
                              rounding, completion_flag]]
             except ValueError:
                 raise InvalidRequestFormat()
-            # Before actual start, update our coinjoin state:
-            if not self.activate_coinjoin_state(CJ_TAKER_RUNNING):
-                raise ServiceAlreadyStarted()
             # Instantiate a Taker.
             # `order_chooser` is whatever is default for Taker.
             # max_cj_fee is to be set based on config values.
@@ -1000,6 +997,9 @@ class JMWalletDaemon(Service):
                 raise ConfigNotPresent()
             max_cj_fee= get_max_cj_fee_values(jm_single().config,
                         None, user_callback=dummy_user_callback)
+            # Before actual start, update our coinjoin state:
+            if not self.activate_coinjoin_state(CJ_TAKER_RUNNING):
+                raise ServiceAlreadyStarted()
             self.taker = Taker(self.services["wallet"], schedule,
                                max_cj_fee = max_cj_fee,
                                callbacks=(self.filter_orders_callback,
