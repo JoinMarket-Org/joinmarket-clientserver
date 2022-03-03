@@ -435,7 +435,7 @@ Or you can use BIP21 bitcoin payment URI:
 
         (jmvenv)$ python sendpayment.py wallet.jmdat bitcoin:mprGzBA9rQk82Ly41TsmpQGa8UPpZb2w8c?amount=0.05
 
-These send 5000000 satoshi (0.05btc) to the address *mprGzBA9rQk82Ly41TsmpQGa8UPpZb2w8c* (testnet), with the default 5-7 (randomized) other parties from the default 0-th mixing depth from the wallet contained in the file *wallet.jmdat*. This will take some time, since Joinmarket will connect to remote messaging servers and do end to end encrypted communication with other bots, and also you will be paying some fees (more on this later in this section).
+These send 5000000 satoshi (0.05btc) to the address *mprGzBA9rQk82Ly41TsmpQGa8UPpZb2w8c* (testnet), with the default 8-10 (randomized) other parties from the default 0-th mixing depth from the wallet contained in the file *wallet.jmdat*. This will take some time, since Joinmarket will connect to remote messaging servers and do end to end encrypted communication with other bots, and also you will be paying some fees (more on this later in this section).
 
 <a name="no-coinjoin-sending-funds" />
 
