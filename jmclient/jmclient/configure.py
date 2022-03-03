@@ -164,7 +164,9 @@ socks5_port = 9050
 ##usessl = false
 ##socks5 = true
 
-[MESSAGING:server4]
+## SERVER 5/5) OFTC IRC (Tor - disabled by default)
+################################################################################
+[MESSAGING:server5]
 host = irc.oftc.net
 ## force IPv4 only
 # host = irc4.oftc.net
@@ -175,12 +177,12 @@ port = 6697
 ## alternative TLS port
 # port = 9999
 usessl = true
-socks5 = false
-socks5_host = localhost
-socks5_port = 9050
 
-## for tor
-# socks5 = true
+# For Tor (recommended as clearnet alternative):
+#host = oftcnet6xg6roj6d7id4y4cu6dchysacqj2ldgea73qzdagufflqxrid.onion
+#socks5 = true
+#socks5_host = localhost
+#socks5_port = 9050
 
 [LOGGING]
 # Set the log level for the output to the terminal/console
