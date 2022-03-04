@@ -75,10 +75,11 @@ class WalletService(Service):
         # Dicts of registered callbacks, by type
         # and then by txinfo, for events
         # on transactions.
-        self.callbacks = {}
-        self.callbacks["all"] = []
-        self.callbacks["unconfirmed"] = {}
-        self.callbacks["confirmed"] = {}
+        self.callbacks = {
+            "all": [],  # note: list, not dict
+            "unconfirmed": {},
+            "confirmed": {},
+        }
 
         self.restart_callback = None
 
@@ -201,9 +202,12 @@ class WalletService(Service):
             # note that in this case, txid is ignored.
             self.callbacks["all"].extend(callbacks)
         elif cb_type in ["unconfirmed", "confirmed"]:
-            if txinfo not in self.callbacks[cb_type]:
-                self.callbacks[cb_type][txinfo] = []
-            self.callbacks[cb_type][txinfo].extend(callbacks)
+            if callbacks:
+                reg = self.callbacks[cb_type].setdefault(txinfo, [])
+                if isinstance(reg, str):
+                    # found a txid breadcrumb for this txinfo
+                    reg = self.callbacks[cb_type].setdefault(reg, [])
+                reg.extend(callbacks)
         else:
             assert False, "Invalid argument: " + cb_type
 
@@ -371,10 +375,16 @@ class WalletService(Service):
                     # remove these from the list
                     f(txd, txid)
 
-            # The tuple given as the second possible key for the dict
-            # is such because txid is not always available
-            # at the time of callback registration).
-            possible_keys = [txid, tuple((x.scriptPubKey, x.nValue) for x in txd.vout)]
+            # txid is not always available at the time of callback registration.
+            # Migrate any callbacks registered under the provisional key, and
+            # leave a txid breadcrumb so check_callback_called can find it.
+            txos = tuple((x.scriptPubKey, x.nValue) for x in txd.vout)
+            for cb_type in ["unconfirmed", "confirmed"]:
+                callbacks = self.callbacks[cb_type]
+                reg = callbacks.get(txos)
+                if isinstance(reg, list):
+                    callbacks.setdefault(txid, [])[:0] = reg
+                    callbacks[txos] = txid
 
             # note that len(added_utxos) > 0 is not a sufficient condition for
             # the tx being new, since wallet.add_new_utxos will happily re-add
@@ -389,22 +399,26 @@ class WalletService(Service):
             if len(added_utxos) > 0 or len(removed_utxos) > 0 \
                     or txid in self.active_txs:
                 if confs == 0:
-                    for k in possible_keys:
-                        if k in self.callbacks["unconfirmed"]:
-                            for f in self.callbacks["unconfirmed"][k]:
-                                # True implies success, implies removal:
-                                if f(txd, txid):
-                                    self.callbacks["unconfirmed"][k].remove(f)
-                                    # keep monitoring for conf > 0:
-                                    self.active_txs[txid] = txd
+                    callbacks = [f for f in
+                            self.callbacks["unconfirmed"].pop(txid, [])
+                            if not f(txd, txid)]
+                    if callbacks:
+                        self.callbacks["unconfirmed"][txid] = callbacks
+                    else:
+                        self.callbacks["unconfirmed"].pop(txos, None)
+                    if self.callbacks["confirmed"].get(txid):
+                        # keep monitoring for conf > 0:
+                        self.active_txs[txid] = txd
                 elif confs > 0:
-                    for k in possible_keys:
-                        if k in self.callbacks["confirmed"]:
-                            for f in self.callbacks["confirmed"][k]:
-                                if f(txd, txid, confs):
-                                    self.callbacks["confirmed"][k].remove(f)
-                                    if txid in self.active_txids:
-                                        self.active_txs.pop(txid, None)
+                    callbacks = [f for f in
+                            self.callbacks["confirmed"].pop(txid, [])
+                            if not f(txd, txid, confs)]
+                    if callbacks:
+                        self.callbacks["confirmed"][txid] = callbacks
+                    else:
+                        self.callbacks["confirmed"].pop(txos, None)
+                        # no more callbacks registered; stop monitoring tx
+                        self.active_txs.pop(txid, None)
 
     def check_callback_called(self, txinfo, callback, cbtype, msg):
         """ Intended to be a deferred Task to be scheduled some
@@ -413,15 +427,27 @@ class WalletService(Service):
         If the callback was previously called, return True, otherwise False.
         """
         assert cbtype in ["unconfirmed", "confirmed"]
-        if txinfo in self.callbacks[cbtype]:
-            if callback in self.callbacks[cbtype][txinfo]:
+        callbacks = self.callbacks[cbtype]
+        if isinstance(txinfo, str):
+            txid = txinfo
+            reg = callbacks.get(txid)
+        else:
+            txid = None
+            reg = callbacks.get(txinfo)
+            if isinstance(reg, str):
+                # found a txid breadcrumb for this txinfo
+                txid = reg
+                reg = callbacks.get(txid)
+        if reg:
+            if callback in reg:
                 # the callback was not called, drop it and warn
-                self.callbacks[cbtype][txinfo].remove(callback)
-                # TODO - dangling txids in self.active_txs will
-                # be caused by this, but could also happen for
-                # other reasons; possibly add logic to ensure that
-                # this never occurs, although their presence should
-                # not cause a functional error.
+                reg.remove(callback)
+                if not reg:
+                    del callbacks[txinfo]
+                    if txid:
+                        callbacks.pop(txid, None)
+                        # no more callbacks registered; stop monitoring tx
+                        self.active_txs.pop(txid, None)
                 jlog.info("Timed out: " + msg)
                 return False
             # if callback is not in the list, it was already
