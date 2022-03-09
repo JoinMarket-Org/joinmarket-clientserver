@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from optparse import OptionParser
 from numbers import Integral
 from collections import Counter
-from itertools import islice
+from itertools import islice, chain
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, BitcoinCoreInterface, WalletError, BaseWallet,
     VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
@@ -47,7 +47,7 @@ The method is one of the following:
 (signmessage) Sign a message with the private key from an address in
     the wallet. Use with -H and specify an HD wallet path for the address.
 (signpsbt) Sign PSBT with JoinMarket wallet.
-(freeze) Freeze or un-freeze a specific utxo. Specify mixdepth with -m.
+(freeze) Freeze or un-freeze UTXOs. Specify mixdepth with -m.
 (gettimelockaddress) Obtain a timelocked address. Argument is locktime value as yyyy-mm. For example `2021-03`.
 (addtxoutproof) Add a tx out proof as metadata to a burner transaction. Specify path with
     -H and proof which is output of Bitcoin Core\'s RPC call gettxoutproof.
@@ -1177,15 +1177,15 @@ def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
 
     def default_user_choice(umax):
         jmprint("Choose an index 0 .. {} to freeze/unfreeze or "
-                "-1 to just quit.".format(umax))
+                "-1 to just quit, or -2 to (un)freeze all".format(umax))
         while True:
             try:
                 ret = int(input())
             except ValueError:
                 jmprint("Invalid choice, must be an integer.", "error")
                 continue
-            if not isinstance(ret, int) or ret < -1 or ret > umax:
-                jmprint("Invalid choice, must be between: -1 and {}, "
+            if ret < -2 or ret > umax:
+                jmprint("Invalid choice, must be between: -2 and {}, "
                         "try again.".format(umax), "error")
                 continue
             break
@@ -1209,6 +1209,8 @@ def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
     chosen_idx = default_user_choice(max_id)
     if chosen_idx == -1:
         return None
+    if chosen_idx == -2:
+        return "all"
     # the return value 'disable' is the action we are going to take;
     # so it should be true if the utxos is currently unfrozen/enabled.
     disable = False if chosen_idx <= disabled_max else True
@@ -1266,14 +1268,21 @@ def wallet_freezeutxo(wallet_service, md, display_callback=None, info_callback=N
             utxos_enabled, utxos_disabled)
         if display_ret is None:
             break
-        (txid, index), disable = display_ret
-        wallet_service.disable_utxo(txid, index, disable)
-        if disable:
-            info_callback("Utxo: {} is now frozen and unavailable for spending."
-                          .format(fmt_utxo((txid, index))))
+        if display_ret == "all":
+            disable = (len(utxos_disabled) == 0)
+            info_callback("Setting all UTXOs to " + ("frozen" if disable else "unfrozen")
+                + " . . .")
+            for txid, index in chain(utxos_enabled, utxos_disabled):
+                wallet_service.disable_utxo(txid, index, disable)
         else:
-            info_callback("Utxo: {} is now unfrozen and available for spending."
-                          .format(fmt_utxo((txid, index))))
+            (txid, index), disable = display_ret
+            wallet_service.disable_utxo(txid, index, disable)
+            if disable:
+                info_callback("Utxo: {} is now frozen and unavailable for spending."
+                              .format(fmt_utxo((txid, index))))
+            else:
+                info_callback("Utxo: {} is now unfrozen and available for spending."
+                              .format(fmt_utxo((txid, index))))
     return "Done"
 
 
