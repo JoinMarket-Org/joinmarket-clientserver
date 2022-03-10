@@ -20,6 +20,8 @@ is actually newer in version number, than what was there already.
 
 ### Installation on Linux
 
+#### Debian/Ubuntu Linux and derivatives
+
 **WARNING: This manual process is more difficult**; the `install.sh` script is recommended, please go back to the [README](../README.md) unless you're sure you need to do this.
 
 To install everything (client and server), install these packages:
@@ -69,14 +71,42 @@ Then build and install a local copy of libsecp256k1 for python-bitcointx:
 
 > *NOTE*: JM_ROOT must be replaced with the venv directory you've just created, so it will be `~/joinmarket-clientserver/jmvenv` if you installed to your home directory.
 
-
-#### Installing packages to run everything in-one:
+##### Installing packages to run everything in-one:
 
 > *NOTE*: It is very important to have activated virtualenv before running this step. Otherwise, `pip install` will fail, you may be tempted to re-run it with `sudo pip install` which will cause problems in the future.
 
     pip install -r requirements/base.txt
 
 If you have installed this "full" version of the client, you can use it with the command line scripts as explained in the [usage guide](USAGE.md).
+
+#### Gentoo Linux
+
+JoinMarket is fully supported by the [Bitcoin Gentoo](https://gitlab.com/bitcoin/gentoo/) repository. Installation is simple.
+
+Be sure you have [eselect-repository](https://wiki.gentoo.org/wiki/Eselect/Repository) and Git installed:
+
+    # emerge --noreplace app-eselect/eselect-repository dev-vcs/git
+
+Enable and sync the Bitcoin repository:
+
+    # eselect repository enable bitcoin
+    # emaint sync -r bitcoin
+
+**Optional:** If you want to use JoinMarket's Qt-based GUI, then you may need to enable the relevant USE flag:
+
+    # echo 'net-p2p/joinmarket qt5' >>/etc/portage/package.use
+
+Install JoinMarket:
+
+    # emerge --ask --autounmask net-p2p/joinmarket
+
+If it prompted you to make changes to your config, then you'll need to run `dispatch-conf` (or `etc-update`) to merge those config changes, and then run the `emerge` command again.
+
+Once JoinMarket has been installed, then, as a regular user **(not as root)**, you can invoke all the usual JoinMarket scripts, which will have been installed as executables in the default `PATH`, so you don't need to prefix the script names with any path name, you don't need to explicitly invoke the `python` interpreter, and you don't need any of the `pip` or `jmvenv` stuff mentioned elsewhere in this documentation. You can simply run the scripts directly:
+
+    $ wallet-tool.py generate
+
+If you installed the Qt-based GUI, then you'll find JoinMarketQt in your desktop environment's launcher menu.
 
 ### Installation on macOS
 
