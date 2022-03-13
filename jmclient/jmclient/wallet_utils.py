@@ -518,7 +518,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             # This only applies to the external branch, because it only applies to addresses
             # displayed for user deposit.
             # It also does not apply to fidelity bond addresses which are created manually.
-            if address_type == BaseWallet.ADDRESS_TYPE_EXTERNAL:
+            if address_type == BaseWallet.ADDRESS_TYPE_EXTERNAL and wallet_service.bci is not None:
                 wallet_service.bci.import_addresses(gap_addrs,
                                                     wallet_service.get_wallet_name())
             wallet_service.set_next_index(m, address_type, unused_index)
