@@ -225,7 +225,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                     "bond_value": fidelity_bond_value,
                     "locktime": parsed_bond.locktime,
                     "amount":  bond_utxo_data["value"],
-                    "address": bond_utxo_data["address"],
+                    "script": bintohex(bond_utxo_data["script"]),
                     "utxo_confirmations": bond_utxo_data["confirms"],
                     "utxo_confirmation_timestamp": bond_outpoint_conf_time,
                     "utxo_pub": bintohex(parsed_bond.utxo_pub),
