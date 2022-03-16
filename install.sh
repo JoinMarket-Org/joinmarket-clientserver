@@ -393,6 +393,9 @@ parse_flags ()
                 break
                 ;;
             *)
+                if [[ $1 != '-h' ]] && [[ $1 != '--help' ]]; then
+                    echo "Invalid option $1"
+                fi
                 echo "
 Usage: "${0}" [options]
 
