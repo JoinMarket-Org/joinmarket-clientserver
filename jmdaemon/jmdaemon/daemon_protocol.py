@@ -66,6 +66,12 @@ def taker_only(func):
         return None
     return func_wrapper
 
+# the location of the file
+blacklist_location = None
+def set_blacklist_location(location):
+    global blacklist_location
+    blacklist_location = location
+
 def check_utxo_blacklist(commitment, persist=False):
     """Compare a given commitment with the persisted blacklist log file,
     which is hardcoded to this directory and name 'commitmentlist' (no
@@ -75,7 +81,7 @@ def check_utxo_blacklist(commitment, persist=False):
     If flagged, persist the usage of this commitment to the above file.
     """
     #TODO format error checking?
-    fname = "commitmentlist"
+    fname = blacklist_location
     if os.path.isfile(fname):
         with open(fname, "rb") as f:
             blacklisted_commitments = [x.decode('ascii').strip() for x in f.readlines()]
@@ -498,7 +504,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @JMInit.responder
     def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
-                   maker_timeout_sec, dust_threshold):
+                   maker_timeout_sec, dust_threshold, blacklist_location):
         """Reads in required configuration from client for a new
         session; feeds back joinmarket messaging protocol constants
         (required for nick creation).
@@ -507,6 +513,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         self.maker_timeout_sec = maker_timeout_sec
         self.minmakers = minmakers
+        set_blacklist_location(blacklist_location)
         self.dust_threshold = int(dust_threshold)
         #(bitcoin) network only referenced in channel name construction
         self.network = network
