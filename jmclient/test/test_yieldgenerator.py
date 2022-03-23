@@ -169,7 +169,7 @@ class OfferReannouncementTests(unittest.TestCase):
 
     def call_on_tx_unconfirmed(self, yg):
         """Calls yg.on_tx_unconfirmed with fake arguments."""
-        return yg.on_tx_unconfirmed({'cjaddr': 'addr'}, 'txid')
+        return yg.on_tx_unconfirmed({'cjaddr': 'addr'})
 
     def create_yg_and_offer(self, maxsize):
         """Constructs a fake yg instance that has an offer with the given

@@ -83,7 +83,7 @@ class WalletService(Service):
 
         # transactions we are actively monitoring,
         # i.e. they are not new but we want to track:
-        self.active_txids = []
+        self.active_txids = set()
         # to ensure transactions are only processed once:
         self.processed_txids = []
 
@@ -385,7 +385,7 @@ class WalletService(Service):
                                 if f(txd, txid):
                                     self.callbacks["unconfirmed"][k].remove(f)
                                     # keep monitoring for conf > 0:
-                                    self.active_txids.append(txid)
+                                    self.active_txids.add(txid)
                 elif confs > 0:
                     for k in possible_keys:
                         if k in self.callbacks["confirmed"]:
