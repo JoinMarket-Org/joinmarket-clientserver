@@ -166,7 +166,7 @@ socks5_port = 9050
 
 ## SERVER 4/4) OFTC IRC (Tor - disabled by default)
 ################################################################################
-[MESSAGING:server5]
+[MESSAGING:server4]
 host = irc.oftc.net
 ## force IPv4 only
 # host = irc4.oftc.net
