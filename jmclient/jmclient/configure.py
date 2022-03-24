@@ -164,7 +164,7 @@ socks5_port = 9050
 ##usessl = false
 ##socks5 = true
 
-## SERVER 5/5) OFTC IRC (Tor - disabled by default)
+## SERVER 4/4) OFTC IRC (Tor - disabled by default)
 ################################################################################
 [MESSAGING:server5]
 host = irc.oftc.net
@@ -180,6 +180,7 @@ usessl = true
 
 # For Tor (recommended as clearnet alternative):
 #host = oftcnet6xg6roj6d7id4y4cu6dchysacqj2ldgea73qzdagufflqxrid.onion
+#port = 6697
 #socks5 = true
 #socks5_host = localhost
 #socks5_port = 9050
