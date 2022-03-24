@@ -137,7 +137,7 @@ rpc_password = password
 # information.
 rpc_wallet_file =
 
-## SERVER 1/4) Darkscience IRC (Tor, IP)
+## SERVER 1/3) Darkscience IRC (Tor, IP)
 ################################################################################
 [MESSAGING:server1]
 channel = joinmarket-pit
@@ -154,7 +154,7 @@ socks5 = false
 #socks5_host = localhost
 #socks5_port = 9050
 
-## SERVER 2/4) hackint IRC (Tor, IP)
+## SERVER 2/3) hackint IRC (Tor, IP)
 ################################################################################
 [MESSAGING:server2]
 channel = joinmarket-pit
@@ -173,28 +173,9 @@ socks5 = false
 #socks5_host = localhost
 #socks5_port = 9050
 
-## SERVER 3/4) Anarplex IRC (Tor, IP)
+## SERVER 3/3) ILITA IRC (Tor - disabled by default)
 ################################################################################
-[MESSAGING:server3]
-channel = joinmarket-pit
-
-# For traditional IP (default):
-host = agora.anarplex.net
-port = 14716
-usessl = true
-socks5 = false
-
-# For Tor (recommended as clearnet alternative):
-#host = vxecvd6lc4giwtasjhgbrr3eop6pzq6i5rveracktioneunalgqlwfad.onion
-#port = 6667
-#usessl = false
-#socks5 = true
-#socks5_host = localhost
-#socks5_port = 9050
-
-## SERVER 4/4) ILITA IRC (Tor - disabled by default)
-################################################################################
-#[MESSAGING:server4]
+#[MESSAGING:server3]
 #channel = joinmarket-pit
 #port = 6667
 #usessl = false

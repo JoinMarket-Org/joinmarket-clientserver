@@ -42,21 +42,6 @@ new config:
     #usessl = true
     #socks5 = true
 
-    [MESSAGING:server2]
-    host = agora.anarplex.net
-    channel = joinmarket-pit
-    port = 14716
-    usessl = true
-    socks5 = false
-    socks5_host = localhost
-    socks5_port = 9050
-
-    #for tor
-    #host = vxecvd6lc4giwtasjhgbrr3eop6pzq6i5rveracktioneunalgqlwfad.onion
-    #port = 6667
-    #usessl = false
-    #socks5 = true
-
     [MESSAGING:exampleserver]
     host = another.irc.server.example.com
     channel = joinmarket-pit
