@@ -34,7 +34,8 @@ class JMInit(JMCommand):
                  (b'irc_configs', JsonEncodable()),
                  (b'minmakers', Integer()),
                  (b'maker_timeout_sec', Integer()),
-                 (b'dust_threshold', Integer())]
+                 (b'dust_threshold', Integer()),
+                 (b'blacklist_location', Unicode())]
     errors = {DaemonNotReady: b'daemon is not ready'}
 
 class JMStartMC(JMCommand):

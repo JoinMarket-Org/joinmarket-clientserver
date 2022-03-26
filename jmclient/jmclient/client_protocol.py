@@ -445,7 +445,8 @@ class JMMakerClientProtocol(JMClientProtocol):
                             irc_configs=irc_configs,
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec,
-                            dust_threshold=jm_single().DUST_THRESHOLD)
+                            dust_threshold=jm_single().DUST_THRESHOLD,
+                            blacklist_location=jm_single().commitment_list_location)
         self.defaultCallbacks(d)
 
     @commands.JMFidelityBondProofRequest.responder
@@ -616,7 +617,8 @@ class JMTakerClientProtocol(JMClientProtocol):
                             irc_configs=irc_configs,
                             minmakers=minmakers,
                             maker_timeout_sec=maker_timeout_sec,
-                            dust_threshold=jm_single().DUST_THRESHOLD)
+                            dust_threshold=jm_single().DUST_THRESHOLD,
+                            blacklist_location=jm_single().commitment_list_location)
         self.defaultCallbacks(d)
 
     def stallMonitor(self, schedule_index):

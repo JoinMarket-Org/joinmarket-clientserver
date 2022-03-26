@@ -364,6 +364,12 @@ accept_commitment_broadcasts = 1
 # and those you want to use in future), relative to the scripts directory.
 commit_file_location = cmtdata/commitments.json
 
+# Location of the file used by makers to keep track of used/blacklisted
+# commitments. For remote daemon, set to `.` to have it stored locally
+# (but note that *all* bots using the same code installation share it,
+# in this case, which can be bad in testing).
+commitment_list_location = cmtdata/commitmentlist
+
 ##############################
 # END OF ANTI-SNOOPING SETTINGS
 ##############################
@@ -707,6 +713,13 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
             "_commitments.json"
     set_commitment_file(os.path.join(config_path,
                                          global_singleton.commit_file_location))
+
+    if global_singleton.config.get("POLICY", "commitment_list_location") == ".":
+        # Exceptional case as explained in comment in joinmarket.cfg:
+        global_singleton.commitment_list_location = "."
+    else:
+        global_singleton.commitment_list_location = os.path.join(config_path,
+        global_singleton.config.get("POLICY", "commitment_list_location"))
 
     for p in plugin_services:
         # for now, at this config level, the only significance
