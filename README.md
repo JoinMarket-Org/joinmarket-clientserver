@@ -111,6 +111,7 @@ Instructions for developers for testing [here](docs/TESTING.md). If you want to 
 + Bitcointalk thread: https://bitcointalk.org/index.php?topic=919116.msg10096563
 
 + Twitter: https://twitter.com/joinmarket
+https://twitter3e4tixl4xyajtrzo62zg5vztmjuricljdp2c5kshju4avyoid.onion/joinmarket
 
 + Telegram: https://t.me/joinmarketorg
 
