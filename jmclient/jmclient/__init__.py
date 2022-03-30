@@ -32,7 +32,7 @@ from .blockchaininterface import (BlockchainInterface,
 from .snicker_receiver import SNICKERError, SNICKERReceiver
 from .client_protocol import (JMTakerClientProtocol, JMClientProtocolFactory,
                               start_reactor, SNICKERClientProtocolFactory,
-                              BIP78ClientProtocolFactory,
+                              BIP78ClientProtocolFactory, JMMakerClientProtocol,
                               get_daemon_serving_params)
 from .podle import (set_commitment_file, get_commitment_file,
                     add_external_commitments,

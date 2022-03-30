@@ -32,7 +32,7 @@ log = get_log()
 
 # For quicker testing, restrict the range of timelock
 # addresses to avoid slow load of multiple bots.
-# Note: no need to revert this change as ygrunner runs
+# Note: no need to revert this change as test runs
 # in isolation.
 from jmclient import FidelityBondMixin
 FidelityBondMixin.TIMELOCK_ERA_YEARS = 2
@@ -62,6 +62,7 @@ def get_onion_messaging_config_regtest(run_num: int, dns=[1], hsd="", mode="TAKE
     dn_nodes_list = ",".join(dns_to_use)
     log.info("For node: {}, set dn list to: {}".format(run_num, dn_nodes_list))
     cf = {"type": "onion",
+            "btcnet": "testnet",
             "socks5_host": "127.0.0.1",
             "socks5_port": 9050,
             "tor_control_host": "127.0.0.1",

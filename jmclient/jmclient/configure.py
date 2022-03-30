@@ -173,7 +173,11 @@ hidden_service_dir =
 # This is a comma separated list (comma can be omitted if only one item).
 # Each item has format host:port ; both are required, though port will
 # be 80 if created in this code.
-directory_nodes = rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:80,k74oyetjqgcamsyhlym2vgbjtvhcrbxr4iowd4nv4zk5sehw4v665jad.onion:80
+# for MAINNET:
+directory_nodes = 3kxw6lf5vf6y26emzwgibzhrzhmhqiw6ekrek3nqfjjmhwznb2moonad.onion:80,qqd22cwgygaxcy6vdw6mzwkyaxg5urb4ptbc5d74nrj25phspajxjbqd.onion:80
+
+# for SIGNET (testing network):
+# directory_nodes = rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:80,k74oyetjqgcamsyhlym2vgbjtvhcrbxr4iowd4nv4zk5sehw4v665jad.onion:80
 
 # This setting is ONLY for developer regtest setups,
 # running multiple bots at once. Don't alter it otherwise
@@ -211,7 +215,7 @@ socks5_host = localhost
 host = ilitafrzzgxymv6umx2ux7kbz3imyeko6cnqkvy4nisjjj4qpqkrptid.onion
 socks5_port = 9050
 
-## IRC SERVER 3) (backup) hackint IRC (Tor, IP)
+## IRC SERVER 3: (backup) hackint IRC (Tor, IP)
 ################################################################################
 #[MESSAGING:server3]
 # channel = joinmarket-pit

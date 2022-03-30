@@ -912,10 +912,10 @@ class SpendTab(QWidget):
                    daemon=daemon,
                    gui=True)
         else:
-            #This will re-use IRC connections in background (daemon), no restart
+            #This will re-use message channels in background (daemon), no restart
             self.clientfactory.getClient().client = self.taker
             self.clientfactory.getClient().clientStart()
-        mainWindow.statusBar().showMessage("Connecting to IRC ...")
+        mainWindow.statusBar().showMessage("Connecting to message channels ...")
 
     def takerInfo(self, infotype, infomsg):
         if infotype == "INFO":

@@ -17,6 +17,8 @@ introduce any new requirements to your Joinmarket installation, technically, bec
 to run such onion services, and connecting to IRC used a SOCKS5 proxy (used by almost all users) over Tor to
 a remote onion service.
 
+(Note however that taker bots will *not* be required to serve onions; they will only make outbound SOCKS connections, as they currently do on IRC).
+
 The purpose of this new type of message channel is as follows:
 
 * less reliance on any service external to Joinmarket
@@ -25,7 +27,7 @@ albeit it was and remains E2E encrypted data, in either case)
 * the above can lead to better scalability at large numbers
 * a substantial increase in the speed of transaction negotiation; this is mostly related to the throttling of high bursts of traffic on IRC
 
-The configuration for a user is simple; in their `joinmarket.cfg` they will get a messaging section like this, if they start from scratch:
+The configuration for a user is simple; in their `joinmarket.cfg` they will get a new `[MESSAGING]` section like this, if they start from scratch:
 
 ```
 [MESSAGING:onion]
@@ -64,23 +66,26 @@ hidden_service_dir =
 # This is a comma separated list (comma can be omitted if only one item).
 # Each item has format host:port ; both are required, though port will
 # be 80 if created in this code.
-directory_nodes = rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:80
+# for MAINNET:
+directory_nodes = 3kxw6lf5vf6y26emzwgibzhrzhmhqiw6ekrek3nqfjjmhwznb2moonad.onion,qqd22cwgygaxcy6vdw6mzwkyaxg5urb4ptbc5d74nrj25phspajxjbqd.onion
+
+# for SIGNET (testing network):
+# directory_nodes = rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:80,k74oyetjqgcamsyhlym2vgbjtvhcrbxr4iowd4nv4zk5sehw4v665jad.onion:80
 
 # This setting is ONLY for developer regtest setups,
 # running multiple bots at once. Don't alter it otherwise
 regtest_count = 0,0
 ```
 
-All of these can be left as default for most users, except the field `directory_nodes`.
+All of these can be left as default for most users - but most importantly, pay attention to:
 
-The list of **directory nodes** (the one shown here is one being run on signet, right now), which will
-be comma separated if multiple directory nodes are configured (we expect there will be 2 or 3 as a normal situation).
-The `onion_serving_port` is on which port on the local machine the onion service is served; you won't usually need to use it, but it mustn't conflict with some other usage (so if you have something running on port 8080, change it).
+* The list of `directory_nodes`, which will be comma separated if multiple directory nodes are configured (we expect there will be 2 or 3 as a normal situation). Make sure to choose the ones for your network (mainnet by default, or signet or otherwise); if it's wrong your bot will just get auto-disconnected.
+* The `onion_serving_port` is the port on the local machine on which the onion service is served; you won't usually need to use it, but it mustn't conflict with some other usage (so if you have something running on port 8080, change it).
 The `type` field must always be `onion` in this case, and distinguishes it from IRC message channels and others.
 
 ### Can/should I still run IRC message channels?
 
-In short, yes.
+In short, yes, at least for now, though you are free to disable any message channel you like.
 
 ### Do I need to configure Tor, and if so, how?
 
@@ -95,7 +100,7 @@ This onion service will be ephemeral, that is, it will have a different onion ad
 you restart. This should work automatically, using your existing Tor daemon (here, we are using
 the same code as we use when running the `receive-payjoin` script, essentially).
 
-#### Running/testing as other bots (taker)
+#### Running/testing as other bots (taker, ob-watcher)
 
 A taker will not attempt to serve an onion; it will only use outbound connections, first to directory
 nodes and then, as according to need, to individual makers, also.
@@ -132,9 +137,7 @@ and pay attention to the settings in `regtest_joinmarket.cfg`.)
 There is no separate/special configuration for signet other than the configuration that is already needed for running
 Joinmarket against a signet backend (so e.g. RPC port of 38332).
 
-Add the `[MESSAGING:onion]` message channel section to your `joinmarket.cfg`, as listed above, including the
-signet directory node listed above (rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:80), and,
-for the simplest test, remove the other `[MESSAGING:*]` sections that you have.
+You can just uncomment the `directory_nodes` entry listed as SIGNET, and comment out the one for MAINNET.
 
 Then just make sure your bot has some signet coins and try running as maker or taker or both.
 
@@ -148,12 +151,17 @@ who would like to help by running a directory node. You can ignore it if that do
 This requires a long running bot. It should be on a server you can keep running permanently, so perhaps a VPS,
 but in any case, very high uptime. For reliability it also makes sense to configure to run as a systemd service.
 
-A note: the most natural way to run the directory is as a Joinmarket *maker* bot, i.e. run `yg-privacyenhanced.py`, with configuration as described below. For now it will actually offer to do coinjoins - we will want to fix this in future so no coins are needed (but it can just be a trivial size).
+The currently suggested way to run a directory node is to use the script found [here](https://github.com/JoinMarket-Org/custom-scripts/blob/0eda6154265e012b907c43e2ecdacb895aa9e3ab/start-dn.py); you can place it in your `joinmarket-clientserver/scripts` directory and run it *without* arguments, but with one option flag: `--datadir=/your/chosen/datadir` (as you'll see below).
+
+This slightly unobvious approach is based on the following ideas: we run a Joinmarket script, with a Joinmarket python virtualenv, so that we are able to parse messages; this means that the directory node *can* be a bot, e.g. a maker bot, but need not be - and here it is basically a "crippled" maker bot that cannot do anything. This 'crippling' is actually very useful because (a) we use the `no-blockchain` argument (it is forced in-code; you don't need to set it) so we don't need a running Bitcoin node (of whatever flavour), and (b) we don't need a wallet either.
 
 #### Joinmarket-specific configuration
 
-Add `hidden_service_dir` to your `[MESSAGING:onion]` with a directory accessible to your user. You may want to lock this down
-a bit!
+Add a non-empty `hidden_service_dir` entry to your `[MESSAGING:onion]` with a directory accessible to your user. You may want to lock this down
+a bit, but be careful changing permissions from what is created by the script, because Tor is very finicky about this.
+
+The hostname for your onion service will not change and will be stored permanently in that directory.
+
 The point to understand is: Joinmarket's `jmbase.JMHiddenService` will, if configured with a non-empty `hidden_service_dir`
 field, actually start an *independent* instance of Tor specifically for serving this, under the current user.
 (our Tor interface library `txtorcon` needs read access to the Tor HS dir, so it's troublesome to do this another way).
@@ -162,58 +170,40 @@ field, actually start an *independent* instance of Tor specifically for serving 
 
 Answer: **you must only enter your own node in this list!**. This way your bot will recognize that it is a directory node and it avoids weird edge case behaviour (so don't add *other* known directory nodes; you won't be talking to them).
 
+A natural retort is: but I don't know my own node's onion service hostname before I start it the first time. Indeed. So, just run it once with the default `directory_nodes` entries, then note down the new onion service hostname you created, and insert that as the only entry in the list.
 
-#### Suggested setup of a service:
 
-You will need two components: bitcoind, and Joinmarket itself, which you can run as a yg.
-Since this task is going to be attempted by someone with significant technical knowledge,
-only an outline is provided here; several details will need to be filled in.
-Here is a sketch of how the systemd service files can be set up for signet:
+#### Suggested setup of a systemd service:
 
-If someone wants to put together a docker setup of this for a more "one-click install", that would be great.
-
-1. bitcoin-signet.service
+The most basic bare-bones service seems to work fine here:
 
 ```
 [Unit]
-Description=bitcoind signet
+Description=My JM signet directory node
+Requires=network-online.target
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/bitcoind -signet
+ExecStart=/bin/bash -c 'cd /path/to/joinmarket-clientserver && source jmvenv/bin/activate && cd scripts && python start-dn.py --datadir=/path/to/chosen/datadir'
 User=user
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-This is deliberately a super-basic setup (see above). Don't forget to setup your `bitcoin.conf` as usual,
-for the bitcoin user, and make it match (specifically in terms of RPC) what you set up for Joinmarket below.
+... however, you need to kind of 'bootstrap' it the first time. For example:
 
+* run once with systemctl start
 
-2.
+* look at log with `journalctl`, service fails due to default `joinmarket.cfg` and quit.
+* go to that cfg file. Remove the IRC settings, they serve no purpose here. Change the `hidden_service_dir` to `/yourlocation/hidserv` (the actual directory need not exist, it's better if it doesn't, this first time). Edit the `network` field in `BLOCKCHAIN` to whatever network (mainnet, signet) you intend to support - it can be only one for one directory node, for now.
 
-```
-[Unit]
-Description=joinmarket directory node on signet
-Requires=bitcoin-signet.service
-After=bitcoin-signet.service
+* `systemctl start` again, now note the onion hostname created from the log or the directory
 
-[Service]
-Type=simple
-ExecStart=/bin/bash -c 'cd /path/to/joinmarket-clientserver && source jmvenv/bin/activate && cd scripts && echo -n "password" | python yg-privacyenhanced.py --wallet-password-stdin --datadir=/custom/joinmarket-datadir some-signet-wallet.jmdat'
-User=user
+* set that hostname in `directory_nodes` in `joinmarket.cfg`
 
-[Install]
-WantedBy=multi-user.target
-```
-
-To state the obvious, the idea here is that this second service will run the JM directory node and have a dependency on the previous one,
-to ensure they start up in the correct order.
-
-Re: password echo, obviously this kind of password entry is bad;
-for now we needn't worry as these nodes don't need to carry significant coins (and it's much better they don't!).
+* now the service should start correctly
 
 TODO: add some material on network hardening/firewalls here, I guess.
+
