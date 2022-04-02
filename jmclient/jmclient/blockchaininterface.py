@@ -194,6 +194,14 @@ class BitcoinCoreInterface(BlockchainInterface):
             loaded_wallets = self._rpc("listwallets", [])
             if not wallet_name in loaded_wallets:
                 self._rpc("loadwallet", [wallet_name])
+            # We only support legacy wallets currently
+            wallet_info = self._rpc("getwalletinfo", [])
+            if "descriptors" in wallet_info and wallet_info["descriptors"]:
+                raise Exception(
+                    "JoinMarket currently does not support Bitcoin Core "
+                    "descriptor wallets, use legacy wallet (rpc_wallet_file "
+                    "setting in joinmarket.cfg) instead. See docs/USAGE.md "
+                    "for details.")
 
     def is_address_imported(self, addr):
         return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
