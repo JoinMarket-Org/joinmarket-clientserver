@@ -73,7 +73,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
     detect_script_type, general_custom_change_warning, \
     nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError,\
-    TYPE_P2WPKH
+    TYPE_P2WPKH, check_and_start_tor
 from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
@@ -2375,6 +2375,8 @@ if not jm_single().config.get("POLICY", "segwit") == "true":
     sys.exit(EXIT_FAILURE)
 
 update_config_for_gui()
+
+check_and_start_tor()
 
 def onTabChange(i):
     """ Respond to change of tab.
