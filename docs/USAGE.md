@@ -122,6 +122,11 @@ With `bitcoind` running, do:
 bitcoin-cli -named createwallet wallet_name=jm_wallet descriptors=false
 ```
 
+If this command fails with error `Unknown named parameter descriptors`, it means you run Bitcoin Core version older than v0.21. In that case do the following instead (but it's recommended to upgrade Bitcoin Core to more recent version):
+```
+bitcoin-cli createwallet "jm_wallet"
+```
+
 The "jm_wallet" name is just an example. You can set any name. Alternative to this `bitcoin-cli` command: you can set a line with `wallet=..` in your
 `bitcoin.conf` before starting Core (see the Bitcoin Core documentation for details). At the moment, only legacy wallets (`descriptors=false`)
 work with Joinmarket. This means that Bitcoin Core needs to have been built with legacy wallet (Berkeley DB) support.
