@@ -2,12 +2,19 @@
 
 set -ev
 
-export BITCOIND_VERSION=0.19.1
+if [[ -z "$BITCOIND_VERSION" ]]; then
+    echo "BITCOIND_VERSION must be set"
+    exit 1
+fi
 
 if [[ "$(uname)" == "Linux" ]]; then
     platform="x86_64-linux-gnu"
 elif [[ "$(uname)" == "Darwin" ]]; then
-    platform="osx64"
+    if [[ $BITCOIND_VERSION > 23.0 || $BITCOIND_VERSION == 23.0 ]]; then
+        platform="x86_64-apple-darwin"
+    else
+        platform="osx64"
+    fi
 else
     echo "Unsupported platform: $(uname)"
     exit 1
