@@ -44,8 +44,9 @@ if 'matplotlib' in sys.modules:
     import matplotlib.pyplot as plt
 
 from jmclient import jm_single, load_program_config, calc_cj_fee, \
-     get_irc_mchannels, add_base_options
-from jmdaemon import OrderbookWatch, MessageChannelCollection, IRCMessageChannel
+     get_mchannels, add_base_options
+from jmdaemon import (OrderbookWatch, MessageChannelCollection,
+                      OnionMessageChannel, IRCMessageChannel)
 #TODO this is only for base58, find a solution for a client without jmbitcoin
 import jmbitcoin as btc
 from jmdaemon.protocol import *
@@ -737,32 +738,32 @@ class ObBasic(OrderbookWatch):
     def request_orderbook(self):
         self.msgchan.request_orderbook()
 
-class ObIRCMessageChannel(IRCMessageChannel):
-    """A customisation of the message channel
-    to allow receipt of privmsgs without the
-    verification hooks in client-daemon communication."""
-    def on_privmsg(self, nick, message):
-        if len(message) < 2:
-            return
-        
-        if message[0] != COMMAND_PREFIX:
-            log.debug('message not a cmd')
-            return
-        cmd_string = message[1:].split(' ')[0]
-        if cmd_string not in offername_list:
-            log.debug('non-offer ignored')
-            return
-        #Ignore sigs (TODO better to include check)
-        sig = message[1:].split(' ')[-2:]
-        #reconstruct original message without cmd pref
-        rawmessage = ' '.join(message[1:].split(' ')[:-2])
-        for command in rawmessage.split(COMMAND_PREFIX):
-            _chunks = command.split(" ")
-            try:
-                self.check_for_orders(nick, _chunks)
-                self.check_for_fidelity_bond(nick, _chunks)
-            except:
-                pass
+
+"""An override for MessageChannel classes,
+to allow receipt of privmsgs without the
+verification hooks in client-daemon communication."""
+def on_privmsg(inst, nick, message):
+    if len(message) < 2:
+        return
+
+    if message[0] != COMMAND_PREFIX:
+        log.debug('message not a cmd')
+        return
+    cmd_string = message[1:].split(' ')[0]
+    if cmd_string not in offername_list:
+        log.debug('non-offer ignored')
+        return
+    #Ignore sigs (TODO better to include check)
+    sig = message[1:].split(' ')[-2:]
+    #reconstruct original message without cmd pref
+    rawmessage = ' '.join(message[1:].split(' ')[:-2])
+    for command in rawmessage.split(COMMAND_PREFIX):
+        _chunks = command.split(" ")
+        try:
+            inst.check_for_orders(nick, _chunks)
+            inst.check_for_fidelity_bond(nick, _chunks)
+        except:
+            pass
 
         
 def get_dummy_nick():
@@ -805,7 +806,16 @@ def main():
     load_program_config(config_path=options.datadir)
     check_and_start_tor()
     hostport = (options.host, options.port)
-    mcs = [ObIRCMessageChannel(c) for c in get_irc_mchannels()]
+    mcs = []
+    chan_configs = get_mchannels()
+    for c in chan_configs:
+        if "type" in c and c["type"] == "onion":
+            mcs.append(OnionMessageChannel(c))
+        else:
+            # default is IRC; TODO allow others
+            mcs.append(IRCMessageChannel(c))
+    IRCMessageChannel.on_privmsg = on_privmsg
+    OnionMessageChannel.on_privmsg = on_privmsg
     mcc = MessageChannelCollection(mcs)
     mcc.set_nick(get_dummy_nick())
     taker = ObBasic(mcc, hostport)

@@ -2,7 +2,7 @@ import pytest
 
 from jmdaemon.orderbookwatch import OrderbookWatch
 from jmdaemon import IRCMessageChannel, fidelity_bond_cmd_list
-from jmclient import get_irc_mchannels, load_test_config
+from jmclient import get_mchannels, load_test_config
 from jmdaemon.protocol import JM_VERSION, ORDER_KEYS
 from jmbase.support import hextobin
 from jmclient.fidelity_bond import FidelityBondProof
@@ -24,7 +24,7 @@ def on_welcome(x):
 def get_ob():
     load_test_config()
     dm = DummyDaemon()
-    mc = DummyMC(get_irc_mchannels()[0], "test", dm)
+    mc = DummyMC(get_mchannels()[0], "test", dm)
     ob = OrderbookWatch()
     ob.on_welcome = on_welcome
     ob.set_msgchan(mc)

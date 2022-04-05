@@ -43,9 +43,9 @@ def end_test():
 class JMTestServerProtocol(JMBaseProtocol):
 
     @JMInit.responder
-    def on_JM_INIT(self, bcsource, network, irc_configs, minmakers,
+    def on_JM_INIT(self, bcsource, network, chan_configs, minmakers,
                    maker_timeout_sec, dust_threshold, blacklist_location):
-        show_receipt("JMINIT", bcsource, network, irc_configs, minmakers,
+        show_receipt("JMINIT", bcsource, network, chan_configs, minmakers,
                      maker_timeout_sec, dust_threshold, blacklist_location)
         d = self.callRemote(JMInitProto,
                             nick_hash_length=1,
@@ -137,7 +137,7 @@ class JMTestClientProtocol(JMBaseProtocol):
         d = self.callRemote(JMInit,
                             bcsource="dummyblockchain",
                             network="dummynetwork",
-                            irc_configs=['dummy', 'irc', 'config'],
+                            chan_configs=['dummy', 'irc', 'config'],
                             minmakers=7,
                             maker_timeout_sec=8,
                             dust_threshold=1500,

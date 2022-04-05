@@ -128,16 +128,23 @@ def config_to_hs_ports(virtual_port, host, port):
 class JMHiddenService(object):
     """ Wrapper class around the actions needed to
     create and serve on a hidden service; an object of
-    type Resource must be provided in the constructor,
-    which does the HTTP serving actions (GET, POST serving).
+    type either Resource or server.ProtocolFactory must
+    be provided in the constructor, which does the HTTP
+    (GET, POST) or other protocol serving actions.
     """
-    def __init__(self, resource, info_callback, error_callback,
-                 onion_hostname_callback, tor_control_host,
+    def __init__(self, proto_factory_or_resource, info_callback,
+                 error_callback, onion_hostname_callback, tor_control_host,
                  tor_control_port, serving_host, serving_port,
-                 virtual_port = None,
-                 shutdown_callback = None):
-        self.site = Site(resource)
-        self.site.displayTracebacks = False
+                 virtual_port=None,
+                 shutdown_callback=None,
+                 hidden_service_dir=""):
+        if isinstance(proto_factory_or_resource, Resource):
+            # TODO bad naming, in this case it doesn't start
+            # out as a protocol factory; a Site is one, a Resource isn't.
+            self.proto_factory = Site(proto_factory_or_resource)
+            self.proto_factory.displayTracebacks = False
+        else:
+            self.proto_factory = proto_factory_or_resource
         self.info_callback = info_callback
         self.error_callback = error_callback
         # this has a separate callback for convenience, it should
@@ -155,6 +162,13 @@ class JMHiddenService(object):
         # config object, so no default here:
         self.serving_host = serving_host
         self.serving_port = serving_port
+        # this is used to serve an onion from the filesystem,
+        # NB: Because of how txtorcon is set up, this option
+        # uses a *separate tor instance* owned by the owner of
+        # this script (because txtorcon needs to read the
+        # HS dir), whereas if this option is "", we set up
+        # an ephemeral HS on the global or pre-existing tor.
+        self.hidden_service_dir = hidden_service_dir
 
     def start_tor(self):
         """ This function executes the workflow
@@ -162,19 +176,31 @@ class JMHiddenService(object):
         """
         self.info_callback("Attempting to start onion service on port: {} "
                            "...".format(self.virtual_port))
-        if str(self.tor_control_host).startswith('unix:'):
-            control_endpoint = UNIXClientEndpoint(reactor,
-                                    self.tor_control_host[5:])
+        if self.hidden_service_dir == "":
+            if str(self.tor_control_host).startswith('unix:'):
+                control_endpoint = UNIXClientEndpoint(reactor,
+                                        self.tor_control_host[5:])
+            else:
+                control_endpoint = TCP4ClientEndpoint(reactor,
+                                self.tor_control_host, self.tor_control_port)
+            d = txtorcon.connect(reactor, control_endpoint)
+            d.addCallback(self.create_onion_ep)
+            d.addErrback(self.setup_failed)
+            # TODO: add errbacks to the next two calls in
+            # the chain:
+            d.addCallback(self.onion_listen)
+            d.addCallback(self.print_host)
         else:
-            control_endpoint = TCP4ClientEndpoint(reactor,
-                            self.tor_control_host, self.tor_control_port)
-        d = txtorcon.connect(reactor, control_endpoint)
-        d.addCallback(self.create_onion_ep)
-        d.addErrback(self.setup_failed)
-        # TODO: add errbacks to the next two calls in
-        # the chain:
-        d.addCallback(self.onion_listen)
-        d.addCallback(self.print_host)
+            ep = "onion:" + str(self.virtual_port) + ":localPort="
+            ep += str(self.serving_port)
+            # endpoints.TCPHiddenServiceEndpoint creates version 2 by
+            # default for backwards compat (err, txtorcon needs to update that ...)
+            ep += ":version=3"
+            ep += ":hiddenServiceDir="+self.hidden_service_dir
+            onion_endpoint = serverFromString(reactor, ep)
+            d = onion_endpoint.listen(self.proto_factory)
+            d.addCallback(self.print_host_filesystem)
+
 
     def setup_failed(self, arg):
         # Note that actions based on this failure are deferred to callers:
@@ -195,13 +221,22 @@ class JMHiddenService(object):
         serverstring = "tcp:{}:interface={}".format(self.serving_port,
                                                     self.serving_host)
         onion_endpoint = serverFromString(reactor, serverstring)
-        return onion_endpoint.listen(self.site)
+        print("created the onion endpoint, now calling listen")
+        return onion_endpoint.listen(self.proto_factory)
 
     def print_host(self, ep):
         """ Callback fired once the HS is available
         and the site is up ready to receive requests.
         The hidden service hostname will be used in the BIP21 uri.
         """
+        self.onion_hostname_callback(self.onion.hostname)
+
+    def print_host_filesystem(self, port):
+        """ As above but needed to respect slightly different
+        callback chain for this case (where we start our own tor
+        instance for the filesystem-based onion).
+        """
+        self.onion = port.onion_service
         self.onion_hostname_callback(self.onion.hostname)
 
     def shutdown(self):
