@@ -807,7 +807,7 @@ def main():
     check_and_start_tor()
     hostport = (options.host, options.port)
     mcs = []
-    chan_configs = get_mchannels()
+    chan_configs = get_mchannels(mode="PASSIVE")
     for c in chan_configs:
         if "type" in c and c["type"] == "onion":
             mcs.append(OnionMessageChannel(c))

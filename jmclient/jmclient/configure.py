@@ -582,6 +582,7 @@ def get_mchannels(mode="TAKER"):
         # the onion messaging section must specify whether
         # to serve an onion:
         onion_data["serving"] = mode == "MAKER"
+        onion_data["passive"] = mode == "PASSIVE"
         onion_data['btcnet'] = get_network()
         # Just to allow a dynamic set of var:
         onion_data["section-name"] = s

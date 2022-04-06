@@ -551,6 +551,13 @@ class OnionPeer(object):
         self.update_status(PEER_STATUS_DISCONNECTED)
         self.factory = None
 
+class OnionPeerPassive(OnionPeer):
+    """ a type of remote peer that we are
+        not interested in connecting outwards to.
+    """
+    def try_to_connect(self) -> None:
+        pass
+
 class OnionDirectoryPeer(OnionPeer):
     delay = 4.0
     def try_to_connect(self) -> None:
@@ -603,6 +610,11 @@ class OnionMessageChannel(MessageChannel):
         # client side config:
         self.socks5_host = configdata["socks5_host"]
         self.socks5_port = configdata["socks5_port"]
+        # passive configuration is for bots who never need/want to connect
+        # to peers (apart from directories)
+        self.passive = False
+        if "passive" in configdata:
+            self.passive = configdata["passive"]
         # we use the setting in the config sent over from
         # the client, to decide whether to set up our connections
         # over localhost (if testing), without Tor:
@@ -1226,9 +1238,10 @@ class OnionMessageChannel(MessageChannel):
         else:
             peer = peerdata
 
+        cls = OnionPeerPassive if self.passive else OnionPeer
         # assumed that it's passing a full string
         try:
-            temp_p = OnionPeer.from_location_string(self, peer,
+            temp_p = cls.from_location_string(self, peer,
                         self.socks5_host, self.socks5_port,
                         handshake_callback=self.handshake_as_client)
         except Exception as e:
