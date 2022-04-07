@@ -3,6 +3,7 @@ from jmdaemon.protocol import COMMAND_PREFIX, JM_VERSION
 from jmbase import get_log,  JM_APP_NAME, JMHiddenService, stop_reactor
 import json
 import copy
+import random
 from typing import Callable, Union, Tuple, List
 from twisted.internet import reactor, task, protocol
 from twisted.protocols import basic
@@ -111,6 +112,9 @@ class OnionCustomMessageDecodingError(Exception):
     pass
 
 class InvalidLocationStringError(Exception):
+    pass
+
+class OnionDirectoryPeerNotFound(Exception):
     pass
 
 class OnionCustomMessage(object):
@@ -583,6 +587,14 @@ class OnionDirectoryPeer(OnionPeer):
         except OnionPeerConnectionError:
             reactor.callLater(self.delay, self.try_to_connect)
 
+    def register_connection(self) -> None:
+        self.messagechannel.update_directory_map(self, connected=True)
+        super().register_connection()
+
+    def register_disconnection(self) -> None:
+        self.messagechannel.update_directory_map(self, connected=False)
+        super().register_disconnection()
+
 
 class OnionMessageChannel(MessageChannel):
     """ Sends messages to other nodes of the same type over Tor
@@ -682,6 +694,14 @@ class OnionMessageChannel(MessageChannel):
         # connected (note we could use a deferred but
         # the rpc connection calls are not using twisted)
         self.wait_for_directories_loop = None
+
+        # this dict plays the same role as `active_channels` in `MessageChannelCollection`.
+        # it has structure {nick: set(),..} where set() has elements that are dicts:
+        # {OnionPeer: bool}.
+        # Entries get updated with changing connection status of directories,
+        # allowing us to decide where to send each message we want to send when we have no
+        # direct connection.
+        self.active_directories = {}
 
     def info_callback(self, msg: str) -> None:
         log.info(msg)
@@ -783,11 +803,10 @@ class OnionMessageChannel(MessageChannel):
             log.debug("Privmsg peer: {} but don't have peerid; "
                      "sending via directory.".format(nick))
             try:
-                # TODO change this to redundant or switching
-                peer_sendable = self.get_connected_directory_peers()[0]
-            except Exception as e:
+                peer_sendable = self.get_directory_for_nick(nick)
+            except OnionDirectoryPeerNotFound:
                 log.warn("Failed to send privmsg because no "
-                "directory peer is connected. Error: {}".format(repr(e)))
+                "directory peer is connected.")
                 return
         self._send(peer_sendable, encoded_privmsg)
 
@@ -961,6 +980,28 @@ class OnionMessageChannel(MessageChannel):
         except Exception as e:
             log.debug("Invalid Joinmarket message: {}, error was: {}".format(
                 msgval, repr(e)))
+        # add the nick to the directories map, whether pubmsg or privmsg, but
+        # only if it passed the above syntax Exception catch:
+        if peer.directory and not self.self_as_peer.directory:
+            if from_nick not in self.active_directories:
+                self.active_directories[from_nick] = {}
+            self.active_directories[from_nick][peer] = True
+
+    def update_directory_map(self, p: OnionDirectoryPeer, connected: bool) -> None:
+        nicks = []
+        for nick in self.active_directories:
+            if p in self.active_directories[nick]:
+                nicks.append(nick)
+        for nick in nicks:
+            self.active_directories[nick][p] = connected
+
+    def get_directory_for_nick(self, nick: str) -> OnionDirectoryPeer:
+        if nick not in self.active_directories:
+            raise OnionDirectoryPeerNotFound
+        adn = self.active_directories[nick]
+        if len(adn) == 0:
+            raise OnionDirectoryPeerNotFound
+        return random.choice([x for x in list(adn) if adn[x] is True])
 
     def forward_pubmsg_to_peers(self, msg: str, from_nick: str) -> None:
         """ Used by directory nodes currently. Takes a received
