@@ -46,6 +46,7 @@ socks5_port = 9050
 tor_control_host = localhost
 # or, to use a UNIX socket
 # tor_control_host = unix:/var/run/tor/control
+# note: port needs to be provided (but is ignored for UNIX socket)
 tor_control_port = 9051
 
 # the host/port actually serving the hidden service
@@ -67,7 +68,7 @@ hidden_service_dir =
 # Each item has format host:port ; both are required, though port will
 # be 80 if created in this code.
 # for MAINNET:
-directory_nodes = 3kxw6lf5vf6y26emzwgibzhrzhmhqiw6ekrek3nqfjjmhwznb2moonad.onion,qqd22cwgygaxcy6vdw6mzwkyaxg5urb4ptbc5d74nrj25phspajxjbqd.onion
+directory_nodes = 3kxw6lf5vf6y26emzwgibzhrzhmhqiw6ekrek3nqfjjmhwznb2moonad.onion:80,qqd22cwgygaxcy6vdw6mzwkyaxg5urb4ptbc5d74nrj25phspajxjbqd.onion:80
 
 # for SIGNET (testing network):
 # directory_nodes = rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:80,k74oyetjqgcamsyhlym2vgbjtvhcrbxr4iowd4nv4zk5sehw4v665jad.onion:80

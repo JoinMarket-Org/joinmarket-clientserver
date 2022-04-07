@@ -157,6 +157,7 @@ socks5_port = 9050
 tor_control_host = localhost
 # or, to use a UNIX socket
 # tor_control_host = unix:/var/run/tor/control
+# note: port needs to be provided (but is ignored for UNIX socket)
 tor_control_port = 9051
 
 # the host/port actually serving the hidden service
@@ -464,6 +465,7 @@ tor_control_host = localhost
 
 # or, to use a UNIX socket
 # control_host = unix:/var/run/tor/control
+# note: port needs to be provided (but is ignored for UNIX socket)
 tor_control_port = 9051
 
 # the host/port actually serving the hidden service
