@@ -17,6 +17,9 @@ log = get_log()
 
 NOT_SERVING_ONION_HOSTNAME = "NOT-SERVING-ONION"
 
+# LongLivedPort
+ONION_VIRTUAL_PORT = 5222
+
 # How many seconds to wait before treating an onion
 # as unreachable
 CONNECT_TO_ONION_TIMEOUT = 10
@@ -659,7 +662,7 @@ class OnionMessageChannel(MessageChannel):
                                           self.tor_control_port,
                                           self.onion_serving_host,
                                           self.onion_serving_port,
-                                          virtual_port=5222,  # LongLivedPort
+                                          virtual_port=ONION_VIRTUAL_PORT,
                                           shutdown_callback=self.shutdown_callback,
                                           hidden_service_dir=self.hidden_service_dir)
                 # this call will start bringing up the HS; when it's finished,
@@ -817,7 +820,7 @@ class OnionMessageChannel(MessageChannel):
         elif testing_mode:
             return (self.onion_hostname, self.onion_serving_port)
         else:
-            return (self.onion_hostname, 80)
+            return (self.onion_hostname, ONION_VIRTUAL_PORT)
 
     def get_our_peer_info(self) -> None:
         """ Create a special OnionPeer object,
