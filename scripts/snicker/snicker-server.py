@@ -35,7 +35,7 @@ import sqlite3
 import threading
 from io import BytesIO
 from jmbase import jmprint, hextobin, verify_pow
-from jmclient import process_shutdown, jm_single, load_program_config
+from jmclient import process_shutdown, jm_single, load_program_config, check_and_start_tor
 from jmclient.configure import get_log
 
 # Note: this is actually a duplication of the
@@ -331,6 +331,7 @@ def snicker_server_start(port, local_port=None, hsdir=None):
 
 if __name__ == "__main__":
     load_program_config(bs="no-blockchain")
+    check_and_start_tor()
     # in testing, we can optionally use ephemeral;
     # in testing or prod we can use persistent:
     if len(sys.argv) < 2:

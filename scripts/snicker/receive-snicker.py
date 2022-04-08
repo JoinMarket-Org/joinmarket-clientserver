@@ -7,7 +7,7 @@ from jmclient import (jm_single, load_program_config, WalletService,
                       open_test_wallet_maybe, get_wallet_path,
                       check_regtest, add_base_options, start_reactor,
                       SNICKERClientProtocolFactory, SNICKERReceiver,
-                      JMPluginService)
+                      JMPluginService, check_and_start_tor)
 from jmbase.support import EXIT_ARGERROR
 
 jlog = get_log()
@@ -55,6 +55,8 @@ Usage: %prog [options] wallet file [proposal]
     snicker_plugin = JMPluginService("SNICKER")
     load_program_config(config_path=options.datadir,
                         plugin_services=[snicker_plugin])
+
+    check_and_start_tor()
 
     check_regtest()
 
