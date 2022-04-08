@@ -659,6 +659,7 @@ class OnionMessageChannel(MessageChannel):
                                           self.tor_control_port,
                                           self.onion_serving_host,
                                           self.onion_serving_port,
+                                          virtual_port=5222,  # LongLivedPort
                                           shutdown_callback=self.shutdown_callback,
                                           hidden_service_dir=self.hidden_service_dir)
                 # this call will start bringing up the HS; when it's finished,
