@@ -24,18 +24,10 @@ from jmbase import (get_nontor_agent, BytesProducer, jmprint,
 from jmclient import (YieldGeneratorBasic, load_test_config, jm_single,
     JMClientProtocolFactory, start_reactor, SegwitWallet, get_mchannels,
     SegwitLegacyWallet, JMWalletDaemon)
+import jmclient
 from jmclient.wallet_rpc import api_version_string
 
 log = get_log()
-
-# For quicker testing, restrict the range of timelock
-# addresses to avoid slow load of multiple bots.
-# Note: no need to revert this change as test runs
-# in isolation.
-from jmclient import FidelityBondMixin
-FidelityBondMixin.TIMELOCK_ERA_YEARS = 2
-FidelityBondMixin.TIMELOCK_EPOCH_YEAR = datetime.now().year
-FidelityBondMixin.TIMENUMBERS_PER_PUBKEY = 12
 
 wallet_name = "test-onion-yg-runner.jmdat"
 
@@ -196,8 +188,7 @@ def test_start_yg_and_taker_setup(setup_onion_ygrunner):
     wallet_service = wallet_services[end_bot_num - 1]['wallet']
     jmprint("\n\nTaker wallet seed : " + wallet_services[end_bot_num - 1]['seed'])
     # for manual audit if necessary, show the maker's wallet seeds
-    # also (note this audit should be automated in future, see
-    # test_full_coinjoin.py in this directory)
+    # also (note this audit should be automated in future)
     jmprint("\n\nMaker wallet seeds: ")
     for i in range(start_bot_num, end_bot_num):
         jmprint("Maker seed: " + wallet_services[i - 1]['seed'])
@@ -331,8 +322,12 @@ def process_coinjoin_response(response):
     json_body = json.loads(response.decode("utf-8"))
     print("coinjoin response: {}".format(json_body))
 
-@pytest.fixture(scope="module")
-def setup_onion_ygrunner():
+@pytest.fixture
+def setup_onion_ygrunner(monkeypatch):
+    # For quicker testing, restrict the range of timelock
+    # addresses to avoid slow load of multiple bots.    
+    monkeypatch.setattr(jmclient.FidelityBondMixin, 'TIMELOCK_ERA_YEARS', 2)
+    monkeypatch.setattr(jmclient.FidelityBondMixin, 'TIMELOCK_EPOCH_YEAR', datetime.now().year)
     load_test_config()
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().bc_interface.simulate_blocks()

@@ -123,8 +123,7 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, fb_indices,
     wallet_service = wallet_services[num_ygs]['wallet']
     jmprint("\n\nTaker wallet seed : " + wallet_services[num_ygs]['seed'])
     # for manual audit if necessary, show the maker's wallet seeds
-    # also (note this audit should be automated in future, see
-    # test_full_coinjoin.py in this directory)
+    # also (note this audit should be automated in future)
     jmprint("\n\nMaker wallet seeds: ")
     for i in range(num_ygs):
         jmprint("Maker seed: " + wallet_services[i]['seed'])
