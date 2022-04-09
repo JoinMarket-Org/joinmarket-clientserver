@@ -25,7 +25,7 @@ Then copy the `regtest_joinmarket.cfg` file from the `test/` directory to the `j
 
 Run the test suite via pytest:
 
-    (jmvenv)$ pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 --ignore test/test_full_coinjoin.py -p no:warnings
+    (jmvenv)$ pytest --btcconf=/path/to/bitcoin.conf --btcroot=/path/to/bitcoin/bin/ --btcpwd=123456abcdef --nirc=2 -p no:warnings
 
 #### Running tests of sendpayment and tumbler (including with malicious makers)
 
