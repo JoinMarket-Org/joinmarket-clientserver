@@ -17,7 +17,6 @@ from twisted.internet import reactor, defer
 from twisted.web.client import readBody, Headers
 from common import make_wallets
 import pytest
-import random
 import json
 from datetime import datetime
 from jmbase import (get_nontor_agent, BytesProducer, jmprint,
@@ -25,7 +24,6 @@ from jmbase import (get_nontor_agent, BytesProducer, jmprint,
 from jmclient import (YieldGeneratorBasic, load_test_config, jm_single,
     JMClientProtocolFactory, start_reactor, SegwitWallet, get_mchannels,
     SegwitLegacyWallet, JMWalletDaemon)
-from jmclient.wallet_utils import wallet_gettimelockaddress
 from jmclient.wallet_rpc import api_version_string
 
 log = get_log()
