@@ -385,9 +385,12 @@ tor_install ()
     pushd "${tor_version}"
     if tor_build; then
         $make install
-        # Create blank tor config, it will default to running socks5 proxy
-        # at 127.0.0.1:9050 and should be enough for us.
-        > "${jm_root}/etc/tor/torrc"
+        echo "# Default JoinMarket Tor configuration
+Log warn stderr
+SOCKSPort 9050 IsolateDestAddr IsolateDestPort
+ControlPort 9051
+CookieAuthentication 1
+        " > "${jm_root}/etc/tor/torrc"
     else
         return 1
     fi
