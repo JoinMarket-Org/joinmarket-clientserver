@@ -406,9 +406,11 @@ class WalletService(Service):
                         self.callbacks["unconfirmed"][txid] = callbacks
                     else:
                         self.callbacks["unconfirmed"].pop(txos, None)
-                    if self.callbacks["confirmed"].get(txid):
-                        # keep monitoring for conf > 0:
-                        self.active_txs[txid] = txd
+                    # we always add into active_txs, even if the caller
+                    # didn't create any confirmed callbacks, because we
+                    # need to trigger process_new_tx logic to update
+                    # the height of the utxo in UtxoManager
+                    self.active_txs[txid] = txd
                 elif confs > 0:
                     callbacks = [f for f in
                             self.callbacks["confirmed"].pop(txid, [])
