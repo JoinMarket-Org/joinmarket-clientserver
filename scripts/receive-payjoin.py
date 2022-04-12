@@ -7,7 +7,8 @@ from twisted.internet import reactor
 from jmbase import get_log, jmprint
 from jmclient import jm_single, load_program_config, \
     WalletService, open_test_wallet_maybe, get_wallet_path, check_regtest, \
-    add_base_options, JMBIP78ReceiverManager, start_reactor
+    add_base_options, JMBIP78ReceiverManager, start_reactor, \
+    check_and_start_tor
 from jmbase.support import EXIT_FAILURE, EXIT_ARGERROR
 from jmbitcoin import amount_to_sat
 jlog = get_log()
@@ -47,6 +48,8 @@ def receive_payjoin_main():
         parser.error("Receiving amount must be a positive number")
         sys.exit(EXIT_FAILURE)
     load_program_config(config_path=options.datadir)
+
+    check_and_start_tor()
 
     check_regtest()
 

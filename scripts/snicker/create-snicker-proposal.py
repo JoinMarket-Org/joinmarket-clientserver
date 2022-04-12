@@ -30,7 +30,7 @@ from jmclient import (process_shutdown,
      jm_single, load_program_config, check_regtest,
      estimate_tx_fee, add_base_options, get_wallet_path,
      open_test_wallet_maybe, WalletService, SNICKERClientProtocolFactory,
-     start_reactor, JMPluginService)
+     start_reactor, JMPluginService, check_and_start_tor)
 from jmclient.configure import get_log
 
 log = get_log()
@@ -96,6 +96,9 @@ def main():
     wallet_name, hextx, input_index, output_index, net_transfer = args
     input_index, output_index, net_transfer = [int(x) for x in [
         input_index, output_index, net_transfer]]
+
+    check_and_start_tor()
+
     check_regtest()
 
     # If tx_fees are set manually by CLI argument, override joinmarket.cfg:

@@ -222,8 +222,7 @@ run_jm_tests ()
         --btcroot=$btcroot \
         --btcuser=$btcuser \
         --nirc=$nirc \
-        -p no:warnings \
-        --ignore test/test_full_coinjoin.py
+        -p no:warnings
     local success="$?"
     [[ -f ./joinmarket.cfg ]] && unlink ./joinmarket.cfg
     if [ -f "${jm_test_datadir}/bitcoind.pid" ] && read bitcoind_pid <"${jm_test_datadir}/bitcoind.pid"; then
