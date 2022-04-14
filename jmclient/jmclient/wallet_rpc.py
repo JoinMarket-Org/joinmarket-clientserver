@@ -612,8 +612,9 @@ class JMWalletDaemon(Service):
                 # sync has already happened (this is different from CLI yg).
                 # note: an edge case of dusty amounts is lost here; it will get
                 # picked up by Maker.try_to_create_my_orders().
-                if not len(self.services["wallet"].get_balance_by_mixdepth(
-                    verbose=False, minconfs=1)) > 0:
+                gbbm = self.services["wallet"].get_balance_by_mixdepth(
+                    verbose=False, minconfs=1)
+                if len(gbbm) == 0 or all([v==0 for v in gbbm.values()]):
                     # note: this raise will prevent the setup
                     # of the service (and therefore the startup) from
                     # proceeding:
