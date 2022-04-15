@@ -431,18 +431,11 @@ class JMWalletDaemon(Service):
         # It is also different in that the event loop must not shut down
         # when processing finishes.
 
-        # This assertion is making sure that the callback is not a non-final
-        # schedule entry (see the comment above as to why). We accept
-        # either False or 'unconfirmed' since they can arrive in either order.
-        assert fromtx is not True
-
         # reset our state on completion, we are no longer coinjoining:
         self.taker = None
 
         if not res:
             jlog.info("Coinjoin did not complete successfully.")
-        #Should usually be unreachable, unless conf received out of order;
-        #because we should stop on 'unconfirmed' for last (see above)
         else:
             jlog.info("Coinjoin completed correctly")
 
