@@ -35,7 +35,6 @@ def test_sign_standard_txs(addrtype):
     amount_less_fee = int(amount - btc.coins_to_satoshi(0.01))
     
     # Create a destination to send the coins.
-    destination_address = address
     target_scriptPubKey = scriptPubKey
     
     # Create the unsigned transaction.

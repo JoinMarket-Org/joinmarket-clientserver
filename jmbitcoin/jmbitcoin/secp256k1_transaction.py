@@ -214,7 +214,6 @@ def mk_freeze_script(pub, locktime):
         raise TypeError("locktime must be int")
     if not isinstance(pub, bytes):
         raise TypeError("pubkey must be in bytes")
-    usehex = False
     if not is_valid_pubkey(pub, require_compressed=True):
         raise ValueError("not a valid public key")
     return CScript([locktime, OP_CHECKLOCKTIMEVERIFY, OP_DROP, pub,
@@ -227,7 +226,7 @@ def mk_burn_script(data):
     """
     if not isinstance(data, bytes):
         raise TypeError("data must be in bytes")
-    return CScript([btc.OP_RETURN, data])
+    return CScript([OP_RETURN, data])
 
 def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
     """
