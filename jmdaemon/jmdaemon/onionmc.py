@@ -700,8 +700,8 @@ class OnionMessageChannel(MessageChannel):
         self.wait_for_directories_loop = None
 
         # this dict plays the same role as `active_channels` in `MessageChannelCollection`.
-        # it has structure {nick: set(),..} where set() has elements that are dicts:
-        # {OnionPeer: bool}.
+        # it has structure {nick1: {}, nick2: {}, ...} where the inner dicts are:
+        # {OnionDirectoryPeer1: bool, OnionDirectoryPeer2: bool, ...}.
         # Entries get updated with changing connection status of directories,
         # allowing us to decide where to send each message we want to send when we have no
         # direct connection.
@@ -1057,6 +1057,33 @@ class OnionMessageChannel(MessageChannel):
             return
         self.send_peers(peer, peer_filter=[peer_from])
 
+    def on_nick_leave_directory(self, nick: str, dir_peer: OnionPeer) -> None:
+        """ This is called in response to a disconnection control
+        message from a directory, telling us that a certain nick has left.
+        We update this connection status in the active_directories map,
+        and fire the MessageChannel.on_nick_leave when we see all the
+        connections are lost.
+        Note that `on_nick_leave` can be triggered in two ways; both here,
+        and also via `self.register_disconnection`, which occurs for peers
+        to whom we are directly connected. Calling it multiple times is not
+        harmful, but remember that the on_nick_leave event only bubbles up
+        above the message channel layer once *all* message channels trigger
+        on_nick_leave (in case we are using another message channel as well
+        as this one, like IRC).
+        """
+        if not nick in self.active_directories:
+            return
+        if not dir_peer in self.active_directories[nick]:
+            log.info("Directory {} is telling us that {} has left, but we "
+                     "didn't know about them. Ignoring.".format(
+                         dir_peer.peer_location(), nick))
+            return
+        log.debug("Directory {} has lost connection to: {}".format(
+            dir_peer.peer_location(), nick))
+        self.active_directories[nick][dir_peer] = False
+        if all([x is False for x in self.active_directories[nick].values()]):
+            self.on_nick_leave(nick, self)
+
     def process_control_message(self, peerid: str, msgtype: int,
                                 msgval: str) -> bool:
         """ Triggered by a directory node feeding us
@@ -1084,10 +1111,27 @@ class OnionMessageChannel(MessageChannel):
                 return True
             try:
                 peerlist = msgval.split(",")
-                for peer in peerlist:
+                for peer_in_list in peerlist:
+                    # directories should send us peerstrings that include
+                    # nick;host:port;D where "D" indicates that the directory
+                    # is signalling this peer as having left. Otherwise, without
+                    # the third field, we treat it as a "join" event.
+                    try:
+                        nick, hostport, disconnect_code = peer_in_list.split(
+                            NICK_PEERLOCATOR_SEPARATOR)
+                        if not disconnect_code == "D":
+                            continue
+                        self.on_nick_leave_directory(nick, peer)
+                        continue
+                    except ValueError:
+                        # old code does not recognize this "D"; it will
+                        # swallow the message in `add_peer`, ignoring
+                        # the message as invalid because it has three fields
+                        # instead of two.
+                        pass
                     # defaults mean we just add the peer, not
                     # add or alter its connection status:
-                    self.add_peer(peer, with_nick=True)
+                    self.add_peer(peer_in_list, with_nick=True)
             except Exception as e:
                 log.debug("Incorrectly formatted peer list: {}, "
                       "ignoring, {}".format(msgval, e))
@@ -1118,6 +1162,12 @@ class OnionMessageChannel(MessageChannel):
                 msgval = self.get_peer_by_id(msgval).peer_location()
             self.add_peer(msgval, connection=False,
                           overwrite_connection=True)
+            if self.self_as_peer.directory:
+                # We propagate the control message as a "peerlist" with
+                # the "D" flag:
+                disconnected_peer = self.get_peer_by_id(msgval)
+                for p in self.get_connected_nondirectory_peers():
+                    self.send_peers(p, peer_filter=[disconnected_peer], d=True)
             # bubble up the disconnection event to the abstract
             # message channel logic:
             if self.on_nick_leave:
@@ -1310,8 +1360,6 @@ class OnionMessageChannel(MessageChannel):
             try:
                 nick, peer = peerdata.split(NICK_PEERLOCATOR_SEPARATOR)
             except Exception as e:
-                # TODO: as of now, this is not an error, but expected.
-                # Don't log? Do something else?
                 log.debug("Received invalid peer identifier string: {}, {}".format(
                     peerdata, e))
                 return
@@ -1361,7 +1409,7 @@ class OnionMessageChannel(MessageChannel):
         return [p for p in self.peers if p.directory and p.status() == \
                 PEER_STATUS_HANDSHAKED]
 
-    def get_connected_nondirectory_peers(self) -> list:
+    def get_connected_nondirectory_peers(self) -> List[OnionPeer]:
         return [p for p in self.peers if (not p.directory) and p.status() == \
                 PEER_STATUS_HANDSHAKED]
 
@@ -1397,7 +1445,7 @@ class OnionMessageChannel(MessageChannel):
     """ CONTROL MESSAGES SENT BY US
     """
     def send_peers(self, requesting_peer: OnionPeer,
-                   peer_filter: List[OnionPeer]) -> None:
+                   peer_filter: List[OnionPeer], d: bool=False) -> None:
         """ This message is sent by directory peers, currently
         only when a privmsg has to be forwarded to them. It
         could also be sent by directories to non-directory peers
@@ -1414,24 +1462,30 @@ class OnionMessageChannel(MessageChannel):
                 "Cannot send peer list to unhandshaked peer")
         peerlist = set()
         peer_filter_exists = len(peer_filter) > 0
-        for p in self.get_connected_nondirectory_peers():
-            # don't send a peer to itself
-            if p == requesting_peer:
-                continue
-            if peer_filter_exists and p not in peer_filter:
-                continue
-            if p.status() != PEER_STATUS_HANDSHAKED:
-                # don't advertise what is not online.
-                continue
-            # peers that haven't sent their nick yet are not
-            # privmsg-reachable; don't send them
-            if p.nick == "":
-                continue
-            if p.peer_location() == NOT_SERVING_ONION_HOSTNAME:
-                # if a connection has no reachable destination,
-                # don't forward it
-                continue
-            peerlist.add(p.get_nick_peerlocation_ser())
+        if d is False:
+            for p in self.get_connected_nondirectory_peers():
+                # don't send a peer to itself
+                if p == requesting_peer:
+                    continue
+                if peer_filter_exists and p not in peer_filter:
+                    continue
+                if p.status() != PEER_STATUS_HANDSHAKED:
+                    # don't advertise what is not online.
+                    continue
+                # peers that haven't sent their nick yet are not
+                # privmsg-reachable; don't send them
+                if p.nick == "":
+                    continue
+                if p.peer_location() == NOT_SERVING_ONION_HOSTNAME:
+                    # if a connection has no reachable destination,
+                    # don't forward it
+                    continue
+                peerlist.add(p.get_nick_peerlocation_ser())
+        else:
+            # since the peer may already be removed from self.peers,
+            # we don't limit except by filter:
+            for p in peer_filter:
+                peerlist.add(p.get_nick_peerlocation_ser() + NICK_PEERLOCATOR_SEPARATOR + "D")
         # For testing: dns won't usually participate:
         peerlist.add(self.self_as_peer.get_nick_peerlocation_ser())
         # don't send an empty set (will not be possible unless
