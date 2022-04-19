@@ -10,6 +10,7 @@ from twisted.application.service import Service
 from autobahn.twisted.websocket import listenWS
 from klein import Klein
 import jwt
+import pprint
 
 from jmbitcoin import human_readable_transaction
 from jmclient import Taker, jm_single, \
@@ -20,7 +21,11 @@ from jmclient import Taker, jm_single, \
     create_wallet, get_max_cj_fee_values, \
     StorageError, StoragePasswordError, JmwalletdWebSocketServerFactory, \
     JmwalletdWebSocketServerProtocol, RetryableStorageError, \
-    SegwitWalletFidelityBonds, wallet_gettimelockaddress, NotEnoughFundsException
+    SegwitWalletFidelityBonds, wallet_gettimelockaddress, \
+    NotEnoughFundsException, get_tumble_log, get_tumble_schedule, \
+    get_schedule, get_tumbler_parser, schedule_to_text, \
+    tumbler_filter_orders_callback, tumbler_taker_finished_update, \
+    validate_address
 from jmbase.support import get_log, utxostr_to_utxo
 
 jlog = get_log()
@@ -158,6 +163,10 @@ class JMWalletDaemon(Service):
         # keep track of client side connections so they
         # can be shut down cleanly:
         self.coinjoin_connection = None
+        # Options for generating a tumble schedule / running the tumbler.
+        # Doubles as flag for indicating whether we're currently running
+        # a tumble schedule.
+        self.tumbler_options = None
 
     def get_client_factory(self):
         return JMClientProtocolFactory(self.taker)
@@ -424,14 +433,26 @@ class JMWalletDaemon(Service):
                         token=self.cookie)
 
     def taker_finished(self, res, fromtx=False, waittime=0.0, txdetails=None):
-        # This is a slimmed down version compared with what is seen in
-        # the CLI code, since that code encompasses schedules with multiple
-        # entries; for now, the RPC only supports single joins.
-        # TODO this may be updated.
-        # It is also different in that the event loop must not shut down
-        # when processing finishes.
+        if not self.tumbler_options:
+            # We were doing a single coinjoin -- stop taker.
+            self.stop_taker(res)
+        else:
+            # We're running the tumbler.
+            logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
+            tumble_log = get_tumble_log(logsdir)
+            sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
 
-        # reset our state on completion, we are no longer coinjoining:
+            tumbler_taker_finished_update(self.taker, sfile, tumble_log, self.tumbler_options, res, fromtx, waittime, txdetails)
+
+            if not fromtx:
+                # The tumbling schedule's final transaction is done.
+                self.stop_taker(res)
+                self.tumbler_options = None
+            elif fromtx != "unconfirmed":
+                # A non-final transaction in the tumbling schedule is done -- continue schedule after wait time.
+                reactor.callLater(waittime*60, self.clientfactory.getClient().clientStart)
+
+    def stop_taker(self, res):
         self.taker = None
 
         if not res:
@@ -463,6 +484,9 @@ class JMWalletDaemon(Service):
         TODO: two phase response to client.
         """
         return True
+
+    def filter_orders_callback_tumbler(self, orders_fees, cjamount):
+        return tumbler_filter_orders_callback(orders_fees, cjamount, self.taker)
 
     def check_daemon_ready(self):
         # daemon must be up before coinjoins start.
@@ -1023,3 +1047,111 @@ class JMWalletDaemon(Service):
                 raise InvalidRequestFormat()
             seedphrase, _ = self.services["wallet"].get_mnemonic_words()
             return make_jmwalletd_response(request, seedphrase=seedphrase)
+
+        @app.route('/wallet/<string:walletname>/taker/schedule', methods=['POST'])
+        def start_tumbler(self, request, walletname):
+            self.check_cookie(request)
+
+            if not self.services["wallet"]:
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                raise InvalidRequestFormat()
+
+            # -- Options parsing -----------------------------------------------
+
+            (options, args) = get_tumbler_parser().parse_args([])
+            self.tumbler_options = vars(options)
+
+            # At the moment only the destination addresses can be set.
+            # For now, all other options are hardcoded to the defaults of
+            # the tumbler.py script.
+            request_data = self.get_POST_body(request, ["destination_addresses"])
+            if not request_data:
+                raise InvalidRequestFormat()
+
+            destaddrs = request_data["destination_addresses"]
+            for daddr in destaddrs:
+                success, _ = validate_address(daddr)
+                if not success:
+                    raise InvalidRequestFormat()
+
+            # Setting max_cj_fee based on global config.
+            # We won't respect it being set via tumbler_options for now.
+            def dummy_user_callback(rel, abs):
+                raise ConfigNotPresent()
+
+            max_cj_fee = get_max_cj_fee_values(jm_single().config,
+                                               None,
+                                               user_callback=dummy_user_callback)
+
+            jm_single().mincjamount = self.tumbler_options['mincjamount']
+
+            # -- Schedule generation -------------------------------------------
+
+            # Always generates a new schedule. No restart support for now.
+            schedule = get_tumble_schedule(self.tumbler_options,
+                                           destaddrs,
+                                           self.services["wallet"].get_balance_by_mixdepth())
+
+            logsdir = os.path.join(os.path.dirname(jm_single().config_location),
+                                   "logs")
+            sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
+            with open(sfile, "wb") as f:
+                f.write(schedule_to_text(schedule))
+
+            tumble_log = get_tumble_log(logsdir)
+            tumble_log.info("TUMBLE STARTING")
+            tumble_log.info("With this schedule: ")
+            tumble_log.info(pprint.pformat(schedule))
+
+            # -- Running the Taker ---------------------------------------------
+
+            # For simplicity, we're not doing any fee estimation for now.
+            # We might want to add fee estimation (see scripts/tumbler.py) to
+            # prevent users from overspending on fees when tumbling with small
+            # amounts.
+
+            if not self.activate_coinjoin_state(CJ_TAKER_RUNNING):
+                raise ServiceAlreadyStarted()
+
+            self.taker = Taker(self.services["wallet"],
+                               schedule,
+                               max_cj_fee=max_cj_fee,
+                               order_chooser=self.tumbler_options['order_choose_fn'],
+                               callbacks=(self.filter_orders_callback_tumbler, None,
+                                          self.taker_finished),
+                               tdestaddrs=destaddrs)
+            self.clientfactory = self.get_client_factory()
+
+            self.taker.testflag = True
+
+            dhost, dport = self.check_daemon_ready()
+
+            _, self.coinjoin_connection = start_reactor(dhost,
+                                                        dport,
+                                                        self.clientfactory,
+                                                        rs=False)
+
+            return make_jmwalletd_response(request, status=202, schedule=schedule)
+
+        @app.route('/wallet/<string:walletname>/taker/schedule', methods=['GET'])
+        def get_tumbler_schedule(self, request, walletname):
+            self.check_cookie(request)
+
+            if not self.services["wallet"]:
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                raise InvalidRequestFormat()
+
+            if not self.tumbler_options:
+                return make_jmwalletd_response(request, status=404)
+
+
+            logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
+            sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
+            res, schedule = get_schedule(sfile)
+
+            if not res:
+                return make_jmwalletd_response(request, status=500)
+
+            return make_jmwalletd_response(request, schedule=schedule)
