@@ -374,9 +374,9 @@ tor_build ()
 
 tor_install ()
 {
-    tor_version='tor-0.4.6.8'
+    tor_version='tor-0.4.6.10'
     tor_tar="${tor_version}.tar.gz"
-    tor_sha='15ce1a37b4cc175b07761e00acdcfa2c08f0d23d6c3ab9c97c464bd38cc5476a'
+    tor_sha='94ccd60e04e558f33be73032bc84ea241660f92f58cfb88789bda6893739e31c'
     tor_url='https://dist.torproject.org'
 
     if ! dep_get "${tor_tar}" "${tor_sha}" "${tor_url}"; then
