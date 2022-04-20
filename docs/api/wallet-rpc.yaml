@@ -105,12 +105,17 @@ paths:
           $ref: '#/components/responses/404-NotFound'
   /session:
     get:
+      security:
+        - {}
+        - bearerAuth: []
       summary: get current status of backend
       operationId: session
-      description: get whether a wallet is loaded and whether coinjoin/maker are happening.
+      description: get whether a wallet is loaded and whether coinjoin/maker are happening. if an auth token is provided, which is optional, it will be validated.
       responses:
         '200':
           $ref: "#/components/responses/Session-200-OK"
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/all:
