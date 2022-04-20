@@ -1081,7 +1081,7 @@ class OnionMessageChannel(MessageChannel):
         log.debug("Directory {} has lost connection to: {}".format(
             dir_peer.peer_location(), nick))
         self.active_directories[nick][dir_peer] = False
-        if all([x is False for x in self.active_directories[nick].values()]):
+        if not any(self.active_directories[nick].values()):
             self.on_nick_leave(nick, self)
 
     def process_control_message(self, peerid: str, msgtype: int,
@@ -1119,15 +1119,12 @@ class OnionMessageChannel(MessageChannel):
                     try:
                         nick, hostport, disconnect_code = peer_in_list.split(
                             NICK_PEERLOCATOR_SEPARATOR)
-                        if not disconnect_code == "D":
+                        if disconnect_code != "D":
                             continue
                         self.on_nick_leave_directory(nick, peer)
                         continue
                     except ValueError:
-                        # old code does not recognize this "D"; it will
-                        # swallow the message in `add_peer`, ignoring
-                        # the message as invalid because it has three fields
-                        # instead of two.
+                        # just means this message is not of the 'disconnect' type
                         pass
                     # defaults mean we just add the peer, not
                     # add or alter its connection status:
@@ -1167,7 +1164,8 @@ class OnionMessageChannel(MessageChannel):
                 # the "D" flag:
                 disconnected_peer = self.get_peer_by_id(msgval)
                 for p in self.get_connected_nondirectory_peers():
-                    self.send_peers(p, peer_filter=[disconnected_peer], d=True)
+                    self.send_peers(p, peer_filter=[disconnected_peer],
+                                    disconnect=True)
             # bubble up the disconnection event to the abstract
             # message channel logic:
             if self.on_nick_leave:
@@ -1360,6 +1358,12 @@ class OnionMessageChannel(MessageChannel):
             try:
                 nick, peer = peerdata.split(NICK_PEERLOCATOR_SEPARATOR)
             except Exception as e:
+                # old code does not recognize messages with "D" as a third
+                # field; they will swallow the message here, ignoring
+                # the message as invalid because it has three fields
+                # instead of two.
+                # (We still use the catch-all `Exception`, for the usual reason
+                # of not wanting to make assumptions about external input).
                 log.debug("Received invalid peer identifier string: {}, {}".format(
                     peerdata, e))
                 return
@@ -1445,24 +1449,28 @@ class OnionMessageChannel(MessageChannel):
     """ CONTROL MESSAGES SENT BY US
     """
     def send_peers(self, requesting_peer: OnionPeer,
-                   peer_filter: List[OnionPeer], d: bool=False) -> None:
+                   peer_filter: List[OnionPeer], disconnect: bool=False) -> None:
         """ This message is sent by directory peers, currently
-        only when a privmsg has to be forwarded to them. It
-        could also be sent by directories to non-directory peers
-        according to some other algorithm.
-        If peer_filter is specified, only those peers will be sent.
+        only when a privmsg has to be forwarded to them, or a peer has
+        disconnected. It could also be sent by directories to non-directory
+        peers according to some other algorithm.
+        The message is sent *to* `requesting_peer`.
+        If `peer_filter` is specified, only those peers will be sent.
+        If `disconnect` is True, we append "D" to every entry, which
+        indicates to the receiver that the peer being sent has left,
+        not that that peer is available.
         The peerlist message should have this format:
         (1) entries comma separated
-        (2) each entry is serialized nick then the NICK_PEERLOCATOR_SEPARATOR
-            then host:port
-        (3) Peers that do not have a reachable location are not sent.
+        (2) each entry a two- or three- element list, separated by NICK_PEERLOCATOR_SEPARATOR,
+            [nick, host:port] or same with ["D"] added at the end.
+        For the case disconnect=False, peers that do not have a reachable location are not sent.
         """
         if not requesting_peer.status() == PEER_STATUS_HANDSHAKED:
             raise OnionPeerConnectionError(
                 "Cannot send peer list to unhandshaked peer")
         peerlist = set()
         peer_filter_exists = len(peer_filter) > 0
-        if d is False:
+        if disconnect is False:
             for p in self.get_connected_nondirectory_peers():
                 # don't send a peer to itself
                 if p == requesting_peer:
