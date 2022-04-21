@@ -2557,7 +2557,8 @@ class FidelityBondMixin(object):
         t = current_time / YEAR
 
         a = max(0, min(1, exp(r*T) - 1) - min(1, exp(r*max(0, t-L)) - 1))
-        return utxo_value*utxo_value*a*a
+        exponent = float(jm_single().config.get("POLICY", "bond_value_exponent"))
+        return pow(utxo_value*a, exponent)
 
     @classmethod
     def get_validated_timelocked_fidelity_bond_utxo(cls, utxo, utxo_pubkey, locktime,

@@ -51,6 +51,8 @@ from jmdaemon import (OrderbookWatch, MessageChannelCollection,
 import jmbitcoin as btc
 from jmdaemon.protocol import *
 
+bond_exponent = None
+
 #Initial state: allow only SW offer types
 sw0offers = list(filter(lambda x: x[0:3] == 'sw0', offername_list))
 swoffers = list(filter(lambda x: x[0:3] == 'swa' or x[0:3] == 'swr', offername_list))
@@ -115,7 +117,7 @@ def create_offerbook_table_heading(btc_unit, rel_unit):
                 col.format('txfee', 'Miner Fee Contribution / ' + btc_unit),
                 col.format('minsize', 'Minimum Size / ' + btc_unit),
                 col.format('maxsize', 'Maximum Size / ' + btc_unit),
-                col.format('bondvalue', 'Bond value / ' + btc_unit + '&#xb2;')
+                col.format('bondvalue', 'Bond value / ' + btc_unit + '<sup>' + bond_exponent + '</sup>')
             ]) + ' </tr>'
     return tableheading
 
@@ -123,7 +125,7 @@ def create_bonds_table_heading(btc_unit):
     tableheading = ('<table class="tftable sortable" border="1"><tr>'
         + '<th>Counterparty</th>'
         + '<th>UTXO</th>'
-        + '<th>Bond value / ' + btc_unit + '&#xb2;</th>'
+        + '<th>Bond value / ' + btc_unit + '<sup>' + bond_exponent + '</sup></th>'
         + '<th>Locktime</th>'
         + '<th>Locked coins / ' + btc_unit + '</th>'
         + '<th>Confirmation time</th>'
@@ -419,7 +421,8 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             + "how much would a sybil attacker starting now have to sacrifice to succeed in their"
             + " attack with 95% probability. Honest weight="
             + satoshi_to_unit_power(honest_weight, 2*unit_to_power[btc_unit]) + " " + btc_unit
-            + "&#xb2;<br/>Also assumes that takers are not price-sensitive and that their max "
+            + "<sup>" + bond_exponent + "</sup><br/>Also assumes that takers "
+            + "are not price-sensitive and that their max "
             + "coinjoin fee is configured high enough that they dont exclude any makers.")
         heading2 = "Sybil attacks from external enemies."
 
@@ -459,7 +462,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         mainbody += ('<table class="tftable" border="1"><tr>'
             + '<th>Maker count</th>'
             + '<th>Success probability</th>'
-            + '<th>Foregone value / ' + btc_unit + '&#xb2;</th>'
+            + '<th>Foregone value / ' + btc_unit + '<sup>' + bond_exponent + '</sup></th>'
             + '</tr>'
         )
 
@@ -784,6 +787,7 @@ def get_dummy_nick():
     return nick
 
 def main():
+    global bond_exponent
     parser = OptionParser(
             usage='usage: %prog [options]',
             description='Runs a webservice which shows the orderbook.')
@@ -804,6 +808,14 @@ def main():
                       default=62601)
     (options, args) = parser.parse_args()
     load_program_config(config_path=options.datadir)
+    # needed to display notional units of FB valuation
+    bond_exponent = jm_single().config.get("POLICY", "bond_value_exponent")
+    try:
+        float(bond_exponent)
+    except ValueError:
+        log.error("Invalid entry for bond_value_exponent, should be decimal "
+                  "number: {}".format(bond_exponent))
+        sys.exit(EXIT_FAILURE)
     check_and_start_tor()
     hostport = (options.host, options.port)
     mcs = []

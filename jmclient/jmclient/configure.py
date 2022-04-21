@@ -386,6 +386,11 @@ interest_rate = """ + _DEFAULT_INTEREST_RATE + """
 # A real number, i.e. 1 = 100%, 0.125 = 1/8 = 1 in every 8 makers on average will be bondless
 bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 
+# To (strongly) disincentivize Sybil behaviour, the value assessment of the bond
+# is based on the (time value of the bond)^x where x is the bond_value_exponent here,
+# where x > 1. It is a real number (so written as a decimal).
+bond_value_exponent = 1.3
+
 ##############################
 # THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
 # DON'T ALTER THEM UNLESS YOU UNDERSTAND THE IMPLICATIONS.
