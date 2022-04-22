@@ -342,6 +342,11 @@ class JMWalletDaemon(Service):
             jlog.warn("Invalid cookie: " + str(
                 request_cookie) + ", request rejected.")
             raise NotAuthorized()
+    
+    def check_cookie_if_present(self, request):
+        auth_header = request.getHeader('Authorization')
+        if auth_header is not None:
+            self.check_cookie(request)
 
     def set_token(self, wallet_name):
         """ This function creates a new JWT token and sets it as our
@@ -502,6 +507,10 @@ class JMWalletDaemon(Service):
             to the client what the current status of the wallet
             and services is. TODO: add more data to send to client.
             """
+            #validate auth header if provided
+            #this lets caller know if cookie is invalid or outdated
+            self.check_cookie_if_present(request)
+
             #if no wallet loaded then clear frontend session info
             #when no wallet status is false
             session = not self.cookie==None

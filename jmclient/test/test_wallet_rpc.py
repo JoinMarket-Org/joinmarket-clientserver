@@ -159,6 +159,27 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         return True
 
     @defer.inlineCallbacks
+    def do_session_request(self, agent, addr, handler=None, token=None):
+        """ A `None` value for handler is reserved for the case
+        where we expect an Unauthorized request because we provided a token,
+        but it is not valid.
+        For other cases, provide the url prefix before `/session' as addr,
+        and we expect a 200 if token is valid *or* token is None, but contents
+        are to be checked by provided response handler callback.
+        """
+        if handler is None:
+            assert token is not None
+            handler = self.unauthorized_session_request_handler
+        yield self.do_request(agent, b"GET", (addr+"/session").encode(),
+                              None, handler, token)
+
+    def authorized_session_request_handler(self, response, code):
+        assert code == 200
+
+    def unauthorized_session_request_handler(self, response, code):
+        assert code == 401
+
+    @defer.inlineCallbacks
     def test_create_list_lock_unlock(self):
         """ A batch of tests in sequence here,
             so we can track the state of a created
@@ -195,12 +216,26 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"POST", addr, body,
                               self.process_create_wallet_response)
 
+        # 1a. Session request with valid token; should succeed
+        yield self.do_session_request(agent, root,
+            self.authorized_session_request_handler, token=self.jwt_token)
+        # 1b. Session request without token, even though one is active; should succeed
+        yield self.do_session_request(agent, root,
+            self.authorized_session_request_handler)
+
         # 2. now *lock*
         addr = root + "/wallet/" + wfn1 + "/lock"
         addr = addr.encode()
         jlog.info("Using address: {}".format(addr))
         yield self.do_request(agent, b"GET", addr, None,
                 self.process_lock_response, token=self.jwt_token)
+
+        # 2a. Session request with now invalid token; should fail
+        yield self.do_session_request(agent, root,
+            self.unauthorized_session_request_handler, token=self.jwt_token)
+        # 2b. Session request without token, should still succeed.
+        yield self.do_session_request(agent, root,
+            self.authorized_session_request_handler)
 
         # 3. Create this secondary wallet (so we can test re-unlock)
         addr = root + "/wallet/create"
