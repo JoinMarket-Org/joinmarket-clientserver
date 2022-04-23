@@ -70,6 +70,7 @@ from .payjoin import (parse_payjoin_setup, send_payjoin,
 from .websocketserver import JmwalletdWebSocketServerFactory, \
      JmwalletdWebSocketServerProtocol
 from .wallet_rpc import JMWalletDaemon
+from .bond_calc import get_bond_values
 # Set default logging handler to avoid "No handler found" warnings.
 
 try:

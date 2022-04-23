@@ -208,7 +208,41 @@ miner fees, you can probably wait until fees are low).
 The full details on valuing a time-locked fidelity bond are [found in the relevant section of the
 "Financial mathematics of fidelity bonds" document](https://gist.github.com/chris-belcher/87ebbcbb639686057a389acb9ab3e25b#time-locked-fidelity-bonds).
 
-At any time you can use the orderbook watcher script to see your own fidelity bond value.
+To see how valuable a bond would be, and to compare it with the orderbook, you can use the `bond-calculator.py` script.
+
+For example (see `-h` option for more):
+
+```
+(jmvenv) $ python3 scripts/bond-calculator.py -o /home/user/Downloads/orderbook.json 1btc
+User data location: /home/user/.joinmarket/
+Amount locked: 100000000 (1.00000000 btc)
+Confirmation time: 2022-06-16 17:29:26.849274
+Interest rate: 0.015 (1.5%)
+Exponent: 1.3
+
+FIDELITY BOND VALUES (BTC^1.3)
+
+See /docs/fidelity-bonds.md for complete formula and more
+
+Locktime: 2022-7
+Bond value: 0.0000000001579529
+Weight: 0.00001 (0.00% of all bonds)
+Top 85% of the orderbook by value
+
+Locktime: 2022-8
+Bond value: 0.0000000007090171
+Weight: 0.00005 (0.00% of all bonds)
+Top 64% of the orderbook by value
+
+Locktime: 2022-9
+Bond value: 0.0000000013980293
+Weight: 0.00010 (0.01% of all bonds)
+Top 59% of the orderbook by value
+
+[...snipped...]
+```
+
+At any time you can use the [orderbook watcher](orderbook.md) script to see your own fidelity bond value, and to download the orderbook in JSON format (`Export orders`).
 
 Consider also the [warning on the bitcoin wiki page on timelocks](https://en.bitcoin.it/wiki/Timelock#Far-future_locks).
 
