@@ -3,7 +3,7 @@ import base64
 import json
 from jmbitcoin import ecdsa_sign, ecdsa_verify
 from jmdaemon import fidelity_bond_sanity_check
-
+import binascii
 
 def assert_is_utxo(utxo):
     assert len(utxo) == 2
@@ -16,6 +16,8 @@ def assert_is_utxo(utxo):
 def get_cert_msg(cert_pub, cert_expiry):
     return b'fidelity-bond-cert|' + cert_pub + b'|' + str(cert_expiry).encode('ascii')
 
+def get_ascii_cert_msg(cert_pub, cert_expiry):
+    return b'fidelity-bond-cert|' + binascii.hexlify(cert_pub) + b'|' + str(cert_expiry).encode('ascii')
 
 class FidelityBond:
     def __init__(self, utxo, utxo_pubkey, locktime, cert_expiry,
@@ -127,10 +129,12 @@ class FidelityBondProof:
                     cert_sig, (unpacked_data[5], unpacked_data[6]),
                     unpacked_data[4], unpacked_data[7])
         cert_msg = get_cert_msg(proof.cert_pub, proof.cert_expiry)
+        ascii_cert_msg = get_ascii_cert_msg(proof.cert_pub, proof.cert_expiry)
 
         if not cls._verify_signature(proof.nick_msg, signature, proof.cert_pub):
             raise ValueError("nick sig does not verify")
-        if not cls._verify_signature(cert_msg, proof.cert_sig, proof.utxo_pub):
+        if not cls._verify_signature(cert_msg, proof.cert_sig, proof.utxo_pub) and\
+            not cls._verify_signature(ascii_cert_msg, proof.cert_sig, proof.utxo_pub):
             raise ValueError("cert sig does not verify")
 
         return proof
