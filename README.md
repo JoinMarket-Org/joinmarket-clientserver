@@ -37,7 +37,7 @@ or check the signature in git if you install that way using `git log --show-sign
 
 **macOS users**: Make sure that you have Homebrew and Apple's Command Line Tools installed.
 
-    ./install.sh
+    ./install.sh --with-local-tor
     (follow instructions on screen; provide sudo password when prompted)
     source jmvenv/bin/activate
     cd scripts
