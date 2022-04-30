@@ -30,19 +30,20 @@ For a quick introduction to Joinmarket you can watch [this demonstration](https:
 
 ### Quickstart - RECOMMENDED INSTALLATION METHOD (Linux and macOS only)
 
-Once you've downloaded this repo, either as a tar/zip file, and extracted it, or via `git clone`:
+Download the latest [release](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases) as tar or zip, and extract it.
 
-Make sure to validate the signature on the tar/zip file provided on the [release page](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases),
-or check the signature in git if you install that way using `git log --show-signature`.
+Make sure to validate the signature on the tar/zip file provided with the [release](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases) (or check the signature in git if you install that way using `git log --show-signature`).
 
-**macOS users**: Make sure that you have Homebrew and Apple's Command Line Tools installed.
+(**macOS users**: Make sure that you have Homebrew and Apple's Command Line Tools installed.)
 
     ./install.sh
-    (follow instructions on screen; provide sudo password when prompted)
+
+(There are options you can apply to the installation - see `./install.sh -?`. But the defaults should work.)
+
+Follow instructions on screen; provide sudo password when prompted, then when finished:
+
     source jmvenv/bin/activate
     cd scripts
-
-(You can add `--develop` as an extra flag to `install.sh` to make the Joinmarket code editable in-place.)
 
 You can optionally install a Qt GUI application, you will be prompted to choose this during installation.
 
