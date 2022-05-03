@@ -167,6 +167,7 @@ class JMWalletDaemon(Service):
         # Doubles as flag for indicating whether we're currently running
         # a tumble schedule.
         self.tumbler_options = None
+        self.tumble_log = None
 
     def get_client_factory(self):
         return JMClientProtocolFactory(self.taker)
@@ -438,11 +439,12 @@ class JMWalletDaemon(Service):
             self.stop_taker(res)
         else:
             # We're running the tumbler.
+            assert self.tumble_log is not None
+
             logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
-            tumble_log = get_tumble_log(logsdir)
             sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
 
-            tumbler_taker_finished_update(self.taker, sfile, tumble_log, self.tumbler_options, res, fromtx, waittime, txdetails)
+            tumbler_taker_finished_update(self.taker, sfile, self.tumble_log, self.tumbler_options, res, fromtx, waittime, txdetails)
 
             if not fromtx:
                 # The tumbling schedule's final transaction is done.
@@ -1099,10 +1101,12 @@ class JMWalletDaemon(Service):
             with open(sfile, "wb") as f:
                 f.write(schedule_to_text(schedule))
 
-            tumble_log = get_tumble_log(logsdir)
-            tumble_log.info("TUMBLE STARTING")
-            tumble_log.info("With this schedule: ")
-            tumble_log.info(pprint.pformat(schedule))
+            if self.tumble_log is None:
+                self.tumble_log = get_tumble_log(logsdir)
+
+            self.tumble_log.info("TUMBLE STARTING")
+            self.tumble_log.info("With this schedule: ")
+            self.tumble_log.info(pprint.pformat(schedule))
 
             # -- Running the Taker ---------------------------------------------
 
