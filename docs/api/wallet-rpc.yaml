@@ -348,6 +348,61 @@ paths:
           $ref: '#/components/responses/409-NoConfig'
         '503':
           $ref: '#/components/responses/503-ServiceUnavailable'
+  /wallet/{walletname}/taker/schedule:
+    post:
+      security:
+        - bearerAuth: []
+      summary: create and run a schedule of transactions
+      operationId: runschedule
+      description: Creates and then starts a schedule of transactions.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RunScheduleRequest'
+        description: taker side schedule parameters
+      responses:
+        '202':
+          $ref: "#/components/responses/RunSchedule-202-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+        '409':
+          $ref: '#/components/responses/409-NoConfig'
+        '503':
+          $ref: '#/components/responses/503-ServiceUnavailable'
+    get:
+      security:
+        - bearerAuth: []
+      summary: get the schedule that is currently running
+      operationId: getschedule
+      description: Get the current transaction schedule if one is running.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of the wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: "#/components/responses/GetSchedule-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: "#/components/responses/401-Unauthorized"
+        '404':
+          $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/taker/stop:
     get:
       security:
@@ -550,7 +605,16 @@ components:
         destination:
           type: string
           example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
-            
+    RunScheduleRequest:
+      type: object
+      required:
+        - destinations
+      properties:
+        destinations:
+          type: array
+          items:
+            type: string
+            example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
     StartMakerRequest:
       type: object
       required:
@@ -767,6 +831,17 @@ components:
       properties:
         seedphrase:
           type: string
+    GetScheduleResponse:
+      type: object
+      required:
+        - schedule
+      properties:
+        schedule:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
     LockWalletResponse:
       type: object
       required:
@@ -907,6 +982,18 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/FreezeResponse"
+    RunSchedule-202-OK:
+      description: "schedule started successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/GetScheduleResponse"
+    GetSchedule-200-OK:
+      description: "schedule retrieved successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/GetScheduleResponse"
     YieldGenReport-200-OK:
       description: "get list of coinjoins taken part in as maker (across all wallets)"
       content:
