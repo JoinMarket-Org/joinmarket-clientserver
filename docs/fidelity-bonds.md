@@ -45,7 +45,7 @@ high enough (or if you think the sybil protection is too expensive then set the 
 lower, as always its your choice as a taker in the market).
 
 Takers will still choose makers equally (i.e. without taking into account fidelity bonds) with a
-small probability. By default this probability is 12.5%, so approximately 1-in-8 makers. This can
+small probability. By default this probability is currently 12.5%, so approximately 1-in-8 makers. This can
 be changed in the config file with the option `bondless_makers_allowance`.
 
 The previous algorithm for choosing makers without regards to fidelity bonds can still be used by
@@ -179,12 +179,14 @@ JoinMarket itself.
 A fidelity bond is valuable as soon as the transaction creating it becomes confirmed. The
 simplified formula for a fidelity bond's value is:
 
-    bond_value = (locked_coins * (exp(interest_rate * locktime) - 1))^2
+    bond_value = (locked_coins * (exp(interest_rate * locktime) - 1))^x
+
+Here `x` is the 'exponent', a number larger than 1, for reasons we explain below.
 
 A few important things to notice:
-* The bond value goes as the _square_ of sacrificed value. For example if your sacrificed value is
-5 BTC then the fidelity bond value is 25 (because 5 x 5 = 25). If instead you sacrificed 6 BTC the
-value is 36 (because 6 x 6 = 36). The point of this is to create an incentive for makers to lump
+* The bond value goes as the (locked_coins)^x of sacrificed value. For example if `x` is 1.3, the current default, and your sacrificed value is
+5 BTC then the fidelity bond value is \~ 8.1. If instead you sacrificed 6 BTC the
+value is \~ 10.3. The point of this is to create an incentive for makers to lump
 all their coins into just one bot rather than spreading it over many bots. It makes a sybil attack
 much more expensive.
 * The longer you lock for the greater the value. The value increases as the `interest_rate`, which
@@ -193,9 +195,9 @@ annum and because of tyranny-of-the-default takers are unlikely to change it. Th
 not too far from the "real" interest rate, and the system still works fine even if the real rate
 is something like 3% or 0.1%.
 * The above formula would suggest that if you lock 3 BTC for 10000 years you get a fidelity
-bond worth `1.7481837557171304e+131` (17 followed by 130 zeros). This does not happen because the
+bond worth `2.03e+85` (\~ 2 followed by 85 zeros). This does not happen because the
 sacrificed value is capped at the value of the burned coins. So in this example the fidelity bond
-value would be just 9 (equal to 3x3 or 3 squared). This feature is not included in the above
+value would be just \~ 4.17. This feature is not included in the above
 simplified equation.
 * After the locktime expires and the coins are free to move, the fidelity bond will continue to be
 valuable, but its value will exponentially drop following the interest rate. So it would be good
@@ -210,8 +212,8 @@ At any time you can use the orderbook watcher script to see your own fidelity bo
 
 Consider also the [warning on the bitcoin wiki page on timelocks](https://en.bitcoin.it/wiki/Timelock#Far-future_locks).
 
-I would recommend locking as many bitcoins as you are comfortable with for a period of between 6
-months and 2 years. Perhaps at the very start lock for only 1 month or 2 months(?) It's a
+I would recommend locking as many bitcoins as you are comfortable with for a period of between 3
+months and 1 years. Perhaps at the very start lock for only 1 month or 2 months(?) It's a
 marketplace and the rules are known to all, so ultimately you'll have to make your own decision.
 
 ### Can my yield-generator use multiple timelocked addresses or UTXO?
