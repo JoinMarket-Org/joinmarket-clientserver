@@ -12,12 +12,7 @@
 
 ## Overview
 
-This is a new way for Joinmarket bots to communicate, namely by serving and connecting to Tor onion services. This does not
-introduce any new requirements to your Joinmarket installation, technically, because the use of Payjoin already required the need
-to run such onion services, and connecting to IRC used a SOCKS5 proxy (used by almost all users) over Tor to
-a remote onion service.
-
-(Note however that taker bots will *not* be required to serve onions; they will only make outbound SOCKS connections, as they currently do on IRC).
+This is a new way for Joinmarket bots to communicate, namely by serving and connecting to Tor onion services.
 
 The purpose of this new type of message channel is as follows:
 
@@ -26,6 +21,16 @@ The purpose of this new type of message channel is as follows:
 albeit it was and remains E2E encrypted data, in either case)
 * the above can lead to better scalability at large numbers
 * a substantial increase in the speed of transaction negotiation; this is mostly related to the throttling of high bursts of traffic on IRC
+
+### Tor
+
+As of Joinmarket 0.9.6, which introduces this feature, **Tor is now a requirement to run Joinmarket** (except in testing, which will not be explained here).
+
+(Technically, we could argue that this is not a new requirement - because the use of Payjoin already required the need to run such onion services, and connecting to IRC used a SOCKS5 proxy (used by almost all users) over Tor to a remote onion service.)
+
+If you don't currently have a Tor daemon running on your machine you can use the flag `--with-local-tor` appended to your invocation of `./install.sh` as per the installation instructions in the README.
+
+(Note however that taker bots will *not* be required to serve onions; they will only make outbound SOCKS connections, as they currently do on IRC).
 
 The configuration for a user is simple; in their `joinmarket.cfg` they will get a new `[MESSAGING]` section like this, if they start from scratch:
 
