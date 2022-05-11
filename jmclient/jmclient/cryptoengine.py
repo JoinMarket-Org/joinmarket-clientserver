@@ -4,7 +4,7 @@ import struct
 
 import jmbitcoin as btc
 from jmbase import bintohex
-from .configure import get_network, jm_single
+from .configure import get_network, jm_single, qt_display_ypub_zpub
 
 
 #NOTE: before fidelity bonds and watchonly wallet, each of these types corresponded
@@ -25,7 +25,9 @@ BIP44_COIN_MAP = {'mainnet': 2**31, 'testnet': 2**31 + 1, 'signet': 2**31 + 1}
 
 BIP32_PUB_PREFIX = "xpub"
 BIP49_PUB_PREFIX = "ypub"
+BIP49_PUB_PREFIX_BYTES = b"\x04\x9d\x7c\xb2"
 BIP84_PUB_PREFIX = "zpub"
+BIP84_PUB_PREFIX_BYTES = b"\x04\xb2\x47\x46"
 TESTNET_PUB_PREFIX = "tpub"
 
 def detect_script_type(script_str):
@@ -59,6 +61,20 @@ def detect_script_type(script_str):
 def is_extended_public_key(key_str):
     return any([key_str.startswith(prefix) for prefix in [
         BIP32_PUB_PREFIX, BIP49_PUB_PREFIX, BIP84_PUB_PREFIX, TESTNET_PUB_PREFIX]])
+
+
+def convert_xpub_if_needed(xpub, current_wallet_type):
+    if not xpub.startswith(BIP32_PUB_PREFIX) or not qt_display_ypub_zpub():
+        return xpub
+
+    # Convert xpub to ypub or zpub for display
+    if current_wallet_type in (TYPE_P2WPKH, TYPE_SEGWIT_WALLET_FIDELITY_BONDS):
+        # BIP84 format
+        xpub = btc.base58.encode(BIP84_PUB_PREFIX_BYTES + btc.base58.decode(xpub)[4:])
+    elif current_wallet_type == TYPE_P2SH_P2WPKH:
+        # BIP49 format
+        xpub = btc.base58.encode(BIP49_PUB_PREFIX_BYTES + btc.base58.decode(xpub)[4:])
+    return xpub
 
 
 class classproperty(object):

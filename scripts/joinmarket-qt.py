@@ -73,7 +73,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
     detect_script_type, general_custom_change_warning, \
     nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError,\
-    TYPE_P2WPKH, check_and_start_tor, is_extended_public_key
+    TYPE_P2WPKH, check_and_start_tor, is_extended_public_key, convert_xpub_if_needed
 from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
@@ -1573,7 +1573,8 @@ class JMWalletTab(QWidget):
                     continue
 
                 if address_type == BaseWallet.ADDRESS_TYPE_EXTERNAL:
-                    heading = "EXTERNAL " + xpubs[mixdepth][address_type]
+                    heading = "EXTERNAL " + convert_xpub_if_needed(xpubs[mixdepth][address_type],
+                        mainWindow.wallet_service.wallet.TYPE)
                 elif address_type == BaseWallet.ADDRESS_TYPE_INTERNAL:
                     heading = "INTERNAL"
                 elif address_type == FidelityBondMixin.BIP32_TIMELOCK_ID:
@@ -2339,7 +2340,7 @@ def get_wallet_printout(wallet_service):
         account_xpub = acct.xpub
         if account_xpub.startswith(FBONDS_PUBKEY_PREFIX):
             account_xpub = account_xpub[len(FBONDS_PUBKEY_PREFIX):]
-        xpubs[j].append(account_xpub)
+        xpubs[j].append(convert_xpub_if_needed(account_xpub, wallet_service.wallet.TYPE))
     # in case the wallet is not yet synced, don't return an incorrect
     # 0 balance, but signal incompleteness:
     total_bal = walletview.get_fmt_balance() if wallet_service.synced else None
