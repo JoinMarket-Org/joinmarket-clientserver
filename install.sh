@@ -353,6 +353,13 @@ libsodium_install ()
 
 tor_build ()
 {
+    # jm_root will be empty for --docker-install,
+    # sys.prefix defaults to /usr/local
+    if [[ -n "$jm_root" ]]; then
+        tor_root="$jm_root"
+    else
+        tor_root="/usr/local"
+    fi
     $make uninstall
     $make distclean
     ./configure \
@@ -365,7 +372,7 @@ tor_build ()
         --disable-asciidoc \
         --disable-manpage \
         --disable-html-manual \
-        --prefix="${jm_root}"
+        --prefix="${tor_root}"
     $make
     if ! $make check; then
         return 1
