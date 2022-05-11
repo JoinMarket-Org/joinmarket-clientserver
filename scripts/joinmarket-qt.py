@@ -73,7 +73,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
     detect_script_type, general_custom_change_warning, \
     nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError,\
-    TYPE_P2WPKH, check_and_start_tor
+    TYPE_P2WPKH, check_and_start_tor, is_extended_public_key
 from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
@@ -1462,10 +1462,11 @@ class JMWalletTab(QWidget):
             txt = str(item.text(0))
             if validate_address(txt)[0]:
                 address_valid = True
-            if "EXTERNAL" in txt:
-                parsed = txt.split()
-                if len(parsed) > 1:
-                    xpub = parsed[1]
+
+            parsed = txt.split()
+            if len(parsed) > 1:
+                if is_extended_public_key(parsed[-1]):
+                    xpub = parsed[-1]
                     xpub_exists = True
 
         menu = QMenu()
@@ -1549,8 +1550,10 @@ class JMWalletTab(QWidget):
 
         for mixdepth in range(max_mixdepth_count):
             mdbalance = mbalances[mixdepth]
+            account_xpub = xpubs[mixdepth][-1]
+
             m_item = QTreeWidgetItem(["Mixdepth " + str(mixdepth) + " , balance: " +
-                                      mdbalance, '', '', '', ''])
+                                      mdbalance + ", " + account_xpub, '', '', '', ''])
             self.walletTree.addChild(m_item)
 
             # if expansion states existed, reinstate them:
@@ -2332,6 +2335,12 @@ def get_wallet_printout(wallet_service):
                                     entry.serialize_amounts(),
                                     entry.serialize_status(),
                                     entry.serialize_label()])
+        # Append the account xpub to the end of the list
+        FBONDS_PUBKEY_PREFIX = "fbonds-mpk-"
+        account_xpub = acct.xpub
+        if account_xpub.startswith(FBONDS_PUBKEY_PREFIX):
+            account_xpub = account_xpub[len(FBONDS_PUBKEY_PREFIX):]
+        xpubs[j].append(account_xpub)
     # in case the wallet is not yet synced, don't return an incorrect
     # 0 balance, but signal incompleteness:
     total_bal = walletview.get_fmt_balance() if wallet_service.synced else None
