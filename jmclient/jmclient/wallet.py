@@ -2442,7 +2442,7 @@ class FidelityBondMixin(object):
 
     def get_bip32_pub_export(self, mixdepth=None, address_type=None):
         bip32_pub = super().get_bip32_pub_export(mixdepth, address_type)
-        if address_type == None and mixdepth == self.FIDELITY_BOND_MIXDEPTH:
+        if address_type is None and mixdepth == self.FIDELITY_BOND_MIXDEPTH:
             bip32_pub = self._BIP32_PUBKEY_PREFIX + bip32_pub
         return bip32_pub
 
@@ -2461,8 +2461,8 @@ class FidelityBondMixin(object):
             return super()._get_key_from_path(path)
 
     def get_path(self, mixdepth=None, address_type=None, index=None):
-        if address_type == None or address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID,
-                self.BIP32_BURN_ID) or index == None:
+        if address_type is None or address_type in (self.BIP32_EXT_ID, self.BIP32_INT_ID,
+                                                    self.BIP32_BURN_ID) or index is None:
             return super().get_path(mixdepth, address_type, index)
         elif address_type == self.BIP32_TIMELOCK_ID:
             # index is re-purposed as timenumber
@@ -2565,7 +2565,7 @@ class FidelityBondMixin(object):
             cert_expiry, current_block_height):
 
         utxo_data = jm_single().bc_interface.query_utxo_set(utxo, includeconf=True)
-        if utxo_data[0] == None:
+        if utxo_data[0] is None:
             return None
         if utxo_data[0]["confirms"] <= 0:
             return None
