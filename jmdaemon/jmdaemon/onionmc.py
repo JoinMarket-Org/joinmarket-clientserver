@@ -1217,11 +1217,13 @@ class OnionMessageChannel(MessageChannel):
                 accepted = handshake_json["accepted"]
                 nick = handshake_json["nick"]
                 net = handshake_json["network"]
+                motd = handshake_json["motd"]
                 assert isinstance(proto_max, int)
                 assert isinstance(proto_min, int)
                 assert isinstance(features, dict)
                 assert isinstance(nick, str)
                 assert isinstance(net, str)
+                assert isinstance(motd, str)
             except Exception as e:
                 log.warn("Invalid handshake message from: {},"
                 " exception: {}, message: {},ignoring".format(
@@ -1248,6 +1250,8 @@ class OnionMessageChannel(MessageChannel):
                 return
             # We received a valid, accepting dn-handshake. Update the peer.
             peer.update_status(PEER_STATUS_HANDSHAKED)
+            # Show the info for the directory to the user, with emphasis:
+            self.info_callback("\n\n" + motd + "\n\n")
             peer.set_nick(nick)
         else:
             # it means, we are receiving an initial handshake
