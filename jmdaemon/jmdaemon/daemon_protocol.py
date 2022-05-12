@@ -1030,10 +1030,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """Retrieve the libsodium box object for the counterparty;
         stored differently for Taker and Maker
         """
-        if nick in self.crypto_boxes and self.crypto_boxes[nick] != None:
+        if nick in self.crypto_boxes and self.crypto_boxes[nick] is not None:
             return self.crypto_boxes[nick][1]
-        elif nick in self.active_orders and self.active_orders[nick] != None \
-             and "crypto_box" in self.active_orders[nick]:
+        elif nick in self.active_orders and self.active_orders[nick] is not None \
+                and "crypto_box" in self.active_orders[nick]:
             return self.active_orders[nick]["crypto_box"]
         else:
             log.msg('something wrong, no crypto object, nick=' + nick +
