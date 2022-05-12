@@ -130,8 +130,7 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
         tx_list.append(tx)
     ### stage 2 coinjoins, which create a number of random-amount coinjoins from each mixdepth
     for m, txcount in enumerate(txcounts):
-        if options['mixdepthcount'] - options['addrcount'] <= m and m < \
-                options['mixdepthcount'] - 1:
+        if options['mixdepthcount'] - options['addrcount'] <= m < options['mixdepthcount'] - 1:
             #these mixdepths send to a destination address, so their
             # amount_fraction cant be 1.0, some coins must be left over
             if txcount == 1:
