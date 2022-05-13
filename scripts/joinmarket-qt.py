@@ -1556,9 +1556,8 @@ class JMWalletTab(QWidget):
             # if expansion states existed, reinstate them:
             if len(previous_expand_states) == max_mixdepth_count:
                 m_item.setExpanded(previous_expand_states[mixdepth][0])
-            # by default, if the mixdepth is 0 or balance of the mixdepth is
-            # greater than 0, expand it
-            elif mixdepth == 0 or float(mdbalance) > 0:
+            # we expand at the mixdepth level by default
+            else:
                 m_item.setExpanded(True)
 
             for address_type in [
