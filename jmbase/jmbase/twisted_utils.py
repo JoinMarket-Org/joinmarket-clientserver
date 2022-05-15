@@ -67,7 +67,7 @@ class WhitelistContextFactory(object):
         self.default_policy = BrowserLikePolicyForHTTPS()
 
     def creatorForNetloc(self, hostname, port):
-        # check if the hostname is in the the whitelist,
+        # check if the hostname is in the whitelist,
         # otherwise return the default policy
         if hostname in self.good_domains:
             return CertificateOptions(verify=False)
@@ -101,7 +101,7 @@ def _stop_reactor():
 def is_hs_uri(s):
     x = wrapped_urlparse(s)
     if x.hostname.endswith(".onion"):
-        return (x.scheme, x.hostname, x.port)
+        return x.scheme, x.hostname, x.port
     return False
 
 def get_tor_agent(socks5_host, socks5_port):
@@ -217,7 +217,7 @@ class JMHiddenService(object):
         # 'onion' arg is the created EphemeralOnionService object;
         # now we know it exists, we start serving the Site on the
         # relevant port:
-        self.onion =  onion
+        self.onion = onion
         serverstring = "tcp:{}:interface={}".format(self.serving_port,
                                                     self.serving_host)
         onion_endpoint = serverFromString(reactor, serverstring)
@@ -256,7 +256,7 @@ class JMHTTPResource(Resource):
     isLeaf = True
 
     def render_GET(self, request):
-        """ by default we serve a simple string which can be used e.g.
+        """ by default, we serve a simple string which can be used e.g.
         to check if an ephemeral HS is upon Tor Browser; child classes
         may override.
         """
