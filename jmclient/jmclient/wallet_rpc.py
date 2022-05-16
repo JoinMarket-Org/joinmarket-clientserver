@@ -92,6 +92,11 @@ class TransactionFailed(Exception):
 class NotEnoughCoinsForMaker(Exception):
     pass
 
+# raised when we tried to start the tumbler,
+# but the wallet was empty/not enough.
+class NotEnoughCoinsForTumbler(Exception):
+    pass
+
 # raised when we cannot read data from our
 # yigen-statement csv file:
 class YieldGeneratorDataUnreadable(Exception):
@@ -333,6 +338,12 @@ class JMWalletDaemon(Service):
         request.setResponseCode(409)
         return self.err(request, "Maker could not start, no confirmed coins.")
 
+    @app.handle_errors(NotEnoughCoinsForTumbler)
+    def not_enough_coins_tumbler(self, request, failure):
+        # as above, 409 may not be ideal
+        request.setResponseCode(409)
+        return self.err(request, "Tumbler could not start, no confirmed coins.")
+
     @app.handle_errors(YieldGeneratorDataUnreadable)
     def yieldgenerator_report_unavailable(self, request, failure):
         request.setResponseCode(404)
@@ -375,20 +386,47 @@ class JMWalletDaemon(Service):
         # startup, so any failure to exist here is a logic error:
         self.wss_factory.valid_token = self.cookie
 
-    def get_POST_body(self, request, keys):
+    def get_POST_body(self, request, required_keys, optional_keys=None):
         """ given a request object, retrieve values corresponding
-        to keys keys in a dict, assuming they were encoded using JSON.
-        If *any* of the keys are not present, return False, else
-        returns a dict of those key-value pairs.
+        to keys in a dict, assuming they were encoded using JSON.
+        If *any* of the required_keys are not present or required_keys
+        and optional_keys clash, return False, else returns a dict of those
+        key-value pairs and any of the optional key-value pairs.
         """
         assert isinstance(request.content, BytesIO)
         # we swallow any formatting failure here:
         try:
             json_data = json.loads(request.content.read().decode(
                 "utf-8"))
-            return {k: json_data[k] for k in keys}
+            required_body = {k: json_data[k] for k in required_keys}
+
+            if optional_keys is not None:
+                optional_body = {k: json_data[k] for k in optional_keys if k in json_data}
+
+                for key in optional_body:
+                    if not key in required_body:
+                        required_body[key] = optional_body[key]
+                    else:
+                        return False
+
+            return required_body
         except:
             return False
+
+    def parse_tumbler_options_from_json(self, tumbler_options_json):
+        parsed_tumbler_options = {}
+
+        for key, val in tumbler_options_json.items():
+            if isinstance(val, list):
+                # Convert JSON lists to tuples.
+                parsed_tumbler_options[key] = tuple(val)
+            elif key == 'order_choose_fn':
+                # Todo: No support for custom order choose function via API yet.
+                pass
+            else:
+                parsed_tumbler_options[key] = val
+
+        return parsed_tumbler_options
 
     def initialize_wallet_service(self, request, wallet, wallet_name, **kwargs):
         """ Called only when the wallet has loaded correctly, so
@@ -1063,6 +1101,10 @@ class JMWalletDaemon(Service):
         def start_tumbler(self, request, walletname):
             self.check_cookie(request)
 
+            if self.coinjoin_state is not CJ_NOT_RUNNING or self.tumbler_options is not None:
+                # Tumbler or taker seems to be running already.
+                return make_jmwalletd_response(request, status=409)
+
             if not self.services["wallet"]:
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
@@ -1070,13 +1112,12 @@ class JMWalletDaemon(Service):
 
             # -- Options parsing -----------------------------------------------
 
+            # Start with default tumbler options from the tumbler CLI.
             (options, args) = get_tumbler_parser().parse_args([])
-            self.tumbler_options = vars(options)
+            tumbler_options = vars(options)
 
-            # At the moment only the destination addresses can be set.
-            # For now, all other options are hardcoded to the defaults of
-            # the tumbler.py script.
-            request_data = self.get_POST_body(request, ["destination_addresses"])
+            request_data = self.get_POST_body(request, ["destination_addresses"],
+                                  ["tumbler_options"])
             if not request_data:
                 raise InvalidRequestFormat()
 
@@ -1085,6 +1126,14 @@ class JMWalletDaemon(Service):
                 success, _ = validate_address(daddr)
                 if not success:
                     raise InvalidRequestFormat()
+
+            if "tumbler_options" in request_data:
+                requested_tumbler_options = self.parse_tumbler_options_from_json(
+                    request_data["tumbler_options"])
+
+                for k in tumbler_options:
+                    if k in requested_tumbler_options:
+                        tumbler_options[k] = requested_tumbler_options[k]
 
             # Setting max_cj_fee based on global config.
             # We won't respect it being set via tumbler_options for now.
@@ -1095,18 +1144,34 @@ class JMWalletDaemon(Service):
                                                None,
                                                user_callback=dummy_user_callback)
 
-            jm_single().mincjamount = self.tumbler_options['mincjamount']
+            jm_single().mincjamount = tumbler_options['mincjamount']
+
+            # -- Check wallet balance ------------------------------------------
+
+            max_mix_depth = tumbler_options['mixdepthsrc'] + tumbler_options['mixdepthcount']
+
+            if tumbler_options['amtmixdepths'] > max_mix_depth:
+                max_mix_depth = tumbler_options['amtmixdepths']
+
+            max_mix_to_tumble = min(tumbler_options['mixdepthsrc'] + tumbler_options['mixdepthcount'], max_mix_depth)
+
+            total_tumble_amount = int(0)
+            for i in range(tumbler_options['mixdepthsrc'], max_mix_to_tumble):
+                total_tumble_amount += self.services["wallet"].get_balance_by_mixdepth(verbose=False, minconfs=1)[i]
+
+            if total_tumble_amount == 0:
+                raise NotEnoughCoinsForTumbler()
 
             # -- Schedule generation -------------------------------------------
 
             # Always generates a new schedule. No restart support for now.
-            schedule = get_tumble_schedule(self.tumbler_options,
+            schedule = get_tumble_schedule(tumbler_options,
                                            destaddrs,
                                            self.services["wallet"].get_balance_by_mixdepth())
 
             logsdir = os.path.join(os.path.dirname(jm_single().config_location),
                                    "logs")
-            sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
+            sfile = os.path.join(logsdir, tumbler_options['schedulefile'])
             with open(sfile, "wb") as f:
                 f.write(schedule_to_text(schedule))
 
@@ -1126,6 +1191,8 @@ class JMWalletDaemon(Service):
 
             if not self.activate_coinjoin_state(CJ_TAKER_RUNNING):
                 raise ServiceAlreadyStarted()
+
+            self.tumbler_options = tumbler_options
 
             self.taker = Taker(self.services["wallet"],
                                schedule,
@@ -1156,9 +1223,8 @@ class JMWalletDaemon(Service):
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
 
-            if not self.tumbler_options:
+            if not self.tumbler_options or not self.coinjoin_state == CJ_TAKER_RUNNING:
                 return make_jmwalletd_response(request, status=404)
-
 
             logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
             sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])

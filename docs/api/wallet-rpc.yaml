@@ -610,11 +610,63 @@ components:
       required:
         - destinations
       properties:
-        destinations:
+        destination_addresses:
           type: array
           items:
             type: string
             example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
+        tumbler_options:
+          type: object
+          properties:
+            addrcount:
+              type: integer
+            minmakercount:
+              type: integer
+            makercountrange:
+              type: array
+              items:
+                type: number
+                minItems: 2
+                maxItems: 2
+              example: [9, 1]
+            mixdepthcount:
+              type: integer
+            mintxcount:
+              type: integer
+            txcountparams:
+              type: array
+              items:
+                type: number
+                minItems: 2
+                maxItems: 2
+              example: [2, 1]
+            timelambda:
+              type: number
+            stage1_timelambda_increase:
+              type: number
+            liquiditywait:
+              type: integer
+            waittime:
+              type: number
+            mixdepthsrc:
+              type: integer
+            restart:
+              type: boolean
+            schedulefile:
+              type: string
+            mincjamount:
+              type: integer
+            amtmixdepths:
+              type: integer
+            rounding_chance:
+              type: number
+            rounding_sigfig_weights:
+              type: array
+              items:
+                type: number
+                minItems: 5
+                maxItems: 5
+              example: [55, 15, 25, 65, 40]
     StartMakerRequest:
       type: object
       required:
