@@ -4,7 +4,7 @@
 
 ## Commitments for initiating coinjoins
 
-To reduce the potential for spying, we now require that every request for a coinjoin comes along with a "commitment" which is a hash value based on the idea of [proof of discrete log equivalence, PoDLE](https://joinmarket.me/blog/blog/poodle/).
+To reduce the potential for spying, we now require that every request for a coinjoin comes along with a "commitment" which is a hash value based on the idea of [proof of discrete log equivalence, PoDLE](https://reyify.com/blog/poodle).
 
 The gory crypto details don't matter of course, what matters is that for each utxo you own that is (a) at least 5 blocks old, and (b) contains an amount of at least 20% of the transaction size ("20%" is controlled by `taker_utxo_amtpercent` in `joinmarket.cfg` - **don't change this**), you are allowed 3 tries ("3" is controlled by `taker_utxo_retries` in `joinmarket.cfg` - **don't change this**) to do a transaction. Once you've tried 3 times, you have to use a different utxo (some Makers may choose to be more lax, but this will be the usual requirement).
 
