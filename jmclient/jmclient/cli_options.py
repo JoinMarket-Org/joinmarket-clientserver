@@ -349,13 +349,6 @@ def get_tumbler_parser():
             default=2,
             help='The minimum transaction count per mixing level, default=2')
     parser.add_option(
-            '--donateamount',
-            type='float',
-            dest='donateamount',
-            default=0,
-            help=
-            'percent of funds to donate to joinmarket development, or zero to opt out (default=0%)')
-    parser.add_option(
             '-l',
             '--timelambda',
             type='float',
@@ -397,20 +390,6 @@ def get_tumbler_parser():
             default=60,
             help=
             'amount of seconds to wait after failing to choose suitable orders before trying again, default 60')
-    parser.add_option(
-            '--maxbroadcasts',
-            type='int',
-            dest='maxbroadcasts',
-            default=4,
-            help=
-            'maximum amount of times to broadcast a transaction before giving up and re-creating it, default 4')
-    parser.add_option(
-            '--maxcreatetx',
-            type='int',
-            dest='maxcreatetx',
-            default=9,
-            help=
-            'maximum amount of times to re-create a transaction before giving up, default 9')
     # note that this is used slightly differently in tumbler from sendpayment,
     # hence duplicated:
     parser.add_option('-A',
