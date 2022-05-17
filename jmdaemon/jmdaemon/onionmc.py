@@ -1074,8 +1074,8 @@ class OnionMessageChannel(MessageChannel):
         if not nick in self.active_directories:
             return
         if not dir_peer in self.active_directories[nick]:
-            log.info("Directory {} is telling us that {} has left, but we "
-                     "didn't know about them. Ignoring.".format(
+            log.debug("Directory {} is telling us that {} has left, but we "
+                      "didn't know about them. Ignoring.".format(
                          dir_peer.peer_location(), nick))
             return
         log.debug("Directory {} has lost connection to: {}".format(
