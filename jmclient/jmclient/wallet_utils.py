@@ -161,7 +161,7 @@ class WalletViewBase(object):
         total_balance, available_balance = self.get_balances(
             include_unconf=include_unconf)
         return {self.balance_key_name: "{0:.08f}".format(total_balance),
-                "available_balance": "{0:.08f}".format(total_balance)}
+                "available_balance": "{0:.08f}".format(available_balance)}
 
 class WalletViewEntry(WalletViewBase):
     balance_key_name = "amount"
