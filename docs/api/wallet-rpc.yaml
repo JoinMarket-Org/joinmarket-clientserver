@@ -773,6 +773,8 @@ components:
               type: string
             total_balance: 
               type: string
+            available_balance:
+              type: string
             accounts: 
               type: array
               items: 
@@ -782,6 +784,8 @@ components:
                     type: string
                   account_balance: 
                     type: string
+                  available_balance:
+                    type: string
                   branches: 
                     type: array
                     items: 
@@ -790,6 +794,8 @@ components:
                         branch: 
                           type: string
                         balance: 
+                          type: string
+                        available_balance:
                           type: string
                         entries: 
                           type: array
@@ -801,6 +807,8 @@ components:
                               address: 
                                 type: string
                               amount: 
+                                type: string
+                              available_balance:
                                 type: string
                               status:
                                 type: string

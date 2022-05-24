@@ -342,6 +342,13 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         assert wia[0]["branches"][0]["entries"][0]["hd_path"] == "m/84'/1'/0'/0/0"
         assert wia[1]["branches"][0]["entries"][1]["status"] == "used"
         assert wia[1]["branches"][0]["entries"][1]["extradata"] == ""
+        # currently this test only produces output with available_balance = balance,
+        # at every level in the tree (no freeze here), but could add TODO
+        assert wi["available_balance"] == wi["total_balance"]
+        assert all([wia[i]["account_balance"] == wia[i][
+            "available_balance"] for i in range(len(wia))])
+        assert all([x["balance"] == x["available_balance"] for x in wia[
+            0]["branches"]])
 
     @defer.inlineCallbacks
     def test_getaddress(self):
