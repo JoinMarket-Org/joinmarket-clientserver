@@ -23,6 +23,11 @@ NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET,
 WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef', 'signet': b'\xef'}
 BIP44_COIN_MAP = {'mainnet': 2**31, 'testnet': 2**31 + 1, 'signet': 2**31 + 1}
 
+BIP32_PUB_PREFIX = "xpub"
+BIP49_PUB_PREFIX = "ypub"
+BIP84_PUB_PREFIX = "zpub"
+TESTNET_PUB_PREFIX = "tpub"
+
 def detect_script_type(script_str):
     """ Given a scriptPubKey, decide which engine
     to use, one of: p2pkh, p2sh-p2wpkh, p2wpkh.
@@ -49,6 +54,12 @@ def detect_script_type(script_str):
         return TYPE_P2WSH
     raise EngineError("Unknown script type for script '{}'"
                       .format(bintohex(script_str)))
+
+
+def is_extended_public_key(key_str):
+    return any([key_str.startswith(prefix) for prefix in [
+        BIP32_PUB_PREFIX, BIP49_PUB_PREFIX, BIP84_PUB_PREFIX, TESTNET_PUB_PREFIX]])
+
 
 class classproperty(object):
     """
