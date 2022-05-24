@@ -48,9 +48,9 @@ This was previously marked 'done' but is now very much "un-done" since the code 
 
 * The [issue693](https://github.com/JoinMarket-Org/joinmarket/issues/693) problem is by far the most important one to spend time on.
 
-The fidelity bond code introduced in #544 can serve as a basis for removing this issue, but it will most sensibly fold into a broader protocol upgrade. On that:
+~~The fidelity bond code introduced in #544 can serve as a basis for removing this issue, but it will most sensibly fold into a broader protocol upgrade.~~
 
-Possible future update ("hard fork") for Joinmarket protocol may include:
+Done as of v0.9.5. Makers now use fidelity bonds.
 
 ~~* bech32 addresses for joins; possibly mixed address types, needs discussion.~~
 
@@ -58,7 +58,9 @@ Bech32 native segwit has become default for coinjoins as of 0.8.0.
 
 * change format of data transfer (in particular, avoid double encoding which wastes space)
 
- An additional possibility is discussesd in #415 namely, possible decentralized architecture for Joinmarket inter-participant communication.
+ ~~An additional possibility is discussesd in #415 namely, possible decentralized architecture for Joinmarket inter-participant communication.~~
+
+This is done as of v0.9.6, we now have redundant directory nodes and peer to peer transaction negotiation over Tor, albeit it will doubtless require considerable refinement over time.
  
 ### Qt GUI
 
@@ -72,11 +74,10 @@ Windows binaries are now being built in an automated way via #641. The same proc
 
 ### Alternative implementations
 
-* Build an alternative client implementation in Java or Javascript for example, using some existing Bitcoin library in that language, perhaps using some lite client solution e.g. SPV, and then connecting to the daemon (executable or Python script).
+* ~~Build an alternative client implementation in Java or Javascript for example, using some existing Bitcoin library in that language, perhaps using some lite client solution e.g. SPV, and then connecting to the daemon (executable or Python script).~~
 
-Some minor progress on this can be seen in #670 and in the repo https://github.com/JoinMarket-Org/jmcontrolcenter
+This can now be considered 'done' as per the full RPC spec at https://joinmarket-org.github.io/joinmarket-clientserver/api/ based on the daemon `scripts/jmwalletd.py` which now offers almost all of the functionality of Joinmarket, and the JAM client at https://github.com/joinmarket-webui/joinmarket-webui
 
-Much more progress after merge of #996, we have a full RPC-API including a spec definition. There is now more than one independent web interface under development, see https://github.com/joinmarket-webui/jm-web-client and https://github.com/manasgandy/joinmarket-gui.
 
 ### Bitcoin
 
@@ -92,7 +93,9 @@ Much more progress after merge of #996, we have a full RPC-API including a spec 
 This was all done in the switch to [python-bitcointx](https://github.com/Simplexum/python-bitcointx) included in 0.7.0 via #536 .
 ~~Complete removal of coincurve for all functions is still to be done.~~ Now done via #1134
 
-Taproot support needs to be added, see #1084.
+~~Taproot support needs to be added, see #1084.~~
+
+Sending to taproot addresses was included as of v0.9.5.
 
 
 ### Extra features.
