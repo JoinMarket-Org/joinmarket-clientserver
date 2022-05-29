@@ -44,10 +44,10 @@ def test_query_utxo_set(setup_wallets):
     txid2 = do_tx(wallet_service, 20000000)
     print("Got txs: ", txid, txid2)
     res1 = jm_single().bc_interface.query_utxo_set(
-        (txid, 0), includeunconf=True)
+        (txid, 0), include_mempool=True)
     res2 = jm_single().bc_interface.query_utxo_set(
         [(txid, 0), (txid2, 1)],
-        includeconf=True, includeunconf=True)
+        includeconfs=True, include_mempool=True)
     assert len(res1) == 1
     assert len(res2) == 2
     assert all([x in res1[0] for x in ['script', 'value']])

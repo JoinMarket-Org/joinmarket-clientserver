@@ -82,7 +82,7 @@ class Maker(object):
         #finally, check that the proffered utxo is real, old enough, large enough,
         #and corresponds to the pubkey
         res = jm_single().bc_interface.query_utxo_set([cr_dict['utxo']],
-                                                      includeconf=True)
+                                                      includeconfs=True)
         if len(res) != 1 or not res[0]:
             reason = "authorizing utxo is not valid"
             return reject(reason)
