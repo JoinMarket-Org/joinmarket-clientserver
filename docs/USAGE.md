@@ -11,7 +11,7 @@ followed a manual installation as per [here](INSTALL.md)).
 
 2. [Configuring for Bitcoin Core](#configure)
 
-   a. [Setting a Core wallet (recommended)](#setting-core-wallet)
+   a. [Setting a Core wallet (required for Bitcoin Core v0.21 and newer)](#setting-core-wallet)
 
 3. [Using the wallet-tool.py script](#wallet-tool)
 
@@ -105,7 +105,9 @@ Note, you can also use a cookie file by setting, in this section, a variable `rp
 
 <a name="setting-core-wallet" />
 
-### Setting a Core wallet (recommended)
+### Setting a Core wallet (required for Bitcoin Core v0.21 and newer)
+
+_NOTE: Although this step is not strictly required for Bitcoin Core versions before 0.21, it is still recommended._
 
 This point often confuses people. Joinmarket has its own wallet, with encryption and storage of keys, separate to Bitcoin Core,
 but it *stores addresses as watch-only in the Bitcoin Core wallet*, and the relevant rpc calls to Bitcon Core always specify the
