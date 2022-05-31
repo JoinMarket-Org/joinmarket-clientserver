@@ -1236,8 +1236,8 @@ class OnionMessageChannel(MessageChannel):
                 # this is no-op).
                 peer.disconnect()
                 return
-            if not (app_name == JM_APP_NAME and is_directory and JM_VERSION \
-                    <= proto_max and JM_VERSION >= proto_min and accepted):
+            if not (app_name == JM_APP_NAME and is_directory and proto_max
+                    >= JM_VERSION >= proto_min and accepted):
                 log.warn("Handshake from directory is incompatible or "
                          "rejected: {}".format(handshake_json))
                 peer.disconnect()

@@ -538,7 +538,7 @@ class JMIntValidator(QIntValidator):
         if not set(arg__1) <= self.allowed:
             return QValidator.Invalid
         # above guarantees integer
-        if not (int(arg__1) <= self.maxval and int(arg__1) >= self.minval):
+        if not (self.maxval >= int(arg__1) >= self.minval):
             return QValidator.Invalid
         return super().validate(arg__1, arg__2)
 
