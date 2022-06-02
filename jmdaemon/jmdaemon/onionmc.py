@@ -154,6 +154,13 @@ class OnionCustomMessage(object):
         return cls(text, msgtype)
 
 class OnionLineProtocol(basic.LineReceiver):
+    # there are messages requiring more than LineReceiver's 16KB,
+    # specifically, large coinjoin transaction `pushtx` messages.
+    # 40K is finger in the air for: 500bytes per participant, 40
+    # participants, and a double base64 expansion (x1.33 and x1.33)
+    # which gives 35.5K, add a little breathing room.
+    MAX_LENGTH = 40000
+
     def connectionMade(self):
         self.factory.register_connection(self)
         basic.LineReceiver.connectionMade(self)
