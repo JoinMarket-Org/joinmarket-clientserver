@@ -150,9 +150,12 @@ class TrialTestPayjoin4(PayjoinTestBase, unittest.TestCase):
         jm_single().config.set("POLICY", "txfees", self.old_txfees)
     def test_low_feerate(self):
         self.old_txfees = jm_single().config.get("POLICY", "tx_fees")
-        # set such that randomization cannot pull it below minfeerate
-        # (default of 1.1 sat/vbyte):
-        jm_single().config.set("POLICY", "tx_fees", "1376")
+        # To set such that randomization cannot pull it below minfeerate
+        # (default of 1.1 sat/vbyte), we should need tx_fees at 1376
+        # (which corresponds to 1.108); but given the minor potential deviations
+        # as noted in https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/babad1963992965e933924b6c306ad9da89989e0/jmclient/jmclient/payjoin.py#L802-L809
+        # , we increase from that by 2%.
+        jm_single().config.set("POLICY", "tx_fees", "1404")
         d = self.do_test_payment(SegwitWallet, SegwitWallet)
         d.addCallback(self.reset_fee)
         return d
