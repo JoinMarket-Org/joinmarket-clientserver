@@ -72,7 +72,7 @@ class DummyBlockchainInterface(BlockchainInterface):
     def reset_confs(self):
         self.confs_for_qus = {}
 
-    def query_utxo_set(self, txouts, includeconf=False):
+    def query_utxo_set(self, txouts, includeconfs=False):
         if self.qusfail:
             #simulate failure to find the utxo
             return [None]
@@ -97,8 +97,8 @@ class DummyBlockchainInterface(BlockchainInterface):
                        'fd9711a2ef340750db21efb761f5f7d665d94b312332dc354e252c77e9c48349:0': [50000000, 6]}
         wallet_outs = dictchanger(wallet_outs)
         
-        if includeconf and set(txouts).issubset(set(wallet_outs)):
-            #includeconf used as a trigger for a podle check;
+        if includeconfs and set(txouts).issubset(set(wallet_outs)):
+            #includeconfs used as a trigger for a podle check;
             #here we simulate a variety of amount/age returns
             results = []
             for to in txouts:
@@ -116,7 +116,7 @@ class DummyBlockchainInterface(BlockchainInterface):
             result_dict = {'value': 200000000,
                            'address': "mrcNu71ztWjAQA6ww9kHiW3zBWSQidHXTQ",
                            'script': hextobin('76a91479b000887626b294a914501a4cd226b58b23598388ac')}
-            if includeconf:
+            if includeconfs:
                 if t in self.confs_for_qus:
                     confs = self.confs_for_qus[t]
                 else:

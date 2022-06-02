@@ -2564,7 +2564,7 @@ class FidelityBondMixin(object):
     def get_validated_timelocked_fidelity_bond_utxo(cls, utxo, utxo_pubkey, locktime,
             cert_expiry, current_block_height):
 
-        utxo_data = jm_single().bc_interface.query_utxo_set(utxo, includeconf=True)
+        utxo_data = jm_single().bc_interface.query_utxo_set(utxo, includeconfs=True)
         if utxo_data[0] == None:
             return None
         if utxo_data[0]["confirms"] <= 0:

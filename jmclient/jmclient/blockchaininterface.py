@@ -39,7 +39,7 @@ class BlockchainInterface(object):
         """pushes tx to the network, returns False if failed"""
 
     @abc.abstractmethod
-    def query_utxo_set(self, txouts, includeconf=False):
+    def query_utxo_set(self, txouts, includeconfs=False):
         """
         takes a utxo or a list of utxos
         returns None if they are spend or unconfirmed
@@ -109,7 +109,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
         log.debug("Pushed via Electrum successfully, hash: " + tx_hash)
         return True
 
-    def query_utxo_set(self, txout, includeconf=False):
+    def query_utxo_set(self, txout, includeconfs=False):
         """Behaves as for Core; TODO make it faster if possible.
         Note in particular a failed connection should result in
         a result list containing at least one "None" which the
@@ -141,7 +141,7 @@ class ElectrumWalletInterface(BlockchainInterface): #pragma: no cover
                 'address': address,
                 'script': btc.address_to_script(address)
             }
-            if includeconf:
+            if includeconfs:
                 if int(u['height']) in [0, -1]:
                     #-1 means unconfirmed inputs
                     r['confirms'] = 0
@@ -389,15 +389,17 @@ class BitcoinCoreInterface(BlockchainInterface):
             return False
         return True
 
-    def query_utxo_set(self, txout, includeconf=False, includeunconf=False):
+    def query_utxo_set(self, txout, includeconfs=False, include_mempool=True):
         """If txout is either (a) a single utxo in (txidbin, n) form,
         or a list of the same, returns, as a list for each txout item,
         the result of gettxout from the bitcoind rpc for those utxos;
         if any utxo is invalid, None is returned.
-        includeconf: if this is True, the current number of confirmations
+        includeconfs: if this is True, the current number of confirmations
         of the prescribed utxo is included in the returned result dict.
-        includeunconf: if True, utxos which currently have zero confirmations
-        are included in the result set.
+        include_mempool: if True, the contents of the mempool are included;
+        this *both* means that utxos that are spent in in-mempool transactions
+        are *not* returned, *and* means that utxos that are created in the
+        mempool but have zero confirmations *are* returned.
         If the utxo is of a non-standard type such that there is no address,
         the address field in the dict is None.
         """
@@ -416,14 +418,14 @@ class BitcoinCoreInterface(BlockchainInterface):
                 log.warn("Invalid utxo format, ignoring: {}".format(txo))
                 result.append(None)
                 continue
-            ret = self._rpc('gettxout', [txo_hex, txo_idx, includeunconf])
+            ret = self._rpc('gettxout', [txo_hex, txo_idx, include_mempool])
             if ret is None:
                 result.append(None)
             else:
                 result_dict = {'value': int(Decimal(str(ret['value'])) *
                                             Decimal('1e8')),
                                'script': hextobin(ret['scriptPubKey']['hex'])}
-                if includeconf:
+                if includeconfs:
                     result_dict['confirms'] = int(ret['confirmations'])
                 result.append(result_dict)
         return result

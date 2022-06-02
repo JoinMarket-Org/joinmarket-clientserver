@@ -558,7 +558,8 @@ class Taker(object):
         return verified_data
 
     def _verify_ioauth_inputs(self, nick, utxo_list, auth_pub):
-        utxo_data = jm_single().bc_interface.query_utxo_set(utxo_list)
+        utxo_data = jm_single().bc_interface.query_utxo_set(utxo_list,
+                                                            includeconfs=True)
         if None in utxo_data:
             raise IoauthInputVerificationError([
                 "ERROR: outputs unconfirmed or already spent. utxo_data="
@@ -570,6 +571,10 @@ class Taker(object):
         # Construct the Bitcoin address for the auth_pub field
         # Ensure that at least one address from utxos corresponds.
         for inp in utxo_data:
+            if inp["confirms"] <= 0:
+                raise IoauthInputVerificationError([
+                    f"maker's ({nick}) proposed utxo is not confirmed, "
+                    "rejecting."])
             try:
                 if self.wallet_service.pubkey_has_script(
                         auth_pub, inp['script']):
@@ -756,7 +761,7 @@ class Taker(object):
 
         def filter_by_coin_age_amt(utxos, age, amt):
             results = jm_single().bc_interface.query_utxo_set(utxos,
-                                                    includeconf=True)
+                                                    includeconfs=True)
             newresults = []
             too_new = []
             too_small = []
