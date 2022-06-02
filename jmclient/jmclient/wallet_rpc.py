@@ -359,7 +359,7 @@ class JMWalletDaemon(Service):
         except Exception:
             # deliberately catching anything
             raise NotAuthorized()
-        if request_cookie==None or self.cookie != request_cookie:
+        if request_cookie is None or self.cookie != request_cookie:
             jlog.warn("Invalid cookie: " + str(
                 request_cookie) + ", request rejected.")
             raise NotAuthorized()
@@ -577,7 +577,7 @@ class JMWalletDaemon(Service):
 
             #if no wallet loaded then clear frontend session info
             #when no wallet status is false
-            session = not self.cookie==None
+            session = not self.cookie is None
             maker_running = self.coinjoin_state == CJ_MAKER_RUNNING
             coinjoin_in_process = self.coinjoin_state == CJ_TAKER_RUNNING
             if self.services["wallet"]:
