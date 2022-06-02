@@ -54,6 +54,11 @@ class InvalidRequestFormat(Exception):
 class BackendNotReady(Exception):
     pass
 
+# error class for actions which are inconsistent with
+# current state
+class ActionNotAllowed(Exception):
+    pass
+
 # error class for services which are only
 # started once:
 class ServiceAlreadyStarted(Exception):
@@ -272,6 +277,11 @@ class JMWalletDaemon(Service):
         """
         request.setHeader('Content-Type', 'application/json')
         return json.dumps({"message": message})
+
+    @app.handle_errors(ActionNotAllowed)
+    def not_allowed(self, request, failure):
+        request.setResponseCode(400)
+        return self.err(request, "Action not allowed")
 
     @app.handle_errors(NotAuthorized)
     def not_authorized(self, request, failure):
@@ -607,6 +617,13 @@ class JMWalletDaemon(Service):
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
+            # This is a synchronous operation (no delay is expected),
+            # hence the reference to the CJ_* lock is really just a gate
+            # on performing the action (so simpler to not update the
+            # state, otherwise we would have to revert it correctly in
+            # all error conditions).
+            if not self.coinjoin_state == CJ_NOT_RUNNING:
+                raise ActionNotAllowed()
             try:
                 tx = direct_send(self.services["wallet"],
                         int(payment_info_json["amount_sats"]),
@@ -981,6 +998,9 @@ class JMWalletDaemon(Service):
             valid, txidindex = utxostr_to_utxo(freeze_json["utxo-string"])
             if not valid:
                 raise InvalidRequestFormat()
+            # Do not update wallet state if coinjoin services are active
+            if not self.coinjoin_state == CJ_NOT_RUNNING:
+                raise ActionNotAllowed()
             txid, index = txidindex
             try:
                 # note: this does not raise or fail if the applied
