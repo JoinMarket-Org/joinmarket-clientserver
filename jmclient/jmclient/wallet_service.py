@@ -860,6 +860,14 @@ class WalletService(Service):
         script = hextobin(utxo['scriptPubKey'])
         value = int(Decimal(str(utxo['amount'])) * Decimal('1e8'))
         self.add_utxo(txid, int(utxo['vout']), script, value, height)
+        # if we start up with unconfirmed outputs, they must be
+        # put into the transaction monitor state, so we can recognize
+        # when they transition to confirmed.
+        if height is None:
+            txd = self.bci.get_deser_from_gettransaction(
+                self.bci.get_transaction(txid))
+            self.active_txs[utxo['txid']] = txd
+            self.processed_txids.add(utxo['txid'])
 
 
     """ The following functions mostly are not pure
