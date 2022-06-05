@@ -152,6 +152,8 @@ socks5_host = localhost
 socks5_port = 9050
 
 # the tor control configuration.
+# Currently, running the tor daemon on a remote host is
+# *NOT* supported, so don't change this variable
 # for most people running the tor daemon
 # on Linux, no changes are required here:
 tor_control_host = localhost
