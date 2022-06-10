@@ -580,6 +580,7 @@ class JMWalletDaemon(Service):
             session = not self.cookie==None
             maker_running = self.coinjoin_state == CJ_MAKER_RUNNING
             coinjoin_in_process = self.coinjoin_state == CJ_TAKER_RUNNING
+            coinjoin_is_part_of_schedule = self.coinjoin_state == CJ_TAKER_RUNNING and self.tumbler_options is not None
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
                     wallet_name = self.wallet_name
@@ -590,6 +591,7 @@ class JMWalletDaemon(Service):
             return make_jmwalletd_response(request,session=session,
                             maker_running=maker_running,
                             coinjoin_in_process=coinjoin_in_process,
+                            coinjoin_is_part_of_schedule=coinjoin_is_part_of_schedule,
                             wallet_name=wallet_name)
 
         @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
@@ -1102,7 +1104,7 @@ class JMWalletDaemon(Service):
             self.check_cookie(request)
 
             if self.coinjoin_state is not CJ_NOT_RUNNING or self.tumbler_options is not None:
-                # Tumbler or taker seems to be running already.
+                # Tumbler, taker, or maker seems to be running already.
                 return make_jmwalletd_response(request, status=409)
 
             if not self.services["wallet"]:
