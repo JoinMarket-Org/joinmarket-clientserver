@@ -73,6 +73,12 @@ If you used the old version of Joinmarket, the notes in the [scripts readme](scr
 If you are looking for the available makers, run the [orderbook](docs/orderbook.md). 
 Public mainnet mirror: [JoinMarket Browser Interface Orderbook](https://nixbitcoin.org/orderbook) [(🧅 tor)](http://qvzlxbjvyrhvsuyzz5t63xx7x336dowdvt7wfj53sisuun4i4rdtbzid.onion/orderbook)
 
+### Useful third-party projects
+
+* [***JoininBox***](https://github.com/openoms/joininbox). A minimalistic, security focused linux environment for JoinMarket with a terminal based graphical menu. Good for setting up on a dedicated machine or raspberry pi: https://github.com/openoms/joininbox
+
+* [***JAM***](https://github.com/joinmarket-webui/joinmarket-webui). Jam is a web UI for JoinMarket with focus on user-friendliness. It aims to provide sensible defaults and be easy to use for beginners while still providing the features advanced users expect: https://github.com/joinmarket-webui/joinmarket-webui
+
 ### PayJoin
 
 If you want to use the PayJoin feature to pay/receive money to/from another [BIP78]((https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki))-supporting wallet, read [this guide](docs/PAYJOIN.md).
