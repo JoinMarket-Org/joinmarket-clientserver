@@ -45,7 +45,7 @@ high enough (or if you think the sybil protection is too expensive then set the 
 lower, as always its your choice as a taker in the market).
 
 Takers will still choose makers equally (i.e. without taking into account fidelity bonds) with a
-small probability. By default this probability is currently 12.5%, so approximately 1-in-8 makers. This can
+small probability. By default this probability is currently 37,5%, so approximately 3-in-8 makers. This can
 be changed in the config file with the option `bondless_makers_allowance`.
 
 The previous algorithm for choosing makers without regards to fidelity bonds can still be used by
