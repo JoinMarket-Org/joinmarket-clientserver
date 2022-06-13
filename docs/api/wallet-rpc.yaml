@@ -713,6 +713,7 @@ components:
         - session
         - maker_running
         - coinjoin_in_process
+        - coinjoin_is_part_of_schedule
         - wallet_name
       properties:
         session:
@@ -720,6 +721,8 @@ components:
         maker_running:
           type: boolean
         coinjoin_in_process:
+          type: boolean
+        coinjoin_is_part_of_schedule:
           type: boolean
         wallet_name:
           type: string
