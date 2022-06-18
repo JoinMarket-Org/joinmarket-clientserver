@@ -227,7 +227,7 @@ bump the fee enough to add one input to the transaction, and this should be fine
 
 #### Using Joinmarket-wallet-to-Joinmarket-wallet payjoins
 
-This is now deprecated; if you still want to use it, use Joinmarket(-clientserver) version 0.7.0 or lower, and see the corresponding older version of this document.
+This can be done with the same [BIP78](https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki) workflow described above; the "old style" internal Joinmarket payjoins from 2019 are now deprecated.
 
 <a name="fees" />
 
@@ -329,50 +329,9 @@ it means of course the other case. Double check with your counterparty, somethin
 
 <a name="torconfig" />
 
-#### Configuring Tor to setup a hidden service
+#### Configuring Tor to setup an onion service
 
-(These steps were prepared using Ubuntu; you may have to adjust for your distro).
-
-First, ensure you have Tor installed:
-
-```
-sudo apt install tor
-```
-
-Don't start the tor daemon yet though, since we need to do some setup. Edit Tor's config file with sudo:
-
-```
-sudo vim /etc/tor/torrc
-```
-
-and uncomment these two lines to enable hidden service startup:
-
-```
-ControlPort 9051
-CookieAuthentication 1
-```
-
-However if you proceed at this point to try to run `receive-payjoin.py` as outlined above, you will almost certainly get an error like this:
-
-```
-Permission denied: '/var/run/tor/control.authcookie'
-```
-
-... because reading this file requires being a member of the group `debian-tor`. So add your user to this group:
-
-```
-sudo usermod -a -G debian-tor yourusername
-```
-
-... and then you must *restart the computer/server* for that change to take effect (check it with `groups yourusername`).
-
-Finally, after system restart, ensure Tor is started (it may be automatically, but anyway):
-
-```
-sudo service tor start
-```
-
- Once this is done, you should be able to run the BIP 78 receiver script, or [JoinmarketQt](#using-qt) and a hidden service will be automatically created for you from now on.
+Read about how to do this [here](./tor.md).
 
 <a name="using-qt" />
 

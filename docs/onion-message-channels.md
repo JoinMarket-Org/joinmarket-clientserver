@@ -24,11 +24,7 @@ albeit it was and remains E2E encrypted data, in either case)
 
 ### Tor
 
-As of Joinmarket 0.9.6, which introduces this feature, **Tor is now a requirement to run Joinmarket** (except in testing, which will not be explained here).
-
-(Technically, we could argue that this is not a new requirement - because the use of Payjoin already required the need to run such onion services, and connecting to IRC used a SOCKS5 proxy (used by almost all users) over Tor to a remote onion service.)
-
-If you don't currently have a Tor daemon running on your machine you can use the flag `--with-local-tor` appended to your invocation of `./install.sh` as per the installation instructions in the README.
+As of Joinmarket 0.9.6, which introduces this feature, **Tor is now a requirement to run Joinmarket** (except in testing, which will not be explained here). See [here](./tor.md) for more information about this).
 
 (Note however that taker bots will *not* be required to serve onions; they will only make outbound SOCKS connections, as they currently do on IRC).
 
