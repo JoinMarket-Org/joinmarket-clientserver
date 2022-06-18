@@ -1012,7 +1012,10 @@ class OnionMessageChannel(MessageChannel):
         adn = self.active_directories[nick]
         if len(adn) == 0:
             raise OnionDirectoryPeerNotFound
-        return random.choice([x for x in list(adn) if adn[x] is True])
+        candidates = [x for x in list(adn) if adn[x] is True]
+        if len(candidates) == 0:
+            raise OnionDirectoryPeerNotFound
+        return random.choice(candidates)
 
     def forward_pubmsg_to_peers(self, msg: str, from_nick: str) -> None:
         """ Used by directory nodes currently. Takes a received
