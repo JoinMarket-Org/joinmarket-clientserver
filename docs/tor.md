@@ -30,11 +30,11 @@ If you don't currently have a Tor daemon running on your machine you can use the
 
 Insert basic instructions on checking Tor is functional and SOCKS port.
 
-<a name="toraaker>
+<a name="tormaker>
 
 ### Using Tor as a Maker
 
-Insert explanation of why Maker is different, before going on to:
+To use the new onion messaging system (see [here](onion-message-channels.md)) as a maker it's necessary for your bot to be reachable directly p2p by takers, so you need to run an onion service. This often requires a little extra configuration of your Tor setup, which we now explain:
 
 <a name="torconfig" />
 
