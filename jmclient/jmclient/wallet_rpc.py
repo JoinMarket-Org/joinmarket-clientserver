@@ -586,10 +586,16 @@ class JMWalletDaemon(Service):
                 if self.services["wallet"].isRunning():
                     wallet_name = self.wallet_name
                     if self.coinjoin_state == CJ_TAKER_RUNNING and self.tumbler_options is not None:
-                        logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
-                        sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
-                        res, schedule = get_schedule(sfile)
-                        if not res:
+                        auth_header = request.getHeader('Authorization')
+                        if auth_header is not None:
+                            # At this point if an `auth_header` is present, it has been checked
+                            # by the call to `check_cookie_if_present` above.
+                            logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
+                            sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
+                            res, schedule = get_schedule(sfile)
+                            if not res:
+                                schedule = None
+                        else:
                             schedule = None
                 else:
                     wallet_name = "not yet loaded"
