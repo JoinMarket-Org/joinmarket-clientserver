@@ -580,18 +580,26 @@ class JMWalletDaemon(Service):
             session = not self.cookie==None
             maker_running = self.coinjoin_state == CJ_MAKER_RUNNING
             coinjoin_in_process = self.coinjoin_state == CJ_TAKER_RUNNING
-            coinjoin_is_part_of_schedule = self.coinjoin_state == CJ_TAKER_RUNNING and self.tumbler_options is not None
+            schedule = None
+
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
                     wallet_name = self.wallet_name
+                    if self.coinjoin_state == CJ_TAKER_RUNNING and self.tumbler_options is not None:
+                        logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
+                        sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
+                        res, schedule = get_schedule(sfile)
+                        if not res:
+                            schedule = None
                 else:
                     wallet_name = "not yet loaded"
             else:
                 wallet_name = "None"
+
             return make_jmwalletd_response(request,session=session,
                             maker_running=maker_running,
                             coinjoin_in_process=coinjoin_in_process,
-                            coinjoin_is_part_of_schedule=coinjoin_is_part_of_schedule,
+                            schedule=schedule,
                             wallet_name=wallet_name)
 
         @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])

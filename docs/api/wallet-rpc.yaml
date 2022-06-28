@@ -713,7 +713,6 @@ components:
         - session
         - maker_running
         - coinjoin_in_process
-        - coinjoin_is_part_of_schedule
         - wallet_name
       properties:
         session:
@@ -722,8 +721,12 @@ components:
           type: boolean
         coinjoin_in_process:
           type: boolean
-        coinjoin_is_part_of_schedule:
-          type: boolean
+        schedule:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: integer
         wallet_name:
           type: string
           example: wallet.jmdat
