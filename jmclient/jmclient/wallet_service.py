@@ -650,8 +650,7 @@ class WalletService(Service):
         # CLI scripts will use
         if self.bci.__class__ == BitcoinCoreInterface:
             #Exit conditions cannot be included in tests
-            restart_msg = ("restart Bitcoin Core with -rescan or use "
-                           "`bitcoin-cli rescanblockchain` if you're "
+            restart_msg = ("Use `bitcoin-cli rescanblockchain` if you're "
                            "recovering an existing wallet from backup seed\n"
                            "Otherwise just restart this joinmarket application.")
             if restart_cb:
