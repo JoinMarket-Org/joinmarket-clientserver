@@ -340,7 +340,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         # and the direct-send tx above:
         assert wia[0]["branches"][0]["entries"][0]["label"] == "test-wallet-rpc-label"
         assert wia[0]["branches"][0]["entries"][0]["hd_path"] == "m/84'/1'/0'/0/0"
-        assert wia[1]["branches"][0]["entries"][1]["status"] == "used"
+        assert wia[1]["branches"][0]["entries"][1]["status"] == "deposit"
         assert wia[1]["branches"][0]["entries"][1]["extradata"] == ""
         # currently this test only produces output with available_balance = balance,
         # at every level in the tree (no freeze here), but could add TODO

@@ -10,10 +10,12 @@ from numbers import Integral
 from collections import Counter
 from itertools import islice, chain
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
-    jm_single, BitcoinCoreInterface, WalletError, BaseWallet,
-    VolatileStorage, StoragePasswordError, is_segwit_mode, SegwitLegacyWallet,
-    LegacyWallet, SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
+    jm_single, WalletError, BaseWallet, VolatileStorage,
+    StoragePasswordError, is_segwit_mode, SegwitLegacyWallet, LegacyWallet,
+    SegwitWallet, FidelityBondMixin, FidelityBondWatchonlyWallet,
     is_native_segwit_mode, load_program_config, add_base_options, check_regtest)
+from jmclient.blockchaininterface import (BitcoinCoreInterface,
+    BitcoinCoreNoHistoryInterface)
 from jmclient.wallet_service import WalletService
 from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
                             EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex,
@@ -506,7 +508,7 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
             #the function should either be removed or added to bci
             #or possibly add some kind of `gettransaction` function
             # to bci
-            if jm_single().bc_interface.__class__ == BitcoinCoreInterface:
+            if not isinstance(jm_single().bc_interface, BitcoinCoreNoHistoryInterface):
                 is_coinjoin, cj_amount, cj_n = \
                     get_tx_info(utxo[0])[:3]
                 if is_coinjoin and utxodata['value'] == cj_amount:
