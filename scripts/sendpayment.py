@@ -96,6 +96,12 @@ def main():
                 sweeping = True
             destaddr = args[2]
         mixdepth = options.mixdepth
+        if btc.is_bip21_uri(args[2]):
+            parsed = btc.decode_bip21_uri(args[2])
+            if 'amount' in parsed:
+                parser.error("Specify amount as a separate argument or amount in BIP21 URI, not both.")
+                sys.exit(EXIT_ARGERROR)
+            destaddr = parsed['address']
         addr_valid, errormsg = validate_address(destaddr)
         command_to_burn = (is_burn_destination(destaddr) and sweeping and
             options.makercount == 0)
