@@ -30,7 +30,7 @@ If you don't currently have a Tor daemon running on your machine you can use the
 
 Insert basic instructions on checking Tor is functional and SOCKS port.
 
-<a name="tormaker>
+<a name="tormaker">
 
 ### Using Tor as a Maker
 
