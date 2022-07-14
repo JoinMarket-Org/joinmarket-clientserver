@@ -25,7 +25,7 @@ from jmclient import Taker, jm_single, \
     NotEnoughFundsException, get_tumble_log, get_tumble_schedule, \
     get_schedule, get_tumbler_parser, schedule_to_text, \
     tumbler_filter_orders_callback, tumbler_taker_finished_update, \
-    validate_address
+    validate_address, FidelityBondMixin
 from jmbase.support import get_log, utxostr_to_utxo
 
 jlog = get_log()
@@ -701,6 +701,17 @@ class JMWalletDaemon(Service):
                     # note: this raise will prevent the setup
                     # of the service (and therefore the startup) from
                     # proceeding:
+                    raise NotEnoughCoinsForMaker()
+                # We must also not start if the only coins available are of
+                # the TL type *even* if the TL is expired. This check is done
+                # here early, as above, to avoid the maker service starting.
+                utxos = self.services["wallet"].get_all_utxos()
+                # remove any TL type:
+                utxos = [u for u in utxos.values() if not \
+                         FidelityBondMixin.is_timelocked_path(u["path"])]
+                # Note that only the following check is required since we
+                # already checked that balance is non-zero.
+                if len(utxos) == 0:
                     raise NotEnoughCoinsForMaker()
 
             self.services["maker"].addCleanup(cleanup)
