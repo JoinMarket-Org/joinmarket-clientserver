@@ -262,6 +262,12 @@ segwit = true
 #        2. You cannot change the type of a pre-existing wallet.
 native = true
 
+# In joinmarket-qt, display zpub for native segwit wallet, and ypub for
+# non-native segwit wallet.
+# If set to false, the extended public key will always display in the xpub
+# format.
+qt_display_ypub_zpub = true
+
 # for dust sweeping, try merge_algorithm = gradual
 # for more rapid dust sweeping, try merge_algorithm = greedy
 # for most rapid dust sweeping, try merge_algorithm = greediest
@@ -985,6 +991,9 @@ def is_native_segwit_mode():
     if not is_segwit_mode():
         return False
     return jm_single().config.get('POLICY', 'native') != 'false'
+
+def qt_display_ypub_zpub():
+    return jm_single().config.get('POLICY', 'qt_display_ypub_zpub') != 'false'
 
 def process_shutdown(mode="command-line"):
     if mode=="command-line":
