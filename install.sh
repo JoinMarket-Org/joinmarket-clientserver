@@ -351,15 +351,19 @@ libsodium_install ()
     popd
 }
 
-tor_build ()
+tor_root ()
 {
     # jm_root will be empty for --docker-install,
     # sys.prefix defaults to /usr/local
     if [[ -n "$jm_root" ]]; then
-        tor_root="$jm_root"
+        echo "$jm_root"
     else
-        tor_root="/usr/local"
+        echo "/usr/local"
     fi
+}
+
+tor_build ()
+{
     $make uninstall
     $make distclean
     ./configure \
@@ -372,7 +376,7 @@ tor_build ()
         --disable-asciidoc \
         --disable-manpage \
         --disable-html-manual \
-        --prefix="${tor_root}"
+        --prefix="$(tor_root)"
     $make
     if ! $make check; then
         return 1
@@ -397,7 +401,7 @@ Log warn stderr
 SOCKSPort 9050 IsolateDestAddr IsolateDestPort
 ControlPort 9051
 CookieAuthentication 1
-        " > "${jm_root}/etc/tor/torrc"
+        " > "$(tor_root)/etc/tor/torrc"
     else
         return 1
     fi
