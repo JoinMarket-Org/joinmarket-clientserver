@@ -218,14 +218,15 @@ def make_wallets(n,
         wallet_service = WalletService(w)
         wallets[i + start_index] = {'seed': seeds[i],
                                     'wallet': wallet_service}
-        for j in range(mixdepths):
-            for k in range(wallet_structures[i][j]):
-                deviation = sdev_amt * random.random()
-                amt = mean_amt - sdev_amt / 2.0 + deviation
-                if amt < 0: amt = 0.001
-                amt = float(Decimal(amt).quantize(Decimal(10)**-8))
-                jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(
-                    j, populate_internal), amt)
+        if mean_amt != 0:
+            for j in range(mixdepths):
+                for k in range(wallet_structures[i][j]):
+                    deviation = sdev_amt * random.random()
+                    amt = mean_amt - sdev_amt / 2.0 + deviation
+                    if amt < 0: amt = 0.001
+                    amt = float(Decimal(amt).quantize(Decimal(10)**-8))
+                    jm_single().bc_interface.grab_coins(wallet_service.get_new_addr(
+                        j, populate_internal), amt)
     return wallets
 
 
