@@ -110,7 +110,7 @@ def main():
     else:
         #Create a new schedule from scratch
         schedule = get_tumble_schedule(options, destaddrs,
-            wallet.get_balance_by_mixdepth())
+            wallet.get_balance_by_mixdepth(), wallet_service.mixdepth)
         tumble_log.info("TUMBLE STARTING")
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
             f.write(schedule_to_text(schedule))

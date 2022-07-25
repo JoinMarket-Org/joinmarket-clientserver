@@ -83,7 +83,8 @@ def get_amount_fractions(count):
             break
     return y
 
-def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
+def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
+                        max_mixdepth_in_wallet=4):
     """for the general intent and design of the tumbler algo, see the docs in
     joinmarket-org/joinmarket.
     Alterations:
@@ -93,10 +94,14 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
     any other taker algo; it interprets floats as fractions and integers as satoshis,
     and zero as sweep (as before).
     This is a modified version of tumbler.py/generate_tumbler_tx()
+    Args:
+    * options - as specified in scripts/tumbler.py and taken from cli_options.py
+    * destaddrs - a list of valid address strings for the destination of funds
+    * mixdepth_balance_dict - a dict mapping mixdepths to balances, note zero balances are not included.
+    * max_mixdepth_in_wallet - this is actually the highest mixdepth in this JM wallet (
+      so 4 actually means 5 mixdepths in wallet; we do not consider the possibility of a wallet not
+      having a 0 mixdepth). The default value 4 is almost always used.
     """
-    #if options['mixdepthsrc'] != 0:
-    #    raise NotImplementedError("Non-zero mixdepth source not supported; "
-    #                              "restart the tumbler with --restart instead")
 
     def lower_bounded_int(thelist, lowerbound):
         return [int(l) if int(l) >= lowerbound else lowerbound for l in thelist]
@@ -154,7 +159,8 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
                 rounding = rand_weighted_choice(len(weight_prob), weight_prob) + 1
             tx = {'amount_fraction': amount_fraction,
                   'wait': round(wait, 2),
-                  'srcmixdepth': lowest_initial_filled_mixdepth + m + options['mixdepthsrc'] + 1,
+                  'srcmixdepth': (lowest_initial_filled_mixdepth + m + options[
+                      'mixdepthsrc'] + 1) % (max_mixdepth_in_wallet + 1),
                   'makercount': makercount,
                   'destination': 'INTERNAL',
                   'rounding': rounding
@@ -168,7 +174,7 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
     external_dest_addrs = ['addrask'] * addrask + destaddrs[::-1]
     for mix_offset in range(options['addrcount']):
         srcmix = (lowest_initial_filled_mixdepth + options['mixdepthsrc']
-            + options['mixdepthcount'] - mix_offset)
+            + options['mixdepthcount'] - mix_offset) % (max_mixdepth_in_wallet + 1)
         for tx in reversed(tx_list):
             if tx['srcmixdepth'] == srcmix:
                 tx['destination'] = external_dest_addrs[mix_offset]
@@ -176,12 +182,14 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
         if mix_offset == 0:
             # setting last mixdepth to send all to dest
             tx_list_remove = []
-            for tx in tx_list:
-                if tx['srcmixdepth'] == srcmix:
-                    if tx['destination'] == 'INTERNAL':
-                        tx_list_remove.append(tx)
-                    else:
-                        tx['amount_fraction'] = 0
+            ending_mixdepth = tx_list[-1]['srcmixdepth']
+            for tx in tx_list[::-1]:
+                if tx['srcmixdepth'] != ending_mixdepth:
+                    break
+                if tx['destination'] == 'INTERNAL':
+                    tx_list_remove.append(tx)
+                else:
+                    tx['amount_fraction'] = 0
             [tx_list.remove(t) for t in tx_list_remove]
     schedule = []
     for t in tx_list:
