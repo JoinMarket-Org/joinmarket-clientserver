@@ -178,14 +178,12 @@ def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
     new_schedule = tweak_tumble_schedule(options, schedule, lastcompleted)
     #sanity check: each amount fraction list should add up to near 1.0,
     #so some is left over for sweep
+    tally = 0
+    current_mixdepth = new_schedule[0][0]
     for i in range(mixdepthcount):
-        entries = [x for x in new_schedule if x[0] == i]
-        total_frac_for_mixdepth = sum([x[1] for x in entries])
-        #TODO spurious failure is possible here, not an ideal check
-        print('got total frac for mixdepth: ', str(total_frac_for_mixdepth))
-        assert total_frac_for_mixdepth < 0.999
-    from pprint import pformat
-    print("here is the new schedule: ")
-    print(pformat(new_schedule))
-    print("and old:")
-    print(pformat(schedule))
+        if new_schedule[i][0] != current_mixdepth:
+            print('got total frac for mixdepth: ', tally)
+            #TODO spurious failure is possible here, not an ideal check
+            assert tally < 0.999
+            tally = 0
+        tally += new_schedule[i][1]
