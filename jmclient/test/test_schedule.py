@@ -104,23 +104,20 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount, mixdepthbal):
     # ones should be in the list, and all the others should be one
     # of the two standard 'code' alternatives.
     dests = [x[3] for x in schedule]
-    assert set(destaddrs).issubset(set(dests))
+    dests = [x for x in dests if x not in ["INTERNAL", "addrask"]]
+    assert len(dests) == len(destaddrs)
+    assert set(destaddrs) == set(dests)
     nondestaddrs = [x[3] for x in schedule if x[3] not in destaddrs]
     assert all([x in ["INTERNAL", "addrask"] for x in nondestaddrs])
-    # second: check that the total number of transactions is larger
-    # than the minimum it could be and smaller than the max;
-    # the last term accounts for the Phase 1 sweeps
-    assert len(schedule) >= (mixdepthcount - 1) * (
-        txcparams[0] - txcparams[1]) + 1 + len(mixdepthbal.items())
-    assert len(schedule) <= (mixdepthcount - 1) * (
-        txcparams[0] + txcparams[1]) + 1 + len(mixdepthbal.items())
     # check that the source mixdepths for the phase 1 transactions are the
     # expected, and that they are all sweeps:
     for i, s in enumerate(schedule[:len(mixdepthbal)]):
         assert s[1] == 0
         assert s[0] in mixdepthbal.keys()
     # check that the list of created transactions in Phase 2 only
-    # progresses forward, one mixdepth at a time:
+    # progresses forward, one mixdepth at a time.
+    # Note that due to the use of sdev calculation, we cannot check that
+    # the number of transactions per mixdepth is anything in particular.
     for first, second in zip(schedule[len(mixdepthbal):-1],
                              schedule[len(mixdepthbal) + 1:]):
         assert (second[0] - first[0]) % wallet_total_mixdepths in [1, 0]
