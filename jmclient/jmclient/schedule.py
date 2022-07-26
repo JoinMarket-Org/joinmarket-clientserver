@@ -1,6 +1,5 @@
 import copy
 import random
-import sys
 
 from .configure import validate_address, jm_single
 from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
@@ -111,12 +110,9 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
     txcounts = lower_bounded_int(txcounts, options['mintxcount'])
     tx_list = []
     ### stage 1 coinjoins, which sweep the entire mixdepth without creating change
-    lowest_initial_filled_mixdepth = sys.maxsize
     sweep_mixdepths = []
     for mixdepth, balance in mixdepth_balance_dict.items():
         if balance > 0:
-            lowest_initial_filled_mixdepth = min(mixdepth,
-                lowest_initial_filled_mixdepth)
             sweep_mixdepths.append(mixdepth)
     waits = rand_exp_array(options['timelambda']*options[
         'stage1_timelambda_increase'], len(sweep_mixdepths))
@@ -124,7 +120,14 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
         options['makercountrange'][1], len(sweep_mixdepths))
     makercounts = lower_bounded_int(makercounts, options['minmakercount'])
     sweep_mixdepths = sorted(sweep_mixdepths)[::-1]
+    nonempty_mixdepths = {}
     for mixdepth, wait, makercount in zip(sweep_mixdepths, waits, makercounts):
+        # to know which mixdepths contain coins at the end of phase 1, we
+        # can't simply check each filled mixdepth and add 1, because the sequencing
+        # of these joins may sweep up coins that have already been swept.
+        # so we keep track with a binary flag for every mixdepth during this sequence.
+        nonempty_mixdepths[mixdepth] = 0
+        nonempty_mixdepths[(mixdepth + 1) % (max_mixdepth_in_wallet + 1)] = 1
         tx = {'amount_fraction': 0,
               'wait': round(wait, 2),
               'srcmixdepth': mixdepth,
@@ -133,6 +136,7 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
               'rounding': NO_ROUNDING
         }
         tx_list.append(tx)
+    lowest_nonempty_mixdepth = min([x for x, y in nonempty_mixdepths.items() if y == 1])
     ### stage 2 coinjoins, which create a number of random-amount coinjoins from each mixdepth
     for m, txcount in enumerate(txcounts):
         if options['mixdepthcount'] - options['addrcount'] <= m and m < \
@@ -159,8 +163,8 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
                 rounding = rand_weighted_choice(len(weight_prob), weight_prob) + 1
             tx = {'amount_fraction': amount_fraction,
                   'wait': round(wait, 2),
-                  'srcmixdepth': (lowest_initial_filled_mixdepth + m + options[
-                      'mixdepthsrc'] + 1) % (max_mixdepth_in_wallet + 1),
+                  'srcmixdepth': (lowest_nonempty_mixdepth + m + options[
+                      'mixdepthsrc']) % (max_mixdepth_in_wallet + 1),
                   'makercount': makercount,
                   'destination': 'INTERNAL',
                   'rounding': rounding
@@ -169,12 +173,11 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
         #reset the final amt_frac to zero, as it's the last one for this mixdepth:
         tx_list[-1]['amount_fraction'] = 0
         tx_list[-1]['rounding'] = NO_ROUNDING
-
     addrask = options['addrcount'] - len(destaddrs)
     external_dest_addrs = ['addrask'] * addrask + destaddrs[::-1]
     for mix_offset in range(options['addrcount']):
-        srcmix = (lowest_initial_filled_mixdepth + options['mixdepthsrc']
-            + options['mixdepthcount'] - mix_offset) % (max_mixdepth_in_wallet + 1)
+        srcmix = (lowest_nonempty_mixdepth + options['mixdepthsrc']
+            + options['mixdepthcount'] - mix_offset - 1) % (max_mixdepth_in_wallet + 1)
         for tx in reversed(tx_list):
             if tx['srcmixdepth'] == srcmix:
                 tx['destination'] = external_dest_addrs[mix_offset]
