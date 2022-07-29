@@ -11,9 +11,9 @@ from jmclient import Taker, load_program_config, get_schedule,\
     schedule_to_text, estimate_tx_fee, restart_waiter, WalletService,\
     get_tumble_log, tumbler_taker_finished_update, check_regtest, \
     tumbler_filter_orders_callback, validate_address, get_tumbler_parser, \
-    get_max_cj_fee_values
+    get_max_cj_fee_values, get_total_tumble_amount, ScheduleGenerationErrorNoFunds
 from jmclient.wallet_utils import DEFAULT_MIXDEPTH
-from jmclient.schedule import ScheduleGenerationErrorNoFunds
+
 
 from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
     EXIT_FAILURE, EXIT_ARGERROR
@@ -145,18 +145,10 @@ def main():
     involved_parties = len(schedule)    # own participation in each CJ
     for item in schedule:
         involved_parties += item[2] #  number of total tumble counterparties
-    # calculating total coins that will be included in the tumble;
-    # in almost all cases all coins (unfrozen) in wallet will be tumbled,
-    # though it's technically possible with a very small mixdepthcount, to start
-    # at say m0, and only go through to 2 or 3, such that coins in 4 are untouched
-    # in phase 2 (after having been swept in phase 1).
-    used_mixdepths = set()
-    [used_mixdepths.add(x[0]) for x in schedule]
-    total_tumble_amount = int(0)
-    for i in used_mixdepths:
-        total_tumble_amount += wallet_service.get_balance_by_mixdepth()[i]
-    if total_tumble_amount == 0:
-        raise ValueError("No confirmed coins in the selected mixdepth(s). Quitting")
+
+    total_tumble_amount = get_total_tumble_amount(
+        wallet.get_balance_by_mixdepth(), schedule)
+
     exp_tx_fees_ratio = (involved_parties * fee_per_cp_guess) \
         / total_tumble_amount
     if exp_tx_fees_ratio > 0.05:
