@@ -54,7 +54,6 @@ class Options(object):
 
 def get_options():
     options = Options()
-    options.mixdepthsrc = 0
     options.mixdepthcount = 4
     options.txcountparams = (18, 3)
     options.minmakercount = 2
@@ -90,6 +89,13 @@ def get_options():
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
           "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,2), 8,
          {2:1, 3: 1}),
+        #slightly larger version
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5",
+          "bcrt1qcnv26w889eum5sekz5h8we45rxnr4sj5k08phv",
+          "bcrt1qgs0t239gj2kqgnsrvetvsv2qdva8y3j74cta4d"], (4,3), 8,
+         {0:2, 1: 1, 3: 1, 4: 1}),
     ])
 def test_tumble_schedule(destaddrs, txcparams, mixdepthcount, mixdepthbal):
     # note that these tests are currently only leaving the default
@@ -97,6 +103,7 @@ def test_tumble_schedule(destaddrs, txcparams, mixdepthcount, mixdepthbal):
     # and will fail if this is changed:
     wallet_total_mixdepths = 5
     options = get_options()
+    options['addrcount'] = len(destaddrs)
     options['mixdepthcount'] = mixdepthcount
     options['txcountparams'] = txcparams
     schedule = get_tumble_schedule(options, destaddrs, mixdepthbal)
