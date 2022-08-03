@@ -10,7 +10,8 @@ from autobahn.twisted.websocket import WebSocketClientFactory, \
 from jmbase import get_nontor_agent, hextobin, BytesProducer, get_log
 from jmbitcoin import CTransaction
 from jmclient import (load_test_config, jm_single, SegwitWalletFidelityBonds,
-                      JMWalletDaemon, validate_address, start_reactor)
+                      JMWalletDaemon, validate_address, start_reactor,
+                      SegwitWallet)
 from jmclient.wallet_rpc import api_version_string, CJ_MAKER_RUNNING, CJ_NOT_RUNNING
 from commontest import make_wallets
 from test_coinjoin import make_wallets_to_list, sync_wallets
@@ -44,6 +45,8 @@ class WalletRPCTestBase(object):
     wss_port = 28283
     # how many different wallets we need
     num_wallet_files = 2
+    # wallet type
+    wallet_cls = SegwitWallet
 
     def setUp(self):
         load_test_config()
@@ -66,18 +69,15 @@ class WalletRPCTestBase(object):
         self.listener_rpc = r
         self.listener_ws = s
         wallet_structures = [self.wallet_structure] * 2
-        # note: to test fidelity bond wallets we should add the argument
-        # `wallet_cls=SegwitWalletFidelityBonds` here, but it slows the
-        # test down from 9 seconds to 1 minute 40s, which is too slow
-        # to be acceptable. TODO: add a test with FB by speeding up
-        # the sync for test, by some means or other.
         self.daemon.services["wallet"] = make_wallets_to_list(make_wallets(
             1, wallet_structures=[wallet_structures[0]],
-            mean_amt=self.mean_amt, wallet_cls=SegwitWalletFidelityBonds))[0]
+            mean_amt=self.mean_amt, wallet_cls=self.wallet_cls))[0]
         jm_single().bc_interface.tickchain()
         sync_wallets([self.daemon.services["wallet"]])
         # dummy tx example to force a notification event:
         self.test_tx = CTransaction.deserialize(hextobin(test_tx_hex_1))
+        # auth token is not set at the start
+        self.jwt_token = None
 
     def get_route_root(self):
         addr = "http://127.0.0.1:" + str(self.dport)
@@ -97,6 +97,45 @@ class WalletRPCTestBase(object):
         else:
             return tfn
 
+    @defer.inlineCallbacks
+    def do_request(self, agent, method, addr, body, handler, token=None):
+        if token:
+            headers = Headers({"Authorization": ["Bearer " + self.jwt_token]})
+        else:
+            headers = None
+        response = yield agent.request(method, addr, headers, bodyProducer=body)
+        yield self.response_handler(response, handler)
+
+    @defer.inlineCallbacks
+    def response_handler(self, response, handler):
+        body = yield readBody(response)
+        # handlers check the body is as expected; no return.
+        yield handler(body, response.code)
+        return True
+
+    def process_new_addr_response(self, response, code):
+        assert code == 200
+        json_body = json.loads(response.decode("utf-8"))
+        self.created_tl_address = json_body["address"]
+        assert validate_address(json_body["address"])[0]
+
+    def process_direct_send_response(self, response, code):
+        assert code == 200
+        json_body = json.loads(response.decode("utf-8"))
+        assert "txinfo" in json_body
+        # TODO tx check
+        print(json_body["txinfo"])
+
+    def make_comms_backend(self):
+        # in normal operations, the RPC call will trigger
+        # the jmclient to connect to an *existing* daemon
+        # that was created on startup, but here, that daemon
+        # does not yet exist, so we will get 503 Backend Not Ready,
+        # unless we manually create it:
+        return start_reactor(jm_single().config.get("DAEMON",
+                    "daemon_host"), jm_single().config.getint("DAEMON",
+                    "daemon_port"), None, daemon=True, rs=False)
+
     def tearDown(self):
         self.clean_out_wallet_files()
         for dc in reactor.getDelayedCalls():
@@ -108,6 +147,11 @@ class WalletRPCTestBase(object):
             self.client_connector.disconnect()
         # only fire if everything is finished:
         return defer.gatherResults([d1, d2])
+
+class WalletRPCTestBaseFB(WalletRPCTestBase):
+    wallet_cls = SegwitWalletFidelityBonds
+    # we are using fresh (empty) wallets for these tests
+    wallet_structure = [0, 0, 0, 0, 0]
 
 class TrialTestWRPC_WS(WalletRPCTestBase, unittest.TestCase):
     """ class for testing websocket subscriptions/events etc.
@@ -140,23 +184,61 @@ class TrialTestWRPC_WS(WalletRPCTestBase, unittest.TestCase):
         self.daemon.wss_factory.sendTxNotification(self.test_tx,
                                             test_tx_hex_txid)
 
+class TrialTestWRPC_FB(WalletRPCTestBaseFB, unittest.TestCase):
+    @defer.inlineCallbacks
+    def test_gettimelockaddress(self):
+        self.daemon.auth_disabled = True
+        agent = get_nontor_agent()
+        addr = self.get_route_root()
+        addr += "/wallet/"
+        addr += self.daemon.wallet_name
+        addr += "/address/timelock/new/2023-02"
+        addr = addr.encode()
+        yield self.do_request(agent, b"GET", addr, None,
+                              self.process_new_addr_response)
+
+    @defer.inlineCallbacks
+    def test_no_maker_start_expiredtl_only(self):
+        # test strategy:
+        # 1. create a TL address with expired TL
+        # 2. fund the above
+        # 3. Attempt to start maker,
+        #    catch expected failure.
+        self.scon, _ = self.make_comms_backend()
+        self.daemon.auth_disabled = True
+        agent = get_nontor_agent()
+        # 1
+        addr = self.get_route_root()
+        addr += "/wallet/"
+        addr += self.daemon.wallet_name
+        addr += "/address/timelock/new/2022-01"
+        addr = addr.encode()
+        yield self.do_request(agent, b"GET", addr, None,
+                              self.process_new_addr_response)
+        # 2
+        jm_single().bc_interface.grab_coins(self.created_tl_address, 0.05)
+        # 3
+        addr_start = self.get_route_root()
+        addr_start += "/wallet/"
+        addr_start += self.daemon.wallet_name
+        addr = addr_start + "/maker/start"
+        addr = addr.encode()
+        body = BytesProducer(json.dumps({"txfee": "0",
+            "cjfee_a": "1000", "cjfee_r": "0.0002",
+            "ordertype": "reloffer", "minsize": "1000000"}).encode())
+        yield self.do_request(agent, b"POST", addr, body,
+                              self.process_failed_maker_start)
+
+    def process_failed_maker_start(self, response, code):
+        assert code == 409
+        # backend's AMP connection must be cleaned up, otherwise
+        # test will fail for unclean reactor:
+        self.addCleanup(self.scon.stopListening)
+        # Here is the actual functional check: status should not
+        # be MAKER_RUNNING since no non-TL-type coin existed:
+        assert self.daemon.coinjoin_state == CJ_NOT_RUNNING
+
 class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
-
-    @defer.inlineCallbacks
-    def do_request(self, agent, method, addr, body, handler, token=None):
-        if token:
-            headers = Headers({"Authorization": ["Bearer " + self.jwt_token]})
-        else:
-            headers = None
-        response = yield agent.request(method, addr, headers, bodyProducer=body)
-        yield self.response_handler(response, handler)
-
-    @defer.inlineCallbacks
-    def response_handler(self, response, handler):
-        body = yield readBody(response)
-        # handlers check the body is as expected; no return.
-        yield handler(body, response.code)
-        return True
 
     @defer.inlineCallbacks
     def do_session_request(self, agent, addr, handler=None, token=None):
@@ -318,13 +400,6 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_wallet_display_response)
 
-    def process_direct_send_response(self, response, code):
-        assert code == 200
-        json_body = json.loads(response.decode("utf-8"))
-        assert "txinfo" in json_body
-        # TODO tx check
-        print(json_body["txinfo"])
-
     def process_wallet_display_response(self, response, code):
         assert code == 200
         json_body = json.loads(response.decode("utf-8"))
@@ -407,23 +482,6 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         assert self.daemon.coinjoin_state == CJ_NOT_RUNNING
 
     @defer.inlineCallbacks
-    def test_gettimelockaddress(self):
-        self.daemon.auth_disabled = True
-        agent = get_nontor_agent()
-        addr = self.get_route_root()
-        addr += "/wallet/"
-        addr += self.daemon.wallet_name
-        addr += "/address/timelock/new/2023-02"
-        addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
-                              self.process_new_addr_response)
-
-    def process_new_addr_response(self, response, code):
-        assert code == 200
-        json_body = json.loads(response.decode("utf-8"))
-        assert validate_address(json_body["address"])[0]
-
-    @defer.inlineCallbacks
     def test_listutxos_and_freeze(self):
         self.daemon.auth_disabled = True
         agent = get_nontor_agent()
@@ -502,16 +560,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         OK since this API call only makes the request.
         """
         self.daemon.auth_disabled = True
-        # in normal operations, the RPC call will trigger
-        # the jmclient to connect to an *existing* daemon
-        # that was created on startup, but here, that daemon
-        # does not yet exist, so we will get 503 Backend Not Ready,
-        # unless we manually create it:
-        scon, ccon = start_reactor(jm_single().config.get("DAEMON",
-                    "daemon_host"), jm_single().config.getint("DAEMON",
-                    "daemon_port"), None, daemon=True, rs=False)
-        # must be manually set:
-        self.scon = scon
+        self.scon, self.ccon = self.make_comms_backend()
         agent = get_nontor_agent()
         addr = self.get_route_root()
         addr += "/wallet/"
