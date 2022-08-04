@@ -590,11 +590,8 @@ class JMWalletDaemon(Service):
                         if auth_header is not None:
                             # At this point if an `auth_header` is present, it has been checked
                             # by the call to `check_cookie_if_present` above.
-                            logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
-                            sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
-                            res, schedule = get_schedule(sfile)
-                            if not res:
-                                schedule = None
+                            if self.taker is not None and not self.taker.aborted:
+                                schedule = self.taker.schedule
                         else:
                             schedule = None
                 else:
