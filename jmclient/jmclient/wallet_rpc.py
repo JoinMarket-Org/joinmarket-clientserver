@@ -592,8 +592,6 @@ class JMWalletDaemon(Service):
                             # by the call to `check_cookie_if_present` above.
                             if self.taker is not None and not self.taker.aborted:
                                 schedule = self.taker.schedule
-                        else:
-                            schedule = None
                 else:
                     wallet_name = "not yet loaded"
             else:
