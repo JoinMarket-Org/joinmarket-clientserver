@@ -721,6 +721,14 @@ components:
           type: boolean
         coinjoin_in_process:
           type: boolean
+        schedule:
+          type: array
+          items:
+            type: array
+            items:
+              oneOf:
+                - type: string
+                - type: integer
         wallet_name:
           type: string
           example: wallet.jmdat
@@ -899,9 +907,11 @@ components:
         schedule:
           type: array
           items:
-            oneOf:
-              - type: string
-              - type: integer
+            type: array
+            items:
+              oneOf:
+                - type: string
+                - type: integer
     LockWalletResponse:
       type: object
       required:
