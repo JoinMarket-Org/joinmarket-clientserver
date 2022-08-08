@@ -749,6 +749,8 @@ components:
                 type: integer
               cjfee:
                 type: string
+        nickname:
+          type: string
     ListUtxosResponse:
       type: object
       properties:

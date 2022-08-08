@@ -590,20 +590,30 @@ class JMWalletDaemon(Service):
             session = not self.cookie==None
             maker_running = self.coinjoin_state == CJ_MAKER_RUNNING
             coinjoin_in_process = self.coinjoin_state == CJ_TAKER_RUNNING
+
+            # fields which may or may not be available:
             schedule = None
             offer_list = None
+            nickname = None
+
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
                     wallet_name = self.wallet_name
                     # At this point if an `auth_header` is present, it has been checked
                     # by the call to `check_cookie_if_present` above.
                     auth_header = request.getHeader('Authorization')
-                    if self.coinjoin_state == CJ_TAKER_RUNNING and \
-                       self.tumbler_options is not None and auth_header is not None:
-                            if self.taker is not None and not self.taker.aborted:
-                                schedule = self.taker.schedule
-                    elif maker_running and auth_header is not None:
-                        offer_list = self.services["maker"].yieldgen.offerlist
+                    if auth_header is not None:
+                        if self.coinjoin_state == CJ_TAKER_RUNNING and \
+                           self.tumbler_options is not None:
+                                if self.taker is not None and not self.taker.aborted:
+                                    schedule = self.taker.schedule
+                        elif maker_running:
+                            offer_list = self.services["maker"].yieldgen.offerlist
+                            # maker's nick is useful for tracking; so we only report
+                            # it if authed and maker running:
+                            if jm_single().nickname is not None:
+                                nickname = jm_single().nickname
+
                 else:
                     wallet_name = "not yet loaded"
             else:
@@ -614,7 +624,8 @@ class JMWalletDaemon(Service):
                             coinjoin_in_process=coinjoin_in_process,
                             schedule=schedule,
                             wallet_name=wallet_name,
-                            offer_list=offer_list)
+                            offer_list=offer_list,
+                            nickname=nickname)
 
         @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
         def directsend(self, request, walletname):
