@@ -591,17 +591,19 @@ class JMWalletDaemon(Service):
             maker_running = self.coinjoin_state == CJ_MAKER_RUNNING
             coinjoin_in_process = self.coinjoin_state == CJ_TAKER_RUNNING
             schedule = None
-
+            offer_list = None
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
                     wallet_name = self.wallet_name
-                    if self.coinjoin_state == CJ_TAKER_RUNNING and self.tumbler_options is not None:
-                        auth_header = request.getHeader('Authorization')
-                        if auth_header is not None:
-                            # At this point if an `auth_header` is present, it has been checked
-                            # by the call to `check_cookie_if_present` above.
+                    # At this point if an `auth_header` is present, it has been checked
+                    # by the call to `check_cookie_if_present` above.
+                    auth_header = request.getHeader('Authorization')
+                    if self.coinjoin_state == CJ_TAKER_RUNNING and \
+                       self.tumbler_options is not None and auth_header is not None:
                             if self.taker is not None and not self.taker.aborted:
                                 schedule = self.taker.schedule
+                    elif maker_running and auth_header is not None:
+                        offer_list = self.services["maker"].yieldgen.offerlist
                 else:
                     wallet_name = "not yet loaded"
             else:
@@ -611,7 +613,8 @@ class JMWalletDaemon(Service):
                             maker_running=maker_running,
                             coinjoin_in_process=coinjoin_in_process,
                             schedule=schedule,
-                            wallet_name=wallet_name)
+                            wallet_name=wallet_name,
+                            offer_list=offer_list)
 
         @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
         def directsend(self, request, walletname):

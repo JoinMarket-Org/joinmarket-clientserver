@@ -732,6 +732,23 @@ components:
         wallet_name:
           type: string
           example: wallet.jmdat
+        offer_list:
+          type: array
+          items:
+            type: object
+            properties:
+              oid:
+                type: integer
+              ordertype:
+                type: string
+              minsize:
+                type: integer
+              maxsize:
+                type: integer
+              txfee:
+                type: integer
+              cjfee:
+                type: string
     ListUtxosResponse:
       type: object
       properties:
