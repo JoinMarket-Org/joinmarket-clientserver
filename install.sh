@@ -42,6 +42,18 @@ http_get ()
     fi
 }
 
+gpg_verify ()
+{
+    if [[ $no_gpg_validation != 1 ]]; then
+        if ! check_exists gpg; then
+            echo "GPG not installed, cannot verify release signatures; install gpg or use --no-gpg-validation."
+            kill $$
+        fi
+        gpg --import "$1"
+        gpg --verify "$2" || kill $$
+    fi
+}
+
 deps_install ()
 {
     debian_deps=( \
@@ -188,10 +200,26 @@ venv_setup ()
 dep_get ()
 {
     pkg_name="$1" pkg_hash="$2" pkg_url="$3"
+    pkg_pubkeys="$4" pkg_sig="$5" pkg_hash_file="$6" pkg_hash_file_sig="$7"
 
     pushd cache
     if [ ! -f "${pkg_name}" ] || ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         http_get "${pkg_url}/${pkg_name}" "${pkg_name}"
+    fi
+    if [[ -n "${pkg_hash_file}" ]]; then
+        http_get "${pkg_url}/${pkg_hash_file}" "${pkg_hash_file}"
+        if [[ -n "${pkg_hash_file_sig}" ]]; then
+            http_get "${pkg_url}/${pkg_hash_file_sig}" "${pkg_hash_file_sig}"
+            gpg_verify "../../pubkeys/third-party/${pkg_pubkeys}" "${pkg_hash_file_sig}"
+        fi
+        if ! grep -qs "${pkg_hash}" "${pkg_hash_file}"; then
+            echo "Hash mismatch, ${pkg_hash} not in ${pkg_url}/${pkg_hash_file}!"
+            return 1
+        fi
+    fi
+    if [[ -n "${pkg_sig}" ]]; then
+        http_get "${pkg_url}/${pkg_sig}" "${pkg_sig}"
+        gpg_verify "../../pubkeys/third-party/${pkg_pubkeys}" "${pkg_sig}"
     fi
     if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         return 1
@@ -335,11 +363,12 @@ libsodium_install ()
     sodium_lib_tar="${sodium_version}.tar.gz"
     sodium_lib_sha='6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e46636c1'
     sodium_url='https://download.libsodium.org/libsodium/releases'
+    sodium_pubkeys='libsodium.asc'
 
     if check_skip_build "${sodium_version}"; then
         return 0
     fi
-    if ! dep_get "${sodium_lib_tar}" "${sodium_lib_sha}" "${sodium_url}"; then
+    if ! dep_get "${sodium_lib_tar}" "${sodium_lib_sha}" "${sodium_url}" "${sodium_pubkeys}" "${sodium_lib_tar}.sig"; then
         return 1
     fi
     pushd "${sodium_version}"
@@ -389,8 +418,9 @@ tor_install ()
     tor_tar="${tor_version}.tar.gz"
     tor_sha='9e9a5c67ad2acdd5f0f8be14ed591fed076b1708abf8344066990a0fa66fe195'
     tor_url='https://dist.torproject.org'
+    tor_pubkeys='Tor.asc'
 
-    if ! dep_get "${tor_tar}" "${tor_sha}" "${tor_url}"; then
+    if ! dep_get "${tor_tar}" "${tor_sha}" "${tor_url}" "${tor_pubkeys}" "" "${tor_tar}.sha256sum" "${tor_tar}.sha256sum.asc"; then
         return 1
     fi
     pushd "${tor_version}"
@@ -446,6 +476,9 @@ parse_flags ()
             --disable-secp-check)
                 use_secp_check='0'
                 ;;
+            --no-gpg-validation)
+                no_gpg_validation='1'
+                ;;
             -p|--python)
                 if [[ "$2" ]]; then
                     python="$2"
@@ -491,6 +524,7 @@ Options:
 --disable-os-deps-check     skip OS package manager's dependency check
 --disable-secp-check        do not run libsecp256k1 tests (default is to run them)
 --docker-install            system wide install as root for minimal Docker installs
+--no-gpg-validation         disable GPG key validation for dependencies
 --python, -p                python version (only python3 versions are supported)
 --with-local-tor            build Tor locally and autostart when needed
 --with-qt                   build the Qt GUI
@@ -550,6 +584,7 @@ main ()
     develop_build=''
     python='python3'
     build_local_tor=''
+    no_gpg_validation=''
     use_os_deps_check='1'
     use_secp_check='1'
     with_qt=''
