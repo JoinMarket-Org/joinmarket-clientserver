@@ -73,7 +73,8 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     parse_payjoin_setup, send_payjoin, JMBIP78ReceiverManager, \
     detect_script_type, general_custom_change_warning, \
     nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError,\
-    TYPE_P2WPKH, check_and_start_tor, is_extended_public_key
+    TYPE_P2WPKH, check_and_start_tor, is_extended_public_key, \
+    ScheduleGenerationErrorNoFunds
 from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
@@ -413,8 +414,15 @@ class SpendTab(QWidget):
         wizard_return = wizard.exec_()
         if wizard_return == QDialog.Rejected:
             return
-        self.spendstate.loaded_schedule = wizard.get_schedule(
-            mainWindow.wallet_service.get_balance_by_mixdepth())
+        try:
+            self.spendstate.loaded_schedule = wizard.get_schedule(
+            mainWindow.wallet_service.get_balance_by_mixdepth(),
+            mainWindow.wallet_service.mixdepth)
+        except ScheduleGenerationErrorNoFunds:
+            JMQtMessageBox(self,
+                           "Failed to start tumbler; no funds available.",
+                           title="Tumbler start failed.")
+            return
         self.spendstate.schedule_name = wizard.get_name()
         self.updateSchedView()
         self.tumbler_options = wizard.opts

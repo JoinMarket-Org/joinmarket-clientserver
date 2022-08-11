@@ -641,13 +641,12 @@ class SchDynamicPage1(QWizardPage):
         self.setTitle("Tumble schedule generation")
         self.setSubTitle("Set parameters for the sequence of transactions in the tumble.")
         results = []
-        sN = ['Starting mixdepth', 'Average number of counterparties',
+        sN = ['Average number of counterparties',
               'How many mixdepths to tumble through',
               'Average wait time between transactions, in minutes',
               'Average number of transactions per mixdepth']
         #Tooltips
-        sH = ["The starting mixdepth can be decided from the Wallet tab; it must\n"
-        "have coins in it, but it's OK if some coins are in other mixdepths.",
+        sH = [
         "How many other participants are in each coinjoin, on average; but\n"
         "each individual coinjoin will have a number that's varied according to\n"
         "settings on the next page",
@@ -657,11 +656,10 @@ class SchDynamicPage1(QWizardPage):
         "varied randomly.",
         "Will be varied randomly, see advanced settings next page"]
         #types
-        sT = [int, int, int, float, int]
+        sT = [int, int, float, int]
         #constraints
-        sMM = [(0, jm_single().config.getint("GUI", "max_mix_depth") - 1), (3, 20),
-               (2, 7), (0.00000001, 100.0, 8), (2, 10)]
-        sD = ['0', '9', '4', '60.0', '2']
+        sMM = [(3, 20), (2, 7), (0.00000001, 100.0, 8), (2, 10)]
+        sD = ['9', '4', '60.0', '2']
         for x in zip(sN, sH, sT, sD, sMM):
             ql = QLabel(x[0])
             ql.setToolTip(x[1])
@@ -677,11 +675,10 @@ class SchDynamicPage1(QWizardPage):
             layout.addWidget(x[0], i + 1, 0)
             layout.addWidget(x[1], i + 1, 1, 1, 2)
         self.setLayout(layout)
-        self.registerField("mixdepthsrc", results[0][1])
-        self.registerField("makercount", results[1][1])
-        self.registerField("mixdepthcount", results[2][1])
-        self.registerField("timelambda", results[3][1])
-        self.registerField("txcountparams", results[4][1])
+        self.registerField("makercount", results[0][1])
+        self.registerField("mixdepthcount", results[1][1])
+        self.registerField("timelambda", results[2][1])
+        self.registerField("txcountparams", results[3][1])
 
 class SchDynamicPage2(QWizardPage):
 
@@ -834,7 +831,7 @@ class ScheduleWizard(QWizard):
     def get_destaddrs(self):
         return self.destaddrs
 
-    def get_schedule(self, wallet_balance_by_mixdepth):
+    def get_schedule(self, wallet_balance_by_mixdepth, max_mixdepth_in_wallet):
         self.destaddrs = []
         for i in range(self.page(2).required_addresses):
             daddrstring = str(self.field("destaddr"+str(i)))
@@ -845,7 +842,6 @@ class ScheduleWizard(QWizard):
                                title='Error')
                 return None
         self.opts = {}
-        self.opts['mixdepthsrc'] = int(self.field("mixdepthsrc"))
         self.opts['mixdepthcount'] = int(self.field("mixdepthcount"))
         self.opts['txfee'] = -1
         self.opts['addrcount'] = len(self.destaddrs)
@@ -864,7 +860,7 @@ class ScheduleWizard(QWizard):
         self.opts['rounding_sigfig_weights'] = tuple([int(self.field("rounding_sigfig_weight_" + str(i+1))) for i in range(5)])
         jm_single().mincjamount = self.opts['mincjamount']
         return get_tumble_schedule(self.opts, self.destaddrs,
-            wallet_balance_by_mixdepth)
+            wallet_balance_by_mixdepth, max_mixdepth_in_wallet)
 
 class TumbleRestartWizard(QWizard):
     def __init__(self):

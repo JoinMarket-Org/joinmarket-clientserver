@@ -229,6 +229,22 @@ def get_tumble_log(logsdir):
     tumble_log.addHandler(fileHandler)
     return tumble_log
 
+def get_total_tumble_amount(mixdepth_balance_dict, schedule):
+    # calculating total coins that will be included in a tumble;
+    # in almost all cases all coins (unfrozen) in wallet will be tumbled,
+    # though it's technically possible with a very small mixdepthcount, to start
+    # at say m0, and only go through to 2 or 3, such that coins in 4 are untouched
+    # in phase 2 (after having been swept in phase 1).
+    used_mixdepths = set()
+    [used_mixdepths.add(x[0]) for x in schedule]
+    total_tumble_amount = int(0)
+    for i in used_mixdepths:
+        total_tumble_amount += mixdepth_balance_dict[i]
+    # Note; we assert since callers will have called `get_tumble_schedule`,
+    # which will already have thrown if no funds, so this would be a logic error.
+    assert total_tumble_amount > 0, "no coins to tumble."
+    return total_tumble_amount
+
 def restart_wait(txid):
     """ Returns true only if the transaction txid is seen in the wallet,
     and confirmed (it must be an in-wallet transaction since it always

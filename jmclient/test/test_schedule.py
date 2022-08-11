@@ -54,7 +54,6 @@ class Options(object):
 
 def get_options():
     options = Options()
-    options.mixdepthsrc = 0
     options.mixdepthcount = 4
     options.txcountparams = (18, 3)
     options.minmakercount = 2
@@ -73,23 +72,75 @@ def get_options():
     return options
 
 @pytest.mark.parametrize(
-    "destaddrs, txcparams, mixdepthcount",
+    "destaddrs, txcparams, mixdepthcount, mixdepthbal",
     [
+        # very simple case
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (18,3), 4),
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,0), 3,
+        {0:1}),
+        # with 2 non-empty mixdepths
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (7,0), 3,
+         {2:1, 3: 1}),
         #intended to trigger txcount=1 bump to 2
         (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
           "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
-          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,2), 80),
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5"], (3,2), 8,
+         {2:1, 3: 1}),
+        #slightly larger version
+        (["mzzAYbtPpANxpNVGCVBAhZYzrxyZtoix7i",
+          "mifCWfmygxKhsP3qM3HZi3ZjBEJu7m39h8",
+          "mnTn9KVQQT9zy9R4E2ZGzWPK4EfcEcV9Y5",
+          "bcrt1qcnv26w889eum5sekz5h8we45rxnr4sj5k08phv",
+          "bcrt1qgs0t239gj2kqgnsrvetvsv2qdva8y3j74cta4d"], (4,3), 8,
+         {0:2, 1: 1, 3: 1, 4: 1}),
     ])
-def test_tumble_schedule(destaddrs, txcparams, mixdepthcount):
+def test_tumble_schedule(destaddrs, txcparams, mixdepthcount, mixdepthbal):
+    # note that these tests are currently only leaving the default
+    # value for the final argument to get_tumble_schedule, i.e. 4,
+    # and will fail if this is changed:
+    wallet_total_mixdepths = 5
     options = get_options()
+    options['addrcount'] = len(destaddrs)
     options['mixdepthcount'] = mixdepthcount
     options['txcountparams'] = txcparams
-    schedule = get_tumble_schedule(options, destaddrs, {0:1})
+    schedule = get_tumble_schedule(options, destaddrs, mixdepthbal)
+    # first, examine the destination addresses; all the requested
+    # ones should be in the list, and all the others should be one
+    # of the two standard 'code' alternatives.
     dests = [x[3] for x in schedule]
-    assert set(destaddrs).issubset(set(dests))
+    dests = [x for x in dests if x not in ["INTERNAL", "addrask"]]
+    assert len(dests) == len(destaddrs)
+    assert set(destaddrs) == set(dests)
+    nondestaddrs = [x[3] for x in schedule if x[3] not in destaddrs]
+    assert all([x in ["INTERNAL", "addrask"] for x in nondestaddrs])
+    # check that the source mixdepths for the phase 1 transactions are the
+    # expected, and that they are all sweeps:
+    for i, s in enumerate(schedule[:len(mixdepthbal)]):
+        assert s[1] == 0
+        assert s[0] in mixdepthbal.keys()
+    # check that the list of created transactions in Phase 2 only
+    # progresses forward, one mixdepth at a time.
+    # Note that due to the use of sdev calculation, we cannot check that
+    # the number of transactions per mixdepth is anything in particular.
+    for first, second in zip(schedule[len(mixdepthbal):-1],
+                             schedule[len(mixdepthbal) + 1:]):
+        assert (second[0] - first[0]) % wallet_total_mixdepths in [1, 0]
+    # check that the amount fractions are always total < 1
+    last_s = []
+    for s in schedule:
+        if last_s == []:
+            last_s = s
+            total_amt = 0
+            continue
+        if s[0] == last_s[0]:
+            total_amt += s[1]
+        else:
+            assert total_amt < 1
+            total_amt = 0
+        last_s = s
 
 @pytest.mark.parametrize(
     "destaddrs, txcparams, mixdepthcount, lastcompleted, makercountrange",
@@ -131,14 +182,12 @@ def test_tumble_tweak(destaddrs, txcparams, mixdepthcount, lastcompleted,
     new_schedule = tweak_tumble_schedule(options, schedule, lastcompleted)
     #sanity check: each amount fraction list should add up to near 1.0,
     #so some is left over for sweep
+    tally = 0
+    current_mixdepth = new_schedule[0][0]
     for i in range(mixdepthcount):
-        entries = [x for x in new_schedule if x[0] == i]
-        total_frac_for_mixdepth = sum([x[1] for x in entries])
-        #TODO spurious failure is possible here, not an ideal check
-        print('got total frac for mixdepth: ', str(total_frac_for_mixdepth))
-        assert total_frac_for_mixdepth < 0.999
-    from pprint import pformat
-    print("here is the new schedule: ")
-    print(pformat(new_schedule))
-    print("and old:")
-    print(pformat(schedule))
+        if new_schedule[i][0] != current_mixdepth:
+            print('got total frac for mixdepth: ', tally)
+            #TODO spurious failure is possible here, not an ideal check
+            assert tally < 0.999
+            tally = 0
+        tally += new_schedule[i][1]

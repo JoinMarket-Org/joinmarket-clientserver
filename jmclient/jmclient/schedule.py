@@ -1,6 +1,5 @@
 import copy
 import random
-import sys
 
 from .configure import validate_address, jm_single
 from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
@@ -17,6 +16,12 @@ from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
 """
 
 NO_ROUNDING = 16 #max btc significant figures not including LN
+
+class ScheduleGenerationError(Exception):
+    pass
+
+class ScheduleGenerationErrorNoFunds(ScheduleGenerationError):
+    pass
 
 def get_schedule(filename):
     with open(filename, "rb") as f:
@@ -83,20 +88,21 @@ def get_amount_fractions(count):
             break
     return y
 
-def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
-    """for the general intent and design of the tumbler algo, see the docs in
-    joinmarket-org/joinmarket.
-    Alterations:
-    Donation removed for now.
+def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
+                        max_mixdepth_in_wallet=4):
+    """
     Default final setting for "amount_fraction" is zero, for each mixdepth.
     This is because we now use a general "schedule" syntax for both tumbler and
     any other taker algo; it interprets floats as fractions and integers as satoshis,
     and zero as sweep (as before).
-    This is a modified version of tumbler.py/generate_tumbler_tx()
+    Args:
+    * options - as specified in scripts/tumbler.py and taken from cli_options.py
+    * destaddrs - a list of valid address strings for the destination of funds
+    * mixdepth_balance_dict - a dict mapping mixdepths to balances, note zero balances are not included.
+    * max_mixdepth_in_wallet - this is actually the highest mixdepth in this JM wallet (
+      so 4 actually means 5 mixdepths in wallet; we do not consider the possibility of a wallet not
+      having a 0 mixdepth). The default value 4 is almost always used.
     """
-    #if options['mixdepthsrc'] != 0:
-    #    raise NotImplementedError("Non-zero mixdepth source not supported; "
-    #                              "restart the tumbler with --restart instead")
 
     def lower_bounded_int(thelist, lowerbound):
         return [int(l) if int(l) >= lowerbound else lowerbound for l in thelist]
@@ -106,12 +112,9 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
     txcounts = lower_bounded_int(txcounts, options['mintxcount'])
     tx_list = []
     ### stage 1 coinjoins, which sweep the entire mixdepth without creating change
-    lowest_initial_filled_mixdepth = sys.maxsize
     sweep_mixdepths = []
     for mixdepth, balance in mixdepth_balance_dict.items():
         if balance > 0:
-            lowest_initial_filled_mixdepth = min(mixdepth,
-                lowest_initial_filled_mixdepth)
             sweep_mixdepths.append(mixdepth)
     waits = rand_exp_array(options['timelambda']*options[
         'stage1_timelambda_increase'], len(sweep_mixdepths))
@@ -119,7 +122,14 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
         options['makercountrange'][1], len(sweep_mixdepths))
     makercounts = lower_bounded_int(makercounts, options['minmakercount'])
     sweep_mixdepths = sorted(sweep_mixdepths)[::-1]
+    nonempty_mixdepths = {}
     for mixdepth, wait, makercount in zip(sweep_mixdepths, waits, makercounts):
+        # to know which mixdepths contain coins at the end of phase 1, we
+        # can't simply check each filled mixdepth and add 1, because the sequencing
+        # of these joins may sweep up coins that have already been swept.
+        # so we keep track with a binary flag for every mixdepth during this sequence.
+        nonempty_mixdepths[mixdepth] = 0
+        nonempty_mixdepths[(mixdepth + 1) % (max_mixdepth_in_wallet + 1)] = 1
         tx = {'amount_fraction': 0,
               'wait': round(wait, 2),
               'srcmixdepth': mixdepth,
@@ -128,6 +138,10 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
               'rounding': NO_ROUNDING
         }
         tx_list.append(tx)
+    try:
+        lowest_nonempty_mixdepth = min([x for x, y in nonempty_mixdepths.items() if y == 1])
+    except ValueError:
+        raise ScheduleGenerationErrorNoFunds
     ### stage 2 coinjoins, which create a number of random-amount coinjoins from each mixdepth
     for m, txcount in enumerate(txcounts):
         if options['mixdepthcount'] - options['addrcount'] <= m and m < \
@@ -154,7 +168,8 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
                 rounding = rand_weighted_choice(len(weight_prob), weight_prob) + 1
             tx = {'amount_fraction': amount_fraction,
                   'wait': round(wait, 2),
-                  'srcmixdepth': lowest_initial_filled_mixdepth + m + options['mixdepthsrc'] + 1,
+                  'srcmixdepth': (lowest_nonempty_mixdepth + m) % (
+                      max_mixdepth_in_wallet + 1),
                   'makercount': makercount,
                   'destination': 'INTERNAL',
                   'rounding': rounding
@@ -163,12 +178,11 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
         #reset the final amt_frac to zero, as it's the last one for this mixdepth:
         tx_list[-1]['amount_fraction'] = 0
         tx_list[-1]['rounding'] = NO_ROUNDING
-
     addrask = options['addrcount'] - len(destaddrs)
     external_dest_addrs = ['addrask'] * addrask + destaddrs[::-1]
     for mix_offset in range(options['addrcount']):
-        srcmix = (lowest_initial_filled_mixdepth + options['mixdepthsrc']
-            + options['mixdepthcount'] - mix_offset)
+        srcmix = (lowest_nonempty_mixdepth + options['mixdepthcount']
+                  - mix_offset - 1) % (max_mixdepth_in_wallet + 1)
         for tx in reversed(tx_list):
             if tx['srcmixdepth'] == srcmix:
                 tx['destination'] = external_dest_addrs[mix_offset]
@@ -176,12 +190,14 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict):
         if mix_offset == 0:
             # setting last mixdepth to send all to dest
             tx_list_remove = []
-            for tx in tx_list:
-                if tx['srcmixdepth'] == srcmix:
-                    if tx['destination'] == 'INTERNAL':
-                        tx_list_remove.append(tx)
-                    else:
-                        tx['amount_fraction'] = 0
+            ending_mixdepth = tx_list[-1]['srcmixdepth']
+            for tx in tx_list[::-1]:
+                if tx['srcmixdepth'] != ending_mixdepth:
+                    break
+                if tx['destination'] == 'INTERNAL':
+                    tx_list_remove.append(tx)
+                else:
+                    tx['amount_fraction'] = 0
             [tx_list.remove(t) for t in tx_list_remove]
     schedule = []
     for t in tx_list:

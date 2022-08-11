@@ -11,7 +11,9 @@ from jmclient import Taker, load_program_config, get_schedule,\
     schedule_to_text, estimate_tx_fee, restart_waiter, WalletService,\
     get_tumble_log, tumbler_taker_finished_update, check_regtest, \
     tumbler_filter_orders_callback, validate_address, get_tumbler_parser, \
-    get_max_cj_fee_values
+    get_max_cj_fee_values, get_total_tumble_amount, ScheduleGenerationErrorNoFunds
+from jmclient.wallet_utils import DEFAULT_MIXDEPTH
+
 
 from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
     EXIT_FAILURE, EXIT_ARGERROR
@@ -38,11 +40,17 @@ def main():
 
     #Load the wallet
     wallet_name = args[0]
-    max_mix_depth = options['mixdepthsrc'] + options['mixdepthcount']
-    if options['amtmixdepths'] > max_mix_depth:
+    # as of #1324 the concept of a max_mix_depth distinct from
+    # the normal wallet value (4) no longer applies, since the
+    # tumbler cycles; but we keep the `amtmixdepths` option for now,
+    # deprecating it later.
+    if options['amtmixdepths'] > DEFAULT_MIXDEPTH:
         max_mix_depth = options['amtmixdepths']
+    else:
+        max_mix_depth = DEFAULT_MIXDEPTH
     wallet_path = get_wallet_path(wallet_name, None)
-    wallet = open_test_wallet_maybe(wallet_path, wallet_name, max_mix_depth, wallet_password_stdin=options_org.wallet_password_stdin)
+    wallet = open_test_wallet_maybe(wallet_path, wallet_name, max_mix_depth,
+            wallet_password_stdin=options_org.wallet_password_stdin)
     wallet_service = WalletService(wallet)
     if wallet_service.rpc_error:
         sys.exit(EXIT_FAILURE)
@@ -109,8 +117,12 @@ def main():
         tumble_log.info("TUMBLE RESTARTING")
     else:
         #Create a new schedule from scratch
-        schedule = get_tumble_schedule(options, destaddrs,
-            wallet.get_balance_by_mixdepth())
+        try:
+            schedule = get_tumble_schedule(options, destaddrs,
+                wallet.get_balance_by_mixdepth(), wallet_service.mixdepth)
+        except ScheduleGenerationErrorNoFunds:
+            jmprint("No funds in wallet to tumble.", "error")
+            sys.exit(EXIT_FAILURE)
         tumble_log.info("TUMBLE STARTING")
         with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
             f.write(schedule_to_text(schedule))
@@ -133,13 +145,10 @@ def main():
     involved_parties = len(schedule)    # own participation in each CJ
     for item in schedule:
         involved_parties += item[2] #  number of total tumble counterparties
-    total_tumble_amount = int(0)
-    max_mix_to_tumble = min(options['mixdepthsrc']+options['mixdepthcount'], \
-                            max_mix_depth)
-    for i in range(options['mixdepthsrc'], max_mix_to_tumble):
-        total_tumble_amount += wallet_service.get_balance_by_mixdepth()[i]
-    if total_tumble_amount == 0:
-        raise ValueError("No confirmed coins in the selected mixdepth(s). Quitting")
+
+    total_tumble_amount = get_total_tumble_amount(
+        wallet.get_balance_by_mixdepth(), schedule)
+
     exp_tx_fees_ratio = (involved_parties * fee_per_cp_guess) \
         / total_tumble_amount
     if exp_tx_fees_ratio > 0.05:

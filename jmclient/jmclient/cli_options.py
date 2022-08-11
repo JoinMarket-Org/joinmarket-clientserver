@@ -275,14 +275,6 @@ def get_tumbler_parser():
             ' be configured to ask for more address mid-run, giving the user'
             ' a chance to click `Generate New Deposit Address` on whatever service'
             ' they are using.')
-    parser.add_option(
-            '-m',
-            '--mixdepthsource',
-            type='int',
-            dest='mixdepthsrc',
-            help=
-            'Mixing depth to start tumble process from. default=0.',
-            default=0)
     parser.add_option('--restart',
         action='store_true',
         dest='restart',
@@ -398,9 +390,7 @@ def get_tumbler_parser():
             type='int',
             dest='amtmixdepths',
             help='number of mixdepths ever used in wallet, '
-                 'only to be used if mixdepths higher than '
-                 'mixdepthsrc + number of mixdepths to tumble '
-                 'have been used.',
+                 'will soon be deprecated.',
             default=-1)
     parser.add_option(
             '--rounding-chance',
