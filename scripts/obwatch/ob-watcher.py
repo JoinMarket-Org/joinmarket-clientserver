@@ -210,11 +210,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         with self.taker.dblock:
             rows = self.taker.db.execute('SELECT * FROM orderbook;').fetchall()
             fbonds = self.taker.db.execute("SELECT * FROM fidelitybonds;").fetchall()
-        if not rows or not fbonds:
-            return []
 
         fidelitybonds = []
-        if jm_single().bc_interface != None:
+        if fbonds and jm_single().bc_interface != None:
             (fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times) =\
                 get_fidelity_bond_data(self.taker)
             fidelity_bond_values_dict = dict([(bond_data.maker_nick, bond_value)
