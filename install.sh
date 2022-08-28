@@ -206,6 +206,9 @@ dep_get ()
     if [ ! -f "${pkg_name}" ] || ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         http_get "${pkg_url}/${pkg_name}" "${pkg_name}"
     fi
+    if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
+        return 1
+    fi
     if [[ -n "${pkg_hash_file}" ]]; then
         http_get "${pkg_url}/${pkg_hash_file}" "${pkg_hash_file}"
         if [[ -n "${pkg_hash_file_sig}" ]]; then
@@ -220,9 +223,6 @@ dep_get ()
     if [[ -n "${pkg_sig}" ]]; then
         http_get "${pkg_url}/${pkg_sig}" "${pkg_sig}"
         gpg_verify "../../pubkeys/third-party/${pkg_pubkeys}" "${pkg_sig}"
-    fi
-    if ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
-        return 1
     fi
     tar -xzf "${pkg_name}" -C ../
     popd
