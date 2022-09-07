@@ -3,10 +3,28 @@ Utilities to calculate fidelity bonds values and statistics.
 """
 from bisect import bisect_left
 from datetime import datetime
-from statistics import quantiles
-from typing import Optional, Dict, Any, Mapping, Tuple, List
+from typing import Optional, Dict, Any, Mapping, Tuple, List, Sequence
 
 from jmclient import FidelityBondMixin, jm_single, get_interest_rate
+
+
+def get_percentiles(data: Sequence[Any]) -> List[Any]:
+    """
+    Custom implementation of statistics.quantiles from Python standard library.
+    Equivalent to quantiles(data, n=100, method="inclusive")
+    Used to preserve compatibility with old Python versions.
+    """
+    n = len(data)
+    if n < 2:
+        raise ValueError("Not enough data, at least two data points required")
+    data = sorted(data)
+    m = n - 1
+    result = []
+    for i in range(1, 100):
+        j, delta = divmod(i * m, 100)
+        interpolated = (data[j] * (100 - delta) + data[j + 1] * delta) / 100
+        result.append(interpolated)
+    return result
 
 
 def get_next_locktime(dt: datetime) -> datetime:
@@ -55,7 +73,7 @@ def get_bond_values(amount: int,
     if orderbook:
         bond_values = [fb["bond_value"] for fb in orderbook["fidelitybonds"]]
         bonds_sum = sum(bond_values)
-        percentiles = quantiles(bond_values, n=100, method="inclusive")
+        percentiles = get_percentiles(bond_values)
 
     parameters = {
         "amount": amount,
