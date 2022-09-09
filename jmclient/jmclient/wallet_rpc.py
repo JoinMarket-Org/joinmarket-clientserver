@@ -1247,8 +1247,6 @@ class JMWalletDaemon(Service):
                                tdestaddrs=destaddrs)
             self.clientfactory = self.get_client_factory()
 
-            self.taker.testflag = True
-
             dhost, dport = self.check_daemon_ready()
 
             _, self.coinjoin_connection = start_reactor(dhost,
