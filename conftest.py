@@ -1,11 +1,9 @@
-from __future__ import (absolute_import, division,
-                        print_function, unicode_literals)
-from builtins import *
 import pytest
 import re
 import os
 import time
 import subprocess
+from typing import Any
 
 bitcoin_path = None
 bitcoin_conf = None
@@ -13,15 +11,15 @@ bitcoin_rpcpassword = None
 bitcoin_rpcusername = None
 miniircd_procs = []
 
-def get_bitcoind_version(version_string):
+def get_bitcoind_version(version_string: bytes) -> tuple:
     # this utility function returns the version number
-    # as a tuple in the form (major, minor, patch)
+    # as a tuple in the form (major, minor)
     version_tuple = re.match(
-        br'.*v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)',
+        br'.*v(?P<major>\d+)\.(?P<minor>\d+)',
         version_string).groups()
     return tuple(map(lambda x: int(x), version_tuple))
 
-def local_command(command, bg=False, redirect=''):
+def local_command(command: str, bg: bool = False, redirect: str = ''):
     if redirect == 'NULL':
         if OS == 'Windows':
             command.append(' > NUL 2>&1')
@@ -45,11 +43,11 @@ def local_command(command, bg=False, redirect=''):
         return subprocess.run(command, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT)
 
-def root_path():
+def root_path() -> str:
     # returns the directory in which this file is contained
     return os.path.dirname(os.path.realpath(__file__))
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: Any) -> None:
     parser.addoption("--btcroot", action="store", default='',
                      help="the fully qualified path to the directory containing "+\
                      "the bitcoin binaries, e.g. /home/user/bitcoin/bin/")
@@ -71,7 +69,7 @@ def pytest_addoption(parser):
                          default=1,
     help="the number of local miniircd instances")
 
-def teardown():
+def teardown() -> None:
     #didn't find a stop command in miniircd, so just kill
     global miniircd_procs
     for m in miniircd_procs:
@@ -85,7 +83,7 @@ def teardown():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup(request):
+def setup(request) -> None:
     request.addfinalizer(teardown)
 
     global bitcoin_conf, bitcoin_path, bitcoin_rpcpassword, bitcoin_rpcusername
