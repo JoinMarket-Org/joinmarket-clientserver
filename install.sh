@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+cd "$(dirname "$0")"
+
 check_exists() {
     command -v "$1" > /dev/null
 }
