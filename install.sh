@@ -170,7 +170,8 @@ dar_deps_install ()
 check_skip_build ()
 {
     if [[ ${reinstall} == false ]] && [[ -d "$1" ]]; then
-        read -p "Directory ${1} exists.  Remove and recreate?  (y/n)  " q
+        read -n 1 -p "Directory ${1} exists.  Remove and recreate? (y/N) " q
+        echo ""
         if [[ "${q}" =~ Y|y ]]; then
             rm -rf "./${1}"
             mkdir -p "./${1}"
@@ -537,11 +538,15 @@ Options:
     done
 
     if [[ ${with_qt} == '' ]]; then
-        read -p "
+        read -n 1 -p "
         INFO: Joinmarket-Qt for GUI Taker and Tumbler modes is available.
-        Install Qt dependencies (~160mb) ? [y|n] : "
+        Install Qt dependencies (~160mb)? (y/N) "
+        echo ""
         if [[ ${REPLY} =~ y|Y ]]; then
+            echo "Building Qt GUI"
             with_qt='1'
+        else
+            echo "Not building Qt GUI"
         fi
     fi
 }
