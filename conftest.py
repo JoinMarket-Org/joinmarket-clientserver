@@ -19,17 +19,7 @@ def get_bitcoind_version(version_string: bytes) -> tuple:
         version_string).groups()
     return tuple(map(lambda x: int(x), version_tuple))
 
-def local_command(command: str, bg: bool = False, redirect: str = ''):
-    if redirect == 'NULL':
-        if OS == 'Windows':
-            command.append(' > NUL 2>&1')
-        elif OS == 'Linux':
-            command.extend(['>', '/dev/null', '2>&1'])
-        else:
-            pytest.exit("OS not recognised, quitting.")
-    elif redirect:
-        command.extend(['>', redirect])
-
+def local_command(command: str, bg: bool = False):
     if bg:
         #using subprocess.PIPE seems to cause problems
         FNULL = open(os.devnull, 'w')
