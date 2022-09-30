@@ -38,7 +38,7 @@ if __name__ == "__main__":
             pjurl = "http://" + serverport
     else:
         # hardcoded port for tests:
-        pjurl = "https://127.0.0.1:8080"
+        pjurl = "https://127.0.0.1:8082"
     bip21uri = "bitcoin:2N7CAdEUjJW9tUHiPhDkmL9ukPtcukJMoxK?amount=0.3&pj=" + pjurl
 
     wallet_path = get_wallet_path(wallet_name, None)

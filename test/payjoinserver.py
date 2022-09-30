@@ -84,8 +84,8 @@ def test_start_payjoin_server(setup_payjoin_server):
     else:
         # TODO for now, just sticking with TLS test as non-encrypted
         # is unlikely to be used, but add that option.
-        reactor.listenSSL(8080, site, contextFactory=get_ssl_context())
-        #endpoint = endpoints.TCP4ServerEndpoint(reactor, 8080)
+        reactor.listenSSL(8082, site, contextFactory=get_ssl_context())
+        #endpoint = endpoints.TCP4ServerEndpoint(reactor, 8082)
         #endpoint.listen(site)
     reactor.run()
 

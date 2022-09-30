@@ -174,7 +174,7 @@ Before you do such coinjoins, you may want to:
 
 ```
 [PAYJOIN]
-# for the majority of situations, the defaults
+# For the majority of situations, the defaults
 # need not be altered - they will ensure you don't pay
 # a significantly higher fee.
 # MODIFICATION OF THESE SETTINGS IS DISADVISED.
@@ -182,7 +182,7 @@ Before you do such coinjoins, you may want to:
 # Payjoin protocol version; currently only '1' is supported.
 payjoin_version = 1
 
-# servers can change their destination address by default (0).
+# Servers can change their destination address by default (0).
 # if '1', they cannot. Note that servers can explicitly request
 # that this is activated, in which case we respect that choice.
 disable_output_substitution = 0
@@ -198,19 +198,30 @@ disable_output_substitution = 0
 # to that of our change output, unless there is none in which case this is disabled.
 max_additional_fee_contribution = default
 
-# this is the minimum satoshis per vbyte we allow in the payjoin
+# This is the minimum sats/vbyte we allow in the payjoin
 # transaction; note it is decimal, not integer.
 min_fee_rate = 1.1
 
-# for payjoin onion service creation, the tor control configuration:
-tor_control_host = localhost
-# or, to use a UNIX socket
-# control_host = unix:/var/run/tor/control
-tor_control_port = 9051
-
-# for payjoins to hidden service endpoints, the socks5 configuration:
+# For payjoins as sender (i.e. client) to hidden service endpoints,
+# the socks5 configuration:
 onion_socks5_host = localhost
 onion_socks5_port = 9050
+
+# For payjoin onion service creation:
+# the tor control configuration:
+tor_control_host = localhost
+
+# or, to use a UNIX socket
+# control_host = unix:/var/run/tor/control
+# note: port needs to be provided (but is ignored for UNIX socket)
+tor_control_port = 9051
+
+# the host/port actually serving the hidden service
+# (note the *virtual port*, that the client uses,
+# is hardcoded to 80):
+onion_serving_host = 127.0.0.1
+onion_serving_port = 8082
+
 # in some exceptional case the HS may be SSL configured,
 # this feature is not yet implemented in code, but here for the
 # future:
