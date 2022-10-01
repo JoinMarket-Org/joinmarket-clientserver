@@ -111,7 +111,7 @@ def main():
                 jmprint("The required options for burning coins are zero makers"
                     + " (-N 0), sweeping (amount = 0) and not using BIP78 Payjoin", "info")
             sys.exit(EXIT_ARGERROR)
-        if sweeping == False and amount < jm_single().DUST_THRESHOLD:
+        if sweeping == False and options.makercount > 0 and amount < jm_single().DUST_THRESHOLD:
             jmprint('ERROR: Amount ' + btc.amount_to_str(amount) +
                 ' is below dust threshold ' +
                 btc.amount_to_str(jm_single().DUST_THRESHOLD) + '.', "error")

@@ -834,7 +834,7 @@ class SpendTab(QWidget):
 
         # for coinjoin sends no point to send below dust threshold, likely
         # there will be no makers for such amount.
-        if amount != 0 and not self.checkAmount(amount):
+        if amount != 0 and makercount > 0 and not self.checkAmount(amount):
             return
 
         if makercount < jm_single().config.getint(
