@@ -477,7 +477,7 @@ tor_control_port = 9051
 # (note the *virtual port*, that the client uses,
 # is hardcoded to 80):
 onion_serving_host = 127.0.0.1
-onion_serving_port = 8080
+onion_serving_port = 8082
 
 # in some exceptional case the HS may be SSL configured,
 # this feature is not yet implemented in code, but here for the
