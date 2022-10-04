@@ -151,10 +151,14 @@ class IRCMessageChannel(MessageChannel):
             ctx = ClientContextFactory()
         if self.usessl.lower() == 'true' and not self.socks5.lower() == 'true':
             factory = TxIRCFactory(self)
+            wlog('build_irc: ', self.serverport[0], str(self.serverport[1]),
+                self.channel)
             reactor.connectSSL(self.serverport[0], self.serverport[1],
                                factory, ctx)
         elif self.socks5.lower() == 'true':
             factory = TxIRCFactory(self)
+            wlog('build_irc: ', self.serverport[0], str(self.serverport[1]),
+                self.channel, str(self.socks5_host), self.socks5_port)
             #str() casts needed else unicode error
             torEndpoint = TCP4ClientEndpoint(reactor, str(self.socks5_host),
                                              self.socks5_port)
