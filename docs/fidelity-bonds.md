@@ -159,14 +159,14 @@ Coins living on time-locked addresses are automatically frozen with
 JoinMarket's coin control feature, so before spending you need to unfreeze the
 coins using `python3 wallet-tool.py <walletname> -m 0 freeze`.
 
-Once unfrozen and untimelocked the coins can be spent with a non-coinjoin transaction with
+Once unfrozen and untimelocked the coins can be spent with a **non-coinjoin** transaction with
 `sendpayment.py -N 0`.
 
 It is **not** possible to passively spend these untimelocked coins in your yield generator;
 they are auto frozen while the yield generator runs, because their signing scripts are not
 compatible with the current Joinmarket protocol.
 
-It **is** possible to spend these untimelocked coins in a coinjoin as a taker.
+It is also **not** possible to spend these untimelocked coins in a coinjoin as a taker.
 
 It is not *currently* possible to spend these untimelocked coins in a PSBT, until our PSBT code is updated to support these custom scripts.
 
