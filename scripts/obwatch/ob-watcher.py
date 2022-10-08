@@ -682,6 +682,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         if self.path not in pages:
             return
         if self.path == '/refreshorderbook':
+            with self.taker.dblock:
+                self.taker.db.execute("DELETE FROM orderbook;")
+                self.taker.db.execute("DELETE FROM fidelitybonds;")
             self.taker.msgchan.request_orderbook()
             time.sleep(5)
             self.path = '/'
@@ -766,7 +769,6 @@ def on_privmsg(inst, nick, message):
         except:
             pass
 
-        
 def get_dummy_nick():
     """In Joinmarket-CS nick creation is negotiated
     between client and server/daemon so as to allow
