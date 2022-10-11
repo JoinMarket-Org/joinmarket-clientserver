@@ -202,7 +202,7 @@ class SNICKERClientProtocol(BaseClientProtocol):
         """
         # always check whether the service is still intended to
         # be active, before starting the polling actions:
-        if jm_single().config.get("SNICKER", "enabled") != "true":
+        if not jm_single().config.getboolean("SNICKER", "enabled"):
             self.shutdown()
             return
         d = self.callRemote(commands.SNICKERReceiverGetProposals)
@@ -821,7 +821,7 @@ def start_reactor(host, port, factory=None, snickerfactory=None,
     serverconn = None
     clientconn = None
 
-    usessl = jm_single().config.get("DAEMON", "use_ssl") != 'false'
+    usessl = jm_single().config.getboolean("DAEMON", "use_ssl")
     jmcport, snickerport, bip78port = [port]*3
     if daemon:
         try:

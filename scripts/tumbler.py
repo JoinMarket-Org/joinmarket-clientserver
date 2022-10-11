@@ -189,8 +189,7 @@ def main():
                   callbacks=(filter_orders_callback, None, taker_finished),
                   tdestaddrs=destaddrs)
     clientfactory = JMClientProtocolFactory(taker)
-    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-    daemon = True if nodaemon == 1 else False
+    daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
     if jm_single().config.get("BLOCKCHAIN", "network") == "regtest":
         startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),

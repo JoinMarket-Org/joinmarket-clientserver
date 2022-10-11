@@ -190,14 +190,13 @@ def test_start_ygs(setup_ygrunner, num_ygs, wallet_structures, fb_indices,
         if malicious:
             yg.set_maliciousness(malicious, mtype="tx")
         clientfactory = JMClientProtocolFactory(yg, proto_type="MAKER")
-        if jm_single().config.get("SNICKER", "enabled") == "true":
+        if jm_single().config.getboolean("SNICKER", "enabled"):
             snicker_r = SNICKERReceiver(wallet_service_yg)
             servers = jm_single().config.get("SNICKER", "servers").split(",")
             snicker_factory = SNICKERClientProtocolFactory(snicker_r, servers)
         else:
             snicker_factory = None
-        nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-        daemon = True if nodaemon == 1 else False
+        daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
         rs = True if i == num_ygs - 1 else False
         start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                       jm_single().config.getint("DAEMON", "daemon_port"),

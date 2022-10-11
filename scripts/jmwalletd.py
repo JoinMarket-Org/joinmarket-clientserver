@@ -37,8 +37,7 @@ def jmwalletd_main():
     jlog.info("Starting jmwalletd on port: " + str(options.port))
     jm_wallet_daemon = JMWalletDaemon(options.port, options.wss_port)
     jm_wallet_daemon.startService()
-    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-    daemon = True if nodaemon == 1 else False
+    daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                   jm_single().config.getint("DAEMON", "daemon_port"),
                   None, daemon=daemon)

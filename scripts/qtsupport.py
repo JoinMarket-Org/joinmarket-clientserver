@@ -47,7 +47,6 @@ using a Bitcoin Core node instead."""}
 
 #configuration types
 config_types = {'rpc_port': int,
-                'network': bool,
                 'checktx': bool,
                 'socks5_port': int,
                 'maker_timeout_sec': int,
@@ -56,7 +55,7 @@ config_types = {'rpc_port': int,
                 'check_high_fee': int,
                 'max_mix_depth': int,
                 'order_wait_time': int,
-                'no_daemon': int,
+                'no_daemon': bool,
                 'daemon_port': int,
                 'absurd_fee_per_kb': 'amount'}
 config_tips = {

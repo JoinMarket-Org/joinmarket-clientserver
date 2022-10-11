@@ -810,8 +810,7 @@ class SpendTab(QWidget):
                     mainWindow.wallet_service, mixdepth, "joinmarket-qt")
             # start BIP78 AMP protocol if not yet up:
             if not self.bip78_daemon_started:
-                daemon = jm_single().config.getint("DAEMON", "no_daemon")
-                daemon = True if daemon == 1 else False
+                daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
                 start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                        jm_single().config.getint("DAEMON", "daemon_port"),
                        bip78=True, jm_coinjoin=False,
@@ -911,8 +910,7 @@ class SpendTab(QWidget):
             #First run means we need to start: create clientfactory
             #and start reactor connections
             self.clientfactory = JMClientProtocolFactory(self.taker)
-            daemon = jm_single().config.getint("DAEMON", "no_daemon")
-            daemon = True if daemon == 1 else False
+            daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
             start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                    jm_single().config.getint("DAEMON", "daemon_port"),
                    self.clientfactory,
@@ -1752,8 +1750,8 @@ class JMMainWindow(QMainWindow):
             #First run means we need to start: create daemon;
             # the client and its connection are created in the .initiate()
             # call.
-            daemon = jm_single().config.getint("DAEMON", "no_daemon")
-            if daemon:
+            no_daemon = jm_single().config.getboolean("DAEMON", "no_daemon")
+            if no_daemon:
                 # this call not needed if daemon is external.
                 start_reactor(jm_single().config.get("DAEMON", "daemon_host"),
                        jm_single().config.getint("DAEMON", "daemon_port"),

@@ -168,8 +168,7 @@ def main():
         jmprint(encrypted_proposal.decode("utf-8"))
         sys.exit(EXIT_SUCCESS)
 
-    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-    daemon = True if nodaemon == 1 else False
+    daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
     snicker_client = SNICKERPostingClient([encrypted_proposal])
     servers = jm_single().config.get("SNICKER", "servers").split(",")
     snicker_pf = SNICKERClientProtocolFactory(snicker_client, servers)

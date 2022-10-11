@@ -466,7 +466,7 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
          txfee_contribution_factor, cjfee_factor, size_factor])
     jlog.info('starting yield generator')
     clientfactory = JMClientProtocolFactory(maker, proto_type="MAKER")
-    if jm_single().config.get("SNICKER", "enabled") == "true":
+    if jm_single().config.getboolean("SNICKER", "enabled"):
         if jm_single().config.get("BLOCKCHAIN", "network") == "mainnet":
             jlog.error("You have enabled SNICKER on mainnet, this is not "
                        "yet supported for yieldgenerators; either use "
@@ -478,8 +478,7 @@ def ygmain(ygclass, nickserv_password='', gaplimit=6):
         snicker_factory = SNICKERClientProtocolFactory(snicker_r, servers)
     else:
         snicker_factory = None
-    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-    daemon = True if nodaemon == 1 else False
+    daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
     if jm_single().config.get("BLOCKCHAIN", "network") in ["regtest", "testnet", "signet"]:
         startLogging(sys.stdout)
     start_reactor(jm_single().config.get("DAEMON", "daemon_host"),

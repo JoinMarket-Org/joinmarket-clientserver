@@ -510,10 +510,8 @@ def make_payjoin_request_params(manager):
     disable_output_substitution = "false"
     if manager.disable_output_substitution:
         disable_output_substitution = "true"
-    else:
-        if jm_single().config.getint("PAYJOIN",
-                            "disable_output_substitution") == 1:
-            disable_output_substitution = "true"
+    elif jm_single().config.getboolean("PAYJOIN", "disable_output_substitution"):
+        disable_output_substitution = "true"
     params["disableoutputsubstitution"] = disable_output_substitution
 
     # to determine the additionalfeeoutputindex in cases where we have
@@ -557,7 +555,7 @@ def send_payjoin(manager, accept_callback=None,
         process_payjoin_proposal_from_server, process_error_from_server)
     h = jm_single().config.get("DAEMON", "daemon_host")
     p = jm_single().config.getint("DAEMON", "daemon_port")-2000
-    if jm_single().config.get("DAEMON", "use_ssl") != 'false':
+    if jm_single().config.getboolean("DAEMON", "use_ssl"):
         reactor.connectSSL(h, p, factory, ClientContextFactory())
     else:
         reactor.connectTCP(h, p, factory)
@@ -984,7 +982,7 @@ class JMBIP78ReceiverManager(object):
                 mode="receiver")
         h = jm_single().config.get("DAEMON", "daemon_host")
         p = jm_single().config.getint("DAEMON", "daemon_port")-2000
-        if jm_single().config.get("DAEMON", "use_ssl") != 'false':
+        if jm_single().config.getboolean("DAEMON", "use_ssl"):
             reactor.connectSSL(h, p, factory, ClientContextFactory())
         else:
             reactor.connectTCP(h, p, factory)

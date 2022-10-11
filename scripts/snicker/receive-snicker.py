@@ -72,8 +72,7 @@ Usage: %prog [options] wallet file [proposal]
         wallet_service.sync_wallet(fast=not options.recoversync)
     wallet_service.startService()
 
-    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-    daemon = True if nodaemon == 1 else False
+    daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
     snicker_r = SNICKERReceiver(wallet_service)
     if options.no_upload:
         proposal = args[1]

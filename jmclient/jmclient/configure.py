@@ -553,8 +553,8 @@ def get_mchannels(mode="TAKER"):
 
     SECTION_NAME += ':'
 
-    irc_fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
-              ("socks5", str), ("socks5_host", str), ("socks5_port", int)]
+    irc_fields = [("host", str), ("port", int), ("channel", str), ("usessl", bool),
+              ("socks5", bool), ("socks5_host", str), ("socks5_port", int)]
     onion_fields = [("type", str), ("directory_nodes", str), ("regtest_count", str),
                     ("socks5_host", str), ("socks5_port", int),
                     ("tor_control_host", str), ("tor_control_port", int),
@@ -565,16 +565,23 @@ def get_mchannels(mode="TAKER"):
         server_data = {}
         # check if socks5 is enabled for tor and load relevant config if so
         try:
-            server_data["socks5"] = jm_single().config.get(s, "socks5")
+            server_data["socks5"] = jm_single().config.getboolean(s, "socks5")
         except NoOptionError:
-            server_data["socks5"] = "false"
-        if server_data["socks5"].lower() == 'true':
+            server_data["socks5"] = False
+        if server_data["socks5"]:
             server_data["socks5_host"] = jm_single().config.get(s, "socks5_host")
             server_data["socks5_port"] = jm_single().config.get(s, "socks5_port")
 
         for option, otype in irc_fields:
-            val = jm_single().config.get(s, option)
-            server_data[option] = otype(val)
+            if otype is bool:
+                # treat empty or invalid string as False for backwards compatibility
+                try:
+                    server_data[option] = jm_single().config.getboolean(s, option)
+                except ValueError:
+                    server_data[option] = False
+            else:
+                val = jm_single().config.get(s, option)
+                server_data[option] = otype(val)
         server_data['btcnet'] = get_network()
         return server_data
 
@@ -747,10 +754,7 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
                 "error")
 
     # Logs to the console are color-coded if user chooses (file is unaffected)
-    if global_singleton.config.get("LOGGING", "color") == "true":
-        set_logging_color(True)
-    else:
-        set_logging_color(False)
+    set_logging_color(global_singleton.config.getboolean("LOGGING", "color"))
 
     try:
         global_singleton.maker_timeout_sec = global_singleton.config.getint(
@@ -979,12 +983,12 @@ def update_persist_config(section, name, value):
     return True
 
 def is_segwit_mode():
-    return jm_single().config.get('POLICY', 'segwit') != 'false'
+    return jm_single().config.getboolean('POLICY', 'segwit')
 
 def is_native_segwit_mode():
     if not is_segwit_mode():
         return False
-    return jm_single().config.get('POLICY', 'native') != 'false'
+    return jm_single().config.getboolean('POLICY', 'native')
 
 def process_shutdown(mode="command-line"):
     if mode=="command-line":

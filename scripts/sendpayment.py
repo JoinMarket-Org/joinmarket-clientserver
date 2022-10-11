@@ -345,8 +345,7 @@ def main():
                 log.info("All transactions completed correctly")
             reactor.stop()
 
-    nodaemon = jm_single().config.getint("DAEMON", "no_daemon")
-    daemon = True if nodaemon == 1 else False
+    daemon = not jm_single().config.getboolean("DAEMON", "no_daemon")
     dhost = jm_single().config.get("DAEMON", "daemon_host")
     dport = jm_single().config.getint("DAEMON", "daemon_port")
     if bip78url:
