@@ -462,12 +462,13 @@ class BitcoinCoreInterface(BlockchainInterface):
         if not rpc_result:
             # in case of connection error:
             return None
+
+        tx_fees_factor = abs(jm_single().config.getfloat('POLICY', 'tx_fees_factor'))
+
         mempoolminfee_in_sat = btc.btc_to_sat(rpc_result['mempoolminfee'])
         mempoolminfee_in_sat_randomized = random.uniform(
-            mempoolminfee_in_sat, mempoolminfee_in_sat * float(1.2))
+            mempoolminfee_in_sat, mempoolminfee_in_sat * float(1 + tx_fees_factor))
 
-        tx_fees_factor = float(jm_single().config.get('POLICY',
-            'tx_fees_factor'))
         if super().fee_per_kb_has_been_manually_set(N):
             N_res = random.uniform(N * float(1 - tx_fees_factor),
                 N * float(1 + tx_fees_factor))
@@ -504,10 +505,12 @@ class BitcoinCoreInterface(BlockchainInterface):
                     estimate_in_sat * float(1 + tx_fees_factor))
                 break
         else:  # cannot get a valid estimate after `tries` tries:
-            retval = 10000
+            fallback_fee = 10000
+            retval = random.uniform(fallback_fee * float(1 - tx_fees_factor),
+                fallback_fee * float(1 + tx_fees_factor))
             log.warn("Could not source a fee estimate from Core, " +
                      "falling back to default: " +
-                     btc.fee_per_kb_to_str(retval) + ".")
+                     btc.fee_per_kb_to_str(fallback_fee) + ".")
 
         if retval < mempoolminfee_in_sat:
             log.info("Using this mempool min fee as tx feerate: " +
