@@ -1443,8 +1443,8 @@ class OnionMessageChannel(MessageChannel):
         if len(self.get_connected_directory_peers()) == 0:
             # at least one handshake must have succeeded, for us
             # to continue.
-            log.error("We failed to connect and handshake with "
-                      "ANY directories; onion messaging is not functioning.")
+            log.warning("We failed to connect and handshake with "
+                        "ANY directories; onion messaging is not functioning.")
             self.wait_for_directories_loop.stop()
             return
         # This is what triggers the start of taker/maker workflows.
