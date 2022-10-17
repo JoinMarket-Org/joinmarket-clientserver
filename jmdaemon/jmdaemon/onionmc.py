@@ -23,7 +23,7 @@ ONION_VIRTUAL_PORT = 5222
 
 # How many seconds to wait before treating an onion
 # as unreachable
-CONNECT_TO_ONION_TIMEOUT = 10
+CONNECT_TO_ONION_TIMEOUT = 60
 
 def location_tuple_to_str(t: Tuple[str, int]) -> str:
     return f"{t[0]}:{t[1]}"
@@ -1435,10 +1435,9 @@ class OnionMessageChannel(MessageChannel):
         # so we are guaranteed to have only directory peers.
         if len(self.get_connected_directory_peers()) < len(self.peers):
             self.directory_wait_counter += 1
-            # < 2*11 = 22 seconds; compare with CONNECT_TO_ONION_TIMEOUT;
-            # with current vals, we get to try twice before entirely
-            # giving up.
-            if self.directory_wait_counter < 11:
+            # Keep trying until the timeout.
+            # Note RHS need not be an integer.
+            if self.directory_wait_counter < CONNECT_TO_ONION_TIMEOUT/2 + 1:
                 return
         if len(self.get_connected_directory_peers()) == 0:
             # at least one handshake must have succeeded, for us
@@ -1446,6 +1445,9 @@ class OnionMessageChannel(MessageChannel):
             log.error("We failed to connect and handshake with "
                       "ANY directories; onion messaging is not functioning.")
             self.wait_for_directories_loop.stop()
+            # notice that in this failure mode, we do *not* shut down
+            # the entire process, as this is only a failure to connect
+            # to one message channel, and others (e.g. IRC) may be working.
             return
         # This is what triggers the start of taker/maker workflows.
         # Note that even if the preceding (max) 50 seconds failed to
