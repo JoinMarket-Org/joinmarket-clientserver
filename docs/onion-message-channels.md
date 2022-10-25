@@ -154,7 +154,7 @@ who would like to help by running a directory node. You can ignore it if that do
 This requires a long running bot. It should be on a server you can keep running permanently, so perhaps a VPS,
 but in any case, very high uptime. For reliability it also makes sense to configure to run as a systemd service.
 
-The currently suggested way to run a directory node is to use the [`start-dn.py` script](https://github.com/JoinMarket-Org/custom-scripts/blob/master/start-dn.py); you can place it in your `joinmarket-clientserver/scripts` directory and run it *without* arguments, but with one option flag: `--datadir=/your/chosen/datadir` (as you'll see below).
+The currently suggested way to run a directory node is to use the [`start-dn.py` script](https://github.com/JoinMarket-Org/custom-scripts/blob/master/start-dn.py); you can place it in your `joinmarket-clientserver/scripts` directory and run it with a message argument to be sent as part of the connection handshake, for example: 'Greetings from Directory Node' and one option flag: `--datadir=/your/chosen/datadir` (as you'll see below).
 
 This slightly unobvious approach is based on the following ideas: we run a Joinmarket script, with a Joinmarket python virtualenv, so that we are able to parse messages; this means that the directory node *can* be a bot, e.g. a maker bot, but need not be - and here it is basically a "crippled" maker bot that cannot do anything. This 'crippling' is actually very useful because (a) we use the `no-blockchain` argument (it is forced in-code; you don't need to set it) so we don't need a running Bitcoin node (of whatever flavour), and (b) we don't need a wallet either.
 
@@ -188,7 +188,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -c 'cd /path/to/joinmarket-clientserver && source jmvenv/bin/activate && cd scripts && python start-dn.py --datadir=/path/to/chosen/datadir'
+ExecStart=/bin/bash -c 'cd /path/to/joinmarket-clientserver && source jmvenv/bin/activate && cd scripts && python start-dn.py 'Greetings from Directory Node' --datadir=/path/to/chosen/datadir'
 User=user
 
 [Install]
