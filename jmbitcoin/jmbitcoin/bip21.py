@@ -4,8 +4,7 @@
 # this are expected to do address validation independently anyway.
 
 from jmbitcoin import amount_to_sat
-from urllib.parse import quote, parse_qs, urlencode, urlparse
-from url_decode import urldecode
+from urllib.parse import parse_qs, quote, unquote_plus, urlencode, urlparse
 import re
 
 
@@ -40,7 +39,7 @@ def decode_bip21_uri(uri):
             # Convert amount to sats, as used internally by JM
             result['amount'] = amount_to_sat(amount_str + "btc")
         else:
-            result[key] = urldecode(params[key][0])
+            result[key] = unquote_plus(params[key][0])
     return result
 
 
