@@ -6,7 +6,7 @@ RUN yum -y groups install 'Development tools'
 RUN yum -y install epel-release && \
     yum -y update
 RUN yum -y install \
-    python3-devel python3-pip python3-virtualenv libsodium
+    python3-devel python3-pip libsodium
 
 RUN useradd --home-dir /home/chaum --create-home --shell /bin/bash --skel /etc/skel/ chaum
 ARG core_version
@@ -29,5 +29,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN virtualenv-3 --python=python3 jmvenv
+RUN python3 -m venv jmvenv
 RUN source jmvenv/bin/activate && ./test/run_tests.sh

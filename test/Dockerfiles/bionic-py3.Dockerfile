@@ -4,7 +4,7 @@ SHELL ["/bin/bash", "-c"]
 # dependencies
 RUN apt-get update
 RUN apt-get install -y \
-    python3-dev python3-pip virtualenv libsodium23
+    python3-dev python3-pip libsodium23 python3-venv
 
 # curl is a better tool
 RUN apt-get install -y curl
@@ -30,5 +30,5 @@ RUN bitcoind --version | head -1
 
 # install script
 WORKDIR ${repo_name}
-RUN virtualenv --python=python3 jmvenv
+RUN python3 -m venv jmvenv
 RUN source jmvenv/bin/activate && ./test/run_tests.sh
