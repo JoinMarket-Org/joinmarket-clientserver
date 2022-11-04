@@ -24,7 +24,7 @@ is actually newer in version number, than what was there already.
 
 To install everything (client and server), install these packages:
 
-    sudo apt-get install python3-dev python3-pip git build-essential automake pkg-config libtool libffi-dev libssl-dev
+    sudo apt-get install python3-dev python3-pip python3-venv git build-essential automake pkg-config libtool libffi-dev libssl-dev
 
 (+ `libsodium-dev` if you can find it, else build after)
 
@@ -46,8 +46,7 @@ Then install this repo:
 
 Then:
 
-    sudo pip install virtualenv
-    virtualenv --python=python3 jmvenv
+    python3 -m venv jmvenv
     source jmvenv/bin/activate
 
 **At this point you should see `(jmvenv)` at the beginning of your command prompt.**
@@ -72,7 +71,7 @@ Then build and install a local copy of libsecp256k1 for python-bitcointx:
 
 #### Installing packages to run everything in-one:
 
-> *NOTE*: It is very important to have activated virtualenv before running this step. Otherwise, `pip install` will fail, you may be tempted to re-run it with `sudo pip install` which will cause problems in the future.
+> *NOTE*: It is very important to have activated the virtual environment before running this step. Otherwise, `pip install` will fail, you may be tempted to re-run it with `sudo pip install` which will cause problems in the future.
 
     pip install -r requirements/base.txt
 
@@ -112,10 +111,9 @@ If you have installed this "full" version of the client, you can use it with the
     git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
     cd joinmarket-clientserver
     ```
-6) Create virtualenv "jmvenv"
+6) Create virtual environment "jmvenv"
     ```sh
-    sudo pip3 install virtualenv
-    virtualenv jmvenv
+    python3 -m venv jmvenv
     source jmvenv/bin/activate
     ```
     At this point you should see `(jmvenv)` at the beginning of your command prompt.
@@ -235,7 +233,7 @@ If you installed using WSL, the following configuration is necessary:
 > note: you need to have installed JoinMarket with Qt support (see [this](../README.md#joinmarket-qt) section in the readme file)
 1. In Ubuntu, install additional dependencies `sudo apt install libgl1-mesa-glx`.
 2. Download and install [MobaXterm](https://mobaxterm.mobatek.net). This program needs to be running before you can start JoinMarket-Qt. It requires no additional configuration.
-3. Open WSL-Ubuntu session in MobaXTerm. Go to JoinMarket directory and run `source jmvenv/bin/activate` to activate Python virtualenv.
+3. Open WSL-Ubuntu session in MobaXTerm. Go to JoinMarket directory and run `source jmvenv/bin/activate` to activate the Python virtual environment.
 4. You can now start JoinMarket-Qt as described [here](JOINMARKET-QT-GUIDE.md).
 If you find that the program crashes with `qt.qpa.plugin: Could not load the Qt platform plugin`, you can add Qt5 dependencies with `sudo apt install qtbase5-dev` and try again.
 
@@ -286,7 +284,7 @@ do not run the `python setupall.py` commands above. Instead run:
     python setupall.py --develop
 
 The normal installation (`--daemon` or `--client-bitcoin`) would install the JoinMarket
-packages to the virtualenv's `site-packages` directory. This would mean any changes you make to
+packages to the virtual environment's `site-packages` directory. This would mean any changes you make to
 the local code would not have effect until the packages are reinstalled.
 
 Using `--develop` causes a `.egg-link` file to be added to `site-packages` for each package.
