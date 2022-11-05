@@ -3,7 +3,7 @@
 # numpy
 pexpect
 coverage==5.2.1
-pytest==5.3.5
+pytest==6.2.5
 pytest-cov>=2.4.0,<2.6
 python-coveralls
 mock
