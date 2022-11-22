@@ -42,7 +42,7 @@ hypothetical sybil attackers.
 Some makers with high-valued fidelity bonds may choose to ask for a high coinjoin fee, so
 for the strongest protection from sybil attacks make sure to set your maximum coinjoin fee
 high enough (or if you think the sybil protection is too expensive then set the max fee
-lower, as always its your choice as a taker in the market).
+lower, as always it's your choice as a taker in the market).
 
 Takers will still choose makers equally (i.e. without taking into account fidelity bonds) with a
 small probability. By default this probability is currently 12.5%, so approximately 1-in-8 makers. This can
@@ -105,7 +105,7 @@ then either, mix afterwards as well. If your timelocked address expires and you 
 coins to another timelocked address then you don't need to mix in between, because no
 privacy-relevant information linked to you has been leaked.
 
-This can all be done with `sendpayment.py` and coin control (i.e. freezing the UTXOs that you dont
+This can all be done with `sendpayment.py` and coin control (i.e. freezing the UTXOs that you don't
 want to spend).
 
 ### Obtaining a time-locked address
@@ -120,7 +120,7 @@ This example creates an address which locks any coins sent to it until June 2025
     (jmvenv) $ python3 wallet-tool.py testfidelity.jmdat gettimelockaddress 2025-6
     Enter wallet decryption passphrase: 
     path = m/84'/1'/0'/2/0:1748736000
-    Coins sent to this address will be not be spendable until June 2025. Full date: 2025-06-01 00:00:00
+    Coins sent to this address will not be spendable until June 2025. Full date: 2025-06-01 00:00:00
     WARNING: You should send coins to this address only once. Only single biggest value UTXO will be announced as a fidelity bond. Sending coins to this address multiple times will not increase fidelity bond value.
     WARNING: Only send coins here which are from coinjoins or otherwise not linked to your identity. Also, use a sweep transaction when funding the timelocked address, i.e. Don't create a change address. See the privacy warnings in fidelity-bonds.md
     bcrt1qvcjcggpcw2rzk4sks94r3nxj5xhgkqm4p9h54c7mtr695se27efqqxnu0k
