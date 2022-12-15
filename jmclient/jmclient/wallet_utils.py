@@ -1363,7 +1363,7 @@ def wallet_gettimelockaddress(wallet, locktime_string):
 
     path = wallet.get_path(m, address_type, timenumber)
     jmprint("path = " + wallet.get_path_repr(path), "info")
-    jmprint("Coins sent to this address will be not be spendable until "
+    jmprint("Coins sent to this address will not be spendable until "
         + lock_datetime.strftime("%B %Y") + ". Full date: "
         + str(lock_datetime))
     jmprint("WARNING: You should send coins to this address only once."
