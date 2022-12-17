@@ -9,7 +9,7 @@ setup(name='joinmarketbase',
       author_email='',
       license='GPL',
       packages=['jmbase'],
-      install_requires=['twisted==22.4.0', 'service-identity==21.1.0',
+      install_requires=['twisted==22.10.0', 'service-identity==21.1.0',
                         'chromalog==1.0.5'],
       python_requires='>=3.6',
       zip_safe=False)
