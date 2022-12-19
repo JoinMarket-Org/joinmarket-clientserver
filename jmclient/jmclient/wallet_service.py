@@ -17,7 +17,7 @@ from jmclient.blockchaininterface import (INF_HEIGHT, BitcoinCoreInterface,
     BitcoinCoreNoHistoryInterface)
 from jmclient.wallet import FidelityBondMixin, BaseWallet
 from jmbase import (stop_reactor, hextobin, utxo_to_utxostr,
-                    jmprint, EXIT_SUCCESS)
+                    jmprint, EXIT_SUCCESS, EXIT_FAILURE)
 
 """Wallet service
 
@@ -805,12 +805,27 @@ class WalletService(Service):
 
     def sync_unspent(self):
         st = time.time()
-        # block height needs to be real time for addition to our utxos:
-        current_blockheight = self.bci.get_current_block_height()
+        # block height needs to be real time for addition to our utxos.
+        # We are a little aggressive in trying this RPC call, because if
+        # it fails we cannot continue:
+        for i in range(5):
+            current_blockheight = self.bci.get_current_block_height()
+            if current_blockheight:
+                break
+            if i < 4:
+                jlog.debug("Error calling blockheight RPC, trying again in 0.5s.")
+            # sync unspent calls are synchronous; this short sleep should
+            # not affect us since we are not yet in main monitor loop.
+            time.sleep(0.5)
         if not current_blockheight:
-            # this failure will shut down the application elsewhere, here
-            # just give up:
-            return
+            # this failure is critical; give up:
+            jlog.error("Failed to access the current blockheight, "
+                       "and therefore could not sync the wallet. "
+                       "Shutting down.")
+            if self.isRunning:
+                self.stopService()
+            stop_reactor()
+            sys.exit(EXIT_FAILURE)
         wallet_name = self.get_wallet_name()
         self.reset_utxos()
 
