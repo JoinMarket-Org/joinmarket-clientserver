@@ -67,9 +67,9 @@ deps_install ()
         'python3-dev' \
         'python3-pip' \
         'python3-setuptools' \
+        'python3-venv' \
         'libltdl-dev' )
 
-    if [ "$with_jmvenv" == 1 ]; then debian_deps+=("virtualenv"); fi
     if [ "$with_sudo" == 1 ]; then debian_deps+=("sudo"); fi
 
     darwin_deps=( \
@@ -152,21 +152,6 @@ dar_deps_install ()
     if ! brew install ${dar_deps[@]}; then
         return 1
     fi
-
-    if ! which virtualenv >/dev/null; then
-        sudo_command=''
-        if [ "$with_sudo" == 1 ]; then
-            echo "
-                sudo password required to run :
-
-                \`sudo pip3 install virtualenv\`
-                "
-            sudo_command="sudo"
-        fi
-        if $with_jmvenv && ! $sudo_command pip3 install virtualenv; then
-            return 1
-        fi
-    fi
 }
 
 check_skip_build ()
@@ -193,7 +178,7 @@ venv_setup ()
     else
         reinstall='true'
     fi
-    virtualenv -p "${python}" "${jm_source}/jmvenv" || return 1
+    "${python}" -m venv "${jm_source}/jmvenv" || return 1
     source "${jm_source}/jmvenv/bin/activate" || return 1
     pip install --upgrade pip
     pip install --upgrade setuptools
@@ -623,7 +608,7 @@ main ()
     fi
     if [ "$with_jmvenv" == 1 ]; then
         if ! venv_setup; then
-            echo "Joinmarket virtualenv could not be setup. Exiting."
+            echo "Joinmarket Python virtual environment could not be setup. Exiting."
             return 1
         fi
         source "${jm_root}/bin/activate"
@@ -667,7 +652,7 @@ main ()
 
         \`source jmvenv/bin/activate\`
 
-        from this directory, to activate virtualenv."
+        from this directory, to activate the virtual environment."
     fi
 }
 main ${@}

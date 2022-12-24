@@ -7,7 +7,7 @@ RUN apt-get install -y build-essential
 RUN apt-get install -y \
     automake pkg-config libtool
 RUN apt-get install -y \
-    python3-dev python3-pip virtualenv python3-pyqt4 python3-sip
+    python3-dev python3-pip python3-pyqt4 python3-sip python3-venv
 
 # curl is a better tool
 RUN apt-get install -y curl

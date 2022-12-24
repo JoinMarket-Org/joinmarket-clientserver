@@ -1095,7 +1095,7 @@ def wallet_fetch_history(wallet, options):
             jmprint('(as if yield generator was a bank account)')
         except ImportError:
             jmprint('scipy not installed, unable to predict accumulation rate')
-            jmprint('to add it to this virtualenv, use `pip install scipy`')
+            jmprint('to add it to this virtual environment, use `pip install scipy`')
 
     # includes disabled utxos in accounting:
     total_wallet_balance = sum(wallet.get_balance_by_mixdepth(

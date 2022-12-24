@@ -165,7 +165,7 @@ run_jm_tests ()
     fi
 
     if [[ -z "${VIRTUAL_ENV}" ]]; then
-        echo "Source JM virtualenv before running tests:
+        echo "Source JM virtual environment before running tests:
 
         \`source ./jmvenv/bin/activate\`"
         return 1

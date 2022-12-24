@@ -36,7 +36,7 @@ try:
     import matplotlib
 except:
     log.warning("matplotlib not found, charts will not be available. "
-                "Do `pip install matplotlib` in the joinmarket virtualenv.")
+                "Do `pip install matplotlib` in the joinmarket virtual environment.")
 
 if 'matplotlib' in sys.modules:
     # https://stackoverflow.com/questions/2801882/generating-a-png-with-matplotlib-when-display-is-undefined
