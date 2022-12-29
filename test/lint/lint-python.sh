@@ -13,7 +13,7 @@ elif flake8 --version | grep -q "Python 2"; then
 fi
 
 if [[ $# == 0 ]]; then
-    flake8 $(git ls-files "*.py") --extend-exclude "${EXCLUDE_PATTERNS}"
+    flake8 "$(git ls-files "*.py")" --extend-exclude "${EXCLUDE_PATTERNS}"
 else
     flake8 "$@"
 fi

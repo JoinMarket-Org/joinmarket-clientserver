@@ -20,10 +20,10 @@ build_docker ()
     core_url="https://bitcoincore.org/bin/bitcoin-core-${core_version}/${core_dist}"
     declare -A deps=( [${core_dist}]="${core_url}" )
     jm_root="${TRAVIS_BUILD_DIR}"
-    owner_name="${TRAVIS_REPO_SLUG%\/*}"
+    #owner_name="${TRAVIS_REPO_SLUG%\/*}"
     repo_name="${TRAVIS_REPO_SLUG#*\/}"
 
-    for dep in ${!deps[@]}; do
+    for dep in "${!deps[@]}"; do
         if [[ ! -r "${HOME}/downloads/${dep}" ]]; then
             curl --retry 5 -L "${deps[${dep}]}" -o "$HOME/downloads/${dep}"
         fi
@@ -31,7 +31,7 @@ build_docker ()
 
     mkdir -p "${jm_root}/deps/cache"
     find "$HOME/downloads" -type f -exec cp -v {} "${jm_root}/deps/cache/" \;
-    cd "${jm_root}/../"
+    cd "${jm_root}/../" || return 1
 
     docker build \
         --shm-size=1G \
