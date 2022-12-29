@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit
 
 check_exists() {
     command -v "$1" > /dev/null
@@ -12,9 +12,9 @@ num_cores() {
 
 # This is needed for systems where GNU is not the default make, like FreeBSD.
 if check_exists gmake; then
-    make=gmake
+    make="gmake"
 else
-    make=make
+    make="make"
 fi
 
 sha256_verify ()
@@ -122,12 +122,12 @@ tor_deps_install ()
 
 deb_deps_check ()
 {
-    apt-cache policy ${deb_deps[@]} | grep "Installed.*none"
+    apt-cache policy "${deb_deps[@]}" | grep "Installed.*none"
 }
 
 deb_deps_install ()
 {
-    deb_deps=( ${@} )
+    deb_deps=( "${@}" )
     if deb_deps_check; then
         clear
         sudo_command=''
@@ -135,12 +135,12 @@ deb_deps_install ()
             echo "
                 sudo password required to run :
 
-                \`apt-get install ${deb_deps[@]}\`
+                \`apt-get install ${deb_deps[*]}\`
                 "
             sudo_command="sudo"
         fi
 
-        if ! $sudo_command apt-get install -y --no-install-recommends ${deb_deps[@]}; then
+        if ! $sudo_command apt-get install -y --no-install-recommends "${deb_deps[@]}"; then
               return 1
         fi
     fi
@@ -148,8 +148,8 @@ deb_deps_install ()
 
 dar_deps_install ()
 {
-    dar_deps=( ${@} )
-    if ! brew install ${dar_deps[@]}; then
+    dar_deps=( "${@}" )
+    if ! brew install "${dar_deps[@]}"; then
         return 1
     fi
 }
@@ -157,7 +157,7 @@ dar_deps_install ()
 check_skip_build ()
 {
     if [[ ${reinstall} == false ]] && [[ -d "$1" ]]; then
-        read -n 1 -p "Directory ${1} exists.  Remove and recreate? (y/N) " q
+        read -r -n 1 -p "Directory ${1} exists.  Remove and recreate? (y/N) " q
         echo ""
         if [[ "${q}" =~ Y|y ]]; then
             rm -rf "./${1}"
@@ -179,6 +179,7 @@ venv_setup ()
         reinstall='true'
     fi
     "${python}" -m venv "${jm_source}/jmvenv" || return 1
+    # shellcheck source=/dev/null
     source "${jm_source}/jmvenv/bin/activate" || return 1
     pip install --upgrade pip
     pip install --upgrade setuptools
@@ -190,7 +191,7 @@ dep_get ()
     pkg_name="$1" pkg_hash="$2" pkg_url="$3"
     pkg_pubkeys="$4" pkg_sig="$5" pkg_hash_file="$6" pkg_hash_file_sig="$7"
 
-    pushd cache
+    pushd cache || return 1
     if [ ! -f "${pkg_name}" ] || ! sha256_verify "${pkg_hash}" "${pkg_name}"; then
         http_get "${pkg_url}/${pkg_name}" "${pkg_name}"
     fi
@@ -213,7 +214,7 @@ dep_get ()
         gpg_verify "../../pubkeys/third-party/${pkg_pubkeys}" "${pkg_sig}"
     fi
     tar -xzf "${pkg_name}" -C ../
-    popd
+    popd || return 1
 }
 
 # add '--disable-docs' to libffi ./configure so makeinfo isn't needed
@@ -278,7 +279,7 @@ libffi_install ()
     if ! dep_get "${libffi_lib_tar}" "${libffi_lib_sha}" "${libffi_url}"; then
         return 1
     fi
-    pushd "${libffi_version}"
+    pushd "${libffi_version}" || return 1
     if ! libffi_patch_disable_docs; then
         return 1
     fi
@@ -287,7 +288,7 @@ libffi_install ()
     else
         return 1
     fi
-    popd
+    popd || return 1
 }
 
 libsecp256k1_build()
@@ -320,13 +321,13 @@ libsecp256k1_install()
     if ! dep_get "${secp256k1_lib_tar}.tar.gz" "${secp256k1_lib_sha}" "${secp256k1_lib_url}"; then
         return 1
     fi
-    pushd "secp256k1-${secp256k1_lib_tar}"
+    pushd "secp256k1-${secp256k1_lib_tar}" || return 1
     if libsecp256k1_build; then
         $make install
     else
         return 1
     fi
-    popd
+    popd || return 1
 }
 
 libsodium_build ()
@@ -359,13 +360,13 @@ libsodium_install ()
     if ! dep_get "${sodium_lib_tar}" "${sodium_lib_sha}" "${sodium_url}" "${sodium_pubkeys}" "${sodium_lib_tar}.sig"; then
         return 1
     fi
-    pushd "${sodium_version}"
+    pushd "${sodium_version}" || return 1
     if libsodium_build; then
         $make install
     else
         return 1
     fi
-    popd
+    popd || return 1
 }
 
 tor_root ()
@@ -411,7 +412,7 @@ tor_install ()
     if ! dep_get "${tor_tar}" "${tor_sha}" "${tor_url}" "${tor_pubkeys}" "" "${tor_tar}.sha256sum" "${tor_tar}.sha256sum.asc"; then
         return 1
     fi
-    pushd "${tor_version}"
+    pushd "${tor_version}" || return 1
     if tor_build; then
         $make install
         echo "# Default JoinMarket Tor configuration
@@ -423,7 +424,7 @@ CookieAuthentication 1
     else
         return 1
     fi
-    popd
+    popd || return 1
 }
 
 joinmarket_install ()
@@ -434,7 +435,7 @@ joinmarket_install ()
         reqs+=( 'gui.txt' )
     fi
 
-    for req in ${reqs[@]}; do
+    for req in "${reqs[@]}"; do
         if [ "$with_jmvenv" == 1 ]; then pip_command=pip; else pip_command=pip3; fi
         $pip_command install -r "requirements/${req}" || return 1
     done
@@ -444,8 +445,8 @@ joinmarket_install ()
             echo "Installing XDG desktop entry"
             cp -f "$(dirname "$0")/docs/images/joinmarket_logo.png" \
                 ~/.local/share/icons/
-            cat "$(dirname "$0")/joinmarket-qt.desktop" | \
-                sed "s/\\\$JMHOME/$(dirname "$(realpath "$0")" | sed 's/\//\\\//g')/" > \
+            sed "s/\\\$JMHOME/$(dirname "$(realpath "$0")" | sed 's/\//\\\//g')/" \
+                "$(dirname "$0")/joinmarket-qt.desktop" > \
                     ~/.local/share/applications/joinmarket-qt.desktop
         fi
     fi
@@ -456,7 +457,7 @@ parse_flags ()
     while :; do
         case $1 in
             --develop)
-                develop_build='1'
+                #develop_build='1'
                 ;;
             --disable-os-deps-check)
                 use_os_deps_check='0'
@@ -504,7 +505,7 @@ parse_flags ()
                     echo "Invalid option $1"
                 fi
                 echo "
-Usage: "${0}" [options]
+Usage: ${0} [options]
 
 Options:
 
@@ -525,7 +526,7 @@ Options:
     done
 
     if [[ ${with_qt} == '' ]]; then
-        read -n 1 -p "
+        read -r -n 1 -p "
         INFO: Joinmarket-Qt for GUI Taker and Tumbler modes is available.
         Install Qt dependencies (~160mb)? (y/N) "
         echo ""
@@ -573,7 +574,7 @@ install_get_os ()
 main ()
 {
     # flags
-    develop_build=''
+    #develop_build=''
     python='python3'
     build_local_tor=''
     no_gpg_validation=''
@@ -583,7 +584,7 @@ main ()
     with_jmvenv='1'
     with_sudo='1'
     reinstall='false'
-    if ! parse_flags ${@}; then
+    if ! parse_flags "${@}"; then
         return 1
     fi
 
@@ -593,11 +594,10 @@ main ()
     else
         jm_root=""
     fi
-    jm_deps="${jm_source}/deps"
     export PKG_CONFIG_PATH="${jm_root}/lib/pkgconfig:${PKG_CONFIG_PATH}"
     export LD_LIBRARY_PATH="${jm_root}/lib:${LD_LIBRARY_PATH}"
     export C_INCLUDE_PATH="${jm_root}/include:${C_INCLUDE_PATH}"
-    export MAKEFLAGS="-j $(num_cores)"
+    MAKEFLAGS="-j $(num_cores)" && export MAKEFLAGS
 
     # os check
     install_os="$( install_get_os )"
@@ -611,6 +611,7 @@ main ()
             echo "Joinmarket Python virtual environment could not be setup. Exiting."
             return 1
         fi
+        # shellcheck source=/dev/null
         source "${jm_root}/bin/activate"
     fi
     if [[ ${build_local_tor} == "1" ]]; then
@@ -620,7 +621,7 @@ main ()
         fi
     fi
     mkdir -p "deps/cache"
-    pushd deps
+    pushd deps || return 1
     if ! libsecp256k1_install; then
         echo "libsecp256k1 was not built. Exiting."
         return 1
@@ -639,7 +640,7 @@ main ()
             return 1
         fi
     fi
-    popd
+    popd || return 1
     if ! joinmarket_install; then
         echo "Joinmarket was not installed. Exiting."
         if [ "$with_jmvenv" == 1 ]; then deactivate; fi
@@ -655,4 +656,4 @@ main ()
         from this directory, to activate the virtual environment."
     fi
 }
-main ${@}
+main "${@}"
