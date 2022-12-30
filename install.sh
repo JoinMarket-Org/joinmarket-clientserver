@@ -457,7 +457,7 @@ parse_flags ()
     while :; do
         case $1 in
             --develop)
-                #develop_build='1'
+                # no-op for backwards compatibility
                 ;;
             --disable-os-deps-check)
                 use_os_deps_check='0'
@@ -574,7 +574,6 @@ install_get_os ()
 main ()
 {
     # flags
-    #develop_build=''
     python='python3'
     build_local_tor=''
     no_gpg_validation=''
