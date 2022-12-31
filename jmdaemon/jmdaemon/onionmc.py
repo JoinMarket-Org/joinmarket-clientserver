@@ -1505,7 +1505,11 @@ class OnionMessageChannel(MessageChannel):
             # since the peer may already be removed from self.peers,
             # we don't limit except by filter:
             for p in peer_filter:
-                peerlist.add(p.get_nick_peerlocation_ser() + NICK_PEERLOCATOR_SEPARATOR + "D")
+                try:
+                    peerlist.add(p.get_nick_peerlocation_ser(
+                        ) + NICK_PEERLOCATOR_SEPARATOR + "D")
+                except OnionPeerError:
+                    pass
         # For testing: dns won't usually participate:
         peerlist.add(self.self_as_peer.get_nick_peerlocation_ser())
         # don't send an empty set (will not be possible unless
