@@ -7,7 +7,14 @@ check_exists() {
 }
 
 num_cores() {
-    python -c 'import multiprocessing as mp; print(mp.cpu_count())'
+    if check_exists python; then
+        python -c 'import multiprocessing as mp; print(mp.cpu_count())'
+    elif check_exists nproc; then
+        nproc
+    else
+        # fallback to no parallel processes
+        echo "1"
+    fi
 }
 
 # This is needed for systems where GNU is not the default make, like FreeBSD.
