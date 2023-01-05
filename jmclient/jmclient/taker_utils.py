@@ -10,9 +10,9 @@ from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime, \
     FidelityBondMixin
-from jmbitcoin import make_shuffled_tx, amount_to_str, mk_burn_script,\
+from jmbitcoin import make_shuffled_tx, amount_to_str, \
                        PartiallySignedTransaction, CMutableTxOut,\
-                       human_readable_transaction, Hash160
+                       human_readable_transaction
 from jmbase.support import EXIT_SUCCESS
 log = get_log()
 
@@ -20,6 +20,15 @@ log = get_log()
 Utility functions for tumbler-style takers;
 Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
+
+def get_utxo_scripts(wallet: BaseWallet, utxos):
+    # given a Joinmarket wallet and a set of utxos
+    # as passed from `get_utxos_by_mixdepth` at one mixdepth,
+    # return the list of script types for each utxo
+    script_types = []
+    for k, v in utxos.items():
+        script_types.append(wallet.get_outtype(v["address"]))
+    return script_types
 
 def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 accept_callback=None, info_callback=None, error_callback=None,
@@ -97,38 +106,27 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 "There are no available utxos in mixdepth: " + str(mixdepth) + ", quitting.")
             return
         total_inputs_val = sum([va['value'] for u, va in utxos.items()])
-
-        if is_burn_destination(destination):
-            if len(utxos) > 1:
-                log.error("Only one input allowed when burning coins, to keep "
-                    + "the tx small. Tip: use the coin control feature to freeze utxos")
-                return
-            address_type = FidelityBondMixin.BIP32_BURN_ID
-            index = wallet_service.wallet.get_next_unused_index(mixdepth, address_type)
-            path = wallet_service.wallet.get_path(mixdepth, address_type, index)
-            privkey, engine = wallet_service.wallet._get_key_from_path(path)
-            pubkey = engine.privkey_to_pubkey(privkey)
-            pubkeyhash = Hash160(pubkey)
-
-            #size of burn output is slightly different from regular outputs
-            burn_script = mk_burn_script(pubkeyhash)
-            fee_est = estimate_tx_fee(len(utxos), 0, txtype=txtype, extra_bytes=len(burn_script)/2)
-
-            outs = [{"script": burn_script, "value": total_inputs_val - fee_est}]
-            destination = "BURNER OUTPUT embedding pubkey at " \
-                + wallet_service.wallet.get_path_repr(path) \
-                + "\n\nWARNING: This transaction if broadcasted will PERMANENTLY DESTROY your bitcoins\n"
-        else:
-            #regular sweep (non-burn)
-            fee_est = estimate_tx_fee(len(utxos), 1, txtype=txtype, outtype=outtype)
-            outs = [{"address": destination, "value": total_inputs_val - fee_est}]
+        script_types = get_utxo_scripts(wallet_service.wallet, utxos)
+        fee_est = estimate_tx_fee(len(utxos), 1, txtype=script_types, outtype=outtype)
+        outs = [{"address": destination, "value": total_inputs_val - fee_est}]
     else:
-        #not doing a sweep; we will have change
-        #8 inputs to be conservative
-        initial_fee_est = estimate_tx_fee(8,2, txtype=txtype, outtype=outtype)
-        utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est)
+        change_type = wallet_service.get_txtype()
+        if custom_change_addr:
+            change_type = wallet_service.get_outtype(custom_change_addr)
+            if change_type is None:
+                # we don't recognize this type; best we can do is revert to default,
+                # even though it may be inaccurate:
+                change_type = wallet_service.get_txtype()
+        outtypes = [change_type, outtype]
+        # not doing a sweep; we will have change.
+        # 8 inputs to be conservative; note we cannot account for the possibility
+        # of non-standard input types at this point.
+        initial_fee_est = estimate_tx_fee(8,2, txtype=txtype, outtype=outtypes)
+        utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est,
+                                            includeaddr=True)
+        script_types = get_utxo_scripts(wallet_service.wallet, utxos)
         if len(utxos) < 8:
-            fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype, outtype=outtype)
+            fee_est = estimate_tx_fee(len(utxos), 2, txtype=script_types, outtype=outtypes)
         else:
             fee_est = initial_fee_est
         total_inputs_val = sum([va['value'] for u, va in utxos.items()])

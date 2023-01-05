@@ -106,70 +106,89 @@ def human_readable_output(txoutput):
         pass # non standard script
     return outdict
 
-def estimate_tx_size(ins, outs, txtype='p2pkh', outtype=None):
+def there_is_one_segwit_input(x):
+    # note that we need separate input types for
+    # any distinct types of scripthash inputs supported,
+    # since each may have a different size of witness; in
+    # that case, the internal list in this list comprehension
+    # will need updating.
+    return any([y in ["p2sh-p2wpkh", "p2wpkh", "p2wsh"] for y in x])
+
+def estimate_tx_size(ins, outs):
     '''Estimate transaction size.
-    The txtype field as detailed below is used to distinguish
-    the type, but there is at least one source of meaningful roughness:
-    we assume that the scriptPubKey type of all the outputs are the same as
-    the input, unless `outtype` is specified, in which case *one* of
-    the outputs is assumed to be that other type, with all of the other
-    outputs being of the same type as before.
-    This, combined with a few bytes variation in signature sizes means
-    we will sometimes see small inaccuracies in this estimate.
-
-    Assuming p2pkh:
-    out: 8+1+3+20+2=34, in: 32+4+1+1+~72+1+33+4=148,
-    ver: 4, locktime:4, +2 (len in,out)
-    total = 34*len_out + 148*len_in + 10 (sig sizes vary slightly)
-
-    Assuming p2sh M of N multisig:
-    "ins" must contain M, N so ins= (numins, M, N) (crude assuming all same)
-    73*M + 34*N + 45 per input, so total ins ~ len_ins * (45+73M+34N)
-    so total ~ 32*len_out + (45+73M+34N)*len_in + 10
-
-    Assuming p2sh-p2wpkh:
-    witness are roughly 1+1+~72+1+33 for each input
-    (txid, vin, 4+20 for witness program encoded as scriptsig, 4 for sequence)
-    non-witness input fields are roughly 32+4+4+20+4=64, so total becomes
-    n_in * 64 + 4(ver) + 2(marker, flag) + 2(n_in, n_out) + 4(locktime) + n_out*32
-
-    Assuming p2wpkh native:
-    witness as previous case
-    non-witness loses the 24 witnessprogram, replaced with 1 zero,
-    in the scriptSig, so becomes:
-    4 + 1 + 1 + (n_in) + (vin) + (n_out) + (vout) + (witness) + (locktime)
-    non-witness: 4(ver) +2 (marker, flag) + n_in*41 + 4(locktime) +2 (len in, out) + n_out*31
-    witness: 1 + 1 + 72 + 1 + 33
+    Both arguments `ins` and `outs` must be lists of script types,
+    and they must be present in the keys of the dicts `inmults`,
+    `outmults` defined here.
+    Note that variation in ECDSA signature sizes means
+    we will sometimes see small inaccuracies in this estimate, but
+    that this is ameliorated by the existence of the witness discount,
+    in actually estimating fees.
+    The value '72' is used for the most-likely size of these ECDSA
+    signatures, due to 30[1 byte] + len(rest)[1 byte] + type:02 [1 byte] + len(r)[1] + r[32 or 33] + type:02[1] + len(s)[1] + s[32] + sighash_all [1]
+    ... though as can be seen, 71 is also likely:
+    r length 33 occurs when the value is 'negative' (>N/2) and a byte x80 is prepended,
+    but shorter values for r are possible if rare.
+    Returns:
+    Either a single integer, if the transaction will be non-segwit,
+    or a tuple (int, int) for witness and non-witness bytes respectively).
     '''
-    if txtype == 'p2pkh':
-        return 4 + 4 + 2 + ins*148 + 34*outs + (
-            OUTPUT_EXTRA_BYTES[txtype][outtype]
-            if outtype and outtype in OUTPUT_EXTRA_BYTES[txtype] else 0)
-    elif txtype == 'p2sh-p2wpkh':
-        #return the estimate for the witness and non-witness
-        #portions of the transaction, assuming that all the inputs
-        #are of segwit type p2sh-p2wpkh
-        # Note as of Jan19: this misses 2 bytes (trivial) for len in, out
-        # and also overestimates output size by 2 bytes.
-        witness_estimate = ins*108
-        non_witness_estimate = 4 + 4 + 4 + outs*32 + ins*64 + (
-            OUTPUT_EXTRA_BYTES[txtype][outtype]
-            if outtype and outtype in OUTPUT_EXTRA_BYTES[txtype] else 0)
-        return (witness_estimate, non_witness_estimate)
-    elif txtype == 'p2wpkh':
-        witness_estimate = ins*108
-        non_witness_estimate = 4 + 4 + 4 + outs*31 + ins*41 + (
-            OUTPUT_EXTRA_BYTES[txtype][outtype]
-            if outtype and outtype in OUTPUT_EXTRA_BYTES[txtype] else 0)
-        return (witness_estimate, non_witness_estimate)
-    elif txtype == 'p2shMofN':
-        ins, M, N = ins
-        return 4 + 4 + 2 + (45 + 73*M + 34*N)*ins + outs*32 + (
-            OUTPUT_EXTRA_BYTES['p2sh-p2wpkh'][outtype]
-            if outtype and outtype in OUTPUT_EXTRA_BYTES['p2sh-p2wpkh'] else 0)
-    else:
-        raise NotImplementedError("Transaction size estimation not" +
-                                  "yet implemented for type: " + txtype)
+
+    # All non-witness input sizes include: txid, index, sequence,
+    # which is 32, 4 and 4; the remaining is scriptSig which is 1
+    # at minimum, for native segwit (the byte x00). Hence 41 is the minimum.
+    # The witness field for p2wpkh consists of sig, pub so 72 + 33 + 1 byte
+    # for the number of witness elements and 2 bytes for the size of each element,
+    # hence 108.
+    # For p2pkh, 148 comes from 32+4+1+1+~72+1+33+4
+    # For p2sh-p2wpkh there is an additional 23 bytes of witness for the redeemscript.
+    #
+    # Note that p2wsh here is specific to the script
+    # we use for fidelity bonds; 43 is the bytes required for that
+    # script's redeemscript field in the witness, but for arbitrary scripts,
+    # the witness portion could be any other size.
+    # Hence, we may need to modify this later.
+    inmults = {"p2wsh": {"w": 1 + 72 + 43, "nw": 41},
+               "p2wpkh": {"w": 108, "nw": 41},
+               "p2sh-p2wpkh": {"w": 108, "nw": 64},
+               "p2pkh": {"w": 0, "nw": 148}}
+
+    # Notes: in outputs, there is only 1 'scripthash'
+    # type for either segwit/nonsegwit.
+    # p2wsh has structure 8 bytes output, then:
+    # x22,x00,x20,(32 byte hash), so 32 + 3 + 8
+    # note also there is no need to distinguish witness
+    # here, outputs are always entirely nonwitness.
+    outmults = {"p2wsh": 43,
+               "p2wpkh": 31,
+               "p2sh-p2wpkh": 64,
+               "p2pkh": 34}
+
+    # nVersion, nLockTime, nins, nouts:
+    nwsize =  4 + 4 + 2
+    wsize = 0
+    tx_is_segwit = there_is_one_segwit_input(ins)
+    if tx_is_segwit:
+        # flag and marker bytes
+        nwsize += 2
+
+    for i in ins:
+        if i not in inmults:
+            raise NotImplementedError(
+                "Script type not supported for transaction size "
+                "estimation: {}".format(i))
+        inmult = inmults[i]
+        nwsize += inmult["nw"]
+        wsize += inmult["w"]
+    for o in outs:
+        if o not in outmults:
+            raise NotImplementedError(
+                "Script type not supported for transaction size "
+                "estimation: {}".format(o))
+        nwsize += outmults[o]
+
+    if not tx_is_segwit:
+        return nwsize
+    return (wsize, nwsize)
 
 def pubkey_to_p2pkh_script(pub, require_compressed=False):
     """

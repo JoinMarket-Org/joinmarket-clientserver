@@ -57,6 +57,21 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh', outtype=None, extra_bytes=0):
     '''Returns an estimate of the number of satoshis required
     for a transaction with the given number of inputs and outputs,
     based on information from the blockchain interface.
+
+    Arguments:
+    ins: int, number of inputs
+    outs: int, number of outputs
+    txtype: either a single string, or a list of strings
+    outtype: either None or a list of strings
+    extra_bytes: an int
+    These arguments are intended to allow a kind of 'default', where
+    all the inputs and outputs match a predefined type (that of the wallet),
+    but also allow customization for heterogeneous input and output types.
+    For supported input and output types, see the keys of the dicts
+    `inmults` and `outmults` in jmbitcoin.secp256k1_transaction.estimate_tx_size`.
+
+    Returns:
+    a single integer number of satoshis as estimate.
     '''
     if jm_single().bc_interface is None:
         raise RuntimeError("Cannot estimate transaction fee " +
@@ -73,18 +88,33 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh', outtype=None, extra_bytes=0):
             btc.fee_per_kb_to_str(fee_per_kb) +
             " greater than absurd value " +
             btc.fee_per_kb_to_str(absurd_fee) + ", quitting.")
-    if txtype in ['p2pkh', 'p2shMofN']:
-        tx_estimated_bytes = btc.estimate_tx_size(ins, outs, txtype, outtype) + extra_bytes
+
+    # See docstring for explanation:
+    if isinstance(txtype, str):
+        ins = [txtype]* ins
+    else:
+        assert isinstance(txtype, list)
+        ins = txtype
+    if outtype is None:
+        outs = [txtype] * outs
+    elif isinstance(outtype, str):
+        outs = [outtype] * outs
+    else:
+        assert isinstance(outtype, list)
+        outs = outtype
+
+    # Note: the calls to `estimate_tx_size` in this code
+    # block can raise `NotImplementedError` if any of the
+    # strings in (ins, outs) are not known script types.
+    if not btc.there_is_one_segwit_input(ins):
+        tx_estimated_bytes = btc.estimate_tx_size(ins, outs) + extra_bytes
         return int((tx_estimated_bytes * fee_per_kb)/Decimal(1000.0))
-    elif txtype in ['p2wpkh', 'p2sh-p2wpkh']:
+    else:
         witness_estimate, non_witness_estimate = btc.estimate_tx_size(
-            ins, outs, txtype, outtype)
+            ins, outs)
         non_witness_estimate += extra_bytes
         return int(int((
             non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
-    else:
-        raise NotImplementedError("Txtype: " + txtype + " not implemented.")
-
 
 def compute_tx_locktime():
     # set locktime for best anonset (Core, Electrum)
