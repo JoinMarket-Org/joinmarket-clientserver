@@ -160,7 +160,7 @@ def estimate_tx_size(ins, outs):
     # here, outputs are always entirely nonwitness.
     outmults = {"p2wsh": 43,
                "p2wpkh": 31,
-               "p2sh-p2wpkh": 64,
+               "p2sh-p2wpkh": 32,
                "p2pkh": 34}
 
     # nVersion, nLockTime, nins, nouts:

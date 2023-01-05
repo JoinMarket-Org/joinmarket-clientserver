@@ -4,6 +4,28 @@ import hashlib
 from jmbase import bintohex
 import jmbitcoin as btc
 
+
+# Cases copied from:
+# https://github.com/kristapsk/bitcoin-scripts/blob/0b847bec016638e60313ecec2b81f2e8accd311b/tests/tx-vsize.bats
+@pytest.mark.parametrize(
+    "inaddrtypes, outaddrtypes, size_expected",
+    [(["p2pkh"], ["p2pkh"], 192),
+     (["p2pkh"], ["p2pkh", "p2pkh"], 226),
+     (["p2pkh"], ["p2sh-p2wpkh", "p2sh-p2wpkh"], 222),
+     (["p2pkh"], ["p2pkh", "p2sh-p2wpkh"], 224),
+     (["p2sh-p2wpkh"], ["p2sh-p2wpkh"], 135),
+     (["p2wpkh"], ["p2wpkh"], 111),
+     ])
+def test_tx_size_estimate(inaddrtypes, outaddrtypes, size_expected):
+    # non-sw only inputs result in a single integer return,
+    # segwit inputs return (witness size, non-witness size)
+    x = btc.estimate_tx_size(inaddrtypes, outaddrtypes)
+    if btc.there_is_one_segwit_input(inaddrtypes):
+        s = int(x[0]/4 + x[1])
+    else:
+        s = x
+    assert s == size_expected
+
 @pytest.mark.parametrize(
     "addrtype",
     [("p2wpkh"),
