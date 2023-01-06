@@ -6,16 +6,8 @@ check_exists() {
     command -v "$1" > /dev/null
 }
 
-num_cores() {
-    if check_exists python; then
-        python -c 'import multiprocessing as mp; print(mp.cpu_count())'
-    elif check_exists nproc; then
-        nproc
-    else
-        # fallback to no parallel processes
-        echo "1"
-    fi
-}
+# This may be overriden by --python/-p option.
+python="python3"
 
 # This is needed for systems where GNU is not the default make, like FreeBSD.
 if check_exists gmake; then
@@ -23,6 +15,17 @@ if check_exists gmake; then
 else
     make="make"
 fi
+
+num_cores() {
+    if check_exists ${python}; then
+        ${python} -c 'import multiprocessing as mp; print(mp.cpu_count())'
+    elif check_exists nproc; then
+        nproc
+    else
+        # fallback to no parallel processes
+        echo "1"
+    fi
+}
 
 sha256_verify ()
 {
@@ -581,7 +584,6 @@ install_get_os ()
 main ()
 {
     # flags
-    python='python3'
     build_local_tor=''
     no_gpg_validation=''
     use_os_deps_check='1'
