@@ -8,6 +8,7 @@ import random
 import copy
 import base64
 import json
+from math import ceil
 from binascii import hexlify, unhexlify
 from datetime import datetime, timedelta
 from calendar import timegm
@@ -113,8 +114,7 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh', outtype=None, extra_bytes=0):
         witness_estimate, non_witness_estimate = btc.estimate_tx_size(
             ins, outs)
         non_witness_estimate += extra_bytes
-        return int(int((
-            non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
+        return int(int(ceil(non_witness_estimate + 0.25*witness_estimate)*fee_per_kb)/Decimal(1000.0))
 
 def compute_tx_locktime():
     # set locktime for best anonset (Core, Electrum)

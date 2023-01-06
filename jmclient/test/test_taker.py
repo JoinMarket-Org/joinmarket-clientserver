@@ -513,15 +513,15 @@ def test_custom_change(setup_taker):
         for out in taker.latest_tx.vout:
             # input utxo is 200M; amount is 20M; as per logs:
             # totalin=200000000
-            # my_txfee=13680 <- this estimate ignores address type
+            # my_txfee=13650 <- this estimate ignores address type
             # makers_txfee=3000
-            # cjfee_total=12000 => changevalue=179974320
+            # cjfee_total=12000 => changevalue=179974350
             # note that there is a small variation in the size of
             # the transaction (a few bytes) for the different scriptPubKey
             # type, but this is currently ignored in coinjoins by the
             # Taker (not true for direct send operations), hence we get
             # the same value for each different output type.
-            if out.scriptPubKey == script and out.nValue == 179974320:
+            if out.scriptPubKey == script and out.nValue == 179974350:
                 # must be only one
                 assert not custom_change_found
                 custom_change_found = True

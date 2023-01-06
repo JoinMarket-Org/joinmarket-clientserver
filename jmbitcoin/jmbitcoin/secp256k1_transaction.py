@@ -168,8 +168,8 @@ def estimate_tx_size(ins, outs):
     wsize = 0
     tx_is_segwit = there_is_one_segwit_input(ins)
     if tx_is_segwit:
-        # flag and marker bytes
-        nwsize += 2
+        # flag and marker bytes are included in witness
+        wsize += 2
 
     for i in ins:
         if i not in inmults:
