@@ -106,13 +106,13 @@ def human_readable_output(txoutput):
         pass # non standard script
     return outdict
 
-def there_is_one_segwit_input(x):
+def there_is_one_segwit_input(input_types):
     # note that we need separate input types for
     # any distinct types of scripthash inputs supported,
     # since each may have a different size of witness; in
     # that case, the internal list in this list comprehension
     # will need updating.
-    return any([y in ["p2sh-p2wpkh", "p2wpkh", "p2wsh"] for y in x])
+    return any(y in ["p2sh-p2wpkh", "p2wpkh", "p2wsh"] for y in input_types)
 
 def estimate_tx_size(ins, outs):
     '''Estimate transaction size.
@@ -174,16 +174,14 @@ def estimate_tx_size(ins, outs):
     for i in ins:
         if i not in inmults:
             raise NotImplementedError(
-                "Script type not supported for transaction size "
-                "estimation: {}".format(i))
+            f"Script type not supported for transaction size estimation: {i}")
         inmult = inmults[i]
         nwsize += inmult["nw"]
         wsize += inmult["w"]
     for o in outs:
         if o not in outmults:
             raise NotImplementedError(
-                "Script type not supported for transaction size "
-                "estimation: {}".format(o))
+            f"Script type not supported for transaction size estimation: {o}")
         nwsize += outmults[o]
 
     if not tx_is_segwit:

@@ -26,8 +26,8 @@ def get_utxo_scripts(wallet: BaseWallet, utxos):
     # as passed from `get_utxos_by_mixdepth` at one mixdepth,
     # return the list of script types for each utxo
     script_types = []
-    for k, v in utxos.items():
-        script_types.append(wallet.get_outtype(v["address"]))
+    for utxo in utxos.values():
+        script_types.append(wallet.get_outtype(utxo["address"]))
     return script_types
 
 def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
@@ -110,13 +110,13 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
         fee_est = estimate_tx_fee(len(utxos), 1, txtype=script_types, outtype=outtype)
         outs = [{"address": destination, "value": total_inputs_val - fee_est}]
     else:
-        change_type = wallet_service.get_txtype()
+        change_type = txtype
         if custom_change_addr:
             change_type = wallet_service.get_outtype(custom_change_addr)
             if change_type is None:
                 # we don't recognize this type; best we can do is revert to default,
                 # even though it may be inaccurate:
-                change_type = wallet_service.get_txtype()
+                change_type = txtype
         outtypes = [change_type, outtype]
         # not doing a sweep; we will have change.
         # 8 inputs to be conservative; note we cannot account for the possibility
