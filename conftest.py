@@ -97,8 +97,11 @@ def setup(request) -> None:
         miniircd_procs.append(miniircd_proc)
 
     # determine bitcoind version
-    bitcoind_version_string = subprocess.check_output([
-        os.path.join(bitcoin_path, "bitcoind"), "-version"]).split(b'\n')[0]
+    try:
+        bitcoind_version_string = subprocess.check_output([
+            os.path.join(bitcoin_path, "bitcoind"), "-version"]).split(b'\n')[0]
+    except subprocess.CalledProcessError as e:
+        pytest.exit(str(e))
     bitcoind_version = get_bitcoind_version(bitcoind_version_string)
 
     #start up regtest blockchain
