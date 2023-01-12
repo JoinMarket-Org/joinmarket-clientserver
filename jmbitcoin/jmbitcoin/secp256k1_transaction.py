@@ -1,6 +1,7 @@
 # note, only used for non-cryptographic randomness:
 import random
 import json
+from typing import List, Union, Tuple
 # needed for single sha256 evaluation, which is used
 # in bitcoin (p2wsh) but not exposed in python-bitcointx:
 import hashlib
@@ -106,7 +107,7 @@ def human_readable_output(txoutput):
         pass # non standard script
     return outdict
 
-def there_is_one_segwit_input(input_types):
+def there_is_one_segwit_input(input_types: List[str]) -> bool:
     # note that we need separate input types for
     # any distinct types of scripthash inputs supported,
     # since each may have a different size of witness; in
@@ -114,7 +115,7 @@ def there_is_one_segwit_input(input_types):
     # will need updating.
     return any(y in ["p2sh-p2wpkh", "p2wpkh", "p2wsh"] for y in input_types)
 
-def estimate_tx_size(ins, outs):
+def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
     '''Estimate transaction size.
     Both arguments `ins` and `outs` must be lists of script types,
     and they must be present in the keys of the dicts `inmults`,

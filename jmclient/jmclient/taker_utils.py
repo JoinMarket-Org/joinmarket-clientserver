@@ -21,7 +21,7 @@ Utility functions for tumbler-style takers;
 Currently re-used by CLI script tumbler.py and joinmarket-qt
 """
 
-def get_utxo_scripts(wallet: BaseWallet, utxos):
+def get_utxo_scripts(wallet: BaseWallet, utxos: dict) -> list:
     # given a Joinmarket wallet and a set of utxos
     # as passed from `get_utxos_by_mixdepth` at one mixdepth,
     # return the list of script types for each utxo
