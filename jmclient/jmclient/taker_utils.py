@@ -24,7 +24,7 @@ Currently re-used by CLI script tumbler.py and joinmarket-qt
 def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 accept_callback=None, info_callback=None, error_callback=None,
                 return_transaction=False, with_final_psbt=False,
-                optin_rbf=False, custom_change_addr=None):
+                optin_rbf=False, custom_change_addr=None, input_addrs=None):
     """Send coins directly from one mixdepth to one destination address;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
     If answeryes is True, callback/command line query is not performed.
@@ -126,7 +126,10 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
         #not doing a sweep; we will have change
         #8 inputs to be conservative
         initial_fee_est = estimate_tx_fee(8,2, txtype=txtype, outtype=outtype)
-        utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est)
+        if input_addrs:
+            utxos = wallet_service.select_utxos_from_addrs(mixdepth, input_addrs, amount + initial_fee_est)
+        else:
+            utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est)
         if len(utxos) < 8:
             fee_est = estimate_tx_fee(len(utxos), 2, txtype=txtype, outtype=outtype)
         else:

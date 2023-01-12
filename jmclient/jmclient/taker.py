@@ -187,6 +187,10 @@ class Taker(object):
             self.mixdepth = si[0]
             self.cjamount = si[1]
             rounding = si[5]
+            self.input_addrs = None
+            if len(si) > 7:
+                self.input_addrs = si[7]
+
             #non-integer coinjoin amounts are treated as fractions
             #this is currently used by the tumbler algo
             if isinstance(self.cjamount, float):
@@ -334,8 +338,12 @@ class Taker(object):
             total_amount = self.cjamount + self.total_cj_fee + self.total_txfee
             jlog.info('total estimated amount spent = ' + btc.amount_to_str(total_amount))
             try:
-                self.input_utxos = self.wallet_service.select_utxos(self.mixdepth, total_amount,
-                                                        minconfs=1)
+                if self.input_addrs:
+                    self.input_utxos = self.wallet_service.select_utxos_from_addrs(
+                        self.mixdepth, self.input_addrs, total_amount)
+                else:
+                    self.input_utxos = self.wallet_service.select_utxos(self.mixdepth, total_amount,
+                                                                        minconfs=1)
             except Exception as e:
                 self.taker_info_callback("ABORT",
                                     "Unable to select sufficient coins: " + repr(e))

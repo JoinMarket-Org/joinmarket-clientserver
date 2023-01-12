@@ -125,7 +125,7 @@ def main():
                 "error")
             sys.exit(EXIT_ARGERROR)
         schedule = [[options.mixdepth, amount, options.makercount,
-                     destaddr, 0.0, NO_ROUNDING, 0]]
+                     destaddr, 0.0, NO_ROUNDING, 0, options.input_addrs]]
     else:
         if len(args) > 1:
             parser.error("Schedule files are not compatible with "
@@ -251,7 +251,8 @@ def main():
     if options.makercount == 0 and not bip78url:
         tx = direct_send(wallet_service, amount, mixdepth, destaddr,
                          options.answeryes, with_final_psbt=options.with_psbt,
-                         optin_rbf=options.rbf, custom_change_addr=custom_change)
+                         optin_rbf=options.rbf, custom_change_addr=custom_change,
+                         input_addrs=options.input_addrs)
         if options.with_psbt:
             log.info("This PSBT is fully signed and can be sent externally for "
                      "broadcasting:")
