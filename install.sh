@@ -2,13 +2,13 @@
 
 cd "$(dirname "$0")" || exit
 
-check_exists() {
+check_exists()
+{
     command -v "$1" > /dev/null
 }
 
-num_cores() {
-    python -c 'import multiprocessing as mp; print(mp.cpu_count())'
-}
+# This may be overriden by --python/-p option.
+python="python3"
 
 # This is needed for systems where GNU is not the default make, like FreeBSD.
 if check_exists gmake; then
@@ -16,6 +16,11 @@ if check_exists gmake; then
 else
     make="make"
 fi
+
+num_cores()
+{
+    ${python} -c 'import multiprocessing as mp; print(mp.cpu_count())'
+}
 
 sha256_verify ()
 {
@@ -574,7 +579,6 @@ install_get_os ()
 main ()
 {
     # flags
-    python='python3'
     build_local_tor=''
     no_gpg_validation=''
     use_os_deps_check='1'
@@ -590,13 +594,12 @@ main ()
     jm_source="$PWD"
     if [ "$with_jmvenv" == 1 ]; then
         jm_root="${jm_source}/jmvenv"
+        export PKG_CONFIG_PATH="${jm_root}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+        export LD_LIBRARY_PATH="${jm_root}/lib:${LD_LIBRARY_PATH}"
+        export C_INCLUDE_PATH="${jm_root}/include:${C_INCLUDE_PATH}"
     else
         jm_root=""
     fi
-    export PKG_CONFIG_PATH="${jm_root}/lib/pkgconfig:${PKG_CONFIG_PATH}"
-    export LD_LIBRARY_PATH="${jm_root}/lib:${LD_LIBRARY_PATH}"
-    export C_INCLUDE_PATH="${jm_root}/include:${C_INCLUDE_PATH}"
-    MAKEFLAGS="-j $(num_cores)" && export MAKEFLAGS
 
     # os check
     install_os="$( install_get_os )"
@@ -605,6 +608,9 @@ main ()
         echo "Dependecies could not be installed. Exiting."
         return 1
     fi
+
+    MAKEFLAGS="-j $(num_cores)" && export MAKEFLAGS
+
     if [ "$with_jmvenv" == 1 ]; then
         if ! venv_setup; then
             echo "Joinmarket Python virtual environment could not be setup. Exiting."
