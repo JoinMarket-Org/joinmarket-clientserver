@@ -117,6 +117,11 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                 # we don't recognize this type; best we can do is revert to default,
                 # even though it may be inaccurate:
                 change_type = txtype
+        if outtype is None:
+            # we don't recognize the destination script type,
+            # so set it as the same as the change (which will usually
+            # be the same as the spending wallet, but see above for custom)
+            outtype = change_type
         outtypes = [change_type, outtype]
         # not doing a sweep; we will have change.
         # 8 inputs to be conservative; note we cannot account for the possibility
