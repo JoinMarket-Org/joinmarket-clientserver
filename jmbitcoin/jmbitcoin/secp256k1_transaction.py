@@ -19,31 +19,6 @@ from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
                                        SCRIPT_VERIFY_STRICTENC,
                                        SIGVERSION_WITNESS_V0)
 
-# for each transaction type, different output script pubkeys may result in
-# a difference in the number of bytes accounted for while estimating the
-# transaction size, this variable stores the difference and is factored in
-# when calculating the correct transaction size. For example, for a p2pkh
-# transaction, if one of the outputs is a p2wsh pubkey, then the transaction
-# would need 9 extra bytes to account for the difference in script pubkey
-# sizes
-OUTPUT_EXTRA_BYTES = {
-    'p2pkh': {
-        'p2wpkh': -3,
-        'p2sh-p2wpkh': -2,
-        'p2wsh': 9
-    },
-    'p2wpkh': {
-        'p2pkh': 3,
-        'p2sh-p2wpkh': 1,
-        'p2wsh': 12
-    },
-    'p2sh-p2wpkh': {
-        'p2pkh': 2,
-        'p2wpkh': -1,
-        'p2wsh': 11
-    }
-}
-
 def human_readable_transaction(tx, jsonified=True):
     """ Given a CTransaction object, output a human
     readable json-formatted string (suitable for terminal
