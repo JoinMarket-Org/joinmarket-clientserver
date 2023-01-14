@@ -6,6 +6,9 @@ from jmclient.wallet_utils import (bip32pathparse, WalletView,
                                    WalletViewAccount, WalletViewBranch,
                                    WalletViewEntry, wallet_signmessage)
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
+
 # The below signatures have all been verified against Electrum 4.0.9:
 @pytest.mark.parametrize('seed, hdpath, walletcls, message, sig, addr', [
     [b"\x01"*16, "m/84'/0'/0'/0/0", SegwitWallet, "hello",

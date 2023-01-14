@@ -1,9 +1,13 @@
 
 import unittest
+
+import pytest
 from jmbitcoin import CMutableTxOut, CMutableTransaction
 from jmclient import load_test_config, jm_single,\
     SegwitLegacyWallet, VolatileStorage, YieldGeneratorBasic, \
     get_network, WalletService
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
 
 
 class CustomUtxoWallet(SegwitLegacyWallet):

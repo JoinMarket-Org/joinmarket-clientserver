@@ -13,6 +13,9 @@ from jmclient import (
     load_test_config, jm_single,
     estimate_tx_fee, BitcoinCoreInterface, Mnemonic)
 from taker_test_data import t_raw_signed_tx
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 

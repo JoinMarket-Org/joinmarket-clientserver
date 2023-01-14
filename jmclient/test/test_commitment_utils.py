@@ -6,6 +6,9 @@ from jmclient import (load_test_config, jm_single, BTC_P2WPKH)
 from jmclient.commitment_utils import get_utxo_info, validate_utxo_data
 from jmbitcoin import select_chain_params
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
+
 def test_get_utxo_info():
     load_test_config()
     # this test tests mainnet keys, so temporarily switch network

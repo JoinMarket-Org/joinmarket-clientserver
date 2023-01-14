@@ -19,6 +19,7 @@ from test_blockchaininterface import sync_test_wallet
 from freezegun import freeze_time
 from bitcointx.wallet import CCoinAddressError
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 

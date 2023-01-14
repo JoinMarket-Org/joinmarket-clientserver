@@ -12,6 +12,9 @@ from jmclient import load_test_config, jm_single, generate_podle,\
     get_podle_commitments, add_external_commitments, update_commitments
 from jmclient.podle import verify_all_NUMS, verify_podle, PoDLEError
 from commontest import make_wallets
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 log = get_log()
 
 def test_commitments_empty(setup_podle):

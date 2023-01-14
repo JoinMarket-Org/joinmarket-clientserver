@@ -10,6 +10,8 @@ from jmclient import load_test_config, jm_single, BaseWallet
 
 log = get_log()
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 
 def sync_test_wallet(fast, wallet_service):
     sync_count = 0

@@ -7,6 +7,8 @@ from jmdaemon.protocol import JM_VERSION, ORDER_KEYS
 from jmbase.support import hextobin
 from jmclient.fidelity_bond import FidelityBondProof
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 class DummyDaemon(object):
     def request_signature_verify(self, a, b, c, d, e,
             f, g, h):

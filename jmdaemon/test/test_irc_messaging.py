@@ -8,6 +8,10 @@ from jmdaemon import IRCMessageChannel, MessageChannelCollection
 #needed for test framework
 from jmclient import (load_test_config, get_mchannels, jm_single)
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("setup_miniircd", "setup_regtest_bitcoind")
+
 si = 1
 class DummyDaemon(object):
     def request_signature_verify(self, a, b, c, d, e,

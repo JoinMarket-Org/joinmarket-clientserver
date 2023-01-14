@@ -7,6 +7,9 @@ from jmclient import load_test_config, jm_single, \
      WalletService
 from test_blockchaininterface import sync_test_wallet
 from test_wallet import fund_wallet_addr, get_populated_wallet
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 

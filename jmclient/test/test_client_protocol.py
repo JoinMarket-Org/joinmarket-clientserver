@@ -21,6 +21,11 @@ import json
 import jmbitcoin as bitcoin
 import twisted
 import base64
+
+import pytest
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 twisted.internet.base.DelayedCall.debug = True
 
 test_completed = False

@@ -7,6 +7,9 @@ from jmclient import BTCEngine, jm_single, load_test_config
 import json
 import pytest
 import os
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 
 def test_read_raw_privkeys(setup_keys):

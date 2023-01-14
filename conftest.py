@@ -82,6 +82,29 @@ def pytest_addoption(parser: Any) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
+def setup_early_if_needed(request) -> None:
+    """
+    Make sure fixtures requested by test *modules* are executed first.
+    I.e., like a dynamically set `autouse=True`.
+    (By default, without `autouse=True`, they would run later at request time)
+    Useful so that fixtures like `setup_regtest_bitcoind` can run *only* if
+    we are planning to invoke a test that requires it, but still at startup time.
+    """
+    modules = set()
+    # Loop through the collected tests
+    for item in request.node.items:
+        module = item.getparent(pytest.Module)
+        if module in modules:
+            continue
+        modules.add(module)
+        # Loop through each test module marker
+        for marker in module.iter_markers('usefixtures'):
+            # We know we are gonna need these fixtures, so we invoke them early
+            for fixture in marker.args:
+                request.getfixturevalue(fixture)
+
+
+@pytest.fixture(scope="session")
 def setup_miniircd(pytestconfig):
     """
     Setup miniircd and handle its clean up.
@@ -102,7 +125,7 @@ def setup_miniircd(pytestconfig):
         m.kill()
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def setup_regtest_bitcoind(pytestconfig):
     """
     Setup regtest bitcoind and handle its clean up.

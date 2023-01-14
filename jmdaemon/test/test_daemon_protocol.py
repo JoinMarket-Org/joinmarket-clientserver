@@ -22,6 +22,11 @@ from msgdata import *
 import base64
 import sys
 from dummy_mc import DummyMessageChannel
+
+import pytest
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 test_completed = False
 end_early = False
 jlog = get_log()
