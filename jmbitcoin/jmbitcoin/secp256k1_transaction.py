@@ -88,6 +88,7 @@ def there_is_one_segwit_input(input_types: List[str]) -> bool:
     # since each may have a different size of witness; in
     # that case, the internal list in this list comprehension
     # will need updating.
+    # note that there is no support yet for paying *from* p2tr.
     return any(y in ["p2sh-p2wpkh", "p2wpkh", "p2wsh"] for y in input_types)
 
 def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
@@ -123,21 +124,30 @@ def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
     # script's redeemscript field in the witness, but for arbitrary scripts,
     # the witness portion could be any other size.
     # Hence, we may need to modify this later.
+    #
+    # Note that there is no support yet for spending *from* p2tr:
+    # we should fix this soon, since it is desirable to be able to support
+    # coinjoins with counterparties sending taproot, but note, JM coinjoins
+    # do not allow non-standard (usually v0 segwit) inputs, anyway.
     inmults = {"p2wsh": {"w": 1 + 72 + 43, "nw": 41},
                "p2wpkh": {"w": 108, "nw": 41},
                "p2sh-p2wpkh": {"w": 108, "nw": 64},
                "p2pkh": {"w": 0, "nw": 148}}
 
     # Notes: in outputs, there is only 1 'scripthash'
-    # type for either segwit/nonsegwit.
+    # type for either segwit/nonsegwit (hence "p2sh-p2wpkh"
+    # is a bit misleading, but is kept to the same as inputs,
+    # for simplicity. See notes on inputs above).
     # p2wsh has structure 8 bytes output, then:
     # x22,x00,x20,(32 byte hash), so 32 + 3 + 8
     # note also there is no need to distinguish witness
     # here, outputs are always entirely nonwitness.
+    # p2tr is also 32 byte hash with x01 instead of x00 version.
     outmults = {"p2wsh": 43,
                "p2wpkh": 31,
                "p2sh-p2wpkh": 32,
-               "p2pkh": 34}
+               "p2pkh": 34,
+               "p2tr": 43}
 
     # nVersion, nLockTime, nins, nouts:
     nwsize =  4 + 4 + 2

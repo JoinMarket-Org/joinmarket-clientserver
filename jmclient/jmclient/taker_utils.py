@@ -121,12 +121,14 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
             # we don't recognize the destination script type,
             # so set it as the same as the change (which will usually
             # be the same as the spending wallet, but see above for custom)
+            # Notice that this is handled differently to the sweep case above,
+            # because we must use a list - there is more than one output
             outtype = change_type
         outtypes = [change_type, outtype]
         # not doing a sweep; we will have change.
         # 8 inputs to be conservative; note we cannot account for the possibility
         # of non-standard input types at this point.
-        initial_fee_est = estimate_tx_fee(8,2, txtype=txtype, outtype=outtypes)
+        initial_fee_est = estimate_tx_fee(8, 2, txtype=txtype, outtype=outtypes)
         utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est,
                                             includeaddr=True)
         script_types = get_utxo_scripts(wallet_service.wallet, utxos)

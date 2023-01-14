@@ -27,8 +27,8 @@ from .support import select_gradual, select_greedy, select_greediest, \
     select, NotEnoughFundsException
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WSH,\
     TYPE_P2WPKH, TYPE_TIMELOCK_P2WSH, TYPE_SEGWIT_WALLET_FIDELITY_BONDS,\
-    TYPE_WATCHONLY_FIDELITY_BONDS, TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH,\
-    ENGINES, detect_script_type, EngineError
+    TYPE_WATCHONLY_FIDELITY_BONDS, TYPE_WATCHONLY_TIMELOCK_P2WSH, \
+    TYPE_WATCHONLY_P2WPKH, TYPE_P2TR, ENGINES, detect_script_type, EngineError
 from .support import get_random_bytes
 from . import mn_encode, mn_decode
 import jmbitcoin as btc
@@ -92,7 +92,7 @@ def estimate_tx_fee(ins, outs, txtype='p2pkh', outtype=None, extra_bytes=0):
 
     # See docstring for explanation:
     if isinstance(txtype, str):
-        ins = [txtype]* ins
+        ins = [txtype] * ins
     else:
         assert isinstance(txtype, list)
         ins = txtype
@@ -505,6 +505,8 @@ class BaseWallet(object):
             return 'p2sh-p2wpkh'
         elif script_type == TYPE_P2WSH:
             return 'p2wsh'
+        elif script_type == TYPE_P2TR:
+            return 'p2tr'
         # should be unreachable; all possible returns
         # from detect_script_type are covered.
         assert False

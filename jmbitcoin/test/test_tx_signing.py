@@ -36,13 +36,14 @@ from math import ceil
      (["p2pkh"], ["p2pkh", "p2sh-p2wpkh"], 224),
      (["p2sh-p2wpkh"], ["p2sh-p2wpkh"], 134),
      (["p2wpkh"], ["p2wpkh"], 110),
+     (["p2wpkh"], ["p2wpkh", "p2tr"], 153),
      ])
 def test_tx_size_estimate(inaddrtypes, outaddrtypes, size_expected):
     # non-sw only inputs result in a single integer return,
     # segwit inputs return (witness size, non-witness size)
     x = btc.estimate_tx_size(inaddrtypes, outaddrtypes)
     if btc.there_is_one_segwit_input(inaddrtypes):
-        s = ceil((x[0] + x[1] * 4)/4.0)
+        s = ceil((x[0] + x[1] * 4) / 4.0)
     else:
         s = x
     assert s == size_expected

@@ -16,7 +16,7 @@ from .configure import get_network, jm_single
 # make existing wallets unsable.
 TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N, TYPE_TIMELOCK_P2WSH, \
     TYPE_SEGWIT_WALLET_FIDELITY_BONDS, TYPE_WATCHONLY_FIDELITY_BONDS, \
-    TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH, TYPE_P2WSH = range(10)
+    TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH, TYPE_P2WSH, TYPE_P2TR = range(11)
 NET_MAINNET, NET_TESTNET, NET_SIGNET = range(3)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET,
     'signet': NET_SIGNET}
@@ -52,6 +52,8 @@ def detect_script_type(script_str):
         return TYPE_P2WPKH
     elif script.is_witness_v0_scripthash():
         return TYPE_P2WSH
+    elif script.is_witness_v1_taproot():
+        return TYPE_P2TR
     raise EngineError("Unknown script type for script '{}'"
                       .format(bintohex(script_str)))
 
@@ -224,6 +226,12 @@ class BTCEngine(object):
         stype = detect_script_type(script)
         assert stype in ENGINES
         engine = ENGINES[stype]
+        # TODO though taproot is currently a returnable
+        # type from detect_script_type, there is not yet
+        # a corresponding ENGINE, thus a None return is possible.
+        # Callers recognize this as EngineError.
+        if engine is None:
+            raise EngineError
         pscript = engine.pubkey_to_script(pubkey)
         return script == pscript
 
@@ -457,5 +465,6 @@ ENGINES = {
     TYPE_TIMELOCK_P2WSH: BTC_Timelocked_P2WSH,
     TYPE_WATCHONLY_TIMELOCK_P2WSH: BTC_Watchonly_Timelocked_P2WSH,
     TYPE_WATCHONLY_P2WPKH: BTC_Watchonly_P2WPKH,
-    TYPE_SEGWIT_WALLET_FIDELITY_BONDS: BTC_P2WPKH
+    TYPE_SEGWIT_WALLET_FIDELITY_BONDS: BTC_P2WPKH,
+    TYPE_P2TR: None # TODO
 }
