@@ -195,7 +195,7 @@ run_jm_tests ()
     fi
     for dir in '/dev/shm' '/Volumes/ramdisk' '/tmp' "${jm_source}/test"; do
         if [[ -d "${dir}" && -r "${dir}" && -w "${dir}" && -x "${dir}" ]]; then
-            jm_test_datadir="${dir}/jm_test_home/.bitcoin"
+            jm_test_datadir="${dir}/jm_test_home-$(whoami)/.bitcoin"
             break
         fi
     done
