@@ -2,10 +2,12 @@
 import logging, sys
 import binascii
 import random
+import socket
 from getpass import getpass
 from os import path, environ
 from functools import wraps
 from optparse import IndentedHelpFormatter
+from typing import List
 import urllib.parse as urlparse
 
 # JoinMarket version
@@ -339,3 +341,18 @@ def random_insert(old, new):
     for n in new:
         insertion_index = random.randint(0, len(old))
         old[:] = old[:insertion_index] + [n] + old[insertion_index:]
+
+def get_free_tcp_ports(num_ports: int) -> List[int]:
+    """ Get first free TCP ports you can bind to on localhost.
+    """
+    sockets = []
+    ports = []
+    for i in range(num_ports):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind(("", 0))
+        s.listen(1)
+        ports.append(s.getsockname()[1])
+        sockets.append(s)
+    for s in sockets:
+        s.close()
+    return ports
