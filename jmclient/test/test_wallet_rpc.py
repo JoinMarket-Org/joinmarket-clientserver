@@ -169,7 +169,8 @@ class TrialTestWRPC_WS(WalletRPCTestBase, unittest.TestCase):
         # create a small delay between the instruction to send
         # the notification, and the checking of its receipt,
         # otherwise the client will be queried before the notification
-        # arrived:
+        # arrived. We will try a few times before giving up.
+        self.attempt_receipt_counter = 0
         d.addCallback(self.wait_to_receive)
         return d
 
@@ -178,7 +179,13 @@ class TrialTestWRPC_WS(WalletRPCTestBase, unittest.TestCase):
         return d
     
     def checkNotifs(self):
-        assert self.client_factory.notifs == 1
+        if self.attempt_receipt_counter > 10:
+            assert False
+        if not self.client_factory.notifs == 1:
+            jlog.info("Failed to receive notification, waiting and trying again")
+            self.attempt_receipt_counter += 1
+            d = task.deferLater(reactor, 0.2, self.checkNotifs)
+            return d
 
     def fire_tx_notif(self):
         self.daemon.wss_factory.sendTxNotification(self.test_tx,
