@@ -19,6 +19,9 @@ from taker_test_data import t_utxos_by_mixdepth, t_orderbook,\
     t_maker_response, t_chosen_orders, t_dummy_ext
 from commontest import default_max_cj_fee
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
+
 def convert_utxos(utxodict):
     return_dict = {}
     for uk, val in utxodict.items():

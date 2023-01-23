@@ -13,6 +13,8 @@ import pytest
 from jmbase import get_log
 from jmclient import load_test_config, jm_single, direct_send, estimate_tx_fee, compute_tx_locktime
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 log = get_log()
 #just a random selection of pubkeys for receiving multisigs;
 #if we ever need the privkeys, they are in a json file somewhere

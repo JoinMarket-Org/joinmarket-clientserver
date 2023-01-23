@@ -4,6 +4,8 @@ import pytest
 from jmclient import load_test_config, jm_single
 from jmclient.configure import get_blockchain_interface_instance
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 
 def test_attribute_dict():
     from jmclient.configure import AttributeDict

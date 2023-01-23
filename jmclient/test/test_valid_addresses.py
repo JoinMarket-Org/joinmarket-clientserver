@@ -7,6 +7,9 @@ from bitcointx import ChainParams
 import json
 import pytest
 import os
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 
 def address_valid_somewhere(addr):

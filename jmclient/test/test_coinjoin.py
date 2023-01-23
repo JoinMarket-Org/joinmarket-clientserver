@@ -18,6 +18,8 @@ from commontest import make_wallets, default_max_cj_fee
 from test_taker import dummy_filter_orderbook
 import jmbitcoin as btc
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()
 

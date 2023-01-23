@@ -1,4 +1,6 @@
 import os, json
+
+import pytest
 from twisted.internet import reactor, defer, task
 
 from twisted.web.client import readBody, Headers
@@ -18,6 +20,8 @@ from test_coinjoin import make_wallets_to_list, sync_wallets
 
 from test_websocket import (ClientTProtocol, test_tx_hex_1,
                             test_tx_hex_txid, encoded_token)
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 

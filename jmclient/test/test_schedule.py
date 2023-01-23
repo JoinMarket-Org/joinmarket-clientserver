@@ -6,6 +6,8 @@ from jmclient import (get_schedule, get_tumble_schedule,
                       tweak_tumble_schedule, load_test_config)
 import os
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 valids = """#sample for testing
 1, 110000000, 3, INTERNAL, 0, 16, 1
 0, 20000000, 2, mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw, 9.88, 16, 0

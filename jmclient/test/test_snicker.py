@@ -10,6 +10,8 @@ from jmbase import get_log, bintohex
 from jmclient import (load_test_config, estimate_tx_fee, SNICKERReceiver,
                       direct_send, BaseWallet)
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 log = get_log()
 
 @pytest.mark.parametrize(

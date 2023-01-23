@@ -4,6 +4,8 @@ import pytest
 from jmclient import jm_single, load_test_config, FidelityBondMixin
 from jmclient.bond_calc import get_next_locktime, get_bond_values, get_percentiles
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 
 @pytest.mark.parametrize(('date', 'next_locktime'),
                          ((datetime(2022, 1, 1, 1, 1), datetime(2022, 2, 1)),

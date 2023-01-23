@@ -11,6 +11,8 @@ from jmclient import (load_test_config, SegwitLegacyWallet,
                       SegwitWallet, jm_single, BaseWallet)
 from jmbitcoin import select_chain_params
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 log = get_log()
 
 def test_fast_sync_unavailable(setup_sync):

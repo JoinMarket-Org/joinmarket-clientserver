@@ -4,6 +4,8 @@ Test doing payjoins over tcp client/server
 """
 
 import os
+
+import pytest
 from twisted.internet import reactor
 from twisted.web.server import Site
 from twisted.web.client import readBody
@@ -25,6 +27,8 @@ from jmclient.payjoin import make_payjoin_request_params, make_payment_psbt
 from jmclient.payjoin import process_payjoin_proposal_from_server
 from commontest import make_wallets
 from test_coinjoin import make_wallets_to_list, sync_wallets
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
 
 testdir = os.path.dirname(os.path.realpath(__file__))
 log = get_log()

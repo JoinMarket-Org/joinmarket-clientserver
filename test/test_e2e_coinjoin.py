@@ -27,6 +27,8 @@ from jmclient import (YieldGeneratorBasic, load_test_config, jm_single,
 import jmclient
 from jmclient.wallet_rpc import api_version_string
 
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 log = get_log()
 
 wallet_name = "test-onion-yg-runner.jmdat"

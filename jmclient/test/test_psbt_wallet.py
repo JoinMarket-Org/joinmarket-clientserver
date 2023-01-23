@@ -17,6 +17,9 @@ from jmclient import (load_test_config, jm_single, direct_send,
                       SegwitLegacyWallet, SegwitWallet, LegacyWallet,
                       VolatileStorage, get_network)
 from jmclient.wallet import PSBTWalletMixin
+
+pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
+
 log = get_log()
 
 def create_volatile_wallet(seedphrase, wallet_cls=SegwitWallet):
