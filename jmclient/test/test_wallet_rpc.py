@@ -10,6 +10,7 @@ from autobahn.twisted.websocket import WebSocketClientFactory, \
     connectWS
 
 from jmbase import get_nontor_agent, hextobin, BytesProducer, get_log
+from jmbase.support import get_free_tcp_ports
 from jmbitcoin import CTransaction
 from jmclient import (load_test_config, jm_single, SegwitWalletFidelityBonds,
                       JMWalletDaemon, validate_address, start_reactor,
@@ -43,10 +44,10 @@ class WalletRPCTestBase(object):
     wallet_structure = [1, 3, 0, 0, 0]
     # the mean amount of each deposit in the above indices, in btc
     mean_amt = 2.0
-    # the port for the jmwallet daemon
-    dport = 28183
-    # the port for the ws
-    wss_port = 28283
+    # the port for the jmwallet daemon (auto)
+    dport = None
+    # the port for the ws (auto)
+    wss_port = None
     # how many different wallets we need
     num_wallet_files = 2
     # wallet type
@@ -63,6 +64,16 @@ class WalletRPCTestBase(object):
         # start the daemon; note we are using tcp connections
         # to avoid storing certs in the test env.
         # TODO change that.
+        if self.dport is None and self.wss_port is None:
+            free_ports = get_free_tcp_ports(2)
+            self.dport = free_ports[0]
+            self.wss_port = free_ports[1]
+        elif self.dport is None:
+            free_ports = get_free_tcp_ports(1)
+            self.dport = free_ports[0]
+        elif self.wss_port is None:
+            free_ports = get_free_tcp_ports(1)
+            self.wss_port = free_ports[0]
         self.daemon = JMWalletDaemonT(self.dport, self.wss_port, tls=False)
         self.daemon.auth_disabled = False
         # because we sync and start the wallet service manually here

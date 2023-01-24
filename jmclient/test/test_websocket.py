@@ -9,6 +9,7 @@ from autobahn.twisted.websocket import WebSocketClientFactory, \
 import jwt
 
 from jmbase import get_log, hextobin
+from jmbase.support import get_free_tcp_ports
 from jmclient import (JmwalletdWebSocketServerFactory,
                       JmwalletdWebSocketServerProtocol)
 from jmbitcoin import CTransaction
@@ -60,10 +61,13 @@ class WebsocketTestBase(object):
     """ This tests that a websocket client can connect to our
     websocket subscription service
     """
-    # the port for the ws
-    wss_port = 28283
+    # the port for the ws (auto)
+    wss_port = None
     
     def setUp(self):
+        if self.wss_port is None:
+            free_ports = get_free_tcp_ports(1)
+            self.wss_port = free_ports[0]
         self.wss_url = "ws://127.0.0.1:" + str(self.wss_port)
         self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url)
         self.wss_factory.protocol = JmwalletdWebSocketServerProtocol
