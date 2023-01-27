@@ -4,7 +4,7 @@
 
 The GUI can be run directly from Python script by doing `./joinmarket-qt.sh` from within `scripts/`, or, if using Microsoft Windows, by running the executable file/binary (**[CLICK HERE](https://github.com/JoinMarket-Org/joinmarket-clientserver/releases)** to download the latest release). If you followed normal installation procedure under Linux, desktop entry of JoinMarketQt should be added to the application menu of your desktop environment.
 
-**LATEST VERSION of JoinMarket-Qt is GUI version 30**. You can check the version via `About` in the menu.
+**LATEST VERSION of JoinMarket-Qt is GUI version 31**. You can check the version via `About` in the menu.
 
 No other files / setup should be needed.
 
