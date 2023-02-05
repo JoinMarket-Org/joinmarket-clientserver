@@ -30,7 +30,7 @@ To install everything (client and server), install these packages:
 
 (to build `libsodium` after):
 
-    git clone git://github.com/jedisct1/libsodium.git
+    git clone git@github.com:jedisct1/libsodium.git
     cd libsodium
     git checkout tags/1.0.18
     ./autogen.sh
@@ -55,7 +55,7 @@ Then build and install a local copy of libsecp256k1 for python-bitcointx:
 
     mkdir -p deps
     cd deps
-    git clone git://github.com/bitcoin-core/secp256k1
+    git clone git@github.com:bitcoin-core/secp256k1
     cd secp256k1
     git checkout 0d9540b13ffcd7cd44cc361b8744b93d88aa76ba
     make clean
