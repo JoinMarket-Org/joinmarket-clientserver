@@ -57,7 +57,7 @@ Then build and install a local copy of libsecp256k1 for python-bitcointx:
     cd deps
     git clone git@github.com:bitcoin-core/secp256k1
     cd secp256k1
-    git checkout 0d9540b13ffcd7cd44cc361b8744b93d88aa76ba
+    git checkout 490022745164b56439688b0fc04f9bd43578e5c3
     make clean
     ./autogen.sh
     ./configure --prefix JM_ROOT --enable-module-recovery --disable-jni --enable-experimental --enable-module-ecdh --enable-benchmark=no
@@ -97,7 +97,7 @@ If you have installed this "full" version of the client, you can use it with the
     ```
     git clone https://github.com/bitcoin-core/secp256k1
     cd secp256k1
-    git checkout 0d9540b13ffcd7cd44cc361b8744b93d88aa76ba
+    git checkout 490022745164b56439688b0fc04f9bd43578e5c3
     ./autogen.sh
     ./configure --enable-module-recovery --disable-jni --enable-experimental --enable-module-ecdh --enable-benchmark=no
     make
