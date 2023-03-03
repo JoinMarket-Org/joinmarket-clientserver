@@ -488,7 +488,7 @@ def make_payment_psbt(manager, accept_callback=None, info_callback=None):
                                manager.mixdepth, str(manager.destination),
                                accept_callback=accept_callback,
                                info_callback=info_callback,
-                               with_final_psbt=True, optin_rbf=True)
+                               with_final_psbt=True)
     if not payment_psbt:
         return (False, "could not create non-payjoin payment")
 

@@ -489,11 +489,11 @@ def get_sendpayment_parser():
                       'broadcasting the transaction. '
                       'Currently only works with direct '
                       'send (-N 0).')
-    parser.add_option('--rbf',
+    parser.add_option('--no-rbf',
                       action='store_true',
-                      dest='rbf',
+                      dest='no_rbf',
                       default=False,
-                      help='enable opt-in rbf')
+                      help='disable signaling BIP125 opt-in RBF')
     parser.add_option('-u',
                       '--custom-change',
                       type="str",
