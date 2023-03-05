@@ -238,7 +238,7 @@ def get_addr_and_fund(yg):
     jmprint('updated offerlist={}'.format(yg.offerlist))
 
 @pytest.fixture(scope="module")
-def setup_ygrunner():
+def setup_ygrunner(setup_regtest_bitcoind, setup_miniircd):
     load_test_config()
     jm_single().bc_interface.tick_forward_chain_interval = 10
     jm_single().bc_interface.simulate_blocks()
