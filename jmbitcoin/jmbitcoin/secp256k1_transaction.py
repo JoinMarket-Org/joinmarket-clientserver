@@ -174,6 +174,15 @@ def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
         return nwsize
     return (wsize, nwsize)
 
+def tx_vsize(tx):
+    """
+    Computes the virtual size (in vbytes) of a transaction
+    """
+    raw_tx_size = len(tx.serialize())
+    witness_size = len(tx.wit.serialize())
+    non_witness_size = raw_tx_size - witness_size
+    return int(non_witness_size + .25 * witness_size)
+
 def pubkey_to_p2pkh_script(pub, require_compressed=False):
     """
     Given a pubkey in bytes, return a CScript
