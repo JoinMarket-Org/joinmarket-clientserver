@@ -4,6 +4,7 @@ import ast
 import random
 import sys
 import time
+from typing import Optional
 from decimal import Decimal
 import binascii
 from twisted.internet import reactor, task
@@ -214,6 +215,39 @@ class BitcoinCoreInterface(BlockchainInterface):
         if not block:
             return False
         return block
+
+    def rescanblockchain(self, start_height: int, end_height: Optional[int] = None) -> None:
+        # Threading is not used in Joinmarket but due to blocking
+        # nature of this very slow RPC call, we need to fire and forget.
+        from threading import Thread
+        Thread(target=self.rescan_in_thread, args=(start_height,),
+               daemon=True).start()
+
+    def rescan_in_thread(self, start_height: int) -> None:
+        """ In order to not conflict with the existing main
+        JsonRPC connection in the main thread, this rescanning
+        thread creates a distinct JsonRPC object, just to make
+        this one RPC call `rescanblockchain <height>`, using the
+        same credentials.
+        """
+        from jmclient.jsonrpc import JsonRpc
+        authstr = self.jsonRpc.authstr
+        user, password = authstr.split(":")
+        newjsonRpc = JsonRpc(self.jsonRpc.host,
+                             self.jsonRpc.port,
+                             user, password,
+                             url=self.jsonRpc.url)
+        try:
+            newjsonRpc.call('rescanblockchain', [start_height])
+        except JsonRpcConnectionError:
+            log.error("Failure of RPC connection to Bitcoin Core. "
+                      "Rescanning process not started.")
+
+    def getwalletinfo(self) -> dict:
+        """ Returns detailed about currently loaded (see `loadwallet`
+        call in __init__) Bitcoin Core wallet.
+        """
+        return self._rpc("getwalletinfo", [])
 
     def _rpc(self, method, args):
         """ Returns the result of an rpc call to the Bitcoin Core RPC API.

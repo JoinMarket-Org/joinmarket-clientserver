@@ -4,6 +4,7 @@ import collections
 import itertools
 import time
 import sys
+from typing import Optional
 from decimal import Decimal
 from copy import deepcopy
 from twisted.internet import reactor
@@ -728,6 +729,15 @@ class WalletService(Service):
 
     def get_block_height(self, blockhash):
         return self.bci.get_block_height(blockhash)
+
+    def rescanblockchain(self, start_height: int, end_height: Optional[int] = None) -> None:
+        self.bci.rescanblockchain(start_height, end_height)
+
+    def get_backend_walletinfo(self) -> dict:
+        """ 'Backend' wallet means the Bitcoin Core wallet,
+        which will always be loaded if self.bci is init-ed.
+        """
+        return self.bci.getwalletinfo()
 
     def get_transaction_block_height(self, tx):
         """ Given a CTransaction object tx, return
