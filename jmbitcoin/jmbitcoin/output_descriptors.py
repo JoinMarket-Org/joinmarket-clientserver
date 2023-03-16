@@ -77,9 +77,22 @@ def get_xpub_descriptor(xpub_key: str, address_type: str) -> str:
     elif address_type == "p2sh-p2wpkh" or address_type == "p2wpkh":
         function = "wpkh"
     else:
-        raise Exception("Unsupported address type {}".format(address_type))
+        raise NotImplementedError(
+            "Unsupported address type {}".format(address_type))
     descriptor = "{}({}/*)".format(function, xpub_key)
     if address_type == "p2sh-p2wpkh":
         descriptor = "sh({})".format(descriptor)
     return add_checksum(descriptor)
+
+
+def is_address_descriptor(desc: str) -> bool:
+    return desc.startswith("addr(")
+
+
+def get_address_from_descriptor(desc: str) -> str:
+    #example
+    #'desc': 'addr(2MvAfRVvRAeBS18NT7mKVc1gFim169GkFC5)#h5yn9eq4',
+    if not is_address_descriptor(desc):
+        raise ValueError("Not an address descriptor {}".format(desc))
+    return desc[5:desc.find(")")]
 

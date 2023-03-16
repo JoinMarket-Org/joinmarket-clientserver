@@ -22,6 +22,7 @@ from jmbitcoin.snicker import *
 from jmbitcoin.amount import *
 from jmbitcoin.bip21 import *
 from jmbitcoin.output_descriptors import (get_address_descriptor,
+                                          get_address_from_descriptor,
                                           get_xpub_descriptor)
 from bitcointx import select_chain_params
 from bitcointx.core import (x, b2x, b2lx, lx, COutPoint, CTxOut, CTxIn,
