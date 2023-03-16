@@ -190,6 +190,8 @@ After=network-online.target
 Type=simple
 ExecStart=/bin/bash -c 'cd /path/to/joinmarket-clientserver && source jmvenv/bin/activate && cd scripts && python start-dn.py 'Greetings from Directory Node' --datadir=/path/to/chosen/datadir'
 User=user
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
