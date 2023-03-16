@@ -666,16 +666,10 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
             assert False
         return False
 
-    def _get_addr_from_desc(self, desc_str):
-        #example
-        #'desc': 'addr(2MvAfRVvRAeBS18NT7mKVc1gFim169GkFC5)#h5yn9eq4',
-        assert desc_str.startswith("addr(")
-        return desc_str[5:desc_str.find(")")]
-
     def _yield_transactions(self):
         for u in self.scan_result["unspents"]:
             tx = {"category": "receive", "address":
-                self._get_addr_from_desc(u["desc"])}
+                btc.get_address_from_descriptor(u["desc"])}
             yield tx
 
     def list_transactions(self, num):
@@ -686,7 +680,7 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
 
     def listunspent(self):
         return [{
-            "address": self._get_addr_from_desc(u["desc"]),
+            "address": btc.get_address_from_descriptor(u["desc"]),
             "label": self.wallet_name,
             "height": u["height"],
             "txid": u["txid"],
