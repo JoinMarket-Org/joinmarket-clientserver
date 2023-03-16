@@ -265,7 +265,7 @@ class MessageChannelCollection(object):
                     #the user about it for now
                     log.error("Tried to communicate on this message channel but "
                               "failed: " + str(mc))
-                    log.error("You might have to comment out this message channel"
+                    log.error("You might have to comment out this message channel "
                               "in joinmarket.cfg and restart.")
                     log.error("No action needed for makers / yield generators!")
                     # todo: add logic to continue on other available mc
