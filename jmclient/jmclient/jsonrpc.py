@@ -1,5 +1,6 @@
 # Copyright (C) 2013,2015 by Daniel Kraft <d@domob.eu>
 # Copyright (C) 2014 by phelix / blockchained.com
+# Copyright (C) 2016-2023 JoinMarket developers
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,12 +20,14 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import errno
-import socket
 import base64
+import errno
 import http.client
 import json
+import socket
 from decimal import Decimal
+from typing import Any, Union
+
 from jmbase import get_log
 
 jlog = get_log()
@@ -54,7 +57,7 @@ class JsonRpc(object):
   to connect to Bitcoin.
   """
 
-    def __init__(self, host, port, user, password, url=""):
+    def __init__(self, host: str, port: int, user: str, password: str, url: str = "") -> None:
         self.host = host
         self.port = int(port)
         self.conn = http.client.HTTPConnection(self.host, self.port)
@@ -62,16 +65,16 @@ class JsonRpc(object):
         self.url = url
         self.queryId = 1
 
-    def setURL(self, url):
+    def setURL(self, url: str) -> None:
         self.url = url
 
-    def queryHTTP(self, obj):
+    def queryHTTP(self, obj: dict) -> Union[dict, str]:
         """
-    Send an appropriate HTTP query to the server.  The JSON-RPC
-    request should be (as object) in 'obj'.  If the call succeeds,
-    the resulting JSON object is returned.  In case of an error
-    with the connection (not JSON-RPC itself), an exception is raised.
-    """
+        Send an appropriate HTTP query to the server.  The JSON-RPC
+        request should be (as object) in 'obj'. If the call succeeds,
+        the resulting JSON object is returned. In case of an error
+        with the connection (not JSON-RPC itself), an exception is raised.
+        """
 
         headers = {"User-Agent": "joinmarket",
                    "Content-Type": "application/json",
@@ -108,19 +111,16 @@ class JsonRpc(object):
                     jlog.warn('Connection was reset, attempting reconnect.')
                     self.conn.close()
                     self.conn.connect()
-                    continue
                 elif e.errno == errno.EPIPE:
                     jlog.warn('Connection had broken pipe, attempting '
                               'reconnect.')
                     self.conn.close()
                     self.conn.connect()
-                    continue
                 elif e.errno == errno.EPROTOTYPE:
                     jlog.warn('Connection had protocol wrong type for socket '
                               'error, attempting reconnect.')
                     self.conn.close()
                     self.conn.connect()
-                    continue
                 elif e.errno == errno.ECONNREFUSED:
                     # Will not reattempt in this case:
                     jlog.error("Connection refused.")
@@ -132,12 +132,11 @@ class JsonRpc(object):
             except Exception as exc:
                 raise JsonRpcConnectionError("JSON-RPC connection failed. Err:" +
                                              repr(exc))
-            break
 
-    def call(self, method, params):
+    def call(self, method: str, params: Union[dict, list]) -> Any:
         """
-    Call a method over JSON-RPC.
-    """
+        Call a method over JSON-RPC.
+        """
 
         currentId = self.queryId
         self.queryId += 1
