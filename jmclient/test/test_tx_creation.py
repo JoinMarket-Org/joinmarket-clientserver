@@ -165,8 +165,7 @@ def test_spend_then_rbf(setup_tx_creation):
     # we return the transaction object, not directly broadcast.
     tx1 = direct_send(wallet_service, amount, 0,
                       destn, answeryes=True,
-                      return_transaction=True,
-                      optin_rbf=True)
+                      return_transaction=True)
     assert tx1
     # record the utxos for reuse:
     assert isinstance(tx1, bitcoin.CTransaction)
