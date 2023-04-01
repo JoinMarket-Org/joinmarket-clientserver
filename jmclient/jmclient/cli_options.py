@@ -501,6 +501,12 @@ def get_sendpayment_parser():
                       default='',
                       help='specify address to receive change '
                       ', by default use in-wallet address.')
+    parser.add_option('-l',
+                      '--label-change',
+                      type='str',
+                      dest='changelabel',
+                      default='',
+                      help='specify address label for change output')
 
     add_common_options(parser)
     return parser
