@@ -25,8 +25,8 @@ from jmclient import Taker, jm_single, \
     NotEnoughFundsException, get_tumble_log, get_tumble_schedule, \
     get_schedule, get_tumbler_parser, schedule_to_text, \
     tumbler_filter_orders_callback, tumbler_taker_finished_update, \
-    validate_address, FidelityBondMixin, \
-    ScheduleGenerationErrorNoFunds
+    validate_address, FidelityBondMixin, BaseWallet, WalletError, \
+    ScheduleGenerationErrorNoFunds, BIP39WalletMixin
 from jmbase.support import get_log, utxostr_to_utxo
 
 jlog = get_log()
@@ -107,6 +107,7 @@ class NotEnoughCoinsForTumbler(Exception):
 # yigen-statement csv file:
 class YieldGeneratorDataUnreadable(Exception):
     pass
+
 
 def get_ssl_context(cert_directory):
     """Construct an SSL context factory from the user's privatekey/cert.
@@ -476,6 +477,8 @@ class JMWalletDaemon(Service):
 
         # First, prepare authentication for the calling client:
         self.set_token(wallet_name)
+        # return type is different for a newly created OR recovered
+        # wallet, in this case we use the 'seedphrase' kwarg as trigger:
         if('seedphrase' in kwargs):
             return make_jmwalletd_response(request,
                         status=201,
@@ -551,6 +554,23 @@ class JMWalletDaemon(Service):
             raise BackendNotReady()
         return (daemon_serving_host, daemon_serving_port)
 
+    def get_wallet_cls_from_type(self, wallettype: str) -> BaseWallet:
+        if wallettype == "sw":
+            return SegwitWallet
+        elif wallettype == "sw-legacy":
+            return SegwitLegacyWallet
+        elif wallettype == "sw-fb":
+            return SegwitWalletFidelityBonds
+        else:
+            raise InvalidRequestFormat()
+
+    def get_wallet_name_from_req(self, walletname: str) -> str:
+        """ use the config's data location combined with the json
+        data from the request to construct the wallet path
+        """
+        wallet_root_path = os.path.join(jm_single().datadir, "wallets")
+        return os.path.join(wallet_root_path, walletname)
+
     """ RPC begins here.
     """
 
@@ -576,6 +596,25 @@ class JMWalletDaemon(Service):
                 walletinfo = wallet_display(self.services["wallet"], False, jsonified=True)
                 return make_jmwalletd_response(request, walletname=walletname, walletinfo=walletinfo)
 
+        @app.route('/wallet/<string:walletname>/rescanblockchain/<int:blockheight>', methods=['GET'])
+        def rescanblockchain(self, request, walletname, blockheight):
+            """ This route lets the user trigger the rescan action in the backend.
+            Note that it technically "shouldn't" require a wallet to be loaded,
+            but since we hide all blockchain access behind the wallet service,
+            it currently *does* require this.
+            """
+            print_req(request)
+            self.check_cookie(request)
+            if not self.services["wallet"]:
+                jlog.warn("rescanblockchain called, but no wallet service active.")
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                jlog.warn("called rescanblockchain with wrong wallet")
+                raise InvalidRequestFormat()
+            else:
+                self.services["wallet"].rescanblockchain(blockheight)
+                return make_jmwalletd_response(request, walletname=walletname)
+
         @app.route('/session', methods=['GET'])
         def session(self, request):
             """ This route functions as a heartbeat, and communicates
@@ -596,9 +635,17 @@ class JMWalletDaemon(Service):
             schedule = None
             offer_list = None
             nickname = None
+            # We don't technically *know* the backend is not
+            # rescanning, but that would be a strange scenario:
+            rescanning = False
 
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
+                    winfo = self.services["wallet"].get_backend_walletinfo()
+                    if "scanning" in winfo and winfo["scanning"]:
+                        # Note that if not 'false', it contains info
+                        # that looks like: {'duration': 1, 'progress': Decimal('0.04665404082350701')}
+                        rescanning = True
                     wallet_name = self.wallet_name
                     # At this point if an `auth_header` is present, it has been checked
                     # by the call to `check_cookie_if_present` above.
@@ -626,7 +673,8 @@ class JMWalletDaemon(Service):
                             schedule=schedule,
                             wallet_name=wallet_name,
                             offer_list=offer_list,
-                            nickname=nickname)
+                            nickname=nickname,
+                            rescanning=rescanning)
 
         @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
         def directsend(self, request, walletname):
@@ -829,24 +877,13 @@ class JMWalletDaemon(Service):
                             ["walletname", "password", "wallettype"])
             if not request_data:
                 raise InvalidRequestFormat()
-            wallettype = request_data["wallettype"]
-            if wallettype == "sw":
-                wallet_cls = SegwitWallet
-            elif wallettype == "sw-legacy":
-                wallet_cls = SegwitLegacyWallet
-            elif wallettype == "sw-fb":
-                wallet_cls = SegwitWalletFidelityBonds
-            else:
-                raise InvalidRequestFormat()
-            # use the config's data location combined with the json
-            # data to construct the wallet path:
-            wallet_root_path = os.path.join(jm_single().datadir, "wallets")
-            wallet_name = os.path.join(wallet_root_path,
-                                       request_data["walletname"])
+            wallet_cls = self.get_wallet_cls_from_type(
+                request_data["wallettype"])
             try:
-                wallet = create_wallet(wallet_name,
-                                       request_data["password"].encode("ascii"),
-                                       4, wallet_cls=wallet_cls)
+                wallet = create_wallet(self.get_wallet_name_from_req(
+                    request_data["walletname"]),
+                    request_data["password"].encode("ascii"),
+                    4, wallet_cls=wallet_cls)
                 # extension not yet supported in RPC create; TODO
                 seed, extension = wallet.get_mnemonic_words()
             except RetryableStorageError:
@@ -858,6 +895,45 @@ class JMWalletDaemon(Service):
             return self.initialize_wallet_service(request, wallet,
                                         request_data["walletname"],
                                         seedphrase=seed)
+
+        @app.route('/wallet/recover', methods=["POST"])
+        def recoverwallet(self, request):
+            print_req(request)
+            # we only handle one wallet at a time;
+            # if there is a currently unlocked wallet,
+            # refuse to process the request:
+            if self.services["wallet"]:
+                raise WalletAlreadyUnlocked()
+            request_data = self.get_POST_body(request,
+                            ["walletname", "password",
+                             "wallettype", "seedphrase"])
+            if not request_data:
+                raise InvalidRequestFormat()
+            wallet_cls = self.get_wallet_cls_from_type(
+                request_data["wallettype"])
+            seedphrase = request_data["seedphrase"]
+            seedphrase = seedphrase.strip()
+            if not seedphrase:
+                raise InvalidRequestFormat()
+            try:
+                entropy = BIP39WalletMixin.entropy_from_mnemonic(seedphrase)
+            except WalletError:
+                # should only occur if the seedphrase is not valid BIP39:
+                raise InvalidRequestFormat()
+            try:
+                wallet = create_wallet(self.get_wallet_name_from_req(
+                    request_data["walletname"]),
+                    request_data["password"].encode("ascii"),
+                    4, wallet_cls=wallet_cls, entropy=entropy)
+            except RetryableStorageError:
+                raise LockExists()
+            except StorageError:
+                raise WalletAlreadyExists()
+            # finally, after the wallet is successfully created, we should
+            # start the wallet service, then return info to the caller:
+            return self.initialize_wallet_service(request, wallet,
+                                        request_data["walletname"],
+                                        seedphrase=seedphrase)
 
         @app.route('/wallet/<string:walletname>/unlock', methods=['POST'])
         def unlockwallet(self, request, walletname):
