@@ -12,14 +12,14 @@ jobs:
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Cache venv
         id: cache-venv
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           cache-name: venv
         with:
@@ -35,7 +35,7 @@ jobs:
       - name: Lint with flake8
         run: ./jmvenv/bin/flake8 -v jmclient jmbase jmbitcoin jmdaemon scripts
       - name: Cache bitcoind
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           cache-name: bitcoind
         with:
@@ -44,7 +44,7 @@ jobs:
       - name: Install bitcoind
         run: ./test/testrunner/install_bitcoind.sh
       - name: Cache miniircd
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         env:
           cache-name: miniircd
         with:
