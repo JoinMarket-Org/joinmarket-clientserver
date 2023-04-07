@@ -284,6 +284,42 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         assert code == 401
 
     @defer.inlineCallbacks
+    def test_recover_wallet(self):
+        # before starting, we have to shut down the existing
+        # wallet service (usually this would be `lock`):
+        self.daemon.services["wallet"] = None
+        self.daemon.stopService()
+        self.daemon.auth_disabled = False
+
+        wfn1 = self.get_wallet_file_name(1)
+        self.wfnames = [wfn1]
+        agent = get_nontor_agent()
+        root = self.get_route_root()
+
+        addr = root + "/wallet/recover"
+        addr = addr.encode()
+        body = BytesProducer(json.dumps({"walletname": wfn1,
+                "password": "hunter2", "wallettype": "sw-fb",
+                "seedphrase": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"}).encode())
+        # Note: the recover wallet response is identical to
+        # the create wallet response
+        yield self.do_request(agent, b"POST", addr, body,
+                              self.process_create_wallet_response)
+
+        # Sanity check of startup; does a auth-ed session request succeed?
+        yield self.do_session_request(agent, root,
+            self.authorized_session_request_handler, token=self.jwt_token)
+        # What about display?
+        addr = self.get_route_root()
+        addr += "/wallet/"
+        addr += self.daemon.wallet_name
+        addr += "/display"
+        addr = addr.encode()
+        self.daemon.auth_disabled = True
+        yield self.do_request(agent, b"GET", addr, None,
+                              self.process_empty_wallet_display_response)
+
+    @defer.inlineCallbacks
     def test_create_list_lock_unlock(self):
         """ A batch of tests in sequence here,
             so we can track the state of a created
@@ -421,6 +457,12 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr = addr.encode()
         yield self.do_request(agent, b"GET", addr, None,
                               self.process_wallet_display_response)
+
+    def process_empty_wallet_display_response(self, response, code):
+        assert code == 200
+        json_body = json.loads(response.decode("utf-8"))
+        wi = json_body["walletinfo"]
+        assert float(wi["total_balance"]) == 0.0 #?
 
     def process_wallet_display_response(self, response, code):
         assert code == 200

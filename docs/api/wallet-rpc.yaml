@@ -30,6 +30,26 @@ paths:
             schema:
               $ref: '#/components/schemas/CreateWalletRequest'
         description: wallet creation parameters
+  /wallet/recover:
+    post:
+      summary: recover a wallet from a seedphrase
+      operationId: recoverwallet
+      description: Give a filename (.jmdat must be included), a wallettype, a seedphrase and a password, create the wallet for the newly persisted wallet file. The wallettype variable must be one of "sw" - segwit native, "sw-legacy" - segwit legacy or "sw-fb" - segwit native with fidelity bonds supported, the last of which is the default. The seedphrase must be a single string with words space-separated, and must conform to BIP39 (else 400 is returned). Note that this operation cannot be performed when a wallet is already loaded (unlocked).
+      responses:
+        '201':
+          $ref: '#/components/responses/Create-201-OK'
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '409':
+          $ref: '#/components/responses/409-AlreadyExists'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecoverWalletRequest'
+        description: wallet recovery parameters
   /wallet/{walletname}/unlock:
     post:
       summary: decrypt an existing wallet
@@ -165,6 +185,33 @@ paths:
       responses:
         '200':
           $ref: "#/components/responses/GetAddress-200-OK"
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-Unauthorized'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
+  /wallet/{walletname}/rescanblockchain/{blockheight}:
+    get:
+      summary: Rescan the blockchain from a given blockheight
+      operationId: rescanblockchain
+      description: Use this operation on recovered wallets to re-sync the wallet
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+        - name: blockheight
+          in: path
+          description: starting block height for the rescan
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          $ref: "#/components/responses/RescanBlockchain-200-OK"
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
@@ -714,6 +761,7 @@ components:
         - maker_running
         - coinjoin_in_process
         - wallet_name
+        - rescanning
       properties:
         session:
           type: boolean
@@ -751,6 +799,8 @@ components:
                 type: string
         nickname:
           type: string
+        rescanning:
+          type: boolean
     ListUtxosResponse:
       type: object
       properties:
@@ -960,6 +1010,27 @@ components:
         wallettype:
           type: string
           example: "sw-fb"
+    RecoverWalletRequest:
+      type: object
+      required:
+        - walletname
+        - password
+        - wallettype
+        - seedphrase
+      properties:
+        walletname:
+          type: string
+          example: wallet.jmdat
+        password:
+          type: string
+          format: password
+          example: hunter2
+        wallettype:
+          type: string
+          example: "sw-fb"
+        seedphrase:
+          type: string
+          example: "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
     UnlockWalletRequest:
       type: object
       required:
@@ -1035,8 +1106,20 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/SessionResponse"
+    RescanBlockchain-200-OK:
+      description: "Blockchain rescan started successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SessionResponse"
     Create-201-OK:
       description: "wallet created successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/CreateWalletResponse"
+    Recover-201-OK:
+      description: "wallet recovered successfully"
       content:
         application/json:
           schema:
