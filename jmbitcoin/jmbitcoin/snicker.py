@@ -9,6 +9,7 @@ from jmbitcoin.secp256k1_transaction import *
 from collections import Counter
 
 from bitcointx.core.key import CKey, CPubKey
+from bitcointx.wallet import CCoinAddressError
 
 SNICKER_MAGIC_BYTES = b'SNICKER'
 
@@ -154,8 +155,11 @@ def is_snicker_v1_tx(tx):
     for vo in tx.vout:
         if vo.nValue == equal_out:
             if not matched_spk:
-                matched_spk = btc.CCoinAddress.from_scriptPubKey(
-                    vo.scriptPubKey).get_scriptPubKey_type()
+                try:
+                    matched_spk = btc.CCoinAddress.from_scriptPubKey(
+                        vo.scriptPubKey).get_scriptPubKey_type()
+                except CCoinAddressError:
+                    return False
             else:
                 if not btc.CCoinAddress.from_scriptPubKey(
                     vo.scriptPubKey).get_scriptPubKey_type() == matched_spk:
