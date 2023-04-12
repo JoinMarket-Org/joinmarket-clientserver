@@ -17,6 +17,11 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Lint with flake8
+        uses: py-actions/flake8@v2
+        with:
+          args: "-v"
+          path: "jmclient jmbase jmbitcoin jmdaemon scripts"
       - name: Cache venv
         id: cache-venv
         uses: actions/cache@v3
@@ -32,8 +37,6 @@ jobs:
           ./jmvenv/bin/python -m pip install --upgrade pip
           ./jmvenv/bin/pip install -r requirements/base.txt
           ./jmvenv/bin/pip install -r requirements/testing.txt
-      - name: Lint with flake8
-        run: ./jmvenv/bin/flake8 -v jmclient jmbase jmbitcoin jmdaemon scripts
       - name: Cache bitcoind
         uses: actions/cache@v3
         env:
