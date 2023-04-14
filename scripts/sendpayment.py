@@ -250,9 +250,11 @@ def main():
 
     if options.makercount == 0 and not bip78url:
         tx = direct_send(wallet_service, amount, mixdepth, destaddr,
-                         options.answeryes, with_final_psbt=options.with_psbt,
+                         options.answeryes,
+                         with_final_psbt=options.with_psbt,
                          optin_rbf=not options.no_rbf,
-                         custom_change_addr=custom_change)
+                         custom_change_addr=custom_change,
+                         change_label=options.changelabel)
         if options.with_psbt:
             log.info("This PSBT is fully signed and can be sent externally for "
                      "broadcasting:")
@@ -364,7 +366,8 @@ def main():
                       order_chooser=chooseOrdersFunc,
                       max_cj_fee=maxcjfee,
                       callbacks=(filter_orders_callback, None, taker_finished),
-                      custom_change_address=custom_change)
+                      custom_change_address=custom_change,
+                      change_label=options.changelabel)
     clientfactory = JMClientProtocolFactory(taker)
 
     if jm_single().config.get("BLOCKCHAIN", "network") == "regtest":

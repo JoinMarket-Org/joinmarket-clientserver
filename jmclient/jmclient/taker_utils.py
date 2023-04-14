@@ -4,12 +4,15 @@ import os
 import sys
 import time
 import numbers
+from typing import Callable, Optional, Union
+
 from jmbase import get_log, jmprint, bintohex, hextobin
 from .configure import jm_single, validate_address, is_burn_destination
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
 from .wallet import BaseWallet, estimate_tx_fee, compute_tx_locktime, \
-    FidelityBondMixin
+    FidelityBondMixin, UnknownAddressForLabel
+from .wallet_service import WalletService
 from jmbitcoin import make_shuffled_tx, amount_to_str, \
                        PartiallySignedTransaction, CMutableTxOut,\
                        human_readable_transaction
@@ -30,10 +33,16 @@ def get_utxo_scripts(wallet: BaseWallet, utxos: dict) -> list:
         script_types.append(wallet.get_outtype(utxo["address"]))
     return script_types
 
-def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
-                accept_callback=None, info_callback=None, error_callback=None,
-                return_transaction=False, with_final_psbt=False,
-                optin_rbf=True, custom_change_addr=None):
+def direct_send(wallet_service: WalletService, amount: int, mixdepth: int,
+                destination: str, answeryes: bool = False,
+                accept_callback: Optional[Callable[[str, str, int, int, Optional[str]], bool]] = None,
+                info_callback: Optional[Callable[[str], None]] = None,
+                error_callback: Optional[Callable[[str], None]] = None,
+                return_transaction: bool = False,
+                with_final_psbt: bool = False,
+                optin_rbf: bool = True,
+                custom_change_addr: Optional[str] = None,
+                change_label: Optional[str] = None) -> Union[bool, str]:
     """Send coins directly from one mixdepth to one destination address;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
     If answeryes is True, callback/command line query is not performed.
@@ -211,6 +220,12 @@ def direct_send(wallet_service, amount, mixdepth, destination, answeryes=False,
                                            custom_change_addr)
                 if not accepted:
                     return False
+        if change_label:
+            try:
+                wallet_service.set_address_label(change_addr, change_label)
+            except UnknownAddressForLabel:
+                # ignore, will happen with custom change not part of a wallet
+                pass
         if jm_single().bc_interface.pushtx(tx.serialize()):
             txid = bintohex(tx.GetTxid()[::-1])
             successmsg = "Transaction sent: " + txid

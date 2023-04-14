@@ -3,7 +3,7 @@
 import base64
 import pprint
 import random
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Optional
 from twisted.internet import reactor, task
 
 import jmbitcoin as btc
@@ -11,7 +11,8 @@ from jmclient.configure import jm_single, validate_address, get_interest_rate
 from jmbase import get_log, bintohex, hexbin
 from jmclient.support import (calc_cj_fee, fidelity_bond_weighted_order_choose, choose_orders,
                               choose_sweep_orders)
-from jmclient.wallet import estimate_tx_fee, compute_tx_locktime, FidelityBondMixin
+from jmclient.wallet import (estimate_tx_fee, compute_tx_locktime,
+                             FidelityBondMixin, UnknownAddressForLabel)
 from jmclient.podle import generate_podle, get_podle_commitments
 from jmclient.wallet_service import WalletService
 from jmclient.fidelity_bond import FidelityBondProof
@@ -40,8 +41,8 @@ class Taker(object):
         change_amount: Any
         real_cjfee: Any
         utxo_list: Any = None
-        cj_addr: Any = None
-        change_addr: Any = None
+        cj_addr: Optional[str] = None
+        change_addr: Optional[str] = None
 
     def __init__(self,
                  wallet_service,
@@ -51,6 +52,7 @@ class Taker(object):
                  callbacks=None,
                  tdestaddrs=None,
                  custom_change_address=None,
+                 change_label=None,
                  ignored_makers=None):
         """`schedule`` must be a list of tuples: (see sample_schedule_for_testnet
         for explanation of syntax, also schedule.py module in this directory),
@@ -103,6 +105,7 @@ class Taker(object):
         self.order_chooser = order_chooser
         self.max_cj_fee = max_cj_fee
         self.custom_change_address = custom_change_address
+        self.change_label = change_label
 
         #List (which persists between transactions) of makers
         #who have not responded or behaved maliciously at any
@@ -319,6 +322,13 @@ class Taker(object):
             else:
                 try:
                     self.my_change_addr = self.wallet_service.get_internal_addr(self.mixdepth)
+                    if self.change_label:
+                        try:
+                            self.wallet_service.set_address_label(
+                                self.my_change_addr, self.change_label)
+                        except UnknownAddressForLabel:
+                            # ignore, will happen with custom change not part of a wallet
+                            pass
                 except:
                     self.taker_info_callback("ABORT", "Failed to get a change address")
                     return False
