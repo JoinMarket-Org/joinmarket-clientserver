@@ -593,13 +593,13 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                 label = wallet_service.get_address_label(addr)
                 timelock = datetime.utcfromtimestamp(0) + timedelta(seconds=path[-1])
 
-                balance = sum([utxodata["value"] for _, utxodata in 
+                balance = sum([utxodata["value"] for _, utxodata in
                     utxos[m].items() if path == utxodata["path"]])
 
                 status = timelock.strftime("%Y-%m-%d") + " [" + (
                     "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
                 status += get_utxo_status_string(utxos[m], utxos_enabled[m], path)
-                
+
                 privkey = ""
                 if showprivkey:
                     privkey = wallet_service.get_wif_path(path)
@@ -1528,6 +1528,14 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
                         " wallet.\n\nIf this wallet is in the old json format "
                         "you need to convert it using the conversion script "
                         "at `scripts/convert_old_wallet.py`".format(path))
+
+    if not read_only:
+        (lock_filename, locked_by_pid) = Storage.get_file_locking_status(path)
+        if locked_by_pid is not None:
+            raise Exception("File is currently in use (locked by pid {}). "
+                            "If this is a leftover from a crashed instance "
+                            "you need to remove the lock file `{}` manually.".
+                            format(locked_by_pid, lock_filename))
 
     if ask_for_password and Storage.is_encrypted_storage_file(path):
         while True:
