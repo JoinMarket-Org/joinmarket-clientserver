@@ -727,8 +727,9 @@ def load_program_config(config_path="", bs=None, plugin_services=[]):
             "info")
         sys.exit(EXIT_FAILURE)
 
-    #Hack required for electrum; must be able to enforce a different
-    #blockchain interface even in default/new load.
+    # Hack required for bitcoin-rpc-no-history and probably others
+    # (historicaly electrum); must be able to enforce a different blockchain
+    # interface even in default/new load.
     if bs:
         global_singleton.config.set("BLOCKCHAIN", "blockchain_source", bs)
     # Create default config file if not found
@@ -871,7 +872,7 @@ def get_blockchain_interface_instance(_config):
     # todo: refactor joinmarket module to get rid of loops
     # importing here is necessary to avoid import loops
     from jmclient.blockchaininterface import BitcoinCoreInterface, \
-        RegtestBitcoinCoreInterface, ElectrumWalletInterface, \
+        RegtestBitcoinCoreInterface, \
         BitcoinCoreNoHistoryInterface
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
@@ -916,8 +917,6 @@ def get_blockchain_interface_instance(_config):
                 btc.select_chain_params("bitcoin")
         else:
             assert 0
-    elif source == 'electrum':
-        bc_interface = ElectrumWalletInterface(testnet)
     elif source == 'no-blockchain':
         bc_interface = None
     else:

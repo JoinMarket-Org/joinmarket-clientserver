@@ -27,10 +27,8 @@ def test_load_config(tmpdir):
 
 def test_blockchain_sources():
     load_test_config()
-    for src in ["electrum", "dummy"]:
+    for src in ["dummy"]:
         jm_single().config.set("BLOCKCHAIN", "blockchain_source", src)
-        if src=="electrum":
-            jm_single().config.set("BLOCKCHAIN", "network", "mainnet")
         if src == "dummy":
             with pytest.raises(ValueError) as e_info:
                 get_blockchain_interface_instance(jm_single().config)
