@@ -161,8 +161,11 @@ def is_snicker_v1_tx(tx):
                 except CCoinAddressError:
                     return False
             else:
-                if not btc.CCoinAddress.from_scriptPubKey(
-                    vo.scriptPubKey).get_scriptPubKey_type() == matched_spk:
+                try:
+                    if not btc.CCoinAddress.from_scriptPubKey(
+                        vo.scriptPubKey).get_scriptPubKey_type() == matched_spk:
+                        return False
+                except CCoinAddressError:
                     return False
     assert matched_spk
     return True
