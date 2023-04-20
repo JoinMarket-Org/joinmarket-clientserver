@@ -641,11 +641,7 @@ class JMWalletDaemon(Service):
 
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
-                    winfo = self.services["wallet"].get_backend_walletinfo()
-                    if "scanning" in winfo and winfo["scanning"]:
-                        # Note that if not 'false', it contains info
-                        # that looks like: {'duration': 1, 'progress': Decimal('0.04665404082350701')}
-                        rescanning = True
+                    rescanning, _ = self.services["wallet"].get_backend_wallet_rescan_status()
                     wallet_name = self.wallet_name
                     # At this point if an `auth_header` is present, it has been checked
                     # by the call to `check_cookie_if_present` above.
