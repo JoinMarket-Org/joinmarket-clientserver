@@ -28,6 +28,8 @@ jobs:
       - name: Setup joinmarket + virtualenv
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
+          sed -i.bak 's/-e //g' requirements/base.txt
+          sed -i.bak 's/-e //g' requirements/gui.txt
           ./install.sh --develop --with-qt
           ./jmvenv/bin/python -m pip install --upgrade pip
           ./jmvenv/bin/pip install -r requirements/base.txt
