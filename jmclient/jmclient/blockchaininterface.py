@@ -4,7 +4,7 @@ import ast
 import random
 import sys
 import time
-from typing import Optional
+from typing import Optional, Tuple
 from decimal import Decimal
 import binascii
 from twisted.internet import reactor, task
@@ -56,6 +56,11 @@ class BlockchainInterface(object):
         required for inclusion in the next N blocks.
 	'''
 
+    @abc.abstractmethod
+    def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
+        """Returns pair of True/False is wallet currently rescanning and
+        Optional[Decimal] with current rescan progress status."""
+
     def import_addresses_if_needed(self, addresses, wallet_name):
         """import addresses to the underlying blockchain interface if needed
         returns True if the sync call needs to do a system exit"""
@@ -99,7 +104,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             if not wallet_name in loaded_wallets:
                 self._rpc("loadwallet", [wallet_name])
             # We only support legacy wallets currently
-            wallet_info = self._rpc("getwalletinfo", [])
+            wallet_info = self._getwalletinfo()
             if "descriptors" in wallet_info and wallet_info["descriptors"]:
                 raise Exception(
                     "JoinMarket currently does not support Bitcoin Core "
@@ -146,11 +151,20 @@ class BitcoinCoreInterface(BlockchainInterface):
             log.error("Failure of RPC connection to Bitcoin Core. "
                       "Rescanning process not started.")
 
-    def getwalletinfo(self) -> dict:
+    def _getwalletinfo(self) -> dict:
         """ Returns detailed about currently loaded (see `loadwallet`
         call in __init__) Bitcoin Core wallet.
         """
         return self._rpc("getwalletinfo", [])
+
+    def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
+        winfo = self._getwalletinfo()
+        if "scanning" in winfo and winfo["scanning"]:
+            # If not 'false', it contains info that looks like:
+            # {'duration': 1, 'progress': Decimal('0.04665404082350701')}
+            return True, winfo["scanning"]["progress"]
+        else:
+            return False, None
 
     def _rpc(self, method, args):
         """ Returns the result of an rpc call to the Bitcoin Core RPC API.
