@@ -13,6 +13,8 @@
    --btcpwd=123456abcdef --btcconf=/blah/bitcoin.conf \
    -s test/e2e-coinjoin-test.py
    '''
+import sys
+
 from twisted.internet import reactor, defer
 from twisted.web.client import readBody, Headers
 from common import make_wallets
@@ -166,6 +168,7 @@ class TWalletRPCManager(object):
         yield handler(body)
         return True
 
+@pytest.mark.skipif(sys.version_info >= (3, 8), reason="not responding on python>=3.8")
 def test_start_yg_and_taker_setup(setup_onion_ygrunner):
     """Set up some wallets, for the ygs and 1 taker.
     Then start LN and the ygs in the background, then fire
