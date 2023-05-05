@@ -17,14 +17,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Cache venv
-        id: cache-venv
-        uses: actions/cache@v3
-        env:
-          cache-name: venv
-        with:
-          path: jmvenv
-          key: v1-${{ runner.os }}-${{ matrix.python-version }}-${{ env.cache-name }}-${{ hashFiles('requirements/*.txt', 'install.sh', '*/setup.py') }}
       - name: Setup joinmarket + virtualenv
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
