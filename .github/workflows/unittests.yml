@@ -24,7 +24,7 @@ jobs:
           cache-name: venv
         with:
           path: jmvenv
-          key: ${{ runner.os }}-${{ matrix.python-version }}-${{ env.cache-name }}-${{ hashFiles('requirements/*.txt', 'install.sh', '*/setup.py') }}
+          key: v1-${{ runner.os }}-${{ matrix.python-version }}-${{ env.cache-name }}-${{ hashFiles('requirements/*.txt', 'install.sh', '*/setup.py') }}
       - name: Setup joinmarket + virtualenv
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
