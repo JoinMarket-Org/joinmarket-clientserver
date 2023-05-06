@@ -421,8 +421,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             mempoolminfee_in_sat, mempoolminfee_in_sat * float(1 + tx_fees_factor))
 
         if super().fee_per_kb_has_been_manually_set(N):
-            N_res = random.uniform(N * float(1 - tx_fees_factor),
-                N * float(1 + tx_fees_factor))
+            N_res = random.uniform(N, N * float(1 + tx_fees_factor))
             if N_res < mempoolminfee_in_sat:
                 log.info("Using this mempool min fee as tx feerate: " +
                     btc.fee_per_kb_to_str(mempoolminfee_in_sat) + ".")
@@ -451,13 +450,12 @@ class BitcoinCoreInterface(BlockchainInterface):
             # the 'feerate' key is found and contains a positive value:
             if estimate and estimate > 0:
                 estimate_in_sat = btc.btc_to_sat(estimate)
-                retval = random.uniform(
-                    estimate_in_sat * float(1 - tx_fees_factor),
+                retval = random.uniform(estimate_in_sat,
                     estimate_in_sat * float(1 + tx_fees_factor))
                 break
         else:  # cannot get a valid estimate after `tries` tries:
             fallback_fee = 10000
-            retval = random.uniform(fallback_fee * float(1 - tx_fees_factor),
+            retval = random.uniform(fallback_fee,
                 fallback_fee * float(1 + tx_fees_factor))
             log.warn("Could not source a fee estimate from Core, " +
                      "falling back to default: " +
