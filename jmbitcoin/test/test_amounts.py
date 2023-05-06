@@ -111,6 +111,6 @@ def test_sat_to_str_p() -> None:
 
 
 def test_fee_per_kb_to_str() -> None:
-    assert(btc.fee_per_kb_to_str(1000) == "1000 sat/vkB (1.0 sat/vB)")
-    assert(btc.fee_per_kb_to_str(1234) == "1234 sat/vkB (1.2 sat/vB)")
-    assert(btc.fee_per_kb_to_str(1999) == "1999 sat/vkB (1.9 sat/vB)")
+    assert(btc.fee_per_kb_to_str(1000) == "1000 sat/kvB (1.0 sat/vB)")
+    assert(btc.fee_per_kb_to_str(1234) == "1234 sat/kvB (1.2 sat/vB)")
+    assert(btc.fee_per_kb_to_str(1999) == "1999 sat/kvB (1.9 sat/vB)")
