@@ -172,9 +172,6 @@ run_jm_tests ()
     fi
     jm_requirements="requirements/testing.txt"
     jm_source="${VIRTUAL_ENV}/.."
-    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH}:${VIRTUAL_ENV}/lib/pkgconfig"
-    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${VIRTUAL_ENV}/lib"
-    export C_INCLUDE_PATH="${C_INCLUDE_PATH}:${VIRTUAL_ENV}/include"
 
     pushd "${jm_source}" || return 1
     if [ ! -f 'miniircd.tar.gz' ] || ! sha256_verify 'ce3a4ddc777343645ccd06ca36233b5777e218ee89d887ef529ece86a917fc33' 'miniircd.tar.gz'; then
