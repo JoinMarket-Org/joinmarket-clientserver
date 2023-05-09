@@ -31,8 +31,6 @@ jobs:
           sed -i.bak 's/-e //g' requirements/base.txt
           sed -i.bak 's/-e //g' requirements/gui.txt
           ./install.sh --develop --with-qt
-          ./jmvenv/bin/python -m pip install --upgrade pip
-          ./jmvenv/bin/pip install -r requirements/base.txt
           ./jmvenv/bin/pip install -r requirements/testing.txt
       - name: Lint with flake8
         run: ./jmvenv/bin/flake8 -v jmclient jmbase jmbitcoin jmdaemon scripts
