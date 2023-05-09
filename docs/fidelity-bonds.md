@@ -338,10 +338,10 @@ mixdepth except one.
 
     $ python3 sendpayment.py -N 0 testfidelity3.jmdat 0 BURN
     User data location: .
-    2020-04-07 20:45:25,658 [INFO]  Using this min relay fee as tx fee floor: 1000 sat/vkB (1.0 sat/vB)
+    2020-04-07 20:45:25,658 [INFO]  Using this min relay fee as tx fee floor: 1000 sat/kvB (1.0 sat/vB)
     Enter wallet decryption passphrase: 
     2020-04-07 20:46:50,449 [INFO]  Estimated miner/tx fees for this coinjoin amount: 0.0%
-    2020-04-07 20:46:50,452 [INFO]  Using this min relay fee as tx fee floor: 1000 sat/vkB (1.0 sat/vB)
+    2020-04-07 20:46:50,452 [INFO]  Using this min relay fee as tx fee floor: 1000 sat/kvB (1.0 sat/vB)
     2020-04-07 20:46:50,452 [INFO]  Using a fee of : 0.00000200 BTC (200 sat).
     2020-04-07 20:46:50,454 [INFO]  Got signed transaction:
 
