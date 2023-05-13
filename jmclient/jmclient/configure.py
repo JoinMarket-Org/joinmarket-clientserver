@@ -279,10 +279,10 @@ merge_algorithm = default
 # while N=5 will use the 5 block estimate from your selected blockchain source.
 tx_fees = 3
 
-# Transaction fee rate variance factor, 0.2 means 20% variation around
-# any manually chosen values, so if you set tx_fees=10000 and
-# tx_fees_factor=0.2, it might use any value between 8 thousand and 12 thousand
-# for your transactions.
+# Transaction fee rate variance factor, 0.2 means fee will be random
+# between any manually chosen value and 20% above that value, so if you set
+# tx_fees=10000 and tx_fees_factor=0.2, it might use any value between
+# 10 thousand and 12 thousand for your transactions.
 tx_fees_factor = 0.2
 
 # For users getting transaction fee estimates over an API,
