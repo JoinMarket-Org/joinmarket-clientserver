@@ -1,19 +1,18 @@
-
-import abc
 import ast
+import binascii
 import random
 import sys
 import time
-from typing import Optional, Tuple
+from abc import ABC, abstractmethod
 from decimal import Decimal
-import binascii
+from typing import Optional, Tuple
 from twisted.internet import reactor, task
-from jmbase import bintohex, hextobin, stop_reactor
-import jmbitcoin as btc
 
-from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
-from jmclient.configure import jm_single
+import jmbitcoin as btc
+from jmbase import bintohex, hextobin, stop_reactor
 from jmbase.support import get_log, jmprint, EXIT_FAILURE
+from jmclient.configure import jm_single
+from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
 
 
 # an inaccessible blockheight; consider rewriting in 1900 years
@@ -21,25 +20,24 @@ INF_HEIGHT = 10**8
 
 log = get_log()
 
-class BlockchainInterface(object):
-    __metaclass__ = abc.ABCMeta
+class BlockchainInterface(ABC):
 
     def __init__(self):
         pass
 
-    @abc.abstractmethod
+    @abstractmethod
     def is_address_imported(self, addr):
         """checks that address is already imported"""
 
-    @abc.abstractmethod
-    def is_address_labeled(self, utxo, walletname):
+    @abstractmethod
+    def is_address_labeled(self, utxo: dict, walletname: str) -> bool:
         """checks that UTXO belongs to the JM wallet"""
 
-    @abc.abstractmethod
+    @abstractmethod
     def pushtx(self, txhex):
         """pushes tx to the network, returns False if failed"""
 
-    @abc.abstractmethod
+    @abstractmethod
     def query_utxo_set(self, txouts, includeconfs=False):
         """
         takes a utxo or a list of utxos
@@ -49,14 +47,14 @@ class BlockchainInterface(object):
         """
         # address and output script contain the same information btw
 
-    @abc.abstractmethod
+    @abstractmethod
     def estimate_fee_per_kb(self, N):
         '''Use the blockchain interface to 
         get an estimate of the transaction fee per kb
         required for inclusion in the next N blocks.
 	'''
 
-    @abc.abstractmethod
+    @abstractmethod
     def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
         """Returns pair of True/False is wallet currently rescanning and
         Optional[Decimal] with current rescan progress status."""
