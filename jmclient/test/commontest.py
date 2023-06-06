@@ -4,6 +4,7 @@
 import os
 import random
 from decimal import Decimal
+from typing import Optional, Tuple
 
 from jmbase import (get_log, hextobin, bintohex, dictchanger)
 
@@ -50,6 +51,11 @@ class DummyBlockchainInterface(BlockchainInterface):
         pass
     def is_address_imported(self, addr):
         pass
+    def is_address_labeled(self, utxo: dict, walletname: str) -> bool:
+        pass
+    def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
+        pass
+
 
     def get_current_block_height(self):
         return 10**6
