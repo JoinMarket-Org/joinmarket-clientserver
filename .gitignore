@@ -34,3 +34,4 @@ scripts/snicker/snicker-proposals.txt
 scripts/snicker/candidates.txt
 .qt_for_python/
 cmtdata/
+**/build/
