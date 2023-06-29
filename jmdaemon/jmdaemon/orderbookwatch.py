@@ -69,11 +69,7 @@ class OrderbookWatch(object):
                       txfee, cjfee):
         try:
             self.dblock.acquire(True)
-            if sys.version_info >= (3,0):
-                maxint = sys.maxsize
-            else:
-                maxint = sys.maxint
-            if int(oid) < 0 or int(oid) > maxint:
+            if int(oid) < 0 or int(oid) > sys.maxsize:
                 log.debug("Got invalid order ID: " + oid + " from " +
                           counterparty)
                 return
