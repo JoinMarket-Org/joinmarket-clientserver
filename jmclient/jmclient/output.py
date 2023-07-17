@@ -46,7 +46,7 @@ def fmt_utxo(utxo):
     return utxostr
 
 def fmt_tx_data(tx_data, wallet_service):
-    return 'path: {}, address: {}, value: {}'.format(
+    return 'path: {}, address: {} , value: {}'.format(
         wallet_service.get_path_repr(wallet_service.script_to_path(tx_data['script'])),
         wallet_service.script_to_addr(tx_data['script']), tx_data['value'])
 
