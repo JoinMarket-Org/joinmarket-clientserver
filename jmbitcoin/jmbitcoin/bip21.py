@@ -5,7 +5,7 @@
 
 from jmbitcoin import amount_to_sat
 from typing import Dict, List, Tuple, Union
-from urllib.parse import parse_qs, quote, unquote_plus, urlencode, urlparse
+from urllib.parse import parse_qsl, quote, unquote_plus, urlencode, urlparse
 import re
 
 
@@ -29,18 +29,17 @@ def decode_bip21_uri(uri: str) -> Dict[str, Union[str, int]]:
     result = {}
     parsed = urlparse(uri)
     result['address'] = parsed.path
-    params = parse_qs(parsed.query)
-    for key in params:
+    params = parse_qsl(parsed.query)
+    for key, value in params:
         if key.startswith('req-'):
             raise ValueError("Unknown required parameter " + key +
                 " in BIP21 URI.")
         if key == 'amount':
-            amount_str = params['amount'][0]
-            _validate_bip21_amount(amount_str)
+            _validate_bip21_amount(value)
             # Convert amount to sats, as used internally by JM
-            result['amount'] = amount_to_sat(amount_str + "btc")
+            result['amount'] = amount_to_sat(value + "btc")
         else:
-            result[key] = unquote_plus(params[key][0])
+            result[key] = unquote_plus(value)
     return result
 
 
