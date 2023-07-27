@@ -13,5 +13,5 @@ setup(name='joinmarketclient',
                         'argon2_cffi==21.3.0', 'bencoder.pyx==3.0.1',
                         'klein==20.6.0', 'pyjwt==2.4.0',
                         'autobahn==20.12.3', 'werkzeug==2.2.3'],
-      python_requires='>=3.6',
+      python_requires='>=3.7',
       zip_safe=False)

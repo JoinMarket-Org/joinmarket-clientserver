@@ -17,8 +17,8 @@ to libsodium.
 All modes require and install twisted.
 """
 
-if sys.version_info < (3, 6):
-    raise RuntimeError("This package requres Python 3.6+")
+if sys.version_info < (3, 7):
+    raise RuntimeError("This package requres Python 3.7+")
 
 def help():
     print("Usage: python setupall.py <mode>\n"

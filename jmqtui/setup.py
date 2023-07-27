@@ -9,7 +9,7 @@ setup(name='joinmarketui',
       license='GPL',
       packages=['jmqtui'],
       install_requires=['PyQt5!=5.15.0,!=5.15.1,!=5.15.2,!=6.0'],
-      python_requires='>=3.6',
+      python_requires='>=3.7',
       zip_safe=False)
 
 # The following command should be executed whenever `open_wallet_dialog.ui` is updated.
