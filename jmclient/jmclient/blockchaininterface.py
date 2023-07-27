@@ -48,13 +48,6 @@ class BlockchainInterface(ABC):
         # address and output script contain the same information btw
 
     @abstractmethod
-    def estimate_fee_per_kb(self, N):
-        '''Use the blockchain interface to 
-        get an estimate of the transaction fee per kb
-        required for inclusion in the next N blocks.
-	'''
-
-    @abstractmethod
     def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
         """Returns pair of True/False is wallet currently rescanning and
         Optional[Decimal] with current rescan progress status."""
@@ -63,14 +56,96 @@ class BlockchainInterface(ABC):
         """import addresses to the underlying blockchain interface if needed
         returns True if the sync call needs to do a system exit"""
 
-    def fee_per_kb_has_been_manually_set(self, N):
-        '''if the 'block' target is higher than 1000, interpret it
-        as manually set fee/Kb.
-    '''
-        if N > 1000:
-            return True
+    @abstractmethod
+    def _get_mempool_min_fee(self) -> Optional[int]:
+        """Returns minimum mempool fee as a floor to avoid relay problems
+        or None in case of error.
+        """
+
+    @abstractmethod
+    def _estimate_fee_basic(self, conf_target: int) -> Optional[int]:
+        """Returns basic fee estimation for confirmation target in blocks.
+        Additional JoinMarket fee logic is added on top, see
+        `estimate_fee_per_kb` for details. Returns feerate in sats per vB
+        or None in case of error.
+        """
+
+    def _fee_per_kb_has_been_manually_set(self, tx_fees: int) -> bool:
+        """If the block target (tx_fees) is higher than 1000, interpret it
+        as manually set fee sats/kvB.
+        """
+        return tx_fees > 1000
+
+    def estimate_fee_per_kb(self, tx_fees: int) -> int:
+        """ The argument tx_fees may be either a number of blocks target,
+        for estimation of feerate by Core, or a number of satoshis
+        per kilo-vbyte (see `_fee_per_kb_has_been_manually_set` for
+        how this is distinguished).
+        In both cases it is prevented from falling below the current
+        minimum feerate for tx to be accepted into node's mempool.
+        In case of failure to connect, source a specific minimum fee relay
+        rate (which is used to sanity check user's chosen fee rate), or
+        failure to source a feerate estimate for targeted number of blocks,
+        a default of 10000 is returned.
+        """
+
+        # default to use if fees cannot be estimated
+        fallback_fee = 10000
+
+        tx_fees_factor = abs(jm_single().config.getfloat('POLICY', 'tx_fees_factor'))
+
+        mempoolminfee_in_sat = self._get_mempool_min_fee()
+        # in case of error
+        if mempoolminfee_in_sat is None:
+            mempoolminfee_in_sat = fallback_fee
+        mempoolminfee_in_sat_randomized = random.uniform(
+            mempoolminfee_in_sat, mempoolminfee_in_sat * float(1 + tx_fees_factor))
+
+        if self._fee_per_kb_has_been_manually_set(tx_fees):
+            N_res = random.uniform(tx_fees, tx_fees * float(1 + tx_fees_factor))
+            if N_res < mempoolminfee_in_sat:
+                msg = "Using this mempool min fee as tx feerate"
+                if tx_fees_factor != 0:
+                    msg = msg + " (randomized for privacy)"
+                log.info(msg + ": " + btc.fee_per_kb_to_str(
+                    mempoolminfee_in_sat_randomized) + ".")
+                return int(mempoolminfee_in_sat_randomized)
+            else:
+                msg = "Using this manually set tx feerate"
+                if tx_fees_factor != 0:
+                    msg = msg + " (randomized for privacy)"
+                log.info(msg + ": " + btc.fee_per_kb_to_str(N_res) + ".")
+                return int(N_res)
+
+        retval = self._estimate_fee_basic(tx_fees)
+        if retval is None:
+            msg = "Fee estimation for " + str(tx_fees) + \
+                " block confirmation target failed. " + \
+                "Falling back to default"
+            if tx_fees_factor != 0:
+                msg = msg + " (randomized for privacy)"
+            fallback_fee_randomized = random.uniform(
+                fallback_fee, fallback_fee * float(1 + tx_fees_factor))
+            log.warn(msg + ": " +
+                btc.fee_per_kb_to_str(fallback_fee_randomized) + ".")
+            return int(fallback_fee_randomized)
+
+        retval = random.uniform(retval, retval * float(1 + tx_fees_factor))
+
+        if retval < mempoolminfee_in_sat:
+            msg = "Using this mempool min fee as tx feerate"
+            if tx_fees_factor != 0:
+                msg = msg + " (randomized for privacy)"
+            log.info(msg + ": " + btc.fee_per_kb_to_str(
+                mempoolminfee_in_sat_randomized) + ".")
+            return int(mempoolminfee_in_sat_randomized)
         else:
-            return False
+            msg = "Using bitcoin network feerate for " + str(tx_fees) + \
+                " block confirmation target"
+            if tx_fees_factor != 0:
+                msg = msg + " (randomized for privacy)"
+            log.info(msg + ": " + btc.fee_per_kb_to_str(retval))
+            return int(retval)
 
 
 class BitcoinCoreInterface(BlockchainInterface):
@@ -164,7 +239,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         else:
             return False, None
 
-    def _rpc(self, method, args):
+    def _rpc(self, method: str, args: Optional[list] = None):
         """ Returns the result of an rpc call to the Bitcoin Core RPC API.
         If the connection is permanently or unrecognizably broken, None
         is returned *and the reactor is shutdown* (because we consider this
@@ -390,54 +465,20 @@ class BitcoinCoreInterface(BlockchainInterface):
         # and return the indices of the others:
         return [i for i, val in enumerate(res) if val]
 
-    def estimate_fee_per_kb(self, N):
-        """ The argument N may be either a number of blocks target,
-        for estimation of feerate by Core, or a number of satoshis
-        per kilo-vbyte (see `fee_per_kb_has_been_manually_set` for
-        how this is distinguished).
-        In both cases it is prevented from falling below the current
-        minimum feerate for tx to be accepted into node's mempool.
-        In case of failure to connect, None is returned.
-        In case of failure to source a specific minimum fee relay rate
-        (which is used to sanity check user's chosen fee rate), 1000
-        is used.
-        In case of failure to source a feerate estimate for targeted
-        number of blocks, a default of 10000 is returned.
-        """
-
-        # use the local bitcoin core minimum mempool fee as floor to avoid
-        # relay problems
-        rpc_result = self._rpc('getmempoolinfo', None)
+    def _get_mempool_min_fee(self) -> Optional[int]:
+        rpc_result = self._rpc('getmempoolinfo')
         if not rpc_result:
             # in case of connection error:
             return None
+        return btc.btc_to_sat(rpc_result['mempoolminfee'])
 
-        tx_fees_factor = abs(jm_single().config.getfloat('POLICY', 'tx_fees_factor'))
-
-        mempoolminfee_in_sat = btc.btc_to_sat(rpc_result['mempoolminfee'])
-        mempoolminfee_in_sat_randomized = random.uniform(
-            mempoolminfee_in_sat, mempoolminfee_in_sat * float(1 + tx_fees_factor))
-
-        if super().fee_per_kb_has_been_manually_set(N):
-            N_res = random.uniform(N, N * float(1 + tx_fees_factor))
-            if N_res < mempoolminfee_in_sat:
-                log.info("Using this mempool min fee as tx feerate: " +
-                    btc.fee_per_kb_to_str(mempoolminfee_in_sat) + ".")
-                return int(mempoolminfee_in_sat_randomized)
-            else:
-                msg = "Using this manually set tx feerate"
-                if tx_fees_factor != 0:
-                    msg = msg + " (randomized for privacy)"
-                log.info(msg + ": " + btc.fee_per_kb_to_str(N_res) + ".")
-                return int(N_res)
-
+    def _estimate_fee_basic(self, conf_target: int) -> Optional[int]:
         # Special bitcoin core case: sometimes the highest priority
         # cannot be estimated in that case the 2nd highest priority
         # should be used instead of falling back to hardcoded values
-        tries = 2 if N == 1 else 1
-
+        tries = 2 if conf_target == 1 else 1
         for i in range(tries):
-            rpc_result = self._rpc('estimatesmartfee', [N + i])
+            rpc_result = self._rpc('estimatesmartfee', [conf_target + i])
             if not rpc_result:
                 # in case of connection error:
                 return None
@@ -447,29 +488,10 @@ class BitcoinCoreInterface(BlockchainInterface):
             # if it is not able to make an estimate. We insist that
             # the 'feerate' key is found and contains a positive value:
             if estimate and estimate > 0:
-                estimate_in_sat = btc.btc_to_sat(estimate)
-                retval = random.uniform(estimate_in_sat,
-                    estimate_in_sat * float(1 + tx_fees_factor))
-                break
-        else:  # cannot get a valid estimate after `tries` tries:
-            fallback_fee = 10000
-            retval = random.uniform(fallback_fee,
-                fallback_fee * float(1 + tx_fees_factor))
-            log.warn("Could not source a fee estimate from Core, " +
-                     "falling back to default: " +
-                     btc.fee_per_kb_to_str(fallback_fee) + ".")
-
-        if retval < mempoolminfee_in_sat:
-            log.info("Using this mempool min fee as tx feerate: " +
-                btc.fee_per_kb_to_str(mempoolminfee_in_sat) + ".")
-            return int(mempoolminfee_in_sat_randomized)
-        else:
-            msg = "Using bitcoin network feerate for " + str(N) + \
-                " block confirmation target"
-            if tx_fees_factor != 0:
-                msg = msg + " (randomized for privacy)"
-            log.info(msg + ": " + btc.fee_per_kb_to_str(retval))
-            return int(retval)
+                return btc.btc_to_sat(estimate)
+        # cannot get a valid estimate after `tries` tries:
+        log.warn("Could not source a fee estimate from Core")
+        return None
 
     def get_current_block_height(self):
         try:
@@ -665,9 +687,9 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
         self.shutdown_signal = False
         self.destn_addr = self._rpc("getnewaddress", [])
 
-    def estimate_fee_per_kb(self, N):
+    def estimate_fee_per_kb(self, tx_fees: int) -> int:
         if not self.absurd_fees:
-            return super().estimate_fee_per_kb(N)
+            return super().estimate_fee_per_kb(tx_fees)
         else:
             return jm_single().config.getint("POLICY",
                                              "absurd_fee_per_kb") + 100

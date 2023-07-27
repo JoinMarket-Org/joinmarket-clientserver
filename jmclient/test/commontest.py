@@ -53,6 +53,10 @@ class DummyBlockchainInterface(BlockchainInterface):
         pass
     def is_address_labeled(self, utxo: dict, walletname: str) -> bool:
         pass
+    def _get_mempool_min_fee(self) -> Optional[int]:
+        pass
+    def _estimate_fee_basic(self, conf_target: int) -> Optional[int]:
+        pass
     def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
         pass
 
@@ -131,7 +135,7 @@ class DummyBlockchainInterface(BlockchainInterface):
             result.append(result_dict)        
         return result
 
-    def estimate_fee_per_kb(self, N):
+    def estimate_fee_per_kb(self, tx_fees: int) -> int:
         return 30000
 
 
