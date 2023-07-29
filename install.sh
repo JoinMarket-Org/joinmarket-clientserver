@@ -325,13 +325,14 @@ libsecp256k1_build()
 
 libsecp256k1_install()
 {
-    secp256k1_lib_tar='490022745164b56439688b0fc04f9bd43578e5c3'
-    secp256k1_lib_sha="4c87e32bff6815fb632a0ffd5bc89f2f7dfce11bd8501f1c779cf1e8e354c3c9"
-    secp256k1_lib_url='https://github.com/bitcoin-core/secp256k1/archive'
-    if ! dep_get "${secp256k1_lib_tar}.tar.gz" "${secp256k1_lib_sha}" "${secp256k1_lib_url}"; then
+    secp256k1_version="0.4.0"
+    secp256k1_lib_tar="v$secp256k1_version.tar.gz"
+    secp256k1_lib_sha="d7c956606e7f52b7703fd2967cb31d2e21ec90c0b440ff1cc7c7d764a4092b98"
+    secp256k1_lib_url='https://github.com/bitcoin-core/secp256k1/archive/refs/tags'
+    if ! dep_get "${secp256k1_lib_tar}" "${secp256k1_lib_sha}" "${secp256k1_lib_url}"; then
         return 1
     fi
-    pushd "secp256k1-${secp256k1_lib_tar}" || return 1
+    pushd "secp256k1-$secp256k1_version" || return 1
     if libsecp256k1_build; then
         $make install
     else
