@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from future.utils import iteritems
 """A very simple command line tool to import utxos to be used
 as commitments into joinmarket's commitments.json file, allowing
 users to retry transactions more often without getting banned by

@@ -1,4 +1,3 @@
-from future.utils import iteritems
 from commontest import DummyBlockchainInterface
 import jmbitcoin as bitcoin
 import binascii

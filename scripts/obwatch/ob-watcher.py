@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from future.utils import iteritems
 from past.builtins import cmp
 from functools import cmp_to_key
 
@@ -12,7 +11,6 @@ import time
 import hashlib
 import os
 import sys
-from future.moves.urllib.parse import parse_qs
 from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from future.utils import iteritems
 
 import random
 import sys
