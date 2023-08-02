@@ -1,9 +1,9 @@
 import base64
 import hmac
 import hashlib
-import pyaes
 import os
 import jmbitcoin as btc
+from jmbase import aes_cbc_encrypt, aes_cbc_decrypt
 from bitcointx.core.key import CPubKey
 
 ECIES_MAGIC_BYTES = b'BIE1'
@@ -11,25 +11,12 @@ ECIES_MAGIC_BYTES = b'BIE1'
 class ECIESDecryptionError(Exception):
     pass
 
-# AES primitives. See BIP-SNICKER for specification.
-def aes_encrypt(key, data, iv):
-    encrypter = pyaes.Encrypter(
-        pyaes.AESModeOfOperationCBC(key, iv=iv))
-    enc_data = encrypter.feed(data)
-    enc_data += encrypter.feed()
-
-    return enc_data
-
-def aes_decrypt(key, data, iv):
-    decrypter = pyaes.Decrypter(
-        pyaes.AESModeOfOperationCBC(key, iv=iv))
+def _ecies_aes_decrypt(key, data, iv):
     try:
-        dec_data = decrypter.feed(data)
-        dec_data += decrypter.feed()
+        return aes_cbc_decrypt(key, data, iv)
     except ValueError:
         # note decryption errors can come from PKCS7 padding errors
         raise ECIESDecryptionError()
-    return dec_data
 
 def ecies_encrypt(message, pubkey):
     """ Take a message in bytes and a secp256k1 public key
@@ -53,10 +40,10 @@ def ecies_encrypt(message, pubkey):
     ecdh_key = btc.multiply(r, pubkey)
     key = hashlib.sha512(ecdh_key).digest()
     iv, key_e, key_m = key[0:16], key[16:32], key[32:]
-    ciphertext = aes_encrypt(key_e, message, iv=iv)
+    ciphertext = aes_cbc_encrypt(key_e, message, iv=iv)
     encrypted = ECIES_MAGIC_BYTES + R + ciphertext
     mac = hmac.new(key_m, encrypted, hashlib.sha256).digest()
-    return base64.b64encode(encrypted + mac)    
+    return base64.b64encode(encrypted + mac)
 
 def ecies_decrypt(privkey, encrypted):
     if len(privkey) == 33 and privkey[-1] == 1:
@@ -78,5 +65,5 @@ def ecies_decrypt(privkey, encrypted):
     iv, key_e, key_m = key[0:16], key[16:32], key[32:]
     if mac != hmac.new(key_m, encrypted[:-32], hashlib.sha256).digest():
         raise ECIESDecryptionError()
-    return aes_decrypt(key_e, ciphertext, iv=iv)    
+    return _ecies_aes_decrypt(key_e, ciphertext, iv=iv)
 
