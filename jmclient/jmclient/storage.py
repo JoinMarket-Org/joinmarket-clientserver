@@ -107,7 +107,7 @@ class Storage(object):
         return self._hash is not None
 
     def is_locked(self):
-        return self._lock_file and os.path.exists(self._lock_file)
+        return self._lock_file is not None and os.path.exists(self._lock_file)
 
     def was_changed(self):
         """
@@ -279,34 +279,52 @@ class Storage(object):
         return Argon2Hash(password, salt,
                           hash_len=cls.ENC_KEY_BYTES, salt_len=cls.SALT_LENGTH)
 
-    def _create_lock(self):
-        if self.read_only:
-            return
-        (path_head, path_tail) = os.path.split(self.path)
-        lock_filename = os.path.join(path_head, '.' + path_tail + '.lock')
-        self._lock_file = lock_filename
-        if os.path.exists(self._lock_file):
-            with open(self._lock_file, 'r') as f:
-                try:
-                    locked_by_pid = int(f.read())
-                except ValueError:
-                    locked_by_pid = None
-            self._lock_file = None
+    @staticmethod
+    def _get_lock_filename(path: str) -> str:
+        """Return lock filename"""
+        (path_head, path_tail) = os.path.split(path)
+        return os.path.join(path_head, '.' + path_tail + '.lock')
+
+    @classmethod
+    def _get_locking_pid(cls, path: str) -> int:
+        """Return locking PID, -1 if no lockfile if found, 0 if PID cannot be read."""
+        try:
+            with open(cls._get_lock_filename(path), 'r') as f:
+                return int(f.read())
+        except FileNotFoundError:
+            return -1
+        except ValueError:
+            return 0
+
+    @classmethod
+    def verify_lock(cls, path: str):
+        locked_by_pid = cls._get_locking_pid(path)
+        if locked_by_pid >= 0:
             raise RetryableStorageError(
-                               "File is currently in use (locked by pid {}). "
-                               "If this is a leftover from a crashed instance "
-                               "you need to remove the lock file `{}` manually." .
-                               format(locked_by_pid, lock_filename))
-        #FIXME: in python >=3.3 use mode x
-        with open(self._lock_file, 'w') as f:
-            f.write(str(os.getpid()))
+                "File is currently in use (locked by pid {}). "
+                "If this is a leftover from a crashed instance "
+                "you need to remove the lock file `{}` manually.".
+                format(locked_by_pid, cls._get_lock_filename(path))
+            )
+
+    def _create_lock(self):
+        if not self.read_only:
+            self._lock_file = self._get_lock_filename(self.path)
+            try:
+                with open(self._lock_file, 'x') as f:
+                    f.write(str(os.getpid()))
+            except FileExistsError:
+                self._lock_file = None
+                self.verify_lock(self.path)
 
         atexit.register(self.close)
 
     def _remove_lock(self):
-        if self._lock_file:
-            os.remove(self._lock_file)
-            self._lock_file = None
+        if self._lock_file is not None:
+            try:
+                os.remove(self._lock_file)
+            except FileNotFoundError:
+                pass
 
     def close(self):
         if not self.read_only and self.was_changed():
@@ -336,6 +354,10 @@ class VolatileStorage(Storage):
         pass
 
     def _remove_lock(self):
+        pass
+
+    @classmethod
+    def verify_lock(cls):
         pass
 
     def _write_file(self, data):

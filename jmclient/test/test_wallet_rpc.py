@@ -12,9 +12,16 @@ from autobahn.twisted.websocket import WebSocketClientFactory, \
 from jmbase import get_nontor_agent, hextobin, BytesProducer, get_log
 from jmbase.support import get_free_tcp_ports
 from jmbitcoin import CTransaction
-from jmclient import (load_test_config, jm_single, SegwitWalletFidelityBonds,
-                      JMWalletDaemon, validate_address, start_reactor,
-                      SegwitWallet)
+from jmclient import (
+    load_test_config,
+    jm_single,
+    SegwitWalletFidelityBonds,
+    JMWalletDaemon,
+    validate_address,
+    start_reactor,
+    SegwitWallet,
+    storage,
+)
 from jmclient.wallet_rpc import api_version_string, CJ_MAKER_RUNNING, CJ_NOT_RUNNING
 from commontest import make_wallets
 from test_coinjoin import make_wallets_to_list, sync_wallets
@@ -104,6 +111,11 @@ class WalletRPCTestBase(object):
             wfn = self.get_wallet_file_name(i, fullpath=True)
             if os.path.exists(wfn):
                 os.remove(wfn)
+
+            parent, name = os.path.split(wfn)
+            lockfile = os.path.join(parent, f".{name}.lock")
+            if os.path.exists(lockfile):
+                os.remove(lockfile)
 
     def get_wallet_file_name(self, i, fullpath=False):
         tfn = testfilename + str(i) + ".jmdat"
@@ -413,6 +425,38 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         yield self.do_request(agent, b"POST", addr, body,
                               self.process_unlock_response)
 
+    @defer.inlineCallbacks
+    def test_unlock_locked(self):
+        """Assert if unlocking a wallet locked by another process fails."""
+        self.clean_out_wallet_files()
+        self.daemon.services["wallet"] = None
+        self.daemon.stopService()
+        self.daemon.auth_disabled = False
+
+        wfn = self.get_wallet_file_name(1)
+        self.wfnames = [wfn]
+
+        agent = get_nontor_agent()
+        root = self.get_route_root()
+
+        # Create first
+        p = self.get_wallet_file_name(1, True)
+        pw = "None"
+
+        s = storage.Storage(p, bytes(pw, "utf-8"), create=True)
+        assert s.is_locked()
+
+        # Unlocking a locked wallet should fail
+
+        addr = root + "/wallet/" + wfn + "/unlock"
+        addr = addr.encode()
+        body = BytesProducer(json.dumps({"password": pw}).encode())
+        yield self.do_request(
+            agent, b"POST", addr, body, self.process_failed_unlock_response
+        )
+
+        s.close()
+
     def process_create_wallet_response(self, response, code):
         assert code == 201
         json_body = json.loads(response.decode("utf-8"))
@@ -609,6 +653,9 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         json_body = json.loads(response.decode("utf-8"))
         assert json_body["walletname"] in self.wfnames
         self.jwt_token = json_body["token"]
+
+    def process_failed_unlock_response(self, response, code):
+        assert code == 409
 
     def process_lock_response(self, response, code):
         assert code == 200

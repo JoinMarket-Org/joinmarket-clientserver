@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from future.utils import iteritems
+from typing import Optional
 
 '''
 Joinmarket GUI using PyQt for doing coinjoins.
@@ -74,7 +75,7 @@ from jmclient import load_program_config, get_network, update_persist_config,\
     detect_script_type, general_custom_change_warning, \
     nonwallet_custom_change_warning, sweep_custom_change_warning, EngineError,\
     TYPE_P2WPKH, check_and_start_tor, is_extended_public_key, \
-    ScheduleGenerationErrorNoFunds
+    ScheduleGenerationErrorNoFunds, Storage
 from jmclient.wallet import BaseWallet
 
 from qtsupport import ScheduleWizard, TumbleRestartWizard, config_tips,\
@@ -111,7 +112,11 @@ log.addHandler(handler)
 
 
 from jmqtui import Ui_OpenWalletDialog
+
+
 class JMOpenWalletDialog(QDialog, Ui_OpenWalletDialog):
+    DEFAULT_WALLET_FILE_TEXT = "wallet.jmdat"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
@@ -119,15 +124,35 @@ class JMOpenWalletDialog(QDialog, Ui_OpenWalletDialog):
 
         self.chooseWalletButton.clicked.connect(self.chooseWalletFile)
 
-    def chooseWalletFile(self):
-        wallets_path = os.path.join(jm_single().datadir, 'wallets')
-        (filename, _) = QFileDialog.getOpenFileName(self,
-                                                'Choose Wallet File',
-                                                wallets_path,
-                                                options=QFileDialog.DontUseNativeDialog)
+    def chooseWalletFile(self, error_text: str = ""):
+        (filename, _) = QFileDialog.getOpenFileName(
+            self,
+            "Choose Wallet File",
+            self._get_wallets_path(),
+            options=QFileDialog.DontUseNativeDialog,
+        )
         if filename:
             self.walletFileEdit.setText(filename)
             self.passphraseEdit.setFocus()
+            self.errorMessageLabel.setText(self.verify_lock(filename))
+
+    @staticmethod
+    def _get_wallets_path() -> str:
+        """Return wallets path"""
+        return os.path.join(jm_single().datadir, "wallets")
+
+    @classmethod
+    def verify_lock(cls, filename: Optional[str] = None) -> str:
+        """Return an error text if wallet is locked, empty string otherwise"""
+        if filename is None:
+            filename = os.path.join(
+                cls._get_wallets_path(), cls.DEFAULT_WALLET_FILE_TEXT
+            )
+        try:
+            Storage.verify_lock(filename)
+            return ""
+        except Exception as e:
+            return str(e)
 
 
 class HelpLabel(QLabel):
@@ -1991,13 +2016,14 @@ class JMMainWindow(QMainWindow):
 
     def openWallet(self):
         wallet_loaded = False
-        wallet_file_text = "wallet.jmdat"
         error_text = ""
 
         while not wallet_loaded:
             openWalletDialog = JMOpenWalletDialog()
-            openWalletDialog.walletFileEdit.setText(wallet_file_text)
-            openWalletDialog.errorMessageLabel.setText(error_text)
+            # Set default wallet file name and verify its lock status
+            openWalletDialog.walletFileEdit.setText(openWalletDialog.DEFAULT_WALLET_FILE_TEXT)
+            openWalletDialog.errorMessageLabel.setText(openWalletDialog.verify_lock())
+
             if openWalletDialog.exec_() == QDialog.Accepted:
                 wallet_file_text = openWalletDialog.walletFileEdit.text()
                 wallet_path = wallet_file_text
