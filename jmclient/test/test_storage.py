@@ -131,3 +131,8 @@ def test_storage_lock(tmpdir):
     assert s.is_locked()
     assert s.data == {b'test': b'value'}
 
+    # Assert a new lock cannot be created
+    with pytest.raises(storage.StorageError):
+        s._create_lock()
+        pytest.fail("It should not be possible to re-create a lock")
+

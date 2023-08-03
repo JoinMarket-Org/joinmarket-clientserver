@@ -593,13 +593,13 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
                 label = wallet_service.get_address_label(addr)
                 timelock = datetime.utcfromtimestamp(0) + timedelta(seconds=path[-1])
 
-                balance = sum([utxodata["value"] for _, utxodata in 
+                balance = sum([utxodata["value"] for _, utxodata in
                     utxos[m].items() if path == utxodata["path"]])
 
                 status = timelock.strftime("%Y-%m-%d") + " [" + (
                     "LOCKED" if datetime.now() < timelock else "UNLOCKED") + "]"
                 status += get_utxo_status_string(utxos[m], utxos_enabled[m], path)
-                
+
                 privkey = ""
                 if showprivkey:
                     privkey = wallet_service.get_wif_path(path)
@@ -1532,6 +1532,8 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
     if ask_for_password and Storage.is_encrypted_storage_file(path):
         while True:
             try:
+                # Verify lock status before trying to open wallet.
+                Storage.verify_lock(path)
                 # do not try empty password, assume unencrypted on empty password
                 pwd = get_password("Enter passphrase to decrypt wallet: ") or None
                 storage = Storage(path, password=pwd, read_only=read_only)
