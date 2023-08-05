@@ -15,4 +15,4 @@ from .twisted_utils import (stop_reactor, is_hs_uri, get_tor_agent,
                             JMHTTPResource, set_custom_stop_reactor)
 from .bytesprod import BytesProducer
 from .commands import *
-
+from .crypto import aes_cbc_encrypt, aes_cbc_decrypt

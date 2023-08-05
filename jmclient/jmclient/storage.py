@@ -2,9 +2,9 @@ import os
 import shutil
 import atexit
 import bencoder
-import pyaes
 from hashlib import sha256
 from argon2 import low_level
+from jmbase import aes_cbc_encrypt, aes_cbc_decrypt
 from .support import get_random_bytes
 
 
@@ -252,20 +252,13 @@ class Storage(object):
 
         return self._decrypt(container[b'data'], container[b'enc'][b'iv'])
 
-    def _encrypt(self, data, iv):
-        encrypter = pyaes.Encrypter(
-                pyaes.AESModeOfOperationCBC(self._hash.hash, iv=iv))
-        enc_data = encrypter.feed(self.MAGIC_DETECT_ENC + data)
-        enc_data += encrypter.feed()
+    def _encrypt(self, data: bytes, iv: bytes) -> bytes:
+        return aes_cbc_encrypt(self._hash.hash,
+                               self.MAGIC_DETECT_ENC + data, iv)
 
-        return enc_data
-
-    def _decrypt(self, data, iv):
-        decrypter = pyaes.Decrypter(
-                pyaes.AESModeOfOperationCBC(self._hash.hash, iv=iv))
+    def _decrypt(self, data: bytes, iv: bytes) -> bytes:
         try:
-            dec_data = decrypter.feed(data)
-            dec_data += decrypter.feed()
+            dec_data = aes_cbc_decrypt(self._hash.hash, data, iv)
         except ValueError:
             # in most "wrong password" cases the pkcs7 padding will be wrong
             raise StoragePasswordError("Wrong password.")
