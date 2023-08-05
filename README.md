@@ -34,6 +34,8 @@ Download the latest [release](https://github.com/Joinmarket-Org/joinmarket-clien
 
 Make sure to validate the signature on the tar/zip file provided with the [release](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases) (or check the signature in git if you install that way using `git log --show-signature`).
 
+JoinMarket requires Python 3.7 or newer installed.
+
 (**macOS users**: Make sure that you have Homebrew and Apple's Command Line Tools installed.)
 
     ./install.sh
@@ -46,8 +48,6 @@ Follow instructions on screen; provide sudo password when prompted, then when fi
     cd scripts
 
 You can optionally install a Qt GUI application, you will be prompted to choose this during installation.
-
-Do note, Python 2 is no longer supported as it has reached its end of life.
 
 You should now be able to run the scripts like `python wallet-tool.py` etc., just as you did in the previous Joinmarket version.
 

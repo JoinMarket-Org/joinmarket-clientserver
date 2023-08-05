@@ -9,6 +9,6 @@ setup(name='joinmarketbitcoin',
       author_email='',
       license='GPL',
       packages=['jmbitcoin'],
-      python_requires='>=3.6',
-      install_requires=['python-bitcointx==1.1.3'],
+      python_requires='>=3.7',
+      install_requires=['python-bitcointx==1.1.3', 'pyaes==1.6.1'],
       zip_safe=False)

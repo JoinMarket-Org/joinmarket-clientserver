@@ -14,5 +14,5 @@ setup(name='joinmarketdaemon',
                         'cryptography==41.0.2; platform_machine == "aarch64" or platform_machine == "amd64" or platform_machine == "x86_64"',
                         'pyopenssl==23.2.0', 'libnacl==1.8.0',
                         'joinmarketbase==0.9.10dev'],
-      python_requires='>=3.6',
+      python_requires='>=3.7',
       zip_safe=False)

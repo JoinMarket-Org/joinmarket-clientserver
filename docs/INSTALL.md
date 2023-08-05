@@ -4,6 +4,8 @@
 * [Installation on Windows](#installation-on-windows)
 * [Alternative/custom installation](#alternativecustom-installation)
 
+JoinMarket requires Python 3.7 or newer.
+
 ### Notes on upgrading, binaries and compatibility
 
 (You can ignore this whole section if starting from scratch).
