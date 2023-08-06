@@ -1451,7 +1451,8 @@ def create_wallet(path, password, max_mixdepth, wallet_cls, **kwargs):
     wallet_cls.initialize(storage, get_network(), max_mixdepth=max_mixdepth,
                           **kwargs)
     storage.save()
-    return wallet_cls(storage)
+    return wallet_cls(storage,
+                gap_limit=jm_single().config.getint("POLICY", "gaplimit"))
 
 
 def open_test_wallet_maybe(path, seed, max_mixdepth,

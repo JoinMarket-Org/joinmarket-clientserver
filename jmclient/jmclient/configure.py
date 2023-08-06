@@ -267,6 +267,11 @@ native = true
 # but don't forget to bump your miner fees!
 merge_algorithm = default
 
+# Used currently by the RPC to modify the gap limit
+# for address searching during wallet sync. Command line
+# scripts can use the command line flag `-g` instead.
+gaplimit = 6
+
 # The fee estimate is based on a projection of how many sats/kilo-vbyte
 # are needed to get in one of the next N blocks. N is set here as
 # the value of 'tx_fees'. This cost estimate is high if you set
@@ -508,8 +513,6 @@ minsize = 100000
 
 # [fraction, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
 size_factor = 0.1
-
-gaplimit = 6
 
 [SNICKER]
 # Any other value than 'true' will be treated as False,
