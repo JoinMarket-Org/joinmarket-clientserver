@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import sys, os, subprocess
 
 """A script to install in one of 3 modes:

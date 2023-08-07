@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from future.utils import iteritems
-
 import random
 import sys
 
@@ -54,8 +52,7 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
             f = self.cjfee_r
         elif self.ordertype in ['swabsoffer', 'sw0absoffer']:
             f = str(self.txfee_contribution + self.cjfee_a)
-        mix_balance = dict([(m, b) for m, b in iteritems(mix_balance)
-                            if b > self.minsize])
+        mix_balance = dict([(m, b) for m, b in mix_balance.items() if b > self.minsize])
         if len(mix_balance) == 0:
             jlog.error('You do not have the minimum required amount of coins'
                        ' to be a maker: ' + str(self.minsize) + \
