@@ -4,12 +4,13 @@ on: [push, pull_request]
 
 jobs:
   build:
-    name: python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: python ${{ matrix.python-version }}, bitcoind ${{ matrix.bitcoind-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [macos-latest, ubuntu-latest]
         python-version: ["3.7", "3.8", "3.9", "3.10", "3.11"]
+        bitcoind-version: ["0.18.0", "25.0"]
 
     steps:
       - uses: actions/checkout@v3
@@ -38,10 +39,13 @@ jobs:
         uses: actions/cache@v3
         env:
           cache-name: bitcoind
+          BITCOIND_VERSION: ${{ matrix.bitcoind-version }}
         with:
           path: ~/bitcoin/*/bin/bitcoin*
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('test/testrunner/install_bitcoind.sh') }}
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ env.BITCOIND_VERSION }}-${{ hashFiles('test/testrunner/install_bitcoind.sh') }}
       - name: Install bitcoind
+        env:
+          BITCOIND_VERSION: ${{ matrix.bitcoind-version }}
         run: ./test/testrunner/install_bitcoind.sh
       - name: Cache miniircd
         uses: actions/cache@v3
