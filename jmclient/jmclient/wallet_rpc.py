@@ -987,7 +987,8 @@ class JMWalletDaemon(Service):
                 wallet = open_test_wallet_maybe(
                         wallet_path, walletname, 4,
                         password=password.encode("utf-8"),
-                        ask_for_password=False)
+                        ask_for_password=False,
+                        gap_limit = jm_single().config.getint("POLICY", "gaplimit"))
             except StoragePasswordError:
                 raise NotAuthorized()
             except RetryableStorageError:
