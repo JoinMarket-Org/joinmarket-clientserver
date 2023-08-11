@@ -138,6 +138,16 @@ paths:
           $ref: '#/components/responses/401-Unauthorized'
         '404':
           $ref: '#/components/responses/404-NotFound'
+  /getinfo:
+    get:
+      security:
+        - {}
+      summary: get info on backend
+      operationId: version
+      description: get information about backend, including the version of Joinmarket running.
+      responses:
+        '200':
+          $ref: "#/components/responses/Getinfo-200-OK"
   /wallet/all:
     get:
       summary: get current available wallets
@@ -754,6 +764,22 @@ components:
       items:
         type: string
         example: "2021/10/26 16:40:21,133986791,1,200000000,2680,2680,0.08,"
+    GetinfoResponse:
+      type: object
+      required:
+        - version
+      properties:
+        version:
+          type: string
+          example: "0.9.10"
+    RescanBlockchainResponse:
+      type: object
+      required:
+        - walletname
+      properties:
+        walletname:
+          type: string
+          example: "wallet.jmdat"
     SessionResponse:
       type: object
       required:
@@ -1106,12 +1132,18 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/SessionResponse"
+    Getinfo-200-OK:
+      description: "successful Joinmarket getinfo response"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/GetinfoResponse"
     RescanBlockchain-200-OK:
       description: "Blockchain rescan started successfully"
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/SessionResponse"
+            $ref: "#/components/schemas/RescanBlockchainResponse"
     Create-201-OK:
       description: "wallet created successfully"
       content:
