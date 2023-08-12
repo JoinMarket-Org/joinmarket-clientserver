@@ -10,7 +10,7 @@ from autobahn.twisted.websocket import WebSocketClientFactory, \
     connectWS
 
 from jmbase import get_nontor_agent, hextobin, BytesProducer, get_log
-from jmbase.support import get_free_tcp_ports
+from jmbase.support import get_free_tcp_ports, JM_CORE_VERSION
 from jmbitcoin import CTransaction
 from jmclient import (
     load_test_config,
@@ -684,6 +684,20 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
             "destination": "2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br"}).encode())
         yield self.do_request(agent, b"POST", addr, body,
                               self.process_do_coinjoin_response)
+
+    @defer.inlineCallbacks
+    def test_getinfo(self):
+        agent = get_nontor_agent()
+        addr = self.get_route_root()
+        addr += "/getinfo"
+        addr = addr.encode()
+        yield self.do_request(agent, b"GET", addr, None,
+                              self.process_getinfo_response)
+
+    def process_getinfo_response(self, response, code):
+        assert code==200
+        responseobj = json.loads(response.decode("utf-8"))
+        assert responseobj["version"] == JM_CORE_VERSION
 
     def process_do_coinjoin_response(self, response, code):
         assert code == 202

@@ -27,7 +27,7 @@ from jmclient import Taker, jm_single, \
     tumbler_filter_orders_callback, tumbler_taker_finished_update, \
     validate_address, FidelityBondMixin, BaseWallet, WalletError, \
     ScheduleGenerationErrorNoFunds, BIP39WalletMixin
-from jmbase.support import get_log, utxostr_to_utxo
+from jmbase.support import get_log, utxostr_to_utxo, JM_CORE_VERSION
 
 jlog = get_log()
 
@@ -602,6 +602,10 @@ class JMWalletDaemon(Service):
             Note that it technically "shouldn't" require a wallet to be loaded,
             but since we hide all blockchain access behind the wallet service,
             it currently *does* require this.
+            An additional subtlety to bear in mind: the action of rescanblockchain
+            depends on the *currently loaded Bitcoin Core wallet*, that Core wallet
+            load event is currently done on startup of Joinmarket, depending on
+            the setting in the joinmarket.cfg file.
             """
             print_req(request)
             self.check_cookie(request)
@@ -614,6 +618,15 @@ class JMWalletDaemon(Service):
             else:
                 self.services["wallet"].rescanblockchain(blockheight)
                 return make_jmwalletd_response(request, walletname=walletname)
+
+        @app.route('/getinfo', methods=['GET'])
+        def version(self, request):
+            """ This route sends information about the backend, including
+            the running version of Joinmarket,
+            back to the client. It does *not* pay attention to any state,
+            including authentication tokens.
+            """
+            return make_jmwalletd_response(request,version=JM_CORE_VERSION)
 
         @app.route('/session', methods=['GET'])
         def session(self, request):
