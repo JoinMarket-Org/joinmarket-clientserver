@@ -1,4 +1,3 @@
-from future.utils import iteritems
 from commontest import DummyBlockchainInterface
 import jmbitcoin as bitcoin
 import binascii
@@ -135,7 +134,7 @@ class DummyWallet(LegacyWallet):
         """
         for p in privs:
             addrs[p] = BTC_P2PKH.privkey_to_address(p)
-        for p, a in iteritems(addrs):
+        for p, a in addrs.items():
             if a == addr:
                 return p
         raise ValueError("No such keypair")
@@ -437,7 +436,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
         return clean_up()        
     if schedule[0][1] == 199599800:
         #need to force negative fees to make this feasible
-        for k, v in iteritems(taker.orderbook):
+        for k, v in taker.orderbook.items():
             v['cjfee'] = '-0.002'
         #            change_amount = (total_input - self.cjamount -
         #                     self.orderbook[nick]['txfee'] + real_cjfee)
@@ -456,7 +455,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
         #TODO note this test is not adequate, because the code is not;
         #the code does not *DO* anything if a condition is unexpected.
         taker.input_utxos = copy.deepcopy(t_utxos_by_mixdepth)[0]
-        for k,v in iteritems(taker.input_utxos):
+        for k,v in taker.input_utxos.items():
             v["value"] = int(0.999805228 * v["value"])
         res = taker.receive_utxos(maker_response)
         assert res[0]
@@ -464,7 +463,7 @@ def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
     if schedule[0][3] == "mteaYsGsLCL9a4cftZFTpGEWXNwZyDt5KS":
         # as above, but small -ve change instead of +ve.
         taker.input_utxos = copy.deepcopy(t_utxos_by_mixdepth)[0]
-        for k,v in iteritems(taker.input_utxos):
+        for k,v in taker.input_utxos.items():
             v["value"] = int(0.999805028 * v["value"])
         res = taker.receive_utxos(maker_response)
         assert res[0]

@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-from future.utils import iteritems
-from past.builtins import cmp
 from functools import cmp_to_key
 
 import http.server
@@ -12,7 +10,7 @@ import time
 import hashlib
 import os
 import sys
-from future.moves.urllib.parse import parse_qs
+from urllib.parse import parse_qs
 from decimal import Decimal
 from optparse import OptionParser
 from twisted.internet import reactor
@@ -549,12 +547,19 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                               ('maxsize', satoshi_to_unit),
                               ('bondvalue', do_nothing))
 
-        # somewhat complex sorting to sort by cjfee but with swabsoffers on top
+        def _cmp(x, y):
+            if x < y:
+                return -1
+            elif x > y:
+                return 1
+            else:
+                return 0
 
+        # somewhat complex sorting to sort by cjfee but with swabsoffers on top
         def orderby_cmp(x, y):
             if x['ordertype'] == y['ordertype']:
-                return cmp(Decimal(x['cjfee']), Decimal(y['cjfee']))
-            return cmp(offername_list.index(x['ordertype']),
+                return _cmp(Decimal(x['cjfee']), Decimal(y['cjfee']))
+            return _cmp(offername_list.index(x['ordertype']),
                        offername_list.index(y['ordertype']))
 
         for o in sorted(rows, key=cmp_to_key(orderby_cmp)):
@@ -665,7 +670,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             replacements = {}
             orderbook_fmt = json.dumps(self.create_orderbook_obj())
         orderbook_page = orderbook_fmt
-        for key, rep in iteritems(replacements):
+        for key, rep in replacements.items():
             orderbook_page = orderbook_page.replace(key, rep)
         self.send_response(200)
         if self.path.endswith('.json'):
