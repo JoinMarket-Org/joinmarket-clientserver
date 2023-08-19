@@ -4,49 +4,51 @@
 # this are expected to do address validation independently anyway.
 
 from jmbitcoin import amount_to_sat
-from urllib.parse import parse_qs, quote, unquote_plus, urlencode, urlparse
+from typing import Dict, List, Tuple, Union
+from urllib.parse import parse_qsl, quote, unquote_plus, urlencode, urlparse
 import re
 
 
-def is_bip21_uri(uri):
+def is_bip21_uri(uri: str) -> bool:
     parsed = urlparse(uri)
     return parsed.scheme.lower() == 'bitcoin' and parsed.path != ''
 
 
-def is_bip21_amount_str(amount):
+def _is_bip21_amount_str(amount: str) -> bool:
     return re.compile(r"^[0-9]{1,8}(\.[0-9]{1,8})?$").match(str(amount)) != None
 
 
-def validate_bip21_amount(amount):
-    if not is_bip21_amount_str(amount):
+def _validate_bip21_amount(amount: str) -> None:
+    if not _is_bip21_amount_str(amount):
         raise ValueError("Invalid BTC amount " + str(amount))
 
 
-def decode_bip21_uri(uri):
+def decode_bip21_uri(uri: str) -> Dict[str, Union[str, int]]:
     if not is_bip21_uri(uri):
         raise ValueError("Not a valid BIP21 URI: " + uri)
     result = {}
     parsed = urlparse(uri)
     result['address'] = parsed.path
-    params = parse_qs(parsed.query)
-    for key in params:
+    params = parse_qsl(parsed.query)
+    for key, value in params:
         if key.startswith('req-'):
             raise ValueError("Unknown required parameter " + key +
                 " in BIP21 URI.")
         if key == 'amount':
-            amount_str = params['amount'][0]
-            validate_bip21_amount(amount_str)
+            _validate_bip21_amount(value)
             # Convert amount to sats, as used internally by JM
-            result['amount'] = amount_to_sat(amount_str + "btc")
+            result['amount'] = amount_to_sat(value + "btc")
         else:
-            result[key] = unquote_plus(params[key][0])
+            result[key] = unquote_plus(value)
     return result
 
 
-def encode_bip21_uri(address, params, safe=""):
+def encode_bip21_uri(address: str,
+                     params: Union[dict, List[Tuple[str, Union[float, int, str]]]],
+                     safe: str = "") -> str:
     uri = 'bitcoin:' + address
     if len(params) > 0:
         if 'amount' in params:
-            validate_bip21_amount(params['amount'])
+            _validate_bip21_amount(params['amount'])
         uri += '?' + urlencode(params, safe=safe, quote_via=quote)
     return uri

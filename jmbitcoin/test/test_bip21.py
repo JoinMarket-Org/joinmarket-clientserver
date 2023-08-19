@@ -2,6 +2,21 @@ import jmbitcoin as btc
 import pytest
 
 
+def test_is_bip21_uri():
+    # invalid URIs
+    assert(not btc.is_bip21_uri(''))
+    assert(not btc.is_bip21_uri('nfdjksnfjkdsnfjkds'))
+    assert(not btc.is_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'))
+    assert(not btc.is_bip21_uri('175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3'))
+    assert(not btc.is_bip21_uri('bitcoin:'))
+    assert(not btc.is_bip21_uri('bitcoin:?amount=20.3'))
+    # valid URIs
+    assert(btc.is_bip21_uri('bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'))
+    assert(btc.is_bip21_uri('BITCOIN:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'))
+    assert(btc.is_bip21_uri('BitCoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W'))
+    assert(btc.is_bip21_uri('bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?label=Luke-Jr'))
+
+
 def test_bip21_decode():
 
     # These should raise exception because of not being valid BIP21 URI's
@@ -59,6 +74,17 @@ def test_bip21_decode():
     assert(parsed['address'] == '175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W')
     assert(parsed['somethingyoudontunderstand'] == '50')
     assert(parsed['somethingelseyoudontget'] == '999')
+
+    # Test multiple amount parameters, last value should win.
+    parsed = btc.decode_bip21_uri(
+        'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&amount=50&label=Luke-Jr')
+    assert(parsed['address'] == '175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W')
+    assert(parsed['amount'] == 5000000000)
+    assert(parsed['label'] == 'Luke-Jr')
+    # Here are two amount parameters, first valid, second not valid, so URI is not valid.
+    with pytest.raises(ValueError):
+        btc.decode_bip21_uri(
+            'bitcoin:175tWpb8K1S7NmH4Zx6rewF9WQrcZv245W?amount=20.3&amount=100,000&label=Luke-Jr')
 
 
 def test_bip21_encode():
