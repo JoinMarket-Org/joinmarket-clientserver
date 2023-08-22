@@ -23,7 +23,7 @@ from jmclient import Taker, jm_single, \
     get_schedule, get_tumbler_parser, schedule_to_text, \
     tumbler_filter_orders_callback, tumbler_taker_finished_update, \
     validate_address, FidelityBondMixin, BaseWallet, WalletError, \
-    ScheduleGenerationErrorNoFunds, BIP39WalletMixin, auth
+    ScheduleGenerationErrorNoFunds, BIP39WalletMixin, auth, wallet_signmessage
 from jmbase.support import get_log, utxostr_to_utxo, JM_CORE_VERSION
 
 jlog = get_log()
@@ -1351,6 +1351,25 @@ class JMWalletDaemon(Service):
                 raise InvalidRequestFormat()
             seedphrase, _ = self.services["wallet"].get_mnemonic_words()
             return make_jmwalletd_response(request, seedphrase=seedphrase)
+
+        @app.route('/wallet/<string:walletname>/signmessage', methods=['POST'])
+        def signmessage(self, request, walletname):
+            self.check_cookie(request)
+            if not self.services["wallet"]:
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                raise InvalidRequestFormat()
+
+            request_data = self.get_POST_body(request, ["hd_path", "message"])
+            result = wallet_signmessage(self.services["wallet"],
+                request_data["hd_path"], request_data["message"],
+                out_str=False)
+            if type(result) == str:
+                return make_jmwalletd_response(request, status=400,
+                    message=result)
+            else:
+                return make_jmwalletd_response(request,
+                    signature=result[0], message=result[1], address=result[2])
 
         @app.route('/wallet/<string:walletname>/taker/schedule', methods=['POST'])
         def start_tumbler(self, request, walletname):
