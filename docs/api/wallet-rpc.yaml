@@ -1160,7 +1160,7 @@ components:
         - message
         - address
       properties:
-        signatture:
+        signature:
           type: string
         message:
           type: string
