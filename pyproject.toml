@@ -11,10 +11,11 @@ requires-python = ">=3.7"
 license = {file = "LICENSE"}
 dependencies = [
     "chromalog==1.0.5",
-    "pyaes==1.6.1",
     "service-identity==21.1.0",
-    "txtorcon==23.0.0",
     "twisted==22.4.0",
+    "txtorcon==23.0.0",
+    'cryptography==3.3.2; platform_machine != "aarch64" and platform_machine != "amd64" and platform_machine != "x86_64"',
+    'cryptography==41.0.2; platform_machine == "aarch64" or platform_machine == "amd64" or platform_machine == "x86_64"',
 ]
 
 [project.optional-dependencies]
@@ -33,8 +34,6 @@ jmclient = [
 jmdaemon = [
     "libnacl==1.8.0",
     "pyopenssl==23.2.0",
-    'cryptography==3.3.2; platform_machine != "aarch64" and platform_machine != "amd64" and platform_machine != "x86_64"',
-    'cryptography==41.0.2; platform_machine == "aarch64" or platform_machine == "amd64" or platform_machine == "x86_64"',
 ]
 jmqtui = [
     "PyQt5!=5.15.0,!=5.15.1,!=5.15.2,!=6.0",
