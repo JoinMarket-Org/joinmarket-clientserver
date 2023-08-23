@@ -1362,7 +1362,8 @@ class JMWalletDaemon(Service):
 
             request_data = self.get_POST_body(request, ["hd_path", "message"])
             result = wallet_signmessage(self.services["wallet"],
-                request_data["hd_path"], request_data["message"])
+                request_data["hd_path"], request_data["message"],
+                out_str=False)
             if type(result) == str:
                 return make_jmwalletd_response(request, status=400,
                     message=result)
