@@ -16,11 +16,23 @@ Documentation of the websocket functionality [below](#websocket).
 
 This HTTP server does *NOT* currently support multiple sessions; it is intended as a manager/daemon for all the Joinmarket services for a single user. Note that in particular it allows only control of *one wallet at a time*.
 
-#### Rules about making requests
+### Rules about making requests
+
+Note that for some methods, it's particularly important to deal with the HTTP response asynchronously, since it can take some time for wallet synchronization, service startup etc. to occur; in these cases a HTTP return code of 202 is sent.
+
+#### Authentication
 
 Authentication is with the [JSON Web Token](https://jwt.io/) scheme, provided using the Python package [PyJWT](https://pypi.org/project/PyJWT/).
 
-Note that for some methods, it's particularly important to deal with the HTTP response asynchronously, since it can take some time for wallet synchronization, service startup etc. to occur; in these cases a HTTP return code of 202 is sent.
+On initially creating, unlocking or recovering a wallet, a new access and refresh token will be sent in response, the former is valid for only 30 minutes and must be used for any authenticated call, the former is valid for 4 hours and can be used to request a new access token, ideally before access token expiration to avoid unauthorized response from authenticated endpoint and in any case, before refresh token expiration.
+
+Tokens are signed with HS256 (HMAC with SHA-256), a symmetric keyed hashing algorithm that uses one secret key. Signature keys (differentiated between access and refresh tokens) are generated from random bytes upon the following events, implying that any previously issued token is invalidated.
+
+- starting Joinmarket wallet deamon
+- creating, unlocking or recovering a wallet if RPC API is already serving another wallet
+- locking wallet
+
+On top of these events, refresh token signing key is also re-generated when refreshing an access token.
 
 ### API documentation
 

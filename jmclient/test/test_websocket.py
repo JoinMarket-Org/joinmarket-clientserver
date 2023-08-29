@@ -1,17 +1,16 @@
 
 import os
 import json
-import datetime
 from twisted.internet import reactor, task
 from twisted.trial import unittest
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     WebSocketClientProtocol, connectWS, listenWS
-import jwt
 
 from jmbase import get_log, hextobin
 from jmbase.support import get_free_tcp_ports
 from jmclient import (JmwalletdWebSocketServerFactory,
                       JmwalletdWebSocketServerProtocol)
+from jmclient.auth import JMTokenAuthority
 from jmbitcoin import CTransaction
 
 testdir = os.path.dirname(os.path.realpath(__file__))
@@ -21,11 +20,8 @@ jlog = get_log()
 test_tx_hex_1 = "02000000000102578770b2732aed421ffe62d54fd695cf281ca336e4f686d2adbb2e8c3bedb2570000000000ffffffff4719a259786b4237f92460629181edcc3424419592529103143090f07d85ec330100000000ffffffff0324fd9b0100000000160014d38fa4a6ac8db7495e5e2b5d219dccd412dd9bae24fd9b0100000000160014564aead56de8f4d445fc5b74a61793b5c8a819667af6c208000000001600146ec55c2e1d1a7a868b5ec91822bf40bba842bac502473044022078f8106a5645cc4afeef36d4addec391a5b058cc51053b42c89fcedf92f4db1002200cdf1b66a922863fba8dc1b1b1a0dce043d952fa14dcbe86c427fda25e930a53012102f1f750bfb73dbe4c7faec2c9c301ad0e02176cd47bcc909ff0a117e95b2aad7b02483045022100b9a6c2295a1b0f7605381d416f6ed8da763bd7c20f2402dd36b62dd9dd07375002207d40eaff4fc6ee219a7498abfab6bdc54b7ce006ac4b978b64bff960fbf5f31e012103c2a7d6e44acdbd503c578ec7d1741a44864780be0186e555e853eee86e06f11f00000000"
 test_tx_hex_txid = "ca606efc5ba8f6669ba15e9262e5d38e745345ea96106d5a919688d1ff0da0cc"
 
-# example (valid) JWT token for test:
-encoded_token = jwt.encode({"wallet": "dummywallet",
-                            "exp" :datetime.datetime.utcnow(
-                            )+datetime.timedelta(minutes=30)}, "secret")
-encoded_token = encoded_token.strip()
+# Shared JWT token authority for test:
+test_token_authority = JMTokenAuthority("dummywallet")
 
 class ClientTProtocol(WebSocketClientProtocol):
     """
@@ -37,7 +33,7 @@ class ClientTProtocol(WebSocketClientProtocol):
         """ Our server will not broadcast
         to us unless we authenticate.
         """
-        self.sendMessage(encoded_token.encode('utf8'))
+        self.sendMessage(test_token_authority.issue()["token"].encode('utf8'))
 
     def onOpen(self):
         # auth on startup
@@ -69,9 +65,8 @@ class WebsocketTestBase(object):
             free_ports = get_free_tcp_ports(1)
             self.wss_port = free_ports[0]
         self.wss_url = "ws://127.0.0.1:" + str(self.wss_port)
-        self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url)
+        self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url, test_token_authority)
         self.wss_factory.protocol = JmwalletdWebSocketServerProtocol
-        self.wss_factory.valid_token = encoded_token
         self.listeningport = listenWS(self.wss_factory, contextFactory=None)
         self.test_tx = CTransaction.deserialize(hextobin(test_tx_hex_1))
 

@@ -1,11 +1,14 @@
-import os, json
+import base64
+import datetime
+import functools
+import json
+import os
 
+import jwt
 import pytest
 from twisted.internet import reactor, defer, task
-
 from twisted.web.client import readBody, Headers
 from twisted.trial import unittest
-
 from autobahn.twisted.websocket import WebSocketClientFactory, \
     connectWS
 
@@ -27,7 +30,7 @@ from commontest import make_wallets
 from test_coinjoin import make_wallets_to_list, sync_wallets
 
 from test_websocket import (ClientTProtocol, test_tx_hex_1,
-                            test_tx_hex_txid, encoded_token)
+                            test_tx_hex_txid, test_token_authority)
 
 pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
 
@@ -38,10 +41,14 @@ testfilename = "testwrpc"
 jlog = get_log()
 
 class JMWalletDaemonT(JMWalletDaemon):
-    def check_cookie(self, request):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.token = test_token_authority
+
+    def check_cookie(self, request, *args, **kwargs):
         if self.auth_disabled:
             return True
-        return super().check_cookie(request)
+        return super().check_cookie(request, *args, **kwargs)
 
 class WalletRPCTestBase(object):
     """ Base class for set up of tests of the
@@ -87,6 +94,7 @@ class WalletRPCTestBase(object):
         # (and don't use wallet files yet), we won't have set a wallet name,
         # so we set it here:
         self.daemon.wallet_name = self.get_wallet_file_name(1)
+        self.daemon.token.wallet_name = self.daemon.wallet_name
         r, s = self.daemon.startService()
         self.listener_rpc = r
         self.listener_ws = s
@@ -127,7 +135,7 @@ class WalletRPCTestBase(object):
     @defer.inlineCallbacks
     def do_request(self, agent, method, addr, body, handler, token=None):
         if token:
-            headers = Headers({"Authorization": ["Bearer " + self.jwt_token]})
+            headers = Headers({"Authorization": ["Bearer " + token]})
         else:
             headers = None
         response = yield agent.request(method, addr, headers, bodyProducer=body)
@@ -201,9 +209,9 @@ class TrialTestWRPC_WS(WalletRPCTestBase, unittest.TestCase):
 
     def test_notif(self):
         # simulate the daemon already having created
-        # a valid token (which it usually does when
+        # an active session (which it usually does when
         # starting the WalletService:
-        self.daemon.wss_factory.valid_token = encoded_token
+        self.daemon.wss_factory.protocol.active_session = True
         # once the websocket connection is established, and auth
         # is sent, our custom clientfactory will fire the tx
         # notification via the callback passed as argument here;
@@ -743,6 +751,159 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         assert code == 200
         json_body = json.loads(response.decode('utf-8'))
         assert json_body["seedphrase"]
+
+
+class TrialTestWRPC_JWT(WalletRPCTestBase, unittest.TestCase):
+    def get_token(self, grant_type: str, status: str = "valid"):
+        now, delta = datetime.datetime.utcnow(), datetime.timedelta(hours=1)
+        exp = now - delta if status == "expired" else now + delta
+
+        scope = f"walletrpc {self.daemon.wallet_name}"
+        if status == "invalid_scope":
+            scope = "walletrpc another_wallet"
+
+        alg = test_token_authority.SIGNATURE_ALGORITHM
+        if status == "invalid_alg":
+            alg = ({"HS256", "HS384", "HS512"} - {alg}).pop()
+
+        t = jwt.encode(
+            {"exp": exp, "scope": scope},
+            test_token_authority.signature_key[grant_type],
+            algorithm=test_token_authority.SIGNATURE_ALGORITHM,
+        )
+
+        if status == "invalid_sig":
+            # Get token string
+            token_parts = t.split(".")
+            sig = token_parts[-1]
+
+            # Pad as needed
+            if len(sig) % 4 != 0:
+                sig += "=" * (len(sig) % 4)
+
+            # Flip fist byte, unpad
+            sig_bytes = base64.urlsafe_b64decode(sig)
+            flipped_bytes = bytes([sig_bytes[0] ^ 1]) + sig_bytes[1:]
+            flipped_sig = base64.urlsafe_b64encode(flipped_bytes).replace(b"=", b"")
+
+            # Reconstruct JWT with invalid sig
+            token_parts[-1] = str(flipped_sig)
+            t = ".".join(token_parts)
+
+        return t
+
+    def authorized_response_handler(self, response, code):
+        assert code == 200
+
+    def forbidden_response_handler(self, response, code):
+        assert code == 403
+        assert "insufficient_scope" in response.headers.get("WWW-Authenticate")
+
+    def unauthorized_response_handler(self, response, code):
+        assert code == 401
+        assert "Bearer" in response.headers.get("WWW-Authenticate")
+
+    def expired_access_token_response_handler(self, response, code):
+        self.unauthorized_response_handler(response, code)
+        assert "expired" in response.headers.get("WWW-Authenticate")
+
+    async def test_jwt_authentication(self):
+        """Test JWT authentication and authorization"""
+
+        agent = get_nontor_agent()
+        addr = (self.get_route_root() + "/session").encode()
+
+        for access_token_status, responde_handler in [
+            ("valid", "authorized"),
+            ("expired", "expired"),
+            ("invalid_scope", "forbidden"),
+            ("invalid_sig", "unauthorized"),
+            ("invalid_alg", "unauthorized"),
+        ]:
+            handler = {
+                "authorized": self.authorized_response_handler,
+                "expired": self.expired_access_token_response_handler,
+                "forbidden": self.forbidden_response_handler,
+                "unauthorized": self.unauthorized_response_handler,
+            }[responde_handler]
+            token = self.get_token("access", access_token_status)
+
+            await self.do_request(agent, b"GET", addr, None, handler, token)
+
+    def successful_refresh_response_handler(self, response, code):
+        self.authorized_response_handler(response, code)
+        json_body = json.loads(response.decode("utf-8"))
+        assert {"token", "refresh_token", "expires_in", "token_type", "scope"} <= set(
+            json_body.keys()
+        )
+
+    def failed_refresh_response_handler(
+        self, response, code, *, message=None, error_description=None
+    ):
+        assert code == 400
+        json_body = json.loads(response.decode("utf-8"))
+        if message is not None:
+            assert json_body.get("message") == message
+        if error_description is not None:
+            assert error_description in json_body.get("error_description")
+
+    async def do_refresh_request(self, body, handler, token):
+        agent = get_nontor_agent()
+        addr = (self.get_route_root() + "/token").encode()
+        body = BytesProducer(json.dumps(body).encode())
+        await self.do_request(agent, b"POST", addr, body, handler, token)
+
+    def test_refresh_token_request(self):
+        """Test token endpoint with valid refresh token"""
+        for access_token_status, request_status, error in [
+            ("valid", "valid", None),
+            ("expired", "valid", None),
+            ("valid", "invalid_request", "invalid_request"),
+            ("valid", "invalid_grant", "unsupported_grant_type"),
+        ]:
+            if error is None:
+                handler = self.successful_refresh_response_handler
+            else:
+                handler = functools.partialmethod(
+                    self.failed_refresh_response_handler, message=error
+                )
+
+            body = {
+                "grant_type": "refresh_token",
+                "refresh_token": self.get_token("refresh"),
+            }
+            if request_status == "invalid_request":
+                body["refresh"] = body.pop("refresh_token")
+            if request_status == "unsupported_grant_type":
+                body["grant_type"] = "joinmarket"
+
+            self.do_refresh_request(
+                body, handler, self.get_token("access", access_token_status)
+            )
+
+    async def test_refresh_token(self):
+        """Test refresh token endpoint"""
+        for refresh_token_status, error in [
+            ("expired", "expired"),
+            ("invalid_scope", "invalid_scope"),
+            ("invalid_sig", "invalid_grant"),
+        ]:
+            if error == "expired":
+                handler = functools.partialmethod(
+                    self.failed_refresh_response_handler, error_description=error
+                )
+            else:
+                handler = functools.partialmethod(
+                    self.failed_refresh_response_handler, message=error
+                )
+
+            body = {
+                "grant_type": "refresh_token",
+                "refresh_token": self.get_token("refresh", refresh_token_status),
+            }
+
+            self.do_refresh_request(body, handler, self.get_token("access"))
+
 
 """
 Sample listutxos response for reference:

@@ -10,6 +10,30 @@ servers:
 - url: https://none
   description: This API is called locally to a jmwalletd instance, acting as server, for each wallet owner, it is not public.
 paths:
+  /token:
+    post:
+      security:
+        - bearerAuth: []
+      summary: The token endpoint is used by the client to obtain an access token using a grant such as refresh token
+      operationId: token
+      description: >
+        Give a refresh token and get back both an access and refresh token.
+        On initially creating, unlocking or recovering a wallet, store both the refresh and access tokens, the latter is valid for only 30 minutes (must be used for any authenticated call) while the former is for 4 hours (can only be used in the refresh request parameters). Use /token endpoint on a regular basis to get new access and refresh tokens, ideally before access token expiration to avoid AuthenticationError response from authenticated endpoint and in any case, before refresh token expiration. The newly issued tokens must be used in subsequent calls since operation invalidates previously issued tokens.
+      responses:
+        '200':
+          $ref: '#/components/responses/RefreshToken-200-OK'
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+        description: token refresh parameters
   /wallet/create:
     post:
       summary: create a new wallet
@@ -99,7 +123,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
   /wallet/{walletname}/display:
     get:
       security:
@@ -120,7 +146,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /session:
@@ -135,7 +163,9 @@ paths:
         '200':
           $ref: "#/components/responses/Session-200-OK"
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /getinfo:
@@ -162,11 +192,11 @@ paths:
     get:
       summary: get latest report on yield generating activity
       operationId: yieldgenreport
-      description: "Get list of coinjoins taken part in as maker (across all wallets).
-      Data returned as list of strings, each one in the same comma separated format as found in yigen-statement.csv.
-      Note that this returns all lines in the file, including the lines that are only present to represent the starting
-      of a bot. Those lines contain the word Connected and can be thus discarded.
-      The header line is also delivered and so can be ignored as per the client requirements."
+      description: >
+        Get list of coinjoins taken part in as maker (across all wallets).
+        Data returned as list of strings, each one in the same comma separated format as found in yigen-statement.csv.
+        Note that this returns all lines in the file, including the lines that are only present to represent the starting of a bot. Those lines contain the word Connected and can be thus discarded.
+        The header line is also delivered and so can be ignored as per the client requirements.
       responses:
         '200':
           $ref: "#/components/responses/YieldGenReport-200-OK"
@@ -198,11 +228,15 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/rescanblockchain/{blockheight}:
     get:
+      security:
+        - bearerAuth: []
       summary: Rescan the blockchain from a given blockheight
       operationId: rescanblockchain
       description: Use this operation on recovered wallets to re-sync the wallet
@@ -225,7 +259,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/address/timelock/new/{lockdate}:
@@ -256,7 +292,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/utxos:
@@ -280,7 +318,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/taker/direct-send:
@@ -309,7 +349,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -343,6 +385,10 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         '401':
           $ref: '#/components/responses/401-Unauthorized'
+        '401':
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -370,6 +416,10 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         '401':
           $ref: "#/components/responses/401-Unauthorized"
+        '401':
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/taker/coinjoin:
@@ -399,6 +449,10 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         '401':
           $ref: '#/components/responses/401-Unauthorized'
+        '401':
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -432,6 +486,10 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         '401':
           $ref: '#/components/responses/401-Unauthorized'
+        '401':
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -457,7 +515,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: "#/components/responses/401-Unauthorized"
+          $ref: "#/components/responses/401-AuthenticationError"
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/taker/stop:
@@ -481,6 +541,10 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         '401':
           $ref: "#/components/responses/401-Unauthorized"
+        '401':
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/configset:
@@ -509,7 +573,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-Unauthorized'
+          $ref: '#/components/responses/401-AuthenticationError'
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '409':
           $ref: '#/components/responses/409-NoConfig'
   /wallet/{walletname}/configget:
@@ -537,7 +603,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: "#/components/responses/401-Unauthorized"
+          $ref: "#/components/responses/401-AuthenticationError"
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
         '409':
           $ref: '#/components/responses/409-NoConfig'
   /wallet/{walletname}/freeze:
@@ -565,6 +633,10 @@ paths:
           $ref: "#/components/responses/Freeze-200-OK"
         '400':
           $ref: '#/components/responses/400-BadRequest'
+        '401':
+          $ref: "#/components/responses/401-AuthenticationError"
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
   /wallet/{walletname}/getseed:
     get:
       security:
@@ -590,7 +662,9 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: "#/components/responses/401-Unauthorized"
+          $ref: "#/components/responses/401-AuthenticationError"
+        '403':
+          $ref: '#/components/responses/403-Forbidden'
 components:
   securitySchemes:
     bearerAuth:
@@ -662,6 +736,35 @@ components:
         destination:
           type: string
           example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
+    TokenRequest:
+      type: object
+      required:
+        - grant_type
+        - refresh_token
+      properties:
+        grant_type:
+          type: string
+        refresh_token:
+          type: string
+    TokenResponse:
+      type: object
+      required:
+        - token
+        - token_type
+        - expires_in
+        - scope
+        - refresh_token
+      properties:
+        token:
+          type: string
+        token_type:
+          type: string
+        expires_in:
+          type: int
+        scope:
+          type: string
+        refresh_token:
+          type: string
     RunScheduleRequest:
       type: object
       required:
@@ -919,13 +1022,31 @@ components:
                                 type: string
                               extradata:
                                 type: string
-
     CreateWalletResponse:
       type: object
       required:
         - walletname
-        - token
         - seedphrase
+        - token
+        - refresh_token
+      properties:
+        walletname:
+          type: string
+          example: wallet.jmdat
+        seedphrase:
+          type: string
+        token:
+          type: string
+          format: byte
+        refresh_token:
+          type: string
+          format: byte
+    UnlockWalletResponse:
+      type: object
+      required:
+        - walletname
+        - token
+        - refresh_token
       properties:
         walletname:
           type: string
@@ -933,18 +1054,7 @@ components:
         token:
           type: string
           format: byte
-        seedphrase:
-          type: string
-    UnlockWalletResponse:
-      type: object
-      required:
-        - walletname
-        - token
-      properties:
-        walletname:
-          type: string
-          example: wallet.jmdat
-        token:
+        refresh_token:
           type: string
           format: byte
     DirectSendResponse:
@@ -1087,6 +1197,8 @@ components:
         properties:
           message:
             type: string
+          error_description:
+            type: string
 
   responses:
     # Success responses
@@ -1126,6 +1238,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/ListWalletsResponse"
+    Token-200-OK:
+      description: "Access token obtained successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/TokenResponse"
     Session-200-OK:
       description: "successful heartbeat response"
       content:
@@ -1219,6 +1337,20 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorMessage'
+    401-AuthenticationError:
+      description: Bearer token authentication error.
+      headers:
+        WWW-Authenticate:
+          description: Defines the HTTP authentication methods.
+          schema:
+            type: string
+    403-Forbidden:
+      description: Bearer token authorization error.
+      headers:
+        WWW-Authenticate:
+          description: Defines the HTTP authentication methods.
+          schema:
+            type: string
     409-AlreadyExists:
       description: Unable to complete request because object already exists.
       content:
