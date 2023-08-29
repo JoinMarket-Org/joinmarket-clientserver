@@ -53,7 +53,7 @@ qt5reactor.install()
 donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
 
 #Version of this Qt script specifically
-JM_GUI_VERSION = '32dev'
+JM_GUI_VERSION = '32'
 
 from jmbase import get_log, stop_reactor, set_custom_stop_reactor
 from jmbase.support import EXIT_FAILURE, utxo_to_utxostr,\
