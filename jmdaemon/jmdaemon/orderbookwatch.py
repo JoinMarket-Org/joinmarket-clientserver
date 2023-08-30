@@ -6,9 +6,9 @@ import threading
 from decimal import InvalidOperation, Decimal
 from numbers import Integral
 
-from jmdaemon.protocol import JM_VERSION
-from jmdaemon import fidelity_bond_sanity_check
+from jmbase import fidelity_bond_sanity_check
 from jmbase.support import get_log, joinmarket_alert
+from jmdaemon.protocol import JM_VERSION
 log = get_log()
 
 
