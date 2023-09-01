@@ -5,17 +5,17 @@ from twisted.internet import reactor
 import os
 import pprint
 from twisted.python.log import startLogging
-from jmclient import Taker, load_program_config, get_schedule,\
+from jmclient import Taker, load_program_config, \
     JMClientProtocolFactory, start_reactor, jm_single, get_wallet_path,\
-    open_test_wallet_maybe, get_tumble_schedule,\
-    schedule_to_text, estimate_tx_fee, restart_waiter, WalletService,\
+    open_test_wallet_maybe, get_tumble_schedule, \
+    schedule_to_text, estimate_tx_fee, WalletService, \
     get_tumble_log, tumbler_taker_finished_update, check_regtest, \
     tumbler_filter_orders_callback, validate_address, get_tumbler_parser, \
     get_max_cj_fee_values, get_total_tumble_amount, ScheduleGenerationErrorNoFunds
 from jmclient.wallet_utils import DEFAULT_MIXDEPTH
 
 
-from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
+from jmbase.support import get_log, jmprint, \
     EXIT_FAILURE, EXIT_ARGERROR
 
 log = get_log()
@@ -75,58 +75,17 @@ def main():
             jmprint("Invalid destination address: " + daddr, "error")
             sys.exit(EXIT_ARGERROR)
     jmprint("Destination addresses: " + str(destaddrs), "important")
-    #If the --restart flag is set we read the schedule
-    #from the file, and filter out entries that are
-    #already complete
-    if options['restart']:
-        res, schedule = get_schedule(os.path.join(logsdir,
-                                                  options['schedulefile']))
-        if not res:
-            jmprint("Failed to load schedule, name: " + str(
-                options['schedulefile']), "error")
-            jmprint("Error was: " + str(schedule), "error")
-            sys.exit(EXIT_FAILURE)
-        #This removes all entries that are marked as done
-        schedule = [s for s in schedule if s[-1] != 1]
-        # remaining destination addresses must be stored in Taker.tdestaddrs
-        # in case of tweaks; note we can't change, so any passed on command
-        # line must be ignored:
-        if len(destaddrs) > 0:
-            jmprint("For restarts, destinations are taken from schedule file,"
-                    " so passed destinations on the command line were ignored.",
-                    "important")
-            if input("OK? (y/n)") != "y":
-                sys.exit(EXIT_SUCCESS)
-        destaddrs = [s[3] for s in schedule if s[3] not in ["INTERNAL", "addrask"]]
-        jmprint("Remaining destination addresses in restart: " + ",".join(destaddrs),
-                "important")
-        if isinstance(schedule[0][-1], str) and len(schedule[0][-1]) == 64:
-            #ensure last transaction is confirmed before restart
-            tumble_log.info("WAITING TO RESTART...")
-            txid = schedule[0][-1]
-            restart_waiter(txid)
-            #remove the already-done entry (this connects to the other TODO,
-            #probably better *not* to truncate the done-already txs from file,
-            #but simplest for now.
-            schedule = schedule[1:]
-        elif schedule[0][-1] != 0:
-            print("Error: first schedule entry is invalid.")
-            sys.exit(EXIT_FAILURE)
-        with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
-                    f.write(schedule_to_text(schedule))
-        tumble_log.info("TUMBLE RESTARTING")
-    else:
-        #Create a new schedule from scratch
-        try:
-            schedule = get_tumble_schedule(options, destaddrs,
-                wallet.get_balance_by_mixdepth(), wallet_service.mixdepth)
-        except ScheduleGenerationErrorNoFunds:
-            jmprint("No funds in wallet to tumble.", "error")
-            sys.exit(EXIT_FAILURE)
-        tumble_log.info("TUMBLE STARTING")
-        with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
-            f.write(schedule_to_text(schedule))
-        print("Schedule written to logs/" + options['schedulefile'])
+    #Create a new schedule from scratch
+    try:
+        schedule = get_tumble_schedule(options, destaddrs,
+            wallet.get_balance_by_mixdepth(), wallet_service.mixdepth)
+    except ScheduleGenerationErrorNoFunds:
+        jmprint("No funds in wallet to tumble.", "error")
+        sys.exit(EXIT_FAILURE)
+    tumble_log.info("TUMBLE STARTING")
+    with open(os.path.join(logsdir, options['schedulefile']), "wb") as f:
+        f.write(schedule_to_text(schedule))
+    print("Schedule written to logs/" + options['schedulefile'])
     tumble_log.info("With this schedule: ")
     tumble_log.info(pprint.pformat(schedule))
 
