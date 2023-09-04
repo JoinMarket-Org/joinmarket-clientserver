@@ -610,14 +610,14 @@ class JMWalletDaemon(Service):
 
             try:
                 assert isinstance(request.content, BytesIO)
-                grant_type = self.get_POST_body(request, ["grant_type",])["grant_type"]
+                post_body = self.get_POST_body(request, ["grant_type", "refresh_token"])
+                grant_type = post_body["grant_type"]
                 if grant_type not in {"refresh_token"}:
                     return _mkerr(
                         "unsupported_grant_type",
                         "The authorization grant type is not supported by the authorization server.",
                     )
-
-                token = self.get_POST_body(request, [grant_type])[grant_type]
+                token = post_body["refresh_token"]
             except:
                 return _mkerr(
                     "invalid_request",
