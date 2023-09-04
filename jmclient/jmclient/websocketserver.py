@@ -1,6 +1,8 @@
 import json
 from autobahn.twisted.websocket import WebSocketServerFactory, \
      WebSocketServerProtocol
+
+from .auth import JMTokenAuthority
 from jmbitcoin import human_readable_transaction
 from jmbase import get_log
 
@@ -8,19 +10,18 @@ jlog = get_log()
 
 class JmwalletdWebSocketServerProtocol(WebSocketServerProtocol):
     def onOpen(self):
-        self.token = None
+        self.active_session = False
         self.factory.register(self)
 
     def sendNotification(self, info):
         """ Passes on an object (json encoded) to the client,
         if currently authenticated.
         """
-        if not self.token:
-            # gating by token means even if this client
-            # is erroneously in a broadcast list, it won't get
-            # any data if it hasn't authenticated.
+        if not self.active_session:
+            # not sending any data if the session is
+            # not active, i.e. client hasn't authenticated.
             jlog.warn("Websocket not sending notification, "
-                      "the connection is not authenticated.")
+                      "the session is not active.")
             return
         self.sendMessage(json.dumps(info).encode())
 
@@ -37,21 +38,21 @@ class JmwalletdWebSocketServerProtocol(WebSocketServerProtocol):
         other message will drop the connection.
         """
         if not isBinary:
-            self.token = payload.decode('utf8')
+            token = payload.decode('utf8')
             # check that the token set for this protocol
-            # instance is the same as the one that the
-            # JMWalletDaemon instance deems is valid.
-            if not self.factory.check_token(self.token):
+            # instance is valid.
+            try:
+                self.factory.token.verify(token)
+                self.active_session = True
+            except Exception as e:
+                jlog.debug(e)
                 self.dropConnection()
 
 class JmwalletdWebSocketServerFactory(WebSocketServerFactory):
-    def __init__(self, url):
+    def __init__(self, url, token_authority = JMTokenAuthority()):
         WebSocketServerFactory.__init__(self, url)
-        self.valid_token = None
+        self.token = token_authority
         self.clients = []
-
-    def check_token(self, token):
-        return self.valid_token == token
 
     def register(self, client):
         if client not in self.clients:

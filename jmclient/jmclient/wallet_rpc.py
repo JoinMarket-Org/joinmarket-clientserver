@@ -1,5 +1,3 @@
-from jmbitcoin import *
-import datetime
 import os
 import json
 from io import BytesIO
@@ -9,7 +7,6 @@ from twisted.web.server import Site
 from twisted.application.service import Service
 from autobahn.twisted.websocket import listenWS
 from klein import Klein
-import jwt
 import pprint
 
 from jmbitcoin import human_readable_transaction
@@ -26,7 +23,7 @@ from jmclient import Taker, jm_single, \
     get_schedule, get_tumbler_parser, schedule_to_text, \
     tumbler_filter_orders_callback, tumbler_taker_finished_update, \
     validate_address, FidelityBondMixin, BaseWallet, WalletError, \
-    ScheduleGenerationErrorNoFunds, BIP39WalletMixin
+    ScheduleGenerationErrorNoFunds, BIP39WalletMixin, auth
 from jmbase.support import get_log, utxostr_to_utxo, JM_CORE_VERSION
 
 jlog = get_log()
@@ -43,7 +40,16 @@ def print_req(request):
     print(request.content)
     print(list(request.requestHeaders.getAllRawHeaders()))
 
-class NotAuthorized(Exception):
+class AuthorizationError(Exception):
+    pass
+
+class InvalidCredentials(AuthorizationError):
+    pass
+
+class InvalidToken(AuthorizationError):
+    pass
+
+class InsufficientScope(AuthorizationError):
     pass
 
 class NoWalletFound(Exception):
@@ -124,7 +130,7 @@ def make_jmwalletd_response(request, status=200, **kwargs):
     """
     request.setHeader('Content-Type', 'application/json')
     request.setHeader('Access-Control-Allow-Origin', '*')
-    request.setHeader("Cache-Control", "no-cache, must-revalidate")
+    request.setHeader("Cache-Control", "no-cache, no-store, must-revalidate")
     request.setHeader("Pragma", "no-cache")
     request.setHeader("Expires", "Sat, 26 Jul 1997 05:00:00 GMT")
     request.setResponseCode(status)
@@ -134,7 +140,7 @@ CJ_TAKER_RUNNING, CJ_MAKER_RUNNING, CJ_NOT_RUNNING = range(3)
 
 class JMWalletDaemon(Service):
     """ This class functions as an HTTP/TLS server,
-    with acccess control, allowing a single client(user)
+    with access control, allowing a single client(user)
     to control functioning of encapsulated Joinmarket services.
     """
 
@@ -146,7 +152,8 @@ class JMWalletDaemon(Service):
         websocket connections for clients to subscribe to updates.
         """
         # cookie tracks single user's state.
-        self.cookie = None
+        self.token = auth.JMTokenAuthority()
+        self.active_session = False
         self.port = port
         self.wss_port = wss_port
         self.tls = tls
@@ -225,7 +232,7 @@ class JMWalletDaemon(Service):
         # wallet service, since the client must actively request
         # that with the appropriate credential (password).
         # initialise the web socket service for subscriptions
-        self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url)
+        self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url, self.token)
         self.wss_factory.protocol = JmwalletdWebSocketServerProtocol
         if self.tls:
             cf = get_ssl_context(os.path.join(jm_single().datadir, "ssl"))
@@ -251,11 +258,9 @@ class JMWalletDaemon(Service):
         - shuts down any other running sub-services, such as yieldgenerator.
         - shuts down (aborts) any taker-side coinjoining happening.
         """
-        # Currently valid authorization tokens must be removed
-        # from the daemon:
-        self.cookie = None
-        if self.wss_factory:
-            self.wss_factory.valid_token = None
+        self.token.reset()
+        self.active_session = False
+        self.wss_factory.active_session = False
         self.wallet_name = None
         # if the wallet-daemon is shut down, all services
         # it encapsulates must also be shut down.
@@ -274,6 +279,13 @@ class JMWalletDaemon(Service):
             self.taker.aborted = True
             self.taker_finished(False)
 
+    def auth_err(self, request, error, description=None):
+        request.setHeader("WWW-Authenticate", "Bearer")
+        request.setHeader("WWW-Authenticate", f'error="{error}"')
+        if description is not None:
+            request.setHeader("WWW-Authenticate", f'error_description="{description}"')
+        return
+
     def err(self, request, message):
         """ Return errors in a standard format.
         """
@@ -285,10 +297,25 @@ class JMWalletDaemon(Service):
         request.setResponseCode(400)
         return self.err(request, "Action not allowed")
 
-    @app.handle_errors(NotAuthorized)
-    def not_authorized(self, request, failure):
+    @app.handle_errors(InvalidCredentials)
+    def invalid_credentials(self, request, failure):
         request.setResponseCode(401)
         return self.err(request, "Invalid credentials.")
+
+    @app.handle_errors(InvalidToken)
+    def invalid_token(self, request, failure):
+        request.setResponseCode(401)
+        return self.auth_err(request, "invalid_token", str(failure))
+
+    @app.handle_errors(InsufficientScope)
+    def insufficient_scope(self, request, failure):
+        request.setResponseCode(403)
+        return self.auth_err(
+            request,
+            "insufficient_scope",
+            "The request requires higher privileges (scopes) than provided by "
+            "the scopes granted to the client and represented by the access token.",
+        )
 
     @app.handle_errors(NoWalletFound)
     def no_wallet_found(self, request, failure):
@@ -361,42 +388,28 @@ class JMWalletDaemon(Service):
         request.setResponseCode(404)
         return self.err(request, "Yield generator report not available.")
 
-    def check_cookie(self, request):
-        #part after bearer is what we need
+    def check_cookie(self, request, *, verify_exp: bool = True):
+        # Token itself is stated after `Bearer ` prefix, it must be removed
+        access_token = request.getHeader("Authorization")[7:]
         try:
-            auth_header=((request.getHeader('Authorization')))
-            request_cookie = None
-            if auth_header is not None:
-                request_cookie=auth_header[7:]
-        except Exception:
-            # deliberately catching anything
-            raise NotAuthorized()
-        if request_cookie==None or self.cookie != request_cookie:
-            jlog.warn("Invalid cookie: " + str(
-                request_cookie) + ", request rejected.")
-            raise NotAuthorized()
+            self.token.verify(access_token)
+        except auth.InvalidScopeError:
+            raise InsufficientScope()
+        except auth.ExpiredSignatureError:
+            if verify_exp:
+                raise InvalidToken("The access token provided is expired.")
+            else:
+                pass
+        except Exception as e:
+            jlog.debug(e)
+            raise InvalidToken(
+                "The access token provided is revoked, malformed, or invalid for other reasons."
+            )
     
     def check_cookie_if_present(self, request):
         auth_header = request.getHeader('Authorization')
         if auth_header is not None:
             self.check_cookie(request)
-
-    def set_token(self, wallet_name):
-        """ This function creates a new JWT token and sets it as our
-        'cookie' for API and WS. Note this always creates a new fresh token,
-        there is no option to manually set it, intentionally.
-        """
-        # any random secret is OK, as long as it is not deducible/predictable:
-        secret_key = bintohex(os.urandom(16))
-        encoded_token = jwt.encode({"wallet": wallet_name,
-                                    "exp" :datetime.datetime.utcnow(
-                                        )+datetime.timedelta(minutes=30)},
-                                   secret_key)
-        self.cookie = encoded_token.strip()
-        # We want to make sure that any websocket clients use the correct
-        # token. The wss_factory should have been created on JMWalletDaemon
-        # startup, so any failure to exist here is a logic error:
-        self.wss_factory.valid_token = self.cookie
 
     def get_POST_body(self, request, required_keys, optional_keys=None):
         """ given a request object, retrieve values corresponding
@@ -468,27 +481,31 @@ class JMWalletDaemon(Service):
         def dummy_restart_callback(msg):
             jlog.warn("Ignoring rescan request from backend wallet service: " + msg)
         self.services["wallet"].add_restart_callback(dummy_restart_callback)
+        self.active_session = True
+        self.wss_factory.active_session = True
         self.wallet_name = wallet_name
+        # Add wallet_name to token scope
+        self.token.add_to_scope(wallet_name)
         self.services["wallet"].register_callbacks(
             [self.wss_factory.sendTxNotification], None)
         self.services["wallet"].startService()
         # now that the WalletService instance is active and ready to
         # respond to requests, we return the status to the client:
 
-        # First, prepare authentication for the calling client:
-        self.set_token(wallet_name)
         # return type is different for a newly created OR recovered
         # wallet, in this case we use the 'seedphrase' kwarg as trigger:
-        if('seedphrase' in kwargs):
-            return make_jmwalletd_response(request,
-                        status=201,
-                        walletname=self.wallet_name,
-                        token=self.cookie,
-                        seedphrase=kwargs.get('seedphrase'))
+        if "seedphrase" in kwargs:
+            return make_jmwalletd_response(
+                request,
+                status=201,
+                walletname=self.wallet_name,
+                seedphrase=kwargs.get("seedphrase"),
+                **self.token.issue(),
+            )
         else:
-            return make_jmwalletd_response(request,
-                        walletname=self.wallet_name,
-                        token=self.cookie)
+            return make_jmwalletd_response(
+                request, walletname=self.wallet_name, **self.token.issue()
+            )
 
     def taker_finished(self, res, fromtx=False, waittime=0.0, txdetails=None):
         if not self.tumbler_options:
@@ -582,6 +599,57 @@ class JMWalletDaemon(Service):
         request.setHeader("Access-Control-Allow-Methods", "POST")
 
     with app.subroute(api_version_string) as app:
+        @app.route('/token', methods=['POST'])
+        def refresh(self, request):
+            self.check_cookie(request, verify_exp=False)
+
+            def _mkerr(err, description=""):
+                return make_jmwalletd_response(
+                    request, status=400, message=err, error_description=description
+                )
+
+            try:
+                assert isinstance(request.content, BytesIO)
+                grant_type = self.get_POST_body(request, ["grant_type",])["grant_type"]
+                if grant_type not in {"refresh_token"}:
+                    return _mkerr(
+                        "unsupported_grant_type",
+                        "The authorization grant type is not supported by the authorization server.",
+                    )
+
+                token = self.get_POST_body(request, [grant_type])[grant_type]
+            except:
+                return _mkerr(
+                    "invalid_request",
+                    "The request is missing a required parameter, "
+                    "includes an unsupported parameter value (other than grant type), "
+                    "repeats a parameter, includes multiple credentials, "
+                    "or is otherwise malformed.",
+                )
+            try:
+                self.token.verify(token, token_type=grant_type.split("_")[0])
+                return make_jmwalletd_response(
+                    request, walletname=self.wallet_name, **self.token.issue()
+                )
+
+            except auth.ExpiredSignatureError:
+                return _mkerr(
+                    "invalid_grant",
+                    f"The provided {grant_type} is expired.",
+                )
+            except auth.InvalidScopeError:
+                return _mkerr(
+                    "invalid_scope",
+                    "The requested scope is invalid, unknown, malformed, "
+                    "or exceeds the scope granted by the resource owner.",
+                )
+            except auth.ExpiredSignatureError:
+                return _mkerr(
+                    "invalid_grant",
+                    f"The provided {grant_type} is invalid, revoked, "
+                    "or was issued to another client.",
+                )
+
         @app.route('/wallet/<string:walletname>/display', methods=['GET'])
         def displaywallet(self, request, walletname):
             print_req(request)
@@ -638,9 +706,6 @@ class JMWalletDaemon(Service):
             #this lets caller know if cookie is invalid or outdated
             self.check_cookie_if_present(request)
 
-            #if no wallet loaded then clear frontend session info
-            #when no wallet status is false
-            session = not self.cookie==None
             maker_running = self.coinjoin_state == CJ_MAKER_RUNNING
             coinjoin_in_process = self.coinjoin_state == CJ_TAKER_RUNNING
 
@@ -676,14 +741,17 @@ class JMWalletDaemon(Service):
             else:
                 wallet_name = "None"
 
-            return make_jmwalletd_response(request,session=session,
-                            maker_running=maker_running,
-                            coinjoin_in_process=coinjoin_in_process,
-                            schedule=schedule,
-                            wallet_name=wallet_name,
-                            offer_list=offer_list,
-                            nickname=nickname,
-                            rescanning=rescanning)
+            return make_jmwalletd_response(
+                request,
+                session=self.active_session,
+                maker_running=maker_running,
+                coinjoin_in_process=coinjoin_in_process,
+                schedule=schedule,
+                wallet_name=wallet_name,
+                offer_list=offer_list,
+                nickname=nickname,
+                rescanning=rescanning,
+            )
 
         @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
         def directsend(self, request, walletname):
@@ -980,7 +1048,7 @@ class JMWalletDaemon(Service):
                         read_only=True)
                 except StoragePasswordError:
                     # actually effects authentication
-                    raise NotAuthorized()
+                    raise InvalidCredentials()
                 except StorageError:
                     # wallet is not openable, this should not happen
                     raise NoWalletFound()
@@ -989,10 +1057,11 @@ class JMWalletDaemon(Service):
                     # this also shouldn't happen so raise:
                     raise NoWalletFound()
                 # no exceptions raised means we just return token:
-                self.set_token(self.wallet_name)
-                return make_jmwalletd_response(request,
-                            walletname=self.wallet_name,
-                            token=self.cookie)
+                return make_jmwalletd_response(
+                    request,
+                    walletname=self.wallet_name,
+                    **self.token.issue(),
+                    )
 
             # This is a different wallet than the one currently open;
             # try to open it, then initialize the service(s):
@@ -1003,7 +1072,7 @@ class JMWalletDaemon(Service):
                         ask_for_password=False,
                         gap_limit = jm_single().config.getint("POLICY", "gaplimit"))
             except StoragePasswordError:
-                raise NotAuthorized()
+                raise InvalidCredentials()
             except RetryableStorageError:
                 # .lock file exists
                 raise LockExists()
