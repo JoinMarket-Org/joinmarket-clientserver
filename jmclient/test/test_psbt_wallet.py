@@ -296,8 +296,8 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
     # don't want to push the tx right now, because of test structure
     # (in production code this isn't really needed, we will not
     # produce invalid payment transactions).
-    res = jm_single().bc_interface.testmempoolaccept(bintohex(extracted_tx))
-    assert res[0]["allowed"], "Payment transaction was rejected from mempool."
+    assert jm_single().bc_interface.testmempoolaccept(bintohex(extracted_tx)),\
+        "Payment transaction was rejected from mempool."
 
     # *** STEP 2 ***
     # **************

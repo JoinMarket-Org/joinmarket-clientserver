@@ -5,14 +5,15 @@ import sys
 import time
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Optional, Tuple
+from typing import *
+
 from twisted.internet import reactor, task
 
 import jmbitcoin as btc
 from jmbase import bintohex, hextobin, stop_reactor
 from jmbase.support import get_log, jmprint, EXIT_FAILURE
 from jmclient.configure import jm_single
-from jmclient.jsonrpc import JsonRpcConnectionError, JsonRpcError
+from jmclient.jsonrpc import JsonRpc, JsonRpcConnectionError, JsonRpcError
 
 
 # an inaccessible blockheight; consider rewriting in 1900 years
@@ -22,11 +23,11 @@ log = get_log()
 
 class BlockchainInterface(ABC):
 
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     @abstractmethod
-    def is_address_imported(self, addr):
+    def is_address_imported(self, addr: str) -> bool:
         """checks that address is already imported"""
 
     @abstractmethod
@@ -34,27 +35,141 @@ class BlockchainInterface(ABC):
         """checks that UTXO belongs to the JM wallet"""
 
     @abstractmethod
-    def pushtx(self, txhex):
-        """pushes tx to the network, returns False if failed"""
+    def pushtx(self, txbin: bytes) -> bool:
+        """ Given a binary serialized valid bitcoin transaction,
+        broadcasts it to the network.
+        """
 
     @abstractmethod
-    def query_utxo_set(self, txouts, includeconfs=False):
+    def query_utxo_set(self,
+                       txouts: Union[Tuple[bytes, int], List[Tuple[bytes, int]]],
+                       includeconfs: bool = False,
+                       include_mempool: bool = True) -> List[Optional[dict]]:
+        """If txout is either (a) a single utxo in (txidbin, n) form,
+        or a list of the same, returns, as a list for each txout item,
+        the result of gettxout from the bitcoind rpc for those utxos;
+        if any utxo is invalid, None is returned.
+        includeconfs: if this is True, the current number of confirmations
+        of the prescribed utxo is included in the returned result dict.
+        include_mempool: if True, the contents of the mempool are included;
+        this *both* means that utxos that are spent in in-mempool transactions
+        are *not* returned, *and* means that utxos that are created in the
+        mempool but have zero confirmations *are* returned.
+        If the utxo is of a non-standard type such that there is no address,
+        the address field in the dict is None.
         """
-        takes a utxo or a list of utxos
-        returns None if they are spend or unconfirmed
-        otherwise returns value in satoshis, address and output script
-        optionally return the coin age in number of blocks
-        """
-        # address and output script contain the same information btw
 
     @abstractmethod
     def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
         """Returns pair of True/False is wallet currently rescanning and
         Optional[Decimal] with current rescan progress status."""
 
-    def import_addresses_if_needed(self, addresses, wallet_name):
+    @abstractmethod
+    def rescanblockchain(self, start_height: int, end_height: Optional[int] = None) -> None:
+        """Rescan the local blockchain for wallet related transactions.
+        """
+
+    @abstractmethod
+    def import_addresses_if_needed(self, addresses: Set[str], wallet_name: str) -> bool:
         """import addresses to the underlying blockchain interface if needed
         returns True if the sync call needs to do a system exit"""
+
+    @abstractmethod
+    def import_addresses(self, addr_list: Iterable[str], wallet_name: str,
+                         restart_cb: Optional[Callable[[str], None]] = None) -> None:
+        """Imports addresses in a batch during initial sync.
+        Refuses to proceed if keys are found to be under control
+        of another account/label (see console output), and quits.
+        """
+
+    @abstractmethod
+    def list_transactions(self, num: int, skip: int = 0) -> List[dict]:
+        """ Return a list of the last `num` transactions seen
+        in the wallet (under any label/account), optionally
+        skipping some.
+        """
+
+    @abstractmethod
+    def get_deser_from_gettransaction(self, rpcretval: dict) -> Optional[btc.CMutableTransaction]:
+        """Get full transaction deserialization from a call
+        to get_transaction().
+        """
+
+    @abstractmethod
+    def get_transaction(self, txid: bytes) -> Optional[dict]:
+        """ Argument txid is passed in binary.
+        Returns a serialized transaction for txid txid,
+        in hex as returned by Bitcoin Core rpc, or None
+        if no transaction can be retrieved. Works also for
+        watch-only wallets.
+        """
+
+    @abstractmethod
+    def get_block(self, blockheight: int) -> str:
+        """Returns full hex serialized block at a given height.
+        """
+
+    @abstractmethod
+    def get_current_block_height(self) -> int:
+        """Returns the height of the most-work fully-validated chain.
+        """
+
+    @abstractmethod
+    def get_best_block_hash(self) -> str:
+        """Returns the hash of the best (tip) block in the most-work
+        fully-validated chain.
+        """
+
+    @abstractmethod
+    def get_best_block_median_time(self) -> int:
+        """Returns median time for the current best block.
+        """
+
+    @abstractmethod
+    def get_block_height(self, blockhash: str) -> int:
+        """Returns the block height for a specific block hash.
+        """
+
+    @abstractmethod
+    def get_block_time(self, blockhash: str) -> int:
+        """Returns the block time expressed in UNIX epoch time for a specific
+        block hash.
+        """
+
+    @abstractmethod
+    def get_block_hash(self, height: int) -> str:
+        """Returns hash of block in best-block-chain at height provided.
+        """
+
+    @abstractmethod
+    def get_tx_merkle_branch(self, txid: str,
+                             blockhash: Optional[str] = None) -> bytes:
+        """TODO: describe method.
+        """
+
+    @abstractmethod
+    def verify_tx_merkle_branch(self, txid: str, block_height: int,
+                                merkle_branch: bytes) -> bool:
+        """TODO: describe method.
+        """
+
+    @abstractmethod
+    def listaddressgroupings(self) -> list:
+        """Lists groups of addresses which have had their common ownership
+        made public by common use as inputs or as the resulting change
+        in past transactions.
+        """
+
+    @abstractmethod
+    def listunspent(self, minconf: Optional[int] = None) -> List[dict]:
+        """Returns list of unspent transaction output info dicts,
+        optionally filtering by minimum confirmations.
+        """
+
+    @abstractmethod
+    def testmempoolaccept(self, rawtx: str) -> bool:
+        """Checks that raw transaction would be accepted by mempool.
+        """
 
     @abstractmethod
     def _get_mempool_min_fee(self) -> Optional[int]:
@@ -69,6 +184,48 @@ class BlockchainInterface(ABC):
         `estimate_fee_per_kb` for details. Returns feerate in sats per vB
         or None in case of error.
         """
+
+    def yield_transactions(self) -> Generator[dict, None, None]:
+        """ Generates a lazily fetched sequence of transactions seen in the
+        wallet (under any label/account), yielded in newest-first order. Care
+        is taken to avoid yielding duplicates even when new transactions are
+        actively being added to the wallet while the iteration is ongoing.
+        """
+        num, skip = 1, 0
+        txs = self.list_transactions(num, skip)
+        if not txs:
+            return
+        yielded_tx = txs[0]
+        yield yielded_tx
+        while True:
+            num *= 2
+            txs = self.list_transactions(num, skip)
+            if not txs:
+                return
+            try:
+                idx = [(tx['txid'], tx['vout'], tx['category']) for tx in txs
+                        ].index((yielded_tx['txid'], yielded_tx['vout'],
+                        yielded_tx['category']))
+            except ValueError:
+                skip += num
+                continue
+            for tx in reversed(txs[:idx]):
+                yielded_tx = tx  # inefficient but more obvious
+                yield yielded_tx
+            if len(txs) < num:
+                return
+            skip += num - 1
+
+    def get_unspent_indices(self, transaction: btc.CTransaction) -> List[int]:
+        """ Given a CTransaction object, identify the list of
+        indices of outputs which are unspent (returned as list of ints).
+        """
+        bintxid = transaction.GetTxid()[::-1]
+        res = self.query_utxo_set([(bintxid, i) for i in range(
+            len(transaction.vout))])
+        # QUS returns 'None' for spent outputs, so filter them out
+        # and return the indices of the others:
+        return [i for i, val in enumerate(res) if val]
 
     def _fee_per_kb_has_been_manually_set(self, tx_fees: int) -> bool:
         """If the block target (tx_fees) is higher than 1000, interpret it
@@ -147,15 +304,21 @@ class BlockchainInterface(ABC):
             log.info(msg + ": " + btc.fee_per_kb_to_str(retval))
             return int(retval)
 
+    def core_proof_to_merkle_branch(self, core_proof: str) -> bytes:
+        core_proof = binascii.unhexlify(core_proof)
+        #first 80 bytes of a proof given by core are just a block header
+        #so we can save space by replacing it with a 4-byte block height
+        return core_proof[80:]
+
 
 class BitcoinCoreInterface(BlockchainInterface):
 
-    def __init__(self, jsonRpc, network, wallet_name):
+    def __init__(self, jsonRpc: JsonRpc, network: str, wallet_name: str) -> None:
         super().__init__()
         self.jsonRpc = jsonRpc
         blockchainInfo = self._rpc("getblockchaininfo", [])
         if not blockchainInfo:
-            # see note in BitcoinCoreInterface.rpc - here
+            # see note in BitcoinCoreInterface._rpc() - here
             # we have to create this object before reactor start,
             # so reactor is not stopped, so we override the 'swallowing'
             # of the Exception that happened in self._rpc():
@@ -185,26 +348,23 @@ class BitcoinCoreInterface(BlockchainInterface):
                     "setting in joinmarket.cfg) instead. See docs/USAGE.md "
                     "for details.")
 
-    def is_address_imported(self, addr):
+    def is_address_imported(self, addr: str) -> bool:
         return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
 
-    def get_block(self, blockheight):
+    def get_block(self, blockheight: int) -> str:
         """Returns full serialized block at a given height.
         """
         block_hash = self.get_block_hash(blockheight)
-        block = self._rpc('getblock', [block_hash, False])
-        if not block:
-            return False
-        return block
+        return self._rpc('getblock', [block_hash, 0])
 
     def rescanblockchain(self, start_height: int, end_height: Optional[int] = None) -> None:
         # Threading is not used in Joinmarket but due to blocking
         # nature of this very slow RPC call, we need to fire and forget.
         from threading import Thread
-        Thread(target=self.rescan_in_thread, args=(start_height,),
+        Thread(target=self._rescan_in_thread, args=(start_height,),
                daemon=True).start()
 
-    def rescan_in_thread(self, start_height: int) -> None:
+    def _rescan_in_thread(self, start_height: int) -> None:
         """ In order to not conflict with the existing main
         JsonRPC connection in the main thread, this rescanning
         thread creates a distinct JsonRPC object, just to make
@@ -239,7 +399,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         else:
             return False, None
 
-    def _rpc(self, method: str, args: Optional[list] = None):
+    def _rpc(self, method: str, args: Union[dict, list] = []) -> Any:
         """ Returns the result of an rpc call to the Bitcoin Core RPC API.
         If the connection is permanently or unrecognizably broken, None
         is returned *and the reactor is shutdown* (because we consider this
@@ -274,15 +434,11 @@ class BitcoinCoreInterface(BlockchainInterface):
         # so this is handled elsewhere in BitcoinCoreInterface.
         return res
 
-    def is_address_labeled(self, utxo, walletname):
+    def is_address_labeled(self, utxo: dict, walletname: str) -> bool:
         return ("label" in utxo and utxo["label"] == walletname)
 
-    def import_addresses(self, addr_list, wallet_name, restart_cb=None):
-        """Imports addresses in a batch during initial sync.
-        Refuses to proceed if keys are found to be under control
-        of another account/label (see console output), and quits.
-        Do NOT use for in-run imports, use rpc('importaddress',..) instead.
-        """
+    def import_addresses(self, addr_list: Iterable[str], wallet_name: str,
+                         restart_cb: Callable[[str], None] = None) -> None:
         requests = []
         for addr in addr_list:
             requests.append({
@@ -313,7 +469,7 @@ class BitcoinCoreInterface(BlockchainInterface):
                 jmprint(fatal_msg, "important")
             sys.exit(EXIT_FAILURE)
 
-    def import_addresses_if_needed(self, addresses, wallet_name):
+    def import_addresses_if_needed(self, addresses: Set[str], wallet_name: str) -> bool:
         if wallet_name in self._rpc('listlabels', []):
             imported_addresses = set(self._rpc('getaddressesbylabel',
                                                   [wallet_name]).keys())
@@ -324,61 +480,17 @@ class BitcoinCoreInterface(BlockchainInterface):
             self.import_addresses(addresses - imported_addresses, wallet_name)
         return import_needed
 
-    def _yield_transactions(self):
-        """ Generates a lazily fetched sequence of transactions seen in the
-        wallet (under any label/account), yielded in newest-first order. Care
-        is taken to avoid yielding duplicates even when new transactions are
-        actively being added to the wallet while the iteration is ongoing.
-        """
-        num, skip = 1, 0
-        txs = self.list_transactions(num, skip)
-        if not txs:
-            return
-        yielded_tx = txs[0]
-        yield yielded_tx
-        while True:
-            num *= 2
-            txs = self.list_transactions(num, skip)
-            if not txs:
-                return
-            try:
-                idx = [(tx['txid'], tx['vout'], tx['category']) for tx in txs
-                        ].index((yielded_tx['txid'], yielded_tx['vout'],
-                        yielded_tx['category']))
-            except ValueError:
-                skip += num
-                continue
-            for tx in reversed(txs[:idx]):
-                yielded_tx = tx  # inefficient but more obvious
-                yield yielded_tx
-            if len(txs) < num:
-                return
-            skip += num - 1
-
-    def get_deser_from_gettransaction(self, rpcretval):
-        """Get full transaction deserialization from a call
-        to `gettransaction`
-        """
+    def get_deser_from_gettransaction(self, rpcretval: dict) -> Optional[btc.CMutableTransaction]:
         if not "hex" in rpcretval:
             log.info("Malformed gettransaction output")
             return None
         return btc.CMutableTransaction.deserialize(
             hextobin(rpcretval["hex"]))
 
-    def list_transactions(self, num, skip=0):
-        """ Return a list of the last `num` transactions seen
-        in the wallet (under any label/account), optionally
-        skipping some.
-        """
+    def list_transactions(self, num: int, skip: int = 0) -> List[dict]:
         return self._rpc("listtransactions", ["*", num, skip, True])
 
-    def get_transaction(self, txid):
-        """ Argument txid is passed in binary.
-        Returns a serialized transaction for txid txid,
-        in hex as returned by Bitcoin Core rpc, or None
-        if no transaction can be retrieved. Works also for
-        watch-only wallets.
-        """
+    def get_transaction(self, txid: bytes) -> Optional[dict]:
         htxid = bintohex(txid)
         try:
             res = self._rpc("gettransaction", [htxid, True])
@@ -398,7 +510,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             return None
         return res
 
-    def pushtx(self, txbin):
+    def pushtx(self, txbin: bytes) -> bool:
         """ Given a binary serialized valid bitcoin transaction,
         broadcasts it to the network.
         """
@@ -413,24 +525,14 @@ class BitcoinCoreInterface(BlockchainInterface):
             return False
         return True
 
-    def query_utxo_set(self, txout, includeconfs=False, include_mempool=True):
-        """If txout is either (a) a single utxo in (txidbin, n) form,
-        or a list of the same, returns, as a list for each txout item,
-        the result of gettxout from the bitcoind rpc for those utxos;
-        if any utxo is invalid, None is returned.
-        includeconfs: if this is True, the current number of confirmations
-        of the prescribed utxo is included in the returned result dict.
-        include_mempool: if True, the contents of the mempool are included;
-        this *both* means that utxos that are spent in in-mempool transactions
-        are *not* returned, *and* means that utxos that are created in the
-        mempool but have zero confirmations *are* returned.
-        If the utxo is of a non-standard type such that there is no address,
-        the address field in the dict is None.
-        """
-        if not isinstance(txout, list):
-            txout = [txout]
+    def query_utxo_set(self,
+                       txouts: Union[Tuple[bytes, int], List[Tuple[bytes, int]]],
+                       includeconfs: bool = False,
+                       include_mempool: bool = True) -> List[Optional[dict]]:
+        if not isinstance(txouts, list):
+            txouts = [txouts]
         result = []
-        for txo in txout:
+        for txo in txouts:
             txo_hex = bintohex(txo[0])
             if len(txo_hex) != 64:
                 log.warn("Invalid utxo format, ignoring: {}".format(txo))
@@ -453,17 +555,6 @@ class BitcoinCoreInterface(BlockchainInterface):
                     result_dict['confirms'] = int(ret['confirmations'])
                 result.append(result_dict)
         return result
-
-    def get_unspent_indices(self, transaction):
-        """ Given a CTransaction object, identify the list of
-        indices of outputs which are unspent (returned as list of ints).
-        """
-        bintxid = transaction.GetTxid()[::-1]
-        res = self.query_utxo_set([(bintxid, i) for i in range(
-            len(transaction.vout))])
-        # QUS returns 'None' for spent outputs, so filter them out
-        # and return the indices of the others:
-        return [i for i, val in enumerate(res) if val]
 
     def _get_mempool_min_fee(self) -> Optional[int]:
         rpc_result = self._rpc('getmempoolinfo')
@@ -493,34 +584,33 @@ class BitcoinCoreInterface(BlockchainInterface):
         log.warn("Could not source a fee estimate from Core")
         return None
 
-    def get_current_block_height(self):
+    def get_current_block_height(self) -> int:
         try:
-            res = self._rpc("getblockcount", [])
+            return self._rpc("getblockcount", [])
         except JsonRpcError as e:
-            log.error("Getblockcount RPC failed with: %i, %s" % (
+            raise RuntimeError("Getblockcount RPC failed with: %i, %s" % (
                 e.code, e.message))
-            res = None
-        return res
 
-    def get_best_block_hash(self):
+    def get_best_block_hash(self) -> str:
         return self._rpc('getbestblockhash', [])
 
-    def get_best_block_median_time(self):
+    def get_best_block_median_time(self) -> int:
         return self._rpc('getblockchaininfo', [])['mediantime']
 
-    def _get_block_header_data(self, blockhash, key):
+    def _get_block_header_data(self, blockhash: str, key: str) -> Any:
         return self._rpc('getblockheader', [blockhash])[key]
 
-    def get_block_height(self, blockhash):
+    def get_block_height(self, blockhash: str) -> int:
         return self._get_block_header_data(blockhash, 'height')
 
-    def get_block_time(self, blockhash):
+    def get_block_time(self, blockhash: str) -> int:
         return self._get_block_header_data(blockhash, 'time')
 
-    def get_block_hash(self, height):
+    def get_block_hash(self, height: int) -> str:
         return self._rpc("getblockhash", [height])
 
-    def get_tx_merkle_branch(self, txid, blockhash=None):
+    def get_tx_merkle_branch(self, txid: str,
+                             blockhash: Optional[str] = None) -> bytes:
         if not blockhash:
             tx = self._rpc("gettransaction", [txid])
             if tx["confirmations"] < 1:
@@ -532,23 +622,18 @@ class BitcoinCoreInterface(BlockchainInterface):
             raise ValueError("Block containing transaction is pruned")
         return self.core_proof_to_merkle_branch(core_proof)
 
-    def core_proof_to_merkle_branch(self, core_proof):
-        core_proof = binascii.unhexlify(core_proof)
-        #first 80 bytes of a proof given by core are just a block header
-        #so we can save space by replacing it with a 4-byte block height
-        return core_proof[80:]
-
-    def verify_tx_merkle_branch(self, txid, block_height, merkle_branch):
+    def verify_tx_merkle_branch(self, txid: str, block_height: int,
+                                merkle_branch: bytes) -> bool:
         block_hash = self.get_block_hash(block_height)
         core_proof = self._rpc("getblockheader", [block_hash, False]) + \
             binascii.hexlify(merkle_branch).decode()
         ret = self._rpc("verifytxoutproof", [core_proof])
         return len(ret) == 1 and ret[0] == txid
 
-    def listaddressgroupings(self):
+    def listaddressgroupings(self) -> list:
         return self._rpc('listaddressgroupings', [])
 
-    def listunspent(self, minconf=None):
+    def listunspent(self, minconf: Optional[int] = None) -> List[dict]:
         listunspent_args = []
         if 'listunspent_args' in jm_single().config.options('POLICY'):
             listunspent_args = ast.literal_eval(jm_single().config.get(
@@ -557,8 +642,9 @@ class BitcoinCoreInterface(BlockchainInterface):
             listunspent_args[0] = minconf
         return self._rpc('listunspent', listunspent_args)
 
-    def testmempoolaccept(self, rawtx):
-        return self._rpc('testmempoolaccept', [[rawtx]])
+    def testmempoolaccept(self, rawtx: str) -> bool:
+        res = self._rpc('testmempoolaccept', [[rawtx]])
+        return res[0]["allowed"]
 
 
 class RegtestBitcoinCoreMixin():
@@ -566,7 +652,7 @@ class RegtestBitcoinCoreMixin():
     This Mixin provides helper functions that are used in Interface classes
     requiring some functionality only useful on the regtest network.
     """
-    def tick_forward_chain(self, n):
+    def tick_forward_chain(self, n: int) -> None:
         """
         Special method for regtest only;
         instruct to mine n blocks.
@@ -581,7 +667,7 @@ class RegtestBitcoinCoreMixin():
                 "Failed to generate blocks, looks like the bitcoin daemon \
 	    has been shut down. Ignoring.")
 
-    def grab_coins(self, receiving_addr, amt=50):
+    def grab_coins(self, receiving_addr: str, amt: int = 50) -> str:
         """
         NOTE! amt is passed in Coins, not Satoshis!
         Special method for regtest only:
@@ -610,17 +696,17 @@ class RegtestBitcoinCoreMixin():
 
 class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin):
 
-    def __init__(self, jsonRpc, network, wallet_name):
+    def __init__(self, jsonRpc: JsonRpc, network: str, wallet_name: str) -> None:
         super().__init__(jsonRpc, network, wallet_name)
         self.import_addresses_call_count = 0
         self.wallet_name = None
         self.scan_result = None
 
-    def import_addresses_if_needed(self, addresses, wallet_name):
+    def import_addresses_if_needed(self, addresses: Set[str], wallet_name: str) -> bool:
         self.import_addresses_call_count += 1
         if self.import_addresses_call_count == 1:
             self.wallet_name = wallet_name
-            addr_list = ["addr(" + a + ")" for a in addresses]
+            addr_list = [btc.get_address_descriptor(a) for a in addresses]
             log.debug("Starting scan of UTXO set")
             st = time.time()
             self._rpc("scantxoutset", ["abort", []])
@@ -635,19 +721,23 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
             assert False
         return False
 
-    def _yield_transactions(self):
+    def yield_transactions(self) -> Generator[dict, None, None]:
         for u in self.scan_result["unspents"]:
             tx = {"category": "receive", "address":
                 btc.get_address_from_descriptor(u["desc"])}
             yield tx
 
-    def list_transactions(self, num):
+    def list_transactions(self, num: int, skip: int = 0) -> List[dict]:
         return []
 
-    def listaddressgroupings(self):
+    def listaddressgroupings(self) -> list:
         raise RuntimeError("default sync not supported by bitcoin-rpc-nohistory, use --recoversync")
 
-    def listunspent(self):
+    def listunspent(self, minconf: Optional[int] = None) -> List[dict]:
+        if minconf == 0:
+            log.warning(
+                "Unconfirmed transactions are not seen by "
+                "bitcoin-rpc-nohistory.")
         return [{
             "address": btc.get_address_from_descriptor(u["desc"]),
             "label": self.wallet_name,
@@ -658,7 +748,7 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
             "amount": u["amount"]
         } for u in self.scan_result["unspents"]]
 
-    def set_wallet_no_history(self, wallet):
+    def set_wallet_no_history(self, wallet) -> None:
         #make wallet-tool not display any new addresses
         #because no-history cant tell if an address is used and empty
         #so this is necessary to avoid address reuse
@@ -667,7 +757,7 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
         # avoidance of address reuse
         wallet.disable_new_scripts = True
 
-    def tick_forward_chain(self, n):
+    def tick_forward_chain(self, n: int) -> None:
         self.destn_addr = self._rpc("getnewaddress", [])
         super().tick_forward_chain(n)
 
@@ -678,7 +768,7 @@ class BitcoinCoreNoHistoryInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixi
 # with > 100 blocks.
 class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin): #pragma: no cover
 
-    def __init__(self, jsonRpc, wallet_name):
+    def __init__(self, jsonRpc: JsonRpc, wallet_name: str) -> None:
         super().__init__(jsonRpc, 'regtest', wallet_name)
         self.pushtx_failure_prob = 0
         self.tick_forward_chain_interval = -1
@@ -694,7 +784,7 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
             return jm_single().config.getint("POLICY",
                                              "absurd_fee_per_kb") + 100
 
-    def tickchain(self):
+    def tickchain(self) -> None:
         if self.tick_forward_chain_interval < 0:
             log.debug('not ticking forward chain')
             self.tickchainloop.stop()
@@ -704,26 +794,26 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
             return
         self.tick_forward_chain(1)
 
-    def simulate_blocks(self):
+    def simulate_blocks(self) -> None:
         self.tickchainloop = task.LoopingCall(self.tickchain)
         self.tickchainloop.start(self.tick_forward_chain_interval)
         self.simulating = True
 
-    def pushtx(self, txhex):
+    def pushtx(self, txbin: bytes) -> bool:
         if self.pushtx_failure_prob != 0 and random.random() <\
                 self.pushtx_failure_prob:
             log.debug('randomly not broadcasting %0.1f%% of the time' %
                       (self.pushtx_failure_prob * 100))
             return True
 
-        ret = super().pushtx(txhex)
+        ret = super().pushtx(txbin)
         if not self.simulating and self.tick_forward_chain_interval > 0:
             log.debug('will call tfc after ' + str(self.tick_forward_chain_interval) + ' seconds.')
             reactor.callLater(self.tick_forward_chain_interval,
                               self.tick_forward_chain, 1)
         return ret
 
-    def get_received_by_addr(self, addresses):
+    def get_received_by_addr(self, addresses: List[str]) -> dict:
         # NB This will NOT return coinbase coins (but wont matter in our use
         # case). allow importaddress to fail in case the address is already
         # in the wallet

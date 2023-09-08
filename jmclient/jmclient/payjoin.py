@@ -745,9 +745,8 @@ class PayjoinConverter(object):
         # it is still safer to at least verify the validity of the signatures
         # at this stage, to ensure no misbehaviour with using inputs
         # that are not signed correctly:
-        res = jm_single().bc_interface.testmempoolaccept(bintohex(
-            self.manager.payment_tx.serialize()))
-        if not res[0]["allowed"]:
+        if not jm_single().bc_interface.testmempoolaccept(bintohex(
+                self.manager.payment_tx.serialize())):
             return (False, "Proposed transaction was "
                                     "rejected from mempool.",
                                     "original-psbt-rejected")

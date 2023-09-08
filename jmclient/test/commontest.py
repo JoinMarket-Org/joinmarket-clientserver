@@ -4,16 +4,15 @@
 import os
 import random
 from decimal import Decimal
-from typing import Optional, Tuple
+from typing import Callable, List, Optional, Set, Tuple, Union
 
+import jmbitcoin as btc
 from jmbase import (get_log, hextobin, bintohex, dictchanger)
-
+from jmbase.support import chunks
 from jmclient import (
     jm_single, open_test_wallet_maybe, estimate_tx_fee,
     BlockchainInterface, BIP32Wallet, BaseWallet,
     SegwitWallet, WalletService, BTC_P2SH_P2WPKH)
-from jmbase.support import chunks
-import jmbitcoin as btc
 
 log = get_log()
 '''This code is intended to provide
@@ -30,28 +29,58 @@ default_max_cj_fee = (1, float('inf'))
 def dummy_accept_callback(tx, destaddr, actual_amount, fee_est,
                           custom_change_addr):
     return True
+
 def dummy_info_callback(msg):
     pass
 
 class DummyBlockchainInterface(BlockchainInterface):
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.fake_query_results = None
         self.qusfail = False
         self.cbh = 1
         self.default_confs = 20
         self.confs_for_qus = {}
 
-    def rpc(self, a, b):
-        return None
-    def sync_addresses(self, wallet):
-        pass
-    def sync_unspent(self, wallet):
-        pass
-    def import_addresses(self, addr_list, wallet_name, restart_cb=None):
-        pass
-    def is_address_imported(self, addr):
+    # Dummy abstract method overrides of base class
+    def is_address_imported(self, addr: str) -> bool:
         pass
     def is_address_labeled(self, utxo: dict, walletname: str) -> bool:
+        pass
+    def import_addresses_if_needed(self, addresses: Set[str], wallet_name: str) -> bool:
+        pass
+    def import_addresses(self, addr_list: List[str], wallet_name: str,
+                         restart_cb: Callable[[str], None] = None) -> None:
+        pass
+    def list_transactions(self, num: int, skip: int = 0) -> List[dict]:
+        pass
+    def get_deser_from_gettransaction(self, rpcretval: dict) -> Optional[btc.CMutableTransaction]:
+        pass
+    def get_transaction(self, txid: bytes) -> Optional[dict]:
+        pass
+    def get_block(self, blockheight: int) -> Optional[str]:
+        pass
+    def get_best_block_hash(self) -> str:
+        pass
+    def get_best_block_median_time(self) -> int:
+        pass
+    def get_block_height(self, blockhash: str) -> int:
+        pass
+    def get_block_time(self, blockhash: str) -> int:
+        pass
+    def get_block_hash(self, height: int) -> str:
+        pass
+    def get_tx_merkle_branch(self, txid: str,
+                             blockhash: Optional[str] = None) -> bytes:
+        pass
+    def verify_tx_merkle_branch(self, txid: str, block_height: int,
+                                merkle_branch: bytes) -> bool:
+        pass
+    def listaddressgroupings(self) -> list:
+        pass
+    def listunspent(self, minconf: Optional[int] = None) -> List[dict]:
+        pass
+    def testmempoolaccept(self, rawtx: str) -> bool:
         pass
     def _get_mempool_min_fee(self) -> Optional[int]:
         pass
@@ -59,30 +88,34 @@ class DummyBlockchainInterface(BlockchainInterface):
         pass
     def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
         pass
+    def rescanblockchain(self, start_height: int, end_height: Optional[int] = None) -> None:
+        pass
 
-
-    def get_current_block_height(self):
+    def get_current_block_height(self) -> int:
         return 10**6
 
-    def pushtx(self, txhex):
+    def pushtx(self, txbin: bytes) -> bool:
         return True
     
-    def insert_fake_query_results(self, fqr):
+    def insert_fake_query_results(self, fqr: List[dict]) -> None:
         self.fake_query_results = fqr
 
-    def setQUSFail(self, state):
+    def setQUSFail(self, state: bool) -> None:
         self.qusfail = state
 
-    def set_confs(self, confs_utxos):
+    def set_confs(self, confs_utxos) -> None:
         # we hook specific confirmation results
         # for specific utxos so that query_utxo_set
         # can return a non-constant fake value.
         self.confs_for_qus.update(confs_utxos)
 
-    def reset_confs(self):
+    def reset_confs(self) -> None:
         self.confs_for_qus = {}
 
-    def query_utxo_set(self, txouts, includeconfs=False):
+    def query_utxo_set(self,
+                       txouts: Union[Tuple[bytes, int], List[Tuple[bytes, int]]],
+                       includeconfs: bool = False,
+                       include_mempool: bool = True) -> List[Optional[dict]]:
         if self.qusfail:
             #simulate failure to find the utxo
             return [None]
