@@ -2,7 +2,6 @@ import struct
 import base64
 import json
 from jmbitcoin import ecdsa_sign, ecdsa_verify
-from jmdaemon import fidelity_bond_sanity_check
 import binascii
 
 def assert_is_utxo(utxo):
@@ -114,9 +113,12 @@ class FidelityBondProof:
 
     @classmethod
     def parse_and_verify_proof_msg(cls, maker_nick, taker_nick, data):
-        if not fidelity_bond_sanity_check.fidelity_bond_sanity_check(data):
-            raise ValueError("sanity check failed")
-        decoded_data = base64.b64decode(data)
+        try:
+            decoded_data = base64.b64decode(data, validate=True)
+        except binascii.Error:
+            raise ValueError("decode error")
+        if len(decoded_data) != 252:
+            raise ValueError("invalid length")
 
         unpacked_data = struct.unpack(cls.SER_STUCT_FMT, decoded_data)
         try:
