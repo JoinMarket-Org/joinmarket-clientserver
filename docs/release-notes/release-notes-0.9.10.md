@@ -12,7 +12,7 @@ Upgrading
 
 To upgrade:
 
-*Reminder: always back up and recreate your joinmarket.cfg file when doing the upgrade; this is to make sure you have the new default settings.*
+*Reminder: always back up and recreate your joinmarket.cfg file when doing the upgrade; this is to make sure you have the new default settings. In order to recreate it, rename the old joinmarket.cfg and run 'python3 wallet-tool.py generate' from the scripts folder.*
 
 (If you are upgrading from a version pre-0.7.0 please read the "Upgrading" section in [the 0.7.0 release notes](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/master/docs/release-notes/release-notes-0.7.0.md).)
 
