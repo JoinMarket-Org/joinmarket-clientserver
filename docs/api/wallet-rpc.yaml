@@ -18,16 +18,12 @@ paths:
       operationId: token
       description: >
         Give a refresh token and get back both an access and refresh token.
-        On initially creating, unlocking or recovering a wallet, store both the refresh and access tokens, the latter is valid for only 30 minutes (must be used for any authenticated call) while the former is for 4 hours (can only be used in the refresh request parameters). Use /token endpoint on a regular basis to get new access and refresh tokens, ideally before access token expiration to avoid AuthenticationError response from authenticated endpoint and in any case, before refresh token expiration. The newly issued tokens must be used in subsequent calls since operation invalidates previously issued tokens.
+        On initially creating, unlocking or recovering a wallet, store both the refresh and access tokens, the latter is valid for only 30 minutes (must be used for any authenticated call) while the former is for 4 hours (can only be used in the refresh request parameters). Use /token endpoint on a regular basis to get new access and refresh tokens, ideally before access token expiration to avoid authentication errors and in any case, before refresh token expiration. The newly issued tokens must be used in subsequent calls since operation invalidates previously issued tokens.
       responses:
         '200':
           $ref: '#/components/responses/RefreshToken-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
       requestBody:
         content:
           application/json:
@@ -122,10 +118,6 @@ paths:
           $ref: '#/components/responses/Lock-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
   /wallet/{walletname}/display:
     get:
       security:
@@ -145,10 +137,6 @@ paths:
           $ref: '#/components/responses/Display-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /session:
@@ -162,10 +150,6 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Session-200-OK'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /getinfo:
@@ -227,10 +211,6 @@ paths:
           $ref: '#/components/responses/GetAddress-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/rescanblockchain/{blockheight}:
@@ -258,10 +238,6 @@ paths:
           $ref: '#/components/responses/RescanBlockchain-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/address/timelock/new/{lockdate}:
@@ -291,10 +267,6 @@ paths:
           $ref: '#/components/responses/GetAddress-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/utxos:
@@ -317,10 +289,6 @@ paths:
           $ref: '#/components/responses/ListUtxos-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/taker/direct-send:
@@ -348,10 +316,6 @@ paths:
           $ref: '#/components/responses/DirectSend-200-Accepted'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -384,9 +348,7 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
+          $ref: '#/components/responses/401-Unauthorized'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -413,9 +375,7 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
+          $ref: "#/components/responses/401-Unauthorized"
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/taker/coinjoin:
@@ -444,9 +404,7 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
+          $ref: '#/components/responses/401-Unauthorized'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -479,9 +437,7 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
+          $ref: '#/components/responses/401-Unauthorized'
         '404':
           $ref: '#/components/responses/404-NotFound'
         '409':
@@ -506,10 +462,6 @@ paths:
           $ref: '#/components/responses/GetSchedule-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/taker/stop:
@@ -532,9 +484,7 @@ paths:
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
+          $ref: "#/components/responses/401-Unauthorized"
         '404':
           $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/configset:
@@ -562,10 +512,6 @@ paths:
           $ref: '#/components/responses/ConfigSet-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '409':
           $ref: '#/components/responses/409-NoConfig'
   /wallet/{walletname}/configget:
@@ -592,10 +538,6 @@ paths:
           $ref: '#/components/responses/ConfigGet-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
         '409':
           $ref: '#/components/responses/409-NoConfig'
   /wallet/{walletname}/freeze:
@@ -623,10 +565,6 @@ paths:
           $ref: '#/components/responses/Freeze-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
   /wallet/{walletname}/getseed:
     get:
       security:
@@ -651,10 +589,6 @@ paths:
           $ref: '#/components/responses/GetSeed-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
-        '401':
-          $ref: '#/components/responses/401-AuthenticationError'
-        '403':
-          $ref: '#/components/responses/403-Forbidden'
 components:
   securitySchemes:
     bearerAuth:
@@ -1327,20 +1261,6 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorMessage'
-    401-AuthenticationError:
-      description: Bearer token authentication error.
-      headers:
-        WWW-Authenticate:
-          description: Defines the HTTP authentication methods.
-          schema:
-            type: string
-    403-Forbidden:
-      description: Bearer token authorization error.
-      headers:
-        WWW-Authenticate:
-          description: Defines the HTTP authentication methods.
-          schema:
-            type: string
     409-AlreadyExists:
       description: Unable to complete request because object already exists.
       content:
