@@ -13,7 +13,7 @@ dependencies = [
     "chromalog==1.0.5",
     "pyaes==1.6.1",
     "service-identity==21.1.0",
-    "txtorcon==22.0.0",
+    "txtorcon==23.5.0",
     "twisted==22.4.0",
 ]
 
