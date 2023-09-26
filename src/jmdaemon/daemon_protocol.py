@@ -471,6 +471,8 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
 
 class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
+    PHASE_1A_DELAY = 60.0
+
     def __init__(self, factory):
         self.factory = factory
         self.jm_state = 0
@@ -485,6 +487,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.use_fidelity_bond = False
         self.offerlist = None
         self.kp = None
+        # keeps track of whether we are ready to send !auth as taker:
+        # 0: no !pubkey received; 1: at least 1 !pubkey received,
+        # 2: either all !pubkey messages received, or timed out
+        self.phase_1a_state = 0
 
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
@@ -876,14 +882,14 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         # We have a time-out of 60 seconds after which a received
         # pubkey message is too delayed; if we receive that here we
         # have to just ignore the counterparty.
-        if "auth_sent" in self.active_orders.keys():
+        if self.phase_1a_state == 2:
             return
         # by the same token, as soon as we have received at least
         # one !pubkey message, we start the countdown (60s) to just
         # going ahead:
-        if not "taker_waiting_for_pubkey" in self.active_orders.keys():
-            reactor.callLater(60.0, self.send_all_auth)
-            self.active_orders["taker_waiting_for_pubkey"] = True
+        if self.phase_1a_state == 0:
+            reactor.callLater(self.PHASE_1A_DELAY, self.send_all_auth)
+            self.phase_1a_state = 1
         if nick not in self.active_orders.keys():
             log.msg("Counterparty not part of this transaction. Ignoring")
             return
@@ -913,17 +919,19 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             other makers in the `active_orders` dict to be unreachable,
             and ignore them for the rest of the coinjoin construction.
             """
-        if not all(["received_pubkey" in x
+        if not all(["received_pubkey" in self.active_orders[x]
                     for x in self.active_orders]) and not force:
             return
         # the laggards should be wiped out from the dict, in order to
         # continue phase 2 cleanly:
-        l = [k for k in self.active_orders
-             if "received_pubkey" in self.active_orders[k]]
-        self.active_orders = {k: self.active_orders[k] for k in l}
+        if force:
+            l = [k for k in self.active_orders
+                 if "received_pubkey" in self.active_orders[k]]
+            self.active_orders = dict([(k,
+                            self.active_orders[k]) for k in l])
         for nick in self.active_orders:
             self.mcc.prepare_privmsg(nick, "auth", str(self.revelation))
-        self.active_orders["auth_sent"] = True
+        self.phase_1a_state = 2
 
     @taker_only
     def on_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr,
@@ -1033,6 +1041,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #do nothing
             return
         self.jm_state = 3
+        # allow future phase1-s to occur:
+        self.phase_1a_state = 0
         if not accepted:
             #use ioauth data field to return the list of non-responsive makers
             nonresponders = [x for x in self.active_orders
