@@ -873,6 +873,17 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """This is handled locally in the daemon; set up e2e
         encrypted messaging with this counterparty
         """
+        # We have a time-out of 60 seconds after which a received
+        # pubkey message is too delayed; if we receive that here we
+        # have to just ignore the counterparty.
+        if "auth_sent" in self.active_orders.keys():
+            return
+        # by the same token, as soon as we have received at least
+        # one !pubkey message, we start the countdown (60s) to just
+        # going ahead:
+        if not "taker_waiting_for_pubkey" in self.active_orders.keys():
+            reactor.callLater(60.0, self.send_all_auth)
+            self.active_orders["taker_waiting_for_pubkey"] = True
         if nick not in self.active_orders.keys():
             log.msg("Counterparty not part of this transaction. Ignoring")
             return
@@ -883,7 +894,36 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             print("Unable to setup crypto box with " + nick + ": " + repr(e))
             self.mcc.send_error(nick, "invalid nacl pubkey: " + maker_pk)
             return
-        self.mcc.prepare_privmsg(nick, "auth", str(self.revelation))
+        self.active_orders[nick]["received_pubkey"] = True
+        self.send_all_auth()
+
+    @taker_only
+    def send_all_auth(self, force:bool =False) -> None:
+        """ We enforce the condition that the !auth messages
+            are only sent to each maker after *every* participating
+            maker has already sent their !pubkey message. This prevents
+            the possibility of one maker already reaching the !ioauth
+            stage, and broadcasting the commitment, before another maker
+            has even received the !fill message (which can cause
+            erroneous blacklisting/preventing taking part in the coinjoin),
+            in cases where there is a very big mismatch in connection
+            speed.
+            If `force` is True, this function will send the auth messages
+            to all makers that have currently replied, and consider the
+            other makers in the `active_orders` dict to be unreachable,
+            and ignore them for the rest of the coinjoin construction.
+            """
+        if not all(["received_pubkey" in x
+                    for x in self.active_orders]) and not force:
+            return
+        # the laggards should be wiped out from the dict, in order to
+        # continue phase 2 cleanly:
+        l = [k for k in self.active_orders
+             if "received_pubkey" in self.active_orders[k]]
+        self.active_orders = {k: self.active_orders[k] for k in l}
+        for nick in self.active_orders:
+            self.mcc.prepare_privmsg(nick, "auth", str(self.revelation))
+        self.active_orders["auth_sent"] = True
 
     @taker_only
     def on_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr,
