@@ -162,7 +162,7 @@ Here is a test example schedule with those parameters:
 
 ### Restarting
 
-Even before discussing practical code-level actions, we can see: this approach allows us to have coins in *any* mixdepth when we start; so we no longer have the concept of "restarting" if you manually ended the run halfway, or if a transaction repeatedly failed and you had to give up. You can judge for yourself; if you started a tumbler run of 8 mixdepths and it stopped after 3, you can do another run with 5 mixdepths later, if you like. W.r.t the destination addresses, you were never able to control the ratio that arrives at different destinations anyway (it's technically possible but not recommended, you'd need to create schedules manually and think carefully about it), so this really doesn't change that aspect.
+Even before discussing practical code-level actions, we can see: this approach allows us to have coins in *any* mixdepth when we start; so we no longer have a special option `--restart` if you manually ended the run halfway, or if a transaction repeatedly failed and you had to give up. You can judge for yourself; if you started a tumbler run of 8 mixdepths and it stopped after 3, you can do another run with 5 mixdepths later, if you like. W.r.t the destination addresses, you were never able to control the ratio that arrives at different destinations anyway (it's technically possible but not recommended, you'd need to create schedules manually and think carefully about it), so this really doesn't change that aspect.
 
 Delaying the whole process by stopping and restarting it is quite sensible anyway; as explained above, we *want* this process to be slow, not fast.
 

@@ -275,13 +275,6 @@ def get_tumbler_parser():
             ' be configured to ask for more address mid-run, giving the user'
             ' a chance to click `Generate New Deposit Address` on whatever service'
             ' they are using.')
-    parser.add_option('--restart',
-        action='store_true',
-        dest='restart',
-        default=False,
-        help=('Restarts the schedule currently found in the schedule file in the '
-              'logs directory, with name TUMBLE.schedule or what is set in the '
-              'schedulefile option.'))
     parser.add_option('--schedulefile',
             type='string',
             dest='schedulefile',
