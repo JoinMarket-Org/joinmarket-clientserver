@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "joinmarket"
+version = "0.9.11dev"
+description = "Joinmarket client library for Bitcoin coinjoins"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+dependencies = [
+    "chromalog==1.0.5",
+    "pyaes==1.6.1",
+    "service-identity==21.1.0",
+    "txtorcon==22.0.0",
+    "twisted==22.4.0",
+]
+
+[project.optional-dependencies]
+jmbitcoin = [
+    "python-bitcointx==1.1.3",
+]
+jmclient = [
+    "argon2_cffi==21.3.0",
+    "autobahn==20.12.3",
+    "bencoder.pyx==3.0.1",
+    "klein==20.6.0",
+    "mnemonic==0.20",
+    "pyjwt==2.4.0",
+    "werkzeug==2.2.3",
+]
+jmdaemon = [
+    "libnacl==1.8.0",
+    "pyopenssl==23.2.0",
+    'cryptography==3.3.2; platform_machine != "aarch64" and platform_machine != "amd64" and platform_machine != "x86_64"',
+    'cryptography==41.0.2; platform_machine == "aarch64" or platform_machine == "amd64" or platform_machine == "x86_64"',
+]
+jmqtui = [
+    "PyQt5!=5.15.0,!=5.15.1,!=5.15.2,!=6.0",
+    "PySide2!=5.15.0,!=5.15.1,!=5.15.2,!=6.0", # https://bugreports.qt.io/browse/QTBUG-88688
+    "qrcode[pil]==7.3.1",
+    'pywin32; platform_system == "Windows"',
+    "qt5reactor==0.6.3",
+]
+client = [
+    "joinmarket[jmclient]",
+    "joinmarket[jmbitcoin]",
+]
+daemon = [
+    "joinmarket[jmdaemon]",
+]
+services = [
+    "joinmarket[client]",
+    "joinmarket[daemon]",
+]
+test = [
+    "joinmarket[services]",
+    "coverage==5.2.1",
+    "flake8",
+    "freezegun",
+    "mock",
+    "pexpect",
+    "pytest-cov>=2.4.0,<2.6",
+    "pytest==6.2.5",
+    "python-coveralls",
+]
+gui = [
+    "joinmarket[services]",
+    "joinmarket[jmqtui]",
+]
+
+[project.urls]
+repository = "https://github.com/JoinMarket-Org/joinmarket-clientserver.git"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["*.test"]
+
+[tool.pytest.ini_options]
+testpaths = ["test"]

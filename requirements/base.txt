@@ -1,4 +1,0 @@
--e ./jmbase
--e ./jmbitcoin
--e ./jmclient
--e ./jmdaemon

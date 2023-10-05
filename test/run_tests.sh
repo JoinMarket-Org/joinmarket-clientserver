@@ -170,7 +170,6 @@ run_jm_tests ()
         \`source ./jmvenv/bin/activate\`"
         return 1
     fi
-    jm_requirements="requirements/testing.txt"
     jm_source="${VIRTUAL_ENV}/.."
 
     pushd "${jm_source}" || return 1
@@ -182,8 +181,8 @@ run_jm_tests ()
         mkdir -p miniircd
         tar -xzf miniircd.tar.gz -C ./miniircd --strip-components=1
     fi
-    if ! pip install -r "${jm_requirements}"; then
-        echo "Packages in '${jm_requirements}' could not be installed. Exiting."
+    if ! pip install -e .[test]; then
+        echo "Joinmarket could not be installed. Exiting."
         return 1
     fi
     if [[ ! -L ./joinmarket.cfg && -e ./joinmarket.cfg ]]; then

@@ -82,7 +82,7 @@ def make_wallets(n,
        Default Wallet constructor is joinmarket.Wallet, else use TestWallet,
        which takes a password parameter as in the list passwords.
        '''
-    # FIXME: this is basically the same code as jmclient/test/commontest.py
+    # FIXME: this is basically the same code as test/jmclient/commontest.py
     if len(wallet_structures) != n:
         raise Exception("Number of wallets doesn't match wallet structures")
     if not fixed_seeds:
