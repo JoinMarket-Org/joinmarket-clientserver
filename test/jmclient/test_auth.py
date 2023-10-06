@@ -6,7 +6,12 @@ import datetime
 import jwt
 import pytest
 
-from jmclient.auth import ExpiredSignatureError, InvalidScopeError, JMTokenAuthority
+from jmclient.auth import (
+    ExpiredSignatureError,
+    InvalidScopeError,
+    JMTokenAuthority,
+    b64str,
+)
 
 
 class TestJMTokenAuthority:
@@ -17,7 +22,7 @@ class TestJMTokenAuthority:
     refresh_sig = copy.copy(token_auth.signature_key["refresh"])
 
     validity = datetime.timedelta(hours=1)
-    scope = f"walletrpc {wallet_name}"
+    scope = f"walletrpc {b64str(wallet_name)}"
 
     @pytest.mark.parametrize(
         "sig, token_type", [(access_sig, "access"), (refresh_sig, "refresh")]
@@ -83,15 +88,16 @@ class TestJMTokenAuthority:
 
     def test_scope_operation(self):
         assert "walletrpc" in self.token_auth._scope
-        assert self.wallet_name in self.token_auth._scope
+        assert b64str(self.wallet_name) in self.token_auth._scope
 
         scope = copy.copy(self.token_auth._scope)
         s = "new_wallet"
 
         self.token_auth.add_to_scope(s)
         assert scope < self.token_auth._scope
-        assert s in self.token_auth._scope
+        assert b64str(s) in self.token_auth._scope
 
-        self.token_auth.discard_from_scope(s, "walletrpc")
+        self.token_auth.discard_from_scope(s)
+        self.token_auth.discard_from_scope("walletrpc", encoded=False)
         assert scope > self.token_auth._scope
-        assert s not in self.token_auth._scope
+        assert b64str(s) not in self.token_auth._scope

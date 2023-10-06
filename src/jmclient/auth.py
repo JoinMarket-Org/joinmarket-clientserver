@@ -1,5 +1,6 @@
 import datetime
 import os
+from base64 import b64encode
 
 import jwt
 
@@ -18,6 +19,9 @@ def get_random_key(size: int = 16) -> str:
     """Create a random key has an hexadecimal string."""
     return bintohex(os.urandom(size))
 
+
+def b64str(s: str) -> str:
+    return b64encode(s.encode()).decode()
 
 class JMTokenAuthority:
     """Manage authorization tokens."""
@@ -57,13 +61,13 @@ class JMTokenAuthority:
         if not self._scope <= token_claims:
             raise InvalidScopeError
 
-    def add_to_scope(self, *args: str):
+    def add_to_scope(self, *args: str, encoded: bool = True):
         for arg in args:
-            self._scope.add(arg)
+            self._scope.add(b64str(arg) if encoded else arg)
 
-    def discard_from_scope(self, *args: str):
+    def discard_from_scope(self, *args: str, encoded: bool = True):
         for arg in args:
-            self._scope.discard(arg)
+            self._scope.discard(b64str(arg) if encoded else arg)
 
     @property
     def scope(self):

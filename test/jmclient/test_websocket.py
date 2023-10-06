@@ -21,7 +21,8 @@ test_tx_hex_1 = "02000000000102578770b2732aed421ffe62d54fd695cf281ca336e4f686d2a
 test_tx_hex_txid = "ca606efc5ba8f6669ba15e9262e5d38e745345ea96106d5a919688d1ff0da0cc"
 
 # Shared JWT token authority for test:
-test_token_authority = JMTokenAuthority("dummywallet")
+token_authority = JMTokenAuthority()
+
 
 class ClientTProtocol(WebSocketClientProtocol):
     """
@@ -29,11 +30,11 @@ class ClientTProtocol(WebSocketClientProtocol):
     message every 2 seconds and print everything it receives.
     """
 
+    ACCESS_TOKEN = token_authority.issue()["token"].encode("utf8")
+
     def sendAuth(self):
-        """ Our server will not broadcast
-        to us unless we authenticate.
-        """
-        self.sendMessage(test_token_authority.issue()["token"].encode('utf8'))
+        """Our server will not broadcast to us unless we authenticate."""
+        self.sendMessage(self.ACCESS_TOKEN)
 
     def onOpen(self):
         # auth on startup
@@ -65,7 +66,7 @@ class WebsocketTestBase(object):
             free_ports = get_free_tcp_ports(1)
             self.wss_port = free_ports[0]
         self.wss_url = "ws://127.0.0.1:" + str(self.wss_port)
-        self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url, test_token_authority)
+        self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url, token_authority)
         self.wss_factory.protocol = JmwalletdWebSocketServerProtocol
         self.listeningport = listenWS(self.wss_factory, contextFactory=None)
         self.test_tx = CTransaction.deserialize(hextobin(test_tx_hex_1))
