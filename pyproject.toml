@@ -14,7 +14,7 @@ dependencies = [
     "pyaes==1.6.1",
     "service-identity==21.1.0",
     "txtorcon==22.0.0",
-    "twisted==22.4.0",
+    "twisted==22.10.0",
 ]
 
 [project.optional-dependencies]
