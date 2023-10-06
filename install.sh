@@ -434,16 +434,17 @@ CookieAuthentication 1
 
 joinmarket_install ()
 {
-    reqs=( 'base.txt' )
+    reqs='services'
 
     if [[ ${with_qt} == "1" ]]; then
-        reqs+=( 'gui.txt' )
+        reqs='gui'
+    fi
+    if [[ ${develop} == "1" ]]; then
+        reqs+=',test'
     fi
 
-    for req in "${reqs[@]}"; do
-        if [ "$with_jmvenv" == 1 ]; then pip_command=pip; else pip_command=pip3; fi
-        $pip_command install -r "requirements/${req}" || return 1
-    done
+    if [ "$with_jmvenv" == 1 ]; then pip_command=pip; else pip_command=pip3; fi
+    $pip_command install -e ".[${reqs}]" || return 1
 
     if [[ ${with_qt} == "1" ]]; then
         if [[ -d ~/.local/share/icons ]] && [[ -d ~/.local/share/applications ]]; then
@@ -462,7 +463,9 @@ parse_flags ()
     while :; do
         case $1 in
             --develop)
-                # no-op for backwards compatibility
+                # editable install is currently always on
+                # option solely triggers test dependencies installation for now
+                develop='1'
                 ;;
             --disable-os-deps-check)
                 use_os_deps_check='0'

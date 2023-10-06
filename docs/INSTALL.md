@@ -75,7 +75,7 @@ Then build and install a local copy of libsecp256k1 for python-bitcointx:
 
 > *NOTE*: It is very important to have activated the virtual environment before running this step. Otherwise, `pip install` will fail, you may be tempted to re-run it with `sudo pip install` which will cause problems in the future.
 
-    pip install -r requirements/base.txt
+    pip install .[services]
 
 If you have installed this "full" version of the client, you can use it with the command line scripts as explained in the [usage guide](USAGE.md).
 
@@ -122,7 +122,7 @@ If you have installed this "full" version of the client, you can use it with the
 
 7) Setup joinmarket-qt
     ```
-    pip install -r requirements/gui.txt
+    pip install .[gui]
     ```
 8) Start joinmarket-qt
     ```
@@ -165,10 +165,9 @@ Unzip the `joinmarket-clientserver-x.x.x` (where `x.x.x` is the release number) 
 
 Using the command prompt in Administrator mode, go to that directory and run the commands:
 
-`pip install -r requirements\base.txt`
-`pip install -r requirements\gui.txt`
+`pip install joinmarket[services]`
 
-(the latter is needed for Joinmarket-Qt).
+(replace `services` with `gui` for Joinmarket-Qt).
 
 The final step is to manually add the libsodium dependency, as mentioned. Do the following:
 

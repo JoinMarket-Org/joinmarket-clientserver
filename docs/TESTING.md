@@ -7,7 +7,7 @@ Work in your `jmvenv` virtual environment as for all Joinmarket work. Make sure 
 
 Install the test requirements:
 
-    (jmvenv)$ pip install -r requirements/testing.txt
+    (jmvenv)$ pip install .[test]
 
 #### Running the test suite.
 

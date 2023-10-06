@@ -28,7 +28,7 @@ On initially creating, unlocking or recovering a wallet, a new access and refres
 
 Tokens are signed with HS256 (HMAC with SHA-256), a symmetric keyed hashing algorithm that uses one secret key. Signature keys (differentiated between access and refresh tokens) are generated from random bytes upon the following events, implying that any previously issued token is invalidated.
 
-- starting Joinmarket wallet deamon
+- starting Joinmarket wallet daemon
 - creating, unlocking or recovering a wallet if RPC API is already serving another wallet
 - locking wallet
 

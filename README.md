@@ -93,7 +93,7 @@ If binaries are built, they will be gpg signed and announced on the Releases pag
 If you haven't chosen the Qt option during installation with `install.sh`, then to run the script `joinmarket-qt.py` from the command line you will need to install two more packages.  Use these 2 commands while the `jmvenv` virtual environment is activated:
 
 ```
-pip install -r requirements/gui.txt
+pip install .[gui]
 ```
 After this, the command `python joinmarket-qt.py` from within the `scripts` subdirectory should work.
 There is a [walkthrough](docs/JOINMARKET-QT-GUIDE.md) for what to do next.
