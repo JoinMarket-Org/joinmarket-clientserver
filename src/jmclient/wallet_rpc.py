@@ -280,10 +280,10 @@ class JMWalletDaemon(Service):
             self.taker_finished(False)
 
     def auth_err(self, request, error, description=None):
-        request.setHeader("WWW-Authenticate", "Bearer")
-        request.setHeader("WWW-Authenticate", f'error="{error}"')
+        value = f'Bearer, error="{error}"'
         if description is not None:
-            request.setHeader("WWW-Authenticate", f'error_description="{description}"')
+            value += f', error_description="{description}"'
+        request.setHeader("WWW-Authenticate", value)
         return
 
     def err(self, request, message):
@@ -305,7 +305,7 @@ class JMWalletDaemon(Service):
     @app.handle_errors(InvalidToken)
     def invalid_token(self, request, failure):
         request.setResponseCode(401)
-        return self.auth_err(request, "invalid_token", str(failure))
+        return self.auth_err(request, "invalid_token", failure.getErrorMessage())
 
     @app.handle_errors(InsufficientScope)
     def insufficient_scope(self, request, failure):
@@ -643,7 +643,7 @@ class JMWalletDaemon(Service):
                     "The requested scope is invalid, unknown, malformed, "
                     "or exceeds the scope granted by the resource owner.",
                 )
-            except auth.ExpiredSignatureError:
+            except Exception:
                 return _mkerr(
                     "invalid_grant",
                     f"The provided {grant_type} is invalid, revoked, "

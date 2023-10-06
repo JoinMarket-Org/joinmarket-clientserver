@@ -21,7 +21,7 @@ paths:
         On initially creating, unlocking or recovering a wallet, store both the refresh and access tokens, the latter is valid for only 30 minutes (must be used for any authenticated call) while the former is for 4 hours (can only be used in the refresh request parameters). Use /token endpoint on a regular basis to get new access and refresh tokens, ideally before access token expiration to avoid authentication errors and in any case, before refresh token expiration. The newly issued tokens must be used in subsequent calls since operation invalidates previously issued tokens.
       responses:
         '200':
-          $ref: '#/components/responses/RefreshToken-200-OK'
+          $ref: '#/components/responses/Token-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
       requestBody:
@@ -579,11 +579,6 @@ paths:
           required: true
           schema:
             type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GetSeedResponse'
       responses:
         '200':
           $ref: '#/components/responses/GetSeed-200-OK'
@@ -684,7 +679,7 @@ components:
         token_type:
           type: string
         expires_in:
-          type: int
+          type: integer
         scope:
           type: string
         refresh_token:
