@@ -176,6 +176,12 @@ check_skip_build ()
     return 1
 }
 
+upgrade_setuptools ()
+{
+    pip install --upgrade pip
+    pip install --upgrade setuptools
+}
+
 venv_setup ()
 {
     if check_skip_build 'jmvenv'; then
@@ -186,8 +192,7 @@ venv_setup ()
     "${python}" -m venv "${jm_source}/jmvenv" || return 1
     # shellcheck source=/dev/null
     source "${jm_source}/jmvenv/bin/activate" || return 1
-    pip install --upgrade pip
-    pip install --upgrade setuptools
+    upgrade_setuptools
     deactivate
 }
 
@@ -621,6 +626,8 @@ main ()
         fi
         # shellcheck source=/dev/null
         source "${jm_root}/bin/activate"
+    else
+        upgrade_setuptools
     fi
     if [[ ${build_local_tor} == "1" ]]; then
         if ! tor_deps_install; then
