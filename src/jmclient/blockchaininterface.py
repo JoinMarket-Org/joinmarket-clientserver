@@ -338,7 +338,9 @@ class BitcoinCoreInterface(BlockchainInterface):
             # Check that RPC wallet is loaded. If not, try to load it.
             loaded_wallets = self._rpc("listwallets", [])
             if not wallet_name in loaded_wallets:
+                log.info("Loading Bitcoin RPC wallet " + wallet_name + "...")
                 self._rpc("loadwallet", [wallet_name])
+                log.info("Done.")
             # We only support legacy wallets currently
             wallet_info = self._getwalletinfo()
             if "descriptors" in wallet_info and wallet_info["descriptors"]:
