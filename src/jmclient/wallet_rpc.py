@@ -717,6 +717,8 @@ class JMWalletDaemon(Service):
             # rescanning, but that would be a strange scenario:
             rescanning = False
 
+            block_height = None
+
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
                     rescanning, _ = self.services["wallet"].get_backend_wallet_rescan_status()
@@ -725,6 +727,8 @@ class JMWalletDaemon(Service):
                     # by the call to `check_cookie_if_present` above.
                     auth_header = request.getHeader('Authorization')
                     if auth_header is not None:
+                        block_height = self.services["wallet"].current_blockheight
+
                         if self.coinjoin_state == CJ_TAKER_RUNNING and \
                            self.tumbler_options is not None:
                                 if self.taker is not None and not self.taker.aborted:
@@ -751,6 +755,7 @@ class JMWalletDaemon(Service):
                 offer_list=offer_list,
                 nickname=nickname,
                 rescanning=rescanning,
+                block_height=block_height,
             )
 
         @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
