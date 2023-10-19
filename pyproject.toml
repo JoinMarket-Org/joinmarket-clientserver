@@ -11,11 +11,10 @@ requires-python = ">=3.7"
 license = {file = "LICENSE"}
 dependencies = [
     "chromalog==1.0.5",
+    "cryptography==41.0.4",
     "service-identity==21.1.0",
     "twisted==22.4.0",
     "txtorcon==23.0.0",
-    'cryptography==3.3.2; platform_machine != "aarch64" and platform_machine != "amd64" and platform_machine != "x86_64"',
-    'cryptography==41.0.2; platform_machine == "aarch64" or platform_machine == "amd64" or platform_machine == "x86_64"',
 ]
 
 [project.optional-dependencies]
