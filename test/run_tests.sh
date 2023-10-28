@@ -181,10 +181,6 @@ run_jm_tests ()
         mkdir -p miniircd
         tar -xzf miniircd.tar.gz -C ./miniircd --strip-components=1
     fi
-    if ! pip install -e '.[test]'; then
-        echo "Joinmarket could not be installed. Exiting."
-        return 1
-    fi
     if [[ ! -L ./joinmarket.cfg && -e ./joinmarket.cfg ]]; then
         mv ./joinmarket.cfg ./joinmarket.cfg.bak
 		echo "file 'joinmarket.cfg' moved to 'joinmarket.cfg.bak'"
