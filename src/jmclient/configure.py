@@ -702,7 +702,7 @@ def _remove_unwanted_default_settings(config: ConfigParser) -> None:
 
 def load_program_config(config_path: str = "", bs: Optional[str] = None,
                         plugin_services: List[JMPluginService] = []) -> None:
-    global_singleton.config.readfp(io.StringIO(defaultconfig))
+    global_singleton.config.read_file(io.StringIO(defaultconfig))
     if not config_path:
         config_path = lookup_appdata_folder(global_singleton.APPNAME)
     # we set the global home directory, but keep the config_path variable
