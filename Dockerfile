@@ -5,7 +5,7 @@ WORKDIR /jm/clientserver
 
 COPY . .
 
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates=* curl=* \
+RUN apt-get update && apt-get install -y --no-install-recommends gnupg ca-certificates=* curl=* \
   python3-pip=* python3=* \
   && pip3 install 'wheel>=0.35.1' \
   && ./install.sh --docker-install \
