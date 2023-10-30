@@ -181,7 +181,7 @@ run_jm_tests ()
         mkdir -p miniircd
         tar -xzf miniircd.tar.gz -C ./miniircd --strip-components=1
     fi
-    if ! pip install -e .[test]; then
+    if ! pip install -e '.[test]'; then
         echo "Joinmarket could not be installed. Exiting."
         return 1
     fi
