@@ -849,6 +849,8 @@ components:
           type: string
         rescanning:
           type: boolean
+        block_height:
+          type: integer
     ListUtxosResponse:
       type: object
       properties:
