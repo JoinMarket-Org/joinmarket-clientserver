@@ -477,7 +477,7 @@ def test_get_bbm(setup_wallet):
     wallet = get_populated_wallet(amount, num_tx)
     # disable a utxo and check we can correctly report
     # balance with the disabled flag off:
-    utxo_1 = list(wallet._utxos.get_utxos_by_mixdepth()[0].keys())[0]
+    utxo_1 = list(wallet._utxos.get_utxos_at_mixdepth(0).keys())[0]
     wallet.disable_utxo(*utxo_1)
     balances = wallet.get_balance_by_mixdepth(include_disabled=True)
     assert balances[0] == num_tx * amount

@@ -56,14 +56,12 @@ def test_utxomanager_persist(setup_env_nodeps):
     assert not um.is_disabled(txid, index+2)
     um.disable_utxo(txid, index+2)
 
-    utxos = um.get_utxos_by_mixdepth()
-    assert len(utxos[mixdepth]) == 1
-    assert len(utxos[mixdepth+1]) == 2
-    assert len(utxos[mixdepth+2]) == 0
+    assert len(um.get_utxos_at_mixdepth(mixdepth)) == 1
+    assert len(um.get_utxos_at_mixdepth(mixdepth+1)) == 2
+    assert len(um.get_utxos_at_mixdepth(mixdepth+2)) == 0
 
-    balances = um.get_balance_by_mixdepth()
-    assert balances[mixdepth] == value
-    assert balances[mixdepth+1] == value * 2
+    assert um.get_balance_at_mixdepth(mixdepth) == value
+    assert um.get_balance_at_mixdepth(mixdepth+1) == value * 2
 
     um.remove_utxo(txid, index, mixdepth)
     assert um.have_utxo(txid, index) == False
@@ -79,14 +77,12 @@ def test_utxomanager_persist(setup_env_nodeps):
     assert um.have_utxo(txid, index) == False
     assert um.have_utxo(txid, index+1) == mixdepth + 1
 
-    utxos = um.get_utxos_by_mixdepth()
-    assert len(utxos[mixdepth]) == 0
-    assert len(utxos[mixdepth+1]) == 1
+    assert len(um.get_utxos_at_mixdepth(mixdepth)) == 0
+    assert len(um.get_utxos_at_mixdepth(mixdepth+1)) == 1
 
-    balances = um.get_balance_by_mixdepth()
-    assert balances[mixdepth] == 0
-    assert balances[mixdepth+1] == value
-    assert balances[mixdepth+2] == 0
+    assert um.get_balance_at_mixdepth(mixdepth) == 0
+    assert um.get_balance_at_mixdepth(mixdepth+1) == value
+    assert um.get_balance_at_mixdepth(mixdepth+2) == 0
 
 
 def test_utxomanager_select(setup_env_nodeps):
