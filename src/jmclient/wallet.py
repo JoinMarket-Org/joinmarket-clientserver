@@ -2233,7 +2233,6 @@ class BIP32Wallet(BaseWallet):
         self._index_cache[mixdepth][address_type] = index
 
     def get_index_cache_and_increment(self, mixdepth, address_type):
-        index = self._index_cache[mixdepth][address_type]
         cur_index = self._index_cache[mixdepth][address_type]
         self._set_index_cache(mixdepth, address_type, cur_index + 1)
         return cur_index
