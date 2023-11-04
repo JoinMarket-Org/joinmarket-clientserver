@@ -121,6 +121,11 @@ class DummyWallet(LegacyWallet):
         """
         return 'p2wpkh'
 
+    def _get_key_from_path(self, path):
+        if path[0] == b'dummy':
+            return struct.pack(b'B', path[2] + 1)*32 + b'\x01', self._ENGINE
+        raise NotImplementedError()
+
     def get_key_from_addr(self, addr):
         """usable addresses: privkey all 1s, 2s, 3s, ... :"""
         privs = [x*32 + b"\x01" for x in [struct.pack(b'B', y) for y in range(1,6)]]
@@ -139,8 +144,8 @@ class DummyWallet(LegacyWallet):
                 return p
         raise ValueError("No such keypair")
 
-    def _is_my_bip32_path(self, path):
-        return True
+    def get_path_repr(self, path):
+        return '/'.join(map(str, path))
 
     def is_standard_wallet_script(self, path):
         if path[0] == "nonstandard_path":
