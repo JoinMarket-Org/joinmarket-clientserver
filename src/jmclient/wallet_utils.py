@@ -407,8 +407,8 @@ def get_imported_privkey_branch(wallet_service, m, showprivkey):
         addr = wallet_service.get_address_from_path(path)
         script = wallet_service.get_script_from_path(path)
         balance = 0.0
-        for data in wallet_service.get_utxos_by_mixdepth(
-            include_disabled=True)[m].values():
+        for data in wallet_service.get_utxos_at_mixdepth(m,
+            include_disabled=True).values():
             if script == data['script']:
                 balance += data['value']
         status = ('used' if balance > 0.0 else 'empty')
@@ -1276,8 +1276,8 @@ def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
 def get_utxos_enabled_disabled(wallet_service, md):
     """ Returns dicts for enabled and disabled separately
     """
-    utxos_enabled = wallet_service.get_utxos_by_mixdepth()[md]
-    utxos_all = wallet_service.get_utxos_by_mixdepth(include_disabled=True)[md]
+    utxos_enabled = wallet_service.get_utxos_at_mixdepth(md)
+    utxos_all = wallet_service.get_utxos_at_mixdepth(md, include_disabled=True)
     utxos_disabled_keyset = set(utxos_all).difference(set(utxos_enabled))
     utxos_disabled = {}
     for u in utxos_disabled_keyset:
