@@ -431,9 +431,6 @@ def wallet_showutxos(wallet_service, showprivkey):
         includeconfs=True)
     for md in utxos:
         (enabled, disabled) = get_utxos_enabled_disabled(wallet_service, md)
-        utxo_d = []
-        for k, v in disabled.items():
-            utxo_d.append(k)
         for u, av in utxos[md].items():
             success, us = utxo_to_utxostr(u)
             assert success
@@ -453,7 +450,7 @@ def wallet_showutxos(wallet_service, showprivkey):
                        'external': False,
                        'mixdepth': mixdepth,
                        'confirmations': av['confs'],
-                       'frozen': True if u in utxo_d else False}
+                       'frozen': u in disabled}
             if showprivkey:
                 unsp[us]['privkey'] = wallet_service.get_wif_path(av['path'])
             if locktime:
