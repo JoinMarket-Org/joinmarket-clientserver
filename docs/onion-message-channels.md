@@ -1,14 +1,10 @@
 # HOW TO SETUP ONION MESSAGE CHANNELS IN JOINMARKET
 
-### Contents
-
 1. [Overview](#overview)
 
-2. [Testing, configuring for signet](#testing)
+2. [Testing, configuring for signet](#testing-and-configuring-for-signet)
 
-4. [Directory nodes](#directory)
-
-<a name="overview" />
+3. [Directory nodes](#directory-nodes)
 
 ## Overview
 
@@ -30,7 +26,7 @@ As of Joinmarket 0.9.6, which introduces this feature, **Tor is now a requiremen
 
 The configuration for a user is simple; in their `joinmarket.cfg` they will get a new `[MESSAGING]` section like this, if they start from scratch:
 
-```
+```ini
 [MESSAGING:onion]
 # onion based message channels must have the exact type 'onion'
 # (while the section name above can be MESSAGING:whatever), and there must
@@ -111,7 +107,7 @@ nodes and then, as according to need, to individual makers, also.
 As previously mentioned, both of these features - inbound and outbound, to onion, Tor connections - were already in use in Joinmarket. If you want to run/test as a maker bot, but never served an onion service before, it should work fine as long as you have the Tor service running in the background,
 and the default control port 9051 (if not, change that value in the `joinmarket.cfg`, see above).
 
-#### Why not use Lightning based onions?
+### Why not use Lightning based onions?
 
 (*Feel free to skip this section if you don't know what "Lightning based onions" refers to!*). The reason this architecture is
 proposed as an alternative to the previously suggested Lightning-node-based network (see
@@ -126,10 +122,7 @@ removed)
 So the short version is: the Lightning based alternative is certainly feasible, but has a lot more baggage that can't really be justified
 unless we're actually using it for something.
 
-
-<a name="testing" />
-
-## Testing, and configuring for signet.
+## Testing and configuring for signet
 
 This testing section focuses on signet since that will be the less troublesome way of getting involved in tests for
 the non-hardcore JM developer :)
@@ -144,8 +137,6 @@ You can just uncomment the `directory_nodes` entry listed as SIGNET, and comment
 
 Then just make sure your bot has some signet coins and try running as maker or taker or both.
 
-<a name="directory" />
-
 ## Directory nodes
 
 **This last section is for people with a lot of technical knowledge in this area,
@@ -158,10 +149,9 @@ The currently suggested way to run a directory node is to use the [`start-dn.py`
 
 This slightly unobvious approach is based on the following ideas: we run a Joinmarket script, with a Joinmarket python virtual environment, so that we are able to parse messages; this means that the directory node *can* be a bot, e.g. a maker bot, but need not be - and here it is basically a "crippled" maker bot that cannot do anything. This 'crippling' is actually very useful because (a) we use the `no-blockchain` argument (it is forced in-code; you don't need to set it) so we don't need a running Bitcoin node (of whatever flavour), and (b) we don't need a wallet either.
 
-#### Joinmarket-specific configuration
+### Joinmarket-specific configuration
 
-Add a non-empty `hidden_service_dir` entry to your `[MESSAGING:onion]` with a directory accessible to your user. You may want to lock this down
-a bit, but be careful changing permissions from what is created by the script, because Tor is very finicky about this.
+Add a non-empty `hidden_service_dir` entry to your `[MESSAGING:onion]` with a directory accessible to your user, with permissions set to `700` on Unix-like OS. Be careful changing permissions from what is created by the script, because Tor is very finicky about this.
 
 The hostname for your onion service will not change and will be stored permanently in that directory.
 
@@ -169,18 +159,17 @@ The point to understand is: Joinmarket's `jmbase.JMHiddenService` will, if confi
 field, actually start an *independent* instance of Tor specifically for serving this, under the current user.
 (our Tor interface library `txtorcon` needs read access to the Tor HS dir, so it's troublesome to do this another way).
 
-##### Question: How to configure the `directory-nodes` list in our `joinmarket.cfg` for this directory node bot?
+#### Question: How to configure the `directory-nodes` list in our `joinmarket.cfg` for this directory node bot?
 
 Answer: **you must only enter your own node in this list!**. This way your bot will recognize that it is a directory node and it avoids weird edge case behaviour (so don't add *other* known directory nodes; you won't be talking to them).
 
 A natural retort is: but I don't know my own node's onion service hostname before I start it the first time. Indeed. So, just run it once with the default `directory_nodes` entries, then note down the new onion service hostname you created, and insert that as the only entry in the list.
 
-
-#### Suggested setup of a systemd service:
+### Suggested setup of a systemd service
 
 The most basic bare-bones service seems to work fine here:
 
-```
+```ini
 [Unit]
 Description=My JM signet directory node
 Requires=network-online.target
@@ -210,5 +199,6 @@ WantedBy=multi-user.target
 
 * now the service should start correctly
 
-TODO: add some material on network hardening/firewalls here, I guess.
+## TODO
 
+- add some material on network hardening/firewalls here, I guess.
