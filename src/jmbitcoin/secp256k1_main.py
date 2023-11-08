@@ -1,5 +1,6 @@
 import base64
 import struct
+from typing import List, Tuple, Union
 
 from jmbase import bintohex
 from bitcointx import base58
@@ -26,7 +27,7 @@ BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4', "signet": b'\xc4'}
 
 """PoDLE related primitives
 """
-def getG(compressed=True):
+def getG(compressed: bool = True) -> CPubKey:
     """Returns the public key binary
     representation of secp256k1 G;
     note that CPubKey is of type bytes.
@@ -39,17 +40,17 @@ def getG(compressed=True):
 podle_PublicKey_class = CPubKey
 podle_PrivateKey_class = CKey
 
-def podle_PublicKey(P):
+def podle_PublicKey(P: bytes) -> CPubKey:
     """Returns a PublicKey object from a binary string
     """
     return CPubKey(P)
 
-def podle_PrivateKey(priv):
+def podle_PrivateKey(priv: bytes) -> CKey:
     """Returns a PrivateKey object from a binary string
     """
     return CKey(priv)
 
-def read_privkey(priv):
+def read_privkey(priv: bytes) -> Tuple[bool, bytes]:
     if len(priv) == 33:
         if priv[-1:] == b'\x01':
             compressed = True
@@ -61,7 +62,7 @@ def read_privkey(priv):
         raise Exception("Invalid private key")
     return (compressed, priv[:32])
 
-def privkey_to_pubkey(priv):
+def privkey_to_pubkey(priv: bytes) -> CPubKey:
     '''Take 32/33 byte raw private key as input.
     If 32 bytes, return as uncompressed raw public key.
     If 33 bytes and the final byte is 01, return
@@ -75,7 +76,8 @@ def privkey_to_pubkey(priv):
 # b58check wrapper functions around bitcointx.base58 functions:
 # (avoids complexity of key management structure)
 
-def bin_to_b58check(inp, magicbyte=b'\x00'):
+def bin_to_b58check(inp: bytes,
+                    magicbyte: Union[bytes, int] = b'\x00') -> str:
     """ The magic byte (prefix byte) should be passed either
     as a single byte or an integer. What is returned is a string
     in base58 encoding, with the prefix and the checksum.
@@ -91,25 +93,25 @@ def bin_to_b58check(inp, magicbyte=b'\x00'):
     checksum = Hash(inp_fmtd)[:4]
     return base58.encode(inp_fmtd + checksum)
 
-def b58check_to_bin(s):
+def b58check_to_bin(s: str) -> bytes:
     data = base58.decode(s)
     assert Hash(data[:-4])[:4] == data[-4:]
     return struct.pack(b"B", data[0]), data[1:-4]
 
-def get_version_byte(s):
+def get_version_byte(s: str) -> bytes:
     return b58check_to_bin(s)[0]
 
-def ecdsa_sign(msg, priv):
+def ecdsa_sign(msg: str, priv: bytes) -> str:
     hashed_msg = BitcoinMessage(msg).GetHash()
     sig = ecdsa_raw_sign(hashed_msg, priv, rawmsg=True)
     return base64.b64encode(sig).decode('ascii')
 
-def ecdsa_verify(msg, sig, pub):
+def ecdsa_verify(msg: str, sig: str, pub: bytes) -> bool:
     hashed_msg = BitcoinMessage(msg).GetHash()
     sig = base64.b64decode(sig)
     return ecdsa_raw_verify(hashed_msg, pub, sig, rawmsg=True)
 
-def is_valid_pubkey(pubkey, require_compressed=False):
+def is_valid_pubkey(pubkey: bytes, require_compressed: bool = False) -> bool:
     """ Returns True if the serialized pubkey is a valid secp256k1
     pubkey serialization or False if not; returns False for an
     uncompressed encoding if require_compressed is True.
@@ -135,7 +137,7 @@ def is_valid_pubkey(pubkey, require_compressed=False):
     return True
 
 
-def multiply(s, pub, return_serialized=True):
+def multiply(s: bytes, pub: bytes, return_serialized: bool = True) -> bytes:
     '''Input binary compressed pubkey P(33 bytes)
     and scalar s(32 bytes), return s*P.
     The return value is a binary compressed public key,
@@ -166,7 +168,7 @@ def multiply(s, pub, return_serialized=True):
         return CPubKey._from_ctypes_char_array(pubkey_buf)
     return bytes(CPubKey._from_ctypes_char_array(pubkey_buf))
 
-def add_pubkeys(pubkeys):
+def add_pubkeys(pubkeys: List[bytes]) -> CPubKey:
     '''Input a list of binary compressed pubkeys
     and return their sum as a binary compressed pubkey.'''
     pubkey_list = [CPubKey(x) for x in pubkeys]
@@ -176,7 +178,7 @@ def add_pubkeys(pubkeys):
         raise ValueError("Invalid pubkey format.")
     return CPubKey.combine(*pubkey_list)
 
-def add_privkeys(priv1, priv2):
+def add_privkeys(priv1: bytes, priv2: bytes) -> bytes:
     '''Add privkey 1 to privkey 2.
     Input keys must be in binary either compressed or not.
     Returned key will have the same compression state.
@@ -192,7 +194,7 @@ def add_privkeys(priv1, priv2):
         res += b'\x01'
     return res
 
-def ecdh(privkey, pubkey):
+def ecdh(privkey: bytes, pubkey: bytes) -> bytes:
     """ Take a privkey in raw byte serialization,
     and a pubkey serialized in compressed, binary format (33 bytes),
     and output the shared secret as a 32 byte hash digest output.
@@ -205,9 +207,9 @@ def ecdh(privkey, pubkey):
     _, priv = read_privkey(privkey)
     return CKey(priv).ECDH(CPubKey(pubkey))
 
-def ecdsa_raw_sign(msg,
-                   priv,
-                   rawmsg=False):
+def ecdsa_raw_sign(msg: Union[bytes, bytearray],
+                   priv: bytes,
+                   rawmsg: bool = False) -> bytes:
     '''Take the binary message msg and sign it with the private key
     priv.
     If rawmsg is True, no sha256 hash is applied to msg before signing.
@@ -225,7 +227,10 @@ def ecdsa_raw_sign(msg,
         sig = newpriv.sign(Hash(msg), _ecdsa_sig_grind_low_r=False)
     return sig
 
-def ecdsa_raw_verify(msg, pub, sig, rawmsg=False):
+def ecdsa_raw_verify(msg: bytes,
+                     pub: bytes,
+                     sig: bytes,
+                     rawmsg: bool = False) -> bool:
     '''Take the binary message msg and binary signature sig,
     and verify it against the pubkey pub.
     If rawmsg is True, no sha256 hash is applied to msg before verifying.
@@ -265,7 +270,7 @@ class JMCKey(bytes, CKeyBase):
     def __init__(self, b):
         CKeyBase.__init__(self, b, compressed=True)
 
-    def sign(self, hash):
+    def sign(self, hash: Union[bytes, bytearray]) -> bytes:
         assert isinstance(hash, (bytes, bytearray))
         if len(hash) != 32:
             raise ValueError('Hash must be exactly 32 bytes long')
