@@ -2208,7 +2208,7 @@ class BIP32Wallet(BaseWallet):
             self._ENGINE
 
     def _is_my_bip32_path(self, path):
-        return path[0] == self._key_ident
+        return len(path) > 0 and path[0] == self._key_ident
 
     def is_standard_wallet_script(self, path):
         return self._is_my_bip32_path(path)
