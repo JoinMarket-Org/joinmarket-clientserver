@@ -543,29 +543,20 @@ class BaseWallet(object):
         privkey = self._get_key_from_path(path)[0]
         return privkey
 
-    def _get_addr_int_ext(self, address_type, mixdepth):
-        if address_type == self.ADDRESS_TYPE_EXTERNAL:
-            script = self.get_external_script(mixdepth)
-        elif address_type == self.ADDRESS_TYPE_INTERNAL:
-            script = self.get_internal_script(mixdepth)
-        else:
-            assert 0
-        return self.script_to_addr(script)
-
     def get_external_addr(self, mixdepth):
         """
         Return an address suitable for external distribution, including funding
         the wallet from other sources, or receiving payments or donations.
         JoinMarket will never generate these addresses for internal use.
         """
-        return self._get_addr_int_ext(self.ADDRESS_TYPE_EXTERNAL, mixdepth)
+        return self.get_new_addr(mixdepth, self.ADDRESS_TYPE_EXTERNAL)
 
     def get_internal_addr(self, mixdepth):
         """
         Return an address for internal usage, as change addresses and when
         participating in transactions initiated by other parties.
         """
-        return self._get_addr_int_ext(self.ADDRESS_TYPE_INTERNAL, mixdepth)
+        return self.get_new_addr(mixdepth, self.ADDRESS_TYPE_INTERNAL)
 
     def get_external_script(self, mixdepth):
         return self.get_new_script(mixdepth, self.ADDRESS_TYPE_EXTERNAL)
