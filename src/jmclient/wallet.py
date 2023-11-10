@@ -921,7 +921,8 @@ class BaseWallet(object):
         returns:
             script
         """
-        raise NotImplementedError()
+        priv, engine = self._get_key_from_path(path)
+        return engine.key_to_script(priv)
 
     def get_script(self, mixdepth, address_type, index):
         path = self.get_path(mixdepth, address_type, index)
@@ -1932,13 +1933,6 @@ class ImportWalletMixin(object):
             return super().get_details(path)
         return path[1], 'imported', path[2]
 
-    def get_script_from_path(self, path):
-        if not self._is_imported_path(path):
-            return super().get_script_from_path(path)
-
-        priv, engine = self._get_key_from_path(path)
-        return engine.key_to_script(priv)
-
 
 class BIP39WalletMixin(object):
     """
@@ -2116,7 +2110,7 @@ class BIP32Wallet(BaseWallet):
 
     def get_script_from_path(self, path):
         if not self._is_my_bip32_path(path):
-            raise WalletError("unable to get script for unknown key path")
+            return super().get_script_from_path(path)
 
         md, address_type, index = self.get_details(path)
 
@@ -2132,10 +2126,7 @@ class BIP32Wallet(BaseWallet):
             #concept of a "next address" cant be used
             return self.get_new_script_override_disable(md, address_type)
 
-        priv, engine = self._get_key_from_path(path)
-        script = engine.key_to_script(priv)
-
-        return script
+        return super().get_script_from_path(path)
 
     def get_path(self, mixdepth=None, address_type=None, index=None):
         if mixdepth is not None:
