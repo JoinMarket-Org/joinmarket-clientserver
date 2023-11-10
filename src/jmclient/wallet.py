@@ -2234,10 +2234,6 @@ class BIP32Wallet(BaseWallet):
         self._script_map[script] = path
         return script
 
-    def get_script(self, mixdepth, address_type, index):
-        path = self.get_path(mixdepth, address_type, index)
-        return self.get_script_from_path(path)
-
     @deprecated
     def get_key(self, mixdepth, address_type, index):
         path = self.get_path(mixdepth, address_type, index)
@@ -2526,14 +2522,6 @@ class FidelityBondMixin(object):
 
     def _get_default_used_indices(self):
         return {x: [0, 0, 0, 0] for x in range(self.max_mixdepth + 1)}
-
-    def get_script(self, mixdepth, address_type, index):
-        path = self.get_path(mixdepth, address_type, index)
-        return self.get_script_from_path(path)
-
-    def get_addr(self, mixdepth, address_type, index):
-        script = self.get_script(mixdepth, address_type, index)
-        return self.script_to_addr(script)
 
     def add_burner_output(self, path, txhex, block_height, merkle_branch,
             block_index, write=True):
