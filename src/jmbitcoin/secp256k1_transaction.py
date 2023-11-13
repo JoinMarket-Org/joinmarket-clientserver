@@ -5,6 +5,7 @@ from typing import List, Union, Tuple
 # needed for single sha256 evaluation, which is used
 # in bitcoin (p2wsh) but not exposed in python-bitcointx:
 import hashlib
+from math import ceil
 
 from jmbitcoin.secp256k1_main import *
 from jmbase import bintohex, utxo_to_utxostr
@@ -181,7 +182,7 @@ def tx_vsize(tx):
     raw_tx_size = len(tx.serialize())
     witness_size = len(tx.wit.serialize())
     non_witness_size = raw_tx_size - witness_size
-    return int(non_witness_size + .25 * witness_size)
+    return ceil(non_witness_size + .25 * witness_size)
 
 def pubkey_to_p2pkh_script(pub, require_compressed=False):
     """
