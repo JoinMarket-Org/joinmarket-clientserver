@@ -121,7 +121,8 @@ class DummyWallet(LegacyWallet):
         """
         return 'p2wpkh'
 
-    def _get_key_from_path(self, path):
+    def _get_key_from_path(self, path,
+            validate_cache: bool = False):
         if path[0] == b'dummy':
             return struct.pack(b'B', path[2] + 1)*32 + b'\x01', self._ENGINE
         raise NotImplementedError()
@@ -152,10 +153,12 @@ class DummyWallet(LegacyWallet):
             return False
         return True
 
-    def script_to_addr(self, script):
+    def script_to_addr(self, script,
+            validate_cache: bool = False):
         if self.script_to_path(script)[0] == "nonstandard_path":
             return "dummyaddr"
-        return super().script_to_addr(script)
+        return super().script_to_addr(script,
+            validate_cache=validate_cache)
 
 
 def dummy_order_chooser():
