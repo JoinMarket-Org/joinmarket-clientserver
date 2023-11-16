@@ -766,7 +766,8 @@ class JMWalletDaemon(Service):
             self.check_cookie(request)
             assert isinstance(request.content, BytesIO)
             payment_info_json = self.get_POST_body(request, ["mixdepth", "amount_sats",
-                                                             "destination"])
+                                                             "destination"],
+                                                            ["txfee"])
             if not payment_info_json:
                 raise InvalidRequestFormat()
             if not self.services["wallet"]:
@@ -780,15 +781,24 @@ class JMWalletDaemon(Service):
             # all error conditions).
             if not self.coinjoin_state == CJ_NOT_RUNNING:
                 raise ActionNotAllowed()
+
+            old_txfee = jm_single().config.get("POLICY", "tx_fees")
+            if "txfee" in payment_info_json:
+                jm_single().config.set("POLICY", "tx_fees",
+                                       str(payment_info_json["txfee"]))
+
             try:
                 tx = direct_send(self.services["wallet"],
                         int(payment_info_json["amount_sats"]),
                         int(payment_info_json["mixdepth"]),
                         destination=payment_info_json["destination"],
                         return_transaction=True, answeryes=True)
+                jm_single().config.set("POLICY", "tx_fees", old_txfee)
             except AssertionError:
+                jm_single().config.set("POLICY", "tx_fees", old_txfee)
                 raise InvalidRequestFormat()
             except NotEnoughFundsException as e:
+                jm_single().config.set("POLICY", "tx_fees", old_txfee)
                 raise TransactionFailed(repr(e))
             if not tx:
                 # this should not really happen; not a coinjoin

@@ -1113,6 +1113,10 @@ components:
         destination:
           type: string
           example: bcrt1qu7k4dppungsqp95nwc7ansqs9m0z95h72j9mze
+        txfee:
+          type: integer
+          example: 6
+          description: Bitcoin miner fee to use for transaction. A number higher than 1000 is used as satoshi per kvB tx fee. The number lower than that uses the dynamic fee estimation of blockchain provider as confirmation target.
     ErrorMessage:
         type: object
         properties:
