@@ -1,14 +1,12 @@
+import re
+from bitcointx.core import coins_to_satoshi, satoshi_to_coins
 from decimal import Decimal
 from typing import Any, Tuple, Union
-import re
 
 
 def btc_to_sat(btc: Union[int, str, Tuple, float, Decimal]) -> int:
-    return int(Decimal(btc) * Decimal('1e8'))
+    return coins_to_satoshi(Decimal(btc))
 
-
-def sat_to_btc(sat: int) -> Decimal:
-    return Decimal(sat) / Decimal('1e8')
 
 # 1             = 0.00000001 BTC = 1sat
 # 1sat          = 0.00000001 BTC = 1sat
@@ -53,11 +51,11 @@ def amount_to_str(amount_str: str) -> str:
 
 
 def sat_to_str(sat: int) -> str:
-    return '%.8f' % sat_to_btc(sat)
+    return '%.8f' % satoshi_to_coins(sat)
 
 
 def sat_to_str_p(sat: int) -> str:
-    return '%+.8f' % sat_to_btc(sat)
+    return '%+.8f' % satoshi_to_coins(sat, check_range=False)
 
 
 def fee_per_kb_to_str(feerate: Any) -> str:

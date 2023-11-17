@@ -8,11 +8,6 @@ def test_btc_to_sat() -> None:
     assert(btc.btc_to_sat(Decimal("1.00000000")) == 100000000)
 
 
-def test_sat_to_btc() -> None:
-    assert(btc.sat_to_btc(1) == Decimal("0.00000001"))
-    assert(btc.sat_to_btc(100000000) == Decimal("1.00000000"))
-
-
 def test_amount_to_sat() -> None:
     assert(btc.amount_to_sat("1") == 1)
     assert(btc.amount_to_sat("1sat") == 1)
