@@ -5,25 +5,39 @@ JM_VERSION = 5
 nickname = None
 
 separator = " "
-offertypes = {"reloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
-                           (int, "txfee"), (float, "cjfee")],
-              "absoffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
-                           (int, "txfee"), (int, "cjfee")],
-              "swreloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
-                           (int, "txfee"), (float, "cjfee")],
-              "swabsoffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
-                           (int, "txfee"), (int, "cjfee")],
-              "sw0reloffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
-                           (int, "txfee"), (float, "cjfee")],
-              "sw0absoffer": [(int, "oid"), (int, "minsize"), (int, "maxsize"),
-                           (int, "txfee"), (int, "cjfee")]}
+offertypes = {
+    "reloffer": [
+        (int, "oid"), (int, "minsize"), (int, "maxsize"),
+        (int, "txfee"), (float, "cjfee"), (int, "minimum_tx_fee_rate")
+    ],
+    "absoffer": [
+        (int, "oid"), (int, "minsize"), (int, "maxsize"),
+        (int, "txfee"), (int, "cjfee"), (int, "minimum_tx_fee_rate")
+    ],
+    "swreloffer": [
+        (int, "oid"), (int, "minsize"), (int, "maxsize"),
+        (int, "txfee"), (float, "cjfee"), (int, "minimum_tx_fee_rate")
+    ],
+    "swabsoffer": [
+        (int, "oid"), (int, "minsize"), (int, "maxsize"),
+        (int, "txfee"), (int, "cjfee"), (int, "minimum_tx_fee_rate")
+    ],
+    "sw0reloffer": [
+        (int, "oid"), (int, "minsize"), (int, "maxsize"),
+        (int, "txfee"), (float, "cjfee"), (int, "minimum_tx_fee_rate")
+    ],
+    "sw0absoffer": [
+        (int, "oid"), (int, "minsize"), (int, "maxsize"),
+        (int, "txfee"), (int, "cjfee"), (int, "minimum_tx_fee_rate")
+    ]
+}
 
 offername_list = list(offertypes.keys())
 
 fidelity_bond_cmd_list = ["tbond"]
 
 ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
-              'cjfee']
+              'cjfee', 'minimum_tx_fee_rate']
 
 COMMAND_PREFIX = '!'
 JOINMARKET_NICK_HEADER = 'J'

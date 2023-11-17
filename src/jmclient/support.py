@@ -1,13 +1,15 @@
-from functools import reduce
 import random
-from jmbase.support import get_log
 from decimal import Decimal
-from .configure import get_bondless_makers_allowance
-
+from functools import reduce
 from math import exp
+from typing import Callable, List, Optional, Tuple
+
+from jmbase.support import get_log
+from .configure import get_bondless_makers_allowance, jm_single
+
 
 ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
-              'cjfee']
+              'cjfee', 'minimum_tx_fee_rate']
 
 log = get_log()
 
@@ -45,7 +47,7 @@ def rand_exp_array(lamda, n):
     return [random.expovariate(1.0 / lamda) for _ in range(n)]
 
 
-def rand_weighted_choice(n, p_arr):
+def rand_weighted_choice(n: int, p_arr: list) -> int:
     """
     Choose a value in 0..n-1
     with the choice weighted by the probabilities
@@ -177,7 +179,7 @@ def calc_cj_fee(ordertype, cjfee, cj_amount):
     return real_cjfee
 
 
-def weighted_order_choose(orders, n):
+def weighted_order_choose(orders: List[dict], n: int) -> dict:
     """
     Algorithm for choosing the weighting function
     it is an exponential
@@ -208,18 +210,18 @@ def weighted_order_choose(orders, n):
     return orders[chosen_order_index]
 
 
-def random_under_max_order_choose(orders, n):
+def random_under_max_order_choose(orders: List[dict], n: int) -> dict:
     # orders are already pre-filtered for max_cj_fee
     return random.choice(orders)
 
 
-def cheapest_order_choose(orders, n):
+def cheapest_order_choose(orders: List[dict], n: int) -> dict:
     """
     Return the cheapest order from the orders.
     """
     return orders[0]
 
-def fidelity_bond_weighted_order_choose(orders, n):
+def fidelity_bond_weighted_order_choose(orders: List[dict], n: int) -> dict:
     """
     choose orders based on fidelity bond for improved sybil resistance
 
@@ -247,19 +249,28 @@ def _get_is_within_max_limits(max_fee_rel, max_fee_abs, cjvalue):
     return check_max_fee
 
 
-def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
-                  pick=False, allowed_types=["sw0reloffer", "sw0absoffer"],
-                  max_cj_fee=(1, float('inf'))):
+def choose_orders(offers: List[dict],
+                  cj_amount: int,
+                  num_counterparties: int,
+                  chooseOrdersBy: Callable[[List[dict], int], dict],
+                  ignored_makers: Optional[List[str]] = None,
+                  pick: bool = False,
+                  allowed_types: List[str] = ["sw0reloffer", "sw0absoffer"],
+                  max_cj_fee: Tuple = (1, float('inf'))) -> Tuple[Optional[dict], int]:
     is_within_max_limits = _get_is_within_max_limits(
         max_cj_fee[0], max_cj_fee[1], cj_amount)
     if ignored_makers is None:
         ignored_makers = []
+    fee_per_kb = jm_single().bc_interface.estimate_fee_per_kb(
+        jm_single().config.getint("POLICY", "tx_fees"), randomize=False)
     #Filter ignored makers and inappropriate amounts
     orders = [o for o in offers if o['counterparty'] not in ignored_makers]
     orders = [o for o in orders if o['minsize'] < cj_amount]
     orders = [o for o in orders if o['maxsize'] > cj_amount]
     #Filter those not using wished-for offertypes
     orders = [o for o in orders if o["ordertype"] in allowed_types]
+    #Filter those not accepting our tx feerate
+    orders = [o for o in orders if o["minimum_tx_fee_rate"] <= fee_per_kb]
 
     orders_fees = []
     for o in orders:
@@ -268,10 +279,11 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
             orders_fees.append((o, fee))
 
     counterparties = set(o['counterparty'] for o, f in orders_fees)
-    if n > len(counterparties):
+    if num_counterparties > len(counterparties):
         log.warn(('ERROR not enough liquidity in the orderbook n=%d '
                    'suitable-counterparties=%d amount=%d totalorders=%d') %
-                  (n, len(counterparties), cj_amount, len(orders_fees)))
+                  (num_counterparties, len(counterparties), cj_amount,
+                   len(orders_fees)))
         # TODO handle not enough liquidity better, maybe an Exception
         return None, 0
     """
@@ -294,8 +306,9 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
                                                    ]))
     total_cj_fee = 0
     chosen_orders = []
-    for i in range(n):
-        chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n)
+    for i in range(num_counterparties):
+        chosen_order, chosen_fee = chooseOrdersBy(orders_fees,
+                                                  num_counterparties)
         # remove all orders from that same counterparty
         # only needed if offers are manually picked
         orders_fees = [o
@@ -308,14 +321,14 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
     return result, total_cj_fee
 
 
-def choose_sweep_orders(offers,
-                        total_input_value,
-                        total_txfee,
-                        n,
-                        chooseOrdersBy,
-                        ignored_makers=None,
-                        allowed_types=['sw0reloffer', 'sw0absoffer'],
-                        max_cj_fee=(1, float('inf'))):
+def choose_sweep_orders(offers: List[dict],
+                        total_input_value: int,
+                        total_txfee: int,
+                        num_counterparties: int,
+                        chooseOrdersBy: Callable[[List[dict], int], dict],
+                        ignored_makers: Optional[List[str]] = None,
+                        allowed_types: List[str] = ['sw0reloffer', 'sw0absoffer'],
+                        max_cj_fee: Tuple = (1, float('inf'))) -> Tuple[Optional[dict], int, int]:
     """
     choose an order given that we want to be left with no change
     i.e. sweep an entire group of utxos
@@ -332,7 +345,7 @@ def choose_sweep_orders(offers,
     if ignored_makers is None:
         ignored_makers = []
 
-    def calc_zero_change_cj_amount(ordercombo):
+    def calc_zero_change_cj_amount(ordercombo: List[dict]) -> Tuple[int, int]:
         sumabsfee = 0
         sumrelfee = Decimal('0')
         sumtxfee_contribution = 0
@@ -352,14 +365,18 @@ def choose_sweep_orders(offers,
         cjamount = int(cjamount.quantize(Decimal(1)))
         return cjamount, int(sumabsfee + sumrelfee * cjamount)
 
+    fee_per_kb = jm_single().bc_interface.estimate_fee_per_kb(
+        jm_single().config.getint("POLICY", "tx_fees"), randomize=False)
     log.debug('choosing sweep orders for total_input_value = ' + str(
-        total_input_value) + ' n=' + str(n))
+        total_input_value) + ' n=' + str(num_counterparties))
     offers = [o for o in offers if o["ordertype"] in allowed_types]
     #Filter ignored makers and inappropriate amounts
     offers = [o for o in offers if o['counterparty'] not in ignored_makers]
     offers = [o for o in offers if o['minsize'] < total_input_value]
     # while we do not know the exact cj value yet, we can approximate a ceiling:
     offers = [o for o in offers if o['maxsize'] > (total_input_value - total_txfee)]
+    #Filter those not accepting our tx feerate
+    offers = [o for o in offers if o["minimum_tx_fee_rate"] <= fee_per_kb]
 
     log.debug('orderlist = \n' + '\n'.join([str(o) for o in offers]))
     orders_fees = [(o, calc_cj_fee(o['ordertype'], o['cjfee'],
@@ -376,13 +393,14 @@ def choose_sweep_orders(offers,
              if is_within_max_limits(v[1])).values(),
         key=feekey)
     chosen_orders = []
-    while len(chosen_orders) < n:
-        for i in range(n - len(chosen_orders)):
-            if len(orders_fees) < n - len(chosen_orders):
+    while len(chosen_orders) < num_counterparties:
+        for i in range(num_counterparties - len(chosen_orders)):
+            if len(orders_fees) < num_counterparties - len(chosen_orders):
                 log.debug('ERROR not enough liquidity in the orderbook')
                 # TODO handle not enough liquidity better, maybe an Exception
                 return None, 0, 0
-            chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n)
+            chosen_order, chosen_fee = chooseOrdersBy(orders_fees,
+                                                      num_counterparties)
             log.debug('chosen = ' + str(chosen_order))
             # remove all orders from that same counterparty
             orders_fees = [

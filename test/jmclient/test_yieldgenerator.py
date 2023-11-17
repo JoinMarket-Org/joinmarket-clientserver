@@ -81,6 +81,7 @@ class CreateMyOrdersTests(unittest.TestCase):
         self.assertEqual(yg.create_my_orders(), [
           {'oid': 0,
            'ordertype': 'swabsoffer',
+           'minimum_tx_fee_rate': 1000,
            'minsize': 100000,
            'maxsize': 1999000,
            'txfee': 1000,
@@ -94,6 +95,7 @@ class CreateMyOrdersTests(unittest.TestCase):
         self.assertEqual(yg.create_my_orders(), [
           {'oid': 0,
            'ordertype': 'sw0reloffer',
+           'minimum_tx_fee_rate': 1000,
            'minsize': 15000,
            'maxsize': 1999000,
            'txfee': 1000,
@@ -107,6 +109,7 @@ class CreateMyOrdersTests(unittest.TestCase):
         self.assertEqual(yg.create_my_orders(), [
           {'oid': 0,
            'ordertype': 'swabsoffer',
+           'minimum_tx_fee_rate': 1000,
            'minsize': 100000,
            'maxsize': 1999000,
            'txfee': 10,

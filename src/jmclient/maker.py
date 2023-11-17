@@ -15,7 +15,7 @@ from .cryptoengine import EngineError
 jlog = get_log()
 
 class Maker(object):
-    def __init__(self, wallet_service):
+    def __init__(self, wallet_service: WalletService):
         self.active_orders = {}
         assert isinstance(wallet_service, WalletService)
         self.wallet_service = wallet_service
@@ -28,6 +28,8 @@ class Maker(object):
         # not-enough-coins:
         self.sync_wait_loop.start(2.0, now=False)
         self.aborted = False
+        self.minimum_tx_fee_rate = jm_single().config.getint(
+            "YIELDGENERATOR", "minimum_tx_fee_rate")
 
     def try_to_create_my_orders(self):
         """Because wallet syncing is not synchronous(!),
@@ -186,6 +188,16 @@ class Maker(object):
         compared with the serialized txhex.
         """
         tx_utxo_set = set((x.prevout.hash[::-1], x.prevout.n) for x in tx.vin)
+
+        if self.minimum_tx_fee_rate > 1000:
+            tx_inp_data = jm_single().bc_interface.query_utxo_set(tx_utxo_set)
+            total_input_value_sum = 0
+            for utxo in tx_inp_data:
+                total_input_value_sum = total_input_value_sum + utxo["value"]
+            tx_fee = total_input_value_sum - btc.tx_total_outputs_value(tx)
+            tx_fee_rate = tx_fee / btc.tx_vsize(tx) * 1000
+            if tx_fee_rate < self.minimum_tx_fee_rate:
+                return (False, "tx feerate below configured minimum tx feerate")
 
         utxos = offerinfo["utxos"]
         cjaddr = offerinfo["cjaddr"]

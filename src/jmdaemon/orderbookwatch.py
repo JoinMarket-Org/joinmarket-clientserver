@@ -40,7 +40,8 @@ class OrderbookWatch(object):
             self.dblock.acquire(True)
             self.db.execute("CREATE TABLE orderbook(counterparty TEXT, "
                             "oid INTEGER, ordertype TEXT, minsize INTEGER, "
-                            "maxsize INTEGER, txfee INTEGER, cjfee TEXT);")
+                            "maxsize INTEGER, txfee INTEGER, cjfee TEXT, "
+                            "minimum_tx_fee_rate INTEGER);")
             self.db.execute("CREATE TABLE fidelitybonds(counterparty TEXT, "
                 "takernick TEXT, proof TEXT);");
         finally:
@@ -65,8 +66,10 @@ class OrderbookWatch(object):
                 print('=' * 60)
                 joinmarket_alert[0] = alert
 
-    def on_order_seen(self, counterparty, oid, ordertype, minsize, maxsize,
-                      txfee, cjfee):
+    def on_order_seen(self, counterparty: str, oid: int, ordertype: str,
+                      minsize: int, maxsize: int,
+                      txfee: int, cjfee: Integral,
+                      minimum_tx_fee_rate: int) -> None:
         try:
             self.dblock.acquire(True)
             if int(oid) < 0 or int(oid) > sys.maxsize:
@@ -112,9 +115,10 @@ class OrderbookWatch(object):
                               " for an absoffer from " + counterparty)
                     return
             self.db.execute(
-                'INSERT INTO orderbook VALUES(?, ?, ?, ?, ?, ?, ?);',
+                'INSERT INTO orderbook VALUES(?, ?, ?, ?, ?, ?, ?, ?);',
                 (counterparty, oid, ordertype, minsize, maxsize, txfee,
-                 str(Decimal(cjfee))))  # any parseable Decimal is a valid cjfee
+                 str(Decimal(cjfee)),   # any parseable Decimal is a valid cjfee
+                 minimum_tx_fee_rate))
         except InvalidOperation:
             log.debug("Got invalid cjfee: " + str(cjfee) + " from " + counterparty)
         except Exception as e:
