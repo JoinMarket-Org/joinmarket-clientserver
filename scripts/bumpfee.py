@@ -74,8 +74,10 @@ def check_valid_candidate(orig_tx, wallet, output_index=-1):
     if own_inputs_n != tx_inputs_n:
         raise ValueError('Transaction inputs should belong to the wallet.')
 
-    # at least one input should signal opt-in rbf
-    if not any([vin.nSequence <= 0xffffffff - 2 for vin in orig_tx.vin]):
+    # either mempoolfullrbf must be enabled or at least one input must signal
+    # opt-in rbf
+    if not jm_single().bc_interface.mempoolfullrbf() and \
+       not any([vin.nSequence <= 0xffffffff - 2 for vin in orig_tx.vin]):
         raise ValueError('Transaction not replaceable.')
 
     # 1. If output_index is specified, check that the output exist

@@ -90,6 +90,8 @@ class DummyBlockchainInterface(BlockchainInterface):
         pass
     def rescanblockchain(self, start_height: int, end_height: Optional[int] = None) -> None:
         pass
+    def mempoolfullrbf(self) -> bool:
+        pass
 
     def get_current_block_height(self) -> int:
         return 10**6
