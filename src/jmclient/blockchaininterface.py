@@ -172,6 +172,11 @@ class BlockchainInterface(ABC):
         """
 
     @abstractmethod
+    def mempoolfullrbf(self) -> bool:
+        """Whether mempool full-RBF is enabled.
+        """
+
+    @abstractmethod
     def _get_mempool_min_fee(self) -> Optional[int]:
         """Returns minimum mempool fee as a floor to avoid relay problems
         or None in case of error.
@@ -558,12 +563,19 @@ class BitcoinCoreInterface(BlockchainInterface):
                 result.append(result_dict)
         return result
 
+    def _getmempoolinfo(self) -> Optional[dict]:
+        return self._rpc('getmempoolinfo')
+
     def _get_mempool_min_fee(self) -> Optional[int]:
-        rpc_result = self._rpc('getmempoolinfo')
+        rpc_result = self._getmempoolinfo()
         if not rpc_result:
             # in case of connection error:
             return None
         return btc.btc_to_sat(rpc_result['mempoolminfee'])
+
+    def mempoolfullrbf(self) -> bool:
+        rpc_result = self._getmempoolinfo()
+        return 'fullrbf' in rpc_result and rpc_result['fullrbf']
 
     def _estimate_fee_basic(self, conf_target: int) -> Optional[int]:
         # Special bitcoin core case: sometimes the highest priority
