@@ -116,9 +116,9 @@ class OrderbookWatch(object):
                 (counterparty, oid, ordertype, minsize, maxsize, txfee,
                  str(Decimal(cjfee))))  # any parseable Decimal is a valid cjfee
         except InvalidOperation:
-            log.debug("Got invalid cjfee: " + cjfee + " from " + counterparty)
+            log.debug("Got invalid cjfee: " + str(cjfee) + " from " + counterparty)
         except Exception as e:
-            log.debug("Error parsing order " + oid + " from " + counterparty)
+            log.debug("Error parsing order " + str(oid) + " from " + counterparty)
             log.debug("Exception was: " + repr(e))
         finally:
             self.dblock.release()
