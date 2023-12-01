@@ -17,7 +17,6 @@ from jmclient import load_test_config, jm_single, BaseWallet, \
     wallet_gettimelockaddress, UnknownAddressForLabel
 from test_blockchaininterface import sync_test_wallet
 from freezegun import freeze_time
-from bitcointx.wallet import CCoinAddressError
 
 pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
 
@@ -264,9 +263,6 @@ def test_bip32_timelocked_addresses(setup_wallet, timenumber, address, wif):
     mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
 
-    #wallet needs to know about the script beforehand
-    wallet.get_script_and_update_map(mixdepth, address_type, timenumber)
-
     assert address == wallet.get_addr(mixdepth, address_type, timenumber)
     assert wif == wallet.get_wif_path(wallet.get_path(mixdepth, address_type, timenumber))
 
@@ -287,7 +283,7 @@ def test_gettimelockaddress_method(setup_wallet, timenumber, locktime_string):
 
     m = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
     address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
-    script = wallet.get_script_and_update_map(m, address_type, timenumber)
+    script = wallet.get_script(m, address_type, timenumber)
     addr = wallet.script_to_addr(script)
 
     addr_from_method = wallet_gettimelockaddress(wallet, locktime_string)
@@ -456,7 +452,7 @@ def test_timelocked_output_signing(setup_wallet):
     wallet = SegwitWalletFidelityBonds(storage)
 
     timenumber = 0
-    script = wallet.get_script_and_update_map(
+    script = wallet.get_script(
         FidelityBondMixin.FIDELITY_BOND_MIXDEPTH,
         FidelityBondMixin.BIP32_TIMELOCK_ID, timenumber)
     utxo = fund_wallet_addr(wallet, wallet.script_to_addr(script))
@@ -477,7 +473,7 @@ def test_get_bbm(setup_wallet):
     wallet = get_populated_wallet(amount, num_tx)
     # disable a utxo and check we can correctly report
     # balance with the disabled flag off:
-    utxo_1 = list(wallet._utxos.get_utxos_by_mixdepth()[0].keys())[0]
+    utxo_1 = list(wallet._utxos.get_utxos_at_mixdepth(0).keys())[0]
     wallet.disable_utxo(*utxo_1)
     balances = wallet.get_balance_by_mixdepth(include_disabled=True)
     assert balances[0] == num_tx * amount
@@ -610,7 +606,9 @@ def test_address_labels(setup_wallet):
         wallet.get_address_label("2MzY5yyonUY7zpHspg7jB7WQs1uJxKafQe4")
         wallet.set_address_label("2MzY5yyonUY7zpHspg7jB7WQs1uJxKafQe4",
             "test")
-    with pytest.raises(CCoinAddressError):
+        # we no longer decode addresses just to see if we know about them,
+        # so we won't get a CCoinAddressError for invalid addresses
+        #with pytest.raises(CCoinAddressError):
         wallet.get_address_label("badaddress")
         wallet.set_address_label("badaddress", "test")
 

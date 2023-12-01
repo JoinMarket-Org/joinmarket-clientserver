@@ -7,7 +7,7 @@ import sys
 from datetime import datetime, timedelta
 from optparse import OptionParser
 from numbers import Integral
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import islice, chain
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, WalletError, BaseWallet, VolatileStorage,
@@ -403,15 +403,15 @@ def get_tx_info(txid, tx_cache=None):
 
 def get_imported_privkey_branch(wallet_service, m, showprivkey):
     entries = []
+    balance_by_script = defaultdict(int)
+    for data in wallet_service.get_utxos_at_mixdepth(m,
+        include_disabled=True).values():
+        balance_by_script[data['script']] += data['value']
     for path in wallet_service.yield_imported_paths(m):
         addr = wallet_service.get_address_from_path(path)
         script = wallet_service.get_script_from_path(path)
-        balance = 0.0
-        for data in wallet_service.get_utxos_by_mixdepth(
-            include_disabled=True)[m].values():
-            if script == data['script']:
-                balance += data['value']
-        status = ('used' if balance > 0.0 else 'empty')
+        balance = balance_by_script.get(script, 0)
+        status = ('used' if balance else 'empty')
         if showprivkey:
             wip_privkey = wallet_service.get_wif_path(path)
         else:
@@ -431,9 +431,6 @@ def wallet_showutxos(wallet_service, showprivkey):
         includeconfs=True)
     for md in utxos:
         (enabled, disabled) = get_utxos_enabled_disabled(wallet_service, md)
-        utxo_d = []
-        for k, v in disabled.items():
-            utxo_d.append(k)
         for u, av in utxos[md].items():
             success, us = utxo_to_utxostr(u)
             assert success
@@ -453,7 +450,7 @@ def wallet_showutxos(wallet_service, showprivkey):
                        'external': False,
                        'mixdepth': mixdepth,
                        'confirmations': av['confs'],
-                       'frozen': True if u in utxo_d else False}
+                       'frozen': u in disabled}
             if showprivkey:
                 unsp[us]['privkey'] = wallet_service.get_wif_path(av['path'])
             if locktime:
@@ -1279,8 +1276,8 @@ def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
 def get_utxos_enabled_disabled(wallet_service, md):
     """ Returns dicts for enabled and disabled separately
     """
-    utxos_enabled = wallet_service.get_utxos_by_mixdepth()[md]
-    utxos_all = wallet_service.get_utxos_by_mixdepth(include_disabled=True)[md]
+    utxos_enabled = wallet_service.get_utxos_at_mixdepth(md)
+    utxos_all = wallet_service.get_utxos_at_mixdepth(md, include_disabled=True)
     utxos_disabled_keyset = set(utxos_all).difference(set(utxos_enabled))
     utxos_disabled = {}
     for u in utxos_disabled_keyset:
