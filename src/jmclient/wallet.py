@@ -44,10 +44,34 @@ class WalletError(Exception):
     pass
 
 
+class WalletCannotGetPrivateKeyFromWatchOnly(WalletError):
+
+    def __init__(self):
+        super().__init__("Cannot get a private key from a watch-only wallet.")
+
+
+class WalletCacheValidationFailed(WalletError):
+
+    def __init__(self):
+        super().__init__("Wallet cache validation failed.")
+
+
+class WalletMixdepthOutOfRange(WalletError):
+
+    def __init__(self):
+        super().__init__("Mixdepth outside of wallet's range.")
+
+
+class WalletInvalidPath(WalletError):
+
+    def __init__(self, path: str):
+        super().__init__(f"Invalid path, unknown root: {path}.")
+
+
 class UnknownAddressForLabel(Exception):
 
-    def __init__(self, addr):
-        super().__init__('Unknown address for this wallet: ' + addr)
+    def __init__(self, addr: str):
+        super().__init__(f"Unknown address for this wallet: {addr}.")
 
 
 class Mnemonic(MnemonicParent):
@@ -640,7 +664,7 @@ class BaseWallet(object):
                 addr = new_addr
                 cache[b'A'] = addr.encode('ascii')
             elif addr != new_addr:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         return addr
 
     def get_new_addr(self, mixdepth, address_type,
@@ -973,7 +997,7 @@ class BaseWallet(object):
             if script is None:
                 cache[b'S'] = script = new_script
             elif script != new_script:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         return script
 
     def get_script(self, mixdepth, address_type, index,
@@ -996,7 +1020,7 @@ class BaseWallet(object):
             if pubkey is None:
                 cache[b'P'] = pubkey = new_pubkey
             elif pubkey != new_pubkey:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         return privkey, pubkey, engine
 
     def _get_pubkey_from_path(self, path,
@@ -2219,7 +2243,7 @@ class BIP32Wallet(BaseWallet):
         md, address_type, index = self.get_details(path)
 
         if not 0 <= md <= self.max_mixdepth:
-            raise WalletError("Mixdepth outside of wallet's range.")
+            raise WalletMixdepthOutOfRange()
         assert address_type in self._get_supported_address_types()
 
         current_index = self._index_cache[md][address_type]
@@ -2249,7 +2273,7 @@ class BIP32Wallet(BaseWallet):
         if mixdepth is not None:
             assert isinstance(mixdepth, Integral)
             if not 0 <= mixdepth <= self.max_mixdepth:
-                raise WalletError("Mixdepth outside of wallet's range.")
+                raise WalletMixdepthOutOfRange()
 
         if address_type is not None:
             if mixdepth is None:
@@ -2303,14 +2327,14 @@ class BIP32Wallet(BaseWallet):
 
     def _get_mixdepth_from_path(self, path):
         if not self._is_my_bip32_path(path):
-            raise WalletError("Invalid path, unknown root: {}".format(path))
+            raise WalletInvalidPath(path)
 
         return path[len(self._get_bip32_base_path())]
 
     def _get_key_from_path(self, path,
             validate_cache: bool = False):
         if not self._is_my_bip32_path(path):
-            raise WalletError("Invalid path, unknown root: {}".format(path))
+            raise WalletInvalidPath(path)
         cache = self._get_cache_for_path(path)
         privkey = cache.get(b'p')
         if privkey is None or validate_cache:
@@ -2318,7 +2342,7 @@ class BIP32Wallet(BaseWallet):
             if privkey is None:
                 cache[b'p'] = privkey = new_privkey
             elif privkey != new_privkey:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         return privkey, self._ENGINE
 
     def _get_keypair_from_path(self, path,
@@ -2333,14 +2357,14 @@ class BIP32Wallet(BaseWallet):
             if privkey is None:
                 cache[b'p'] = privkey = new_privkey
             elif privkey != new_privkey:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         pubkey = cache.get(b'P')
         if pubkey is None or validate_cache:
             new_pubkey = self._ENGINE.privkey_to_pubkey(privkey)
             if pubkey is None:
                 cache[b'P'] = pubkey = new_pubkey
             elif pubkey != new_pubkey:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         return privkey, pubkey, self._ENGINE
 
     def _get_cache_keys_for_path(self, path):
@@ -2468,7 +2492,7 @@ class BIP32PurposedWallet(BIP32Wallet):
 
     def _get_mixdepth_from_path(self, path):
         if not self._is_my_bip32_path(path):
-            raise WalletError("Invalid path, unknown root: {}".format(path))
+            raise WalletInvalidPath(path)
 
         return path[len(self._get_bip32_base_path())] - 2**31
 
@@ -2621,7 +2645,7 @@ class FidelityBondMixin(object):
                 if privkey is None:
                     cache[b'p'] = privkey = new_privkey
                 elif privkey != new_privkey:
-                    raise WalletError("Wallet cache validation failed")
+                    raise WalletCacheValidationFailed()
             return (privkey, locktime), engine
         else:
             return super()._get_key_from_path(path)
@@ -2641,14 +2665,14 @@ class FidelityBondMixin(object):
             if privkey is None:
                 cache[b'p'] = privkey = new_privkey
             elif privkey != new_privkey:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         pubkey = cache.get(b'P')
         if pubkey is None or validate_cache:
             new_pubkey = engine.privkey_to_pubkey(privkey)
             if pubkey is None:
                 cache[b'P'] = pubkey = new_pubkey
             elif pubkey != new_pubkey:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         return (privkey, locktime), (pubkey, locktime), engine
 
     def _get_cache_for_path(self, path):
@@ -2802,11 +2826,11 @@ class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP84Wallet):
 
     def _get_key_from_path(self, path,
             validate_cache: bool = False):
-        raise WalletError("Cannot get a private key from a watch-only wallet")
+        raise WalletCannotGetPrivateKeyFromWatchOnly()
 
     def _get_keypair_from_path(self, path,
             validate_cache: bool = False):
-        raise WalletError("Cannot get a private key from a watch-only wallet")
+        raise WalletCannotGetPrivateKeyFromWatchOnly()
 
     def _get_pubkey_from_path(self, path,
             validate_cache: bool = False):
@@ -2824,7 +2848,7 @@ class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP84Wallet):
                 if pubkey is None:
                     cache[b'P'] = pubkey = new_pubkey
                 elif pubkey != new_pubkey:
-                    raise WalletError("Wallet cache validation failed")
+                    raise WalletCacheValidationFailed()
             return (pubkey, locktime), self._TIMELOCK_ENGINE
         cache = self._get_cache_for_path(path)
         pubkey = cache.get(b'P')
@@ -2834,7 +2858,7 @@ class FidelityBondWatchonlyWallet(FidelityBondMixin, BIP84Wallet):
             if pubkey is None:
                 cache[b'P'] = pubkey = new_pubkey
             elif pubkey != new_pubkey:
-                raise WalletError("Wallet cache validation failed")
+                raise WalletCacheValidationFailed()
         return pubkey, self._ENGINE
 
 
