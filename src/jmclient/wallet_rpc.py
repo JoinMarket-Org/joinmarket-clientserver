@@ -187,6 +187,9 @@ class JMWalletDaemon(Service):
         # a tumble schedule.
         self.tumbler_options = None
         self.tumble_log = None
+        # save settings we might temporary change runtime
+        self.default_policy_tx_fees = jm_single().config.get("POLICY",
+                                                             "tx_fees")
 
     def get_client_factory(self):
         return JMClientProtocolFactory(self.taker)
@@ -511,6 +514,8 @@ class JMWalletDaemon(Service):
         if not self.tumbler_options:
             # We were doing a single coinjoin -- stop taker.
             self.stop_taker(res)
+            jm_single().config.set("POLICY", "tx_fees",
+                                   self.default_policy_tx_fees)
         else:
             # We're running the tumbler.
             assert self.tumble_log is not None
@@ -782,10 +787,12 @@ class JMWalletDaemon(Service):
             if not self.coinjoin_state == CJ_NOT_RUNNING:
                 raise ActionNotAllowed()
 
-            old_txfee = jm_single().config.get("POLICY", "tx_fees")
             if "txfee" in payment_info_json:
-                jm_single().config.set("POLICY", "tx_fees",
-                                       str(payment_info_json["txfee"]))
+                if int(payment_info_json["txfee"]) > 0:
+                    jm_single().config.set("POLICY", "tx_fees",
+                                           str(payment_info_json["txfee"]))
+                else:
+                    raise InvalidRequestFormat()
 
             try:
                 tx = direct_send(self.services["wallet"],
@@ -793,13 +800,20 @@ class JMWalletDaemon(Service):
                         int(payment_info_json["mixdepth"]),
                         destination=payment_info_json["destination"],
                         return_transaction=True, answeryes=True)
-                jm_single().config.set("POLICY", "tx_fees", old_txfee)
+                jm_single().config.set("POLICY", "tx_fees",
+                                       self.default_policy_tx_fees)
             except AssertionError:
-                jm_single().config.set("POLICY", "tx_fees", old_txfee)
+                jm_single().config.set("POLICY", "tx_fees",
+                                       self.default_policy_tx_fees)
                 raise InvalidRequestFormat()
             except NotEnoughFundsException as e:
-                jm_single().config.set("POLICY", "tx_fees", old_txfee)
+                jm_single().config.set("POLICY", "tx_fees",
+                                       self.default_policy_tx_fees)
                 raise TransactionFailed(repr(e))
+            except Exception:
+                jm_single().config.set("POLICY", "tx_fees",
+                                       self.default_policy_tx_fees)
+                raise
             if not tx:
                 # this should not really happen; not a coinjoin
                 # so tx should go through.
@@ -1183,6 +1197,9 @@ class JMWalletDaemon(Service):
             try:
                 jm_single().config.set(config_json["section"],
                             config_json["field"], config_json["value"])
+                if config_json["section"] == "POLICY":
+                    if config_json["field"] == "tx_fees":
+                        self.default_policy_tx_fees = config_json["value"]
             except:
                 raise ConfigNotPresent()
             # null return indicates success in updating:
@@ -1265,9 +1282,13 @@ class JMWalletDaemon(Service):
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
-            request_data = self.get_POST_body(request,["mixdepth", "amount_sats",
-                                            "counterparties", "destination"])
-            if not request_data:
+            request_data = self.get_POST_body(request,
+                                              ["mixdepth", "amount_sats",
+                                               "counterparties",
+                                               "destination"],
+                                              ["txfee"])
+            if not request_data or \
+               ("txfee" in request_data and int(request_data["txfee"]) <= 0):
                 raise InvalidRequestFormat()
             #see file scripts/sample-schedule-for-testnet for schedule format
             waittime = 0
@@ -1297,6 +1318,11 @@ class JMWalletDaemon(Service):
             # Before actual start, update our coinjoin state:
             if not self.activate_coinjoin_state(CJ_TAKER_RUNNING):
                 raise ServiceAlreadyStarted()
+
+            if "txfee" in request_data:
+                jm_single().config.set("POLICY", "tx_fees",
+                                       str(request_data["txfee"]))
+
             self.taker = Taker(self.services["wallet"], schedule,
                                max_cj_fee = max_cj_fee,
                                callbacks=(self.filter_orders_callback,
