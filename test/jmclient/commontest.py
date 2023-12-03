@@ -84,7 +84,7 @@ class DummyBlockchainInterface(BlockchainInterface):
         pass
     def _get_mempool_min_fee(self) -> Optional[int]:
         pass
-    def _estimate_fee_basic(self, conf_target: int) -> Optional[int]:
+    def _estimate_fee_basic(self, conf_target: int) -> Optional[Tuple[int, int]]:
         pass
     def get_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
         pass

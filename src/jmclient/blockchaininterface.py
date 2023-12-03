@@ -183,11 +183,12 @@ class BlockchainInterface(ABC):
         """
 
     @abstractmethod
-    def _estimate_fee_basic(self, conf_target: int) -> Optional[int]:
+    def _estimate_fee_basic(self,
+                            conf_target: int) -> Optional[Tuple[int, int]]:
         """Returns basic fee estimation for confirmation target in blocks.
         Additional JoinMarket fee logic is added on top, see
-        `estimate_fee_per_kb` for details. Returns feerate in sats per vB
-        or None in case of error.
+        `estimate_fee_per_kb` for details. Returns tuple of feerate in sats
+        per kvB and actual used conf_target or None in case of error.
         """
 
     def yield_transactions(self) -> Generator[dict, None, None]:
@@ -292,9 +293,18 @@ class BlockchainInterface(ABC):
                 btc.fee_per_kb_to_str(fallback_fee_randomized) + ".")
             return int(fallback_fee_randomized)
 
-        retval = random.uniform(retval, retval * float(1 + tx_fees_factor))
+        feerate, blocks = retval
+        # 1 block difference is tolerated with intent, Core will often return
+        # 2 block target for `estimatesmartfee 1`.
+        if tx_fees - blocks > 1:
+            log.warning(
+                f"Fee estimation for {tx_fees} block confirmation target "
+                f"was requested, but {blocks} block target was provided by "
+                "blockchain source. Tx fee may be higher then expected.")
 
-        if retval < mempoolminfee_in_sat:
+        feerate = random.uniform(feerate, feerate * float(1 + tx_fees_factor))
+
+        if feerate < mempoolminfee_in_sat:
             msg = "Using this mempool min fee as tx feerate"
             if tx_fees_factor != 0:
                 msg = msg + " (randomized for privacy)"
@@ -306,8 +316,8 @@ class BlockchainInterface(ABC):
                 " block confirmation target"
             if tx_fees_factor != 0:
                 msg = msg + " (randomized for privacy)"
-            log.info(msg + ": " + btc.fee_per_kb_to_str(retval))
-            return int(retval)
+            log.info(msg + ": " + btc.fee_per_kb_to_str(feerate))
+            return int(feerate)
 
     def core_proof_to_merkle_branch(self, core_proof: str) -> bytes:
         core_proof = binascii.unhexlify(core_proof)
@@ -577,7 +587,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         rpc_result = self._getmempoolinfo()
         return 'fullrbf' in rpc_result and rpc_result['fullrbf']
 
-    def _estimate_fee_basic(self, conf_target: int) -> Optional[int]:
+    def _estimate_fee_basic(self,
+                            conf_target: int) -> Optional[Tuple[int, int]]:
         # Special bitcoin core case: sometimes the highest priority
         # cannot be estimated in that case the 2nd highest priority
         # should be used instead of falling back to hardcoded values
@@ -593,7 +604,7 @@ class BitcoinCoreInterface(BlockchainInterface):
             # if it is not able to make an estimate. We insist that
             # the 'feerate' key is found and contains a positive value:
             if estimate and estimate > 0:
-                return btc.btc_to_sat(estimate)
+                return (btc.btc_to_sat(estimate), rpc_result.get('blocks'))
         # cannot get a valid estimate after `tries` tries:
         log.warn("Could not source a fee estimate from Core")
         return None
