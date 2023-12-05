@@ -1547,8 +1547,11 @@ def open_wallet(path, ask_for_password=True, password=None, read_only=False,
     else:
         storage = Storage(path, password, read_only=read_only)
 
+    load_cache = True
+    if jm_single().config.get("POLICY", "wallet_caching_disabled") == "true":
+        load_cache = False
     wallet_cls = get_wallet_cls_from_storage(storage)
-    wallet = wallet_cls(storage, **kwargs)
+    wallet = wallet_cls(storage, load_cache=load_cache, **kwargs)
     wallet_sanity_check(wallet)
     return wallet
 

@@ -364,7 +364,7 @@ class BaseWallet(object):
     ADDRESS_TYPE_INTERNAL = 1
 
     def __init__(self, storage, gap_limit=6, merge_algorithm_name=None,
-                 mixdepth=None):
+                 mixdepth=None, load_cache=True):
         # to be defined by inheriting classes
         assert self.TYPE is not None
         assert self._ENGINE is not None
@@ -386,7 +386,7 @@ class BaseWallet(object):
         # {address: path}, should always hold mappings for all "known" keys
         self._addr_map = {}
 
-        self._load_storage()
+        self._load_storage(load_cache=load_cache)
 
         assert self._utxos is not None
         assert self._cache is not None
@@ -416,7 +416,7 @@ class BaseWallet(object):
     def gaplimit(self):
         return self.gap_limit
 
-    def _load_storage(self):
+    def _load_storage(self, load_cache: bool = True) -> None:
         """
         load data from storage
         """
@@ -426,7 +426,10 @@ class BaseWallet(object):
         self.network = self._storage.data[b'network'].decode('ascii')
         self._utxos = UTXOManager(self._storage, self.merge_algorithm)
         self._addr_labels = AddressLabelsManager(self._storage)
-        self._cache = self._storage.data.setdefault(b'cache', {})
+        if load_cache:
+            self._cache = self._storage.data.setdefault(b'cache', {})
+        else:
+            self._cache = {}
 
     def get_storage_location(self):
         """ Return the location of the
@@ -1869,8 +1872,8 @@ class ImportWalletMixin(object):
         # path is (_IMPORTED_ROOT_PATH, mixdepth, key_index)
         super().__init__(storage, **kwargs)
 
-    def _load_storage(self):
-        super()._load_storage()
+    def _load_storage(self, load_cache: bool = True) -> None:
+        super()._load_storage(load_cache=load_cache)
         self._imported = collections.defaultdict(list)
         for md, keys in self._storage.data[self._IMPORTED_STORAGE_KEY].items():
             md = int(md)
@@ -2046,8 +2049,8 @@ class BIP39WalletMixin(object):
     _BIP39_EXTENSION_KEY = b'seed_extension'
     MNEMONIC_LANG = 'english'
 
-    def _load_storage(self):
-        super()._load_storage()
+    def _load_storage(self, load_cache: bool = True) -> None:
+        super()._load_storage(load_cache=load_cache)
         self._entropy_extension = self._storage.data.get(self._BIP39_EXTENSION_KEY)
 
     @classmethod
@@ -2153,8 +2156,8 @@ class BIP32Wallet(BaseWallet):
         if write:
             storage.save()
 
-    def _load_storage(self):
-        super()._load_storage()
+    def _load_storage(self, load_cache: bool = True) -> None:
+        super()._load_storage(load_cache=load_cache)
         self._entropy = self._storage.data[self._STORAGE_ENTROPY_KEY]
 
         self._index_cache = collections.defaultdict(
