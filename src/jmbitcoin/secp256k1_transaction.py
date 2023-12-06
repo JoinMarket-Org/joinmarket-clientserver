@@ -1,17 +1,16 @@
-# note, only used for non-cryptographic randomness:
-import random
-import json
-from typing import List, Union, Tuple
 # needed for single sha256 evaluation, which is used
 # in bitcoin (p2wsh) but not exposed in python-bitcointx:
 import hashlib
+import json
+# note, only used for non-cryptographic randomness:
+import random
 from math import ceil
+from typing import List, Optional, Tuple, Union
 
-from jmbitcoin.secp256k1_main import *
-from jmbase import bintohex, utxo_to_utxostr
 from bitcointx.core import (CMutableTransaction, CTxInWitness,
                             CMutableOutPoint, CMutableTxIn, CTransaction,
-                            CMutableTxOut, CTxIn, CTxOut, ValidationError)
+                            CMutableTxOut, CTxIn, CTxOut, ValidationError,
+                            CBitcoinTransaction)
 from bitcointx.core.script import *
 from bitcointx.wallet import (P2WPKHCoinAddress, CCoinAddress, P2PKHCoinAddress,
                               CCoinAddressError)
@@ -20,7 +19,11 @@ from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
                                        SCRIPT_VERIFY_STRICTENC,
                                        SIGVERSION_WITNESS_V0)
 
-def human_readable_transaction(tx, jsonified=True):
+from jmbase import bintohex, utxo_to_utxostr
+from jmbitcoin.secp256k1_main import *
+
+
+def human_readable_transaction(tx: CTransaction, jsonified: bool = True) -> str:
     """ Given a CTransaction object, output a human
     readable json-formatted string (suitable for terminal
     output or large GUI textbox display) containing
@@ -49,7 +52,8 @@ def human_readable_transaction(tx, jsonified=True):
         return outdict
     return json.dumps(outdict, indent=4)
 
-def human_readable_input(txinput, txinput_witness):
+def human_readable_input(txinput: CTxIn,
+                         txinput_witness: Optional[CTxInWitness]) -> dict:
     """ Pass objects of type CTxIn and CTxInWitness (or None)
     and a dict of human-readable entries for this input
     is returned.
@@ -68,7 +72,7 @@ def human_readable_input(txinput, txinput_witness):
             txinput_witness.scriptWitness.serialize())
     return outdict
 
-def human_readable_output(txoutput):
+def human_readable_output(txoutput: CTxOut) -> dict:
     """ Returns a dict of human-readable entries
     for this output.
     """
@@ -175,7 +179,7 @@ def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
         return nwsize
     return (wsize, nwsize)
 
-def tx_vsize(tx):
+def tx_vsize(tx: CTransaction) -> int:
     """
     Computes the virtual size (in vbytes) of a transaction
     """
@@ -184,7 +188,8 @@ def tx_vsize(tx):
     non_witness_size = raw_tx_size - witness_size
     return ceil(non_witness_size + .25 * witness_size)
 
-def pubkey_to_p2pkh_script(pub, require_compressed=False):
+def pubkey_to_p2pkh_script(pub: bytes,
+                           require_compressed: bool = False) -> CScript:
     """
     Given a pubkey in bytes, return a CScript
     representing the corresponding pay-to-pubkey-hash
@@ -192,7 +197,7 @@ def pubkey_to_p2pkh_script(pub, require_compressed=False):
     """
     return P2PKHCoinAddress.from_pubkey(pub).to_scriptPubKey()
 
-def pubkey_to_p2wpkh_script(pub):
+def pubkey_to_p2wpkh_script(pub: bytes) -> CScript:
     """
     Given a pubkey in bytes (compressed), return a CScript
     representing the corresponding pay-to-witness-pubkey-hash
@@ -200,7 +205,7 @@ def pubkey_to_p2wpkh_script(pub):
     """
     return P2WPKHCoinAddress.from_pubkey(pub).to_scriptPubKey()
 
-def pubkey_to_p2sh_p2wpkh_script(pub):
+def pubkey_to_p2sh_p2wpkh_script(pub: bytes) -> CScript:
     """
     Given a pubkey in bytes, return a CScript representing
     the corresponding nested pay to witness keyhash
@@ -210,7 +215,7 @@ def pubkey_to_p2sh_p2wpkh_script(pub):
         raise Exception("Invalid pubkey")
     return pubkey_to_p2wpkh_script(pub).to_p2sh_scriptPubKey()
 
-def redeem_script_to_p2wsh_script(redeem_script):
+def redeem_script_to_p2wsh_script(redeem_script: Union[bytes, CScript]) -> CScript:
     """ Given redeem script of type CScript (or bytes)
     returns the corresponding segwit v0 scriptPubKey as
     for the case pay-to-witness-scripthash.
@@ -218,7 +223,7 @@ def redeem_script_to_p2wsh_script(redeem_script):
     return standard_witness_v0_scriptpubkey(
         hashlib.sha256(redeem_script).digest())
 
-def mk_freeze_script(pub, locktime):
+def mk_freeze_script(pub: bytes, locktime: int) -> CScript:
     """
     Given a pubkey and locktime, create a script which can only be spent
     after the locktime has passed using OP_CHECKLOCKTIMEVERIFY
@@ -232,7 +237,7 @@ def mk_freeze_script(pub, locktime):
     return CScript([locktime, OP_CHECKLOCKTIMEVERIFY, OP_DROP, pub,
                     OP_CHECKSIG])
 
-def mk_burn_script(data):
+def mk_burn_script(data: bytes) -> CScript:
     """ For a given bytestring (data),
     returns a scriptPubKey which is an OP_RETURN
     of that data.
@@ -241,7 +246,12 @@ def mk_burn_script(data):
         raise TypeError("data must be in bytes")
     return CScript([OP_RETURN, data])
 
-def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
+def sign(tx: CMutableTransaction,
+         i: int,
+         priv: bytes,
+         hashcode: SIGHASH_Type = SIGHASH_ALL,
+         amount: Optional[int] = None,
+         native: bool = False) -> Tuple[Optional[bytes], str]:
     """
     Given a transaction tx of type CMutableTransaction, an input index i,
     and a raw privkey in bytes, updates the CMutableTransaction to contain
@@ -325,7 +335,10 @@ def sign(tx, i, priv, hashcode=SIGHASH_ALL, amount=None, native=False):
 
         return sig, "signing succeeded"
 
-def mktx(ins, outs, version=1, locktime=0):
+def mktx(ins: List[Tuple[bytes, int]],
+         outs: List[dict],
+         version: int = 1,
+         locktime: int = 0) -> CMutableTransaction:
     """ Given a list of input tuples (txid(bytes), n(int)),
     and a list of outputs which are dicts with
     keys "address" (value should be *str* not CCoinAddress) (
@@ -361,7 +374,10 @@ def mktx(ins, outs, version=1, locktime=0):
         vout.append(out)
     return CMutableTransaction(vin, vout, nLockTime=locktime, nVersion=version)
 
-def make_shuffled_tx(ins, outs, version=1, locktime=0):
+def make_shuffled_tx(ins: List[Tuple[bytes, int]],
+                     outs: List[dict],
+                     version: int = 1,
+                     locktime: int = 0) -> CMutableTransaction:
     """ Simple wrapper to ensure transaction
     inputs and outputs are randomly ordered.
     NB: This mutates ordering of `ins` and `outs`.
@@ -370,7 +386,12 @@ def make_shuffled_tx(ins, outs, version=1, locktime=0):
     random.shuffle(outs)
     return mktx(ins, outs, version=version, locktime=locktime)
 
-def verify_tx_input(tx, i, scriptSig, scriptPubKey, amount=None, witness=None):
+def verify_tx_input(tx: CTransaction,
+                    i: int,
+                    scriptSig: CScript,
+                    scriptPubKey: CScript,
+                    amount: Optional[int] = None,
+                    witness: Optional[CScriptWitness] = None) -> bool:
     flags = set([SCRIPT_VERIFY_STRICTENC])
     if witness:
         # https://github.com/Simplexum/python-bitcointx/blob/648ad8f45ff853bf9923c6498bfa0648b3d7bcbd/bitcointx/core/scripteval.py#L1250-L1252
@@ -383,7 +404,8 @@ def verify_tx_input(tx, i, scriptSig, scriptPubKey, amount=None, witness=None):
         return False
     return True
 
-def extract_witness(tx, i):
+def extract_witness(tx: CTransaction,
+                    i: int) -> Tuple[Optional[Tuple[CTxInWitness, ...]], str]:
     """Given `tx` of type CTransaction, extract,
     as a list of objects of type CScript, which constitute the
     witness at the index i, followed by "success".
@@ -401,7 +423,8 @@ def extract_witness(tx, i):
     witness = tx.wit.vtxinwit[i]
     return (witness, "success")
 
-def extract_pubkey_from_witness(tx, i):
+def extract_pubkey_from_witness(tx: CTransaction,
+                                i: int) -> Tuple[Optional[CScriptWitness], str]:
     """ Extract the pubkey used to sign at index i,
     in CTransaction tx, assuming it is of type p2wpkh
     (including wrapped segwit version).
@@ -418,7 +441,7 @@ def extract_pubkey_from_witness(tx, i):
             return None, "invalid pubkey in witness"
         return sWitness[1], "success"
 
-def get_equal_outs(tx):
+def get_equal_outs(tx: CTransaction) -> Optional[List[CTxOut]]:
     """ If 2 or more transaction outputs have the same
     bitcoin value, return then as a list of CTxOuts.
     If there is not exactly one equal output size, return False.
@@ -429,14 +452,16 @@ def get_equal_outs(tx):
     if len(eos) > 0:
         eos = set(eos)
         if len(eos) > 1:
-            return False
+            return None
     for i, vout in enumerate(tx.vout):
         if vout.nValue == list(eos)[0]:
             retval.append((i, vout))
     assert len(retval) > 1
     return retval
 
-def is_jm_tx(tx, min_cj_amount=75000, min_participants=3):
+def is_jm_tx(tx: CBitcoinTransaction,
+             min_cj_amount: int = 75000,
+             min_participants: int = 3) -> Union[Tuple[bool, None], Tuple[int, int]]:
     """ Identify Joinmarket-patterned transactions.
     TODO: this should be in another module.
     Given a CBitcoinTransaction tx, check:
