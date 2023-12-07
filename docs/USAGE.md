@@ -129,6 +129,8 @@ If this command fails with error `Unknown named parameter descriptors`, it means
 bitcoin-cli createwallet "jm_wallet"
 ```
 
+If this command fails with error `BDB wallet creation is deprecated and will be removed in a future release. In this release it can be re-enabled temporarily with the -deprecatedrpc=create_bdb setting.`, it means you run Bitcoin Core version v26 or newer. In that case you must add `deprecatedrpc=create_bdb` setting to your `bitcoin.conf`, restart Bitcoin Core and try again.
+
 The "jm_wallet" name is just an example. You can set any name. Alternative to this `bitcoin-cli` command: you can set a line with `wallet=..` in your
 `bitcoin.conf` before starting Core (see the Bitcoin Core documentation for details). At the moment, only legacy wallets (`descriptors=false`)
 work with Joinmarket. This means that Bitcoin Core needs to have been built with legacy wallet (Berkeley DB) support.
