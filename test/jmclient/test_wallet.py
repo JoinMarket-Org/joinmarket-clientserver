@@ -12,7 +12,7 @@ from jmclient import load_test_config, jm_single, BaseWallet, \
     SegwitLegacyWallet,BIP32Wallet, BIP49Wallet, LegacyWallet,\
     VolatileStorage, get_network, cryptoengine, WalletError,\
     SegwitWallet, WalletService, SegwitWalletFidelityBonds,\
-    create_wallet, open_test_wallet_maybe, \
+    create_wallet, open_test_wallet_maybe, open_wallet, \
     FidelityBondMixin, FidelityBondWatchonlyWallet,\
     wallet_gettimelockaddress, UnknownAddressForLabel
 from test_blockchaininterface import sync_test_wallet
@@ -23,7 +23,7 @@ pytestmark = pytest.mark.usefixtures("setup_regtest_bitcoind")
 testdir = os.path.dirname(os.path.realpath(__file__))
 
 test_create_wallet_filename = "testwallet_for_create_wallet_test"
-
+test_cache_cleared_filename = "testwallet_for_cache_clear_test"
 log = get_log()
 
 
@@ -764,6 +764,50 @@ def test_wallet_id(setup_wallet):
     assert wallet1.get_wallet_id() == wallet2.get_wallet_id()
 
 
+def test_cache_cleared(setup_wallet):
+    # test plan:
+    # 1. create a new wallet and sync from scratch
+    # 2. read its cache as an object
+    # 3. close the wallet, reopen it, sync it.
+    # 4. corrupt its cache and save.
+    # 5. Re open the wallet with recoversync
+    #    and check that the corrupted data is not present.
+    if os.path.exists(test_cache_cleared_filename):
+        os.remove(test_cache_cleared_filename)
+    wallet = create_wallet(test_cache_cleared_filename,
+                           b"hunter2", 2, SegwitWallet)
+    # note: we use the WalletService as an encapsulation
+    # of the wallet here because we want to be able to sync,
+    # but we do not actually start the service and go into
+    # the monitoring loop.
+    wallet_service = WalletService(wallet)
+    # default fast sync, no coins, so no loop
+    wallet_service.sync_wallet()
+    wallet_service.update_blockheight()
+    # to get the cache to save, we need to
+    # use an address:
+    addr = wallet_service.get_new_addr(0,0)
+    jm_single().bc_interface.grab_coins(addr, 1.0)
+    wallet_service.transaction_monitor()
+    path_to_corrupt = list(wallet._cache.keys())[0]
+    # we'll just corrupt the first address and script:
+    entry_to_corrupt = wallet._cache[path_to_corrupt][b"84'"][b"1'"][b"0'"][b'0'][b'0']
+    entry_to_corrupt[b'A'] = "notanaddress"
+    entry_to_corrupt[b'S'] = "notascript"
+    wallet_service.wallet.save()
+    wallet_service.wallet.close()
+    jm_single().config.set("POLICY", "wallet_caching_disabled", "true")
+    wallet2 = open_wallet(test_cache_cleared_filename,
+                                        ask_for_password=False,
+                                        password=b"hunter2")
+    jm_single().config.set("POLICY", "wallet_caching_disabled", "false")
+    wallet_service2 = WalletService(wallet2)
+    while not wallet_service2.synced:
+        wallet_service2.sync_wallet(fast=False)
+    wallet_service.transaction_monitor()
+    # we ignored the corrupt cache?
+    assert wallet_service2.get_balance_at_mixdepth(0) == 10 ** 8
+
 def test_addr_script_conversion(setup_wallet):
     wallet = get_populated_wallet(num=1)
 
@@ -1016,4 +1060,6 @@ def setup_wallet(request):
     def teardown():
         if os.path.exists(test_create_wallet_filename):
             os.remove(test_create_wallet_filename)
+        if os.path.exists(test_cache_cleared_filename):
+            os.remove(test_cache_cleared_filename)
     request.addfinalizer(teardown)

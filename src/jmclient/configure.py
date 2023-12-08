@@ -272,6 +272,11 @@ merge_algorithm = default
 # scripts can use the command line flag `-g` instead.
 gaplimit = 6
 
+# Disable the caching of addresses and scripts when
+# syncing the wallet. You DO NOT need to set this to 'true',
+# unless there is an issue of file corruption or a code bug.
+wallet_caching_disabled = false
+
 # The fee estimate is based on a projection of how many sats/kilo-vbyte
 # are needed to get in one of the next N blocks. N is set here as
 # the value of 'tx_fees'. This cost estimate is high if you set
