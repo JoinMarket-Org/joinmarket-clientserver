@@ -204,6 +204,16 @@ run_jm_tests ()
     if [[ -z "$btcconf" ]]; then
         btcconf="${jm_test_datadir}/bitcoin.conf"
         cp -f ./test/bitcoin.conf "${jm_test_datadir}/bitcoin.conf"
+        # Temporary hack until we support descriptor wallets.
+        # https://github.com/JoinMarket-Org/joinmarket-clientserver/issues/1571
+        if [[ -n $btcroot ]]; then
+            bitcoind="$btcroot/bitcoind"
+        else
+            bitcoind="bitcoind"
+        fi
+        if [[ "$($bitcoind -version | grep -Eo 'v[0-9]+')" == "v26" ]]; then
+            echo "deprecatedrpc=create_bdb" >> "${jm_test_datadir}/bitcoin.conf"
+        fi
     fi
     ${orig_umask}
     echo "datadir=${jm_test_datadir}" >> "${jm_test_datadir}/bitcoin.conf"
