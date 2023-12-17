@@ -300,9 +300,9 @@ tx_fees_factor = 0.2
 # Core has its own sanity check limit, which is currently
 # 1 million satoshis.
 #
-# Example: N=350000 will use 350 thousand sats/kilo-vbyte (350 sats/vB) as a
+# Example: N=500000 will use 500 thousand sats/kilo-vbyte (500 sats/vB) as a
 # maximum fee.
-absurd_fee_per_kb = 350000
+absurd_fee_per_kb = 500000
 
 # In decimal, the maximum allowable change either lower or
 # higher, that the fee rate used for coinjoin sweeps is
