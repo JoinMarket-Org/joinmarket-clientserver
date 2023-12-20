@@ -138,12 +138,16 @@ def setup_regtest_bitcoind(pytestconfig):
     bitcoincli_path = os.path.join(bitcoin_path, "bitcoin-cli")
     start_cmd = f'{bitcoind_path} -regtest -daemon -conf={conf}'
     stop_cmd = f'{bitcoincli_path} -regtest -rpcuser={rpcuser} -rpcpassword={rpcpassword} stop'
-    local_command(start_cmd, bg=True)
+
     # determine bitcoind version
     try:
         bitcoind_version = get_bitcoind_version(bitcoind_path)
     except RuntimeError as exc:
         pytest.exit(f"Cannot setup tests, bitcoind failing.\n{exc}")
+
+    if bitcoind_version[0] >= 26:
+        start_cmd += ' -allowignoredconf=1'
+    local_command(start_cmd, bg=True)
     root_cmd = f'{bitcoincli_path} -regtest -rpcuser={rpcuser} -rpcpassword={rpcpassword}'
     wallet_name = 'jm-test-wallet'
     # Bitcoin Core v0.21+ does not create default wallet
