@@ -9,6 +9,7 @@ from optparse import OptionParser
 from numbers import Integral
 from collections import Counter, defaultdict
 from itertools import islice, chain
+from typing import Optional, Tuple
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, WalletError, BaseWallet, VolatileStorage,
     StoragePasswordError, is_segwit_mode, SegwitLegacyWallet, LegacyWallet,
@@ -364,7 +365,8 @@ class WalletView(WalletViewBase):
         json_serialized.update(self.get_fmt_balance_json())
         return json_serialized
 
-def get_tx_info(txid, tx_cache=None):
+def get_tx_info(txid: str, tx_cache: Optional[dict] = None) -> Tuple[
+    bool, int, int, dict, int, btc.CTransaction]:
     """
     Retrieve some basic information about the given transaction.
 
@@ -379,14 +381,14 @@ def get_tx_info(txid, tx_cache=None):
         txd: deserialized transaction object (hex-encoded data)
     """
     if tx_cache is not None and txid in tx_cache:
-        rpctx = tx_cache[txid]
+        rpctx, rpctx_deser = tx_cache[txid]
     else:
         rpctx = jm_single().bc_interface.get_transaction(txid)
+        txhex = str(rpctx['hex'])
+        rpctx_deser = btc.CMutableTransaction.deserialize(hextobin(txhex))
         if tx_cache is not None:
-            tx_cache[txid] = rpctx
-    txhex = str(rpctx['hex'])
-    tx = btc.CMutableTransaction.deserialize(hextobin(txhex))
-    output_script_values = {x.scriptPubKey: x.nValue for x in tx.vout}
+            tx_cache[txid] = (rpctx, rpctx_deser)
+    output_script_values = {x.scriptPubKey: x.nValue for x in rpctx_deser.vout}
     value_freq_list = sorted(
         Counter(output_script_values.values()).most_common(),
         key=lambda x: -x[1])
@@ -398,7 +400,7 @@ def get_tx_info(txid, tx_cache=None):
     cj_amount = value_freq_list[0][0]
     cj_n = value_freq_list[0][1]
     return is_coinjoin, cj_amount, cj_n, output_script_values,\
-        rpctx.get('blocktime', 0), tx
+        rpctx.get('blocktime', 0), rpctx_deser
 
 
 def get_imported_privkey_branch(wallet_service, m, showprivkey):
@@ -846,7 +848,6 @@ def wallet_fetch_history(wallet, options):
                 'blocktme' not in tx)
         tx_db.executemany('INSERT INTO transactions VALUES(?, ?, ?, ?);',
                 uc_tx_data)
-
     txes = tx_db.execute(
         'SELECT DISTINCT txid, blockhash, blocktime '
         'FROM transactions '
@@ -903,22 +904,23 @@ def wallet_fetch_history(wallet, options):
 
         our_output_scripts = wallet_script_set.intersection(
             output_script_values.keys())
-
         rpc_inputs = []
         for ins in txd.vin:
             if ins.prevout.hash[::-1] in tx_cache:
-                wallet_tx = tx_cache[ins.prevout.hash[::-1]]
+                wallet_tx, wallet_tx_deser = tx_cache[ins.prevout.hash[::-1]]
             else:
                 wallet_tx = jm_single().bc_interface.get_transaction(
                     ins.prevout.hash[::-1])
-                tx_cache[ins.prevout.hash[::-1]] = wallet_tx
+                if wallet_tx:
+                    wallet_tx_deser = btc.CMutableTransaction.deserialize(
+                        hextobin(wallet_tx['hex']))
+                    tx_cache[ins.prevout.hash[::-1]] = (wallet_tx,
+                                                        wallet_tx_deser)
             if wallet_tx is None:
                 continue
-            inp = btc.CMutableTransaction.deserialize(hextobin(
-                wallet_tx['hex'])).vout[ins.prevout.n]
+            inp = wallet_tx_deser.vout[ins.prevout.n]
             input_dict = {"script": inp.scriptPubKey, "value": inp.nValue}
             rpc_inputs.append(input_dict)
-
         rpc_input_scripts = set(ind['script'] for ind in rpc_inputs)
         our_input_scripts = wallet_script_set.intersection(rpc_input_scripts)
         our_input_values = [
