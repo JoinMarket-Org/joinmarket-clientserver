@@ -269,6 +269,9 @@ def choose_orders(offers: List[dict],
     orders = [o for o in orders if o['maxsize'] > cj_amount]
     #Filter those not using wished-for offertypes
     orders = [o for o in orders if o["ordertype"] in allowed_types]
+    # provide a message to the user to let them know that there are offers not
+    # available due to too-low feerate:
+    orders_fee_too_low = [o for o in orders if o["minimum_tx_fee_rate"] > fee_per_kb]
     #Filter those not accepting our tx feerate
     orders = [o for o in orders if o["minimum_tx_fee_rate"] <= fee_per_kb]
 
@@ -284,6 +287,13 @@ def choose_orders(offers: List[dict],
                    'suitable-counterparties=%d amount=%d totalorders=%d') %
                   (num_counterparties, len(counterparties), cj_amount,
                    len(orders_fees)))
+        if len(orders_fee_too_low) > 0:
+            log.warn(f"Note that {len(orders_fee_too_low)} counterparty "
+                      "offer(s) were rejected because they demanded too "
+                      "high a transaction fee in range from "
+                      "{min(orders_fee_too_low, key=lambda f: 'minimum_tx_fee_rate')} to "
+                      "{max(orders_fee_too_low, key=lambda f: 'minimum_tx_fee_rate')}.")
+            log.debug(str(orders_fee_too_low))
         # TODO handle not enough liquidity better, maybe an Exception
         return None, 0
     """
