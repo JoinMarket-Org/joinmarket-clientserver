@@ -8,12 +8,12 @@ from typing import Any, Tuple
 import pytest
 
 
-def get_bitcoind_version(bitcoind_path: str) -> Tuple[int, int]:
+def get_bitcoind_version(bitcoind_path: str, conf: str) -> Tuple[int, int]:
     """
     This utility function returns the bitcoind version number
     as a tuple in the form (major, minor)
     """
-    version = local_command(f'{bitcoind_path} -version')
+    version = local_command(f'{bitcoind_path} -version -conf={conf}')
     if version.returncode != 0:
         raise RuntimeError(version.stdout.decode('utf-8'))
     version_string = version.stdout.split(b'\n')[0]
@@ -141,7 +141,7 @@ def setup_regtest_bitcoind(pytestconfig):
 
     # determine bitcoind version
     try:
-        bitcoind_version = get_bitcoind_version(bitcoind_path)
+        bitcoind_version = get_bitcoind_version(bitcoind_path, conf)
     except RuntimeError as exc:
         pytest.exit(f"Cannot setup tests, bitcoind failing.\n{exc}")
 
