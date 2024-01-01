@@ -384,8 +384,8 @@ def get_tx_info(txid: str, tx_cache: Optional[dict] = None) -> Tuple[
         rpctx, rpctx_deser = tx_cache[txid]
     else:
         rpctx = jm_single().bc_interface.get_transaction(txid)
-        txhex = str(rpctx['hex'])
-        rpctx_deser = btc.CMutableTransaction.deserialize(hextobin(txhex))
+        rpctx_deser = jm_single().bc_interface.get_deser_from_gettransaction(
+            rpctx)
         if tx_cache is not None:
             tx_cache[txid] = (rpctx, rpctx_deser)
     output_script_values = {x.scriptPubKey: x.nValue for x in rpctx_deser.vout}
@@ -912,8 +912,8 @@ def wallet_fetch_history(wallet, options):
                 wallet_tx = jm_single().bc_interface.get_transaction(
                     ins.prevout.hash[::-1])
                 if wallet_tx:
-                    wallet_tx_deser = btc.CMutableTransaction.deserialize(
-                        hextobin(wallet_tx['hex']))
+                    wallet_tx_deser = jm_single.bc_interface(
+                        ).get_deser_from_gettransaction(wallet_tx)
                     tx_cache[ins.prevout.hash[::-1]] = (wallet_tx,
                                                         wallet_tx_deser)
             if wallet_tx is None:
