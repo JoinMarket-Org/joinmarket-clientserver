@@ -8,15 +8,8 @@ from numbers import Integral
 
 from jmdaemon.protocol import JM_VERSION
 from jmdaemon import fidelity_bond_sanity_check
-from jmbase.support import get_log, joinmarket_alert
+from jmbase.support import dict_factory, get_log, joinmarket_alert
 log = get_log()
-
-
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
 
 
 class JMTakerError(Exception):
