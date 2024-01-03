@@ -7,6 +7,7 @@ from getpass import getpass
 from os import path, environ
 from functools import wraps
 from optparse import IndentedHelpFormatter
+from sqlite3 import Cursor, Row
 from typing import List
 import urllib.parse as urlparse
 
@@ -356,3 +357,7 @@ def get_free_tcp_ports(num_ports: int) -> List[int]:
     for s in sockets:
         s.close()
     return ports
+
+def dict_factory(cursor: Cursor, row: Row) -> dict:
+    fields = [column[0] for column in cursor.description]
+    return {key: value for key, value in zip(fields, row)}

@@ -1,7 +1,9 @@
 #! /usr/bin/env python
-import pytest
 import copy
-from jmbase import random_insert
+import pytest
+import sqlite3
+
+from jmbase import dict_factory, random_insert
 
 def test_color_coded_logging():
     # TODO
@@ -30,3 +32,14 @@ def test_random_insert(list1, list2):
         i_x = list1.index(x)
         i_y = list1.index(y)
         assert i_y > i_x
+
+def test_dict_factory():
+    con = sqlite3.connect(":memory:")
+    con.row_factory = dict_factory
+    db = con.cursor()
+    db.execute("CREATE TABLE test (one TEXT, two TEXT)")
+    db.execute("INSERT INTO test VALUES (?, ?)", [ "one", "two" ])
+    res = db.execute("SELECT * FROM test")
+    row = res.fetchone()
+    assert row["one"] == "one"
+    assert row["two"] == "two"
