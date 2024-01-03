@@ -365,12 +365,12 @@ class WalletView(WalletViewBase):
         json_serialized.update(self.get_fmt_balance_json())
         return json_serialized
 
-def get_tx_info(txid: str, tx_cache: Optional[dict] = None) -> Tuple[
+def get_tx_info(txid: bytes, tx_cache: Optional[dict] = None) -> Tuple[
     bool, int, int, dict, int, btc.CTransaction]:
     """
     Retrieve some basic information about the given transaction.
 
-    :param txid: txid as hex-str
+    :param txid: txid as binary
     :param tx_cache: optional cache (dictionary) for get_transaction results
     :return: tuple
         is_coinjoin: bool
