@@ -909,6 +909,8 @@ def wallet_fetch_history(wallet, options):
                         ).get_deser_from_gettransaction(wallet_tx)
                     tx_cache[ins.prevout.hash[::-1]] = (wallet_tx,
                                                         wallet_tx_deser)
+                else:
+                    tx_cache[ins.prevout.hash[::-1]] = (None, None)
             if wallet_tx is None:
                 continue
             inp = wallet_tx_deser.vout[ins.prevout.n]
