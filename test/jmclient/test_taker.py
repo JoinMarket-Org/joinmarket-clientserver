@@ -9,6 +9,7 @@ import pytest
 import json
 import struct
 from base64 import b64encode
+from typing import Optional
 from jmbase import utxostr_to_utxo, hextobin
 from jmclient import load_test_config, jm_single, set_commitment_file,\
     get_commitment_file, LegacyWallet, Taker, VolatileStorage,\
@@ -71,16 +72,20 @@ class DummyWallet(LegacyWallet):
     def remove_extra_utxo(self, txid, index, md):
         del self.ex_utxos[(txid, index)]
 
-    def get_utxos_by_mixdepth(self, include_disabled=False, verbose=True,
-                              includeheight=False):
+    def get_utxos_by_mixdepth(self, include_disabled: bool = False,
+                              verbose: bool = True,
+                              includeheight: bool = False,
+                              limit_mixdepth: Optional[int] = None):
         # utxostr conversion routines because taker_test_data uses hex:
         retval = {}
         for mixdepth, v in t_utxos_by_mixdepth.items():
-            retval[mixdepth] = {}
-            for i, (utxo, val) in enumerate(v.items()):
-                retval[mixdepth][utxostr_to_utxo(utxo)[1]] = val
-                val["script"] = self._ENGINE.address_to_script(val['address'])
-                val["path"] = (b'dummy', mixdepth, i)
+            if not limit_mixdepth or limit_mixdepth == mixdepth:
+                retval[mixdepth] = {}
+                for i, (utxo, val) in enumerate(v.items()):
+                    retval[mixdepth][utxostr_to_utxo(utxo)[1]] = val
+                    val["script"] = self._ENGINE.address_to_script(
+                        val['address'])
+                    val["path"] = (b'dummy', mixdepth, i)
         for md, u in self.ex_utxos.items():
             retval[md].update(u)
         return retval

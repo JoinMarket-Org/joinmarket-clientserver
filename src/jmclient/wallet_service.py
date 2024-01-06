@@ -900,12 +900,15 @@ class WalletService(Service):
     def save_wallet(self):
         self.wallet.save()
 
-    def get_utxos_by_mixdepth(self, include_disabled=False,
-                              verbose=False, includeconfs=False):
+    def get_utxos_by_mixdepth(self, include_disabled: bool = False,
+                              verbose: bool = False,
+                              includeconfs: bool = False,
+                              limit_mixdepth: Optional[int] = None
+                             ) -> collections.defaultdict:
         """ Returns utxos by mixdepth in a dict, optionally including
         information about how many confirmations each utxo has.
         """
-        def height_to_confs(x):
+        def height_to_confs(x: int) -> int:
             # convert height entries to confirmations:
             ubym_conv = collections.defaultdict(dict)
             for m, i in x.items():
@@ -919,7 +922,8 @@ class WalletService(Service):
                     ubym_conv[m][u]["confs"] = confs
             return ubym_conv
         ubym = self.wallet.get_utxos_by_mixdepth(
-            include_disabled=include_disabled, includeheight=includeconfs)
+            include_disabled=include_disabled, includeheight=includeconfs,
+            limit_mixdepth=limit_mixdepth)
         if not includeconfs:
             return ubym
         else:

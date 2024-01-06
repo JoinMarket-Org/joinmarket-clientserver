@@ -426,11 +426,12 @@ def get_imported_privkey_branch(wallet_service, m, showprivkey):
         return WalletViewBranch("m/0", m, -1, branchentries=entries)
     return None
 
-def wallet_showutxos(wallet_service, showprivkey):
+def wallet_showutxos(wallet_service: WalletService, showprivkey: bool,
+                     limit_mixdepth: Optional[int] = None) -> str:
     unsp = {}
     max_tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
     utxos = wallet_service.get_utxos_by_mixdepth(include_disabled=True,
-        includeconfs=True)
+        includeconfs=True, limit_mixdepth=limit_mixdepth)
     for md in utxos:
         (enabled, disabled) = get_utxos_enabled_disabled(wallet_service, md)
         for u, av in utxos[md].items():
@@ -1268,7 +1269,8 @@ def display_utxos_for_disable_choice_default(wallet_service, utxos_enabled,
     disable = False if chosen_idx <= disabled_max else True
     return ulist[chosen_idx], disable
 
-def get_utxos_enabled_disabled(wallet_service, md):
+def get_utxos_enabled_disabled(wallet_service: WalletService,
+                               md: int) -> Tuple[dict, dict]:
     """ Returns dicts for enabled and disabled separately
     """
     utxos_enabled = wallet_service.get_utxos_at_mixdepth(md)
@@ -1674,7 +1676,9 @@ def wallet_tool_main(wallet_root_path):
         retval = wallet_change_passphrase(wallet_service)
         return "Changed encryption passphrase OK" if retval else "Failed"
     elif method == "showutxos":
-        return wallet_showutxos(wallet_service, options.showprivkey)
+        return wallet_showutxos(wallet_service,
+                                showprivkey=options.showprivkey,
+                                limit_mixdepth=options.mixdepth)
     elif method == "showseed":
         return wallet_showseed(wallet_service)
     elif method == "dumpprivkey":
