@@ -157,6 +157,27 @@ def main():
 
     # If tx_fees are set manually by CLI argument, override joinmarket.cfg:
     if int(options.txfee) > 0:
+        if jm_single().bc_interface.fee_per_kb_has_been_manually_set(
+                options.txfee):
+            absurd_fee = jm_single().config.getint("POLICY",
+                                                   "absurd_fee_per_kb")
+            tx_fees_factor = jm_single().config.getfloat("POLICY",
+                                                         "tx_fees_factor")
+            max_potential_txfee = int(max(options.txfee,
+                options.txfee * float(1 + tx_fees_factor)))
+            if max_potential_txfee > absurd_fee:
+                jmprint(
+                    "WARNING: Manually specified Bitcoin transaction fee "
+                    f"{btc.fee_per_kb_to_str(options.txfee)} can be "
+                    "randomized up to "
+                    f"{btc.fee_per_kb_to_str(max_potential_txfee)}, "
+                    "above absurd value "
+                    f"{btc.fee_per_kb_to_str(absurd_fee)}.",
+                    "warning")
+                if input("Still continue? (y/n):")[0] != "y":
+                    sys.exit("Aborted by user.")
+            jm_single().config.set("POLICY", "absurd_fee_per_kb",
+                                   str(max_potential_txfee))
         jm_single().config.set("POLICY", "tx_fees", str(options.txfee))
 
     maxcjfee = (1, float('inf'))
