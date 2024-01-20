@@ -211,7 +211,7 @@ run_jm_tests ()
         else
             bitcoind="bitcoind"
         fi
-        if [[ "$($bitcoind -version | grep -Eo 'v[0-9]+')" == "v26" ]]; then
+        if [[ "$($bitcoind -version -datadir="${jm_test_datadir}" | grep -Eo 'v[0-9]+')" == "v26" ]]; then
             echo "deprecatedrpc=create_bdb" >> "${jm_test_datadir}/bitcoin.conf"
         fi
     fi
