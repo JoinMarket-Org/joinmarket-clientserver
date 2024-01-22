@@ -233,7 +233,7 @@ class BlockchainInterface(ABC):
         # and return the indices of the others:
         return [i for i, val in enumerate(res) if val]
 
-    def _fee_per_kb_has_been_manually_set(self, tx_fees: int) -> bool:
+    def fee_per_kb_has_been_manually_set(self, tx_fees: int) -> bool:
         """If the block target (tx_fees) is higher than 1000, interpret it
         as manually set fee sats/kvB.
         """
@@ -242,7 +242,7 @@ class BlockchainInterface(ABC):
     def estimate_fee_per_kb(self, tx_fees: int) -> int:
         """ The argument tx_fees may be either a number of blocks target,
         for estimation of feerate by Core, or a number of satoshis
-        per kilo-vbyte (see `_fee_per_kb_has_been_manually_set` for
+        per kilo-vbyte (see `fee_per_kb_has_been_manually_set` for
         how this is distinguished).
         In both cases it is prevented from falling below the current
         minimum feerate for tx to be accepted into node's mempool.
@@ -264,7 +264,7 @@ class BlockchainInterface(ABC):
         mempoolminfee_in_sat_randomized = random.uniform(
             mempoolminfee_in_sat, mempoolminfee_in_sat * float(1 + tx_fees_factor))
 
-        if self._fee_per_kb_has_been_manually_set(tx_fees):
+        if self.fee_per_kb_has_been_manually_set(tx_fees):
             N_res = random.uniform(tx_fees, tx_fees * float(1 + tx_fees_factor))
             if N_res < mempoolminfee_in_sat:
                 msg = "Using this mempool min fee as tx feerate"
