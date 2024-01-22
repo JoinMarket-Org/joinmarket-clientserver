@@ -1,0 +1,20 @@
+name: OpenAPI Diff
+on: [push, pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out head branch
+        uses: actions/checkout@v2
+        with:
+          path: head
+      - name: Check out master branch
+        uses: actions/checkout@v2
+        with:
+          ref: master
+          path: base
+      - name: Run OpenAPI Diff (from HEAD revision)
+        uses: mvegter/openapi-diff-action@v0.23.5
+        with:
+          head-spec: head/docs/api/wallet-rpc.yaml
+          base-spec: base/docs/api/wallet-rpc.yaml
