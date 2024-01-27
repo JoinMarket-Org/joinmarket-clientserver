@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 jmbitcoin = [
-    "python-bitcointx==1.1.4",
+    "python-bitcointx==1.1.5",
 ]
 jmclient = [
     "argon2_cffi==21.3.0",

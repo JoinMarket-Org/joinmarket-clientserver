@@ -5,8 +5,7 @@ from typing import List, Tuple, Union
 from jmbase import bintohex
 from bitcointx import base58
 from bitcointx.core import Hash
-from bitcointx.core.secp256k1 import _secp256k1 as secp_lib
-from bitcointx.core.secp256k1 import secp256k1_context_verify
+from bitcointx.core.secp256k1 import get_secp256k1
 from bitcointx.core.key import CKey, CKeyBase, CPubKey
 from bitcointx.signmessage import BitcoinMessage
 
@@ -14,9 +13,10 @@ from bitcointx.signmessage import BitcoinMessage
 # underlying bitcointx library, is to allow
 # multiplication of pubkeys by scalars, as is required
 # for PoDLE.
+secp_obj = get_secp256k1()
 import ctypes
-secp_lib.secp256k1_ec_pubkey_tweak_mul.restype = ctypes.c_int
-secp_lib.secp256k1_ec_pubkey_tweak_mul.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
+secp_obj.lib.secp256k1_ec_pubkey_tweak_mul.restype = ctypes.c_int
+secp_obj.lib.secp256k1_ec_pubkey_tweak_mul.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
 
 #Required only for PoDLE calculation:
 N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
@@ -159,8 +159,8 @@ def multiply(s: bytes, pub: bytes, return_serialized: bool = True) -> bytes:
 
     privkey_arg = ctypes.c_char_p(s)
     pubkey_buf = pub_obj._to_ctypes_char_array()
-    ret = secp_lib.secp256k1_ec_pubkey_tweak_mul(
-        secp256k1_context_verify, pubkey_buf, privkey_arg)
+    ret = secp_obj.lib.secp256k1_ec_pubkey_tweak_mul(
+        secp_obj.ctx.verify, pubkey_buf, privkey_arg)
     if ret != 1:
         assert ret == 0
         raise ValueError('Multiplication failed')
