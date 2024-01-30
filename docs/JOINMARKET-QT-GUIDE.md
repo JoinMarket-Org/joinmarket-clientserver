@@ -128,8 +128,6 @@ Next, we'll send a test transaction:
 
 In the Coinjoins tab, select the "Single Join" subtab.
 
-The donation feature is disabled; you can donate to the general JM donation address found in the `About` window from the menu.
-
 Paste the address you want to send to under `Recipient address`.
 
 The number of counterparties can be anything from 4 up to 20 (in theory you can make

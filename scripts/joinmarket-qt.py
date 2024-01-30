@@ -50,8 +50,6 @@ if 'twisted.internet.reactor' in sys.modules:
 import qt5reactor
 qt5reactor.install()
 
-donation_address_url = "https://bitcoinprivacy.me/joinmarket-donations"
-
 #Version of this Qt script specifically
 JM_GUI_VERSION = '33dev'
 
@@ -1803,23 +1801,13 @@ class JMMainWindow(QMainWindow):
                 ["Joinmarket core software version: " + JM_CORE_VERSION + "<br/>JoinmarketQt version: "
                     + JM_GUI_VERSION + "<br/>Messaging protocol version:" + " %s" % (
                      str(jm_single().JM_VERSION)
-                 ), "JoinMarket is an open source project which does not have a funding model, "
-                  + "fortunately the project itself has very low running costs as it is almost-fully "
-                  + "decentralized and available to everyone for free. Developers contribute only as "
-                  + "volunteers and donations are divided amongst them. Many developers have also been "
-                  + "important in advocating for privacy and educating the wider bitcoin user base. "
-                  + "Be part of the effort to improve bitcoin privacy and fungibility. Every donated "
-                  + "coin helps us spend more time on JoinMarket instead of doing other stuff."]))
+                 )]))
         about_text_label.setWordWrap(True)
-        donation_url_label = QLabel(donation_address_url)
-        for l in [about_text_label, donation_url_label]:
+        for l in [about_text_label]:
             l.setTextFormat(QtCore.Qt.RichText)
             l.setTextInteractionFlags(QtCore.Qt.TextBrowserInteraction)
             l.setOpenExternalLinks(True)
-        donation_url_label.setText("<a href='" + donation_address_url + "'>" +
-            donation_address_url + "</a>")
         lyt.addWidget(about_text_label)
-        lyt.addWidget(donation_url_label)
         btnbox = QDialogButtonBox(msgbox)
         btnbox.setStandardButtons(QDialogButtonBox.Ok)
         btnbox.accepted.connect(msgbox.accept)
