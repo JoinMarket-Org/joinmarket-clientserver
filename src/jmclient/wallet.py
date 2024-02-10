@@ -765,7 +765,8 @@ class BaseWallet(object):
                 'address': self._ENGINE.script_to_address(spk)}
         return added_utxos
 
-    def add_utxo(self, txid, index, script, value, height=None):
+    def add_utxo(self, txid: bytes, index: int, script: bytes, value: int,
+                 height: Optional[int] = None) -> None:
         assert isinstance(txid, bytes)
         assert isinstance(index, Integral)
         assert isinstance(script, bytes)
@@ -2613,7 +2614,8 @@ class FidelityBondMixin(object):
         for timenumber in range(self.TIMENUMBER_COUNT):
             yield self.get_path(md, address_type, timenumber)
 
-    def add_utxo(self, txid, index, script, value, height=None):
+    def add_utxo(self, txid: bytes, index: int, script: bytes, value: int,
+                 height: Optional[int] = None) -> None:
         super().add_utxo(txid, index, script, value, height)
         #dont use coin control freeze if wallet readonly
         if self._storage.read_only:
