@@ -253,7 +253,7 @@ class BlockchainInterface(ABC):
         """
 
         # default to use if fees cannot be estimated
-        fallback_fee = 10000
+        fallback_fee = 20000
 
         tx_fees_factor = abs(jm_single().config.getfloat('POLICY', 'tx_fees_factor'))
 
