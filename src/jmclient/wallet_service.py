@@ -867,19 +867,19 @@ class WalletService(Service):
         et = time.time()
         jlog.debug('bitcoind sync_unspent took ' + str((et - st)) + 'sec')
 
-    def _add_unspent_txo(self, utxo, height):
+    def _add_unspent_txo(self, utxo: dict, height: Optional[int]) -> None:
         """
         Add a UTXO as returned by rpc's listunspent call to the wallet.
         Note that these are returned as little endian outpoint txids, so
         are converted.
         params:
             utxo: single utxo dict as returned by listunspent
-            current_blockheight: blockheight as integer, used to
-            set the block in which a confirmed utxo is included.
+            height: blockheight as integer, used to set the block in which
+                    a confirmed utxo is included.
         """
         txid = hextobin(utxo['txid'])
         script = hextobin(utxo['scriptPubKey'])
-        value = int(Decimal(str(utxo['amount'])) * Decimal('1e8'))
+        value = btc.btc_to_sat(utxo['amount'])
         self.add_utxo(txid, int(utxo['vout']), script, value, height)
         # if we start up with unconfirmed outputs, they must be
         # put into the transaction monitor state, so we can recognize
