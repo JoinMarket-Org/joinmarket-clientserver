@@ -120,6 +120,8 @@ class JMPayjoinManager(object):
         success, msg = self.sanity_check_initial_payment()
         if not success:
             log.error(msg)
+            log.debug(btc.human_readable_transaction(
+                self.initial_psbt.extract_transaction()))
             assert False, msg
         self.pj_state = self.JM_PJ_PAYMENT_CREATED
 
