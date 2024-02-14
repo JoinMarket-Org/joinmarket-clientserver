@@ -1205,7 +1205,7 @@ class SpendTab(QWidget):
         if len(self.amountInput.text()) == 0:
             JMQtMessageBox(
                 self,
-                "Amount, in bitcoins, must be provided.",
+                "Amount must be provided.",
                 mbtype='warn', title="Error")
             return False
         if len(self.changeInput.text().strip()) != 0:
