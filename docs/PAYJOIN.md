@@ -4,7 +4,7 @@
 reading this).
 
 This document does **not** discuss why PayJoin is interesting or the general concept.
-For that, see [this](https://joinmarket.me/blog/blog/payjoin/) post.
+For that, see [this](https://reyify.com/blog/payjoin) post.
 
 ### Contents
 
@@ -348,10 +348,7 @@ Read about how to do this [here](./tor.md).
 
 ### Using JoinmarketQt to send and receive Payjoins
 
-All of the configuration details above apply to this scenario (for example, setting up Tor if you want to act as receiver.
-But for the workflow on the GUI application, this video explains what to do:
-
-https://video.autizmo.xyz/videos/watch/7081ae10-dce0-491e-9717-389ccc3aad0d
+All of the configuration details above apply to this scenario (for example, setting up Tor if you want to act as receiver).
 
 <a name="sample" />
 
