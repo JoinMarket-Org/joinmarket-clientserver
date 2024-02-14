@@ -982,7 +982,8 @@ class WalletService(Service):
                 for index in range(next_unused):
                     addresses.add(self.get_addr(md, address_type, index))
                 for index in range(self.gap_limit):
-                    addresses.add(self.get_new_addr(md, address_type))
+                    addresses.add(self.get_new_addr(md, address_type,
+                                                    validate_cache=False))
                 # reset the indices to the value we had before the
                 # new address calls:
                 self.set_next_index(md, address_type, next_unused)
@@ -990,27 +991,24 @@ class WalletService(Service):
             # include any imported addresses
             for path in self.yield_imported_paths(md):
                 addresses.add(self.get_address_from_path(path))
-
         if isinstance(self.wallet, FidelityBondMixin):
             md = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
             address_type = FidelityBondMixin.BIP32_TIMELOCK_ID
             for timenumber in range(FidelityBondMixin.TIMENUMBER_COUNT):
                 addresses.add(self.get_addr(md, address_type, timenumber))
-
         return addresses, saved_indices
 
     def collect_addresses_gap(self, gap_limit=None):
         gap_limit = gap_limit or self.gap_limit
         addresses = set()
-
         for md in range(self.max_mixdepth + 1):
             for address_type in (BaseWallet.ADDRESS_TYPE_INTERNAL,
                                  BaseWallet.ADDRESS_TYPE_EXTERNAL):
                 old_next = self.get_next_unused_index(md, address_type)
                 for index in range(gap_limit):
-                    addresses.add(self.get_new_addr(md, address_type))
+                    addresses.add(self.get_new_addr(md, address_type,
+                                                    validate_cache=False))
                 self.set_next_index(md, address_type, old_next)
-
         return addresses
 
     def get_external_addr(self, mixdepth):
