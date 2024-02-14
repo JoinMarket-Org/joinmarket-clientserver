@@ -307,7 +307,6 @@ libsecp256k1_build()
     ./autogen.sh
     ./configure \
         --enable-module-recovery \
-        --disable-jni \
         --prefix "${jm_root}" \
         --enable-experimental \
         --enable-module-ecdh \
