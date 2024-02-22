@@ -8,7 +8,7 @@ for other reasons).
 from optparse import OptionParser
 import jmbitcoin as btc
 from jmbase import (get_log, jmprint, bintohex, utxostr_to_utxo,
-                    IndentedHelpFormatterWithNL)
+                    IndentedHelpFormatterWithNL, cli_prompt_user_yesno)
 from jmclient import load_program_config, estimate_tx_fee, jm_single,\
     validate_address, get_utxo_info, add_base_options,\
     validate_utxo_data, quit, BTCEngine, compute_tx_locktime
@@ -112,7 +112,7 @@ def main():
         return
     log.info("Got signed transaction:\n" + bintohex(txsigned.serialize()))
     log.info(btc.human_readable_transaction(txsigned))
-    if input('Would you like to push to the network? (y/n):')[0] != 'y':
+    if not cli_prompt_user_yesno('Would you like to push to the network?'):
         log.info("You chose not to broadcast the transaction, quitting.")
         return
     jm_single().bc_interface.pushtx(txsigned.serialize())

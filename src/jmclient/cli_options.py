@@ -6,7 +6,7 @@ from configparser import NoOptionError
 import jmclient.support
 from jmbase import JM_APP_NAME
 from jmclient import jm_single, RegtestBitcoinCoreInterface, cryptoengine
-from jmbase.support import print_jm_version
+from jmbase.support import print_jm_version, cli_prompt_user_value
 
 """This exists as a separate module for two reasons:
 to reduce clutter in main scripts, and refactor out
@@ -157,20 +157,6 @@ coinjoin amount, depending on which is larger. The actual fee is likely to be
 significantly less; perhaps half that amount, depending on which
 counterparties are selected."""
 
-    def prompt_user_value(m, val, check):
-        while True:
-            data = input(m)
-            if data == 'y':
-                return val
-            try:
-                val_user = float(data)
-            except ValueError:
-                print("Bad answer, try again.")
-                continue
-            if not check(val_user):
-                continue
-            return val_user
-
     rel_prompt = False
     if rel_val is None:
         rel_prompt = True
@@ -186,27 +172,34 @@ counterparties are selected."""
         msg = ("\nIf you want to keep this relative limit, enter 'y';"
                "\notherwise choose your own fraction (between 1 and 0): ")
 
-        def rel_check(val):
-            if val >= 1:
+        def rel_check(val: str) -> bool:
+            try:
+                val_float = float(val)
+            except ValueError:
+                print("Bad answer, try again.")
+                return False
+            if val_float >= 1:
                 print("Choose a number below 1! Else you will spend all your "
                       "bitcoins for fees!")
                 return False
             return True
 
-        rel_val = prompt_user_value(msg, rel_val, rel_check)
+        rel_val = float(cli_prompt_user_value(msg, rel_check, "y", rel_val))
         print("Success! Using relative fee limit of {:%}".format(rel_val))
 
     if abs_prompt:
         msg = ("\nIf you want to keep this absolute limit, enter 'y';"
                "\notherwise choose your own limit in satoshi: ")
 
-        def abs_check(val):
-            if val % 1 != 0:
+        def abs_check(val: str) -> bool:
+            try:
+                val_int = int(val)
+            except ValueError:
                 print("You must choose a full number!")
                 return False
             return True
 
-        abs_val = int(prompt_user_value(msg, abs_val, abs_check))
+        abs_val = int(cli_prompt_user_value(msg, abs_check, "y", abs_val))
         print("Success! Using absolute fee limit of {}".format(abs_val))
 
     print("""\nIf you don't want to see this message again, make an entry like

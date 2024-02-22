@@ -21,7 +21,7 @@ from jmclient import Taker, load_program_config, get_schedule,\
     EngineError, check_and_start_tor
 from twisted.python.log import startLogging
 from jmbase.support import get_log, jmprint, \
-    EXIT_FAILURE, EXIT_ARGERROR
+    EXIT_FAILURE, EXIT_ARGERROR, cli_prompt_user_yesno
 
 import jmbitcoin as btc
 
@@ -174,7 +174,7 @@ def main():
                     "above absurd value "
                     f"{btc.fee_per_kb_to_str(absurd_fee)}.",
                     "warning")
-                if input("Still continue? (y/n):")[0] != "y":
+                if not cli_prompt_user_yesno("Still continue?"):
                     sys.exit("Aborted by user.")
             jm_single().config.set("POLICY", "absurd_fee_per_kb",
                                    str(max_potential_txfee))
@@ -227,8 +227,8 @@ def main():
         if exp_tx_fees_ratio > 0.05:
             jmprint('WARNING: Expected bitcoin network miner fees for this coinjoin'
                 ' amount are roughly {:.1%}'.format(exp_tx_fees_ratio), "warning")
-            if input('You might want to modify your tx_fee'
-                ' settings in joinmarket.cfg. Still continue? (y/n):')[0] != 'y':
+            print('You might want to modify your tx_fee settings in joinmarket.cfg.')
+            if not cli_prompt_user_yesno('Still continue?'):
                 sys.exit('Aborted by user.')
         else:
             log.info("Estimated miner/tx fees for this coinjoin amount: {:.1%}"
@@ -255,8 +255,8 @@ def main():
                 "with Payjoin. Please retry without a custom change address.")
             sys.exit(EXIT_ARGERROR)
         if options.makercount > 0:
-            if not options.answeryes and input(
-                general_custom_change_warning + " (y/n):")[0] != "y":
+            if not options.answeryes and \
+               not cli_prompt_user_yesno(general_custom_change_warning):
                 sys.exit(EXIT_ARGERROR)
             engine_recognized = True
             try:
@@ -265,8 +265,8 @@ def main():
                 engine_recognized = False
             if (not engine_recognized) or (
                 change_addr_type != wallet_service.get_txtype()):
-                if not options.answeryes and input(
-                    nonwallet_custom_change_warning + " (y/n):")[0] != "y":
+                if not options.answeryes and \
+                   not cli_prompt_user_yesno(nonwallet_custom_change_warning):
                     sys.exit(EXIT_ARGERROR)
 
     if options.makercount == 0 and not bip78url:
@@ -304,7 +304,7 @@ def main():
             log.info('WARNING   ' * 6)
             log.info('\n'.join(['=' * 60] * 3))
         if not options.answeryes:
-            if input('send with these orders? (y/n):')[0] != 'y':
+            if not cli_prompt_user_yesno('Send with these orders?'):
                 return False
         return True
 
