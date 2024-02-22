@@ -344,7 +344,7 @@ libsodium_build ()
 {
     $make uninstall
     $make distclean
-    ./autogen.sh
+    ./autogen.sh DO_NOT_UPDATE_CONFIG_SCRIPTS=1
     ./configure \
         --enable-minimal \
         --enable-shared \
