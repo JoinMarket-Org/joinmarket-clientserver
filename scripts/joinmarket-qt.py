@@ -51,7 +51,7 @@ import qt5reactor
 qt5reactor.install()
 
 #Version of this Qt script specifically
-JM_GUI_VERSION = '33dev'
+JM_GUI_VERSION = '33'
 
 from jmbase import get_log, stop_reactor, set_custom_stop_reactor
 from jmbase.support import EXIT_FAILURE, utxo_to_utxostr,\
