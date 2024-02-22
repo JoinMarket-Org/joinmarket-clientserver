@@ -32,7 +32,7 @@ jmclient = [
 ]
 jmdaemon = [
     "libnacl==1.8.0",
-    "pyopenssl==23.2.0",
+    "pyopenssl==24.0.0",
 ]
 jmqtui = [
     "PyQt5!=5.15.0,!=5.15.1,!=5.15.2,!=6.0",
