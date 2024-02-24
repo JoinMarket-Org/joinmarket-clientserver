@@ -486,8 +486,9 @@ def make_payment_psbt(manager, accept_callback=None, info_callback=None):
     # we can create a standard payment, but have it returned as a PSBT.
     assert isinstance(manager, JMPayjoinManager)
     assert manager.wallet_service.synced
-    payment_psbt = direct_send(manager.wallet_service, manager.amount,
-                               manager.mixdepth, str(manager.destination),
+    payment_psbt = direct_send(manager.wallet_service,
+                               manager.mixdepth,
+                               [(str(manager.destination), manager.amount)],
                                accept_callback=accept_callback,
                                info_callback=info_callback,
                                with_final_psbt=True)

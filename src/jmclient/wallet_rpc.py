@@ -796,9 +796,11 @@ class JMWalletDaemon(Service):
 
             try:
                 tx = direct_send(self.services["wallet"],
-                        int(payment_info_json["amount_sats"]),
                         int(payment_info_json["mixdepth"]),
-                        destination=payment_info_json["destination"],
+                        [(
+                            payment_info_json["destination"],
+                            int(payment_info_json["amount_sats"])
+                        )],
                         return_transaction=True, answeryes=True)
                 jm_single().config.set("POLICY", "tx_fees",
                                        self.default_policy_tx_fees)
