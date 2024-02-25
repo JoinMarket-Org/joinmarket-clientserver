@@ -54,7 +54,7 @@ So for example:
 ```
 
 To change the parameters of the yieldgenerators you can edit the parametrization of
-the function `test_start_ygs` in [this file](https://github.com/Joinmarket-Org/joinmarket-clientserver/blob/master/test/ygrunner.py).
+the function `test_start_ygs` in [this file](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/master/test/unified/ygrunner.py).
 
 There are two changes that may be of special interest:
 * to change the number of yg

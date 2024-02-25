@@ -89,7 +89,7 @@ If you have installed this "full" version of the client, you can use it with the
     ```
 2) Install Homebrew
     ```
-    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     ```
 3) Install automake, libtool, and libsodium
     ```

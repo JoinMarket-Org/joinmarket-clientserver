@@ -1,9 +1,6 @@
-""" See https://twistedmatrix.com/documents/current/web/howto/client.html
-"""
-from zope.interface import implementer
-
 from twisted.internet.defer import succeed
 from twisted.web.iweb import IBodyProducer
+from zope.interface import implementer
 
 @implementer(IBodyProducer)
 class BytesProducer(object):

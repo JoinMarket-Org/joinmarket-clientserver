@@ -280,7 +280,7 @@ the wallet internally, of course, stores which type of addresses it manages, and
 types currently (ignoring legacy upgrades): bech32 or p2sh-segwit (starting with '3'), the former being
 the default in Joinmarket as of 0.8.0+.
 
-Note that the p2sh-wrapped-segwit style wallet is written to conform to [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0040.mediawiki),
+Note that the p2sh-wrapped-segwit style wallet is written to conform to [BIP49](https://github.com/bitcoin/bips/blob/master/bip-0049.mediawiki),
 analogous to the BIP84 case for native/bech32.
 
 <a name="receiving" />
