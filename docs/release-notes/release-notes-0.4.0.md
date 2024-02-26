@@ -20,7 +20,7 @@ To upgrade:
 First run the `install.sh` script as mentioned in the README. When prompted to overwrite the directory `jmvenv`, accept.
 
 Next: there is a small but not disruptive task to do: upgrade the wallet file format. Use the instructions
-[here](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/master/docs/wallet-upgrade.md) . Note this
+[here](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/v0.4.0/docs/wallet-upgrade.md). Note this
 does not require doing transactions, or rescanning Core or anything similarly disruptive; it's purely a file format change (see
 "Notable Changes" (under "Upgrade of wallet ...") below for details on this wallet upgrade).
 Obviously do keep a backup of the previous format, at least initially, but the new format has been quite widely tested now

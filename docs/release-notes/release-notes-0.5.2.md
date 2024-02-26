@@ -35,7 +35,7 @@ receiver runs the new script `receive-payjoin.py` and the sender runs `sendpayme
 with the option `-T`. See [here](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/master/docs/PAYJOIN.md)
 for more detailed instructions on how to use.
 
-See [here](https://joinmarket.me/blog/blog/payjoin/) for conceptual explanation, which also links to other
+See [here](https://reyify.com/blog/payjoin) for conceptual explanation, which also links to other
 writeups about the concept.
 
 This can be used with a BIP84 bech32 wallet, but the latter is *not* compatible with Joinmarket coinjoins.

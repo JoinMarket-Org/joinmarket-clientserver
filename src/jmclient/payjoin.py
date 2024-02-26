@@ -16,10 +16,6 @@ from jmclient import (select_one_utxo,
 """
 For some documentation see:
     https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki
-    and an earlier document:
-    https://github.com/btcpayserver/btcpayserver-doc/blob/master/Payjoin-spec.md
-    and even earlier:
-    https://github.com/bitcoin/bips/blob/master/bip-0079.mediawiki
 """
 log = get_log()
 
