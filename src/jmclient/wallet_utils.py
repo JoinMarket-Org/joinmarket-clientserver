@@ -906,8 +906,9 @@ def wallet_fetch_history(wallet, options):
                 wallet_tx = jm_single().bc_interface.get_transaction(
                     ins.prevout.hash[::-1])
                 if wallet_tx:
-                    wallet_tx_deser = jm_single.bc_interface(
-                        ).get_deser_from_gettransaction(wallet_tx)
+                    wallet_tx_deser = jm_single(
+                        ).bc_interface.get_deser_from_gettransaction(
+                            wallet_tx)
                     tx_cache[ins.prevout.hash[::-1]] = (wallet_tx,
                                                         wallet_tx_deser)
                 else:
