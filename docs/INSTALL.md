@@ -12,10 +12,9 @@ JoinMarket requires Python 3.8, 3.9, 3.10 or 3.11.
 
 #### Notes on upgrading versions generally:
 
-If you just want the latest version in a new directory, go to the [releases](https://github.com/AdamISZ/joinmarket-clientserver/releases) page.
-Binary executables (of JoinmarketQt) are currently being built only for Windows, please verify the signature on the .exe file attached to the release.
+If you just want the latest version in a new directory, go to the [releases](https://github.com/JoinMarket-Org/joinmarket-clientserver/releases) page.
 
-Otherwise: if you are upgrading from an older version, just update using git: `git pull origin master`,
+If you are upgrading from an older version, just update using git: `git pull origin master`,
 or `git fetch; git checkout tags/<tagname>` for a specific tagged release, then rerun the installation
 process as described below. This will only work if the latest commit, or the tag,
 is actually newer in version number, than what was there already.
@@ -32,7 +31,7 @@ To install everything (client and server), install these packages:
 
 (to build `libsodium` after):
 
-    git clone git@github.com:jedisct1/libsodium.git
+    git clone https://github.com/jedisct1/libsodium.git
     cd libsodium
     git checkout tags/1.0.18
     ./autogen.sh
@@ -43,7 +42,7 @@ To install everything (client and server), install these packages:
 
 Then install this repo:
 
-    git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
+    git clone https://github.com/Joinmarket-Org/joinmarket-clientserver.git
     cd joinmarket-clientserver
 
 Then:
@@ -57,12 +56,12 @@ Then build and install a local copy of libsecp256k1 for python-bitcointx:
 
     mkdir -p deps
     cd deps
-    git clone git@github.com:bitcoin-core/secp256k1
+    git clone https://github.com/bitcoin-core/secp256k1.git
     cd secp256k1
-    git checkout 490022745164b56439688b0fc04f9bd43578e5c3
+    git checkout v0.4.1
     make clean
     ./autogen.sh
-    ./configure --prefix JM_ROOT --enable-module-recovery --disable-jni --enable-experimental --enable-module-ecdh --enable-benchmark=no
+    ./configure --prefix JM_ROOT --enable-module-recovery --enable-experimental --enable-module-ecdh --enable-benchmark=no
     make
     make check
     make install
