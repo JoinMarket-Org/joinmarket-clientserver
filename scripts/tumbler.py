@@ -16,7 +16,7 @@ from jmclient.wallet_utils import DEFAULT_MIXDEPTH
 
 
 from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
-    EXIT_FAILURE, EXIT_ARGERROR
+    EXIT_FAILURE, EXIT_ARGERROR, cli_prompt_user_yesno
 
 log = get_log()
 
@@ -95,7 +95,7 @@ def main():
             jmprint("For restarts, destinations are taken from schedule file,"
                     " so passed destinations on the command line were ignored.",
                     "important")
-            if input("OK? (y/n)") != "y":
+            if not cli_prompt_user_yesno("OK?"):
                 sys.exit(EXIT_SUCCESS)
         destaddrs = [s[3] for s in schedule if s[3] not in ["INTERNAL", "addrask"]]
         jmprint("Remaining destination addresses in restart: " + ",".join(destaddrs),

@@ -2,7 +2,7 @@
 
 from decimal import Decimal
 from jmbase import get_log, hextobin, bintohex
-from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR, jmprint
+from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, EXIT_ARGERROR, jmprint, cli_prompt_user_yesno
 from jmclient import jm_single, load_program_config, open_test_wallet_maybe, get_wallet_path, WalletService
 from jmclient.cli_options import OptionParser, add_base_options
 import jmbitcoin as btc
@@ -272,7 +272,8 @@ if __name__ == '__main__':
         jlog.info(btc.human_readable_transaction(bumped_tx))
 
         if not options.answeryes:
-            if input('Would you like to push to the network? (y/n):')[0] != 'y':
+            if not cli_prompt_user_yesno(
+                    'Would you like to push to the network?'):
                 jlog.info("You chose not to broadcast the transaction, quitting.")
                 sys.exit(EXIT_SUCCESS)
 

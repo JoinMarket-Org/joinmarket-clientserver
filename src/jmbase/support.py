@@ -8,7 +8,7 @@ from os import path, environ
 from functools import wraps
 from optparse import IndentedHelpFormatter
 from sqlite3 import Cursor, Row
-from typing import List
+from typing import Callable, List, Optional
 import urllib.parse as urlparse
 
 # JoinMarket version
@@ -361,3 +361,31 @@ def get_free_tcp_ports(num_ports: int) -> List[int]:
 def dict_factory(cursor: Cursor, row: Row) -> dict:
     fields = [column[0] for column in cursor.description]
     return {key: value for key, value in zip(fields, row)}
+
+def cli_prompt_user_value(message: str,
+                          input_check_fn: Callable[[str], bool],
+                          input_for_default: Optional[str] = None,
+                          default_value: Optional[str] = None) -> str:
+    while True:
+        data = input(message)
+        if input_for_default is not None and data == input_for_default:
+            return default_value
+        if not input_check_fn(data):
+            continue
+        return data
+
+def cli_prompt_user_yesno(message: str) -> bool:
+
+    def cli_prompt_yesno_check(value: str) -> bool:
+        if len(value) > 0:
+            value = value.upper()
+            res = value[0] == "Y" or value[0] == "N"
+        else:
+            res = False
+        if not res:
+            print("Bad answer, try again.")
+        return res
+
+    data = cli_prompt_user_value(f"{message} (y/n): ",
+                                 cli_prompt_yesno_check)
+    return data[0] == "Y" or data[0] == "y"

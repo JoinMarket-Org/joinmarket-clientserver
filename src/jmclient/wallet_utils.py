@@ -20,7 +20,8 @@ from jmclient.blockchaininterface import (BitcoinCoreInterface,
 from jmclient.wallet_service import WalletService
 from jmbase.support import (get_password, jmprint, EXIT_FAILURE,
                             EXIT_ARGERROR, utxo_to_utxostr, hextobin, bintohex,
-                            IndentedHelpFormatterWithNL, dict_factory)
+                            IndentedHelpFormatterWithNL, dict_factory,
+                            cli_prompt_user_yesno)
 
 from .cryptoengine import TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, \
     TYPE_SEGWIT_WALLET_FIDELITY_BONDS
@@ -697,28 +698,28 @@ def cli_user_mnemonic_entry():
         mnemonic_extension = None
     return (mnemonic_phrase, mnemonic_extension)
 
-def cli_do_use_mnemonic_extension():
-    uin = input("Would you like to use a two-factor mnemonic recovery "
-                    "phrase? write 'n' if you don't know what this is (y/n): ")
-    if len(uin) == 0 or uin[0] != 'y':
+def cli_do_use_mnemonic_extension() -> bool:
+    if cli_prompt_user_yesno("Would you like to use a two-factor mnemonic "
+                             "recovery phrase? "
+                             "Write 'n' if you don't know what this is"):
+        return True
+    else:
         jmprint("Not using mnemonic extension", "info")
         return False #no mnemonic extension
-    else:
-        return True
 
 def cli_get_mnemonic_extension():
     jmprint("Note: This will be stored in a reversible way. Do not reuse!",
             "info")
     return input("Enter mnemonic extension: ")
 
-def cli_do_support_fidelity_bonds():
-    uin = input("Would you like this wallet to support fidelity bonds? "
-            "write 'n' if you don't know what this is (y/n): ")
-    if len(uin) == 0 or uin[0] != 'y':
+def cli_do_support_fidelity_bonds() -> bool:
+    if cli_prompt_user_yesno("Would you like this wallet to support "
+                             "fidelity bonds? "
+                             "Write 'n' if you don't know what this is"):
+        return True
+    else:
         jmprint("Not supporting fidelity bonds", "info")
         return False
-    else:
-        return True
 
 def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
         display_seed_callback, enter_seed_callback, enter_wallet_password_callback,
@@ -1207,8 +1208,7 @@ def wallet_signpsbt(wallet_service, psbt):
     jmprint("Base64 of the above PSBT:")
     jmprint(signedpsbt.to_base64())
     if signresult.is_final:
-        if input("Above PSBT is fully signed. Do you want to broadcast?"
-                 "(y/n):") != "y":
+        if not cli_prompt_user_yesno("Above PSBT is fully signed. Do you want to broadcast?"):
             jmprint("Not broadcasting.")
         else:
             jmprint("Broadcasting...")

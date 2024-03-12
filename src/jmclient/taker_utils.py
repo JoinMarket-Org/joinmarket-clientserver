@@ -6,7 +6,8 @@ import time
 import numbers
 from typing import Callable, Optional, Union
 
-from jmbase import get_log, jmprint, bintohex, hextobin
+from jmbase import get_log, jmprint, bintohex, hextobin, \
+    cli_prompt_user_yesno
 from .configure import jm_single, validate_address, is_burn_destination
 from .schedule import human_readable_schedule_entry, tweak_tumble_schedule,\
     schedule_to_text
@@ -211,7 +212,7 @@ def direct_send(wallet_service: WalletService, amount: int, mixdepth: int,
         log.info(sending_info)
         if not answeryes:
             if not accept_callback:
-                if input('Would you like to push to the network? (y/n):')[0] != 'y':
+                if not cli_prompt_user_yesno('Would you like to push to the network?'):
                     log.info("You chose not to broadcast the transaction, quitting.")
                     return False
             else:
