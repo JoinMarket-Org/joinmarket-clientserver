@@ -3,12 +3,37 @@ from typing import Any, Tuple, Union
 import re
 
 
+def bitcoin_unit_to_power(btc_unit: str) -> int:
+    # https://en.bitcoin.it/wiki/Units
+    unit_to_power = {
+        'BTC': 8,
+        'mBTC': 5,     # milli-bitoin, 0.001 BTC
+        'μBTC': 2,     # micro-bitcoin (bit), 0.000001 BTC
+        'bit': 2,
+        'satoshi': 0,
+        'sat': 0
+    }
+    if btc_unit not in unit_to_power:
+        raise ValueError(f"Invalid bitcoin unit: {btc_unit}")
+    return unit_to_power[btc_unit]
+
+
 def btc_to_sat(btc: Union[int, str, Tuple, float, Decimal]) -> int:
     return int(Decimal(btc) * Decimal('1e8'))
 
 
+def sat_to_unit_power(sat: int, power: int) -> Decimal:
+    return Decimal(f"%.{power}f" % float(
+        Decimal(sat) / Decimal(10 ** power)))
+
+
+def sat_to_unit(sat: int, btc_unit: str) -> Decimal:
+    return sat_to_unit_power(sat, bitcoin_unit_to_power(btc_unit))
+
+
 def sat_to_btc(sat: int) -> Decimal:
-    return Decimal(sat) / Decimal('1e8')
+    return sat_to_unit(sat, 'BTC')
+
 
 # 1             = 0.00000001 BTC = 1sat
 # 1sat          = 0.00000001 BTC = 1sat
@@ -18,7 +43,6 @@ def sat_to_btc(sat: int) -> Decimal:
 # 1.00000000    = 1.00000000 BTC = 100000000sat
 # 1.12300000sat = 0.00000001 BTC = 1sat
 # 1btc          = 1.00000000 BTC = 10000000sat
-
 
 def amount_to_sat(amount_str: str) -> int:
     amount_str = str(amount_str).strip()
