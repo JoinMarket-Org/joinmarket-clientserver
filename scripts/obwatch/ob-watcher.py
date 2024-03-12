@@ -713,8 +713,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 self.taker.db.execute("DELETE FROM fidelitybonds;")
             self.taker.msgchan.request_orderbook()
             time.sleep(5)
-            self.path = '/'
-            self.do_GET()
+            self.send_response(302)
+            self.send_header('Location', '/')
+            self.end_headers()
         elif self.path == '/rotateOb':
             if filtered_offername_list == sw0offers:
                 log.debug('Showing nested segwit orderbook')
