@@ -24,7 +24,8 @@ from PySide2 import QtCore
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 
-from jmbitcoin.amount import amount_to_sat, btc_to_sat, sat_to_btc
+from bitcointx.core import satoshi_to_coins
+from jmbitcoin.amount import amount_to_sat, btc_to_sat, sat_to_str
 from jmbitcoin.bip21 import decode_bip21_uri
 from jmclient import (jm_single, validate_address, get_tumble_schedule)
 
@@ -584,7 +585,7 @@ class BitcoinAmountEdit(QWidget):
         self.setModeBTC()
         layout.addWidget(self.unitChooser)
         if default_value:
-            self.valueInputBox.setText(str(sat_to_btc(amount_to_sat(
+            self.valueInputBox.setText(str(satoshi_to_coins(amount_to_sat(
                 default_value))))
         self.setLayout(layout)
 
@@ -605,7 +606,7 @@ class BitcoinAmountEdit(QWidget):
             sat_amount = self.valueInputBox.text()
             self.setModeBTC()
             if sat_amount:
-                self.valueInputBox.setText('%.8f' % sat_to_btc(sat_amount))
+                self.valueInputBox.setText(sat_to_str(sat_amount))
         else:
             # switch from BTC to sat
             btc_amount = self.valueInputBox.text()
@@ -616,7 +617,7 @@ class BitcoinAmountEdit(QWidget):
     def setText(self, text):
         if text:
             if self.unitChooser.currentIndex() == 0:
-                self.valueInputBox.setText(str(sat_to_btc(text)))
+                self.valueInputBox.setText(str(satoshi_to_coins(text)))
             else:
                 self.valueInputBox.setText(str(text))
         else:

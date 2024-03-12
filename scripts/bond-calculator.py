@@ -6,7 +6,7 @@ from json import loads
 from optparse import OptionParser
 
 from jmbase import EXIT_ARGERROR, jmprint, get_log, utxostr_to_utxo, EXIT_FAILURE
-from jmbitcoin import amount_to_sat, sat_to_btc
+from jmbitcoin import amount_to_sat, amount_to_str
 from jmclient import add_base_options, load_program_config, jm_single, get_bond_values
 
 DESCRIPTION = """Given either a Bitcoin UTXO in the form TXID:n
@@ -110,7 +110,7 @@ def main() -> None:
                                           options.interest,
                                           options.exponent,
                                           orderbook)
-    jmprint(f"Amount locked: {amount} ({sat_to_btc(amount)} btc)")
+    jmprint(f"Amount locked: {amount_to_str(amount)}")
     jmprint(f"Confirmation time: {datetime.fromtimestamp(parameters['confirm_time'])}")
     jmprint(f"Interest rate: {parameters['interest']} ({parameters['interest'] * 100}%)")
     jmprint(f"Exponent: {parameters['exponent']}")
