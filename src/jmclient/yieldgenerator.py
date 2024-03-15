@@ -201,7 +201,8 @@ class YieldGeneratorBasic(YieldGenerator):
             return None, None, None
         jlog.info('sending output to address=' + str(cj_addr))
 
-        change_addr = self.wallet_service.get_internal_addr(mixdepth)
+        change_amount = sum(u["value"] for u in utxos.values()) - total_amount + real_cjfee
+        change_addr = self.select_change_address(mixdepth, change_amount)
         return utxos, cj_addr, change_addr
 
     def _get_order_inputs(self, filtered_mix_balance, offer, required_amount):
@@ -267,6 +268,12 @@ class YieldGeneratorBasic(YieldGenerator):
         aborted."""
         cjoutmix = (input_mixdepth + 1) % (self.wallet_service.mixdepth + 1)
         return self.wallet_service.get_internal_addr(cjoutmix)
+
+    def select_change_address(self, input_mixdepth: int, change_amount: int) -> str:
+        """Returns the address to which the change should be sent for an
+        order spending from the given input mixdepth.  Must not return
+        None."""
+        return self.wallet_service.get_internal_addr(input_mixdepth)
 
 class YieldGeneratorService(Service):
     def __init__(self, wallet_service, daemon_host, daemon_port, yg_config):
