@@ -249,7 +249,7 @@ class BlockchainInterface(ABC):
         In case of failure to connect, source a specific minimum fee relay
         rate (which is used to sanity check user's chosen fee rate), or
         failure to source a feerate estimate for targeted number of blocks,
-        a default of 10000 is returned.
+        a default of 20000 is returned.
         """
 
         # default to use if fees cannot be estimated
