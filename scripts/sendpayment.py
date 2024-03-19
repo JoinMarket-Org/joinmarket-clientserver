@@ -270,7 +270,8 @@ def main():
                     sys.exit(EXIT_ARGERROR)
 
     if options.makercount == 0 and not bip78url:
-        tx = direct_send(wallet_service, amount, mixdepth, destaddr,
+        tx = direct_send(wallet_service, mixdepth,
+                         [(destaddr, amount)],
                          options.answeryes,
                          with_final_psbt=options.with_psbt,
                          optin_rbf=not options.no_rbf,

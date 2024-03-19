@@ -41,8 +41,11 @@ def test_snicker_e2e(setup_snicker, nw, wallet_structures,
     wallet_p = wallets[1]['wallet']
     # next, create a tx from the receiver wallet
     our_destn_script = wallet_r.get_new_script(1, BaseWallet.ADDRESS_TYPE_INTERNAL)
-    tx = direct_send(wallet_r, btc.coins_to_satoshi(0.3), 0,
-                     wallet_r.script_to_addr(our_destn_script),
+    tx = direct_send(wallet_r, 0,
+                     [(
+                        wallet_r.script_to_addr(our_destn_script),
+                        btc.coins_to_satoshi(0.3)
+                     )],
                      accept_callback=dummy_accept_callback,
                      info_callback=dummy_info_callback,
                      return_transaction=True)    

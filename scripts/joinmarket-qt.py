@@ -801,11 +801,12 @@ class SpendTab(QWidget):
             if len(self.changeInput.text().strip()) > 0:
                 custom_change = str(self.changeInput.text().strip())
             try:
-                txid = direct_send(mainWindow.wallet_service, amount, mixdepth,
-                                  destaddr, accept_callback=self.checkDirectSend,
-                                  info_callback=self.infoDirectSend,
-                                  error_callback=self.errorDirectSend,
-                                  custom_change_addr=custom_change)
+                txid = direct_send(mainWindow.wallet_service, mixdepth,
+                                   [(destaddr, amount)],
+                                   accept_callback=self.checkDirectSend,
+                                   info_callback=self.infoDirectSend,
+                                   error_callback=self.errorDirectSend,
+                                   custom_change_addr=custom_change)
             except Exception as e:
                 JMQtMessageBox(self, e.args[0], title="Error", mbtype="warn")
                 return

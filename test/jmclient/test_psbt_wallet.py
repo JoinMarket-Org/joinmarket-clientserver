@@ -95,10 +95,11 @@ def test_create_and_sign_psbt_with_legacy(setup_psbt_wallet):
     legacy_addr = bitcoin.CCoinAddress.from_scriptPubKey(
         bitcoin.pubkey_to_p2pkh_script(
             bitcoin.privkey_to_pubkey(b"\x01"*33)))
-    tx = direct_send(wallet_service, bitcoin.coins_to_satoshi(0.3), 0,
-                       str(legacy_addr), accept_callback=dummy_accept_callback,
-                       info_callback=dummy_info_callback,
-                       return_transaction=True)
+    tx = direct_send(wallet_service, 0,
+                     [(str(legacy_addr), bitcoin.coins_to_satoshi(0.3))],
+                     accept_callback=dummy_accept_callback,
+                     info_callback=dummy_info_callback,
+                     return_transaction=True)
     assert tx
     # this time we will have one utxo worth <~ 0.7
     my_utxos = wallet_service.select_utxos(0, bitcoin.coins_to_satoshi(0.5))
@@ -277,7 +278,8 @@ def test_payjoin_workflow(setup_psbt_wallet, payment_amt, wallet_cls_sender,
     # **************
 
     # create a normal tx from the sender wallet:
-    payment_psbt = direct_send(wallet_s, payment_amt, 0, destaddr,
+    payment_psbt = direct_send(wallet_s, 0,
+                    [(destaddr, payment_amt)],
                     accept_callback=dummy_accept_callback,
                     info_callback=dummy_info_callback,
                     with_final_psbt=True)
