@@ -593,8 +593,12 @@ class BitcoinCoreInterface(BlockchainInterface):
         # cannot be estimated in that case the 2nd highest priority
         # should be used instead of falling back to hardcoded values
         tries = 2 if conf_target == 1 else 1
+        rpc_result = None
         for i in range(tries):
-            rpc_result = self._rpc('estimatesmartfee', [conf_target + i])
+            try:
+                rpc_result = self._rpc('estimatesmartfee', [conf_target + i])
+            except JsonRpcError:
+                continue
             if not rpc_result:
                 # in case of connection error:
                 return None
