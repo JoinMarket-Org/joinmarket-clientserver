@@ -39,6 +39,11 @@ testfilename = "testwrpc"
 
 jlog = get_log()
 
+def ensure_deferred(func):
+    def wrapper(*args, **kwargs):
+        return defer.ensureDeferred(func(*args, **kwargs))
+    return wrapper
+
 class JMWalletDaemonT(JMWalletDaemon):
     def check_cookie(self, request, *args, **kwargs):
         if self.auth_disabled:
@@ -127,21 +132,18 @@ class WalletRPCTestBase(object):
         else:
             return tfn
 
-    @defer.inlineCallbacks
-    def do_request(self, agent, method, addr, body, handler, token=None):
+    async def do_request(self, agent, method, addr, body, handler, token=None):
         if token:
             headers = Headers({"Authorization": ["Bearer " + token]})
         else:
             headers = None
-        response = yield agent.request(method, addr, headers, bodyProducer=body)
-        yield self.response_handler(response, handler)
+        response = await agent.request(method, addr, headers, bodyProducer=body)
+        await self.response_handler(response, handler)
 
-    @defer.inlineCallbacks
-    def response_handler(self, response, handler):
-        body = yield readBody(response)
+    async def response_handler(self, response, handler):
+        body = await readBody(response)
         # handlers check the body is as expected; no return.
-        yield handler(body, response.code)
-        return True
+        handler(body, response.code)
 
     def process_new_addr_response(self, response, code):
         assert code == 200
@@ -241,8 +243,8 @@ class TrialTestWRPC_WS(WalletRPCTestBase, unittest.TestCase):
                                             test_tx_hex_txid)
 
 class TrialTestWRPC_FB(WalletRPCTestBaseFB, unittest.TestCase):
-    @defer.inlineCallbacks
-    def test_gettimelockaddress(self):
+    @ensure_deferred
+    async def test_gettimelockaddress(self):
         self.daemon.auth_disabled = True
         agent = get_nontor_agent()
         addr = self.get_route_root()
@@ -250,11 +252,10 @@ class TrialTestWRPC_FB(WalletRPCTestBaseFB, unittest.TestCase):
         addr += self.daemon.wallet_name
         addr += "/address/timelock/new/2023-02"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
-                              self.process_new_addr_response)
+        await self.do_request(agent, b"GET", addr, None, self.process_new_addr_response)
 
-    @defer.inlineCallbacks
-    def test_no_maker_start_expiredtl_only(self):
+    @ensure_deferred
+    async def test_no_maker_start_expiredtl_only(self):
         # test strategy:
         # 1. create a TL address with expired TL
         # 2. fund the above
@@ -269,8 +270,7 @@ class TrialTestWRPC_FB(WalletRPCTestBaseFB, unittest.TestCase):
         addr += self.daemon.wallet_name
         addr += "/address/timelock/new/2022-01"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
-                              self.process_new_addr_response)
+        await self.do_request(agent, b"GET", addr, None, self.process_new_addr_response)
         # 2
         jm_single().bc_interface.grab_coins(self.created_tl_address, 0.05)
         # 3
@@ -282,8 +282,7 @@ class TrialTestWRPC_FB(WalletRPCTestBaseFB, unittest.TestCase):
         body = BytesProducer(json.dumps({"txfee": "0",
             "cjfee_a": "1000", "cjfee_r": "0.0002",
             "ordertype": "reloffer", "minsize": "1000000"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
-                              self.process_failed_maker_start)
+        await self.do_request(agent, b"POST", addr, body, self.process_failed_maker_start)
 
     def process_failed_maker_start(self, response, code):
         assert code == 409
@@ -296,8 +295,7 @@ class TrialTestWRPC_FB(WalletRPCTestBaseFB, unittest.TestCase):
 
 class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
 
-    @defer.inlineCallbacks
-    def do_session_request(self, agent, addr, handler=None, token=None):
+    async def do_session_request(self, agent, addr, handler=None, token=None):
         """ A `None` value for handler is reserved for the case
         where we expect an Unauthorized request because we provided a token,
         but it is not valid.
@@ -308,7 +306,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         if handler is None:
             assert token is not None
             handler = self.unauthorized_session_request_handler
-        yield self.do_request(agent, b"GET", (addr+"/session").encode(),
+        await self.do_request(agent, b"GET", (addr+"/session").encode(),
                               None, handler, token)
 
     def authorized_session_request_handler(self, response, code):
@@ -317,8 +315,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
     def unauthorized_session_request_handler(self, response, code):
         assert code == 401
 
-    @defer.inlineCallbacks
-    def test_recover_wallet(self):
+    @ensure_deferred
+    async def test_recover_wallet(self):
         # before starting, we have to shut down the existing
         # wallet service (usually this would be `lock`):
         self.daemon.services["wallet"] = None
@@ -337,11 +335,11 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
                 "seedphrase": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"}).encode())
         # Note: the recover wallet response is identical to
         # the create wallet response
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_create_wallet_response)
 
         # Sanity check of startup; does a auth-ed session request succeed?
-        yield self.do_session_request(agent, root,
+        await self.do_session_request(agent, root,
             self.authorized_session_request_handler, token=self.jwt_token)
         # What about display?
         addr = self.get_route_root()
@@ -350,11 +348,11 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr += "/display"
         addr = addr.encode()
         self.daemon.auth_disabled = True
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_empty_wallet_display_response)
 
-    @defer.inlineCallbacks
-    def test_create_list_lock_unlock(self):
+    @ensure_deferred
+    async def test_create_list_lock_unlock(self):
         """ A batch of tests in sequence here,
             so we can track the state of a created
             wallet and check it is what is expected.
@@ -387,28 +385,28 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr = addr.encode()
         body = BytesProducer(json.dumps({"walletname": wfn1,
                 "password": "hunter2", "wallettype": "sw-fb"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_create_wallet_response)
 
         # 1a. Session request with valid token; should succeed
-        yield self.do_session_request(agent, root,
+        await self.do_session_request(agent, root,
             self.authorized_session_request_handler, token=self.jwt_token)
         # 1b. Session request without token, even though one is active; should succeed
-        yield self.do_session_request(agent, root,
+        await self.do_session_request(agent, root,
             self.authorized_session_request_handler)
 
         # 2. now *lock*
         addr = root + "/wallet/" + wfn1 + "/lock"
         addr = addr.encode()
         jlog.info("Using address: {}".format(addr))
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                 self.process_lock_response, token=self.jwt_token)
 
         # 2a. Session request with now invalid token; should fail
-        yield self.do_session_request(agent, root,
+        await self.do_session_request(agent, root,
             self.unauthorized_session_request_handler, token=self.jwt_token)
         # 2b. Session request without token, should still succeed.
-        yield self.do_session_request(agent, root,
+        await self.do_session_request(agent, root,
             self.authorized_session_request_handler)
 
         # 3. Create this secondary wallet (so we can test re-unlock)
@@ -416,39 +414,39 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr = addr.encode()
         body = BytesProducer(json.dumps({"walletname": wfn2,
                 "password": "hunter3", "wallettype": "sw"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_create_wallet_response)
 
         # 4. List wallets
         addr = root + "/wallet/all"
         addr = addr.encode()
         # does not require a token, though we just got one.
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                                self.process_list_wallets_response)
 
         # 5. now *lock* the active.
         addr = root + "/wallet/" + wfn2 + "/lock"
         addr = addr.encode()
         jlog.info("Using address: {}".format(addr))
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                 self.process_lock_response, token=self.jwt_token)
         # wallet service should now be stopped.
         # 6. Unlock the original wallet
         addr = root + "/wallet/" + wfn1 + "/unlock"
         addr = addr.encode()
         body = BytesProducer(json.dumps({"password": "hunter2"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_unlock_response)
 
         # 7. Unlock the second wallet again
         addr = root + "/wallet/" + wfn2 + "/unlock"
         addr = addr.encode()
         body = BytesProducer(json.dumps({"password": "hunter3"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_unlock_response)
 
-    @defer.inlineCallbacks
-    def test_unlock_locked(self):
+    @ensure_deferred
+    async def test_unlock_locked(self):
         """Assert if unlocking a wallet locked by another process fails."""
         self.clean_out_wallet_files()
         self.daemon.services["wallet"] = None
@@ -473,7 +471,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr = root + "/wallet/" + wfn + "/unlock"
         addr = addr.encode()
         body = BytesProducer(json.dumps({"password": pw}).encode())
-        yield self.do_request(
+        await self.do_request(
             agent, b"POST", addr, body, self.process_failed_unlock_response
         )
 
@@ -492,8 +490,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         json_body = json.loads(body.decode("utf-8"))
         assert set(json_body["wallets"]) == set(self.wfnames)
 
-    @defer.inlineCallbacks
-    def test_direct_send_and_display_wallet(self):
+    @ensure_deferred
+    async def test_direct_send_and_display_wallet(self):
         """ First spend a coin, then check the balance
         via the display wallet output.
         """
@@ -507,7 +505,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         body = BytesProducer(json.dumps({"mixdepth": "1",
             "amount_sats": "100000000",
             "destination": "2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_direct_send_response)
         # before querying the wallet display, set a label to check:
         labeladdr = self.daemon.services["wallet"].get_addr(0,0,0)
@@ -521,7 +519,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr += self.daemon.wallet_name
         addr += "/display"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_wallet_display_response)
 
     def process_empty_wallet_display_response(self, response, code):
@@ -555,8 +553,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         assert all([x["balance"] == x["available_balance"] for x in wia[
             0]["branches"]])
 
-    @defer.inlineCallbacks
-    def test_getaddress(self):
+    @ensure_deferred
+    async def test_getaddress(self):
         """ Tests that we can source a valid address
         for deposits using getaddress.
         """
@@ -567,11 +565,11 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr += self.daemon.wallet_name
         addr += "/address/new/3"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_new_addr_response)
 
-    @defer.inlineCallbacks
-    def test_maker_start_stop(self):
+    @ensure_deferred
+    async def test_maker_start_stop(self):
         """ Tests that we can start the maker service.
         As for the taker coinjoin test, this is currently
         a simple/artificial test, only checking return status
@@ -588,7 +586,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         body = BytesProducer(json.dumps({"txfee": "0",
             "cjfee_a": "1000", "cjfee_r": "0.0002",
             "ordertype": "reloffer", "minsize": "1000000"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_maker_start)
         # For the second phase, since we are not currently processing
         # via actual backend connections, we need to mock the client
@@ -600,7 +598,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
             DummyMakerClientProto()
         addr = addr_start + "/maker/stop"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_maker_stop)
 
     def process_maker_start(self, request, code):
@@ -611,8 +609,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         assert code == 202
         assert self.daemon.coinjoin_state == CJ_NOT_RUNNING
 
-    @defer.inlineCallbacks
-    def test_listutxos_and_freeze(self):
+    @ensure_deferred
+    async def test_listutxos_and_freeze(self):
         self.daemon.auth_disabled = True
         agent = get_nontor_agent()
         pre_addr = self.get_route_root()
@@ -620,7 +618,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         pre_addr += self.daemon.wallet_name
         addr = pre_addr + "/utxos"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_listutxos_response)
         # Test of freezing is currently very primitive: we only
         # check that the action was accepted; a full test would
@@ -631,11 +629,11 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         utxostr = self.mixdepth1_utxos[0]["utxo"]
         body = BytesProducer(json.dumps({"utxo-string": utxostr,
             "freeze": True}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_utxo_freeze)
         body = BytesProducer(json.dumps({"utxo-string": utxostr,
             "freeze": False}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_utxo_freeze)
 
     def process_listutxos_response(self, response, code):
@@ -655,13 +653,13 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
     def process_utxo_freeze(self, response, code):
         assert code == 200
 
-    @defer.inlineCallbacks
-    def test_session(self):
+    @ensure_deferred
+    async def test_session(self):
         agent = get_nontor_agent()
         addr = self.get_route_root()
         addr += "/session"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_session_response)
 
     def process_session_response(self, response, code):
@@ -684,8 +682,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         json_body = json.loads(response.decode("utf-8"))
         assert json_body["walletname"] in self.wfnames
 
-    @defer.inlineCallbacks
-    def test_do_coinjoin(self):
+    @ensure_deferred
+    async def test_do_coinjoin(self):
         """ This slightly weird test curently only
         tests *requesting* a coinjoin; because there are
         no makers running in the test suite, the Taker will
@@ -704,16 +702,16 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
             "amount_sats": "22000000",
             "counterparties": "2",
             "destination": "2N2JD6wb56AfK4tfmM6PwdVmoYk2dCKf4Br"}).encode())
-        yield self.do_request(agent, b"POST", addr, body,
+        await self.do_request(agent, b"POST", addr, body,
                               self.process_do_coinjoin_response)
 
-    @defer.inlineCallbacks
-    def test_getinfo(self):
+    @ensure_deferred
+    async def test_getinfo(self):
         agent = get_nontor_agent()
         addr = self.get_route_root()
         addr += "/getinfo"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_getinfo_response)
 
     def process_getinfo_response(self, response, code):
@@ -731,8 +729,8 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         self.addCleanup(self.scon.stopListening)
         assert json.loads(response.decode("utf-8")) == {}
 
-    @defer.inlineCallbacks
-    def test_get_seed(self):
+    @ensure_deferred
+    async def test_get_seed(self):
         self.daemon.auth_disabled = True
         agent = get_nontor_agent()
         addr = self.get_route_root()
@@ -740,7 +738,7 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
         addr += self.daemon.wallet_name
         addr += "/getseed"
         addr = addr.encode()
-        yield self.do_request(agent, b"GET", addr, None,
+        await self.do_request(agent, b"GET", addr, None,
                               self.process_get_seed_response)
 
     def process_get_seed_response(self, response, code):
@@ -750,10 +748,9 @@ class TrialTestWRPC_DisplayWallet(WalletRPCTestBase, unittest.TestCase):
 
 
 class TrialTestWRPC_JWT(WalletRPCTestBase, unittest.TestCase):
-    @defer.inlineCallbacks
-    def do_request(self, agent, method, addr, body, handler, token):
+    async def do_request(self, agent, method, addr, body, handler, token):
         headers = Headers({"Authorization": ["Bearer " + token]})
-        response = yield agent.request(method, addr, headers, bodyProducer=body)
+        response = await agent.request(method, addr, headers, bodyProducer=body)
         handler(response)
 
     def get_token(self, grant_type: str, status: str = "valid"):
@@ -809,8 +806,8 @@ class TrialTestWRPC_JWT(WalletRPCTestBase, unittest.TestCase):
         self.unauthorized_response_handler(response)
         assert "expired" in response.headers.getRawHeaders("WWW-Authenticate").pop()
 
-    @defer.inlineCallbacks
-    def test_jwt_authentication(self):
+    @ensure_deferred
+    async def test_jwt_authentication(self):
         """Test JWT authentication and authorization"""
 
         agent = get_nontor_agent()
@@ -831,38 +828,35 @@ class TrialTestWRPC_JWT(WalletRPCTestBase, unittest.TestCase):
             }[responde_handler]
             token = self.get_token("access", access_token_status)
 
-            yield self.do_request(agent, b"GET", addr, None, handler, token)
+            await self.do_request(agent, b"GET", addr, None, handler, token)
 
-    @defer.inlineCallbacks
-    def successful_refresh_response_handler(self, response):
+    async def successful_refresh_response_handler(self, response):
         self.authorized_response_handler(response)
-        body = yield readBody(response)
+        body = await readBody(response)
         json_body = json.loads(body.decode("utf-8"))
         assert {"token", "refresh_token", "expires_in", "token_type", "scope"} <= set(
             json_body.keys()
         )
 
-    @defer.inlineCallbacks
-    def failed_refresh_response_handler(
+    async def failed_refresh_response_handler(
         self, response, *, message=None, error_description=None
     ):
         assert response.code == 400
-        body = yield readBody(response)
+        body = await readBody(response)
         json_body = json.loads(body.decode("utf-8"))
         if message is not None:
             assert json_body.get("message") == message
         if error_description is not None:
             assert error_description in json_body.get("error_description")
 
-    @defer.inlineCallbacks
-    def do_refresh_request(self, body, handler, token):
+    async def do_refresh_request(self, body, handler, token):
         agent = get_nontor_agent()
         addr = (self.get_route_root() + "/token").encode()
         body = BytesProducer(json.dumps(body).encode())
-        yield self.do_request(agent, b"POST", addr, body, handler, token)
+        await self.do_request(agent, b"POST", addr, body, handler, token)
 
-    @defer.inlineCallbacks
-    def test_refresh_token_request(self):
+    @ensure_deferred
+    async def test_refresh_token_request(self):
         """Test token endpoint with valid refresh token"""
         for access_token_status, request_status, error in [
             ("valid", "valid", None),
@@ -886,12 +880,12 @@ class TrialTestWRPC_JWT(WalletRPCTestBase, unittest.TestCase):
             if request_status == "unsupported_grant_type":
                 body["grant_type"] = "joinmarket"
 
-            yield self.do_refresh_request(
+            await self.do_refresh_request(
                 body, handler, self.get_token("access", access_token_status)
             )
 
-    @defer.inlineCallbacks
-    def test_refresh_token(self):
+    @ensure_deferred
+    async def test_refresh_token(self):
         """Test refresh token endpoint"""
         for refresh_token_status, error in [
             ("expired", "expired"),
@@ -912,7 +906,7 @@ class TrialTestWRPC_JWT(WalletRPCTestBase, unittest.TestCase):
                 "refresh_token": self.get_token("refresh", refresh_token_status),
             }
 
-            yield self.do_refresh_request(body, handler, self.get_token("access"))
+            await self.do_refresh_request(body, handler, self.get_token("access"))
 
 
 """
