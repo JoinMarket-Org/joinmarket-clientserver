@@ -169,7 +169,7 @@ Delaying the whole process by stopping and restarting it is quite sensible anywa
 
 ### Reminder about commitments.
 
-Follow the [usage guide](USAGE.md) on how to fund your wallet. Don't neglect to read [this](https://github.com/JoinMarket-Org/joinmarket/wiki/Sourcing-commitments-for-joins) page, otherwise you could encounter problems.
+Follow the [usage guide](USAGE.md) on how to fund your wallet. Don't neglect to read [this](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/master/docs/SOURCING-COMMITMENTS.md) page, otherwise you could encounter problems.
 
 This is actually a really important area with the tumbler, because we use sweeps often. It's not really crucial to use 3 utxos to fund at the start, but try to fund with 2, anyway. And:
 
