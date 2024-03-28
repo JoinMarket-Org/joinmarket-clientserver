@@ -8,7 +8,7 @@ Note that the tumbler can be run as a script:
 
 or from the JoinmarketQt app in the "Multiple Joins" tab (see [the guide](JOINMARKET-QT-GUIDE.md)),
 
-or using the RPC-API via a webapp like [JAM](https://github.com/joinmarket-webui/joinmarket-webui).
+or using the RPC-API via a webapp like [JAM](https://github.com/joinmarket-webui/jam).
 
 # Contents
 
@@ -30,8 +30,9 @@ or using the RPC-API via a webapp like [JAM](https://github.com/joinmarket-webui
 
 7. [Tweaking the schedule](#tweaking)
 
+8. [How often do retries occur](#how-often-do-retries-occur)
 
-8. [Possible failure vectors](#failure-vectors)
+9. [Possible failure vectors](#failure-vectors)
 
 <a name="introduction" />
 
@@ -111,7 +112,7 @@ Amounts and times: these are both randomized. You can't control how much goes to
 <a name="basic" />
 
 First, note you can use more than 3 destination addresses (and it's good to do so), if you're mixing through more than the default 4 mixdepths.
-Second, note that the tumbler algorithm as of [this commit](ADD_LINK_HERE), now **cycles** through the default 5 mixdepths, instead of creating extra ones. This means that the mixdepth path goes as follows:
+Second, note that the tumbler algorithm as of [this commit](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/1324/commits/d3dc9d7bbd8f0464f86ff086f86e8d52e56424ac), now **cycles** through the default 5 mixdepths, instead of creating extra ones. This means that the mixdepth path goes as follows:
 
 Phase 1:
 * Sweep from mixdepth 2 to mixdepth 3
@@ -196,7 +197,7 @@ In this implementation, each coinjoin has an associated "schedule" of format lik
 
 For the `sendpayment.py` script, this schedule can indeed be simply written in a file and passed as a parameter (for this reason it's likely the tumbler and sendpayment scripts can merge in future).
 
-As you can imagine, the idea for the `tumbler.py` script, and the MultiJoin wizard in [JoinmarketQt](JOINMARKET-QT-GUIDE.md#tumbler) is simply that a tumbler *schedule* is generated, according to the algorithm introduced in [this PR](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/387) ([code](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/77422231207c7c3e984a88e944b6c715cece46b5/jmclient/jmclient/schedule.py#L87)), however here it is persisted - see the next section.
+As you can imagine, the idea for the `tumbler.py` script, and the MultiJoin wizard in [JoinmarketQt](JOINMARKET-QT-GUIDE.md#tumbler) is simply that a tumbler *schedule* is generated, according to the algorithm introduced in [this PR](https://github.com/JoinMarket-Org/joinmarket-clientserver/pull/387) ([code](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/fd96f960895c35579407b81236b0679f63871b8f/src/jmclient/schedule.py#L91)), however here it is persisted - see the next section.
 
 <a name="logging" />
 
@@ -264,7 +265,7 @@ This tweaking process is repeated as many times as necessary until the transacti
 
 ## How often do retries occur?
 
-This is hardcoded currently to `20 * maker_timeout_sec`, the figure 20 being hardcoded is due to me not wanting yet another config variable, although that could be done of course. This is the rate at which the stall monitor wakes up in the client protocol, the setting is in the code [here](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/acc00fc6f5a1cd1f21052c5af06cd06e78c6edda/jmclient/jmclient/client_protocol.py#L359-L363). Note that by default this is fairly slow, 10 minutes.
+This is hardcoded currently to `20 * maker_timeout_sec`, the figure 20 being hardcoded is due to me not wanting yet another config variable, although that could be done of course. This is the rate at which the stall monitor wakes up in the client protocol, the setting is in the code [here](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/fd96f960895c35579407b81236b0679f63871b8f/src/jmclient/client_protocol.py#L608-L611). Note that by default this is fairly slow, 10 minutes.
 
 <a name="failure-vectors" />
 
