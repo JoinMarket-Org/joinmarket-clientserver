@@ -4,7 +4,7 @@ import os
 import sys
 import time
 import numbers
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 from jmbase import get_log, jmprint, bintohex, hextobin, \
     cli_prompt_user_yesno
@@ -34,8 +34,10 @@ def get_utxo_scripts(wallet: BaseWallet, utxos: dict) -> list:
         script_types.append(wallet.get_outtype(utxo["address"]))
     return script_types
 
-def direct_send(wallet_service: WalletService, amount: int, mixdepth: int,
-                destination: str, answeryes: bool = False,
+def direct_send(wallet_service: WalletService,
+                mixdepth: int,
+                dest_and_amounts: List[Tuple[str, int]],
+                answeryes: bool = False,
                 accept_callback: Optional[Callable[[str, str, int, int, Optional[str]], bool]] = None,
                 info_callback: Optional[Callable[[str], None]] = None,
                 error_callback: Optional[Callable[[str], None]] = None,
@@ -71,86 +73,110 @@ def direct_send(wallet_service: WalletService, amount: int, mixdepth: int,
     4. The PSBT object if with_final_psbt is True, and in
        this case the transaction is *NOT* broadcast.
     """
+    is_sweep = False
+    outtypes = []
+    total_outputs_val = 0
+
     #Sanity checks
-    assert validate_address(destination)[0] or is_burn_destination(destination)
+    assert isinstance(dest_and_amounts, list)
+    assert len(dest_and_amounts) > 0
     assert custom_change_addr is None or validate_address(custom_change_addr)[0]
-    assert amount > 0 or custom_change_addr is None
     assert isinstance(mixdepth, numbers.Integral)
     assert mixdepth >= 0
-    assert isinstance(amount, numbers.Integral)
-    assert amount >=0
     assert isinstance(wallet_service.wallet, BaseWallet)
 
-    if is_burn_destination(destination):
-        #Additional checks
-        if not isinstance(wallet_service.wallet, FidelityBondMixin):
-            log.error("Only fidelity bond wallets can burn coins")
-            return
-        if answeryes:
-            log.error("Burning coins not allowed without asking for confirmation")
-            return
-        if mixdepth != FidelityBondMixin.FIDELITY_BOND_MIXDEPTH:
-            log.error("Burning coins only allowed from mixdepth " + str(
-                FidelityBondMixin.FIDELITY_BOND_MIXDEPTH))
-            return
-        if amount != 0:
-            log.error("Only sweeping allowed when burning coins, to keep the tx " +
-                "small. Tip: use the coin control feature to freeze utxos")
-            return
+    for target in dest_and_amounts:
+        destination = target[0]
+        amount = target[1]
+        assert validate_address(destination)[0] or \
+            is_burn_destination(destination)
+        if amount == 0:
+            assert custom_change_addr is None and \
+                len(dest_and_amounts) == 1
+            is_sweep = True
+        assert isinstance(amount, numbers.Integral)
+        assert amount >= 0
+        if is_burn_destination(destination):
+            #Additional checks
+            if not isinstance(wallet_service.wallet, FidelityBondMixin):
+                log.error("Only fidelity bond wallets can burn coins")
+                return
+            if answeryes:
+                log.error("Burning coins not allowed without asking for confirmation")
+                return
+            if mixdepth != FidelityBondMixin.FIDELITY_BOND_MIXDEPTH:
+                log.error("Burning coins only allowed from mixdepth " + str(
+                    FidelityBondMixin.FIDELITY_BOND_MIXDEPTH))
+                return
+            if amount != 0:
+                log.error("Only sweeping allowed when burning coins, to keep "
+                    "the tx small. Tip: use the coin control feature to "
+                    "freeze utxos")
+                return
+        # if the output is of a script type not currently
+        # handled by our wallet code, we can't use information
+        # to help us calculate fees, but fall back to default.
+        # This is represented by a return value `None`.
+        # Note that this does *not* imply we accept any nonstandard
+        # output script, because we already called `validate_address`.
+        outtypes.append(wallet_service.get_outtype(destination))
+        total_outputs_val += amount
 
     txtype = wallet_service.get_txtype()
 
-    # if the output is of a script type not currently
-    # handled by our wallet code, we can't use information
-    # to help us calculate fees, but fall back to default.
-    # This is represented by a return value `None`.
-    # Note that this does *not* imply we accept any nonstandard
-    # output script, because we already called `validate_address`.
-    outtype = wallet_service.get_outtype(destination)
-
-    if amount == 0:
+    if is_sweep:
         #doing a sweep
+        destination = dest_and_amounts[0][0]
+        amount = dest_and_amounts[0][1]
         utxos = wallet_service.get_utxos_by_mixdepth()[mixdepth]
         if utxos == {}:
             log.error(
-                "There are no available utxos in mixdepth: " + str(mixdepth) + ", quitting.")
+                f"There are no available utxos in mixdepth {mixdepth}, "
+                 "quitting.")
             return
         total_inputs_val = sum([va['value'] for u, va in utxos.items()])
         script_types = get_utxo_scripts(wallet_service.wallet, utxos)
-        fee_est = estimate_tx_fee(len(utxos), 1, txtype=script_types, outtype=outtype)
-        outs = [{"address": destination, "value": total_inputs_val - fee_est}]
+        fee_est = estimate_tx_fee(len(utxos), 1, txtype=script_types,
+            outtype=outtypes[0])
+        outs = [{"address": destination,
+                 "value": total_inputs_val - fee_est}]
     else:
-        change_type = txtype
         if custom_change_addr:
             change_type = wallet_service.get_outtype(custom_change_addr)
             if change_type is None:
-                # we don't recognize this type; best we can do is revert to default,
-                # even though it may be inaccurate:
+                # we don't recognize this type; best we can do is revert to
+                # default, even though it may be inaccurate:
                 change_type = txtype
-        if outtype is None:
+        else:
+            change_type = txtype
+        if outtypes[0] is None:
             # we don't recognize the destination script type,
             # so set it as the same as the change (which will usually
             # be the same as the spending wallet, but see above for custom)
             # Notice that this is handled differently to the sweep case above,
             # because we must use a list - there is more than one output
-            outtype = change_type
-        outtypes = [change_type, outtype]
+            outtypes[0] = change_type
+        outtypes.append(change_type)
         # not doing a sweep; we will have change.
         # 8 inputs to be conservative; note we cannot account for the possibility
         # of non-standard input types at this point.
-        initial_fee_est = estimate_tx_fee(8, 2, txtype=txtype, outtype=outtypes)
+        initial_fee_est = estimate_tx_fee(8, len(dest_and_amounts) + 1,
+                                          txtype=txtype, outtype=outtypes)
         utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est,
                                             includeaddr=True)
         script_types = get_utxo_scripts(wallet_service.wallet, utxos)
         if len(utxos) < 8:
-            fee_est = estimate_tx_fee(len(utxos), 2, txtype=script_types, outtype=outtypes)
+            fee_est = estimate_tx_fee(len(utxos), len(dest_and_amounts) + 1,
+                                      txtype=script_types, outtype=outtypes)
         else:
             fee_est = initial_fee_est
         total_inputs_val = sum([va['value'] for u, va in utxos.items()])
-        changeval = total_inputs_val - fee_est - amount
-        outs = [{"value": amount, "address": destination}]
-        change_addr = wallet_service.get_internal_addr(mixdepth) if custom_change_addr is None \
-                      else custom_change_addr
+        changeval = total_inputs_val - fee_est - total_outputs_val
+        outs = []
+        for out in dest_and_amounts:
+            outs.append({"value": out[1], "address": out[0]})
+        change_addr = wallet_service.get_internal_addr(mixdepth) \
+            if custom_change_addr is None else custom_change_addr
         outs.append({"value": changeval, "address": change_addr})
 
     #compute transaction locktime, has special case for spending timelocked coins
@@ -170,9 +196,10 @@ def direct_send(wallet_service: WalletService, amount: int, mixdepth: int,
 
     #Now ready to construct transaction
     log.info("Using a fee of: " + amount_to_str(fee_est) + ".")
-    if amount != 0:
+    if not is_sweep:
         log.info("Using a change value of: " + amount_to_str(changeval) + ".")
-    tx = make_shuffled_tx(list(utxos.keys()), outs, 2, tx_locktime)
+    tx = make_shuffled_tx(list(utxos.keys()), outs,
+                          version=2, locktime=tx_locktime)
 
     if optin_rbf:
         for inp in tx.vin:

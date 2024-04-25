@@ -163,8 +163,8 @@ def test_spend_then_rbf(setup_tx_creation):
     # While `direct_send` usually encapsulates utxo selection
     # for user, here we need to know what was chosen, hence
     # we return the transaction object, not directly broadcast.
-    tx1 = direct_send(wallet_service, amount, 0,
-                      destn, answeryes=True,
+    tx1 = direct_send(wallet_service, 0, [(destn, amount)],
+                      answeryes=True,
                       return_transaction=True)
     assert tx1
     # record the utxos for reuse:
