@@ -10,7 +10,7 @@ jobs:
       matrix:
         os: [macos-13, ubuntu-latest]
         python-version: ["3.8", "3.11"]
-        bitcoind-version: ["0.18.0", "26.1"]
+        bitcoind-version: ["0.18.0", "27.0"]
 
     steps:
       - uses: actions/checkout@v3
