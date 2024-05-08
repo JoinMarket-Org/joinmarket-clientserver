@@ -852,6 +852,7 @@ class PayjoinConverter(object):
         # to create the PSBT we need the spent_outs for each input,
         # in the right order:
         spent_outs = []
+        sender_indices = []
         for i, inp in enumerate(unsigned_payjoin_tx.vin):
             input_found = False
             for j, inp2 in enumerate(payment_psbt.unsigned_tx.vin):
@@ -862,7 +863,7 @@ class PayjoinConverter(object):
                     inp.nSequence = inp2.nSequence
                     spent_outs.append(payment_psbt.inputs[j].utxo)
                     input_found = True
-                    sender_index = i
+                    sender_indices.append(i)
                     break
             if input_found:
                 continue
@@ -900,10 +901,11 @@ class PayjoinConverter(object):
         assert not signresult.is_final
 
         # with signing successful, remove the utxo field from the
-        # counterparty's input (this is required by BIP78). Note we don't
+        # counterparty's inputs (this is required by BIP78). Note we don't
         # do this on PSBT creation as the psbt signing code throws ValueError
         # unless utxos are present.
-        receiver_signed_psbt.inputs[sender_index] = btc.PSBT_Input(index=sender_index)
+        for sender_index in sender_indices:
+            receiver_signed_psbt.inputs[sender_index] = btc.PSBT_Input(index=sender_index)
         log.debug("Receiver signing successful. Payjoin PSBT is now:\n{}".format(
             self.wallet_service.human_readable_psbt(receiver_signed_psbt)))
         # construct txoutset for the wallet service callback; we cannot use
