@@ -702,6 +702,21 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(orderbook_page.encode('utf-8'))
 
+    def get_url_base(self) -> str:
+        # This is to handle the case where the server is behind a reverse proxy
+        # and base path may not be /.
+        # First we get HTTP or HTTPS protocol from Origin header and then use
+        # Host header to get the base path.
+        # Will work with nginx config like this:
+        # location /ob-watcher {
+        #     rewrite /ob-watcher/(.*) /$1 break;
+        #     proxy_pass http://localhost:62601;
+        #     proxy_set_header Host $host/ob-watcher;
+        # }
+        is_https = self.headers.get('Origin', '').startswith('https://')
+        host = self.headers.get('Host', '')
+        return 'https://' + host if is_https else 'http://' + host
+
     def do_POST(self):
         global filtered_offername_list
         pages = ['/refreshorderbook', '/rotateOb']
@@ -713,8 +728,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 self.taker.db.execute("DELETE FROM fidelitybonds;")
             self.taker.msgchan.request_orderbook()
             time.sleep(5)
-            self.path = '/'
-            self.do_GET()
+            self.send_response(302)
+            self.send_header('Location', self.get_url_base() + '/')
+            self.end_headers()
         elif self.path == '/rotateOb':
             if filtered_offername_list == sw0offers:
                 log.debug('Showing nested segwit orderbook')
@@ -722,8 +738,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             elif filtered_offername_list == swoffers:
                 log.debug('Showing native segwit orderbook')
                 filtered_offername_list = sw0offers
-            self.path = '/'
-            self.do_GET()
+            self.send_response(302)
+            self.send_header('Location', self.get_url_base() + '/')
+            self.end_headers()
 
 class HTTPDThread(threading.Thread):
     def __init__(self, taker, hostport):
