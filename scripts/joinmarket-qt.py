@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-from typing import Optional
 
 '''
 Joinmarket GUI using PyQt for doing coinjoins.
@@ -23,6 +22,7 @@ Some widgets copied and modified from https://github.com/spesmilo/electrum
 import sys, datetime, os, logging
 import platform, json, threading, time
 from optparse import OptionParser
+from typing import Optional, Tuple
 
 from PySide2 import QtCore
 
@@ -1921,7 +1921,7 @@ class JMMainWindow(QMainWindow):
                        "Private keys exported to: " + os.path.join(jm_single().datadir,
                         privkeys_fn) + '.json', title="Success")
 
-    def seedEntry(self):
+    def seedEntry(self) -> Tuple[Optional[str], Optional[str]]:
         d = QDialog(self)
         d.setModal(1)
         d.setWindowTitle('Recover from mnemonic phrase')
@@ -2230,7 +2230,7 @@ class JMMainWindow(QMainWindow):
                            mbtype='info',
                            title="Error")
 
-    def getPassword(self):
+    def getPassword(self) -> str:
         pd = PasswordDialog()
         while True:
             for child in pd.findChildren(QLineEdit):
@@ -2255,7 +2255,7 @@ class JMMainWindow(QMainWindow):
         self.textpassword = str(pd.new_pw.text())
         return self.textpassword.encode('utf-8')
 
-    def getWalletFileName(self):
+    def getWalletFileName(self) -> str:
         walletname, ok = QInputDialog.getText(self, 'Choose wallet name',
                                               'Enter wallet file name:',
                                               QLineEdit.Normal, "wallet.jmdat")
@@ -2267,7 +2267,7 @@ class JMMainWindow(QMainWindow):
         self.walletname = str(walletname)
         return self.walletname
 
-    def displayWords(self, words, mnemonic_extension):
+    def displayWords(self, words: str, mnemonic_extension: str) -> None:
         mb = QMessageBox(self)
         seed_recovery_warning = [
             "WRITE DOWN THIS WALLET RECOVERY SEED.",
@@ -2282,13 +2282,13 @@ class JMMainWindow(QMainWindow):
         mb.setStandardButtons(QMessageBox.Ok)
         ret = mb.exec_()
 
-    def promptUseMnemonicExtension(self):
+    def promptUseMnemonicExtension(self) -> bool:
         msg = "Would you like to use a two-factor mnemonic recovery phrase?\nIf you don\'t know what this is press No."
         reply = QMessageBox.question(self, 'Use mnemonic extension?',
                     msg, QMessageBox.Yes, QMessageBox.No)
         return reply == QMessageBox.Yes
 
-    def promptInputMnemonicExtension(self):
+    def promptInputMnemonicExtension(self) -> Optional[str]:
         mnemonic_extension, ok = QInputDialog.getText(self,
                                      'Input Mnemonic Extension',
                                      'Enter mnemonic Extension:',

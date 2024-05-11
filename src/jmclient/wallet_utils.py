@@ -9,7 +9,7 @@ from optparse import OptionParser
 from numbers import Integral
 from collections import Counter, defaultdict
 from itertools import islice, chain
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 from jmclient import (get_network, WALLET_IMPLEMENTATIONS, Storage, podle,
     jm_single, WalletError, BaseWallet, VolatileStorage,
     StoragePasswordError, is_segwit_mode, SegwitLegacyWallet, LegacyWallet,
@@ -673,25 +673,25 @@ def wallet_display(wallet_service, showprivkey, displayall=False,
     else:
         return walletview
 
-def cli_get_wallet_passphrase_check():
+def cli_get_wallet_passphrase_check() -> Optional[str]:
     password = get_password("Enter new passphrase to encrypt wallet: ")
     password2 = get_password("Reenter new passphrase to encrypt wallet: ")
     if password != password2:
         jmprint('ERROR. Passwords did not match', "error")
-        return False
+        return None
     return password
 
-def cli_get_wallet_file_name(defaultname="wallet.jmdat"):
-    return input('Input wallet file name (default: ' + defaultname + '): ')
+def cli_get_wallet_file_name(defaultname: str = "wallet.jmdat") -> str:
+    return input(f'Input wallet file name (default: {defaultname}): ')
 
-def cli_display_user_words(words, mnemonic_extension):
+def cli_display_user_words(words: str, mnemonic_extension: str) -> None:
     text = 'Write down this wallet recovery mnemonic\n\n' + words +'\n'
     if mnemonic_extension:
         text += '\nAnd this mnemonic extension: ' + mnemonic_extension.decode(
             'utf-8') + '\n'
     jmprint(text, "important")
 
-def cli_user_mnemonic_entry():
+def cli_user_mnemonic_entry() -> Tuple[Optional[str], Optional[str]]:
     mnemonic_phrase = input("Input mnemonic recovery phrase: ")
     mnemonic_extension = input("Input mnemonic extension, leave blank if there isnt one: ")
     if len(mnemonic_extension.strip()) == 0:
@@ -707,7 +707,7 @@ def cli_do_use_mnemonic_extension() -> bool:
         jmprint("Not using mnemonic extension", "info")
         return False #no mnemonic extension
 
-def cli_get_mnemonic_extension():
+def cli_get_mnemonic_extension() -> str:
     jmprint("Note: This will be stored in a reversible way. Do not reuse!",
             "info")
     return input("Enter mnemonic extension: ")
@@ -721,10 +721,17 @@ def cli_do_support_fidelity_bonds() -> bool:
         jmprint("Not supporting fidelity bonds", "info")
         return False
 
-def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
-        display_seed_callback, enter_seed_callback, enter_wallet_password_callback,
-        enter_wallet_file_name_callback, enter_if_use_seed_extension,
-        enter_seed_extension_callback, enter_do_support_fidelity_bonds, mixdepth=DEFAULT_MIXDEPTH):
+def wallet_generate_recover_bip39(method: str,
+                                  walletspath: str,
+                                  default_wallet_name: str,
+                                  display_seed_callback: Callable[[str, str], None],
+                                  enter_seed_callback: Optional[Callable[[], Tuple[Optional[str], Optional[str]]]],
+                                  enter_wallet_password_callback: Callable[[], str],
+                                  enter_wallet_file_name_callback: Callable[[], str],
+                                  enter_if_use_seed_extension: Optional[Callable[[], bool]],
+                                  enter_seed_extension_callback: Optional[Callable[[], Optional[str]]],
+                                  enter_do_support_fidelity_bonds: Callable[[], bool],
+                                  mixdepth: int = DEFAULT_MIXDEPTH) -> bool:
     entropy = None
     mnemonic_extension = None
     if method == "generate":
@@ -734,10 +741,10 @@ def wallet_generate_recover_bip39(method, walletspath, default_wallet_name,
                 return False
     elif method == 'recover':
         words, mnemonic_extension = enter_seed_callback()
-        words = words.strip()
-        mnemonic_extension = mnemonic_extension and mnemonic_extension.strip()
+        words = words and words.strip()
         if not words:
             return False
+        mnemonic_extension = mnemonic_extension and mnemonic_extension.strip()
         try:
             entropy = SegwitLegacyWallet.entropy_from_mnemonic(words)
         except WalletError:
