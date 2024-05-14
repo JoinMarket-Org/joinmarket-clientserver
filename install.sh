@@ -67,6 +67,7 @@ deps_install ()
         'curl' \
         'build-essential' \
         'automake' \
+        'autoconf' \
         'pkg-config' \
         'libtool' \
         'python3-dev' \
