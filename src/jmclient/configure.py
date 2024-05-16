@@ -189,7 +189,7 @@ regtest_count = 0,0
 
 ## IRC SERVER 1: Darkscience IRC (Tor, IP)
 ################################################################################
-[MESSAGING:server1]
+[MESSAGING:darkscience]
 # by default the legacy format without a `type` field is
 # understood to be IRC, but you can, optionally, add it:
 # type = irc
@@ -207,34 +207,22 @@ socks5 = true
 socks5_host = localhost
 socks5_port = 9050
 
-## IRC SERVER 2: ILITA IRC (optional IRC alternate, Tor only)
-################################################################################
-[MESSAGING:server2]
+# IRC SERVER 2: (backup) hackint IRC (Tor, IP)
+###############################################################################
+[MESSAGING:hackint]
 channel = joinmarket-pit
+# For traditional IP:
+# host = irc.hackint.org
+# port = 6697
+# usessl = true
+# socks5 = false
+# For Tor (default):
+host = ncwkrwxpq2ikcngxq3dy2xctuheniggtqeibvgofixpzvrwpa77tozqd.onion
 port = 6667
 usessl = false
 socks5 = true
 socks5_host = localhost
-
-host = ilitafrzzgxymv6umx2ux7kbz3imyeko6cnqkvy4nisjjj4qpqkrptid.onion
 socks5_port = 9050
-
-## IRC SERVER 3: (backup) hackint IRC (Tor, IP)
-################################################################################
-#[MESSAGING:server3]
-# channel = joinmarket-pit
-# For traditional IP:
-## host = irc.hackint.org
-## port = 6697
-## usessl = true
-## socks5 = false
-# For Tor (default):
-#host = ncwkrwxpq2ikcngxq3dy2xctuheniggtqeibvgofixpzvrwpa77tozqd.onion
-#port = 6667
-#usessl = false
-#socks5 = true
-#socks5_host = localhost
-#socks5_port = 9050
 
 [LOGGING]
 # Set the log level for the output to the terminal/console
