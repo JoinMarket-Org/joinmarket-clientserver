@@ -584,6 +584,28 @@ paths:
           $ref: '#/components/responses/GetSeed-200-OK'
         '400':
           $ref: '#/components/responses/400-BadRequest'
+  /wallet/{walletname}/signmessage:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Sign a message with the private key from an address in the wallet.
+      parameters:
+        - name: walletname
+          in: path
+          description: name of the wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignMessageRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SignMessage-200-OK'
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
 components:
   securitySchemes:
     bearerAuth:
@@ -1120,6 +1142,31 @@ components:
           type: integer
           example: 6
           description: Bitcoin miner fee to use for transaction. A number higher than 1000 is used as satoshi per kvB tx fee. The number lower than that uses the dynamic fee estimation of blockchain provider as confirmation target.
+    SignMessageRequest:
+      type: object
+      required:
+        - hd_path
+        - message
+      properties:
+        hd_path:
+          type: string
+          example: m/84'/0'/0'/0/0
+        message:
+          type: string
+    SignMessageResponse:
+      type: object
+      required:
+        - signature
+        - message
+        - address
+      properties:
+        signature:
+          type: string
+        message:
+          type: string
+        address:
+          type: string
+          example: bcrt1qu7k4dppungsqp95nwc7ansqs9m0z95h72j9mze
     ErrorMessage:
         type: object
         properties:
@@ -1250,6 +1297,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/YieldGenReportResponse"
+    SignMessage-200-OK:
+      description: "return signed message"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/SignMessageResponse"
     202-Accepted:
       description: The request has been submitted successfully for processing, but the processing has not been completed. 
     # Clientside error responses
