@@ -1218,6 +1218,8 @@ class JMWalletDaemon(Service):
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
             freeze_json = self.get_POST_body(request, ["utxo-string", "freeze"])
+
+            print(f"\nfreeze_json: {freeze_json}")
             if not freeze_json:
                 raise InvalidRequestFormat()
             to_disable = freeze_json["freeze"]
@@ -1232,7 +1234,11 @@ class JMWalletDaemon(Service):
                 # note: this does not raise or fail if the applied
                 # disable state (true/false) is the same as the current
                 # one; that is accepted and not an error.
+                            print(f"\ntxid: {txid}")
+                            print(f"\nindex: {index}")
+ print(f"\nto_disable: {to_disable}")
                 self.services["wallet"].disable_utxo(txid, index, to_disable)
+
             except AssertionError:
                 # should be impossible because format checked by
                 # utxostr_to_utxo:
