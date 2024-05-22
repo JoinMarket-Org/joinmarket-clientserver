@@ -1236,7 +1236,7 @@ class JMWalletDaemon(Service):
                 # one; that is accepted and not an error.
                             print(f"\ntxid: {txid}")
                             print(f"\nindex: {index}")
- print(f"\nto_disable: {to_disable}")
+                            print(f"\nto_disable: {to_disable}")
                 self.services["wallet"].disable_utxo(txid, index, to_disable)
 
             except AssertionError:
