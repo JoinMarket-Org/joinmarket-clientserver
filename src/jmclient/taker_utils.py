@@ -36,8 +36,8 @@ def get_utxo_scripts(wallet: BaseWallet, utxos: dict) -> list:
 
 def direct_send(wallet_service: WalletService,
                 mixdepth: int,
-                selected_utxos: List[str],
                 dest_and_amounts: List[Tuple[str, int]],
+                selected_utxos: Optional[List[str]] = None,
                 answeryes: bool = False,
                 accept_callback: Optional[Callable[[str, str, int, int, Optional[str]], bool]] = None,
                 info_callback: Optional[Callable[[str], None]] = None,
@@ -129,37 +129,36 @@ def direct_send(wallet_service: WalletService,
         #doing a sweep
         destination = dest_and_amounts[0][0]
         amount = dest_and_amounts[0][1]
-        selected_utxo_dict = wallet_service.get_utxos_by_mixdepth()[mixdepth]
-        if selected_utxo_dict == {}:
-            log.error(
-                f"There are no available utxos in mixdepth {mixdepth}, "
-                 "quitting.")
-            return
-        total_inputs_val = sum([va['value'] for u, va in selected_utxo_dict.items()])
-        script_types = get_utxo_scripts(wallet_service.wallet, selected_utxo_dict)
-        fee_est = estimate_tx_fee(len(selected_utxo_dict), 1, txtype=script_types,
-            outtype=outtypes[0])
-        outs = [{"address": destination,
-                 "value": total_inputs_val - fee_est}]
+        utxos = wallet_service.get_utxos_by_mixdepth()[mixdepth]
+        if utxos == {}:
+            log.error(f"There are no available utxos in mixdepth {mixdepth}, quitting.")
+            return False
+        total_inputs_val = sum([va['value'] for u, va in utxos.items()])
+        script_types = get_utxo_scripts(wallet_service.wallet, utxos)
+        fee_est = estimate_tx_fee(len(utxos), 1, txtype=script_types, outtype=outtypes[0])
+        outs = [{"address": destination, "value": total_inputs_val - fee_est}]
     else:
         utxos = wallet_service.get_utxos_by_mixdepth().get(mixdepth, {})
         if not utxos:
             log.error(f"There are no available utxos in mixdepth {mixdepth}.")
             return False
         
-        # Filter UTXOs based on selected_utxos
-        selected_utxo_dict = {}
-        for u, va in utxos.items():
-            txid = u[0].hex()
-            index = u[1]
-            utxo_str = f"{txid}:{index}"
-            if utxo_str in selected_utxos:
-                selected_utxo_dict[(u[0], u[1])] = va
-        
-        if not selected_utxo_dict:
-            log.error("None of the selected UTXOs are available in the specified mixdepth.")
-            return False
-        
+        if selected_utxos:
+            # Filter UTXOs based on selected_utxos
+            selected_utxo_dict = {}
+            for u, va in utxos.items():
+                txid = u[0].hex()
+                index = u[1]
+                utxo_str = f"{txid}:{index}"
+                if utxo_str in selected_utxos:
+                    selected_utxo_dict[(u[0], u[1])] = va
+            
+            if not selected_utxo_dict:
+                log.error("None of the selected UTXOs are available in the specified mixdepth.")
+                return False
+        else:
+            selected_utxo_dict = utxos
+
         total_inputs_val = sum([va['value'] for u, va in selected_utxo_dict.items()])
         if total_inputs_val < total_outputs_val:
             log.error("Selected UTXOs do not cover the total output value.")

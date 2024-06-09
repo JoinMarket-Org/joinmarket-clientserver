@@ -770,9 +770,8 @@ class JMWalletDaemon(Service):
             """
             self.check_cookie(request)
             assert isinstance(request.content, BytesIO)
-            payment_info_json = self.get_POST_body(request, ["mixdepth","utxos","amount_sats",
-                                                             "destination"],
-                                                            ["txfee"])
+            payment_info_json = self.get_POST_body(request, ["mixdepth", "amount_sats", "destination"], ["txfee", "utxos"])
+
             if not payment_info_json:
                 raise InvalidRequestFormat()
             if not self.services["wallet"]:
@@ -799,7 +798,7 @@ class JMWalletDaemon(Service):
                 destination = payment_info_json["destination"]
                 amount_sats = int(payment_info_json["amount_sats"])
                 dest_and_amounts = [(destination, amount_sats)]
-                utxos = payment_info_json.get("utxos")
+                utxos = payment_info_json.get("utxos", None)
 
                 tx = direct_send(
                     self.services["wallet"],
