@@ -803,11 +803,12 @@ class JMWalletDaemon(Service):
                 tx = direct_send(
                     self.services["wallet"],
                     mixdepth,
-                    utxos,
                     dest_and_amounts,
+                    utxos,
                     return_transaction=True,
                     answeryes=True
                     )
+
                 jm_single().config.set("POLICY", "tx_fees",
                                        self.default_policy_tx_fees)
             except AssertionError:
