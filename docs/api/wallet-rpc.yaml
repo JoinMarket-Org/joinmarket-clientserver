@@ -1124,9 +1124,9 @@ components:
           type: array
           items:
             type: string
-        example: 
-          - "96a1195792bfc851fbbd8ff51d07294cf9daa81af720bd020e6397311fc3b220:0"
-        description: "Optional parameter. If specified, these UTXOs will be used in the transaction. If not specified, the default UTXO selection logic will be used."
+          example: 
+            - "96a1195792bfc851fbbd8ff51d07294cf9daa81af720bd020e6397311fc3b220:0"
+          description: "Optional parameter. If specified, these UTXOs will be used in the transaction. If not specified, the default UTXO selection logic will be used."
     ErrorMessage:
         type: object
         properties:
