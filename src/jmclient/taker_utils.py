@@ -47,7 +47,7 @@ def direct_send(wallet_service: WalletService,
                 optin_rbf: bool = True,
                 custom_change_addr: Optional[str] = None,
                 change_label: Optional[str] = None) -> Union[bool, str]:
-    """Send coins directly from one mixdepth to one or more destination addresses either using specific UTXOs or by mixdepth;
+    """Send coins directly either by mixdepth or selected UTXOs from a certain mixdepth to one or more destination addresses;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
     If answeryes is True, callback/command line query is not performed.
     If optin_rbf is True, the nSequence values are changed as appropriate.
@@ -173,7 +173,7 @@ def direct_send(wallet_service: WalletService,
                 utxo_str = f"{txid}:{index}"
                 if utxo_str in selected_utxos:
                     utxos[(u[0], u[1])] = va
-                    
+
             # Check if all selected_utxos are present in utxos
             for utxo_str in selected_utxos:
                 txid, index = utxo_str.split(':')
