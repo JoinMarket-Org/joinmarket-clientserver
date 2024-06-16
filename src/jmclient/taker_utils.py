@@ -173,7 +173,14 @@ def direct_send(wallet_service: WalletService,
                 utxo_str = f"{txid}:{index}"
                 if utxo_str in selected_utxos:
                     utxos[(u[0], u[1])] = va
-            
+                    
+            # Check if all selected_utxos are present in utxos
+            for utxo_str in selected_utxos:
+                txid, index = utxo_str.split(':')
+                if not any(u[0].hex() == txid and str(u[1]) == index for u in utxos.keys()):
+                    log.error(f"Selected UTXO {utxo_str} is not available in the specified mixdepth.")
+                    return False
+
             if not utxos:
                 log.error("None of the selected UTXOs are available in the specified mixdepth.")
                 return False
