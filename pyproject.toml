@@ -28,6 +28,7 @@ jmclient = [
     "klein==20.6.0",
     "mnemonic==0.20",
     "pyjwt==2.4.0",
+    "PySocks==1.7.1",
     "werkzeug==2.2.3",
 ]
 jmdaemon = [
