@@ -400,6 +400,8 @@ bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 # where x > 1. It is a real number (so written as a decimal).
 bond_value_exponent = 1.3
 
+tx_max_expected_probability = 1.0
+
 ##############################
 # THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
 # DON'T ALTER THEM UNLESS YOU UNDERSTAND THE IMPLICATIONS.

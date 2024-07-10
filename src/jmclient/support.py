@@ -177,7 +177,7 @@ def calc_cj_fee(ordertype, cjfee, cj_amount):
     return real_cjfee
 
 
-def weighted_order_choose(orders, n):
+def weighted_order_choose(orders, n, nrem = None, large_makers_not_chosen_prob = None, tx_max_expected_probability = None):
     """
     Algorithm for choosing the weighting function
     it is an exponential
@@ -208,37 +208,120 @@ def weighted_order_choose(orders, n):
     return orders[chosen_order_index]
 
 
-def random_under_max_order_choose(orders, n):
+def random_under_max_order_choose(orders, n, nrem = None, large_makers_not_chosen_prob = [1], tx_max_expected_probability = None):
     # orders are already pre-filtered for max_cj_fee
+    if tx_max_expected_probability is not None and tx_max_expected_probability<1:
+        log.debug('Remaining probability of not being selected for large makers: ' + str(large_makers_not_chosen_prob[0]) + ' -> ' + str(large_makers_not_chosen_prob[0]*(1-1./len(orders))))
+        large_makers_not_chosen_prob[0] *= (1 - 1./len(orders))
     return random.choice(orders)
 
 
-def cheapest_order_choose(orders, n):
+def cheapest_order_choose(orders, n, nrem = None, large_makers_not_chosen_prob = None, tx_max_expected_probability = None):
     """
     Return the cheapest order from the orders.
     """
     return orders[0]
 
-def fidelity_bond_weighted_order_choose(orders, n):
+def fidelity_bond_weighted_order_choose(orders, n, nrem = None, large_makers_not_chosen_prob = [1], tx_max_expected_probability = None):
     """
     choose orders based on fidelity bond for improved sybil resistance
 
     * with probability `bondless_makers_allowance`: will revert to previous default
       order choose (random_under_max_order_choose)
     * with probability `1 - bondless_makers_allowance`: if there are no bond offerings, revert
-      to previous default as above. If there are, choose randomly from those, with weighting
-      being the fidelity bond values.
+      to previous default as above, or if tx_max_expected_probability is defined and the number
+      of bond offerings is smaller than n/tx_max_expected_probability. If not, choose
+      randomly from those, with weighting being the fidelity bond values.
     """
 
     if random.random() < get_bondless_makers_allowance():
-        return random_under_max_order_choose(orders, n)
+        log.debug('Bondless or bond maker randomly selected')
+        return random_under_max_order_choose(orders, n, large_makers_not_chosen_prob=large_makers_not_chosen_prob, tx_max_expected_probability=tx_max_expected_probability)
     #remove orders without fidelity bonds
-    filtered_orders = list(filter(lambda x: x[0]["fidelity_bond_value"] != 0, orders))
-    if len(filtered_orders) == 0:
-        return random_under_max_order_choose(orders, n)
+    filtered_orders = sorted(list(filter(lambda x: x[0]["fidelity_bond_value"] != 0, orders)), key=lambda x: x[0]["fidelity_bond_value"])
+    nforders = len(filtered_orders)
+
+    if nforders == 0:
+        log.debug('Bondless maker selected because no alternative')
+        return random_under_max_order_choose(orders, n, large_makers_not_chosen_prob=large_makers_not_chosen_prob, tx_max_expected_probability=tx_max_expected_probability)
+
     weights = list(map(lambda x: x[0]["fidelity_bond_value"], filtered_orders))
+    prob = 1 - pow(((1 - tx_max_expected_probability) / large_makers_not_chosen_prob[0]), 1./nrem) if tx_max_expected_probability is not None and tx_max_expected_probability<1. else None
+
+    if prob is not None:
+    
+        #If maximum expected probability target for large makers cannot be achieved using a constant value for prob
+        if prob<=0 or nforders-nrem+1 <= 1. / prob:
+            max_exp_prob = large_makers_not_chosen_prob[0]
+
+            for i in range(nforders-nrem+1, nforders+1):
+                max_exp_prob *= 1 - 1./i
+            max_exp_prob = 1 - max_exp_prob
+
+            #If the probability target cannot be achieved at all
+            if max_exp_prob > tx_max_expected_probability:
+                log.warn('A large maker maximum expected probability target of ' + str(tx_max_expected_probability) + ' cannot be achieved. A probability of ' + str(max_exp_prob) + ' will be targeted instead')
+                #Update prob using the maximum achievable target
+                prob = 1 - pow(((1 - max_exp_prob) / large_makers_not_chosen_prob[0]), 1./nrem)
+
+            else:
+                log.debug('Large maker maximum expected probability target of ' + str(tx_max_expected_probability) + ' achievable using an increasing draw probability due to the limited number of makers')
+            rem_not_chosen_prob = (1 - max_exp_prob) / large_makers_not_chosen_prob[0]
+
+            for i in range(nforders-nrem+1, nforders):
+
+                if 1./i > prob:
+                    rem_not_chosen_prob /= 1 - 1./i
+                    log.debug('Large maker draw probability for draw ' + str(nforders + 1 - i) + ' set to ' + str(1./i))
+                    prob = 1 - pow(rem_not_chosen_prob, 1. / (nforders - i))
+
+                else:
+                    break
+            log.debug('Large maker draw probability for first ' + str(nforders - i) + ' draws set to ' + str(prob) + ' per draw')
+
+        else:
+            log.debug('Large maker draw probability set to ' + str(prob) + ' for each draw')
+
+        normal_bond_value_sum = 0
+        nlargemakers = 0
+        islargemaker = [False] * nforders
+
+        log.debug(str(nforders) + ' remaining makers for the draw')
+        for i, o in enumerate(filtered_orders):
+            #log.debug(o[0])
+            normal_bond_value_sum += weights[i]
+        log.debug('Total value of fidelity bonds: ' + str(normal_bond_value_sum))
+
+        for i, o in enumerate(filtered_orders[::-1]):
+            i = nforders - i - 1
+
+            if prob * (nlargemakers + 1) >= 1:
+                break
+            bvmax = prob * (normal_bond_value_sum - weights[i]) / (1. - prob * (nlargemakers + 1))
+            #log.debug('Maker ' + o[0]['counterparty'] + ' weight ' + str(weights[i]) + ' vs ' + str(bvmax) + ": " + ('normal' if  weights[i] <= bvmax else 'large'))
+
+            if weights[i] <= bvmax:
+                break
+            islargemaker[i] = True
+            normal_bond_value_sum -= weights[i]
+            nlargemakers += 1
+
+        if normal_bond_value_sum <= 0:
+            log.warn('Only large makers are left, selecting a bond maker randomly')
+            return random_under_max_order_choose(filtered_orders, nforders, large_makers_not_chosen_prob=large_makers_not_chosen_prob, tx_max_expected_probability=tx_max_expected_probability)
+
+        log.debug('Remaining probability of not being selected for large makers: ' + str(large_makers_not_chosen_prob[0]) + ' -> ' + str(large_makers_not_chosen_prob[0]*(1-prob)))
+        large_makers_not_chosen_prob[0] *= 1 - prob
+        bvmax = prob * normal_bond_value_sum / (1. - prob * nlargemakers)
+
+        for i, o in enumerate(filtered_orders):
+
+            if islargemaker[i] == True:
+                log.warn('Weight of counterparty ' + o[0]['counterparty'] + ' brought down to ' + str(bvmax) + ' from ' + str(weights[i]))
+                weights[i]=bvmax
+
     weights = [x / sum(weights) for x in weights]
-    return filtered_orders[rand_weighted_choice(len(filtered_orders), weights)]
+    return filtered_orders[rand_weighted_choice(nforders, weights)]
 
 def _get_is_within_max_limits(max_fee_rel, max_fee_abs, cjvalue):
     def check_max_fee(fee):
@@ -249,7 +332,7 @@ def _get_is_within_max_limits(max_fee_rel, max_fee_abs, cjvalue):
 
 def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
                   pick=False, allowed_types=["sw0reloffer", "sw0absoffer"],
-                  max_cj_fee=(1, float('inf'))):
+                  max_cj_fee=(1, float('inf')), tx_max_expected_probability=None):
     is_within_max_limits = _get_is_within_max_limits(
         max_cj_fee[0], max_cj_fee[1], cj_amount)
     if ignored_makers is None:
@@ -294,8 +377,10 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
                                                    ]))
     total_cj_fee = 0
     chosen_orders = []
+    large_makers_not_chosen_prob = [1]
     for i in range(n):
-        chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n)
+        chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n, n - i, large_makers_not_chosen_prob, tx_max_expected_probability)
+        log.debug('Choice is ' + str(chosen_order))
         # remove all orders from that same counterparty
         # only needed if offers are manually picked
         orders_fees = [o
@@ -315,7 +400,7 @@ def choose_sweep_orders(offers,
                         chooseOrdersBy,
                         ignored_makers=None,
                         allowed_types=['sw0reloffer', 'sw0absoffer'],
-                        max_cj_fee=(1, float('inf'))):
+                        max_cj_fee=(1, float('inf')), tx_max_expected_probability=None):
     """
     choose an order given that we want to be left with no change
     i.e. sweep an entire group of utxos
@@ -376,13 +461,14 @@ def choose_sweep_orders(offers,
              if is_within_max_limits(v[1])).values(),
         key=feekey)
     chosen_orders = []
+    large_makers_not_chosen_prob = [1]
     while len(chosen_orders) < n:
         for i in range(n - len(chosen_orders)):
             if len(orders_fees) < n - len(chosen_orders):
                 log.debug('ERROR not enough liquidity in the orderbook')
                 # TODO handle not enough liquidity better, maybe an Exception
                 return None, 0, 0
-            chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n)
+            chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n, n - len(chosen_orders), large_makers_not_chosen_prob, tx_max_expected_probability)
             log.debug('chosen = ' + str(chosen_order))
             # remove all orders from that same counterparty
             orders_fees = [
