@@ -227,11 +227,12 @@ def fidelity_bond_weighted_order_choose(orders, n, nrem = None, large_makers_not
     choose orders based on fidelity bond for improved sybil resistance
 
     * with probability `bondless_makers_allowance`: will revert to previous default
-      order choose (random_under_max_order_choose)
+      order choose (random_under_max_order_choose) amongst bondless and bond makers
     * with probability `1 - bondless_makers_allowance`: if there are no bond offerings, revert
-      to previous default as above, or if tx_max_expected_probability is defined and the number
-      of bond offerings is smaller than n/tx_max_expected_probability. If not, choose
-      randomly from those, with weighting being the fidelity bond values.
+      to previous default amongst bondless makers, or if tx_max_expected_probability is defined and
+      is sufficiently small to constrain the bond values of all remaining bond makers. If not, choose
+      randomly from bond makers, with weighting being the fidelity bond values, with possible some of
+      these weights capped if tx_max_expected_probability is defined and is smaller than 1.
     """
 
     if random.random() < get_bondless_makers_allowance():
