@@ -137,7 +137,7 @@ If (a), then note the following two points:
 
 ##### Installing Bitcoin Core
 
-If you haven't done so yet, install Bitcoin Core, version 0.18 or newer, as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
+If you haven't done so yet, install Bitcoin Core, version 22.0 or newer, as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
 
 ##### Configuring Bitcoin Core
 
