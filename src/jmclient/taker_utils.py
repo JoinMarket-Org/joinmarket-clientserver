@@ -4,6 +4,7 @@ import os
 import sys
 import time
 import numbers
+import ast
 from typing import Callable, List, Optional, Tuple, Union
 
 from jmbase import get_log, jmprint, bintohex, hextobin, \
@@ -37,7 +38,6 @@ def get_utxo_scripts(wallet: BaseWallet, utxos: dict) -> list:
 def direct_send(wallet_service: WalletService,
                 mixdepth: int,
                 dest_and_amounts: List[Tuple[str, int]],
-                selected_utxos: Optional[List[str]] = None,
                 answeryes: bool = False,
                 accept_callback: Optional[Callable[[str, str, int, int, Optional[str]], bool]] = None,
                 info_callback: Optional[Callable[[str], None]] = None,
@@ -161,7 +161,9 @@ def direct_send(wallet_service: WalletService,
 
         outs = []
         utxos = {}
-        if selected_utxos:
+        selected_utxos = jm_single().config.get("POLICY","utxos")
+        selected_utxos = ast.literal_eval(selected_utxos)
+        if selected_utxos is not None:
             # Filter UTXOs based on selected_utxos
             all_utxos = wallet_service.get_utxos_by_mixdepth().get(mixdepth, {})
             if not all_utxos:
