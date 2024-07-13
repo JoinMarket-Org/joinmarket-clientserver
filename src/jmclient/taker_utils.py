@@ -57,13 +57,13 @@ def direct_send(wallet_service: WalletService,
     ====
     args:
     deserialized tx, destination address, amount in satoshis,
-    fee in satoshis, custom change address, selected UTXOs
+    fee in satoshis, custom change address
 
     returns:
     True if accepted, False if not
     ====
-    info_callback and error_callback take one parameter, the information
-    message (when tx is pushed or error occurred), and return nothing.
+    info_callback and error_callback takes one parameter, the information
+    message (when tx is pushed or error occured), and returns nothing.
 
     This function returns:
     1. False if there is any failure.
@@ -78,7 +78,7 @@ def direct_send(wallet_service: WalletService,
     outtypes = []
     total_outputs_val = 0
 
-    # Sanity checks
+    #Sanity checks
     assert isinstance(dest_and_amounts, list)
     assert len(dest_and_amounts) > 0
     assert custom_change_addr is None or validate_address(custom_change_addr)[0]
