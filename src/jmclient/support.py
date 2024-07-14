@@ -250,76 +250,84 @@ def fidelity_bond_weighted_order_choose(orders, n, nrem = None, large_makers_not
     prob = 1 - pow(((1 - tx_max_expected_probability) / large_makers_not_chosen_prob[0]), 1./nrem) if tx_max_expected_probability is not None and tx_max_expected_probability<1. else None
 
     if prob is not None:
+
+        #If the number of remaining makers is sufficient to exclude some of them
+        if nforders > nrem:
     
-        #If maximum expected probability target for large makers cannot be achieved using a constant value for prob
-        if prob<=0 or nforders-nrem+1 <= 1. / prob:
-            max_exp_prob = large_makers_not_chosen_prob[0]
+            #If maximum expected probability target for large makers cannot be achieved using a constant value for prob
+            if prob<=0 or nforders-nrem+1 <= 1. / prob:
+                max_exp_prob = large_makers_not_chosen_prob[0]
 
-            for i in range(nforders-nrem+1, nforders+1):
-                max_exp_prob *= 1 - 1./i
-            max_exp_prob = 1 - max_exp_prob
+                for i in range(nforders-nrem+1, nforders+1):
+                    max_exp_prob *= 1 - 1./i
+                max_exp_prob = 1 - max_exp_prob
 
-            #If the probability target cannot be achieved at all
-            if max_exp_prob > tx_max_expected_probability:
-                log.warn('A large maker maximum expected probability target of ' + str(tx_max_expected_probability) + ' cannot be achieved. A probability of ' + str(max_exp_prob) + ' will be targeted instead')
-                #Update prob using the maximum achievable target
-                prob = 1 - pow(((1 - max_exp_prob) / large_makers_not_chosen_prob[0]), 1./nrem)
-
-            else:
-                log.debug('Large maker maximum expected probability target of ' + str(tx_max_expected_probability) + ' achievable using an increasing draw probability due to the limited number of makers')
-            rem_not_chosen_prob = (1 - max_exp_prob) / large_makers_not_chosen_prob[0]
-
-            for i in range(nforders-nrem+1, nforders):
-
-                if 1./i > prob:
-                    rem_not_chosen_prob /= 1 - 1./i
-                    log.debug('Large maker draw probability for draw ' + str(nforders + 1 - i) + ' set to ' + str(1./i))
-                    prob = 1 - pow(rem_not_chosen_prob, 1. / (nforders - i))
+                #If the probability target cannot be achieved at all
+                if max_exp_prob > tx_max_expected_probability:
+                    log.warn('A large maker maximum expected probability target of ' + str(tx_max_expected_probability) + ' cannot be achieved. A probability of ' + str(max_exp_prob) + ' will be targeted instead')
+                    #Update prob using the maximum achievable target
+                    prob = 1 - pow(((1 - max_exp_prob) / large_makers_not_chosen_prob[0]), 1./nrem)
 
                 else:
+                    log.warn('Large maker maximum expected probability target of ' + str(tx_max_expected_probability) + ' achievable using an increasing draw probability due to the limited number of makers')
+                rem_not_chosen_prob = (1 - max_exp_prob) / large_makers_not_chosen_prob[0]
+
+                for i in range(nforders-nrem+1, nforders):
+
+                    if 1./i > prob:
+                        rem_not_chosen_prob /= 1 - 1./i
+                        log.warn('Large maker draw probability for draw ' + str(nforders + 1 - i) + ' set to ' + str(1./i))
+                        prob = 1 - pow(rem_not_chosen_prob, 1. / (nforders - i))
+
+                    else:
+                        break
+                log.warn('Large maker draw probability for first ' + str(nforders - i) + ' draws set to ' + str(prob) + ' per draw')
+
+            else:
+                log.warn('Large maker draw probability set to ' + str(prob) + ' for each draw')
+
+            normal_bond_value_sum = 0
+            nlargemakers = 0
+            islargemaker = [False] * nforders
+
+            log.debug(str(nforders) + ' remaining makers for the draw')
+            for i, o in enumerate(filtered_orders):
+                #log.debug(o[0])
+                normal_bond_value_sum += weights[i]
+            log.debug('Total value of fidelity bonds: ' + str(normal_bond_value_sum))
+
+            for i, o in enumerate(filtered_orders[::-1]):
+                i = nforders - i - 1
+
+                if prob * (nlargemakers + 1) >= 1:
                     break
-            log.debug('Large maker draw probability for first ' + str(nforders - i) + ' draws set to ' + str(prob) + ' per draw')
+                bvmax = prob * (normal_bond_value_sum - weights[i]) / (1. - prob * (nlargemakers + 1))
+                #log.debug('Maker ' + o[0]['counterparty'] + ' weight ' + str(weights[i]) + ' vs ' + str(bvmax) + ": " + ('normal' if  weights[i] <= bvmax else 'large'))
 
+                if weights[i] <= bvmax:
+                    break
+                islargemaker[i] = True
+                normal_bond_value_sum -= weights[i]
+                nlargemakers += 1
+
+            if normal_bond_value_sum <= 0:
+                log.warn('Only large makers are left, selecting a bond maker randomly')
+                return random_under_max_order_choose(filtered_orders, nforders, large_makers_not_chosen_prob=large_makers_not_chosen_prob, tx_max_expected_probability=tx_max_expected_probability)
+
+            log.debug('Remaining probability of not being selected for large makers: ' + str(large_makers_not_chosen_prob[0]) + ' -> ' + str(large_makers_not_chosen_prob[0]*(1-prob)))
+            large_makers_not_chosen_prob[0] *= 1 - prob
+            bvmax = prob * normal_bond_value_sum / (1. - prob * nlargemakers)
+
+            for i, o in enumerate(filtered_orders):
+
+                if islargemaker[i] == True:
+                    log.debug('Weight of counterparty ' + o[0]['counterparty'] + ' brought down to ' + str(bvmax) + ' from ' + str(weights[i]))
+                    weights[i]=bvmax
+            log.warn('The weight of ' + str(nlargemakers) + '/' + str(nforders) + ' bond makers was reduced to reduce their maximum expected probability of being selected')
+
+        #else if nforders<=nrem
         else:
-            log.debug('Large maker draw probability set to ' + str(prob) + ' for each draw')
-
-        normal_bond_value_sum = 0
-        nlargemakers = 0
-        islargemaker = [False] * nforders
-
-        log.debug(str(nforders) + ' remaining makers for the draw')
-        for i, o in enumerate(filtered_orders):
-            #log.debug(o[0])
-            normal_bond_value_sum += weights[i]
-        log.debug('Total value of fidelity bonds: ' + str(normal_bond_value_sum))
-
-        for i, o in enumerate(filtered_orders[::-1]):
-            i = nforders - i - 1
-
-            if prob * (nlargemakers + 1) >= 1:
-                break
-            bvmax = prob * (normal_bond_value_sum - weights[i]) / (1. - prob * (nlargemakers + 1))
-            #log.debug('Maker ' + o[0]['counterparty'] + ' weight ' + str(weights[i]) + ' vs ' + str(bvmax) + ": " + ('normal' if  weights[i] <= bvmax else 'large'))
-
-            if weights[i] <= bvmax:
-                break
-            islargemaker[i] = True
-            normal_bond_value_sum -= weights[i]
-            nlargemakers += 1
-
-        if normal_bond_value_sum <= 0:
-            log.warn('Only large makers are left, selecting a bond maker randomly')
-            return random_under_max_order_choose(filtered_orders, nforders, large_makers_not_chosen_prob=large_makers_not_chosen_prob, tx_max_expected_probability=tx_max_expected_probability)
-
-        log.debug('Remaining probability of not being selected for large makers: ' + str(large_makers_not_chosen_prob[0]) + ' -> ' + str(large_makers_not_chosen_prob[0]*(1-prob)))
-        large_makers_not_chosen_prob[0] *= 1 - prob
-        bvmax = prob * normal_bond_value_sum / (1. - prob * nlargemakers)
-
-        for i, o in enumerate(filtered_orders):
-
-            if islargemaker[i] == True:
-                log.warn('Weight of counterparty ' + o[0]['counterparty'] + ' brought down to ' + str(bvmax) + ' from ' + str(weights[i]))
-                weights[i]=bvmax
+            log.warn('Cannot set a maximum expected probability target for bond makers as the number of bond makers is smaller or equal to the number of required counterparties')
 
     weights = [x / sum(weights) for x in weights]
     return filtered_orders[rand_weighted_choice(nforders, weights)]
