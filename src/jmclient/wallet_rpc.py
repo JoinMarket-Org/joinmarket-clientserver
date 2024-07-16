@@ -792,43 +792,36 @@ class JMWalletDaemon(Service):
                                            str(payment_info_json["txfee"]))
                 else:
                     raise InvalidRequestFormat()
-                    
-            if "utxos" in payment_info_json:
-                jm_single().config.set("POLICY", "utxos", str(payment_info_json["utxos"]))
-            else:
-                jm_single().config.set("POLICY", "utxos", str(None))
 
             try:
                 mixdepth = int(payment_info_json["mixdepth"])
                 destination = payment_info_json["destination"]
                 amount_sats = int(payment_info_json["amount_sats"])
                 dest_and_amounts = [(destination, amount_sats)]
+                utxos = payment_info_json.get("utxos", None)
 
                 tx = direct_send(
                     self.services["wallet"],
                     mixdepth,
                     dest_and_amounts,
+                    utxos,
                     return_transaction=True,
                     answeryes=True
                     )
 
                 jm_single().config.set("POLICY", "tx_fees",
                                        self.default_policy_tx_fees)
-                jm_single().config.set("POLICY", "utxos", str(None))
             except AssertionError:
                 jm_single().config.set("POLICY", "tx_fees",
                                        self.default_policy_tx_fees)
-                jm_single().config.set("POLICY", "utxos", str(None))
                 raise InvalidRequestFormat()
             except NotEnoughFundsException as e:
                 jm_single().config.set("POLICY", "tx_fees",
                                        self.default_policy_tx_fees)
-                jm_single().config.set("POLICY", "utxos", str(None))
                 raise TransactionFailed(repr(e))
             except Exception:
                 jm_single().config.set("POLICY", "tx_fees",
                                        self.default_policy_tx_fees)
-                jm_single().config.set("POLICY", "utxos", str(None))
                 raise
             if not tx:
                 # this should not really happen; not a coinjoin
