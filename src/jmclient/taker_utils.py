@@ -57,7 +57,7 @@ def direct_send(wallet_service: WalletService,
     ====
     args:
     deserialized tx, destination address, amount in satoshis,
-    fee in satoshis, custom change address
+    fee in satoshis, custom change address, selected utxos
 
     returns:
     True if accepted, False if not

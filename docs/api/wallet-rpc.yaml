@@ -1120,12 +1120,12 @@ components:
           type: integer
           example: 6
           description: Bitcoin miner fee to use for transaction. A number higher than 1000 is used as satoshi per kvB tx fee. The number lower than that uses the dynamic fee estimation of blockchain provider as confirmation target.
-        utxos:
+        selected_utxos:
           type: array
           items:
             type: string
-            example: "85cf4c880876eead0a6674cbc341b21b86058530c2eacf18a16007f8f9cb1b1a:0"
-          description: Optional parameter. If specified, these UTXOs will be used in the transaction.If not specified, the default UTXO selection logic will be used.
+            example: 85cf4c880876eead0a6674cbc341b21b86058530c2eacf18a16007f8f9cb1b1a:0
+          nullable: true
     ErrorMessage:
         type: object
         properties:
