@@ -65,6 +65,18 @@ def main():
     log.info("Using maximum coinjoin fee limits per maker of {:.4%}, {} sat"
              .format(*maxcjfee))
 
+    tx_max_expected_probability = jm_single().config.getfloat("POLICY", "tx_max_expected_probability")
+
+    if tx_max_expected_probability <= 0:
+        jmprint('Error: tx_max_expected_probability must be greater than 0', "error")
+        sys.exit(EXIT_FAILURE)
+
+    elif tx_max_expected_probability > 1:
+        tx_max_expected_probability = 1
+
+    log.info("Using maximum expected probability of selecting a maker of {:.2%}"
+             .format(tx_max_expected_probability))
+
     #Parse options and generate schedule
     #Output information to log files
     jm_single().mincjamount = options['mincjamount']
@@ -185,6 +197,7 @@ def main():
     taker = Taker(wallet_service,
                   schedule,
                   maxcjfee,
+                  tx_max_expected_probability,
                   order_chooser=options['order_choose_fn'],
                   callbacks=(filter_orders_callback, None, taker_finished),
                   tdestaddrs=destaddrs)
