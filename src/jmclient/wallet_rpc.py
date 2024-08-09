@@ -692,6 +692,29 @@ class JMWalletDaemon(Service):
                 self.services["wallet"].rescanblockchain(blockheight)
                 return make_jmwalletd_response(request, walletname=walletname)
 
+        @app.route('/wallet/<string:walletname>/getrescaninfo', methods=['GET'])
+        def getrescaninfo(self, request, walletname):
+            """ This route lets the user get the current rescan status.
+            """
+            print_req(request)
+            self.check_cookie(request)
+            if not self.services["wallet"]:
+                jlog.warn("getrescaninfo called, but no wallet service active.")
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                jlog.warn("called getrescaninfo with wrong wallet")
+                raise InvalidRequestFormat()
+            else:
+                rescanning, progress = \
+                    self.services["wallet"].get_backend_wallet_rescan_status()
+                if rescanning:
+                    return make_jmwalletd_response(request,
+                        walletname=walletname, rescanning=rescanning,
+                        progress=progress)
+                else:
+                    return make_jmwalletd_response(request,
+                        walletname=walletname, rescanning=rescanning)
+
         @app.route('/getinfo', methods=['GET'])
         def version(self, request):
             """ This route sends information about the backend, including
