@@ -37,6 +37,7 @@ def get_utxo_scripts(wallet: BaseWallet, utxos: dict) -> list:
 def direct_send(wallet_service: WalletService,
                 mixdepth: int,
                 dest_and_amounts: List[Tuple[str, int]],
+                selected_utxos: Optional[List[str]] = None,
                 answeryes: bool = False,
                 accept_callback: Optional[Callable[[str, str, int, int, Optional[str]], bool]] = None,
                 info_callback: Optional[Callable[[str], None]] = None,
@@ -46,7 +47,7 @@ def direct_send(wallet_service: WalletService,
                 optin_rbf: bool = True,
                 custom_change_addr: Optional[str] = None,
                 change_label: Optional[str] = None) -> Union[bool, str]:
-    """Send coins directly from one mixdepth to one destination address;
+    """Send coins directly either by mixdepth or selected UTXOs from a certain mixdepth to one or more destination addresses;
     does not need IRC. Sweep as for normal sendpayment (set amount=0).
     If answeryes is True, callback/command line query is not performed.
     If optin_rbf is True, the nSequence values are changed as appropriate.
@@ -56,7 +57,7 @@ def direct_send(wallet_service: WalletService,
     ====
     args:
     deserialized tx, destination address, amount in satoshis,
-    fee in satoshis, custom change address
+    fee in satoshis, custom change address, selected utxos
 
     returns:
     True if accepted, False if not
@@ -157,28 +158,66 @@ def direct_send(wallet_service: WalletService,
             # because we must use a list - there is more than one output
             outtypes[0] = change_type
         outtypes.append(change_type)
-        # not doing a sweep; we will have change.
-        # 8 inputs to be conservative; note we cannot account for the possibility
-        # of non-standard input types at this point.
-        initial_fee_est = estimate_tx_fee(8, len(dest_and_amounts) + 1,
-                                          txtype=txtype, outtype=outtypes)
-        utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est,
-                                            includeaddr=True)
-        script_types = get_utxo_scripts(wallet_service.wallet, utxos)
-        if len(utxos) < 8:
-            fee_est = estimate_tx_fee(len(utxos), len(dest_and_amounts) + 1,
-                                      txtype=script_types, outtype=outtypes)
-        else:
-            fee_est = initial_fee_est
-        total_inputs_val = sum([va['value'] for u, va in utxos.items()])
-        changeval = total_inputs_val - fee_est - total_outputs_val
-        outs = []
-        for out in dest_and_amounts:
-            outs.append({"value": out[1], "address": out[0]})
-        change_addr = wallet_service.get_internal_addr(mixdepth) \
-            if custom_change_addr is None else custom_change_addr
-        outs.append({"value": changeval, "address": change_addr})
 
+        outs = []
+        utxos = {}
+        if selected_utxos:
+            # Filter UTXOs based on selected_utxos
+            all_utxos = wallet_service.get_utxos_by_mixdepth().get(mixdepth, {})
+            if not all_utxos:
+                log.error(f"There are no available utxos in mixdepth {mixdepth}.")
+                return False
+            for u, va in all_utxos.items():
+                txid = u[0].hex()
+                index = u[1]
+                utxo_str = f"{txid}:{index}"
+                if utxo_str in selected_utxos:
+                    utxos[(u[0], u[1])] = va
+
+            # Check if all selected_utxos are present in utxos
+            for utxo_str in selected_utxos:
+                txid, index = utxo_str.split(':')
+                if not any(u[0].hex() == txid and str(u[1]) == index for u in utxos.keys()):
+                    log.error(f"Selected UTXO {utxo_str} is not available in the specified mixdepth.")
+                    return False
+
+            if not utxos:
+                log.error("None of the selected UTXOs are available in the specified mixdepth.")
+                return False
+            script_types = get_utxo_scripts(wallet_service.wallet, utxos)
+            fee_est = estimate_tx_fee(len(utxos), len(dest_and_amounts) + 1, txtype=script_types, outtype=outtypes)
+            total_inputs_val = sum([va['value'] for u, va in utxos.items()])
+            changeval = total_inputs_val - fee_est - total_outputs_val
+
+            for out in dest_and_amounts:
+                outs.append({"value": out[1], "address": out[0]})
+
+            change_addr = wallet_service.get_internal_addr(mixdepth) if custom_change_addr is None else custom_change_addr
+            outs.append({"value": changeval, "address": change_addr})
+
+        else:
+            # not doing a sweep; we will have change.
+            # 8 inputs to be conservative; note we cannot account for the possibility
+            # of non-standard input types at this point.
+            initial_fee_est = estimate_tx_fee(8, len(dest_and_amounts) + 1,
+                                            txtype=txtype, outtype=outtypes)
+            utxos = wallet_service.select_utxos(mixdepth, amount + initial_fee_est,
+                                                includeaddr=True)
+            script_types = get_utxo_scripts(wallet_service.wallet, utxos)
+            if len(utxos) < 8:
+                fee_est = estimate_tx_fee(len(utxos), len(dest_and_amounts) + 1,
+                                        txtype=script_types, outtype=outtypes)
+            else:
+                fee_est = initial_fee_est
+            total_inputs_val = sum([va['value'] for u, va in utxos.items()])
+            changeval = total_inputs_val - fee_est - total_outputs_val
+
+            for out in dest_and_amounts:
+                outs.append({"value": out[1], "address": out[0]})
+            change_addr = wallet_service.get_internal_addr(mixdepth) \
+                if custom_change_addr is None else custom_change_addr
+            outs.append({"value": changeval, "address": change_addr})
+            
     #compute transaction locktime, has special case for spending timelocked coins
     tx_locktime = compute_tx_locktime()
     if mixdepth == FidelityBondMixin.FIDELITY_BOND_MIXDEPTH and \
