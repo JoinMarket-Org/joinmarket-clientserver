@@ -1125,7 +1125,6 @@ components:
           items:
             type: string
             example: 85cf4c880876eead0a6674cbc341b21b86058530c2eacf18a16007f8f9cb1b1a:0
-          nullable: true
     ErrorMessage:
         type: object
         properties:
