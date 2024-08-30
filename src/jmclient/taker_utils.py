@@ -125,6 +125,10 @@ def direct_send(wallet_service: WalletService,
 
     txtype = wallet_service.get_txtype()
 
+    if is_sweep and selected_utxos:
+        log.error("Selected UTXOs are not allowed when sweeping.")
+        return False
+
     if is_sweep:
         #doing a sweep
         destination = dest_and_amounts[0][0]
