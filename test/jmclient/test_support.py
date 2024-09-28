@@ -104,7 +104,8 @@ def test_choose_orders():
     orderbook.append({u'counterparty': u'fake',
                       u'ordertype': u'sw0absoffer', u'oid': 0,
                       u'minsize': 7500000, u'txfee': 1000,
-                      u'maxsize': 599972700, u'cjfee': 9000})
+                      u'maxsize': 599972700, u'cjfee': 9000,
+                      u'minimum_tx_fee_rate': 0})
     result, cjamount, total_fee = choose_sweep_orders(orderbook, 50000000,
                                                 30000, 7,
                                                 cheapest_order_choose,

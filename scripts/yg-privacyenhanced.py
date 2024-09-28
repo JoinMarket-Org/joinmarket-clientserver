@@ -90,7 +90,9 @@ class YieldGeneratorPrivacyEnhanced(YieldGeneratorBasic):
                  'minsize': randomize_minsize,
                  'maxsize': randomize_maxsize,
                  'txfee': randomize_txfee,
-                 'cjfee': str(randomize_cjfee)}
+                 'cjfee': str(randomize_cjfee),
+                 # TODO: add some randomization factor here?
+                 'minimum_tx_fee_rate': self.minimum_tx_fee_rate}
 
         # sanity check
         assert order['minsize'] >= jm_single().DUST_THRESHOLD

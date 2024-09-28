@@ -1,16 +1,24 @@
 #orderbook
-t_orderbook = [{u'counterparty': u'J6FA1Gj7Ln4vSGne', u'ordertype': u'sw0reloffer', u'oid': 0,
-  u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J6CFffuuewjG44UJ', u'ordertype': u'sw0reloffer', u'oid': 0,
-  u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J65z23xdjxJjC7er', u'ordertype': u'sw0reloffer', u'oid': 0,
-  u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J64Ghp5PXCdY9H3t', u'ordertype': u'sw0reloffer', u'oid': 0,
-  u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J659UPUSLLjHJpaB', u'ordertype': u'sw0reloffer', u'oid': 0,
-  u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
- {u'counterparty': u'J6cBx1FwUVh9zzoO', u'ordertype': u'sw0reloffer', u'oid': 0,
-  u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'}]
+t_orderbook = [
+    {u'counterparty': u'J6FA1Gj7Ln4vSGne', u'ordertype': u'sw0reloffer',
+     u'oid': 0, u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700,
+     u'cjfee': u'0.0002', u'minimum_tx_fee_rate': 0},
+    {u'counterparty': u'J6CFffuuewjG44UJ', u'ordertype': u'sw0reloffer',
+     u'oid': 0, u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700,
+     u'cjfee': u'0.0002', u'minimum_tx_fee_rate': 0},
+    {u'counterparty': u'J65z23xdjxJjC7er', u'ordertype': u'sw0reloffer',
+     u'oid': 0, u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700,
+     u'cjfee': u'0.0002', u'minimum_tx_fee_rate': 0},
+    {u'counterparty': u'J64Ghp5PXCdY9H3t', u'ordertype': u'sw0reloffer',
+     u'oid': 0, u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700,
+     u'cjfee': u'0.0002', u'minimum_tx_fee_rate': 0},
+    {u'counterparty': u'J659UPUSLLjHJpaB', u'ordertype': u'sw0reloffer',
+     u'oid': 0, u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700,
+     u'cjfee': u'0.0002', u'minimum_tx_fee_rate': 0},
+    {u'counterparty': u'J6cBx1FwUVh9zzoO', u'ordertype': u'sw0reloffer',
+     u'oid': 0, u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700,
+     u'cjfee': u'0.0002', u'minimum_tx_fee_rate': 0}
+]
 
 t_dest_addr = "mvw1NazKDRbeNufFANqpYNAANafsMC2zVU"
 
