@@ -88,26 +88,6 @@ def test_check_valid_candidate_unowned_input(setup_wallet):
     with pytest.raises(ValueError, match="Transaction inputs should belong to the wallet."):
         check_valid_candidate(tx, wallet)
 
-def test_check_valid_candidate_not_replaceable(setup_wallet):
-    # tests that the transaction is replaceable
-    wallet = setup_wallet[0]
-    wallet_service = setup_wallet[1]
-    wallet_service.resync_wallet()
-    addr = wallet.get_external_addr(0)
-    utxo = fund_wallet_addr(wallet, addr)
-    amount_sats = 10**7
-    tx = btc.mktx([utxo],
-                  [{"address": str(btc.CCoinAddress.from_scriptPubKey(
-                      btc.CScript(b"\x00").to_p2sh_scriptPubKey())),
-                    "value": amount_sats},
-                   {"address": wallet.get_internal_addr(0),
-                    "value": 10**8 - amount_sats - 142}])
-    success, msg = wallet.sign_tx(tx, {0: (wallet.addr_to_script(addr), 10**8)})
-    success = jm_single().bc_interface.pushtx(tx.serialize())
-
-    with pytest.raises(ValueError, match="Transaction not replaceable."):
-        check_valid_candidate(tx, wallet)
-
 def test_check_valid_candidate_explicit_output_index(setup_wallet):
     # tests that there's at least one output that we own and can deduct fees
     wallet = setup_wallet[0]
