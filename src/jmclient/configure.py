@@ -121,12 +121,13 @@ use_ssl = false
 # to Bitcoin Core; note that use of this option for any other purpose is currently unsupported.
 blockchain_source = bitcoin-rpc
 
-# options: signet, testnet, mainnet
+# options: signet, testnet, testnet4, mainnet
 # Note: for regtest, use network = testnet
 network = mainnet
 
 rpc_host = localhost
-# default ports are 8332 for mainnet, 18443 for regtest, 18332 for testnet, 38332 for signet
+# default ports are 8332 for mainnet, 18443 for regtest, 18332 for testnet,
+# 38332 for signet, 48332 for testnet4
 rpc_port =
 
 # Use either rpc_user / rpc_password pair or rpc_cookie_file.
@@ -182,6 +183,9 @@ directory_nodes = g3hv4uynnmynqqq2mchf3fcm3yd46kfzmcdogejuckgwknwyq5ya6iad.onion
 
 # for SIGNET (testing network):
 # directory_nodes = rr6f6qtleiiwic45bby4zwmiwjrj3jsbmcvutwpqxjziaydjydkk5iad.onion:5222,k74oyetjqgcamsyhlym2vgbjtvhcrbxr4iowd4nv4zk5sehw4v665jad.onion:5222,y2ruswmdbsfl4hhwwiqz4m3sx6si5fr6l3pf62d4pms2b53wmagq3eqd.onion:5222
+
+# for TESTNET4 (testing network):
+# directory_nodes = qibbq5s7come4ihuroa232pf2pf6kse4wsu3n753fjkyfn6bhyllhdyd.onion:5222
 
 # This setting is ONLY for developer regtest setups,
 # running multiple bots at once. Don't alter it otherwise
@@ -771,7 +775,7 @@ def load_program_config(config_path: str = "", bs: Optional[str] = None,
                   "location cmtdata/commitments.json")
     if get_network() != "mainnet":
         # no need to be flexible for tests; note this is used
-        # for regtest, signet and testnet3
+        # for regtest, signet, testnet3 and testnet4
         global_singleton.commit_file_location = "cmtdata/" + get_network() + \
             "_commitments.json"
     set_commitment_file(os.path.join(config_path,
@@ -872,7 +876,7 @@ def get_blockchain_interface_instance(_config: ConfigParser):
         BitcoinCoreNoHistoryInterface
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
-    testnet = (network == 'testnet' or network == 'signet')
+    testnet = (network in ['testnet', 'testnet4', 'signet'])
 
     if source in ('bitcoin-rpc', 'regtest', 'bitcoin-rpc-no-history'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
@@ -884,6 +888,8 @@ def get_blockchain_interface_instance(_config: ConfigParser):
                 rpc_port = 18443
             elif network == 'testnet':
                 rpc_port = 18332
+            elif network == 'testnet4':
+                rpc_port = 48332
             elif network == 'signet':
                 rpc_port = 38332
             else:
