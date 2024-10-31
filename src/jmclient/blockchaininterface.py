@@ -342,7 +342,7 @@ class BitcoinCoreInterface(BlockchainInterface):
         actualNet = blockchainInfo['chain']
 
         netmap = {'main': 'mainnet', 'test': 'testnet', 'regtest': 'regtest',
-            'signet': 'signet'}
+            'signet': 'signet', 'testnet4': 'testnet'}
         if netmap[actualNet] != network and \
                 (not (actualNet == "regtest" and network == "testnet")):
             #special case of regtest and testnet having the same addr format
