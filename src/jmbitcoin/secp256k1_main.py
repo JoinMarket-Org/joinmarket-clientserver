@@ -24,7 +24,7 @@ N = 1157920892373161954235709850086879078528375642790749043826051631415181614943
 BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f', "signet": b'\x6f',
     "regtest": 100, "testnet4": b'\x6f'}
 BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4', "signet": b'\xc4',
-    "testnet": b'\xc4'}
+    "testnet4": b'\xc4'}
 
 """PoDLE related primitives
 """
