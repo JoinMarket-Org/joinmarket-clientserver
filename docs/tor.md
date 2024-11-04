@@ -54,11 +54,12 @@ Don't start the tor daemon yet though, since we need to do some setup. Edit Tor'
 sudo vim /etc/tor/torrc
 ```
 
-and uncomment these two lines to enable onion service startup:
+and uncomment these three lines to enable onion service startup:
 
 ```
 ControlPort 9051
 CookieAuthentication 1
+CookieAuthFileGroupReadable 1
 ```
 
 However if you proceed at this point to try to start your yieldgenerator with `python yg-privacyenhanced.py wallet.jmdat` or similar, you will almost certainly get an error like this:
