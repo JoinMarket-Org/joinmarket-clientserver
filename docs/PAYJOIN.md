@@ -39,7 +39,7 @@ So just skip those sections if you already know it.
 
 ### Preparatory step: configuring for Bitcoin Core.
 
-Joinmarket currently requires a Bitcoin Core full node, version 24.0.1 or newer, although it can be pruned.
+Joinmarket currently requires a Bitcoin Core full node, version 25.1 or newer, although it can be pruned.
 
 First thing to do: in `scripts/`, run:
 
