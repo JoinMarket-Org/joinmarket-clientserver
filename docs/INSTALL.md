@@ -166,9 +166,13 @@ Using the command prompt in Administrator mode, go to that directory and run the
 
 (replace `services` with `gui` for Joinmarket-Qt).
 
-The final step is to manually add the libsodium dependency, as mentioned. Do the following:
+The final step is to manually add the libsecp256k1 dependency, as mentioned. Do the following:
 
-Download the file at `https://www.nuget.org/api/v2/package/libsodium` and rename it to `.zip` so that you can unzip it. Once unzipped, find the `libsodium.dll` file at `runtimes\win-x64\native\libsodium.dll` and copy it into `C:\Windows\System` (note this will require Admin rights).
+Install the libsecp256k1-0 package with
+
+`pip install libsecp256k1-0`
+
+Find the `libsecp256k1-0.dll` within the `/Lib/site-packages/libsecp256k1_0/compiled/` directory of your Python environment and copy it into the `Scripts` folder of your Python environment. Rename the file to `secp256k1.dll`.
 
 At this point Joinmarket should be ready to run both in command line and Joinmarket-Qt form (using `python joinmarket-qt.py` from the `\scripts` subdirectory of `joinmarket-clientserver`).
 
