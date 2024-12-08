@@ -416,7 +416,7 @@ class BaseWallet(object):
         assert self._cache is not None
         assert self.max_mixdepth is not None
         assert self.max_mixdepth >= 0
-        assert self.network in ('mainnet', 'testnet', 'signet')
+        assert self.network in ('mainnet', 'testnet', 'signet', 'testnet4')
 
         if mixdepth is not None:
             assert mixdepth >= 0
@@ -479,12 +479,13 @@ class BaseWallet(object):
 
         args:
             storage: a Storage object
-            network: str, network we are on, 'mainnet', 'testnet' or 'signet'
+            network: str, network we are on, 'mainnet', 'testnet', 'signet'
+            or 'testnet4'
             max_mixdepth: int, number of the highest mixdepth
             timestamp: bytes or None, defaults to the current time
             write: execute storage.save()
         """
-        assert network in ('mainnet', 'testnet', 'signet')
+        assert network in ('mainnet', 'testnet', 'signet', 'testnet4')
         assert max_mixdepth >= 0
 
         if storage.data != {}:
