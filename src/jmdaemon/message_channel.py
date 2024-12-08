@@ -293,7 +293,8 @@ class MessageChannelCollection(object):
         privmsg, on a specific mc.
         Fidelity bonds can only be announced over privmsg, nick must be nonNone
         """
-        order_keys = ['oid', 'minsize', 'maxsize', 'txfee', 'cjfee']
+        order_keys = ['oid', 'minsize', 'maxsize', 'txfee', 'cjfee',
+                      'minimum_tx_fee_rate']
         orderlines = []
         for order in orderlist:
             orderlines.append(COMMAND_PREFIX + order['ordertype'] + \
@@ -545,7 +546,7 @@ class MessageChannelCollection(object):
             self.on_nick_change(new_nick)
 
     def on_order_seen_trigger(self, mc, counterparty, oid, ordertype, minsize,
-                              maxsize, txfee, cjfee):
+                              maxsize, txfee, cjfee, minimum_tx_fee_rate):
         """This is the entry point into private messaging.
         Hence, it fixes for the rest of the conversation, which
         message channel the bots are going to communicate over
@@ -564,7 +565,7 @@ class MessageChannelCollection(object):
         self.active_channels[counterparty] = mc
         if self.on_order_seen:
             self.on_order_seen(counterparty, oid, ordertype, minsize, maxsize,
-                               txfee, cjfee)
+                               txfee, cjfee, minimum_tx_fee_rate)
 
     # orderbook watcher commands
     def register_orderbookwatch_callbacks(self,
@@ -785,9 +786,11 @@ class MessageChannel(object):
                 maxsize = _chunks[3]
                 txfee = _chunks[4]
                 cjfee = _chunks[5]
+                minimum_tx_fee_rate = _chunks[6] if len(_chunks) > 6 else 0
                 if self.on_order_seen:
                     self.on_order_seen(self, counterparty, oid, ordertype,
-                                       minsize, maxsize, txfee, cjfee)
+                                       minsize, maxsize, txfee, cjfee,
+                                       minimum_tx_fee_rate)
             except IndexError as e:
                 log.debug(e)
                 log.debug('index error parsing chunks, possibly malformed '
