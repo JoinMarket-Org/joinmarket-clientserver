@@ -33,7 +33,7 @@ jobs:
       - name: Setup joinmarket + virtualenv
         if: steps.cache-venv.outputs.cache-hit != 'true'
         run: |
-          ./install.sh --develop --with-qt
+          bash -x ./install.sh --develop --with-qt
           ./jmvenv/bin/python -m pip install --upgrade pip
       - name: Lint with flake8
         run: source ./jmvenv/bin/activate && ./test/lint/lint-python.sh
@@ -48,7 +48,7 @@ jobs:
       - name: Install bitcoind
         env:
           BITCOIND_VERSION: ${{ matrix.bitcoind-version }}
-        run: ./test/testrunner/install_bitcoind.sh
+        run: bash -x ./test/testrunner/install_bitcoind.sh
       - name: Cache miniircd
         uses: actions/cache@v3
         env:
@@ -57,4 +57,4 @@ jobs:
           path: miniircd/miniircd
           key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('test/run_tests.sh') }}
       - name: Run tests
-        run: source ./jmvenv/bin/activate && ./test/run_tests.sh
+        run: source ./jmvenv/bin/activate && bash -x ./test/run_tests.sh
