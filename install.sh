@@ -228,42 +228,17 @@ dep_get ()
     popd || return 1
 }
 
-# add '--disable-docs' to libffi ./configure so makeinfo isn't needed
-# https://github.com/libffi/libffi/pull/190/commits/fa7a257113e2cfc963a0be9dca5d7b4c73999dcc
-libffi_patch_disable_docs ()
+libffi_autoreconf_patch ()
 {
-    cat <<'EOF' > Makefile.am.patch
-56c56,59
-< info_TEXINFOS = doc/libffi.texi
----
-> info_TEXINFOS =
-> if BUILD_DOCS
-> #info_TEXINFOS += doc/libffi.texi
-> endif
-EOF
-
     # autogen.sh is not happy when run from some directories, causing it
-    # to create an ltmain.sh file in our ${jm_root} directory.  weird.
+    # to create an ltmain.sh file in our ${jm_root} directory. weird.
     # https://github.com/meetecho/janus-gateway/issues/290#issuecomment-125160739
     # https://github.com/meetecho/janus-gateway/commit/ac38cfdae7185f9061569b14809af4d4052da700
     cat <<'EOF' > autoreconf.patch
 18a19
 > AC_CONFIG_AUX_DIR([.])
 EOF
-
-    cat <<'EOF' > configure.ac.patch
-545a546,552
-> AC_ARG_ENABLE(docs,
->               AC_HELP_STRING([--disable-docs],
->                              [Disable building of docs (default: no)]),
->               [enable_docs=no],
->               [enable_docs=yes])
-> AM_CONDITIONAL(BUILD_DOCS, [test x$enable_docs = xyes])
-> 
-EOF
-    patch Makefile.am Makefile.am.patch
     patch configure.ac autoreconf.patch
-    patch configure.ac configure.ac.patch
 }
 
 libffi_build ()
@@ -279,9 +254,9 @@ libffi_build ()
 
 libffi_install ()
 {
-    libffi_version='libffi-3.2.1'
-    libffi_lib_tar="v3.2.1.tar.gz"
-    libffi_lib_sha='96d08dee6f262beea1a18ac9a3801f64018dc4521895e9198d029d6850febe23'
+    libffi_version='libffi-3.4.6'
+    libffi_lib_tar="v3.4.6.tar.gz"
+    libffi_lib_sha='9ac790464c1eb2f5ab5809e978a1683e9393131aede72d1b0a0703771d3c6cda'
     libffi_url="https://github.com/libffi/libffi/archive"
 
     if check_skip_build "${libffi_version}"; then
@@ -291,7 +266,7 @@ libffi_install ()
         return 1
     fi
     pushd "${libffi_version}" || return 1
-    if ! libffi_patch_disable_docs; then
+    if ! libffi_autoreconf_patch; then
         return 1
     fi
     if libffi_build; then
