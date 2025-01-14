@@ -240,6 +240,27 @@ paths:
           $ref: '#/components/responses/400-BadRequest'
         '404':
           $ref: '#/components/responses/404-NotFound'
+  /wallet/{walletname}/getrescaninfo:
+    get:
+      security:
+        - bearerAuth: []
+      summary: get the current rescan status
+      operationId: getrescaninfo
+      description: get the current rescan status
+      parameters:
+        - name: walletname
+          in: path
+          description: name of wallet including .jmdat
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          $ref: '#/components/responses/RescanInfo-200-OK'
+        '400':
+          $ref: '#/components/responses/400-BadRequest'
+        '404':
+          $ref: '#/components/responses/404-NotFound'
   /wallet/{walletname}/address/timelock/new/{lockdate}:
     get:
       security:
@@ -805,6 +826,16 @@ components:
         walletname:
           type: string
           example: "wallet.jmdat"
+    RescanInfoResponse:
+      type: object
+      required:
+        - rescanning
+      properties:
+        rescanning:
+          type: boolean
+        progress:
+          type: number
+          example: 0.04665404082350701
     SessionResponse:
       type: object
       required:
@@ -1190,6 +1221,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/RescanBlockchainResponse"
+    RescanInfo-200-OK:
+      description: "Blockchain rescan status retrieved successfully"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/RescanInfoResponse"
     Create-201-OK:
       description: "wallet created successfully"
       content:
