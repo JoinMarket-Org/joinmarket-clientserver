@@ -61,7 +61,7 @@ config_types = {'rpc_port': int,
                 'absurd_fee_per_kb': 'amount'}
 config_tips = {
     'blockchain_source': 'options: bitcoin-rpc, regtest (for testing)',
-    'network': 'one of "signet", "testnet" or "mainnet"',
+    'network': 'one of "signet", "testnet", "testnet4" or "mainnet"',
     'checktx': 'whether to check fees before completing transaction',
     'rpc_host':
     'the host for bitcoind; only used if blockchain_source is bitcoin-rpc',
