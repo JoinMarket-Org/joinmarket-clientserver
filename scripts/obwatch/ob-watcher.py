@@ -609,7 +609,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         args = parse_qs(query)
         pages = ['/', '/fidelitybonds', '/ordersize', '/depth', '/sybilresistance',
             '/orderbook.json']
-        static_files = {'/vendor/sorttable.js', '/vendor/bootstrap.min.css', '/vendor/jquery-3.5.1.slim.min.js'}
+        static_files = {'/vendor/sorttable.js', '/vendor/bootstrap.min.css'}
         if self.path in static_files or self.path not in pages:
             return super().do_GET()
         fd = open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
