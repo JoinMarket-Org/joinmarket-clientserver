@@ -14,6 +14,7 @@ from jmbase import bintohex, hextobin, stop_reactor
 from jmbase.support import get_log, jmprint, EXIT_FAILURE
 from jmclient.configure import jm_single
 from jmclient.jsonrpc import JsonRpc, JsonRpcConnectionError, JsonRpcError
+from jmclient.esplora_api_client import EsploraApiClient
 
 
 # an inaccessible blockheight; consider rewriting in 1900 years
@@ -365,6 +366,11 @@ class BitcoinCoreInterface(BlockchainInterface):
                     "setting in joinmarket.cfg) instead. See docs/USAGE.md "
                     "for details.")
 
+        self.no_local_mempool = not self._rpc("getnetworkinfo", [])["localrelay"]
+        if self.no_local_mempool:
+            log.debug("Bitcoin Core running in blocksonly mode.")
+        self.esplora_api_client = EsploraApiClient()
+
     def is_address_imported(self, addr: str) -> bool:
         return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
 
@@ -531,6 +537,13 @@ class BitcoinCoreInterface(BlockchainInterface):
         """ Given a binary serialized valid bitcoin transaction,
         broadcasts it to the network.
         """
+        # If don't have local mempool, try pushing tx using Blockstream
+        # Esplora API first for privacy reasons.
+        if self.no_local_mempool:
+            result = self.esplora_api_client.pushtx(txbin)
+            if result:
+                return result
+
         txhex = bintohex(txbin)
         try:
             txid = self._rpc('sendrawtransaction', [txhex])
@@ -594,7 +607,11 @@ class BitcoinCoreInterface(BlockchainInterface):
         # should be used instead of falling back to hardcoded values
         tries = 2 if conf_target == 1 else 1
         for i in range(tries):
-            rpc_result = self._rpc('estimatesmartfee', [conf_target + i])
+            try:
+                rpc_result = self._rpc('estimatesmartfee', [conf_target + i])
+            except JsonRpcError:
+                # Handle jmclient.jsonrpc.JsonRpcError: {'code': -32603, 'message': 'Fee estimation disabled'}
+                continue
             if not rpc_result:
                 # in case of connection error:
                 return None
@@ -605,9 +622,17 @@ class BitcoinCoreInterface(BlockchainInterface):
             # the 'feerate' key is found and contains a positive value:
             if estimate and estimate > 0:
                 return (btc.btc_to_sat(estimate), rpc_result.get('blocks'))
+
         # cannot get a valid estimate after `tries` tries:
-        log.warn("Could not source a fee estimate from Core")
-        return None
+        log.info("Could not source a fee estimate from Core")
+        # Try Esplora (Blockstream) as a fallback
+        esplora_fee = self.esplora_api_client.estimate_fee_basic(conf_target)
+        if esplora_fee:
+            log.info("Local fee estimation failed, using one from Esplora API.")
+            return esplora_fee
+        else:
+            log.warn("Could not source a fee estimate neither from Core nor Esplora API.")
+            return None
 
     def get_current_block_height(self) -> int:
         try:
