@@ -48,6 +48,7 @@ class Taker(object):
                  wallet_service,
                  schedule,
                  max_cj_fee,
+                 tx_max_expected_probability,
                  order_chooser=fidelity_bond_weighted_order_choose,
                  callbacks=None,
                  tdestaddrs=None,
@@ -104,6 +105,7 @@ class Taker(object):
         self.schedule = schedule
         self.order_chooser = order_chooser
         self.max_cj_fee = max_cj_fee
+        self.tx_max_expected_probability = tx_max_expected_probability
         self.custom_change_address = custom_change_address
         self.change_label = change_label
 
@@ -290,7 +292,7 @@ class Taker(object):
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
                 self.ignored_makers, allowed_types=allowed_types,
-                max_cj_fee=self.max_cj_fee)
+                max_cj_fee=self.max_cj_fee, tx_max_expected_probability=self.tx_max_expected_probability)
             if self.orderbook is None:
                 #Failure to get an orderbook means order selection failed
                 #for some reason; no action is taken, we let the stallMonitor
@@ -381,7 +383,7 @@ class Taker(object):
                 self.orderbook, total_value, self.total_txfee,
                 self.n_counterparties, self.order_chooser,
                 self.ignored_makers, allowed_types=allowed_types,
-                max_cj_fee=self.max_cj_fee)
+                max_cj_fee=self.max_cj_fee, tx_max_expected_probability=self.tx_max_expected_probability)
             if not self.orderbook:
                 self.taker_info_callback("ABORT",
                                 "Could not find orders to complete transaction")
