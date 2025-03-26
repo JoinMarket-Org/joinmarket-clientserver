@@ -170,7 +170,7 @@ class DummyBlockchainInterface(BlockchainInterface):
             result.append(result_dict)        
         return result
 
-    def estimate_fee_per_kb(self, tx_fees: int) -> int:
+    def estimate_fee_per_kb(self, tx_fees: int, randomize: bool = True) -> int:
         return 30000
 
 
