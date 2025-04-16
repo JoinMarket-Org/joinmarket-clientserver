@@ -193,6 +193,7 @@ def end_test():
 class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
 
     def __init__(self, factory):
+        self.PHASE_1A_DELAY = 6.0 # quick for testing
         super().__init__(factory)
         #respondtoioauths should do nothing unless jmstate = 2
         self.respondToIoauths(True)
