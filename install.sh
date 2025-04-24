@@ -334,9 +334,9 @@ libsodium_build ()
 
 libsodium_install ()
 {
-    sodium_version='libsodium-1.0.18'
+    sodium_version='libsodium-1.0.20'
     sodium_lib_tar="${sodium_version}.tar.gz"
-    sodium_lib_sha='6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e46636c1'
+    sodium_lib_sha='ebb65ef6ca439333c2bb41a0c1990587288da07f6c7fd07cb3a18cc18d30ce19'
     sodium_url='https://download.libsodium.org/libsodium/releases'
     sodium_pubkeys='libsodium.asc'
 
