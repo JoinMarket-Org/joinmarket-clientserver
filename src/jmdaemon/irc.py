@@ -47,6 +47,8 @@ def get_config_irc_channel(chan_name, btcnet):
     channel = "#" + chan_name
     if btcnet == "testnet":
         channel += "-test"
+    elif btcnet == "testnet4":
+        channel += "-test4"
     elif btcnet == "signet":
         channel += "-sig"
     return channel
