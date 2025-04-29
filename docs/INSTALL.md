@@ -4,7 +4,7 @@
 * [Installation on Windows](#installation-on-windows)
 * [Alternative/custom installation](#alternativecustom-installation)
 
-JoinMarket requires Python 3.8, 3.9, 3.10 or 3.11.
+JoinMarket requires Python >=3.8, <3.13.
 
 ### Notes on upgrading, binaries and compatibility
 
@@ -12,10 +12,9 @@ JoinMarket requires Python 3.8, 3.9, 3.10 or 3.11.
 
 #### Notes on upgrading versions generally:
 
-If you just want the latest version in a new directory, go to the [releases](https://github.com/AdamISZ/joinmarket-clientserver/releases) page.
-Binary executables (of JoinmarketQt) are currently being built only for Windows, please verify the signature on the .exe file attached to the release.
+If you just want the latest version in a new directory, go to the [releases](https://github.com/JoinMarket-Org/joinmarket-clientserver/releases) page.
 
-Otherwise: if you are upgrading from an older version, just update using git: `git pull origin master`,
+If you are upgrading from an older version, just update using git: `git pull origin master`,
 or `git fetch; git checkout tags/<tagname>` for a specific tagged release, then rerun the installation
 process as described below. This will only work if the latest commit, or the tag,
 is actually newer in version number, than what was there already.
@@ -32,7 +31,7 @@ To install everything (client and server), install these packages:
 
 (to build `libsodium` after):
 
-    git clone git@github.com:jedisct1/libsodium.git
+    git clone https://github.com/jedisct1/libsodium.git
     cd libsodium
     git checkout tags/1.0.18
     ./autogen.sh
@@ -43,7 +42,7 @@ To install everything (client and server), install these packages:
 
 Then install this repo:
 
-    git clone https://github.com/Joinmarket-Org/joinmarket-clientserver
+    git clone https://github.com/Joinmarket-Org/joinmarket-clientserver.git
     cd joinmarket-clientserver
 
 Then:
@@ -57,12 +56,11 @@ Then build and install a local copy of libsecp256k1 for python-bitcointx:
 
     mkdir -p deps
     cd deps
-    git clone git@github.com:bitcoin-core/secp256k1
+    git clone https://github.com/bitcoin-core/secp256k1.git
     cd secp256k1
-    git checkout 490022745164b56439688b0fc04f9bd43578e5c3
-    make clean
+    git checkout v0.5.0
     ./autogen.sh
-    ./configure --prefix JM_ROOT --enable-module-recovery --disable-jni --enable-experimental --enable-module-ecdh --enable-benchmark=no
+    ./configure --prefix JM_ROOT --enable-module-recovery --enable-experimental --enable-module-ecdh --enable-benchmark=no
     make
     make check
     make install
@@ -89,7 +87,7 @@ If you have installed this "full" version of the client, you can use it with the
     ```
 2) Install Homebrew
     ```
-    /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     ```
 3) Install automake, libtool, and libsodium
     ```
@@ -99,7 +97,7 @@ If you have installed this "full" version of the client, you can use it with the
     ```
     git clone https://github.com/bitcoin-core/secp256k1
     cd secp256k1
-    git checkout 490022745164b56439688b0fc04f9bd43578e5c3
+    git checkout v0.5.0
     ./autogen.sh
     ./configure --enable-module-recovery --disable-jni --enable-experimental --enable-module-ecdh --enable-benchmark=no
     make
@@ -138,7 +136,7 @@ If (a), then note the following two points:
 
 ##### Installing Bitcoin Core
 
-If you haven't done so yet, install Bitcoin Core, version 0.18 or newer, as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
+If you haven't done so yet, install Bitcoin Core, version 25.1 or newer, as described [here](https://bitcoin.org/en/full-node#windows-10). After starting it for the first time, it will start the Initial Block Download. JoinMarket cannot be used until this is finished. More information on that can be found [here](https://bitcoin.org/en/full-node#initial-block-downloadibd).
 
 ##### Configuring Bitcoin Core
 
@@ -152,7 +150,6 @@ There are currently two choices for installing on Windows; one, directly install
 
 #### Installation directly on Windows
 
-As per the note above, binaries for JoinmarketQt are being offered with releases as of 0.7.0+.
 This section is for doing a full command line install, on Windows.
 
 First, if you have not done so, install [Python](https://www.python.org/downloads/windows/) - specifically, the latest Python 3 version. Make sure to choose to install `pip` during the installation (it should be included automatically, but you can choose the custom installation option to choose it).
@@ -189,7 +186,7 @@ From here, go to `Configuring Joinmarket` below.
  3. When asked, choose to restart.
 
 ##### Install Ubuntu from the Microsoft Store
-1. Open the `Microsoft Store`, search for `Ubuntu 18.04 LTS` and click `Get`.
+1. Open the `Microsoft Store`, search for `Ubuntu 24.04.1 LTS` and click `Get`.
 > note: other distributions are available, but this is the only one tested
 2. When finished downloading click `Launch`.
 3. A window should pop up, telling your `Installing, this may take a few minutes...`

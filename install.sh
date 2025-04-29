@@ -67,6 +67,7 @@ deps_install ()
         'curl' \
         'build-essential' \
         'automake' \
+        'autoconf' \
         'pkg-config' \
         'libtool' \
         'python3-dev' \
@@ -227,42 +228,17 @@ dep_get ()
     popd || return 1
 }
 
-# add '--disable-docs' to libffi ./configure so makeinfo isn't needed
-# https://github.com/libffi/libffi/pull/190/commits/fa7a257113e2cfc963a0be9dca5d7b4c73999dcc
-libffi_patch_disable_docs ()
+libffi_autoreconf_patch ()
 {
-    cat <<'EOF' > Makefile.am.patch
-56c56,59
-< info_TEXINFOS = doc/libffi.texi
----
-> info_TEXINFOS =
-> if BUILD_DOCS
-> #info_TEXINFOS += doc/libffi.texi
-> endif
-EOF
-
     # autogen.sh is not happy when run from some directories, causing it
-    # to create an ltmain.sh file in our ${jm_root} directory.  weird.
+    # to create an ltmain.sh file in our ${jm_root} directory. weird.
     # https://github.com/meetecho/janus-gateway/issues/290#issuecomment-125160739
     # https://github.com/meetecho/janus-gateway/commit/ac38cfdae7185f9061569b14809af4d4052da700
     cat <<'EOF' > autoreconf.patch
 18a19
 > AC_CONFIG_AUX_DIR([.])
 EOF
-
-    cat <<'EOF' > configure.ac.patch
-545a546,552
-> AC_ARG_ENABLE(docs,
->               AC_HELP_STRING([--disable-docs],
->                              [Disable building of docs (default: no)]),
->               [enable_docs=no],
->               [enable_docs=yes])
-> AM_CONDITIONAL(BUILD_DOCS, [test x$enable_docs = xyes])
-> 
-EOF
-    patch Makefile.am Makefile.am.patch
     patch configure.ac autoreconf.patch
-    patch configure.ac configure.ac.patch
 }
 
 libffi_build ()
@@ -278,9 +254,9 @@ libffi_build ()
 
 libffi_install ()
 {
-    libffi_version='libffi-3.2.1'
-    libffi_lib_tar="v3.2.1.tar.gz"
-    libffi_lib_sha='96d08dee6f262beea1a18ac9a3801f64018dc4521895e9198d029d6850febe23'
+    libffi_version='libffi-3.4.6'
+    libffi_lib_tar="v3.4.6.tar.gz"
+    libffi_lib_sha='9ac790464c1eb2f5ab5809e978a1683e9393131aede72d1b0a0703771d3c6cda'
     libffi_url="https://github.com/libffi/libffi/archive"
 
     if check_skip_build "${libffi_version}"; then
@@ -290,7 +266,7 @@ libffi_install ()
         return 1
     fi
     pushd "${libffi_version}" || return 1
-    if ! libffi_patch_disable_docs; then
+    if ! libffi_autoreconf_patch; then
         return 1
     fi
     if libffi_build; then
@@ -324,9 +300,9 @@ libsecp256k1_build()
 
 libsecp256k1_install()
 {
-    secp256k1_version="0.4.1"
+    secp256k1_version="0.5.0"
     secp256k1_lib_tar="v$secp256k1_version.tar.gz"
-    secp256k1_lib_sha="31b1a03c7365dbce7aff4be9526243da966c58a8b88b6255556d51b3016492c5"
+    secp256k1_lib_sha="07934fde88c677abbc4d42c36ef7ef8d3850cd0c065e4f976f66f4f97502c95a"
     secp256k1_lib_url='https://github.com/bitcoin-core/secp256k1/archive/refs/tags'
     if ! dep_get "${secp256k1_lib_tar}" "${secp256k1_lib_sha}" "${secp256k1_lib_url}"; then
         return 1
@@ -344,7 +320,7 @@ libsodium_build ()
 {
     $make uninstall
     $make distclean
-    ./autogen.sh
+    ./autogen.sh DO_NOT_UPDATE_CONFIG_SCRIPTS=1
     ./configure \
         --enable-minimal \
         --enable-shared \
@@ -358,9 +334,9 @@ libsodium_build ()
 
 libsodium_install ()
 {
-    sodium_version='libsodium-1.0.18'
+    sodium_version='libsodium-1.0.20'
     sodium_lib_tar="${sodium_version}.tar.gz"
-    sodium_lib_sha='6f504490b342a4f8a4c4a02fc9b866cbef8622d5df4e5452b46be121e46636c1'
+    sodium_lib_sha='ebb65ef6ca439333c2bb41a0c1990587288da07f6c7fd07cb3a18cc18d30ce19'
     sodium_url='https://download.libsodium.org/libsodium/releases'
     sodium_pubkeys='libsodium.asc'
 
@@ -413,9 +389,9 @@ tor_build ()
 
 tor_install ()
 {
-    tor_version='tor-0.4.8.7'
+    tor_version='tor-0.4.8.13'
     tor_tar="${tor_version}.tar.gz"
-    tor_sha='b20d2b9c74db28a00c07f090ee5b0241b2b684f3afdecccc6b8008931c557491'
+    tor_sha='9baf26c387a2820b3942da572146e6eb77c2bc66862af6297cd02a074e6fba28'
     tor_url='https://dist.torproject.org'
     tor_pubkeys='Tor.asc'
 

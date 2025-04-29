@@ -50,7 +50,7 @@ For the time constraints, consider these points:
 
 ### Slightly longer read on what this is:
 
-For formal specs as currently implemented, please use [this](https://gist.github.com/AdamISZ/2c13fb5819bd469ca318156e2cf25d79). Less technical description [here](https://joinmarket.me/blog/blog/snicker/).
+For formal specs as currently implemented, please use [this](https://gist.github.com/AdamISZ/2c13fb5819bd469ca318156e2cf25d79). Less technical description [here](https://reyify.com/blog/snicker).
 
 Essentially, this is a two party but non-interactive protocol. The **proposer** will identify, on the blockchain, a candidate transaction where he has some confidence that one or more inputs are owned by the same party as one output, and that that party has SNICKER receiver functionality.
 Given those conditions, he'll create one or more **proposals** which are of form `base64-encoded-ECIES-encrypted-PSBT,hex-encoded-pubkey` (the separator is literally a comma; this is ASCII encoded), and send them to a **snicker-server** which is hosted at an onion address (possibly TLS but let's stick with onion for now, it's easier). They could also be sent manually. We'll talk more about these two possibilities below.

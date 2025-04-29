@@ -16,7 +16,7 @@ from jmclient import load_program_config, jm_single,\
     PoDLE, get_podle_commitments, get_utxo_info, validate_utxo_data, quit,\
     get_wallet_path, add_base_options, BTCEngine
 from jmbase.support import EXIT_SUCCESS, EXIT_FAILURE, \
-     jmprint
+     jmprint, cli_prompt_user_yesno
 
 
 def add_ext_commitments(utxo_datas):
@@ -152,14 +152,15 @@ def main():
     if options.delete_ext:
         other = options.in_file or options.in_json or options.loadwallet
         if len(args) > 0 or other:
-            if input("You have chosen to delete commitments, other arguments "
-                         "will be ignored; continue? (y/n)") != 'y':
+            if not cli_prompt_user_yesno(
+                    "You have chosen to delete commitments, other arguments "
+                    "will be ignored; continue?"):
                 jmprint("Quitting", "warning")
                 sys.exit(EXIT_SUCCESS)
         c, e = get_podle_commitments()
         jmprint(pformat(e), "info")
-        if input(
-            "You will remove the above commitments; are you sure? (y/n): ") != 'y':
+        if not cli_prompt_user_yesno(
+                "You will remove the above commitments; are you sure?"):
             jmprint("Quitting", "warning")
             sys.exit(EXIT_SUCCESS)
         update_commitments(external_to_remove=e)

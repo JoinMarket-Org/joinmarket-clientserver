@@ -3,9 +3,45 @@ import pytest
 from decimal import Decimal
 
 
+def test_bitcoin_unit_to_power() -> None:
+    assert(btc.bitcoin_unit_to_power("BTC") == 8)
+    assert(btc.bitcoin_unit_to_power("mBTC") == 5)
+    assert(btc.bitcoin_unit_to_power("μBTC") == 2)
+    assert(btc.bitcoin_unit_to_power("satoshi") == 0)
+    with pytest.raises(ValueError):
+        btc.bitcoin_unit_to_power("")
+        btc.bitcoin_unit_to_power("invalidunit")
+
+
 def test_btc_to_sat() -> None:
     assert(btc.btc_to_sat(Decimal("0.00000001")) == 1)
     assert(btc.btc_to_sat(Decimal("1.00000000")) == 100000000)
+
+
+def test_sat_to_unit_power() -> None:
+    assert(btc.sat_to_unit_power(1, 8) == Decimal("0.00000001"))
+    assert(btc.sat_to_unit_power(100000000, 8) == Decimal("1.00000000"))
+    assert(btc.sat_to_unit_power(1, 5) == Decimal("0.00001"))
+    assert(btc.sat_to_unit_power(100000, 5) == Decimal("1.00000"))
+    assert(btc.sat_to_unit_power(1, 2) == Decimal("0.01"))
+    assert(btc.sat_to_unit_power(100, 2) == Decimal("1.00"))
+    assert(btc.sat_to_unit_power(1, 0) == Decimal("1"))
+
+
+def test_sat_to_unit() -> None:
+    assert(btc.sat_to_unit(1, "BTC") == Decimal("0.00000001"))
+    assert(btc.sat_to_unit(100000000, "BTC") == Decimal("1.00000000"))
+    assert(btc.sat_to_unit(1, "mBTC") == Decimal("0.00001"))
+    assert(btc.sat_to_unit(100000, "mBTC") == Decimal("1.00000"))
+    assert(btc.sat_to_unit(1, "μBTC") == Decimal("0.01"))
+    assert(btc.sat_to_unit(100, "μBTC") == Decimal("1.00"))
+    assert(btc.sat_to_unit(1, "bit") == Decimal("0.01"))
+    assert(btc.sat_to_unit(100, "bit") == Decimal("1.00"))
+    assert(btc.sat_to_unit(1, "satoshi") == Decimal("1"))
+    assert(btc.sat_to_unit(1, "sat") == Decimal("1"))
+    with pytest.raises(ValueError):
+        btc.sat_to_unit(1, "")
+        btc.sat_to_unit(1, "invalidunit")
 
 
 def test_sat_to_btc() -> None:

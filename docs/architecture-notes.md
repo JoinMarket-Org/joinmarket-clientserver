@@ -22,7 +22,7 @@ Joinmarket's own [messaging protocol](https://github.com/JoinMarket-Org/JoinMark
 The client and server currently communicate using twisted.protocol.amp, see
 [AMP](https://amp-protocol.net/),
 and the specification of the communication between the client and server is isolated to
-[this](https://github.com/AdamISZ/joinmarket-clientserver/blob/master/jmbase/jmbase/commands.py) module.
+[this](https://github.com/JoinMarket-Org/joinmarket-clientserver/blob/master/src/jmbase/commands.py) module.
 Currently the messaging layer of Joinmarket is IRC-only (but easily extensible, see [here](https://github.com/JoinMarket-Org/joinmarket/issues/650).
 The IRC layer is also implemented here using Twisted, reducing the complexity required with threading.
 

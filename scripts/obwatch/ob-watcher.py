@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 from functools import cmp_to_key
 
-import http.server
 import base64
+import hashlib
+import html
+import http.server
 import io
 import json
+import os
 import threading
 import time
-import hashlib
-import os
 import sys
-from urllib.parse import parse_qs
+from datetime import datetime, timedelta
 from decimal import Decimal
 from optparse import OptionParser
+from typing import Tuple, Union
 from twisted.internet import reactor
-from datetime import datetime, timedelta
+from urllib.parse import parse_qs
 
-from jmbase.support import EXIT_FAILURE
 from jmbase import bintohex
+from jmbase.support import EXIT_FAILURE
+from jmbitcoin import bitcoin_unit_to_power, sat_to_unit, sat_to_unit_power
 from jmclient import FidelityBondMixin, get_interest_rate, check_and_start_tor
 from jmclient.fidelity_bond import FidelityBondProof
 
@@ -55,7 +58,6 @@ filtered_offername_list = sw0offers
 rotateObform = '<form action="rotateOb" method="post"><input type="submit" value="Rotate orderbooks"/></form>'
 refresh_orderbook_form = '<form action="refreshorderbook" method="post"><input type="submit" value="Check for timed-out counterparties" /></form>'
 sorted_units = ('BTC', 'mBTC', '&#956;BTC', 'satoshi')
-unit_to_power = {'BTC': 8, 'mBTC': 5, '&#956;BTC': 2, 'satoshi': 0}
 sorted_rel_units = ('%', '&#8241;', 'ppm')
 rel_unit_to_factor = {'%': 100, '&#8241;': 1e4, 'ppm': 1e6}
 
@@ -82,22 +84,31 @@ def ordertype_display(ordertype, order, btc_unit, rel_unit):
     return ordertypes[ordertype]
 
 
-def cjfee_display(cjfee, order, btc_unit, rel_unit):
+def cjfee_display(cjfee: Union[Decimal, float, int],
+                  order: dict,
+                  btc_unit: str,
+                  rel_unit: str) -> str:
     if order['ordertype'] in ['swabsoffer', 'sw0absoffer']:
-        return satoshi_to_unit(cjfee, order, btc_unit, rel_unit)
+        val = sat_to_unit(cjfee, html.unescape(btc_unit))
+        if btc_unit == "BTC":
+            return "%.8f" % val
+        else:
+            return str(val)
     elif order['ordertype'] in ['reloffer', 'swreloffer', 'sw0reloffer']:
         return str(Decimal(cjfee) * Decimal(rel_unit_to_factor[rel_unit])) + rel_unit
 
 
-def satoshi_to_unit_power(sat, power):
-    return ("%." + str(power) + "f") % float(
-        Decimal(sat) / Decimal(10 ** power))
-
-def satoshi_to_unit(sat, order, btc_unit, rel_unit):
-    return satoshi_to_unit_power(sat, unit_to_power[btc_unit])
-
 def order_str(s, order, btc_unit, rel_unit):
     return str(s)
+
+
+def bond_value_to_str(bond_value: Decimal, btc_unit: str) -> str:
+    if btc_unit == "BTC":
+        return "%.16f" % bond_value
+    elif btc_unit == "mBTC":
+        return "%.10f" % bond_value
+    else:
+        return str(bond_value)
 
 
 def create_offerbook_table_heading(btc_unit, rel_unit):
@@ -319,7 +330,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         return get_graph_html(fig) + ("<br/><a href='?scale=log'>log scale</a>" if
                                       bins == 30 else "<br/><a href='?'>linear</a>")
 
-    def create_fidelity_bond_table(self, btc_unit):
+    def create_fidelity_bond_table(self, btc_unit: str) -> Tuple[str, str]:
         if jm_single().bc_interface == None:
             with self.taker.dblock:
                 fbonds = self.taker.db.execute("SELECT * FROM fidelitybonds;").fetchall()
@@ -339,12 +350,12 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         else:
             (fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times) =\
                 get_fidelity_bond_data(self.taker)
-            total_btc_committed_str = satoshi_to_unit(
+            total_btc_committed_str = str(sat_to_unit(
                 sum([utxo_data["value"] for _, utxo_data in fidelity_bond_data]),
-                None, btc_unit, 0)
+                html.unescape(btc_unit)))
 
         RETARGET_INTERVAL = 2016
-        elem = lambda e: "<td>" + e + "</td>"
+        elem = lambda e: f"<td>{e}</td>"
         bondtable = ""
         for (bond_data, utxo_data), bond_value, conf_time in zip(
                 fidelity_bond_data, fidelity_bond_values, bond_outpoint_conf_times):
@@ -354,9 +365,11 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 conf_time_str = "No data"
                 utxo_value_str = "No data"
             else:
-                bond_value_str = satoshi_to_unit_power(bond_value, 2*unit_to_power[btc_unit])
+                bond_value_str = bond_value_to_str(sat_to_unit_power(bond_value,
+                    2 * bitcoin_unit_to_power(html.unescape(btc_unit))),
+                    html.unescape(btc_unit))
                 conf_time_str = str(datetime.utcfromtimestamp(0) + timedelta(seconds=conf_time))
-                utxo_value_str = satoshi_to_unit(utxo_data["value"], None, btc_unit, 0)
+                utxo_value_str = sat_to_unit(utxo_data["value"], html.unescape(btc_unit))
             bondtable += ("<tr>"
                 + elem(bond_data.maker_nick)
                 + elem(bintohex(bond_data.utxo[0]) + ":" + str(bond_data.utxo[1]))
@@ -391,7 +404,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             choose_units_form + create_bonds_table_heading(btc_unit) + bondtable + "</table>"
             + decodescript_tip)
 
-    def create_sybil_resistance_page(self, btc_unit):
+    def create_sybil_resistance_page(self, btc_unit: str) -> Tuple[str, str]:
         if jm_single().bc_interface == None:
             return "", "Calculations unavailable, requires configured bitcoin node."
 
@@ -412,7 +425,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         mainbody += ("Assuming the makers in the offerbook right now are not sybil attackers, "
             + "how much would a sybil attacker starting now have to sacrifice to succeed in their"
             + " attack with 95% probability. Honest weight="
-            + satoshi_to_unit_power(honest_weight, 2*unit_to_power[btc_unit]) + " " + btc_unit
+            + str(sat_to_unit_power(honest_weight, 2 * bitcoin_unit_to_power(html.unescape(btc_unit)))) + " " + btc_unit
             + "<sup>" + bond_exponent + "</sup><br/>Also assumes that takers "
             + "are not price-sensitive and that their max "
             + "coinjoin fee is configured high enough that they dont exclude any makers.")
@@ -440,7 +453,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                         interest_rate, timelock)
                 else:
                     coins_per_sybil = sybil.weight_to_burned_coins(success_sybil_weight)
-                row += ("<td>" + satoshi_to_unit(coins_per_sybil*makercount, None, btc_unit, 0)
+                row += ("<td>" + str(sat_to_unit(coins_per_sybil * makercount, html.unescape(btc_unit)))
                     + "</td>")
             row += "</tr>"
             mainbody += row
@@ -471,8 +484,10 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             sacrificed_values = [sybil.weight_to_burned_coins(w) for w in weights[:makercount]]
             foregone_value = (sybil.coins_burned_to_weight(sum(sacrificed_values))
                 - total_sybil_weight)
-            mainbody += ("<tr><td>" + makercount_str + "</td><td>" + str(round(success_prob*100.0, 5))
-                + "%</td><td>" + satoshi_to_unit_power(foregone_value, 2*unit_to_power[btc_unit])
+            mainbody += ("<tr><td>" + makercount_str + "</td><td>" + str(round(success_prob * 100.0, 5))
+                + "%</td><td>" + bond_value_to_str(sat_to_unit_power(
+                    foregone_value, 2 * bitcoin_unit_to_power(
+                        html.unescape(btc_unit))), html.unescape(btc_unit))
                 + "</td></tr>")
             if makercount == len(weights):
                 break
@@ -480,7 +495,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
 
         return heading2, mainbody
 
-    def create_orderbook_table(self, btc_unit, rel_unit):
+    def create_orderbook_table(self, btc_unit: str, rel_unit: str) -> Tuple[int, str]:
         result = ''
         try:
             self.taker.dblock.acquire(True)
@@ -532,15 +547,25 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                         parsed_bond.locktime,
                         mediantime,
                         interest_rate)
-                    row["bondvalue"] = satoshi_to_unit_power(bond_value, 2*unit_to_power[btc_unit])
+                    row["bondvalue"] = bond_value_to_str(sat_to_unit_power(
+                        bond_value,
+                        2 * bitcoin_unit_to_power(html.unescape(btc_unit))),
+                        html.unescape(btc_unit))
+
+        def _okd_satoshi_to_unit(sat, order, btc_unit, rel_unit):
+            val = sat_to_unit(sat, html.unescape(btc_unit))
+            if btc_unit == "BTC":
+                return "%.8f" % val
+            else:
+                return str(val)
 
         order_keys_display = (('ordertype', ordertype_display),
                               ('counterparty', do_nothing),
                               ('oid', order_str),
                               ('cjfee', cjfee_display),
-                              ('txfee', satoshi_to_unit),
-                              ('minsize', satoshi_to_unit),
-                              ('maxsize', satoshi_to_unit),
+                              ('txfee', _okd_satoshi_to_unit),
+                              ('minsize', _okd_satoshi_to_unit),
+                              ('maxsize', _okd_satoshi_to_unit),
                               ('bondvalue', do_nothing))
 
         def _cmp(x, y):
@@ -561,8 +586,8 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         for o in sorted(rows, key=cmp_to_key(orderby_cmp)):
             result += ' <tr>\n'
             for key, displayer in order_keys_display:
-                result += '  <td>' + displayer(o[key], o, btc_unit,
-                                               rel_unit) + '</td>\n'
+                result += '  <td>' + str(displayer(o[key], o, btc_unit,
+                                               rel_unit)) + '</td>\n'
             result += ' </tr>\n'
         return len(rows), result
 
@@ -677,6 +702,21 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(orderbook_page.encode('utf-8'))
 
+    def get_url_base(self) -> str:
+        # This is to handle the case where the server is behind a reverse proxy
+        # and base path may not be /.
+        # First we get HTTP or HTTPS protocol from Origin header and then use
+        # Host header to get the base path.
+        # Will work with nginx config like this:
+        # location /ob-watcher {
+        #     rewrite /ob-watcher/(.*) /$1 break;
+        #     proxy_pass http://localhost:62601;
+        #     proxy_set_header Host $host/ob-watcher;
+        # }
+        is_https = self.headers.get('Origin', '').startswith('https://')
+        host = self.headers.get('Host', '')
+        return 'https://' + host if is_https else 'http://' + host
+
     def do_POST(self):
         global filtered_offername_list
         pages = ['/refreshorderbook', '/rotateOb']
@@ -688,8 +728,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                 self.taker.db.execute("DELETE FROM fidelitybonds;")
             self.taker.msgchan.request_orderbook()
             time.sleep(5)
-            self.path = '/'
-            self.do_GET()
+            self.send_response(302)
+            self.send_header('Location', self.get_url_base() + '/')
+            self.end_headers()
         elif self.path == '/rotateOb':
             if filtered_offername_list == sw0offers:
                 log.debug('Showing nested segwit orderbook')
@@ -697,8 +738,9 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
             elif filtered_offername_list == swoffers:
                 log.debug('Showing native segwit orderbook')
                 filtered_offername_list = sw0offers
-            self.path = '/'
-            self.do_GET()
+            self.send_response(302)
+            self.send_header('Location', self.get_url_base() + '/')
+            self.end_headers()
 
 class HTTPDThread(threading.Thread):
     def __init__(self, taker, hostport):

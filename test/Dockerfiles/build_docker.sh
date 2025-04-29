@@ -15,7 +15,7 @@ build_docker ()
         return 0
     fi
 
-    core_version='0.18.0'
+    core_version='25.1'
     core_dist="bitcoin-${core_version}-x86_64-linux-gnu.tar.gz"
     core_url="https://bitcoincore.org/bin/bitcoin-core-${core_version}/${core_dist}"
     declare -A deps=( [${core_dist}]="${core_url}" )

@@ -249,7 +249,7 @@ class BlockchainInterface(ABC):
         In case of failure to connect, source a specific minimum fee relay
         rate (which is used to sanity check user's chosen fee rate), or
         failure to source a feerate estimate for targeted number of blocks,
-        a default of 10000 is returned.
+        a default of 20000 is returned.
         """
 
         # default to use if fees cannot be estimated
@@ -356,14 +356,11 @@ class BitcoinCoreInterface(BlockchainInterface):
                 log.info("Loading Bitcoin RPC wallet " + wallet_name + "...")
                 self._rpc("loadwallet", [wallet_name])
                 log.info("Done.")
-            # We only support legacy wallets currently
+            # We need to know is this legacy or descriptors wallet because there
+            # will be different RPC calls needed for address import.
             wallet_info = self._getwalletinfo()
-            if "descriptors" in wallet_info and wallet_info["descriptors"]:
-                raise Exception(
-                    "JoinMarket currently does not support Bitcoin Core "
-                    "descriptor wallets, use legacy wallet (rpc_wallet_file "
-                    "setting in joinmarket.cfg) instead. See docs/USAGE.md "
-                    "for details.")
+            self.descriptors = ("descriptors" in wallet_info and
+                wallet_info["descriptors"])
 
     def is_address_imported(self, addr: str) -> bool:
         return len(self._rpc('getaddressinfo', [addr])['labels']) > 0
@@ -429,7 +426,8 @@ class BitcoinCoreInterface(BlockchainInterface):
         if method not in ['importaddress', 'walletpassphrase', 'getaccount',
                           'gettransaction', 'getrawtransaction', 'gettxout',
                           'importmulti', 'listtransactions', 'getblockcount',
-                          'scantxoutset', 'getblock', 'getblockhash']:
+                          'scantxoutset', 'getblock', 'getblockhash',
+                          'importdescriptors']:
             log.debug('rpc: ' + method + " " + str(args))
         try:
             res = self.jsonRpc.call(method, args)
@@ -457,15 +455,23 @@ class BitcoinCoreInterface(BlockchainInterface):
     def import_addresses(self, addr_list: Iterable[str], wallet_name: str,
                          restart_cb: Callable[[str], None] = None) -> None:
         requests = []
-        for addr in addr_list:
-            requests.append({
-                "scriptPubKey": {"address": addr},
-                "timestamp": 0,
-                "label": wallet_name,
-                "watchonly": True
-            })
-
-        result = self._rpc('importmulti', [requests, {"rescan": False}])
+        if self.descriptors:
+            for addr in addr_list:
+                requests.append({
+                    "desc": btc.get_address_descriptor(addr),
+                    "timestamp": "now",
+                    "label": wallet_name
+                })
+            result = self._rpc('importdescriptors', [requests])
+        else:
+            for addr in addr_list:
+                requests.append({
+                    "scriptPubKey": {"address": addr},
+                    "timestamp": 0,
+                    "label": wallet_name,
+                    "watchonly": True
+                })
+            result = self._rpc('importmulti', [requests, {"rescan": False}])
 
         num_failed = 0
         for row in result:
@@ -593,8 +599,12 @@ class BitcoinCoreInterface(BlockchainInterface):
         # cannot be estimated in that case the 2nd highest priority
         # should be used instead of falling back to hardcoded values
         tries = 2 if conf_target == 1 else 1
+        rpc_result = None
         for i in range(tries):
-            rpc_result = self._rpc('estimatesmartfee', [conf_target + i])
+            try:
+                rpc_result = self._rpc('estimatesmartfee', [conf_target + i])
+            except JsonRpcError:
+                continue
             if not rpc_result:
                 # in case of connection error:
                 return None

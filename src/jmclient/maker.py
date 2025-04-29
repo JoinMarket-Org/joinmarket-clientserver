@@ -230,12 +230,12 @@ class Maker(object):
         for outs in tx.vout:
             if outs.scriptPubKey == cjaddr_script:
                 times_seen_cj_addr += 1
-                if outs.nValue != amount:
-                    return (False, 'Wrong cj_amount. I expect ' + str(amount))
+                if outs.nValue < amount:
+                    return (False, 'Wrong cj_amount. I expect >=' + str(amount))
             if outs.scriptPubKey == changeaddr_script:
                 times_seen_change_addr += 1
-                if outs.nValue != expected_change_value:
-                    return (False, 'wrong change, i expect ' + str(
+                if outs.nValue < expected_change_value:
+                    return (False, 'Wrong change. I expect >=' + str(
                         expected_change_value))
         if times_seen_cj_addr != 1 or times_seen_change_addr != 1:
             fmt = ('cj or change addr not in tx '

@@ -10,11 +10,7 @@ fi
 if [[ "$(uname)" == "Linux" ]]; then
     platform="x86_64-linux-gnu"
 elif [[ "$(uname)" == "Darwin" ]]; then
-    if [[ $(echo "$BITCOIND_VERSION > 23.0" | bc) == 1 || $(echo "$BITCOIND_VERSION == 23.0" | bc) == 1 ]]; then
-        platform="x86_64-apple-darwin"
-    else
-        platform="osx64"
-    fi
+    platform="x86_64-apple-darwin"
 else
     echo "Unsupported platform: $(uname)"
     exit 1

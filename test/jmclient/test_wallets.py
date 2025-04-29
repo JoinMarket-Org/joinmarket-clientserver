@@ -104,7 +104,7 @@ def check_bip39_case(vectors, language="english"):
 
 """
 Sanity check of basic bip39 functionality for 12 words seed, copied from
-https://github.com/trezor/python-mnemonic/blob/master/test_mnemonic.py
+https://github.com/trezor/python-mnemonic/blob/master/tests/test_mnemonic.py
 """
 def test_bip39_vectors(setup_wallets):
     with open(os.path.join(testdir, 'bip39vectors.json'), 'r') as f:

@@ -692,6 +692,29 @@ class JMWalletDaemon(Service):
                 self.services["wallet"].rescanblockchain(blockheight)
                 return make_jmwalletd_response(request, walletname=walletname)
 
+        @app.route('/wallet/<string:walletname>/getrescaninfo', methods=['GET'])
+        def getrescaninfo(self, request, walletname):
+            """ This route lets the user get the current rescan status.
+            """
+            print_req(request)
+            self.check_cookie(request)
+            if not self.services["wallet"]:
+                jlog.warn("getrescaninfo called, but no wallet service active.")
+                raise NoWalletFound()
+            if not self.wallet_name == walletname:
+                jlog.warn("called getrescaninfo with wrong wallet")
+                raise InvalidRequestFormat()
+            else:
+                rescanning, progress = \
+                    self.services["wallet"].get_backend_wallet_rescan_status()
+                if rescanning:
+                    return make_jmwalletd_response(request,
+                        walletname=walletname, rescanning=rescanning,
+                        progress=progress)
+                else:
+                    return make_jmwalletd_response(request,
+                        walletname=walletname, rescanning=rescanning)
+
         @app.route('/getinfo', methods=['GET'])
         def version(self, request):
             """ This route sends information about the backend, including
@@ -796,9 +819,11 @@ class JMWalletDaemon(Service):
 
             try:
                 tx = direct_send(self.services["wallet"],
-                        int(payment_info_json["amount_sats"]),
                         int(payment_info_json["mixdepth"]),
-                        destination=payment_info_json["destination"],
+                        [(
+                            payment_info_json["destination"],
+                            int(payment_info_json["amount_sats"])
+                        )],
                         return_transaction=True, answeryes=True)
                 jm_single().config.set("POLICY", "tx_fees",
                                        self.default_policy_tx_fees)

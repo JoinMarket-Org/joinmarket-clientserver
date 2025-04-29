@@ -910,9 +910,12 @@ class BaseWallet(object):
         return self._utxos.get_balance_at_mixdepth(mixdepth,
             include_disabled=include_disabled, maxheight=maxheight)
 
-    def get_utxos_by_mixdepth(self, include_disabled=False, includeheight=False):
+    def get_utxos_by_mixdepth(self, include_disabled: bool = False,
+                              includeheight: bool = False,
+                              limit_mixdepth: Optional[int] = None
+                             ) -> collections.defaultdict:
         """
-        Get all UTXOs for active mixdepths.
+        Get all UTXOs for active mixdepths or specified mixdepth.
 
         returns:
             {mixdepth: {(txid, index):
@@ -920,9 +923,15 @@ class BaseWallet(object):
         (if `includeheight` is True, adds key 'height': int)
         """
         script_utxos = collections.defaultdict(dict)
-        for md in range(self.mixdepth + 1):
-            script_utxos[md] = self.get_utxos_at_mixdepth(md,
-                include_disabled=include_disabled, includeheight=includeheight)
+        if limit_mixdepth:
+            script_utxos[limit_mixdepth] = self.get_utxos_at_mixdepth(
+                mixdepth=limit_mixdepth, include_disabled=include_disabled,
+                includeheight=includeheight)
+        else:
+            for md in range(self.mixdepth + 1):
+                script_utxos[md] = self.get_utxos_at_mixdepth(md,
+                    include_disabled=include_disabled,
+                    includeheight=includeheight)
         return script_utxos
 
     def get_utxos_at_mixdepth(self, mixdepth: int,
