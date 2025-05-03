@@ -73,6 +73,8 @@ log.setLevel(logging.DEBUG)
 joinmarket_alert = ['']
 core_alert = ['']
 debug_silence = [False]
+# Global variable to track whether colored output is enabled
+colored_output = [True]
 
 class JoinMarketStreamHandler(ColorizingStreamHandler):
 
@@ -182,7 +184,7 @@ def jmprint(msg, level="info"):
 
     fmtfn = eval(level)
     fmtd_msg = fmtfn(msg)
-    if sys.stdout.isatty():
+    if sys.stdout.isatty() and colored_output[0]:
         print(jm_colorizer.colorize_message(fmtd_msg))
     else:
         print(fmtd_msg)
@@ -198,6 +200,8 @@ def set_logging_level(level):
     handler.setLevel(level)
 
 def set_logging_color(colored=False):
+    # Update the global colored_output setting
+    colored_output[0] = colored
     if colored and sys.stdout.isatty():
         handler.colorizer = jm_colorizer
     else:
