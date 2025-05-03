@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+
+<html lang="en">
+	<head>
+		<title>JoinMarket Browser Interface - Sample</title>
+		<style>
+			body {
+			  padding-top: 50px;
+			  background-color: linen;
+			}
+			h1 {
+				color: black
+			}
+			h2 {
+				color: gray;
+			}
+			.tftable {
+				font-size:12px;
+				color:#fbfbfb;
+				border-width: 1px;
+				border-color: #686767;
+				border-collapse: collapse;
+				margin: 10px auto;
+				font-family: monospace;
+			}
+			.tftable th {
+				font-size:12px;
+				background-color:#171515;
+				border-width: 1px;
+				padding: 8px;
+				border-style: solid;
+				border-color: #686767;
+				text-align:center;
+				font-family: monospace;
+			}
+			.tftable tr {
+				background-color:#2f2f2f;
+			}
+			.tftable td {
+				font-size:12px;
+				border-width: 1px;
+				padding: 8px;
+				border-style: solid;
+				border-color: #686767;
+				font-family: monospace;
+			}
+			.tftable tr:hover {
+				background-color:#171515;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div style="text-align:center; margin:0px auto;">
+			<h1>JoinMarket Orderbook</h1>
+			<h2>5 orders found by 3 counterparties</h2>
+
+			<div style="font-family: monospace; margin: 10px 0;">All values displayed in satoshis (sats) with comma formatting</div>
+			
+			<table class="tftable sortable" border="1">
+				<tr>
+					<th>Type</th>
+					<th>Counterparty</th>
+					<th>Order ID</th>
+					<th>Fee</th>
+					<th>Miner Fee Contribution (sats)</th>
+					<th>Minimum Size (sats)</th>
+					<th>Maximum Size (sats)</th>
+					<th>Bond value (sats)</th>
+				</tr>
+				<tr>
+					<td>Native SW Absolute Fee</td>
+					<td>J5Cqsd2</td>
+					<td>0001</td>
+					<td>1,000 sats</td>
+					<td>10,000 sats</td>
+					<td>100,000 sats</td>
+					<td>1,000,000 sats</td>
+					<td>500,000 sats</td>
+				</tr>
+				<tr>
+					<td>Native SW Relative Fee</td>
+					<td>J7Hgtr4</td>
+					<td>0002</td>
+					<td>0.3%</td>
+					<td>12,500 sats</td>
+					<td>200,000 sats</td>
+					<td>2,000,000 sats</td>
+					<td>750,000 sats</td>
+				</tr>
+				<tr>
+					<td>SW Absolute Fee</td>
+					<td>J3Kplm9</td>
+					<td>0003</td>
+					<td>2,500 sats</td>
+					<td>15,000 sats</td>
+					<td>300,000 sats</td>
+					<td>3,000,000 sats</td>
+					<td>1,200,000 sats</td>
+				</tr>
+				<tr>
+					<td>SW Relative Fee</td>
+					<td>J5Cqsd2</td>
+					<td>0004</td>
+					<td>0.2%</td>
+					<td>10,000 sats</td>
+					<td>150,000 sats</td>
+					<td>1,500,000 sats</td>
+					<td>600,000 sats</td>
+				</tr>
+				<tr>
+					<td>Native SW Absolute Fee</td>
+					<td>J3Kplm9</td>
+					<td>0005</td>
+					<td>1,500 sats</td>
+					<td>11,000 sats</td>
+					<td>250,000 sats</td>
+					<td>2,500,000 sats</td>
+					<td>900,000 sats</td>
+				</tr>
+			</table>
+		</div>
+	</body>
+</html>
