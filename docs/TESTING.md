@@ -1,6 +1,6 @@
 ### Test instructions (for developers):
 
-Work in your `jmvenv` virtual environment as for all Joinmarket work. Make sure to have [bitcoind](https://bitcoin.org/en/full-node) 25.1 or newer installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
+Work in your `jmvenv` virtual environment as for all Joinmarket work. Make sure to have [bitcoind](https://bitcoin.org/en/full-node) 29.0 or newer installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
 
     (jmvenv)$ cd /path/to/joinmarket-clientserver
     (jmvenv)$ git clone https://github.com/Joinmarket-Org/miniircd
