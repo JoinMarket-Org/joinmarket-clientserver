@@ -7,7 +7,7 @@ assignees: ''
 
 ---
 
-Hey there! Thank you for proposing a new feature – your feedback is invaluable to open-source software development, and all contributions are greatly appreciated.
+Thank you for proposing a new feature – your feedback is invaluable to open-source software development, and all contributions are greatly appreciated.
 
 🚨 Important warning: Be cautious of scammers in the comments. 🚨
 
