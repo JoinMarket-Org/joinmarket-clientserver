@@ -795,8 +795,13 @@ components:
           type: string
           example: "8000000"
     GetAddressResponse:
-      type: string
-      example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
+      type: object
+      required:
+        - address
+      properties:
+        address:
+          type: string
+          example: "bcrt1qujp2x2fv437493sm25gfjycns7d39exjnpptzw"
     ListWalletsResponse:
       type: object
       properties:
