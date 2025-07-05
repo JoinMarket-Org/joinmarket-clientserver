@@ -35,3 +35,4 @@ scripts/snicker/candidates.txt
 .qt_for_python/
 cmtdata/
 **/build/
+test_venv/
