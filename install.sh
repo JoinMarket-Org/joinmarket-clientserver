@@ -128,7 +128,7 @@ tor_deps_install ()
 
 deb_deps_check ()
 {
-    apt-cache policy "${deb_deps[@]}" | grep "Installed.*none"
+    LANG=C apt-cache policy "${deb_deps[@]}" | grep "Installed.*none"
 }
 
 deb_deps_install ()
