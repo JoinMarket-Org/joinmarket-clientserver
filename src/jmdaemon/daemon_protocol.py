@@ -471,6 +471,8 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
 
 class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
+    PHASE_1A_DELAY = 60.0
+
     def __init__(self, factory):
         self.factory = factory
         self.jm_state = 0
@@ -485,6 +487,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.use_fidelity_bond = False
         self.offerlist = None
         self.kp = None
+        # keeps track of whether we are ready to send !auth as taker:
+        # 0: no !pubkey received; 1: at least 1 !pubkey received,
+        # 2: either all !pubkey messages received, or timed out
+        self.phase_1a_state = 0
 
     def checkClientResponse(self, response):
         """A generic check of client acceptance; any failure
@@ -873,6 +879,17 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """This is handled locally in the daemon; set up e2e
         encrypted messaging with this counterparty
         """
+        # We have a time-out of 60 seconds after which a received
+        # pubkey message is too delayed; if we receive that here we
+        # have to just ignore the counterparty.
+        if self.phase_1a_state == 2:
+            return
+        # by the same token, as soon as we have received at least
+        # one !pubkey message, we start the countdown (60s) to just
+        # going ahead:
+        if self.phase_1a_state == 0:
+            reactor.callLater(self.PHASE_1A_DELAY, self.send_all_auth)
+            self.phase_1a_state = 1
         if nick not in self.active_orders.keys():
             log.msg("Counterparty not part of this transaction. Ignoring")
             return
@@ -883,7 +900,38 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             print("Unable to setup crypto box with " + nick + ": " + repr(e))
             self.mcc.send_error(nick, "invalid nacl pubkey: " + maker_pk)
             return
-        self.mcc.prepare_privmsg(nick, "auth", str(self.revelation))
+        self.active_orders[nick]["received_pubkey"] = True
+        self.send_all_auth()
+
+    @taker_only
+    def send_all_auth(self, force:bool =False) -> None:
+        """ We enforce the condition that the !auth messages
+            are only sent to each maker after *every* participating
+            maker has already sent their !pubkey message. This prevents
+            the possibility of one maker already reaching the !ioauth
+            stage, and broadcasting the commitment, before another maker
+            has even received the !fill message (which can cause
+            erroneous blacklisting/preventing taking part in the coinjoin),
+            in cases where there is a very big mismatch in connection
+            speed.
+            If `force` is True, this function will send the auth messages
+            to all makers that have currently replied, and consider the
+            other makers in the `active_orders` dict to be unreachable,
+            and ignore them for the rest of the coinjoin construction.
+            """
+        if not all(["received_pubkey" in self.active_orders[x]
+                    for x in self.active_orders]) and not force:
+            return
+        # the laggards should be wiped out from the dict, in order to
+        # continue phase 2 cleanly:
+        if force:
+            l = [k for k in self.active_orders
+                 if "received_pubkey" in self.active_orders[k]]
+            self.active_orders = dict([(k,
+                            self.active_orders[k]) for k in l])
+        for nick in self.active_orders:
+            self.mcc.prepare_privmsg(nick, "auth", str(self.revelation))
+        self.phase_1a_state = 2
 
     @taker_only
     def on_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr,
@@ -993,6 +1041,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             #do nothing
             return
         self.jm_state = 3
+        # allow future phase1-s to occur:
+        self.phase_1a_state = 0
         if not accepted:
             #use ioauth data field to return the list of non-responsive makers
             nonresponders = [x for x in self.active_orders
