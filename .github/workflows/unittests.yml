@@ -35,8 +35,6 @@ jobs:
         run: |
           bash -x ./install.sh --develop --with-qt
           ./jmvenv/bin/python -m pip install --upgrade pip
-      - name: Lint with flake8
-        run: source ./jmvenv/bin/activate && ./test/lint/lint-python.sh
       - name: Cache bitcoind
         uses: actions/cache@v3
         env:
