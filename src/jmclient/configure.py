@@ -93,7 +93,7 @@ required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
 
 _DEFAULT_INTEREST_RATE = "0.015"
 
-_DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.125"
+_DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.0"
 
 defaultconfig = \
     """
@@ -366,7 +366,7 @@ bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 # To (strongly) disincentivize Sybil behaviour, the value assessment of the bond
 # is based on the (time value of the bond)^x where x is the bond_value_exponent here,
 # where x > 1. It is a real number (so written as a decimal).
-bond_value_exponent = 1.3
+bond_value_exponent = 2.0
 
 ##############################
 # THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
