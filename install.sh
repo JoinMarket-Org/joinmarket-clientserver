@@ -180,7 +180,7 @@ check_skip_build ()
 upgrade_setuptools ()
 {
     pip install --upgrade pip
-    pip install --upgrade setuptools
+    pip install --upgrade 'setuptools>=64,<69'
 }
 
 venv_setup ()
