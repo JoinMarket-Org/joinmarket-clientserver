@@ -424,8 +424,14 @@ joinmarket_install ()
         reqs+=',test'
     fi
 
-    if [ "$with_jmvenv" == 1 ]; then pip_command=pip; else pip_command=pip3; fi
-    $pip_command install -e ".[${reqs}]" || return 1
+    if [ "$with_jmvenv" == 1 ]; then
+        # shellcheck source=/dev/null
+        source "${jm_source}/jmvenv/bin/activate" || return 1
+    fi
+    pip3 install -e ".[${reqs}]" || return 1
+    if [ "$with_jmvenv" == 1 ]; then
+        deactivate
+    fi
 
     if [[ ${with_qt} == "1" ]]; then
         if [[ -d ~/.local/share/icons ]] && [[ -d ~/.local/share/applications ]]; then
