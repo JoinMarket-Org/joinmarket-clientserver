@@ -428,7 +428,7 @@ joinmarket_install ()
         # shellcheck source=/dev/null
         source "${jm_source}/jmvenv/bin/activate" || return 1
     fi
-    pip3 install -e ".[${reqs}]" || return 1
+    pip3 install --ignore-requires-python -e ".[${reqs}]" || return 1
     if [ "$with_jmvenv" == 1 ]; then
         deactivate
     fi
