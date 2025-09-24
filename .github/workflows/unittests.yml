@@ -9,7 +9,7 @@ jobs:
     strategy:
       matrix:
         os: [macos-13, ubuntu-latest]
-        python-version: ["3.8", "3.12"]
+        python-version: ["pypy3.8", "pypy3.11"]
         bitcoind-version: ["25.1", "29.0"]
 
     steps:
@@ -19,7 +19,7 @@ jobs:
         with:
           version: v0.9.0
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 #      - name: Cache venv
