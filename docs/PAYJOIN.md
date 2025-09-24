@@ -216,6 +216,11 @@ tor_control_host = localhost
 # note: port needs to be provided (but is ignored for UNIX socket)
 tor_control_port = 9051
 
+# by default, the tor control connection used cookie auth, which assumes
+# the tor node to be running on a shared filesystem.
+# to authenticate to the tor control port using HashedControlPassword instead:
+#tor_control_password=xxx
+
 # the host/port actually serving the hidden service
 # (note the *virtual port*, that the client uses,
 # is hardcoded to 80):

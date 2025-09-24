@@ -641,7 +641,8 @@ class OnionMessageChannel(MessageChannel):
         self.serverport = self.hostid
         self.tor_control_host = configdata["tor_control_host"]
         self.tor_control_port = configdata["tor_control_port"]
-        self.onion_serving_host=configdata["onion_serving_host"]
+        self.tor_control_password = configdata["tor_control_password"]
+        self.onion_serving_host = configdata["onion_serving_host"]
         self.onion_serving = configdata["serving"]
         if self.onion_serving:
             self.onion_serving_port = configdata["onion_serving_port"]
@@ -691,6 +692,7 @@ class OnionMessageChannel(MessageChannel):
                                           self.onion_serving_port,
                                           virtual_port=ONION_VIRTUAL_PORT,
                                           shutdown_callback=self.shutdown_callback,
+                                          tor_control_password=self.tor_control_password,
                                           hidden_service_dir=self.hidden_service_dir)
                 # this call will start bringing up the HS; when it's finished,
                 # it will fire the `onion_hostname_callback`, or if it fails,

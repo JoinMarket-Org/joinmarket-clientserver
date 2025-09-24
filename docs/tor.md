@@ -38,7 +38,7 @@ To use the new onion messaging system (see [here](onion-message-channels.md)) as
 
 <a name="torconfig" />
 
-#### Configuring Tor to setup an onion service
+#### Configuring Tor to setup an onion service (local Tor node)
 
 (These steps were prepared using Ubuntu; you may have to adjust for your distro).
 
@@ -83,3 +83,28 @@ sudo service tor start
 ```
 
 Once this is done, you should be able to start the yieldgenerator successfully.
+
+#### Configuring Tor to setup an onion service (remote Tor node)
+
+Cookie authentication assumes the Joinmarket and Tor processes have shared filesystem access to where Tor stores its control cookie.
+
+If this is not possible or desired, for example if Tor is running on another machine, you can instead use a password. On the tor node, hash the password:
+
+```
+tor --hash-password !CHANGEME!
+
+sudo vim /etc/tor/torrc
+```
+
+, and add it to the torrc:
+
+```
+ControlPort 9051
+HashedControlPassword RESULT_OF_hash-password
+```
+
+Then add the same password to your joinmarket configuration:
+
+```
+tor_control_password=!CHANGEME!
+```
