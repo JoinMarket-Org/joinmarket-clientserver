@@ -8,8 +8,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-13, ubuntu-22.04]
-#        python-version: ["pypy3.8", "pypy3.11"]
+        os: [macos-13, ubuntu-22.04, ubuntu-24.04]
+#        python-version: ["3.8", "3.13"]
         bitcoind-version: ["25.1", "29.0"]
 
     steps:
