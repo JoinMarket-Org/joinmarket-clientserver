@@ -7,7 +7,7 @@ name = "joinmarket"
 version = "0.9.12dev"
 description = "Joinmarket client library for Bitcoin coinjoins"
 readme = "README.md"
-requires-python = ">=3.8,<3.13"
+requires-python = ">=3.8,<3.14"
 license = {file = "LICENSE"}
 dependencies = [
     "chromalog==1.0.5",
