@@ -7,7 +7,7 @@ import pprint
 from twisted.python.log import startLogging
 from jmclient import Taker, load_program_config, get_schedule,\
     JMClientProtocolFactory, start_reactor, jm_single, get_wallet_path,\
-    open_test_wallet_maybe, get_tumble_schedule,\
+    open_test_wallet_maybe, get_tumble_schedule, get_banned_maker_ids, \
     schedule_to_text, estimate_tx_fee, restart_waiter, WalletService,\
     get_tumble_log, tumbler_taker_finished_update, check_regtest, \
     tumbler_filter_orders_callback, validate_address, get_tumbler_parser, \
@@ -187,6 +187,7 @@ def main():
                   maxcjfee,
                   order_chooser=options['order_choose_fn'],
                   callbacks=(filter_orders_callback, None, taker_finished),
+                  banned_makers=get_banned_maker_ids(),
                   tdestaddrs=destaddrs)
     clientfactory = JMClientProtocolFactory(taker)
     nodaemon = jm_single().config.getint("DAEMON", "no_daemon")

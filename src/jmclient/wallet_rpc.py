@@ -15,7 +15,7 @@ from jmclient import Taker, jm_single, \
     WalletService, get_wallet_path, direct_send, \
     open_test_wallet_maybe, wallet_display, SegwitLegacyWallet, \
     SegwitWallet, get_daemon_serving_params, YieldGeneratorService, \
-    create_wallet, get_max_cj_fee_values, \
+    create_wallet, get_max_cj_fee_values, get_banned_maker_ids, \
     StorageError, StoragePasswordError, JmwalletdWebSocketServerFactory, \
     JmwalletdWebSocketServerProtocol, RetryableStorageError, \
     SegwitWalletFidelityBonds, wallet_gettimelockaddress, \
@@ -1350,6 +1350,7 @@ class JMWalletDaemon(Service):
 
             self.taker = Taker(self.services["wallet"], schedule,
                                max_cj_fee = max_cj_fee,
+                               banned_makers=get_banned_maker_ids(),
                                callbacks=(self.filter_orders_callback,
                                           None, self.taker_finished))
             # TODO ; this makes use of a pre-existing hack to allow
@@ -1482,6 +1483,7 @@ class JMWalletDaemon(Service):
                                schedule,
                                max_cj_fee=max_cj_fee,
                                order_chooser=self.tumbler_options['order_choose_fn'],
+                               banned_makers=get_banned_maker_ids(),
                                callbacks=(self.filter_orders_callback_tumbler, None,
                                           self.taker_finished),
                                tdestaddrs=destaddrs)
