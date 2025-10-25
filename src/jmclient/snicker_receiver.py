@@ -5,13 +5,14 @@ from twisted.application.service import Service
 from twisted.internet import task
 import jmbitcoin as btc
 from jmclient.configure import jm_single
-from jmbase import (get_log, utxo_to_utxostr,
-                    hextobin, bintohex)
+from jmbase import get_log, utxo_to_utxostr, hextobin, bintohex
 
 jlog = get_log()
 
+
 class SNICKERError(Exception):
     pass
+
 
 class SNICKERReceiverService(Service):
     def __init__(self, receiver):
@@ -21,7 +22,7 @@ class SNICKERReceiverService(Service):
         self.monitor_loop = task.LoopingCall(self.receiver.poll_for_proposals)
 
     def startService(self):
-        """ Encapsulates start up actions.
+        """Encapsulates start up actions.
         This service depends on the receiver's
         wallet service to start, so wait for that.
         """
@@ -36,7 +37,7 @@ class SNICKERReceiverService(Service):
             super().startService()
 
     def stopService(self, wallet=False):
-        """ Encapsulates shut down actions.
+        """Encapsulates shut down actions.
         Optionally also shut down the underlying
         wallet service (default False).
         """
@@ -49,11 +50,13 @@ class SNICKERReceiverService(Service):
     def isRunning(self):
         return self.running == 1
 
+
 class SNICKERReceiver(object):
     supported_flags = []
 
-    def __init__(self, wallet_service, acceptance_callback=None,
-                 info_callback=None):
+    def __init__(
+        self, wallet_service, acceptance_callback=None, info_callback=None
+    ):
         """
         Class to manage processing of SNICKER proposals and
         co-signs and broadcasts in case the application level
@@ -70,8 +73,9 @@ class SNICKERReceiver(object):
         # The simplest filter on accepting SNICKER joins:
         # that they pay a minimum of this value in satoshis,
         # which can be negative (e.g. to account for fees).
-        self.income_threshold = jm_single().config.getint("SNICKER",
-                                                "lowest_net_gain")
+        self.income_threshold = jm_single().config.getint(
+            "SNICKER", "lowest_net_gain"
+        )
 
         # The acceptance callback which defines if we accept
         # a valid proposal and sign it, or not.
@@ -108,10 +112,10 @@ class SNICKERReceiver(object):
             with open(self.proposals_source, "wb") as f:
                 jlog.info("created proposals source file.")
 
-
-    def default_acceptance_callback(self, our_ins, their_ins,
-                                    our_outs, their_outs):
-        """ Accepts lists of inputs as CTXIns,
+    def default_acceptance_callback(
+        self, our_ins, their_ins, our_outs, their_outs
+    ):
+        """Accepts lists of inputs as CTXIns,
         a single output (belonging to us) as a CTxOut,
         and a list of other outputs (belonging not to us) in same
         format, and must return only True or False representing acceptance.
@@ -129,12 +133,14 @@ class SNICKERReceiver(object):
         our_out_amts = []
         for i in our_ins:
             utxo_for_i = (i.prevout.hash[::-1], i.prevout.n)
-            if  utxo_for_i not in utxos.keys():
+            if utxo_for_i not in utxos.keys():
                 success, utxostr = utxo_to_utxostr(utxo_for_i)
                 if not success:
                     jlog.error("Code error: input utxo in wrong format.")
                 jlog.debug("The input utxo was not found: " + utxostr)
-                jlog.debug("NB: This can simply mean the coin is already spent.")
+                jlog.debug(
+                    "NB: This can simply mean the coin is already spent."
+                )
                 return False
             our_in_amts.append(utxos[utxo_for_i]["value"])
         for o in our_outs:
@@ -144,13 +150,12 @@ class SNICKERReceiver(object):
         return True
 
     def log_successful_tx(self, tx):
-        """ TODO: add dedicated SNICKER log file.
-        """
+        """TODO: add dedicated SNICKER log file."""
         self.successful_txs.append(tx)
         jlog.info(btc.human_readable_transaction(tx))
 
     def process_proposals(self, proposals):
-        """ This is the "meat" of the SNICKERReceiver service.
+        """This is the "meat" of the SNICKERReceiver service.
         It parses proposals and creates and broadcasts transactions
         with the wallet, assuming all conditions are met.
         Note that this is ONLY called from the proposals poll loop.
@@ -196,11 +201,13 @@ class SNICKERReceiver(object):
                 k = hextobin(k)
                 addr = self.wallet_service.pubkey_to_addr(k)
                 if not self.wallet_service.is_known_addr(addr):
-                    jlog.debug("Key not recognized as part of our "
-                               "wallet, ignoring.")
+                    jlog.debug(
+                        "Key not recognized as part of our wallet, ignoring."
+                    )
                     continue
                 result = self.wallet_service.parse_proposal_to_signed_tx(
-                    addr, p, self.acceptance_callback)
+                    addr, p, self.acceptance_callback
+                )
                 if result[0] is not None:
                     tx, tweak, out_spk = result
                     # We will: rederive the key as a sanity check,
@@ -213,19 +220,24 @@ class SNICKERReceiver(object):
                     # so do it automatically).
                     tweaked_key = btc.snicker_pubkey_tweak(k, tweak)
                     tweaked_spk = self.wallet_service.pubkey_to_script(
-                        tweaked_key)
+                        tweaked_key
+                    )
                     # Derive original path to make sure we change
                     # mixdepth:
                     source_path = self.wallet_service.script_to_path(
-                        self.wallet_service.pubkey_to_script(k))
+                        self.wallet_service.pubkey_to_script(k)
+                    )
                     # NB This will give the correct source mixdepth independent
                     # of whether the key is imported or not:
                     source_mixdepth = self.wallet_service.get_details(
-                        source_path)[0]
+                        source_path
+                    )[0]
                     if not tweaked_spk == out_spk:
-                        jlog.error("The spk derived from the pubkey does "
-                                   "not match the scriptPubkey returned from "
-                                   "the snicker module - code error.")
+                        jlog.error(
+                            "The spk derived from the pubkey does "
+                            "not match the scriptPubkey returned from "
+                            "the snicker module - code error."
+                        )
                         return False
                     # before import, we should derive the tweaked *private* key
                     # from the tweak, also; failure of this critical sanity check
@@ -234,8 +246,11 @@ class SNICKERReceiver(object):
                     # the coinjoin transaction to the network, which is advisably
                     # conservative (never possible to have broadcast a tx without
                     # having already stored the output's key).
-                    success, msg = self.wallet_service.check_tweak_matches_and_import(
-                        addr, tweak, tweaked_key, source_mixdepth)
+                    success, msg = (
+                        self.wallet_service.check_tweak_matches_and_import(
+                            addr, tweak, tweaked_key, source_mixdepth
+                        )
+                    )
                     if not success:
                         jlog.error(msg)
                         return False
@@ -246,11 +261,15 @@ class SNICKERReceiver(object):
                         # an ultra-short window in which the spent utxo was
                         # consumed in another transaction), but not really
                         # an internal logic error, so we do NOT return False
-                        jlog.error("Failed to broadcast SNICKER coinjoin: " +\
-                                   bintohex(tx.GetTxid()[::-1]))
+                        jlog.error(
+                            "Failed to broadcast SNICKER coinjoin: "
+                            + bintohex(tx.GetTxid()[::-1])
+                        )
                         jlog.info(btc.human_readable_transaction(tx))
-                    jlog.info("Successfully broadcast SNICKER coinjoin: " +\
-                                  bintohex(tx.GetTxid()[::-1]))
+                    jlog.info(
+                        "Successfully broadcast SNICKER coinjoin: "
+                        + bintohex(tx.GetTxid()[::-1])
+                    )
                     self.log_successful_tx(tx)
                 else:
                     jlog.debug('Failed to parse proposal: ' + result[1])
@@ -263,4 +282,3 @@ class SNICKERReceiver(object):
         # errors (whether the proposals were valid or accepted
         # or not).
         return True
-

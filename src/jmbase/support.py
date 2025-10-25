@@ -1,4 +1,3 @@
-
 import logging, sys
 import binascii
 import random
@@ -23,11 +22,13 @@ EXIT_SUCCESS = 0
 EXIT_FAILURE = 1
 EXIT_ARGERROR = 2
 
+
 # optparse munges description paragraphs. We sometimes
 # don't want that.
 class IndentedHelpFormatterWithNL(IndentedHelpFormatter):
     def format_description(self, description):
         return description
+
 
 from chromalog.log import (
     ColorizingStreamHandler,
@@ -60,13 +61,14 @@ jm_color_map = {
     'critical': (Back.RED, Style.RESET_ALL),
 }
 
+
 class JMColorizer(GenericColorizer):
     default_color_map = jm_color_map
 
+
 jm_colorizer = JMColorizer()
 
-logFormatter = ColorizingFormatter(
-    "%(asctime)s [%(levelname)s]  %(message)s")
+logFormatter = ColorizingFormatter("%(asctime)s [%(levelname)s]  %(message)s")
 log = logging.getLogger('joinmarket')
 log.setLevel(logging.DEBUG)
 
@@ -74,14 +76,15 @@ joinmarket_alert = ['']
 core_alert = ['']
 debug_silence = [False]
 
-class JoinMarketStreamHandler(ColorizingStreamHandler):
 
+class JoinMarketStreamHandler(ColorizingStreamHandler):
     def __init__(self):
         if sys.stdout.isatty():
             super().__init__(colorizer=jm_colorizer, stream=sys.stdout)
         else:
-            super().__init__(colorizer=MonochromaticColorizer,
-                stream=sys.stdout)
+            super().__init__(
+                colorizer=MonochromaticColorizer, stream=sys.stdout
+            )
 
     def emit(self, record):
         if joinmarket_alert[0]:
@@ -91,9 +94,11 @@ class JoinMarketStreamHandler(ColorizingStreamHandler):
         if not debug_silence[0]:
             super().emit(record)
 
+
 handler = JoinMarketStreamHandler()
 handler.setFormatter(logFormatter)
 log.addHandler(handler)
+
 
 # hex/binary conversion routines used by dependent packages
 def hextobin(h):
@@ -123,13 +128,13 @@ def bintolehex(b):
     """
     return binascii.hexlify(b[::-1]).decode('utf8')
 
+
 def utxostr_to_utxo(x):
     if not isinstance(x, str):
         return (False, "not a string")
     y = x.split(":")
     if len(y) != 2:
-        return (False,
-                "string is not two items separated by :")
+        return (False, "string is not two items separated by :")
     try:
         n = int(y[1])
     except:
@@ -143,6 +148,7 @@ def utxostr_to_utxo(x):
     except:
         return (False, "txid is not hex.")
     return (True, (txid, n))
+
 
 def utxo_to_utxostr(u):
     if not isinstance(u, tuple):
@@ -160,8 +166,9 @@ def utxo_to_utxostr(u):
     txid = binascii.hexlify(u[0]).decode("ascii")
     return (True, txid + ":" + str(u[1]))
 
+
 def jmprint(msg, level="info"):
-    """ Provides the ability to print messages
+    """Provides the ability to print messages
     with consistent formatting, outside the logging system
     (in case you don't want the standard log format).
     Example applications are: REPL style stuff, and/or
@@ -187,6 +194,7 @@ def jmprint(msg, level="info"):
     else:
         print(fmtd_msg)
 
+
 def get_log():
     """
     provides joinmarket logging instance
@@ -194,8 +202,10 @@ def get_log():
     """
     return log
 
+
 def set_logging_level(level):
     handler.setLevel(level)
+
 
 def set_logging_color(colored=False):
     if colored and sys.stdout.isatty():
@@ -203,25 +213,31 @@ def set_logging_color(colored=False):
     else:
         handler.colorizer = MonochromaticColorizer()
 
-def chunks(d, n):
-    return [d[x:x + n] for x in range(0, len(d), n)]
 
-def get_password(msg): #pragma: no cover
+def chunks(d, n):
+    return [d[x : x + n] for x in range(0, len(d), n)]
+
+
+def get_password(msg):  # pragma: no cover
     password = getpass(msg)
     if not isinstance(password, bytes):
         password = password.encode('utf-8')
     return password
 
+
 def lookup_appdata_folder(appname):
-    """ Given an appname as a string,
+    """Given an appname as a string,
     return the correct directory for storing
     data for the given OS environment.
     """
     if sys.platform == 'darwin':
         if "HOME" in environ:
-            data_folder = path.join(environ["HOME"],
-                                   "Library/Application support/",
-                                   appname) + '/'
+            data_folder = (
+                path.join(
+                    environ["HOME"], "Library/Application support/", appname
+                )
+                + '/'
+            )
         else:
             jmprint("Could not find home folder")
             sys.exit(EXIT_FAILURE)
@@ -232,15 +248,19 @@ def lookup_appdata_folder(appname):
         data_folder = path.expanduser(path.join("~", "." + appname + "/"))
     return data_folder
 
+
 def get_jm_version_str():
     return "JoinMarket " + JM_CORE_VERSION
+
 
 def print_jm_version(option, opt_str, value, parser):
     print(get_jm_version_str())
     sys.exit(EXIT_SUCCESS)
 
+
 # helper functions for conversions of format between over-the-wire JM
 # and internal. See details in hexbin() docstring.
+
 
 def _convert(x):
     good, utxo = utxostr_to_utxo(x)
@@ -253,6 +273,7 @@ def _convert(x):
         except:
             return x
 
+
 def listchanger(l):
     rlist = []
     for x in l:
@@ -263,6 +284,7 @@ def listchanger(l):
         else:
             rlist.append(_convert(x))
     return rlist
+
 
 def dictchanger(d):
     rdict = {}
@@ -275,8 +297,9 @@ def dictchanger(d):
             rdict[_convert(k)] = _convert(v)
     return rdict
 
+
 def hexbin(func):
-    """ Decorator for functions of taker and maker receiving over
+    """Decorator for functions of taker and maker receiving over
     the wire AMP arguments that may be in hex or hextxid:n format
     and converting all to binary.
     Functions to which this decorator applies should have all arguments
@@ -289,6 +312,7 @@ def hexbin(func):
     - dicts with keys as per above; values are altered recursively according
       to the rules above.
     """
+
     @wraps(func)
     def func_wrapper(inst, *args, **kwargs):
         newargs = []
@@ -303,8 +327,9 @@ def hexbin(func):
 
     return func_wrapper
 
+
 def wrapped_urlparse(url):
-    """ This wrapper is unfortunately necessary as there appears
+    """This wrapper is unfortunately necessary as there appears
     to be a bug in the urlparse handling of *.onion strings:
     If http:// is prepended, the url parses correctly, but if it
     is not, the .hostname property is erroneously None.
@@ -317,8 +342,9 @@ def wrapped_urlparse(url):
         url = b + url
     return urlparse.urlparse(url)
 
+
 def bdict_sdict_convert(d, output_binary=False):
-    """ Useful for converting dicts from url parameter sets
+    """Useful for converting dicts from url parameter sets
     to a form that can be handled by json dumps/loads.
     This code only works if *all* keys in the dict
     are binary strings, and all values are lists of same.
@@ -335,17 +361,18 @@ def bdict_sdict_convert(d, output_binary=False):
             newd[k.decode("utf-8")] = newv
     return newd
 
+
 def random_insert(old, new):
-    """ Insert elements of new at random indices in
+    """Insert elements of new at random indices in
     the old list, without changing the ordering of the old list.
     """
     for n in new:
         insertion_index = random.randint(0, len(old))
         old[:] = old[:insertion_index] + [n] + old[insertion_index:]
 
+
 def get_free_tcp_ports(num_ports: int) -> List[int]:
-    """ Get first free TCP ports you can bind to on localhost.
-    """
+    """Get first free TCP ports you can bind to on localhost."""
     sockets = []
     ports = []
     for i in range(num_ports):
@@ -358,14 +385,18 @@ def get_free_tcp_ports(num_ports: int) -> List[int]:
         s.close()
     return ports
 
+
 def dict_factory(cursor: Cursor, row: Row) -> dict:
     fields = [column[0] for column in cursor.description]
     return {key: value for key, value in zip(fields, row)}
 
-def cli_prompt_user_value(message: str,
-                          input_check_fn: Callable[[str], bool],
-                          input_for_default: Optional[str] = None,
-                          default_value: Optional[str] = None) -> str:
+
+def cli_prompt_user_value(
+    message: str,
+    input_check_fn: Callable[[str], bool],
+    input_for_default: Optional[str] = None,
+    default_value: Optional[str] = None,
+) -> str:
     while True:
         data = input(message)
         if input_for_default is not None and data == input_for_default:
@@ -374,8 +405,8 @@ def cli_prompt_user_value(message: str,
             continue
         return data
 
-def cli_prompt_user_yesno(message: str) -> bool:
 
+def cli_prompt_user_yesno(message: str) -> bool:
     def cli_prompt_yesno_check(value: str) -> bool:
         if len(value) > 0:
             value = value.upper()
@@ -386,6 +417,5 @@ def cli_prompt_user_yesno(message: str) -> bool:
             print("Bad answer, try again.")
         return res
 
-    data = cli_prompt_user_value(f"{message} (y/n): ",
-                                 cli_prompt_yesno_check)
+    data = cli_prompt_user_value(f"{message} (y/n): ", cli_prompt_yesno_check)
     return data[0] == "Y" or data[0] == "y"

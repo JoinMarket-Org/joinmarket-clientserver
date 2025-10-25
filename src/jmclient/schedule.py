@@ -3,6 +3,7 @@ import random
 
 from .configure import validate_address, jm_single
 from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
+
 """Utility functions for dealing with Taker schedules.
 
 - get_schedule(filename):
@@ -15,13 +16,16 @@ from .support import rand_exp_array, rand_norm_array, rand_weighted_choice
     the chance of success on re-trying
 """
 
-NO_ROUNDING = 16 #max btc significant figures not including LN
+NO_ROUNDING = 16  # max btc significant figures not including LN
+
 
 class ScheduleGenerationError(Exception):
     pass
 
+
 class ScheduleGenerationErrorNoFunds(ScheduleGenerationError):
     pass
+
 
 def get_schedule(filename):
     with open(filename, "rb") as f:
@@ -32,14 +36,21 @@ def get_schedule(filename):
             if sl.startswith("#"):
                 continue
             try:
-                (mixdepth, amount, makercount, destaddr, waittime,
-                    rounding, completed) = sl.split(',')
+                (
+                    mixdepth,
+                    amount,
+                    makercount,
+                    destaddr,
+                    waittime,
+                    rounding,
+                    completed,
+                ) = sl.split(',')
             except ValueError as e:
                 return (False, "Failed to parse schedule line: " + sl)
             try:
                 mixdepth = int(mixdepth)
-                #TODO this isn't the right way, but floats must be allowed
-                #for any persisted tumbler-style schedule
+                # TODO this isn't the right way, but floats must be allowed
+                # for any persisted tumbler-style schedule
                 if "." in amount:
                     amount = float(amount)
                 else:
@@ -56,10 +67,23 @@ def get_schedule(filename):
             if destaddr not in ["INTERNAL", "addrask"]:
                 success, errmsg = validate_address(destaddr)
                 if not success:
-                    return (False, "Invalid address: " + destaddr + "," + errmsg)
-            schedule.append([mixdepth, amount, makercount, destaddr,
-                             waittime, rounding, completed])
+                    return (
+                        False,
+                        "Invalid address: " + destaddr + "," + errmsg,
+                    )
+            schedule.append(
+                [
+                    mixdepth,
+                    amount,
+                    makercount,
+                    destaddr,
+                    waittime,
+                    rounding,
+                    completed,
+                ]
+            )
     return (True, schedule)
+
 
 def get_amount_fractions(count):
     """Get 'count' fractions following uniform distn
@@ -71,25 +95,30 @@ def get_amount_fractions(count):
     setting, so we make sure it's appreciable to begin with.
     """
     while True:
-        knives = [random.random() for i in range(count-1)]
+        knives = [random.random() for i in range(count - 1)]
         knives = sorted(knives)[::-1]
         y = []
         l = 1
         k = 1
         for k in knives:
-            y.append( l - k )
+            y.append(l - k)
             l = k
         y.append(k)
 
-        #Here we insist that the last entry in the list is more
-        #than 5% of the total, to account for tweaks upwards
-        #on previous joins.
+        # Here we insist that the last entry in the list is more
+        # than 5% of the total, to account for tweaks upwards
+        # on previous joins.
         if y[-1] > 0.05:
             break
     return y
 
-def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
-                        max_mixdepth_in_wallet=4):
+
+def get_tumble_schedule(  # noqa: C901
+    options,
+    destaddrs,
+    mixdepth_balance_dict,
+    max_mixdepth_in_wallet=4,
+):
     """
     Default final setting for "amount_fraction" is zero, for each mixdepth.
     This is because we now use a general "schedule" syntax for both tumbler and
@@ -105,10 +134,15 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
     """
 
     def lower_bounded_int(thelist, lowerbound):
-        return [int(l) if int(l) >= lowerbound else lowerbound for l in thelist]
+        return [
+            int(l) if int(l) >= lowerbound else lowerbound for l in thelist
+        ]
 
-    txcounts = rand_norm_array(options['txcountparams'][0],
-                               options['txcountparams'][1], options['mixdepthcount'])
+    txcounts = rand_norm_array(
+        options['txcountparams'][0],
+        options['txcountparams'][1],
+        options['mixdepthcount'],
+    )
     txcounts = lower_bounded_int(txcounts, options['mintxcount'])
     tx_list = []
     ### stage 1 coinjoins, which sweep the entire mixdepth without creating change
@@ -116,10 +150,15 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
     for mixdepth, balance in mixdepth_balance_dict.items():
         if balance > 0:
             sweep_mixdepths.append(mixdepth)
-    waits = rand_exp_array(options['timelambda']*options[
-        'stage1_timelambda_increase'], len(sweep_mixdepths))
-    makercounts = rand_norm_array(options['makercountrange'][0],
-        options['makercountrange'][1], len(sweep_mixdepths))
+    waits = rand_exp_array(
+        options['timelambda'] * options['stage1_timelambda_increase'],
+        len(sweep_mixdepths),
+    )
+    makercounts = rand_norm_array(
+        options['makercountrange'][0],
+        options['makercountrange'][1],
+        len(sweep_mixdepths),
+    )
     makercounts = lower_bounded_int(makercounts, options['minmakercount'])
     sweep_mixdepths = sorted(sweep_mixdepths)[::-1]
     nonempty_mixdepths = {}
@@ -130,23 +169,28 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
         # so we keep track with a binary flag for every mixdepth during this sequence.
         nonempty_mixdepths[mixdepth] = 0
         nonempty_mixdepths[(mixdepth + 1) % (max_mixdepth_in_wallet + 1)] = 1
-        tx = {'amount_fraction': 0,
-              'wait': round(wait, 2),
-              'srcmixdepth': mixdepth,
-              'makercount': makercount,
-              'destination': 'INTERNAL',
-              'rounding': NO_ROUNDING
+        tx = {
+            'amount_fraction': 0,
+            'wait': round(wait, 2),
+            'srcmixdepth': mixdepth,
+            'makercount': makercount,
+            'destination': 'INTERNAL',
+            'rounding': NO_ROUNDING,
         }
         tx_list.append(tx)
     try:
-        lowest_nonempty_mixdepth = min([x for x, y in nonempty_mixdepths.items() if y == 1])
+        lowest_nonempty_mixdepth = min(
+            [x for x, y in nonempty_mixdepths.items() if y == 1]
+        )
     except ValueError:
         raise ScheduleGenerationErrorNoFunds
     ### stage 2 coinjoins, which create a number of random-amount coinjoins from each mixdepth
     for m, txcount in enumerate(txcounts):
-        if options['mixdepthcount'] - options['addrcount'] <= m and m < \
-                options['mixdepthcount'] - 1:
-            #these mixdepths send to a destination address, so their
+        if (
+            options['mixdepthcount'] - options['addrcount'] <= m
+            and m < options['mixdepthcount'] - 1
+        ):
+            # these mixdepths send to a destination address, so their
             # amount_fraction cant be 1.0, some coins must be left over
             if txcount == 1:
                 txcount = 2
@@ -155,34 +199,50 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
         # time between events in a poisson process followed exp
         waits = rand_exp_array(options['timelambda'], txcount)
         # number of makers to use follows a normal distribution
-        makercounts = rand_norm_array(options['makercountrange'][0],
-                                      options['makercountrange'][1], txcount)
+        makercounts = rand_norm_array(
+            options['makercountrange'][0],
+            options['makercountrange'][1],
+            txcount,
+        )
         makercounts = lower_bounded_int(makercounts, options['minmakercount'])
-        do_rounds = [random.random() < options['rounding_chance'] for _ in range(txcount)]
-        for amount_fraction, wait, makercount, do_round in zip(amount_fractions, waits,
-                                                     makercounts, do_rounds):
+        do_rounds = [
+            random.random() < options['rounding_chance']
+            for _ in range(txcount)
+        ]
+        for amount_fraction, wait, makercount, do_round in zip(
+            amount_fractions, waits, makercounts, do_rounds
+        ):
             rounding = NO_ROUNDING
             if do_round:
-                weight_sum = 1.0*sum(options['rounding_sigfig_weights'])
-                weight_prob = [a/weight_sum for a in options['rounding_sigfig_weights']]
-                rounding = rand_weighted_choice(len(weight_prob), weight_prob) + 1
-            tx = {'amount_fraction': amount_fraction,
-                  'wait': round(wait, 2),
-                  'srcmixdepth': (lowest_nonempty_mixdepth + m) % (
-                      max_mixdepth_in_wallet + 1),
-                  'makercount': makercount,
-                  'destination': 'INTERNAL',
-                  'rounding': rounding
+                weight_sum = 1.0 * sum(options['rounding_sigfig_weights'])
+                weight_prob = [
+                    a / weight_sum for a in options['rounding_sigfig_weights']
+                ]
+                rounding = (
+                    rand_weighted_choice(len(weight_prob), weight_prob) + 1
+                )
+            tx = {
+                'amount_fraction': amount_fraction,
+                'wait': round(wait, 2),
+                'srcmixdepth': (lowest_nonempty_mixdepth + m)
+                % (max_mixdepth_in_wallet + 1),
+                'makercount': makercount,
+                'destination': 'INTERNAL',
+                'rounding': rounding,
             }
             tx_list.append(tx)
-        #reset the final amt_frac to zero, as it's the last one for this mixdepth:
+        # reset the final amt_frac to zero, as it's the last one for this mixdepth:
         tx_list[-1]['amount_fraction'] = 0
         tx_list[-1]['rounding'] = NO_ROUNDING
     addrask = options['addrcount'] - len(destaddrs)
     external_dest_addrs = ['addrask'] * addrask + destaddrs[::-1]
     for mix_offset in range(options['addrcount']):
-        srcmix = (lowest_nonempty_mixdepth + options['mixdepthcount']
-                  - mix_offset - 1) % (max_mixdepth_in_wallet + 1)
+        srcmix = (
+            lowest_nonempty_mixdepth
+            + options['mixdepthcount']
+            - mix_offset
+            - 1
+        ) % (max_mixdepth_in_wallet + 1)
         for tx in reversed(tx_list):
             if tx['srcmixdepth'] == srcmix:
                 tx['destination'] = external_dest_addrs[mix_offset]
@@ -201,10 +261,19 @@ def get_tumble_schedule(options, destaddrs, mixdepth_balance_dict,
             [tx_list.remove(t) for t in tx_list_remove]
     schedule = []
     for t in tx_list:
-        schedule.append([t['srcmixdepth'], t['amount_fraction'],
-                  t['makercount'], t['destination'], t['wait'],
-                  t['rounding'], 0])
+        schedule.append(
+            [
+                t['srcmixdepth'],
+                t['amount_fraction'],
+                t['makercount'],
+                t['destination'],
+                t['wait'],
+                t['rounding'],
+                0,
+            ]
+        )
     return schedule
+
 
 def tweak_tumble_schedule(options, schedule, last_completed, destaddrs=[]):
     """If a tx in a schedule failed for some reason, and we want
@@ -219,48 +288,54 @@ def tweak_tumble_schedule(options, schedule, last_completed, destaddrs=[]):
     altered = new_schedule[last_completed + 1]
     if not altered[3] in destaddrs:
         altered[3] = "INTERNAL"
-    #For sweeps, we'll try with a lower number of counterparties if we can.
-    #Note that this is usually counterproductive for non-sweeps, which fall
-    #back and so benefit in reliability from *higher* counterparty numbers.
+    # For sweeps, we'll try with a lower number of counterparties if we can.
+    # Note that this is usually counterproductive for non-sweeps, which fall
+    # back and so benefit in reliability from *higher* counterparty numbers.
     if altered[1] == 0:
         new_n_cp = altered[2] - 1
         if new_n_cp < jm_single().config.getint("POLICY", "minimum_makers"):
             new_n_cp = jm_single().config.getint("POLICY", "minimum_makers")
         altered[2] = new_n_cp
     if not altered[1] == 0:
-        #For non-sweeps, there's a fractional amount (tumbler).
-        #Increasing or decreasing the amount could improve the odds of success,
-        #since it depends on liquidity and minsizes, so we tweak in both
-        #directions randomly.
-        #Strategy:
-        #1. calculate the total percentage remaining in the mixdepth.
-        #2. calculate the number remaining incl. sweep.
-        #3. Re-use 'getamountfracs' algo for this reduced number, then scale it
-        #to the number remaining.
-        #4. As before, reset the final to '0' for sweep.
-        #find the number of entries remaining, not including the final sweep,
-        #for this mixdepth:
+        # For non-sweeps, there's a fractional amount (tumbler).
+        # Increasing or decreasing the amount could improve the odds of success,
+        # since it depends on liquidity and minsizes, so we tweak in both
+        # directions randomly.
+        # Strategy:
+        # 1. calculate the total percentage remaining in the mixdepth.
+        # 2. calculate the number remaining incl. sweep.
+        # 3. Re-use 'getamountfracs' algo for this reduced number, then scale it
+        # to the number remaining.
+        # 4. As before, reset the final to '0' for sweep.
+        # find the number of entries remaining, not including the final sweep,
+        # for this mixdepth:
 
-        #First get all sched entries for this mixdepth
+        # First get all sched entries for this mixdepth
         this_mixdepth_entries = [s for s in new_schedule if s[0] == altered[0]]
-        already_done = this_mixdepth_entries[:this_mixdepth_entries.index(altered)]
-        tobedone = this_mixdepth_entries[this_mixdepth_entries.index(altered):]
+        already_done = this_mixdepth_entries[
+            : this_mixdepth_entries.index(altered)
+        ]
+        tobedone = this_mixdepth_entries[
+            this_mixdepth_entries.index(altered) :
+        ]
 
-        #find total frac left to be spent
+        # find total frac left to be spent
         alreadyspent = sum([x[1] for x in already_done])
         tobespent = 1.0 - alreadyspent
-        #power law for what's left:
+        # power law for what's left:
         new_fracs = get_amount_fractions(len(tobedone))
-        #rescale; the sum must be 'tobespent':
-        new_fracs = [x*tobespent for x in new_fracs]
-        #starting from the known 'last_completed+1' index, apply these new
-        #fractions, with 0 at the end for sweep
-        for i, j in enumerate(range(
-            last_completed + 1, last_completed + 1 + len(tobedone))):
+        # rescale; the sum must be 'tobespent':
+        new_fracs = [x * tobespent for x in new_fracs]
+        # starting from the known 'last_completed+1' index, apply these new
+        # fractions, with 0 at the end for sweep
+        for i, j in enumerate(
+            range(last_completed + 1, last_completed + 1 + len(tobedone))
+        ):
             new_schedule[j][1] = new_fracs[i]
-        #reset the sweep
+        # reset the sweep
         new_schedule[last_completed + 1 + len(tobedone) - 1][1] = 0
     return new_schedule
+
 
 def human_readable_schedule_entry(se, amt=None, destn=None):
     hrs = []
@@ -268,11 +343,19 @@ def human_readable_schedule_entry(se, amt=None, destn=None):
     amt_info = str(amt) if amt else str(se[1])
     hrs.append("sends amount: " + amt_info + " satoshis")
     dest_info = destn if destn else str(se[3])
-    hrs.append(("rounded to " + str(se[5]) + " significant figures"
-        if se[5] != NO_ROUNDING else "without rounding"))
+    hrs.append(
+        (
+            "rounded to " + str(se[5]) + " significant figures"
+            if se[5] != NO_ROUNDING
+            else "without rounding"
+        )
+    )
     hrs.append("to destination address: " + dest_info)
     hrs.append("after coinjoin with " + str(se[2]) + " counterparties.")
     return ", ".join(hrs)
 
+
 def schedule_to_text(schedule):
-    return "\n".join([",".join([str(y) for y in x]) for x in schedule]).encode('utf-8')
+    return "\n".join([",".join([str(y) for y in x]) for x in schedule]).encode(
+        'utf-8'
+    )

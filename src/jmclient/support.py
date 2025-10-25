@@ -6,17 +6,24 @@ from .configure import get_bondless_makers_allowance
 
 from math import exp
 
-ORDER_KEYS = ['counterparty', 'oid', 'ordertype', 'minsize', 'maxsize', 'txfee',
-              'cjfee']
+ORDER_KEYS = [
+    'counterparty',
+    'oid',
+    'ordertype',
+    'minsize',
+    'maxsize',
+    'txfee',
+    'cjfee',
+]
 
 log = get_log()
 
 
 class NotEnoughFundsException(RuntimeError):
-
     def __init__(self, want, has):
-        super().__init__("Not enough funds, " +
-            str(want) + " vs. " + str(has) + ".")
+        super().__init__(
+            "Not enough funds, " + str(want) + " vs. " + str(has) + "."
+        )
 
 
 """
@@ -26,13 +33,16 @@ NOR PERFORMANT NOR HIGH PRECISION!
 Only for sampling purposes
 """
 
+
 def get_random_bytes(num_bytes, cryptographically_secure=False):
     if cryptographically_secure:
         # uses os.urandom if available
         generator = random.SystemRandom()
     else:
         generator = random
-    return bytes(bytearray((generator.randrange(256) for b in range(num_bytes))))
+    return bytes(
+        bytearray((generator.randrange(256) for b in range(num_bytes)))
+    )
 
 
 def rand_norm_array(mu, sigma, n):
@@ -57,15 +67,16 @@ def rand_weighted_choice(n, p_arr):
         raise ValueError("Sum of probabilities must be 1")
     if len(p_arr) != n:
         raise ValueError("Need: " + str(n) + " probabilities.")
-    cum_pr = [sum(p_arr[:i + 1]) for i in range(len(p_arr))]
+    cum_pr = [sum(p_arr[: i + 1]) for i in range(len(p_arr))]
     r = random.random()
     return sorted(cum_pr + [r]).index(r)
 
+
 # End random functions
 
+
 def select(unspent, value):
-    """Default coin selection algorithm.
-    """
+    """Default coin selection algorithm."""
     value = int(value)
     high = [u for u in unspent if u["value"] >= value]
     high.sort(key=lambda u: u["value"])
@@ -120,12 +131,12 @@ def select_greedy(unspent, value):
     for utxo in utxos:  # find the smallest consecutive sum >= value
         value -= key(utxo)
         if value == 0:  # perfect match! (skip dilution stage)
-            return utxos[0:cursor + 1]  # end is non-inclusive
+            return utxos[0 : cursor + 1]  # end is non-inclusive
         elif value < 0:  # overshot
             picked += [utxo]  # definitely need this utxo
             break  # proceed to dilution
         cursor += 1
-    for utxo in utxos[max(cursor-1, 0)::-1]:  # dilution loop
+    for utxo in utxos[max(cursor - 1, 0) :: -1]:  # dilution loop
         value += key(utxo)  # see if we can skip this one
         if value > 0:  # no, that drops us below the target
             picked += [utxo]  # so we need this one too
@@ -134,7 +145,9 @@ def select_greedy(unspent, value):
     if len(picked) > 0:
         if len(picked) < len(utxos) or picked_sum >= original_value:
             return picked
-    raise NotEnoughFundsException(original_value, picked_sum)   # if all else fails, we do too
+    raise NotEnoughFundsException(
+        original_value, picked_sum
+    )  # if all else fails, we do too
 
 
 def select_greediest(unspent, value):
@@ -170,8 +183,9 @@ def calc_cj_fee(ordertype, cjfee, cj_amount):
     if ordertype in ['sw0absoffer', 'swabsoffer', 'absoffer']:
         real_cjfee = int(cjfee)
     elif ordertype in ['sw0reloffer', 'swreloffer', 'reloffer']:
-        real_cjfee = int((Decimal(cjfee) * Decimal(cj_amount)).quantize(Decimal(
-            1)))
+        real_cjfee = int(
+            (Decimal(cjfee) * Decimal(cj_amount)).quantize(Decimal(1))
+        )
     else:
         raise RuntimeError('unknown order type: ' + str(ordertype))
     return real_cjfee
@@ -219,6 +233,7 @@ def cheapest_order_choose(orders, n):
     """
     return orders[0]
 
+
 def fidelity_bond_weighted_order_choose(orders, n):
     """
     choose orders based on fidelity bond for improved sybil resistance
@@ -232,33 +247,45 @@ def fidelity_bond_weighted_order_choose(orders, n):
 
     if random.random() < get_bondless_makers_allowance():
         return random_under_max_order_choose(orders, n)
-    #remove orders without fidelity bonds
-    filtered_orders = list(filter(lambda x: x[0]["fidelity_bond_value"] != 0, orders))
+    # remove orders without fidelity bonds
+    filtered_orders = list(
+        filter(lambda x: x[0]["fidelity_bond_value"] != 0, orders)
+    )
     if len(filtered_orders) == 0:
         return random_under_max_order_choose(orders, n)
     weights = list(map(lambda x: x[0]["fidelity_bond_value"], filtered_orders))
     weights = [x / sum(weights) for x in weights]
     return filtered_orders[rand_weighted_choice(len(filtered_orders), weights)]
 
+
 def _get_is_within_max_limits(max_fee_rel, max_fee_abs, cjvalue):
     def check_max_fee(fee):
         # only reject if fee is bigger than the relative and absolute limit
         return not (fee > max_fee_abs and fee > cjvalue * max_fee_rel)
+
     return check_max_fee
 
 
-def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
-                  pick=False, allowed_types=["sw0reloffer", "sw0absoffer"],
-                  max_cj_fee=(1, float('inf'))):
+def choose_orders(
+    offers,
+    cj_amount,
+    n,
+    chooseOrdersBy,
+    ignored_makers=None,
+    pick=False,
+    allowed_types=["sw0reloffer", "sw0absoffer"],
+    max_cj_fee=(1, float('inf')),
+):
     is_within_max_limits = _get_is_within_max_limits(
-        max_cj_fee[0], max_cj_fee[1], cj_amount)
+        max_cj_fee[0], max_cj_fee[1], cj_amount
+    )
     if ignored_makers is None:
         ignored_makers = []
-    #Filter ignored makers and inappropriate amounts
+    # Filter ignored makers and inappropriate amounts
     orders = [o for o in offers if o['counterparty'] not in ignored_makers]
     orders = [o for o in orders if o['minsize'] < cj_amount]
     orders = [o for o in orders if o['maxsize'] > cj_amount]
-    #Filter those not using wished-for offertypes
+    # Filter those not using wished-for offertypes
     orders = [o for o in orders if o["ordertype"] in allowed_types]
 
     orders_fees = []
@@ -269,9 +296,13 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
 
     counterparties = set(o['counterparty'] for o, f in orders_fees)
     if n > len(counterparties):
-        log.warn(('ERROR not enough liquidity in the orderbook n=%d '
-                   'suitable-counterparties=%d amount=%d totalorders=%d') %
-                  (n, len(counterparties), cj_amount, len(orders_fees)))
+        log.warn(
+            (
+                'ERROR not enough liquidity in the orderbook n=%d '
+                'suitable-counterparties=%d amount=%d totalorders=%d'
+            )
+            % (n, len(counterparties), cj_amount, len(orders_fees))
+        )
         # TODO handle not enough liquidity better, maybe an Exception
         return None, 0
     """
@@ -283,39 +314,47 @@ def choose_orders(offers, cj_amount, n, chooseOrdersBy, ignored_makers=None,
     if not pick:
         # filter to only the cheapest suitable offer for each maker
         orders_fees = sorted(
-            dict((v[0]['counterparty'], v)
-                 for v in sorted(orders_fees,
-                                 key=feekey,
-                                 reverse=True)).values(),
-            key=feekey)
+            dict(
+                (v[0]['counterparty'], v)
+                for v in sorted(orders_fees, key=feekey, reverse=True)
+            ).values(),
+            key=feekey,
+        )
     else:
-        orders_fees = sorted(orders_fees, key=feekey)  #pragma: no cover
-    log.debug('considered orders = \n' + '\n'.join([str(o) for o in orders_fees
-                                                   ]))
+        orders_fees = sorted(orders_fees, key=feekey)  # pragma: no cover
+    log.debug(
+        'considered orders = \n' + '\n'.join([str(o) for o in orders_fees])
+    )
     total_cj_fee = 0
     chosen_orders = []
     for i in range(n):
         chosen_order, chosen_fee = chooseOrdersBy(orders_fees, n)
         # remove all orders from that same counterparty
         # only needed if offers are manually picked
-        orders_fees = [o
-                       for o in orders_fees
-                       if o[0]['counterparty'] != chosen_order['counterparty']]
+        orders_fees = [
+            o
+            for o in orders_fees
+            if o[0]['counterparty'] != chosen_order['counterparty']
+        ]
         chosen_orders.append(chosen_order)
         total_cj_fee += chosen_fee
-    log.debug('chosen orders = \n' + '\n'.join([str(o) for o in chosen_orders]))
+    log.debug(
+        'chosen orders = \n' + '\n'.join([str(o) for o in chosen_orders])
+    )
     result = dict([(o['counterparty'], o) for o in chosen_orders])
     return result, total_cj_fee
 
 
-def choose_sweep_orders(offers,
-                        total_input_value,
-                        total_txfee,
-                        n,
-                        chooseOrdersBy,
-                        ignored_makers=None,
-                        allowed_types=['sw0reloffer', 'sw0absoffer'],
-                        max_cj_fee=(1, float('inf'))):
+def choose_sweep_orders(
+    offers,
+    total_input_value,
+    total_txfee,
+    n,
+    chooseOrdersBy,
+    ignored_makers=None,
+    allowed_types=['sw0reloffer', 'sw0absoffer'],
+    max_cj_fee=(1, float('inf')),
+):
     """
     choose an order given that we want to be left with no change
     i.e. sweep an entire group of utxos
@@ -327,7 +366,8 @@ def choose_sweep_orders(offers,
     => cjamount = (totalin - mytxfee - sum(absfee)) / (1 + sum(relfee))
     """
     is_within_max_limits = _get_is_within_max_limits(
-        max_cj_fee[0], max_cj_fee[1], total_input_value)
+        max_cj_fee[0], max_cj_fee[1], total_input_value
+    )
 
     if ignored_makers is None:
         ignored_makers = []
@@ -340,41 +380,55 @@ def choose_sweep_orders(offers,
             sumtxfee_contribution += order['txfee']
             if order['ordertype'] in ['sw0absoffer', 'swabsoffer', 'absoffer']:
                 sumabsfee += int(order['cjfee'])
-            elif order['ordertype'] in ['sw0reloffer', 'swreloffer', 'reloffer']:
+            elif order['ordertype'] in [
+                'sw0reloffer',
+                'swreloffer',
+                'reloffer',
+            ]:
                 sumrelfee += Decimal(order['cjfee'])
-            #this is unreachable since calc_cj_fee must already have been called
-            else: #pragma: no cover
-                raise RuntimeError('unknown order type: {}'.format(order[
-                    'ordertype']))
+            # this is unreachable since calc_cj_fee must already have been called
+            else:  # pragma: no cover
+                raise RuntimeError(
+                    'unknown order type: {}'.format(order['ordertype'])
+                )
 
         my_txfee = max(total_txfee - sumtxfee_contribution, 0)
         cjamount = (total_input_value - my_txfee - sumabsfee) / (1 + sumrelfee)
         cjamount = int(cjamount.quantize(Decimal(1)))
         return cjamount, int(sumabsfee + sumrelfee * cjamount)
 
-    log.debug('choosing sweep orders for total_input_value = ' + str(
-        total_input_value) + ' n=' + str(n))
+    log.debug(
+        'choosing sweep orders for total_input_value = '
+        + str(total_input_value)
+        + ' n='
+        + str(n)
+    )
     offers = [o for o in offers if o["ordertype"] in allowed_types]
-    #Filter ignored makers and inappropriate amounts
+    # Filter ignored makers and inappropriate amounts
     offers = [o for o in offers if o['counterparty'] not in ignored_makers]
     offers = [o for o in offers if o['minsize'] < total_input_value]
     # while we do not know the exact cj value yet, we can approximate a ceiling:
-    offers = [o for o in offers if o['maxsize'] > (total_input_value - total_txfee)]
+    offers = [
+        o for o in offers if o['maxsize'] > (total_input_value - total_txfee)
+    ]
 
     log.debug('orderlist = \n' + '\n'.join([str(o) for o in offers]))
-    orders_fees = [(o, calc_cj_fee(o['ordertype'], o['cjfee'],
-                                   total_input_value)) for o in offers]
+    orders_fees = [
+        (o, calc_cj_fee(o['ordertype'], o['cjfee'], total_input_value))
+        for o in offers
+    ]
 
     feekey = lambda x: x[1]
     # sort from smallest to biggest cj fee
     # filter to only the cheapest suitable offer for each maker
     orders_fees = sorted(
-        dict((v[0]['counterparty'], v)
-             for v in sorted(orders_fees,
-                             key=feekey,
-                             reverse=True)
-             if is_within_max_limits(v[1])).values(),
-        key=feekey)
+        dict(
+            (v[0]['counterparty'], v)
+            for v in sorted(orders_fees, key=feekey, reverse=True)
+            if is_within_max_limits(v[1])
+        ).values(),
+        key=feekey,
+    )
     chosen_orders = []
     while len(chosen_orders) < n:
         for i in range(n - len(chosen_orders)):
@@ -398,7 +452,9 @@ def choose_sweep_orders(offers,
             maxsize = c['maxsize']
             if cj_amount > maxsize or cj_amount < minsize:
                 chosen_orders.remove(c)
-    log.debug('chosen orders = \n' + '\n'.join([str(o) for o in chosen_orders]))
+    log.debug(
+        'chosen orders = \n' + '\n'.join([str(o) for o in chosen_orders])
+    )
     result = dict([(o['counterparty'], o) for o in chosen_orders])
     log.debug('cj amount = ' + str(cj_amount))
     return result, cj_amount, total_fee

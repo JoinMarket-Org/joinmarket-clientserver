@@ -1,6 +1,6 @@
-
 # Descriptor checksum calculation code taken from
 # https://github.com/bitcoin-core/HWI/blob/master/hwilib/descriptor.py
+
 
 def poly_mod(c: int, val: int) -> int:
     """
@@ -9,17 +9,17 @@ def poly_mod(c: int, val: int) -> int:
     From: https://github.com/bitcoin/bitcoin/blob/master/src/script/descriptor.cpp
     """
     c0 = c >> 35
-    c = ((c & 0x7ffffffff) << 5) ^ val
-    if (c0 & 1):
-        c ^= 0xf5dee51989
-    if (c0 & 2):
-        c ^= 0xa9fdca3312
-    if (c0 & 4):
-        c ^= 0x1bab10e32d
-    if (c0 & 8):
-        c ^= 0x3706b1677a
-    if (c0 & 16):
-        c ^= 0x644d626ffd
+    c = ((c & 0x7FFFFFFFF) << 5) ^ val
+    if c0 & 1:
+        c ^= 0xF5DEE51989
+    if c0 & 2:
+        c ^= 0xA9FDCA3312
+    if c0 & 4:
+        c ^= 0x1BAB10E32D
+    if c0 & 8:
+        c ^= 0x3706B1677A
+    if c0 & 16:
+        c ^= 0x644D626FFD
     return c
 
 
@@ -78,7 +78,8 @@ def get_xpub_descriptor(xpub_key: str, address_type: str) -> str:
         function = "wpkh"
     else:
         raise NotImplementedError(
-            "Unsupported address type {}".format(address_type))
+            "Unsupported address type {}".format(address_type)
+        )
     descriptor = "{}({}/*)".format(function, xpub_key)
     if address_type == "p2sh-p2wpkh":
         descriptor = "sh({})".format(descriptor)
@@ -90,9 +91,8 @@ def is_address_descriptor(desc: str) -> bool:
 
 
 def get_address_from_descriptor(desc: str) -> str:
-    #example
+    # example
     #'desc': 'addr(2MvAfRVvRAeBS18NT7mKVc1gFim169GkFC5)#h5yn9eq4',
     if not is_address_descriptor(desc):
         raise ValueError("Not an address descriptor {}".format(desc))
-    return desc[5:desc.find(")")]
-
+    return desc[5 : desc.find(")")]

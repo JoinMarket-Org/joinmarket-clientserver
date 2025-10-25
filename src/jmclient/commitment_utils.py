@@ -1,12 +1,18 @@
-
 import sys
 from jmbase import jmprint, utxostr_to_utxo, utxo_to_utxostr, EXIT_FAILURE
-from jmclient import jm_single, BTCEngine, BTC_P2PKH, BTC_P2SH_P2WPKH, BTC_P2WPKH
+from jmclient import (
+    jm_single,
+    BTCEngine,
+    BTC_P2PKH,
+    BTC_P2SH_P2WPKH,
+    BTC_P2WPKH,
+)
 
 
-def quit(parser, errmsg): #pragma: no cover
+def quit(parser, errmsg):  # pragma: no cover
     parser.error(errmsg)
     sys.exit(EXIT_FAILURE)
+
 
 def get_utxo_info(upriv, utxo_binary=False):
     """Verify that the input string parses correctly as (utxo, priv)
@@ -21,7 +27,7 @@ def get_utxo_info(upriv, utxo_binary=False):
         success, utxo_bin = utxostr_to_utxo(u)
         assert success, u
     except:
-        #not sending data to stdout in case privkey info
+        # not sending data to stdout in case privkey info
         jmprint("Failed to parse utxo information for utxo", "error")
         raise
     try:
@@ -29,16 +35,24 @@ def get_utxo_info(upriv, utxo_binary=False):
         # this calls read_privkey to validate.
         raw, _ = BTCEngine.wif_to_privkey(priv)
     except:
-        jmprint("failed to parse privkey, make sure it's WIF compressed format.", "error")
+        jmprint(
+            "failed to parse privkey, make sure it's WIF compressed format.",
+            "error",
+        )
         raise
     utxo_to_return = utxo_bin if utxo_binary else u
     return utxo_to_return, priv
 
+
 def print_failed_addr_match(utxostr, addr1, addr2):
-    jmprint("privkey corresponds to the wrong address for utxo: " + utxostr, "error")
+    jmprint(
+        "privkey corresponds to the wrong address for utxo: " + utxostr,
+        "error",
+    )
     jmprint("blockchain returned address: {}".format(addr2), "error")
     jmprint("your privkey gave this address: " + addr1, "error")
     return False
+
 
 def validate_utxo_data(utxo_datas, retrieve=False, utxo_address_type="p2wpkh"):
     """For each (utxo, privkey), first

@@ -6,18 +6,19 @@ from bitcointx.core import Hash160, Hash
 from bitcointx import base58
 
 # Below code ASSUMES binary inputs and compressed pubkeys
-MAINNET_PRIVATE = b'\x04\x88\xAD\xE4'
-MAINNET_PUBLIC = b'\x04\x88\xB2\x1E'
+MAINNET_PRIVATE = b'\x04\x88\xad\xe4'
+MAINNET_PUBLIC = b'\x04\x88\xb2\x1e'
 TESTNET_PRIVATE = b'\x04\x35\x83\x94'
-TESTNET_PUBLIC = b'\x04\x35\x87\xCF'
+TESTNET_PUBLIC = b'\x04\x35\x87\xcf'
 SIGNET_PRIVATE = b'\x04\x35\x83\x94'
-SIGNET_PUBLIC = b'\x04\x35\x87\xCF'
+SIGNET_PUBLIC = b'\x04\x35\x87\xcf'
 PRIVATE = [MAINNET_PRIVATE, TESTNET_PRIVATE, SIGNET_PRIVATE]
 PUBLIC = [MAINNET_PUBLIC, TESTNET_PUBLIC, SIGNET_PUBLIC]
 
 privtopub = privkey_to_pubkey
 
 # BIP32 child key derivation
+
 
 def raw_bip32_ckd(rawtuple, i):
     vbytes, depth, fingerprint, oldi, chaincode, key = rawtuple
@@ -32,11 +33,15 @@ def raw_bip32_ckd(rawtuple, i):
     if i >= 2**31:
         if vbytes in PUBLIC:
             raise Exception("Can't do private derivation on public key!")
-        I = hmac.new(chaincode, b'\x00' + priv[:32] + struct.pack(b'>L', i),
-                     hashlib.sha512).digest()
+        I = hmac.new(
+            chaincode,
+            b'\x00' + priv[:32] + struct.pack(b'>L', i),
+            hashlib.sha512,
+        ).digest()
     else:
-        I = hmac.new(chaincode, pub + struct.pack(b'>L', i),
-                     hashlib.sha512).digest()
+        I = hmac.new(
+            chaincode, pub + struct.pack(b'>L', i), hashlib.sha512
+        ).digest()
 
     if vbytes in PRIVATE:
         newkey = add_privkeys(I[:32] + b'\x01', priv)
@@ -47,14 +52,23 @@ def raw_bip32_ckd(rawtuple, i):
 
     return (vbytes, depth + 1, fingerprint, i, I[32:], newkey)
 
+
 def bip32_serialize(rawtuple):
     vbytes, depth, fingerprint, i, chaincode, key = rawtuple
     if isinstance(i, int):
         i = struct.pack(b'>L', i)
     chaincode = chaincode
     keydata = b'\x00' + key[:-1] if vbytes in PRIVATE else key
-    bindata = vbytes + struct.pack(b'B',depth % 256) + fingerprint + i + chaincode + keydata
+    bindata = (
+        vbytes
+        + struct.pack(b'B', depth % 256)
+        + fingerprint
+        + i
+        + chaincode
+        + keydata
+    )
     return base58.encode(bindata + Hash(bindata)[:4])
+
 
 def bip32_deserialize(data):
     dbin = base58.decode(data)
@@ -65,9 +79,13 @@ def bip32_deserialize(data):
         raise Exception("Invalid vbytes {}".format(vbytes))
     depth = dbin[4]
     fingerprint = dbin[5:9]
-    child_num = struct.unpack(b'>L',dbin[9:13])[0]
-    if depth == 0 and (fingerprint != b'\x00'*4 or child_num != 0):
-        raise Exception("Invalid master key, depth = {}, fingerprint = {}, child_num = {}".format(depth, fingerprint, child_num))
+    child_num = struct.unpack(b'>L', dbin[9:13])[0]
+    if depth == 0 and (fingerprint != b'\x00' * 4 or child_num != 0):
+        raise Exception(
+            "Invalid master key, depth = {}, fingerprint = {}, child_num = {}".format(
+                depth, fingerprint, child_num
+            )
+        )
     chaincode = dbin[13:45]
     key = dbin[46:78] + b'\x01' if vbytes in PRIVATE else dbin[45:78]
     if vbytes in PUBLIC and not is_valid_pubkey(key):
@@ -79,6 +97,7 @@ def bip32_deserialize(data):
         privkey_to_pubkey(key)
     return (vbytes, depth, fingerprint, child_num, chaincode, key)
 
+
 def raw_bip32_privtopub(rawtuple):
     vbytes, depth, fingerprint, i, chaincode, key = rawtuple
     if vbytes in PUBLIC:
@@ -86,19 +105,25 @@ def raw_bip32_privtopub(rawtuple):
     newvbytes = MAINNET_PUBLIC if vbytes == MAINNET_PRIVATE else TESTNET_PUBLIC
     return (newvbytes, depth, fingerprint, i, chaincode, privtopub(key))
 
+
 def bip32_privtopub(data):
     return bip32_serialize(raw_bip32_privtopub(bip32_deserialize(data)))
+
 
 def bip32_ckd(data, i):
     return bip32_serialize(raw_bip32_ckd(bip32_deserialize(data), i))
 
+
 def bip32_master_key(seed, vbytes=MAINNET_PRIVATE):
     I = hmac.new("Bitcoin seed".encode("utf-8"), seed, hashlib.sha512).digest()
-    return bip32_serialize((vbytes, 0, b'\x00' * 4, 0, I[32:], I[:32] + b'\x01'
-                           ))
+    return bip32_serialize(
+        (vbytes, 0, b'\x00' * 4, 0, I[32:], I[:32] + b'\x01')
+    )
+
 
 def bip32_extract_key(data):
     return bip32_deserialize(data)[-1]
+
 
 def bip32_descend(*args):
     if len(args) == 2:
