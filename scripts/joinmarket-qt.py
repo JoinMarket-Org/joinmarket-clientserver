@@ -1167,7 +1167,7 @@ class SpendTab(QWidget):
         self.tumbler_options = None
         self.tumbler_destaddrs = None
 
-    def validateSingleSend(self):
+    def validateSingleSend(self):  # noqa: C901
         if not mainWindow.wallet_service:
             JMQtMessageBox(self,
                            "There is no wallet loaded.",
@@ -1542,7 +1542,7 @@ class JMWalletTab(QWidget):
             bip21_uri = bip21_uri.upper()
         self.openQRCodePopup(address, bip21_uri)
 
-    def updateWalletInfo(self, walletinfo=None):
+    def updateWalletInfo(self, walletinfo=None):  # noqa: C901
         max_mixdepth_count = jm_single().config.getint("GUI", "max_mix_depth")
 
         previous_expand_states = []
@@ -1815,7 +1815,7 @@ class JMMainWindow(QMainWindow):
         lyt.addWidget(btnbox)
         msgbox.exec_()
 
-    def exportPrivkeysJson(self):
+    def exportPrivkeysJson(self):  # noqa: C901
         if not self.wallet_service:
             JMQtMessageBox(self,
                            "No wallet loaded.",

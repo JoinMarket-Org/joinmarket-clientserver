@@ -48,7 +48,7 @@ def add_ext_commitments(utxo_datas):
             ecs[u]['reveal'][j] = {'P2':P2, 's':s, 'e':e}
     add_external_commitments(ecs)
 
-def main():
+def main():  # noqa: C901
     parser = OptionParser(
         usage=
         'usage: %prog [options] [txid:n]',

@@ -71,7 +71,7 @@ def get_pubs_and_indices_of_ancestor_inputs(txin, wallet_service, ours):
     tx = wallet_service.get_transaction(txin.prevout.hash[::-1])
     return get_pubs_and_indices_of_inputs(tx, wallet_service, ours=ours)
 
-def main():
+def main():  # noqa: C901
     parser = OptionParser(
         usage=
         'usage: %prog [options] walletname',
