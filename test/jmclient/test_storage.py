@@ -1,4 +1,3 @@
-
 from jmclient import storage
 import pytest
 
@@ -81,6 +80,7 @@ def test_storage_invalid():
         MockStorage(b'garbagefile', __file__, b'password')
         pytest.fail("Non-wallet file, encrypted")
 
+
 def test_storage_readonly():
     s = MockStorage(None, 'nonexistant', b'password', create=True)
     s = MockStorage(s.file_data, __file__, b'password', read_only=True)
@@ -136,3 +136,30 @@ def test_storage_lock(tmpdir):
         s._create_lock()
         pytest.fail("It should not be possible to re-create a lock")
 
+
+testdata = {
+    b"bytes_key": b"bytes_value",
+    b"int_key": 42,
+    b"list_key": [b"a", b"b", b"c", 1, 2, 3],
+    b"dict_key": {b"nested": b"data", b"number": 999},
+}
+
+
+@pytest.mark.parametrize(
+    "test_data, expected_out",
+    [
+        (testdata, testdata),
+        ({b"dict_key": {b"utf": "value"}}, {b"dict_key": {b"utf": b"value"}}),
+    ],
+)
+def test_bencode_roundtrip_consistency(test_data, expected_out):
+    s = MockStorage(None, "nonexistent", None, create=True)
+
+    serialized1 = s._serialize(test_data)
+    deserialized1 = s._deserialize(serialized1)
+
+    serialized2 = s._serialize(deserialized1)
+    deserialized2 = s._deserialize(serialized2)
+
+    assert serialized1 == serialized2
+    assert deserialized1 == deserialized2 == expected_out

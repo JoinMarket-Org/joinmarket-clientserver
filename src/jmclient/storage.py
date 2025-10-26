@@ -1,10 +1,14 @@
+import atexit
 import os
 import shutil
-import atexit
-import bencoder
 from hashlib import sha256
+from typing import Any
+
 from argon2 import low_level
-from jmbase import aes_cbc_encrypt, aes_cbc_decrypt
+from fastbencode import bdecode, bencode_utf8
+
+from jmbase import aes_cbc_decrypt, aes_cbc_encrypt
+
 from .support import get_random_bytes
 
 
@@ -223,12 +227,12 @@ class Storage(object):
         return self.path
 
     @staticmethod
-    def _serialize(data):
-        return bencoder.bencode(data)
+    def _serialize(data: Any) -> bytes:
+        return bencode_utf8(data)
 
     @staticmethod
-    def _deserialize(data):
-        return bencoder.bdecode(data)
+    def _deserialize(data: bytes) -> Any:
+        return bdecode(data)
 
     def _encrypt_file(self, data):
         if not self.is_encrypted():
