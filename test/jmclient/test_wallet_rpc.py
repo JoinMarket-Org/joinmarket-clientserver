@@ -846,6 +846,7 @@ class TrialTestWRPC_JWT(WalletRPCTestBase, unittest.TestCase):
     def failed_refresh_response_handler(
         self, response, *, message=None, error_description=None
     ):
+        jlog.debug(f"failed_refresh_response_handler '{message}' ({error_description})")
         assert response.code == 400
         body = yield readBody(response)
         json_body = json.loads(body.decode("utf-8"))
