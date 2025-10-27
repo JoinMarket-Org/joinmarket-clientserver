@@ -6,7 +6,7 @@ WORKDIR /jm/clientserver
 COPY . .
 
 RUN apt-get update && apt-get install -y --no-install-recommends gnupg ca-certificates=* curl=* \
-  python3-pip=* python3=* \
+  python3-packaging=* python3-pip=* python3=* \
   && pip3 config set global.break-system-packages true \
   && pip3 install 'wheel>=0.35.1' \
   && ./install.sh --docker-install --with-matplotlib \
