@@ -641,7 +641,7 @@ class OnionMessageChannel(MessageChannel):
         self.serverport = self.hostid
         self.tor_control_host = configdata["tor_control_host"]
         self.tor_control_port = configdata["tor_control_port"]
-        self.tor_control_password = configdata["tor_control_password"]
+        self.tor_control_password = configdata.get("tor_control_password")
         self.onion_serving_host = configdata["onion_serving_host"]
         self.onion_serving = configdata["serving"]
         if self.onion_serving:
