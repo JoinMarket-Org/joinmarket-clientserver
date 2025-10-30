@@ -93,7 +93,7 @@ required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
 
 _DEFAULT_INTEREST_RATE = "0.015"
 
-_DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.125"
+_DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.0"
 
 defaultconfig = \
     """
