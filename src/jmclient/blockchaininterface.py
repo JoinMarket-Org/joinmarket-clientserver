@@ -42,9 +42,9 @@ class BlockchainInterface(ABC):
 
     @abstractmethod
     def query_utxo_set(self,
-                       txouts: Union[Tuple[bytes, int], List[Tuple[bytes, int]]],
+                       txouts: Union[Tuple[bytes, int], Iterable[Tuple[bytes, int]]],
                        includeconfs: bool = False,
-                       include_mempool: bool = True) -> List[Optional[dict]]:
+                       include_mempool: bool = True) -> List[dict]:
         """If txout is either (a) a single utxo in (txidbin, n) form,
         or a list of the same, returns, as a list for each txout item,
         the result of gettxout from the bitcoind rpc for those utxos;
@@ -239,7 +239,7 @@ class BlockchainInterface(ABC):
         """
         return tx_fees > 1000
 
-    def estimate_fee_per_kb(self, tx_fees: int) -> int:
+    def estimate_fee_per_kb(self, tx_fees: int, randomize: bool = True) -> int:
         """ The argument tx_fees may be either a number of blocks target,
         for estimation of feerate by Core, or a number of satoshis
         per kilo-vbyte (see `fee_per_kb_has_been_manually_set` for
@@ -255,7 +255,11 @@ class BlockchainInterface(ABC):
         # default to use if fees cannot be estimated
         fallback_fee = 20000
 
-        tx_fees_factor = abs(jm_single().config.getfloat('POLICY', 'tx_fees_factor'))
+        if randomize:
+            tx_fees_factor = abs(jm_single().config.getfloat(
+                'POLICY', 'tx_fees_factor'))
+        else:
+            tx_fees_factor = 0
 
         mempoolminfee_in_sat = self._get_mempool_min_fee()
         # in case of error
@@ -549,11 +553,12 @@ class BitcoinCoreInterface(BlockchainInterface):
         return True
 
     def query_utxo_set(self,
-                       txouts: Union[Tuple[bytes, int], List[Tuple[bytes, int]]],
+                       txouts: Union[Tuple[bytes, int], Iterable[Tuple[bytes, int]]],
                        includeconfs: bool = False,
-                       include_mempool: bool = True) -> List[Optional[dict]]:
-        if not isinstance(txouts, list):
+                       include_mempool: bool = True) -> List[dict]:
+        if isinstance(txouts, tuple):
             txouts = [txouts]
+        assert isinstance(txouts, Iterable)
         result = []
         for txo in txouts:
             txo_hex = bintohex(txo[0])
@@ -812,9 +817,9 @@ class RegtestBitcoinCoreInterface(BitcoinCoreInterface, RegtestBitcoinCoreMixin)
         self.shutdown_signal = False
         self.destn_addr = self._rpc("getnewaddress", [])
 
-    def estimate_fee_per_kb(self, tx_fees: int) -> int:
+    def estimate_fee_per_kb(self, tx_fees: int, randomize: bool = True) -> int:
         if not self.absurd_fees:
-            return super().estimate_fee_per_kb(tx_fees)
+            return super().estimate_fee_per_kb(tx_fees, randomize)
         else:
             return jm_single().config.getint("POLICY",
                                              "absurd_fee_per_kb") + 100
