@@ -489,6 +489,7 @@ parse_flags ()
                 with_qt='0'
                 ;;
             --docker-install)
+                with_mpl="${with_mpl:-${WITH_MATPLOTLIB}}"
                 with_sudo='0'
                 with_jmvenv='0'
                 ;;
