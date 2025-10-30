@@ -8,7 +8,7 @@ from typing import Callable, Union, Tuple, List
 from twisted.internet import reactor, task, protocol
 from twisted.protocols import basic
 from twisted.application.internet import ClientService
-from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.internet.endpoints import serverFromString, TCP4ClientEndpoint
 from twisted.internet.address import IPv4Address, IPv6Address
 from txtorcon.socks import (TorSocksEndpoint, HostUnreachableError,
                             SocksError, GeneralServerFailureError)
@@ -697,9 +697,12 @@ class OnionMessageChannel(MessageChannel):
                 # it'll fire the `setup_error_callback`.
                 self.hs.start_tor()
 
-                # This will serve as our unique identifier, indicating
-                # that we are ready to communicate (in both directions) over Tor.
-                self.onion_hostname = None
+                # For tor-managed services, the hostname is set synchronously by start_tor()
+                # For ephemeral services, we need to wait for the callback
+                if not self.hidden_service_dir.startswith("tor-managed:"):
+                    # This will serve as our unique identifier, indicating
+                    # that we are ready to communicate (in both directions) over Tor.
+                    self.onion_hostname = None
         else:
             # dummy 'hostname' to indicate we can start running immediately:
             self.onion_hostname = NOT_SERVING_ONION_HOSTNAME
@@ -732,18 +735,46 @@ class OnionMessageChannel(MessageChannel):
         log.info("in shutdown callback: {}".format(msg))
 
     def onion_hostname_callback(self, hostname: str) -> None:
-        """ This entrypoint marks the start of the OnionMessageChannel
+        """This entrypoint marks the start of the OnionMessageChannel
         running, since we need this unique identifier as our name
         before we can start working (we need to compare it with the
         configured directory nodes).
         """
-        log.info("setting onion hostname to : {}".format(hostname))
+        log.info(
+            "DEBUG: onion_hostname_callback called with hostname: {} on object id={}".format(hostname, id(self))
+        )
+        log.info(
+            "DEBUG: self.onion_hostname before setting: {}".format(
+                getattr(self, "onion_hostname", "NOT_SET")
+            )
+        )
         self.onion_hostname = hostname
+        log.info(
+            "DEBUG: self.onion_hostname after setting: {}".format(self.onion_hostname)
+        )
+        log.info(
+            "DEBUG: self.genesis_node: {}".format(
+                getattr(self, "genesis_node", "NOT_SET")
+            )
+        )
+        log.info("setting onion hostname to : {}".format(hostname))
 
-# ABC implementation section
+    # ABC implementation section
     def run(self) -> None:
+        log.info("DEBUG: OnionMessageChannel.run() called on object id={}".format(id(self)))
+        log.info(
+            "DEBUG: self.onion_hostname at run start: {}".format(
+                getattr(self, "onion_hostname", "NOT_SET")
+            )
+        )
+        log.info(
+            "DEBUG: self.genesis_node at run start: {}".format(
+                getattr(self, "genesis_node", "NOT_SET")
+            )
+        )
         self.hs_up_loop = task.LoopingCall(self.check_onion_hostname)
         self.hs_up_loop.start(0.5)
+        log.info("DEBUG: hs_up_loop started in run()")
 
     def shutdown(self) -> None:
         self.give_up = True
@@ -833,15 +864,30 @@ class OnionMessageChannel(MessageChannel):
         for offer in offerlist:
             self._pubmsg(offer)
 
-# End ABC implementation section
+    # End ABC implementation section
 
     def check_onion_hostname(self) -> None:
+        log.info("DEBUG: check_onion_hostname called")
+        log.info(
+            "DEBUG: self.onion_hostname: {}".format(
+                getattr(self, "onion_hostname", "NOT_SET")
+            )
+        )
+        log.info(
+            "DEBUG: self.genesis_node: {}".format(
+                getattr(self, "genesis_node", "NOT_SET")
+            )
+        )
         if not self.onion_hostname:
+            log.info("DEBUG: no onion_hostname yet, returning")
             return
+        log.info("DEBUG: stopping hs_up_loop")
         self.hs_up_loop.stop()
+        log.info("DEBUG: hs_up_loop stopped, calling get_our_peer_info")
         # now our hidden service is up, we must check our peer status
         # then set up directories.
         self.get_our_peer_info()
+        log.info("DEBUG: get_our_peer_info completed, calling connect_to_directories")
         # at this point the only peers added are directory
         # nodes from config; we try to connect to all.
         # We will get other peers to add to our list once they
@@ -857,15 +903,24 @@ class OnionMessageChannel(MessageChannel):
             return (self.onion_hostname, ONION_VIRTUAL_PORT)
 
     def get_our_peer_info(self) -> None:
-        """ Create a special OnionPeer object,
+        """Create a special OnionPeer object,
         outside of our peerlist, to refer to ourselves.
         """
+        log.info("DEBUG: get_our_peer_info called")
+        log.info(
+            "DEBUG: self.onion_hostname: {}".format(
+                getattr(self, "onion_hostname", "NOT_SET")
+            )
+        )
         dps = self.get_directory_peers()
+        log.info("DEBUG: directory peers: {}".format([d.peer_location() for d in dps]))
         self_dir = False
         # only for publicly exposed onion does the 'virtual port' exist;
         # for local tests we always connect to an actual machine port:
         my_location_tuple = self.get_my_location_tuple()
+        log.info("DEBUG: my_location_tuple: {}".format(my_location_tuple))
         my_location_str = location_tuple_to_str(my_location_tuple)
+        log.info("DEBUG: my_location_str: {}".format(my_location_str))
         if [my_location_str] == [d.peer_location() for d in dps]:
             log.info("This is the genesis node: {}".format(self.onion_hostname))
             self.genesis_node = True
@@ -875,17 +930,43 @@ class OnionMessageChannel(MessageChannel):
             # which should be fine, we should just be careful
             # to not query ourselves.
             self_dir = True
-        self.self_as_peer = OnionPeer(self, self.socks5_host, self.socks5_port,
-                                      my_location_tuple,
-                                      self_dir, nick=self.nick,
-                                      handshake_callback=None)
+        log.info(
+            "DEBUG: self_dir: {}, self.genesis_node: {}".format(
+                self_dir, getattr(self, "genesis_node", "NOT_SET")
+            )
+        )
+        self.self_as_peer = OnionPeer(
+            self,
+            self.socks5_host,
+            self.socks5_port,
+            my_location_tuple,
+            self_dir,
+            nick=self.nick,
+            handshake_callback=None,
+        )
+        log.info("DEBUG: self_as_peer created: {}".format(self.self_as_peer))
 
     def connect_to_directories(self) -> None:
+        log.info("DEBUG: connect_to_directories called")
+        log.info(
+            "DEBUG: self.genesis_node: {}".format(
+                getattr(self, "genesis_node", "NOT_SET")
+            )
+        )
+        log.info(
+            "DEBUG: self.onion_hostname: {}".format(
+                getattr(self, "onion_hostname", "NOT_SET")
+            )
+        )
         if self.genesis_node:
+            log.info("DEBUG: genesis node detected, starting listener")
             # we are a directory and we have no directory peers;
             # just start.
-            self.on_welcome(self)
+            # NOTE: We do NOT call on_welcome here for genesis nodes
+            # because it will be called after the listener starts
+            self._start_listener()
             return
+        log.info("DEBUG: non-genesis node, setting up directory connections")
         # the remaining code is only executed by non-directories:
         for p in self.peers:
             log.info("Trying to connect to node: {}".format(p.peer_location()))
@@ -900,6 +981,19 @@ class OnionMessageChannel(MessageChannel):
         self.wait_for_directories_loop = task.LoopingCall(
             self.wait_for_directories)
         self.wait_for_directories_loop.start(2.0)
+
+    def _start_listener(self) -> None:
+        serverstring = f"tcp:{self.onion_serving_port}:interface={self.onion_serving_host}"
+        onion_endpoint = serverFromString(reactor, serverstring)
+        d = onion_endpoint.listen(self.proto_factory)
+
+        def on_listen_success(listening_port):
+            # For directory nodes (genesis), call on_welcome AFTER listener is ready
+            if getattr(self, "genesis_node", False):
+                self.on_welcome(self)
+
+        d.addCallback(on_listen_success)
+        d.addErrback(lambda f: self.setup_error_callback(f"Listen failed: {f}"))
 
     def handshake_as_client(self, peer: OnionPeer) -> None:
         assert peer.status() == PEER_STATUS_CONNECTED
@@ -1461,7 +1555,8 @@ class OnionMessageChannel(MessageChannel):
         # Note that even if the preceding (max) 50 seconds failed to
         # connect all our configured dps, we will keep trying and they
         # can still be used.
-        if not self.on_welcome_sent:
+        # For genesis nodes, on_welcome is called after the listener starts
+        if not self.on_welcome_sent and not self.genesis_node:
             self.on_welcome(self)
             self.on_welcome_sent = True
             self.wait_for_directories_loop.stop()
