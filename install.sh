@@ -74,6 +74,8 @@ deps_install ()
         'python3-pip' \
         'python3-setuptools' \
         'python3-venv' \
+        'libffi-dev' \
+        'libffi8' \
         'libltdl-dev' )
 
     if [ "$with_sudo" == 1 ]; then debian_deps+=("sudo"); fi
@@ -617,9 +619,11 @@ main ()
         echo "libsecp256k1 was not built. Exiting."
         return 1
     fi
-    if ! libffi_install; then
-        echo "Libffi was not built. Exiting."
-        return 1
+    if [[ "${install_os}" != 'debian' ]]; then
+        if ! libffi_install; then
+            echo "Libffi was not built. Exiting."
+            return 1
+        fi
     fi
     if ! libsodium_install; then
         echo "Libsodium was not built. Exiting."
