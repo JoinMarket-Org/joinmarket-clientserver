@@ -34,7 +34,7 @@ Download the latest [release](https://github.com/Joinmarket-Org/joinmarket-clien
 
 Make sure to validate the signature on the tar/zip file provided with the [release](https://github.com/Joinmarket-Org/joinmarket-clientserver/releases) (or check the signature in git if you install that way using `git log --show-signature`).
 
-JoinMarket requires Python >=3.8, <3.13 installed.
+JoinMarket requires Python >=3.8, <3.14 installed.
 
 (**macOS users**: Make sure that you have Homebrew and Apple's Command Line Tools installed.)
 
