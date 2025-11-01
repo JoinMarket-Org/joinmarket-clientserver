@@ -7,10 +7,19 @@ jobs:
     name: python ${{ matrix.python-version }}, bitcoind ${{ matrix.bitcoind-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-13, ubuntu-latest]
-        python-version: ["3.9", "3.12"]
-        bitcoind-version: ["28.3", "29.2"]
+        os:
+          - macos-13
+          - ubuntu-22.04
+          - ubuntu-24.04
+        python-version:
+          - "3.9"
+          - "3.12"
+          - "3.13"
+        bitcoind-version:
+          - "28.3"
+          - "29.2"
 
     steps:
       - uses: actions/checkout@v3
