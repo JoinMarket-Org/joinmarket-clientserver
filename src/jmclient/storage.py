@@ -13,9 +13,18 @@ from .support import get_random_bytes
 
 
 class Argon2Hash(object):
-    def __init__(self, password, salt=None, hash_len=32, salt_len=16,
-                 time_cost=500, memory_cost=1000, parallelism=4,
-                 argon2_type=low_level.Type.I, version=19):
+    def __init__(
+        self,
+        password,
+        salt=None,
+        hash_len=32,
+        salt_len=16,
+        time_cost=500,
+        memory_cost=1000,
+        parallelism=4,
+        argon2_type=low_level.Type.I,
+        version=19,
+    ):
         """
         args:
           password: password as bytes
@@ -34,11 +43,12 @@ class Argon2Hash(object):
             'parallelism': parallelism,
             'hash_len': hash_len,
             'type': argon2_type,
-            'version': version
+            'version': version,
         }
         self.salt = salt if salt is not None else get_random_bytes(salt_len)
-        self.hash = low_level.hash_secret_raw(password, self.salt,
-                                              **self.settings)
+        self.hash = low_level.hash_secret_raw(
+            password, self.salt, **self.settings
+        )
 
 
 class StorageError(Exception):
@@ -66,8 +76,9 @@ class Storage(object):
 
     KDF: argon2, ENC: AES-256-CBC
     """
+
     MAGIC_UNENC = b'JMWALLET'
-    MAGIC_ENC =   b'JMENCWLT'
+    MAGIC_ENC = b'JMENCWLT'
     MAGIC_DETECT_ENC = b'JMWALLET'
 
     ENC_KEY_BYTES = 32  # AES-256
@@ -120,7 +131,10 @@ class Storage(object):
         return self._data_checksum != self._get_data_checksum()
 
     def check_password(self, password):
-        return self._hash.hash == self._hash_password(password, self._hash.salt).hash
+        return (
+            self._hash.hash
+            == self._hash_password(password, self._hash.salt).hash
+        )
 
     def change_password(self, password):
         if self.read_only:
@@ -132,7 +146,7 @@ class Storage(object):
         """
         Write file to disk if data was modified
         """
-        #if not self.was_changed():
+        # if not self.was_changed():
         #    return
         if self.read_only:
             raise StorageError("Read-only storage cannot be saved.")
@@ -153,7 +167,7 @@ class Storage(object):
             return fh.read(len(cls.MAGIC_ENC))
 
     def _get_data_checksum(self):
-        if self.data is None:  #pragma: no cover
+        if self.data is None:  # pragma: no cover
             return None
         return sha256(self._serialize(self.data)).digest()
 
@@ -185,13 +199,17 @@ class Storage(object):
         magic = data[:8]
 
         if magic not in (self.MAGIC_ENC, self.MAGIC_UNENC):
-            raise StorageError("File does not appear to be a joinmarket wallet.")
+            raise StorageError(
+                "File does not appear to be a joinmarket wallet."
+            )
 
         data = data[8:]
 
         if magic == self.MAGIC_ENC:
             if password is None:
-                raise RetryableStorageError("Password required to open wallet.")
+                raise RetryableStorageError(
+                    "Password required to open wallet."
+                )
             data = self._decrypt_file(password, data)
         else:
             assert magic == self.MAGIC_UNENC
@@ -215,7 +233,7 @@ class Storage(object):
             shutil.copystat(self.path, tmpfile)
             fh.write(data)
 
-        #FIXME: behaviour with symlinks might be weird
+        # FIXME: behaviour with symlinks might be weird
         shutil.move(tmpfile, self.path)
 
     def _read_file(self):
@@ -241,7 +259,7 @@ class Storage(object):
         iv = get_random_bytes(16)
         container = {
             b'enc': {b'salt': self._hash.salt, b'iv': iv},
-            b'data': self._encrypt(data, iv)
+            b'data': self._encrypt(data, iv),
         }
         return self._serialize(container)
 
@@ -257,8 +275,9 @@ class Storage(object):
         return self._decrypt(container[b'data'], container[b'enc'][b'iv'])
 
     def _encrypt(self, data: bytes, iv: bytes) -> bytes:
-        return aes_cbc_encrypt(self._hash.hash,
-                               self.MAGIC_DETECT_ENC + data, iv)
+        return aes_cbc_encrypt(
+            self._hash.hash, self.MAGIC_DETECT_ENC + data, iv
+        )
 
     def _decrypt(self, data: bytes, iv: bytes) -> bytes:
         try:
@@ -269,12 +288,16 @@ class Storage(object):
 
         if not dec_data.startswith(self.MAGIC_DETECT_ENC):
             raise StoragePasswordError("Wrong password.")
-        return dec_data[len(self.MAGIC_DETECT_ENC):]
+        return dec_data[len(self.MAGIC_DETECT_ENC) :]
 
     @classmethod
     def _hash_password(cls, password, salt=None):
-        return Argon2Hash(password, salt,
-                          hash_len=cls.ENC_KEY_BYTES, salt_len=cls.SALT_LENGTH)
+        return Argon2Hash(
+            password,
+            salt,
+            hash_len=cls.ENC_KEY_BYTES,
+            salt_len=cls.SALT_LENGTH,
+        )
 
     @staticmethod
     def _get_lock_filename(path: str) -> str:
@@ -300,8 +323,9 @@ class Storage(object):
             raise RetryableStorageError(
                 "File is currently in use (locked by pid {}). "
                 "If this is a leftover from a crashed instance "
-                "you need to remove the lock file `{}` manually.".
-                format(locked_by_pid, cls._get_lock_filename(path))
+                "you need to remove the lock file `{}` manually.".format(
+                    locked_by_pid, cls._get_lock_filename(path)
+                )
             )
 
     def _create_lock(self):

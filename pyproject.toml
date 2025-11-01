@@ -55,13 +55,13 @@ services = [
 test = [
     "joinmarket[services]",
     "coverage==5.2.1",
-    "flake8",
     "freezegun",
     "mock",
     "pexpect",
     "pytest-cov>=2.4.0,<2.6",
     "pytest==6.2.5",
     "python-coveralls",
+    "ruff",
 ]
 gui = [
     "joinmarket[services]",
@@ -77,3 +77,40 @@ exclude = ["*.test"]
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
+
+[tool.ruff]
+exclude = [
+    ".svn",
+    "CVS", 
+    ".bzr",
+    ".hg",
+    ".git",
+    "__pycache__",
+    ".tox",
+    "__init__.py",
+    "src/jmqtui",
+]
+
+line-length = 79
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.ruff.lint]
+# should be extended once existing issues are fixed
+select = [
+    "F",      # pyflakes
+    "E9",     # pycodestyle errors
+    "W6",     # pycodestyle warnings
+    "C901"    # complex-structure (mccabe complexity)
+]
+
+# those cause many errors, need to be fixed eventually
+ignore = [
+    "F403",   # star imports
+    "F405",   # name may be undefined due to star import
+    "F841"    # local variable assigned but never used
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15

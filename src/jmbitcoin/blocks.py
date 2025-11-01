@@ -7,13 +7,15 @@ from jmbase import hextobin
 from bitcointx.core import CBitcoinTransaction
 from bitcointx.core.serialize import VarIntSerializer
 
+
 def decode_varint(data):
     n, tail = VarIntSerializer.deserialize_partial(data)
-    head = data[0: len(data) - len(tail)]
+    head = data[0 : len(data) - len(tail)]
     return n, len(head)
 
+
 def get_transactions_in_block(block):
-    """ `block` is hex output from RPC `getblock`.
+    """`block` is hex output from RPC `getblock`.
     Return:
     yields the block's transactions, type CBitcoinTransaction
     """
@@ -32,9 +34,10 @@ def get_transactions_in_block(block):
         # Try from 1024 (1KiB) -> 1073741824 (1GiB) slice widths
         for j in range(0, 20):
             try:
-                offset_e = offset + (1024 * 2 ** j)
+                offset_e = offset + (1024 * 2**j)
                 transaction = CBitcoinTransaction.deserialize(
-                    transaction_data[offset:offset_e], allow_padding=True)
+                    transaction_data[offset:offset_e], allow_padding=True
+                )
                 yield transaction
                 break
             except:
@@ -42,6 +45,7 @@ def get_transactions_in_block(block):
 
         # Skipping to the next transaction
         offset += len(transaction.serialize())
+
 
 """ Example block from a regtest:
 
@@ -61,4 +65,3 @@ CBitcoinTxOut(0.0*COIN, CBitcoinScript([OP_RETURN, x('aa21a9ede2f61c3f71d1defd3f
 
 (coinbase transaction)
 """
-

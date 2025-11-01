@@ -3,9 +3,36 @@ name: Python package
 on: [push, pull_request]
 
 jobs:
+  shellcheck:
+    name: lint shell code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          version: v0.11.0
+  lint:
+    name: lint python code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/ruff-action@v3
+        with:
+          src: "./src"
+  format:
+    name: format python code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/ruff-action@v3
+        with:
+          args: "format --check --diff"
+          src: "./src"
   build:
     name: python ${{ matrix.python-version }}, bitcoind ${{ matrix.bitcoind-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    needs: [shellcheck, lint, format]
     strategy:
       matrix:
         os: [macos-13, ubuntu-latest]
@@ -14,10 +41,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - name: Run ShellCheck
-        uses: ludeeus/action-shellcheck@master
-        with:
-          version: v0.9.0
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
@@ -35,8 +58,6 @@ jobs:
         run: |
           bash -x ./install.sh --develop --with-qt
           ./jmvenv/bin/python -m pip install --upgrade pip
-      - name: Lint with flake8
-        run: source ./jmvenv/bin/activate && ./test/lint/lint-python.sh
       - name: Cache bitcoind
         uses: actions/cache@v3
         env:

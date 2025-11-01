@@ -14,6 +14,7 @@ from .cryptoengine import EngineError
 
 jlog = get_log()
 
+
 class Maker(object):
     def __init__(self, wallet_service):
         self.active_orders = {}
@@ -62,8 +63,9 @@ class Maker(object):
         # as hex:
         if not isinstance(offer["cjfee"], str):
             offer["cjfee"] = bintohex(offer["cjfee"])
-        #check the validity of the proof of discrete log equivalence
+        # check the validity of the proof of discrete log equivalence
         tries = jm_single().config.getint("POLICY", "taker_utxo_retries")
+
         def reject(msg):
             jlog.info("Counterparty commitment not accepted, reason: " + msg)
             return (False,)
@@ -75,30 +77,43 @@ class Maker(object):
             reason = repr(e)
             return reject(reason)
 
-        if not verify_podle(cr_dict['P'], cr_dict['P2'], cr_dict['sig'],
-                                cr_dict['e'], commitment, index_range=range(tries)):
+        if not verify_podle(
+            cr_dict['P'],
+            cr_dict['P2'],
+            cr_dict['sig'],
+            cr_dict['e'],
+            commitment,
+            index_range=range(tries),
+        ):
             reason = "verify_podle failed"
             return reject(reason)
-        #finally, check that the proffered utxo is real, old enough, large enough,
-        #and corresponds to the pubkey
-        res = jm_single().bc_interface.query_utxo_set([cr_dict['utxo']],
-                                                      includeconfs=True)
+        # finally, check that the proffered utxo is real, old enough, large enough,
+        # and corresponds to the pubkey
+        res = jm_single().bc_interface.query_utxo_set(
+            [cr_dict['utxo']], includeconfs=True
+        )
         if len(res) != 1 or not res[0]:
             reason = "authorizing utxo is not valid"
             return reject(reason)
         age = jm_single().config.getint("POLICY", "taker_utxo_age")
         if res[0]['confirms'] < age:
-            reason = "commitment utxo not old enough: " + str(res[0]['confirms'])
+            reason = "commitment utxo not old enough: " + str(
+                res[0]['confirms']
+            )
             return reject(reason)
-        reqd_amt = int(amount * jm_single().config.getint(
-            "POLICY", "taker_utxo_amtpercent") / 100.0)
+        reqd_amt = int(
+            amount
+            * jm_single().config.getint("POLICY", "taker_utxo_amtpercent")
+            / 100.0
+        )
         if res[0]['value'] < reqd_amt:
             reason = "commitment utxo too small: " + str(res[0]['value'])
             return reject(reason)
 
         try:
             if not self.wallet_service.pubkey_has_script(
-                    cr_dict['P'], res[0]['script']):
+                cr_dict['P'], res[0]['script']
+            ):
                 raise EngineError()
         except EngineError:
             reason = "Invalid podle pubkey: " + str(cr_dict['P'])
@@ -108,7 +123,7 @@ class Maker(object):
         # Find utxos for the transaction now:
         utxos, cj_addr, change_addr = self.oid_to_order(offer, amount)
         if not utxos:
-            #could not find funds
+            # could not find funds
             return (False,)
         # for index update persistence:
         self.wallet_service.save_wallet()
@@ -165,11 +180,15 @@ class Maker(object):
             if self.wallet_service.get_txtype() == 'p2pkh':
                 sigmsg = tx.vin[index].scriptSig
             elif self.wallet_service.get_txtype() == 'p2sh-p2wpkh':
-                sig, pub = [a for a in iter(tx.wit.vtxinwit[index].scriptWitness)]
+                sig, pub = [
+                    a for a in iter(tx.wit.vtxinwit[index].scriptWitness)
+                ]
                 scriptCode = btc.pubkey_to_p2wpkh_script(pub)
                 sigmsg = btc.CScript([sig]) + btc.CScript(pub) + scriptCode
             elif self.wallet_service.get_txtype() == 'p2wpkh':
-                sig, pub = [a for a in iter(tx.wit.vtxinwit[index].scriptWitness)]
+                sig, pub = [
+                    a for a in iter(tx.wit.vtxinwit[index].scriptWitness)
+                ]
                 sigmsg = btc.CScript([sig]) + btc.CScript(pub)
             else:
                 jlog.error("Taker has unknown wallet type")
@@ -192,8 +211,8 @@ class Maker(object):
         cjaddr_script = btc.CCoinAddress(cjaddr).to_scriptPubKey()
         changeaddr = offerinfo["changeaddr"]
         changeaddr_script = btc.CCoinAddress(changeaddr).to_scriptPubKey()
-        #Note: this value is under the control of the Taker,
-        #see comment below.
+        # Note: this value is under the control of the Taker,
+        # see comment below.
         amount = offerinfo["amount"]
         cjfee = offerinfo["offer"]["cjfee"]
         txfee = offerinfo["offer"]["txfee"]
@@ -202,44 +221,60 @@ class Maker(object):
         if not tx_utxo_set.issuperset(my_utxo_set):
             return (False, 'my utxos are not contained')
 
-        #The three lines below ensure that the Maker receives
-        #back what he puts in, minus his bitcointxfee contribution,
-        #plus his expected fee. These values are fully under
-        #Maker control so no combination of messages from the Taker
-        #can change them.
-        #(mathematically: amount + expected_change_value is independent
-        #of amount); there is not a (known) way for an attacker to
-        #alter the amount (note: !fill resubmissions *overwrite*
-        #the active_orders[dict] entry in daemon), but this is an
-        #extra layer of safety.
+        # The three lines below ensure that the Maker receives
+        # back what he puts in, minus his bitcointxfee contribution,
+        # plus his expected fee. These values are fully under
+        # Maker control so no combination of messages from the Taker
+        # can change them.
+        # (mathematically: amount + expected_change_value is independent
+        # of amount); there is not a (known) way for an attacker to
+        # alter the amount (note: !fill resubmissions *overwrite*
+        # the active_orders[dict] entry in daemon), but this is an
+        # extra layer of safety.
         my_total_in = sum([va['value'] for va in utxos.values()])
         real_cjfee = calc_cj_fee(ordertype, cjfee, amount)
-        expected_change_value = (my_total_in - amount - txfee + real_cjfee)
+        expected_change_value = my_total_in - amount - txfee + real_cjfee
         potentially_earned = real_cjfee - txfee
         if potentially_earned < 0:
-            return (False, "A negative earning was calculated: {}.".format(
-                potentially_earned))
-        jlog.info('potentially earned = {}'.format(btc.amount_to_str(potentially_earned)))
+            return (
+                False,
+                "A negative earning was calculated: {}.".format(
+                    potentially_earned
+                ),
+            )
+        jlog.info(
+            'potentially earned = {}'.format(
+                btc.amount_to_str(potentially_earned)
+            )
+        )
         jlog.info('mycjaddr, mychange = {}, {}'.format(cjaddr, changeaddr))
 
-        #The remaining checks are needed to ensure
-        #that the coinjoin and change addresses occur
-        #exactly once with the required amts, in the output.
+        # The remaining checks are needed to ensure
+        # that the coinjoin and change addresses occur
+        # exactly once with the required amts, in the output.
         times_seen_cj_addr = 0
         times_seen_change_addr = 0
         for outs in tx.vout:
             if outs.scriptPubKey == cjaddr_script:
                 times_seen_cj_addr += 1
                 if outs.nValue < amount:
-                    return (False, 'Wrong cj_amount. I expect >=' + str(amount))
+                    return (
+                        False,
+                        'Wrong cj_amount. I expect >=' + str(amount),
+                    )
             if outs.scriptPubKey == changeaddr_script:
                 times_seen_change_addr += 1
                 if outs.nValue < expected_change_value:
-                    return (False, 'Wrong change. I expect >=' + str(
-                        expected_change_value))
+                    return (
+                        False,
+                        'Wrong change. I expect >='
+                        + str(expected_change_value),
+                    )
         if times_seen_cj_addr != 1 or times_seen_change_addr != 1:
-            fmt = ('cj or change addr not in tx '
-                   'outputs once, #cjaddr={}, #chaddr={}').format
+            fmt = (
+                'cj or change addr not in tx '
+                'outputs once, #cjaddr={}, #chaddr={}'
+            ).format
             return (False, (fmt(times_seen_cj_addr, times_seen_change_addr)))
         return (True, None)
 
@@ -248,8 +283,11 @@ class Maker(object):
         and replaces existing orders with new ones, or just cancels
         old ones.
         """
-        jlog.info('modifying orders. to_cancel={}\nto_announce={}'.format(
-                to_cancel, to_announce))
+        jlog.info(
+            'modifying orders. to_cancel={}\nto_announce={}'.format(
+                to_cancel, to_announce
+            )
+        )
         for oid in to_cancel:
             order = [o for o in self.offerlist if o['oid'] == oid]
             if len(order) == 0:
@@ -258,8 +296,9 @@ class Maker(object):
             self.offerlist.remove(order[0])
         if len(to_announce) > 0:
             for ann in to_announce:
-                oldorder_s = [o for o in self.offerlist
-                              if o['oid'] == ann['oid']]
+                oldorder_s = [
+                    o for o in self.offerlist if o['oid'] == ann['oid']
+                ]
                 if len(oldorder_s) > 0:
                     self.offerlist.remove(oldorder_s[0])
             self.offerlist += to_announce
@@ -274,15 +313,17 @@ class Maker(object):
 
         frozen_utxos = []
         md_utxos = self.wallet_service.get_utxos_by_mixdepth()
-        for tx, details \
-                in md_utxos[self.wallet_service.FIDELITY_BOND_MIXDEPTH].items():
+        for tx, details in md_utxos[
+            self.wallet_service.FIDELITY_BOND_MIXDEPTH
+        ].items():
             if self.wallet_service.is_timelocked_path(details['path']):
                 self.wallet_service.disable_utxo(*tx)
                 frozen_utxos.append(tx)
                 path_repr = self.wallet_service.get_path_repr(details['path'])
                 jlog.info(
                     f"Timelocked UTXO at '{path_repr}' has been "
-                    f"auto-frozen. They cannot be spent by makers.")
+                    f"auto-frozen. They cannot be spent by makers."
+                )
 
         def unfreeze():
             for tx in frozen_utxos:

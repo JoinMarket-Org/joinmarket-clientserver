@@ -32,10 +32,11 @@ from jmbase import get_log
 
 jlog = get_log()
 
+
 class JsonRpcError(Exception):
     """
-  The called method returned an error in the JSON-RPC response.
-  """
+    The called method returned an error in the JSON-RPC response.
+    """
 
     def __init__(self, obj):
         self.code = obj["code"]
@@ -44,20 +45,21 @@ class JsonRpcError(Exception):
 
 class JsonRpcConnectionError(Exception):
     """
-  Error thrown when the RPC connection itself failed.  This means
-  that the server is either down or the connection settings
-  are wrong.
-  """
-
+    Error thrown when the RPC connection itself failed.  This means
+    that the server is either down or the connection settings
+    are wrong.
+    """
 
 
 class JsonRpc(object):
     """
-  Simple implementation of a JSON-RPC client that is used
-  to connect to Bitcoin.
-  """
+    Simple implementation of a JSON-RPC client that is used
+    to connect to Bitcoin.
+    """
 
-    def __init__(self, host: str, port: int, user: str, password: str, url: str = "") -> None:
+    def __init__(
+        self, host: str, port: int, user: str, password: str, url: str = ""
+    ) -> None:
         self.host = host
         self.port = int(port)
         self.conn = http.client.HTTPConnection(self.host, self.port)
@@ -76,10 +78,14 @@ class JsonRpc(object):
         with the connection (not JSON-RPC itself), an exception is raised.
         """
 
-        headers = {"User-Agent": "joinmarket",
-                   "Content-Type": "application/json",
-                   "Accept": "application/json"}
-        headers["Authorization"] = b"Basic " + base64.b64encode(self.authstr.encode('utf-8'))
+        headers = {
+            "User-Agent": "joinmarket",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        headers["Authorization"] = b"Basic " + base64.b64encode(
+            self.authstr.encode('utf-8')
+        )
 
         body = json.dumps(obj)
 
@@ -91,7 +97,8 @@ class JsonRpc(object):
                 if response.status == 401:
                     self.conn.close()
                     raise JsonRpcConnectionError(
-                            "authentication for JSON-RPC failed")
+                        "authentication for JSON-RPC failed"
+                    )
 
                 # All of the codes below are 'fine' from a JSON-RPC point of view.
                 if response.status not in [200, 404, 500]:
@@ -112,26 +119,32 @@ class JsonRpc(object):
                     self.conn.close()
                     self.conn.connect()
                 elif e.errno == errno.EPIPE:
-                    jlog.warn('Connection had broken pipe, attempting '
-                              'reconnect.')
+                    jlog.warn(
+                        'Connection had broken pipe, attempting reconnect.'
+                    )
                     self.conn.close()
                     self.conn.connect()
                 elif e.errno == errno.EPROTOTYPE:
-                    jlog.warn('Connection had protocol wrong type for socket '
-                              'error, attempting reconnect.')
+                    jlog.warn(
+                        'Connection had protocol wrong type for socket '
+                        'error, attempting reconnect.'
+                    )
                     self.conn.close()
                     self.conn.connect()
                 elif e.errno == errno.ECONNREFUSED:
                     # Will not reattempt in this case:
                     jlog.error("Connection refused.")
                     self.conn.close()
-                    raise JsonRpcConnectionError("JSON-RPC connection refused.")
+                    raise JsonRpcConnectionError(
+                        "JSON-RPC connection refused."
+                    )
                 else:
                     jlog.error('Unhandled connection error ' + str(e))
                     raise e
             except Exception as exc:
-                raise JsonRpcConnectionError("JSON-RPC connection failed. Err:" +
-                                             repr(exc))
+                raise JsonRpcConnectionError(
+                    "JSON-RPC connection failed. Err:" + repr(exc)
+                )
 
     def call(self, method: str, params: Union[dict, list]) -> Any:
         """
@@ -142,21 +155,25 @@ class JsonRpc(object):
         self.queryId += 1
 
         request = {"method": method, "params": params, "id": currentId}
-        #query can fail from keepalive timeout; keep retrying if it does, up
-        #to a reasonable limit, then raise (failure to access blockchain
-        #is a critical failure). Note that a real failure to connect (e.g.
-        #wrong port) is raised in queryHTTP directly.
+        # query can fail from keepalive timeout; keep retrying if it does, up
+        # to a reasonable limit, then raise (failure to access blockchain
+        # is a critical failure). Note that a real failure to connect (e.g.
+        # wrong port) is raised in queryHTTP directly.
         response_received = False
         for i in range(100):
             response = self.queryHTTP(request)
             if response != "CONNFAILURE":
                 response_received = True
                 break
-            #Failure means keepalive timed out, just make a new one
+            # Failure means keepalive timed out, just make a new one
             self.conn = http.client.HTTPConnection(self.host, self.port)
         if not response_received:
-            raise JsonRpcConnectionError("Unable to connect over RPC to " +
-                self.host + ":" + str(self.port))
+            raise JsonRpcConnectionError(
+                "Unable to connect over RPC to "
+                + self.host
+                + ":"
+                + str(self.port)
+            )
         if response["id"] != currentId:
             raise JsonRpcConnectionError("invalid id returned by query")
 

@@ -14,11 +14,20 @@ from numbers import Integral
 import jmbitcoin as btc
 from jmclient.configure import jm_single, get_log
 from jmclient.output import fmt_tx_data
-from jmclient.blockchaininterface import (INF_HEIGHT, BitcoinCoreInterface,
-    BitcoinCoreNoHistoryInterface)
+from jmclient.blockchaininterface import (
+    INF_HEIGHT,
+    BitcoinCoreInterface,
+    BitcoinCoreNoHistoryInterface,
+)
 from jmclient.wallet import FidelityBondMixin, BaseWallet
-from jmbase import (stop_reactor, hextobin, utxo_to_utxostr,
-                    jmprint, EXIT_SUCCESS, EXIT_FAILURE)
+from jmbase import (
+    stop_reactor,
+    hextobin,
+    utxo_to_utxostr,
+    jmprint,
+    EXIT_SUCCESS,
+    EXIT_FAILURE,
+)
 
 """Wallet service
 
@@ -30,6 +39,7 @@ interface here.
 """
 
 jlog = get_log()
+
 
 class WalletService(Service):
     EXTERNAL_WALLET_LABEL = "joinmarket-notify"
@@ -62,16 +72,22 @@ class WalletService(Service):
                 # a functioning blockchain interface, but
                 # that bci is now failing when we are starting
                 # the wallet service.
-                jlog.error("Failure of RPC connection to Bitcoin Core in "
-                          "wallet service startup. Application cannot "
-                          "continue, shutting down.")
-                self.rpc_error = ("Failure of RPC connection to Bitcoin "
-                                  "Core in wallet service startup.")
+                jlog.error(
+                    "Failure of RPC connection to Bitcoin Core in "
+                    "wallet service startup. Application cannot "
+                    "continue, shutting down."
+                )
+                self.rpc_error = (
+                    "Failure of RPC connection to Bitcoin "
+                    "Core in wallet service startup."
+                )
                 # no need to call stopService as it has not yet been started.
                 stop_reactor()
         else:
-            jlog.warning("No blockchain source available, " +
-                "wallet tools will not show correct balances.")
+            jlog.warning(
+                "No blockchain source available, "
+                + "wallet tools will not show correct balances."
+            )
 
         # Dicts of registered callbacks, by type
         # and then by txinfo, for events
@@ -93,7 +109,7 @@ class WalletService(Service):
         self.set_autofreeze_warning_cb()
 
     def update_blockheight(self):
-        """ Can be called manually (on startup, or for tests)
+        """Can be called manually (on startup, or for tests)
         but will be called as part of main monitoring
         loop to ensure new transactions are added at
         the right height.
@@ -129,19 +145,21 @@ class WalletService(Service):
         assert isinstance(self.current_blockheight, Integral)
         assert self.current_blockheight >= 0
         if self.current_blockheight < old_blockheight:
-            jlog.warn("Bitcoin Core is reporting a lower blockheight, "
-                      "possibly a reorg.")
+            jlog.warn(
+                "Bitcoin Core is reporting a lower blockheight, "
+                "possibly a reorg."
+            )
         return True
 
     def startService(self):
-        """ Encapsulates start up actions.
+        """Encapsulates start up actions.
         Here wallet sync.
         """
         super().startService()
         self.request_sync_wallet()
 
     def stopService(self):
-        """ Encapsulates shut down actions.
+        """Encapsulates shut down actions.
         Note that after the service is stopped, it
         should *not* be restarted, instead a new
         WalletService instance should be created.
@@ -157,7 +175,7 @@ class WalletService(Service):
         return False
 
     def add_restart_callback(self, callback):
-        """ Sets the function that will be
+        """Sets the function that will be
         called in the event that the wallet
         sync completes with a restart warning.
         The only argument is a message string,
@@ -167,7 +185,7 @@ class WalletService(Service):
         self.restart_callback = callback
 
     def request_sync_wallet(self):
-        """ Ensures wallet sync is complete
+        """Ensures wallet sync is complete
         before the main event loop starts.
         """
         if self.bci is not None:
@@ -175,7 +193,7 @@ class WalletService(Service):
             d.addCallback(self.start_wallet_monitoring)
 
     def register_callbacks(self, callbacks, txinfo, cb_type="all"):
-        """ Register callbacks that will be called by the
+        """Register callbacks that will be called by the
         transaction monitor loop, on transactions stored under
         our wallet label (see WalletService.get_wallet_name()).
         Callback arguments are currently (txd, txid) and return
@@ -212,9 +230,8 @@ class WalletService(Service):
         else:
             assert False, "Invalid argument: " + cb_type
 
-
     def start_wallet_monitoring(self, syncresult):
-        """ Once the initialization of the service
+        """Once the initialization of the service
         (currently, means: wallet sync) is complete,
         we start the main monitoring jobs of the
         wallet service (currently, means: monitoring
@@ -229,32 +246,38 @@ class WalletService(Service):
                 reactor.stop()
             return
         jlog.info("Starting transaction monitor in walletservice")
-        self.monitor_loop = task.LoopingCall(
-            self.transaction_monitor)
+        self.monitor_loop = task.LoopingCall(self.transaction_monitor)
         self.monitor_loop.start(5.0)
 
     def import_non_wallet_address(self, address):
-        """ Used for keeping track of transactions which
+        """Used for keeping track of transactions which
         have no in-wallet destinations. External wallet
         label is used to avoid breaking fast sync (which
         assumes label => wallet)
         """
         if not self.bci.is_address_imported(address):
-            self.bci.import_addresses([address], self.EXTERNAL_WALLET_LABEL,
-                                  restart_cb=self.restart_callback)
+            self.bci.import_addresses(
+                [address],
+                self.EXTERNAL_WALLET_LABEL,
+                restart_cb=self.restart_callback,
+            )
 
     def default_autofreeze_warning_cb(self, utxo):
         success, utxostr = utxo_to_utxostr(utxo)
         assert success, "Autofreeze warning cb called with invalid utxo."
-        jlog.warning("WARNING: new utxo has been automatically "
-             "frozen to prevent forced address reuse: ")
+        jlog.warning(
+            "WARNING: new utxo has been automatically "
+            "frozen to prevent forced address reuse: "
+        )
         jlog.warning(utxostr)
-        jlog.warning("You can unfreeze this utxo with the method "
-                 "'freeze' of wallet-tool.py or the Coins tab "
-                 "of Joinmarket-Qt.")
+        jlog.warning(
+            "You can unfreeze this utxo with the method "
+            "'freeze' of wallet-tool.py or the Coins tab "
+            "of Joinmarket-Qt."
+        )
 
     def set_autofreeze_warning_cb(self, cb=None):
-        """ This callback takes a single argument, the
+        """This callback takes a single argument, the
         string representation of a utxo in form txid:index,
         and informs the user that the utxo has been frozen.
         It returns nothing (the user is not deciding in this case,
@@ -266,7 +289,7 @@ class WalletService(Service):
             self.autofreeze_warning_cb = cb
 
     def check_for_reuse(self, added_utxos):
-        """ (a) Check if addresses in new utxos are already in
+        """(a) Check if addresses in new utxos are already in
         used address list, (b) record new addresses as now used
         (c) disable the new utxo if it returned as true for (a),
         and it passes the filter set in the configuration.
@@ -283,16 +306,19 @@ class WalletService(Service):
         # disable those that passed the first check, before the addition,
         # if they satisfy configured logic
         for utxo in to_be_frozen:
-            freeze_threshold = jm_single().config.getint("POLICY",
-                                        "max_sats_freeze_reuse")
-            if freeze_threshold == -1 or added_utxos[
-                utxo]["value"] <= freeze_threshold:
+            freeze_threshold = jm_single().config.getint(
+                "POLICY", "max_sats_freeze_reuse"
+            )
+            if (
+                freeze_threshold == -1
+                or added_utxos[utxo]["value"] <= freeze_threshold
+            ):
                 # freezing of coins must be communicated to user:
                 self.autofreeze_warning_cb(utxo)
                 self.disable_utxo(*utxo)
 
     def _yield_new_transactions(self):
-        """ Constrains the sequence generated by bci.yield_transactions so
+        """Constrains the sequence generated by bci.yield_transactions so
         that it stops just before it would yield the newest transaction
         previously yielded by _yield_new_transactions.
         """
@@ -308,7 +334,7 @@ class WalletService(Service):
                     last = False
             yield tx
 
-    def transaction_monitor(self):
+    def transaction_monitor(self):  # noqa: C901
         """Keeps track of any changes in the wallet (new transactions).
         Intended to be run as a twisted task.LoopingCall so that this
         Service is constantly in near-realtime sync with the blockchain.
@@ -323,9 +349,16 @@ class WalletService(Service):
         # wallet labels; so we use a temporary variable to cache.
         seen_txids = set()
         wallet_name = self.get_wallet_name()
-        for txid in itertools.chain(list(self.active_txs), reversed(
-                [tx['txid'] for tx in self._yield_new_transactions()
-                    if 'txid' in tx])):
+        for txid in itertools.chain(
+            list(self.active_txs),
+            reversed(
+                [
+                    tx['txid']
+                    for tx in self._yield_new_transactions()
+                    if 'txid' in tx
+                ]
+            ),
+        ):
             if txid in seen_txids:
                 continue
             seen_txids.add(txid)
@@ -338,7 +371,8 @@ class WalletService(Service):
                 continue
             if confs < 0:
                 jlog.info(
-                    "Transaction: " + txid + " has a conflict, abandoning.")
+                    "Transaction: " + txid + " has a conflict, abandoning."
+                )
                 self.active_txs.pop(txid, None)
                 continue
             if confs == 0:
@@ -349,11 +383,14 @@ class WalletService(Service):
             else:
                 height = self.current_blockheight - confs + 1
 
-            txd = self.active_txs.get(txid) or \
-                    self.bci.get_deser_from_gettransaction(res)
+            txd = self.active_txs.get(
+                txid
+            ) or self.bci.get_deser_from_gettransaction(res)
             if txd is None:
                 continue
-            removed_utxos, added_utxos = self.wallet.process_new_tx(txd, height)
+            removed_utxos, added_utxos = self.wallet.process_new_tx(
+                txd, height
+            )
             if txid not in self.processed_txids:
                 # apply checks to disable/freeze utxos to reused addrs if needed:
                 self.check_for_reuse(added_utxos)
@@ -367,10 +404,13 @@ class WalletService(Service):
             # transaction pertains to anything known (but must
             # have correct label per above); filter on this Joinmarket wallet label,
             # or the external monitoring label:
-            if (any(self.bci.is_address_labeled(addr, wallet_name) or
-                    self.bci.is_address_labeled(addr,
-                        self.EXTERNAL_WALLET_LABEL)
-                    for addr in res["details"])):
+            if any(
+                self.bci.is_address_labeled(addr, wallet_name)
+                or self.bci.is_address_labeled(
+                    addr, self.EXTERNAL_WALLET_LABEL
+                )
+                for addr in res["details"]
+            ):
                 for f in self.callbacks["all"]:
                     # note we need no return value as we will never
                     # remove these from the list
@@ -397,12 +437,17 @@ class WalletService(Service):
             # addresses. In this case, since removal can by definition only
             # happen once, we must allow txids in self.active_txs through the
             # filter.
-            if len(added_utxos) > 0 or len(removed_utxos) > 0 \
-                    or txid in self.active_txs:
+            if (
+                len(added_utxos) > 0
+                or len(removed_utxos) > 0
+                or txid in self.active_txs
+            ):
                 if confs == 0:
-                    callbacks = [f for f in
-                            self.callbacks["unconfirmed"].pop(txid, [])
-                            if not f(txd, txid)]
+                    callbacks = [
+                        f
+                        for f in self.callbacks["unconfirmed"].pop(txid, [])
+                        if not f(txd, txid)
+                    ]
                     if callbacks:
                         self.callbacks["unconfirmed"][txid] = callbacks
                     else:
@@ -413,9 +458,11 @@ class WalletService(Service):
                     # the height of the utxo in UtxoManager
                     self.active_txs[txid] = txd
                 elif confs > 0:
-                    callbacks = [f for f in
-                            self.callbacks["confirmed"].pop(txid, [])
-                            if not f(txd, txid, confs)]
+                    callbacks = [
+                        f
+                        for f in self.callbacks["confirmed"].pop(txid, [])
+                        if not f(txd, txid, confs)
+                    ]
                     if callbacks:
                         self.callbacks["confirmed"][txid] = callbacks
                     else:
@@ -424,7 +471,7 @@ class WalletService(Service):
                         self.active_txs.pop(txid, None)
 
     def check_callback_called(self, txinfo, callback, cbtype, msg):
-        """ Intended to be a deferred Task to be scheduled some
+        """Intended to be a deferred Task to be scheduled some
         set time after the callback was registered. "all" type
         callbacks do not expire and are not included.
         If the callback was previously called, return True, otherwise False.
@@ -458,25 +505,33 @@ class WalletService(Service):
         return True
 
     def log_new_tx(self, removed_utxos, added_utxos, txid):
-        """ Changes to the wallet are logged at INFO level by
+        """Changes to the wallet are logged at INFO level by
         the WalletService.
         """
+
         def report_changed(x, utxos):
             if len(utxos.keys()) > 0:
-                jlog.info(x + ' utxos=\n{}'.format('\n'.join(
-                    '{} - {}'.format(utxo_to_utxostr(u)[1],
-                        fmt_tx_data(tx_data, self)) for u,
-                    tx_data in utxos.items())))
+                jlog.info(
+                    x
+                    + ' utxos=\n{}'.format(
+                        '\n'.join(
+                            '{} - {}'.format(
+                                utxo_to_utxostr(u)[1],
+                                fmt_tx_data(tx_data, self),
+                            )
+                            for u, tx_data in utxos.items()
+                        )
+                    )
+                )
 
         report_changed("Removed", removed_utxos)
         report_changed("Added", added_utxos)
-
 
         """ Wallet syncing code
         """
 
     def sync_wallet(self, fast=True):
-        """ Syncs wallet; note that if slow sync
+        """Syncs wallet; note that if slow sync
         requires multiple rounds this must be called
         until self.synced is True.
         Before starting the event loop, we cache
@@ -495,14 +550,19 @@ class WalletService(Service):
         # Don't attempt updates on transactions that existed
         # before startup
         self.last_seen_txid = next(
-                (tx['txid'] for tx in self.bci.yield_transactions()
-                    if 'txid' in tx), None)
+            (
+                tx['txid']
+                for tx in self.bci.yield_transactions()
+                if 'txid' in tx
+            ),
+            None,
+        )
         if isinstance(self.bci, BitcoinCoreNoHistoryInterface):
             self.bci.set_wallet_no_history(self.wallet)
         return self.synced
 
     def resync_wallet(self, fast=True):
-        """ The self.synced state is generally
+        """The self.synced state is generally
         updated to True, once, at the start of
         a run of a particular program. Here we
         can manually force re-sync.
@@ -520,7 +580,7 @@ class WalletService(Service):
         self.sync_unspent()
 
     def has_address_been_used(self, address):
-        """ Once wallet has been synced, the set of used
+        """Once wallet has been synced, the set of used
         addresses includes those identified at sync time,
         plus any used during operation. This is stored in
         the WalletService object as self.used_addresses.
@@ -528,7 +588,7 @@ class WalletService(Service):
         return address in self.used_addresses
 
     def get_address_usages(self):
-        """ sets, at time of sync, the list of addresses that
+        """sets, at time of sync, the list of addresses that
         have been used in our Core wallet with the specific label
         for our JM wallet. This operation is generally immediate.
         """
@@ -566,8 +626,10 @@ class WalletService(Service):
             return
 
         # Wallet has been used; scan forwards.
-        jlog.debug("Fast sync in progress. Got this many used addresses: " + str(
-            len(self.used_addresses)))
+        jlog.debug(
+            "Fast sync in progress. Got this many used addresses: "
+            + str(len(self.used_addresses))
+        )
         # Need to have wallet.index point to the last used address
         # Algo:
         #    1. Scan batch 1 of each branch, record matched wallet addresses.
@@ -615,8 +677,10 @@ class WalletService(Service):
             self.rewind_wallet_indices(current_indices, current_indices)
         else:
             self.rewind_wallet_indices(saved_indices, saved_indices)
-            raise Exception("Failed to sync in fast mode after 20 batches; "
-                            "please re-try wallet sync with --recoversync flag.")
+            raise Exception(
+                "Failed to sync in fast mode after 20 batches; "
+                "please re-try wallet sync with --recoversync flag."
+            )
 
         # creating used_indices on-the-fly would be more efficient, but the
         # overall performance gain is probably negligible
@@ -626,8 +690,11 @@ class WalletService(Service):
         # we ensure that all addresses that will be displayed (see wallet_utils.py,
         # function wallet_display()) are imported by importing gap limit beyond current
         # index:
-        self.bci.import_addresses(self.collect_addresses_gap(), self.get_wallet_name(),
-                                  self.restart_callback)
+        self.bci.import_addresses(
+            self.collect_addresses_gap(),
+            self.get_wallet_name(),
+            self.restart_callback,
+        )
 
         if isinstance(self.wallet, FidelityBondMixin):
             mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
@@ -637,23 +704,26 @@ class WalletService(Service):
             max_index = 0
             for path_repr in burner_outputs:
                 index = self.wallet.path_repr_to_path(path_repr.decode())[-1]
-                max_index = max(index+1, max_index)
-            self.wallet.set_next_index(mixdepth, address_type, max_index,
-                force=True)
+                max_index = max(index + 1, max_index)
+            self.wallet.set_next_index(
+                mixdepth, address_type, max_index, force=True
+            )
 
         self.synced = True
 
     def display_rescan_message_and_system_exit(self, restart_cb):
-        #TODO using system exit here should be avoided as it makes the code
+        # TODO using system exit here should be avoided as it makes the code
         # harder to understand and reason about
-        #theres also a sys.exit() in BitcoinCoreInterface.import_addresses()
-        #perhaps have sys.exit() placed inside the restart_cb that only
+        # theres also a sys.exit() in BitcoinCoreInterface.import_addresses()
+        # perhaps have sys.exit() placed inside the restart_cb that only
         # CLI scripts will use
         if self.bci.__class__ == BitcoinCoreInterface:
-            #Exit conditions cannot be included in tests
-            restart_msg = ("Use `bitcoin-cli rescanblockchain` if you're "
-                           "recovering an existing wallet from backup seed\n"
-                           "Otherwise just restart this joinmarket application.")
+            # Exit conditions cannot be included in tests
+            restart_msg = (
+                "Use `bitcoin-cli rescanblockchain` if you're "
+                "recovering an existing wallet from backup seed\n"
+                "Otherwise just restart this joinmarket application."
+            )
             if restart_cb:
                 restart_cb(restart_msg)
             else:
@@ -663,15 +733,18 @@ class WalletService(Service):
     def sync_burner_outputs(self, burner_txes):
         mixdepth = FidelityBondMixin.FIDELITY_BOND_MIXDEPTH
         address_type = FidelityBondMixin.BIP32_BURN_ID
-        self.wallet.set_next_index(mixdepth, address_type, self.wallet.gap_limit,
-            force=True)
+        self.wallet.set_next_index(
+            mixdepth, address_type, self.wallet.gap_limit, force=True
+        )
         highest_used_index = 0
         known_burner_outputs = self.wallet.get_burner_outputs()
 
         index = -1
         while index - highest_used_index < self.wallet.gap_limit:
             index += 1
-            self.wallet.set_next_index(mixdepth, address_type, index, force=True)
+            self.wallet.set_next_index(
+                mixdepth, address_type, index, force=True
+            )
             path = self.wallet.get_path(mixdepth, address_type, index)
             path_privkey, engine = self.wallet._get_key_from_path(path)
             path_pubkey = engine.privkey_to_pubkey(path_privkey)
@@ -685,25 +758,42 @@ class WalletService(Service):
                 if path_repr.encode() in known_burner_outputs:
                     continue
                 txid = gettx["txid"]
-                jlog.info("Found a burner transaction txid=" + txid + " path = "
-                    + path_repr)
+                jlog.info(
+                    "Found a burner transaction txid="
+                    + txid
+                    + " path = "
+                    + path_repr
+                )
                 try:
-                    merkle_branch = self.bci.get_tx_merkle_branch(txid, gettx["blockhash"])
+                    merkle_branch = self.bci.get_tx_merkle_branch(
+                        txid, gettx["blockhash"]
+                    )
                 except ValueError as e:
                     jlog.warning(repr(e))
-                    jlog.warning("Merkle branch likely not available, use "
-                        + "wallet-tool `addtxoutproof`")
+                    jlog.warning(
+                        "Merkle branch likely not available, use "
+                        + "wallet-tool `addtxoutproof`"
+                    )
                     merkle_branch = None
                 block_height = self.bci.get_block_height(gettx["blockhash"])
                 if merkle_branch:
-                    assert self.bci.verify_tx_merkle_branch(txid, block_height, merkle_branch)
-                self.wallet.add_burner_output(path_repr, gettx["hex"], block_height,
-                    merkle_branch, gettx["blockindex"])
+                    assert self.bci.verify_tx_merkle_branch(
+                        txid, block_height, merkle_branch
+                    )
+                self.wallet.add_burner_output(
+                    path_repr,
+                    gettx["hex"],
+                    block_height,
+                    merkle_branch,
+                    gettx["blockindex"],
+                )
 
-        self.wallet.set_next_index(mixdepth, address_type, highest_used_index + 1)
+        self.wallet.set_next_index(
+            mixdepth, address_type, highest_used_index + 1
+        )
 
     def get_all_transactions(self):
-        """ Get all transactions (spending or receiving) that
+        """Get all transactions (spending or receiving) that
         are currently recorded by our blockchain interface as relating
         to this wallet, as a list.
         """
@@ -718,7 +808,7 @@ class WalletService(Service):
         return res
 
     def get_transaction(self, txid):
-        """ If the transaction for txid is an in-wallet
+        """If the transaction for txid is an in-wallet
         transaction, will return a CTransaction object for it;
         if not, will return None.
         """
@@ -730,24 +820,29 @@ class WalletService(Service):
     def get_block_height(self, blockhash):
         return self.bci.get_block_height(blockhash)
 
-    def rescanblockchain(self, start_height: int, end_height: Optional[int] = None) -> None:
+    def rescanblockchain(
+        self, start_height: int, end_height: Optional[int] = None
+    ) -> None:
         self.bci.rescanblockchain(start_height, end_height)
 
-    def get_backend_wallet_rescan_status(self) -> Tuple[bool, Optional[Decimal]]:
+    def get_backend_wallet_rescan_status(
+        self,
+    ) -> Tuple[bool, Optional[Decimal]]:
         return self.bci.get_wallet_rescan_status()
 
     def get_transaction_block_height(self, tx):
-        """ Given a CTransaction object tx, return
+        """Given a CTransaction object tx, return
         the block height at which it was mined, or False
         if it is not found in the blockchain (including if
         it is not a wallet tx and so can't be queried).
         """
         txid = tx.GetTxid()[::-1]
-        return self.bci.get_block_height(self.bci.get_transaction(
-            txid)["blockhash"])
+        return self.bci.get_block_height(
+            self.bci.get_transaction(txid)["blockhash"]
+        )
 
     def sync_addresses(self):
-        """ Triggered by use of --recoversync option in scripts,
+        """Triggered by use of --recoversync option in scripts,
         attempts a full scan of the blockchain without assuming
         anything about past usages of addresses (does not use
         wallet.index_cache as hint).
@@ -756,8 +851,9 @@ class WalletService(Service):
         wallet_name = self.get_wallet_name()
         addresses, saved_indices = self.collect_addresses_init()
 
-        import_needed = self.bci.import_addresses_if_needed(addresses,
-            wallet_name)
+        import_needed = self.bci.import_addresses_if_needed(
+            addresses, wallet_name
+        )
         if import_needed:
             self.display_rescan_message_and_system_exit(self.restart_callback)
             return
@@ -773,12 +869,12 @@ class WalletService(Service):
                     txd = self.bci.get_deser_from_gettransaction(gettx)
                     if len(txd.vout) > 1:
                         continue
-                    #must be mined into a block to sync
-                    #otherwise there's no merkleproof or block index
+                    # must be mined into a block to sync
+                    # otherwise there's no merkleproof or block index
                     if gettx["confirmations"] < 1:
                         continue
                     script = txd.vout[0].scriptPubKey
-                    if script[0] != 0x6a: #OP_RETURN
+                    if script[0] != 0x6A:  # OP_RETURN
                         continue
                     pubkeyhash = script[2:]
                     burner_txes.append((pubkeyhash, gettx))
@@ -786,10 +882,12 @@ class WalletService(Service):
             self.sync_burner_outputs(burner_txes)
             used_addresses_gen = set(tx["address"] for tx in tx_receive)
         else:
-            #not fidelity bond wallet, significantly faster sync
-            used_addresses_gen = set(tx['address']
-                                  for tx in self.bci.yield_transactions()
-                                  if tx['category'] == 'receive')
+            # not fidelity bond wallet, significantly faster sync
+            used_addresses_gen = set(
+                tx['address']
+                for tx in self.bci.yield_transactions()
+                if tx['category'] == 'receive'
+            )
         # needed for address-reuse check:
         self.used_addresses = used_addresses_gen
         used_indices = self.get_used_indices(used_addresses_gen)
@@ -799,11 +897,15 @@ class WalletService(Service):
 
         new_addresses = self.collect_addresses_gap()
         if self.bci.import_addresses_if_needed(new_addresses, wallet_name):
-            jlog.debug("Syncing iteration finished, additional step required (more address import required)")
+            jlog.debug(
+                "Syncing iteration finished, additional step required (more address import required)"
+            )
             self.synced = False
             self.display_rescan_message_and_system_exit(self.restart_callback)
         elif gap_limit_used:
-            jlog.debug("Syncing iteration finished, additional step required (gap limit used)")
+            jlog.debug(
+                "Syncing iteration finished, additional step required (gap limit used)"
+            )
             self.synced = False
         else:
             jlog.debug("Wallet successfully synced")
@@ -820,15 +922,19 @@ class WalletService(Service):
             if current_blockheight:
                 break
             if i < 4:
-                jlog.debug("Error calling blockheight RPC, trying again in 0.5s.")
+                jlog.debug(
+                    "Error calling blockheight RPC, trying again in 0.5s."
+                )
             # sync unspent calls are synchronous; this short sleep should
             # not affect us since we are not yet in main monitor loop.
             time.sleep(0.5)
         if not current_blockheight:
             # this failure is critical; give up:
-            jlog.error("Failed to access the current blockheight, "
-                       "and therefore could not sync the wallet. "
-                       "Shutting down.")
+            jlog.error(
+                "Failed to access the current blockheight, "
+                "and therefore could not sync the wallet. "
+                "Shutting down."
+            )
             if self.isRunning:
                 self.stopService()
             stop_reactor()
@@ -841,9 +947,14 @@ class WalletService(Service):
         # wallet transfer) it is possible for the utxo to be labeled
         # with the external label, and (b) the wallet will know if it
         # belongs or not anyway (is_known_addr):
-        our_unspent_list = [x for x in unspent_list if (
-            self.bci.is_address_labeled(x, wallet_name) or
-            self.bci.is_address_labeled(x, self.EXTERNAL_WALLET_LABEL))]
+        our_unspent_list = [
+            x
+            for x in unspent_list
+            if (
+                self.bci.is_address_labeled(x, wallet_name)
+                or self.bci.is_address_labeled(x, self.EXTERNAL_WALLET_LABEL)
+            )
+        ]
         for utxo in our_unspent_list:
             if not self.is_known_addr(utxo['address']):
                 continue
@@ -859,7 +970,9 @@ class WalletService(Service):
                 # than relative height measure:
                 confs = int(utxo['confirmations'])
                 if confs < 0:
-                    jlog.warning("Utxo not added, has a conflict: " + str(utxo))
+                    jlog.warning(
+                        "Utxo not added, has a conflict: " + str(utxo)
+                    )
                     continue
                 if confs >= 1:
                     height = current_blockheight - confs + 1
@@ -886,10 +999,10 @@ class WalletService(Service):
         # when they transition to confirmed.
         if height is None:
             txd = self.bci.get_deser_from_gettransaction(
-                self.bci.get_transaction(txid))
+                self.bci.get_transaction(txid)
+            )
             self.active_txs[utxo['txid']] = txd
             self.processed_txids.add(utxo['txid'])
-
 
     """ The following functions mostly are not pure
     pass through to the underlying wallet, so declared
@@ -900,14 +1013,17 @@ class WalletService(Service):
     def save_wallet(self):
         self.wallet.save()
 
-    def get_utxos_by_mixdepth(self, include_disabled: bool = False,
-                              verbose: bool = False,
-                              includeconfs: bool = False,
-                              limit_mixdepth: Optional[int] = None
-                             ) -> collections.defaultdict:
-        """ Returns utxos by mixdepth in a dict, optionally including
+    def get_utxos_by_mixdepth(
+        self,
+        include_disabled: bool = False,
+        verbose: bool = False,
+        includeconfs: bool = False,
+        limit_mixdepth: Optional[int] = None,
+    ) -> collections.defaultdict:
+        """Returns utxos by mixdepth in a dict, optionally including
         information about how many confirmations each utxo has.
         """
+
         def height_to_confs(x: int) -> int:
             # convert height entries to confirmations:
             ubym_conv = collections.defaultdict(dict)
@@ -921,9 +1037,12 @@ class WalletService(Service):
                         confs = self.current_blockheight - h + 1
                     ubym_conv[m][u]["confs"] = confs
             return ubym_conv
+
         ubym = self.wallet.get_utxos_by_mixdepth(
-            include_disabled=include_disabled, includeheight=includeconfs,
-            limit_mixdepth=limit_mixdepth)
+            include_disabled=include_disabled,
+            includeheight=includeconfs,
+            limit_mixdepth=limit_mixdepth,
+        )
         if not includeconfs:
             return ubym
         else:
@@ -935,29 +1054,44 @@ class WalletService(Service):
         else:
             return self.current_blockheight - minconfs + 1
 
-    def select_utxos(self, mixdepth, amount, utxo_filter=None, select_fn=None,
-                     minconfs=None, includeaddr=False, require_auth_address=False):
-        """ Request utxos from the wallet in a particular mixdepth to satisfy
+    def select_utxos(
+        self,
+        mixdepth,
+        amount,
+        utxo_filter=None,
+        select_fn=None,
+        minconfs=None,
+        includeaddr=False,
+        require_auth_address=False,
+    ):
+        """Request utxos from the wallet in a particular mixdepth to satisfy
         a certain total amount, optionally set the selector function (or use
         the currently configured function set by the wallet, and optionally
         require a minimum of minconfs confirmations (default none means
         unconfirmed are allowed).
         """
         return self.wallet.select_utxos(
-            mixdepth, amount, utxo_filter=utxo_filter, select_fn=select_fn,
+            mixdepth,
+            amount,
+            utxo_filter=utxo_filter,
+            select_fn=select_fn,
             maxheight=self.minconfs_to_maxheight(minconfs),
-            includeaddr=includeaddr, require_auth_address=require_auth_address)
+            includeaddr=includeaddr,
+            require_auth_address=require_auth_address,
+        )
 
-    def get_balance_by_mixdepth(self, verbose=True,
-                                include_disabled=False,
-                                minconfs=None):
+    def get_balance_by_mixdepth(
+        self, verbose=True, include_disabled=False, minconfs=None
+    ):
         if minconfs is None:
             maxheight = None
         else:
             maxheight = self.current_blockheight - minconfs + 1
-        return self.wallet.get_balance_by_mixdepth(verbose=verbose,
-                                                   include_disabled=include_disabled,
-                                                   maxheight=maxheight)
+        return self.wallet.get_balance_by_mixdepth(
+            verbose=verbose,
+            include_disabled=include_disabled,
+            maxheight=maxheight,
+        )
 
     def import_addr(self, addr):
         if self.bci is not None and hasattr(self.bci, 'import_addresses'):
@@ -969,7 +1103,7 @@ class WalletService(Service):
         return addr
 
     def collect_addresses_init(self) -> Tuple[Set[str], Dict[int, List[int]]]:
-        """ Collects the "current" set of addresses,
+        """Collects the "current" set of addresses,
         as defined by the indices recorded in the wallet's
         index cache (persisted in the wallet file usually).
         Note that it collects up to the current indices plus
@@ -980,14 +1114,19 @@ class WalletService(Service):
 
         for md in range(self.max_mixdepth + 1):
             saved_indices[md] = [0, 0]
-            for address_type in (BaseWallet.ADDRESS_TYPE_EXTERNAL,
-                                 BaseWallet.ADDRESS_TYPE_INTERNAL):
+            for address_type in (
+                BaseWallet.ADDRESS_TYPE_EXTERNAL,
+                BaseWallet.ADDRESS_TYPE_INTERNAL,
+            ):
                 next_unused = self.get_next_unused_index(md, address_type)
                 for index in range(next_unused):
                     addresses.add(self.get_addr(md, address_type, index))
                 for index in range(self.gap_limit):
-                    addresses.add(self.get_new_addr(md, address_type,
-                                                    validate_cache=False))
+                    addresses.add(
+                        self.get_new_addr(
+                            md, address_type, validate_cache=False
+                        )
+                    )
                 # reset the indices to the value we had before the
                 # new address calls:
                 self.set_next_index(md, address_type, next_unused)
@@ -1006,12 +1145,17 @@ class WalletService(Service):
         gap_limit = gap_limit or self.gap_limit
         addresses = set()
         for md in range(self.max_mixdepth + 1):
-            for address_type in (BaseWallet.ADDRESS_TYPE_INTERNAL,
-                                 BaseWallet.ADDRESS_TYPE_EXTERNAL):
+            for address_type in (
+                BaseWallet.ADDRESS_TYPE_INTERNAL,
+                BaseWallet.ADDRESS_TYPE_EXTERNAL,
+            ):
                 old_next = self.get_next_unused_index(md, address_type)
                 for index in range(gap_limit):
-                    addresses.add(self.get_new_addr(md, address_type,
-                                                    validate_cache=False))
+                    addresses.add(
+                        self.get_new_addr(
+                            md, address_type, validate_cache=False
+                        )
+                    )
                 self.set_next_index(md, address_type, old_next)
         return addresses
 

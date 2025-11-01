@@ -23,6 +23,7 @@ def get_random_key(size: int = 16) -> str:
 def b64str(s: str) -> str:
     return b64encode(s.encode()).decode()
 
+
 class JMTokenAuthority:
     """Manage authorization tokens."""
 
@@ -76,7 +77,8 @@ class JMTokenAuthority:
     def _issue(self, token_type: str) -> str:
         return jwt.encode(
             {
-                "exp": datetime.datetime.utcnow() + self.SESSION_VALIDITY[token_type],
+                "exp": datetime.datetime.utcnow()
+                + self.SESSION_VALIDITY[token_type],
                 "scope": self.scope,
             },
             self.signature_key[token_type],

@@ -1,4 +1,3 @@
-
 # A wrapper for public key
 # authenticated encryption
 # using Diffie Hellman key
@@ -11,8 +10,10 @@ import base64
 
 from libnacl import public
 
+
 class NaclError(Exception):
     pass
+
 
 def init_keypair(fname=None):
     """Create a new encryption

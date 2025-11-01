@@ -106,6 +106,20 @@ See [architecture-notes.md](docs/architecture-notes.md).
 
 Instructions for developers for testing [here](docs/TESTING.md). If you want to help improve the project, please have a read of [this todo list](docs/TODO.md) and the [Help Wanted tag](https://github.com/JoinMarket-Org/joinmarket-clientserver/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) on the issue tracker.
 
+### CODE FORMATTING
+
+This project uses [Ruff](https://docs.astral.sh/ruff/) for code formatting and linting. The configuration is defined in `pyproject.toml`. To format your code before submitting a pull request, run:
+
+```bash
+ruff format ./src
+```
+
+To check for linting issues:
+
+```bash
+ruff check
+```
+
 ### Community
 
 + IRC: `#joinmarket` on irc.libera.chat https://kiwiirc.com/nextclient/irc.libera.chat#joinmarket (logs can be found [here](https://gnusha.org/joinmarket/))

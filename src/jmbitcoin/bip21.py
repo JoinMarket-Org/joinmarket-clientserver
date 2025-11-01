@@ -15,7 +15,9 @@ def is_bip21_uri(uri: str) -> bool:
 
 
 def _is_bip21_amount_str(amount: str) -> bool:
-    return re.compile(r"^[0-9]{1,8}(\.[0-9]{1,8})?$").match(str(amount)) != None
+    return (
+        re.compile(r"^[0-9]{1,8}(\.[0-9]{1,8})?$").match(str(amount)) != None
+    )
 
 
 def _validate_bip21_amount(amount: str) -> None:
@@ -32,8 +34,9 @@ def decode_bip21_uri(uri: str) -> Dict[str, Union[str, int]]:
     params = parse_qsl(parsed.query)
     for key, value in params:
         if key.startswith('req-'):
-            raise ValueError("Unknown required parameter " + key +
-                " in BIP21 URI.")
+            raise ValueError(
+                "Unknown required parameter " + key + " in BIP21 URI."
+            )
         if key == 'amount':
             _validate_bip21_amount(value)
             # Convert amount to sats, as used internally by JM
@@ -43,9 +46,11 @@ def decode_bip21_uri(uri: str) -> Dict[str, Union[str, int]]:
     return result
 
 
-def encode_bip21_uri(address: str,
-                     params: Union[dict, List[Tuple[str, Union[float, int, str]]]],
-                     safe: str = "") -> str:
+def encode_bip21_uri(
+    address: str,
+    params: Union[dict, List[Tuple[str, Union[float, int, str]]]],
+    safe: str = "",
+) -> str:
     uri = 'bitcoin:' + address
     if len(params) > 0:
         if 'amount' in params:

@@ -50,7 +50,7 @@ def pick_order(orders, n): #pragma: no cover
             return orders[pickedOrderIndex]
         pickedOrderIndex = -1
 
-def main():
+def main():  # noqa: C901
     parser = get_sendpayment_parser()
     (options, args) = parser.parse_args()
     load_program_config(config_path=options.datadir)

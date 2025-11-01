@@ -375,8 +375,8 @@ def test_auth_pub_not_found(setup_taker):
         ([(0, 0, 5, "mnsquzxrHXpFsZeL42qwbKdCP2y1esN3qw", 0, NO_ROUNDING)], False, False,
          2, False, ["J659UPUSLLjHJpaB", "J65z23xdjxJjC7er", 0], None), #test inadequate for sweep
     ])
-def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,
-                    notauthed, ignored, nocommit):
+def test_taker_init(setup_taker, schedule, highfee, toomuchcoins, minmakers,  # noqa: C901
+                    notauthed, ignored, nocommit): 
     #these tests do not trigger utxo_retries
     oldtakerutxoretries = jm_single().config.get("POLICY", "taker_utxo_retries")
     oldtakerutxoamtpercent = jm_single().config.get("POLICY", "taker_utxo_amtpercent")
