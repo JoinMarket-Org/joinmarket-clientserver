@@ -53,6 +53,7 @@ class Taker(object):
                  tdestaddrs=None,
                  custom_change_address=None,
                  change_label=None,
+                 banned_makers=None,
                  ignored_makers=None):
         """`schedule`` must be a list of tuples: (see sample_schedule_for_testnet
         for explanation of syntax, also schedule.py module in this directory),
@@ -111,6 +112,7 @@ class Taker(object):
         #who have not responded or behaved maliciously at any
         #stage of the protocol.
         self.ignored_makers = [] if not ignored_makers else ignored_makers
+        self.banned_makers = set([]) if not banned_makers else banned_makers
 
         #Used in attempts to complete with subset after second round failure:
         self.honest_makers = []
@@ -289,7 +291,7 @@ class Taker(object):
                 return False
             self.orderbook, self.total_cj_fee = choose_orders(
                 orderbook, self.cjamount, self.n_counterparties, self.order_chooser,
-                self.ignored_makers, allowed_types=allowed_types,
+                self.banned_makers.union(self.ignored_makers), allowed_types=allowed_types,
                 max_cj_fee=self.max_cj_fee)
             if self.orderbook is None:
                 #Failure to get an orderbook means order selection failed
@@ -380,7 +382,7 @@ class Taker(object):
             self.orderbook, self.cjamount, self.total_cj_fee = choose_sweep_orders(
                 self.orderbook, total_value, self.total_txfee,
                 self.n_counterparties, self.order_chooser,
-                self.ignored_makers, allowed_types=allowed_types,
+                self.banned_makers.union(self.ignored_makers), allowed_types=allowed_types,
                 max_cj_fee=self.max_cj_fee)
             if not self.orderbook:
                 self.taker_info_callback("ABORT",

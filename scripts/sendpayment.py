@@ -18,6 +18,7 @@ from jmclient import Taker, load_program_config, get_schedule,\
     get_sendpayment_parser, get_max_cj_fee_values, check_regtest, \
     parse_payjoin_setup, send_payjoin, general_custom_change_warning, \
     nonwallet_custom_change_warning, sweep_custom_change_warning, \
+    get_banned_maker_ids, \
     EngineError, check_and_start_tor
 from twisted.python.log import startLogging
 from jmbase.support import get_log, jmprint, \
@@ -389,6 +390,7 @@ def main():
                       max_cj_fee=maxcjfee,
                       callbacks=(filter_orders_callback, None, taker_finished),
                       custom_change_address=custom_change,
+                      banned_makers=get_banned_maker_ids(),
                       change_label=options.changelabel)
     clientfactory = JMClientProtocolFactory(taker)
 
