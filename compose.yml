@@ -1,0 +1,14 @@
+services:
+  test:
+    image: joinmarket:test
+    build:
+      context: .
+      target: test
+      args:
+        BITCOIN_VERSION: 29.2
+        PYTHON_IMAGE_TAG: 3.12-slim-trixie
+    volumes:
+      - ./src:/jm/clientserver/src
+      - ./test:/jm/clientserver/test
+    shm_size: '2gb'
+    command: ["./test/run_tests.sh", "-v"]

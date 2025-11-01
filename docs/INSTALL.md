@@ -265,14 +265,47 @@ There, you need to install the client code (without Joinmarket's bitcoin):
 
 #### Docker Installation
 
-The [Dockerfile](../Dockerfile) provided builds a minimal Docker image which can help in getting started with a custom Docker setup. An example of building and running the [wallet-tool.py](../scripts/wallet-tool.py) script:
+The [Dockerfile](../Dockerfile) provided builds an optimized multi-stage Docker image for JoinMarket. The build process is optimized for layer caching and includes all necessary dependencies.
 
-```
-docker build -t joinmarket-test ./
-docker run --rm -it joinmarket-test bash -c "cd scripts && python3 wallet-tool.py --help"
-```
+##### Building the Docker image
 
-A new Docker image can be built using `joinmarket-test` as a base using `FROM joinmarket-test`. See [Docker documentation](https://docs.docker.com/engine/reference/builder/) for more details.
+To build the production image:
+
+    docker build -t joinmarket .
+
+This creates a minimal production image with JoinMarket installed.
+
+##### Running JoinMarket scripts in Docker
+
+Example of running the [wallet-tool.py](../scripts/wallet-tool.py) script:
+
+    docker run --rm -it joinmarket bash -c "source jmvenv/bin/activate && cd scripts && python wallet-tool.py --help"
+
+##### Running tests with Docker Compose
+
+The repository includes a `compose.yml` file for easy testing:
+
+    docker compose up test
+
+This will:
+
+* Build a test image that includes Bitcoin Core 29.2
+* Mount the `src` and `test` directories for development
+* Run the full test suite with all dependencies configured automatically
+* Use shared memory for improved test performance
+
+##### Building custom images
+
+The Dockerfile uses multi-stage builds with the following targets:
+
+* `joinmarket` (default) - Production image with JoinMarket installed
+* `test` - Testing image that includes Bitcoin Core binaries
+
+You can build a specific target:
+
+    docker build --target test -t joinmarket:test .
+
+See [Docker documentation](https://docs.docker.com/engine/reference/builder/) for more details on multi-stage builds.
 
 #### Development (or making other changes to the code)
 
