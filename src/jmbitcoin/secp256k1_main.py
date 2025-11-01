@@ -22,8 +22,9 @@ secp_obj.lib.secp256k1_ec_pubkey_tweak_mul.argtypes = [ctypes.c_void_p, ctypes.c
 N = 115792089237316195423570985008687907852837564279074904382605163141518161494337
 
 BTC_P2PK_VBYTE = {"mainnet": b'\x00', "testnet": b'\x6f', "signet": b'\x6f',
-    "regtest": 100}
-BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4', "signet": b'\xc4'}
+    "regtest": 100, "testnet4": b'\x6f'}
+BTC_P2SH_VBYTE = {"mainnet": b'\x05', "testnet": b'\xc4', "signet": b'\xc4',
+    "testnet4": b'\xc4'}
 
 """PoDLE related primitives
 """
