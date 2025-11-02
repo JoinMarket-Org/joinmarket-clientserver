@@ -11,7 +11,7 @@ requires-python = ">=3.9,<3.14"
 license = {file = "LICENSE"}
 dependencies = [
     "chromalog==1.0.5",
-    "cryptography==42.0.4",
+    "cryptography==44.0.1",
     "service-identity==21.1.0",
     "twisted==24.7.0",
     "txtorcon==23.11.0",
