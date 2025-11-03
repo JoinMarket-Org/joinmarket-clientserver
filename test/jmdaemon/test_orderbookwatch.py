@@ -57,36 +57,36 @@ def test_ob(badtopic):
     ob.on_set_topic(deprecated)
 
 @pytest.mark.parametrize(
-    "counterparty, oid, ordertype, minsize, maxsize, txfee, cjfee, expected",
+    "counterparty, oid, ordertype, minsize, maxsize, txfee, cjfee, minimum_tx_fee_rate, expected",
     [
         #good absoffer
-        ("test", "0", "absoffer", "3000", "4000", "2", "300", True),
+        ("test", "0", "absoffer", "3000", "4000", "2", "300", "0", True),
         #good reloffer
-        ("test", "0", "reloffer", "3000", "4000", "2", "0.3", True),
+        ("test", "0", "reloffer", "3000", "4000", "2", "0.3", "0", True),
         #dusty minsize OK
-        ("test", "0", "reloffer", "1000", "4000", "2", "0.3", True),
+        ("test", "0", "reloffer", "1000", "4000", "2", "0.3", "0", True),
         #invalid oid
-        ("test", "-2", "reloffer", "3000", "4000", "2", "0.3", False),
+        ("test", "-2", "reloffer", "3000", "4000", "2", "0.3", "0", False),
         #invalid minsize
-        ("test", "2", "reloffer", "-3000", "4000", "2", "0.3", False),
+        ("test", "2", "reloffer", "-3000", "4000", "2", "0.3", "0", False),
         #invalid maxsize
-        ("test", "2", "reloffer", "3000", "2200000000000000", "2", "0.3", False),
+        ("test", "2", "reloffer", "3000", "2200000000000000", "2", "0.3", "0", False),
         #invalid txfee
-        ("test", "2", "reloffer", "3000", "4000", "-1", "0.3", False),
+        ("test", "2", "reloffer", "3000", "4000", "-1", "0.3", "0", False),
         #min bigger than max
-        ("test", "2", "reloffer", "4000", "3000", "2", "0.3", False),
+        ("test", "2", "reloffer", "4000", "3000", "2", "0.3", "0", False),
         #non-integer absoffer
-        ("test", "2", "absoffer", "3000", "4000", "2", "0.3", False),
+        ("test", "2", "absoffer", "3000", "4000", "2", "0.3", "0", False),
         #invalid syntax for cjfee
-        ("test", "2", "reloffer", "3000", "4000", "2", "0.-1", False),
+        ("test", "2", "reloffer", "3000", "4000", "2", "0.-1", "0", False),
         #invalid type for oid
-        ("test", "xxx", "reloffer", "3000", "4000", "2", "0.3", False),
+        ("test", "xxx", "reloffer", "3000", "4000", "2", "0.3", "0", False),
     ])
 def test_order_seen_cancel(counterparty, oid, ordertype, minsize, maxsize, txfee,
-                           cjfee, expected):
+                           cjfee, minimum_tx_fee_rate, expected):
     ob = get_ob()
     ob.on_order_seen(counterparty, oid, ordertype, minsize, maxsize,
-                              txfee, cjfee)
+                              txfee, cjfee, minimum_tx_fee_rate)
     if expected:
         #offer should now be in the orderbook
         rows = ob.db.execute('SELECT * FROM orderbook;').fetchall()
@@ -100,21 +100,48 @@ def test_order_seen_cancel(counterparty, oid, ordertype, minsize, maxsize, txfee
 
 def test_disconnect_leave():
     ob = get_ob()
-    t_orderbook = [{u'counterparty': u'J5FA1Gj7Ln4vSGne', u'ordertype': u'reloffer', u'oid': 0,
-      u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
-     {u'counterparty': u'J5CFffuuewjG44UJ', u'ordertype': u'reloffer', u'oid': 0,
-      u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
-     {u'counterparty': u'J55z23xdjxJjC7er', u'ordertype': u'reloffer', u'oid': 0,
-      u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
-     {u'counterparty': u'J54Ghp5PXCdY9H3t', u'ordertype': u'reloffer', u'oid': 0,
-      u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
-     {u'counterparty': u'J559UPUSLLjHJpaB', u'ordertype': u'reloffer', u'oid': 0,
-      u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'},
-     {u'counterparty': u'J5cBx1FwUVh9zzoO', u'ordertype': u'reloffer', u'oid': 0,
-      u'minsize': 7500000, u'txfee': 1000, u'maxsize': 599972700, u'cjfee': u'0.0002'}]
+    t_orderbook = [
+        {
+            u'counterparty': u'J5FA1Gj7Ln4vSGne', u'ordertype': u'reloffer',
+            u'oid': 0, u'minsize': 7500000, u'txfee': 1000,
+            u'maxsize': 599972700, u'cjfee': u'0.0002',
+            u'minimum_tx_fee_rate': 0
+        },
+        {
+            u'counterparty': u'J5CFffuuewjG44UJ', u'ordertype': u'reloffer',
+            u'oid': 0, u'minsize': 7500000, u'txfee': 1000,
+            u'maxsize': 599972700, u'cjfee': u'0.0002',
+            u'minimum_tx_fee_rate': 0
+        },
+        {
+            u'counterparty': u'J55z23xdjxJjC7er', u'ordertype': u'reloffer',
+            u'oid': 0, u'minsize': 7500000, u'txfee': 1000,
+            u'maxsize': 599972700, u'cjfee': u'0.0002',
+            u'minimum_tx_fee_rate': 0
+        },
+        {
+            u'counterparty': u'J54Ghp5PXCdY9H3t', u'ordertype': u'reloffer',
+            u'oid': 0, u'minsize': 7500000, u'txfee': 1000,
+            u'maxsize': 599972700, u'cjfee': u'0.0002',
+            u'minimum_tx_fee_rate': 0
+        },
+        {
+            u'counterparty': u'J559UPUSLLjHJpaB', u'ordertype': u'reloffer',
+            u'oid': 0, u'minsize': 7500000, u'txfee': 1000,
+            u'maxsize': 599972700, u'cjfee': u'0.0002',
+            u'minimum_tx_fee_rate': 0
+        },
+        {
+            u'counterparty': u'J5cBx1FwUVh9zzoO', u'ordertype': u'reloffer',
+            u'oid': 0, u'minsize': 7500000, u'txfee': 1000,
+            u'maxsize': 599972700, u'cjfee': u'0.0002',
+            u'minimum_tx_fee_rate': 0
+        }
+    ]
     for o in t_orderbook:
         ob.on_order_seen(o['counterparty'], o['oid'], o['ordertype'],
-                         o['minsize'], o['maxsize'], o['txfee'], o['cjfee'])
+                         o['minsize'], o['maxsize'], o['txfee'],
+                         o['cjfee'], o['minimum_tx_fee_rate'])
     rows = ob.db.execute('SELECT * FROM orderbook;').fetchall()
     orderbook = [dict([(k, o[k]) for k in ORDER_KEYS]) for o in rows]
     assert len(orderbook) == 6

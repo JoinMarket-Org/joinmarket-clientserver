@@ -89,8 +89,6 @@ class YieldGeneratorBasic(YieldGenerator):
             self.size_factor = offerconfig
         super().__init__(wallet_service)
 
-        
-
     def create_my_orders(self):
         mix_balance = self.get_available_mixdepths()
         if len([b for m, b in mix_balance.items() if b > 0]) == 0:
@@ -113,7 +111,8 @@ class YieldGeneratorBasic(YieldGenerator):
                  'maxsize': mix_balance[max_mix] - max(
                      jm_single().DUST_THRESHOLD, self.txfee_contribution),
                  'txfee': self.txfee_contribution,
-                 'cjfee': f}
+                 'cjfee': f,
+                 'minimum_tx_fee_rate': self.minimum_tx_fee_rate}
 
         # sanity check
         assert order['minsize'] >= 0

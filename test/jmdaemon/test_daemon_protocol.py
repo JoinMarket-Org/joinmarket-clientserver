@@ -210,10 +210,10 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
     @JMRequestOffers.responder
     def on_JM_REQUEST_OFFERS(self):
         for o in t_orderbook:
-            #counterparty, oid, ordertype, minsize, maxsize,txfee, cjfee):
             self.on_order_seen(o["counterparty"], o["oid"], o["ordertype"],
                                  o["minsize"], o["maxsize"],
-                                 o["txfee"], o["cjfee"])
+                                 o["txfee"], o["cjfee"],
+                                 o["minimum_tx_fee_rate"])
         return super().on_JM_REQUEST_OFFERS()
 
     @JMInit.responder
@@ -228,7 +228,8 @@ class JMDaemonTestServerProtocol(JMDaemonServerProtocol):
         #note it must happen before callign set_msgchan for OrderbookWatch
         self.mcc.on_order_seen = None
         for c in [o['counterparty'] for o in t_orderbook]:
-            self.mcc.on_order_seen_trigger(mcs[0], c, "a", "b", "c", "d", "e", "f")
+            self.mcc.on_order_seen_trigger(mcs[0], c, "a", "b", "c", "d",
+                                           "e", "f", "g")
         OrderbookWatch.set_msgchan(self, self.mcc)
         #register taker-specific msgchan callbacks here
         self.mcc.register_taker_callbacks(self.on_error, self.on_pubkey,

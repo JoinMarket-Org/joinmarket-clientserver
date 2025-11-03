@@ -487,6 +487,11 @@ minsize = 100000
 # [fraction, 0-1] / variance around all offer sizes. Ex: 500k minsize, 0.1 var = 450k-550k
 size_factor = 0.1
 
+#
+minimum_tx_fee_rate = 1000
+
+gaplimit = 6
+
 [SNICKER]
 # Any other value than 'true' will be treated as False,
 # and no SNICKER actions will be enabled in that case:

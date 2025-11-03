@@ -122,6 +122,7 @@ def create_offerbook_table_heading(btc_unit, rel_unit):
                 col.format('txfee', 'Miner Fee Contribution / ' + btc_unit),
                 col.format('minsize', 'Minimum Size / ' + btc_unit),
                 col.format('maxsize', 'Maximum Size / ' + btc_unit),
+                col.format('minimum_tx_fee_rate', 'Minimum feerate (sat/vB)'),
                 col.format('bondvalue', 'Bond value / ' + btc_unit + '<sup>' + bond_exponent + '</sup>')
             ]) + ' </tr>'
     return tableheading
