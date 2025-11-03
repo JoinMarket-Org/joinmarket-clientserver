@@ -62,6 +62,18 @@ Alternative to this "quickstart": follow the [install guide](docs/INSTALL.md).
 * [Installation guide for Qubes+Whonix](https://github.com/qubenix/qubes-whonix-bitcoin/blob/master/1_joinmarket.md).
 * [Youtube video installation tutorial for Ubuntu](https://www.youtube.com/watch?v=zTCC86IUzWo).
 
+### Docker
+
+JoinMarket can be built and run using Docker. To build the Docker image:
+
+    docker build -t joinmarket .
+
+To run tests using Docker Compose:
+
+    docker compose up test
+
+This will run the full test suite in an isolated environment with all necessary dependencies including Bitcoin Core.
+
 ### Usage
 
 If you are new, follow and read the links in the [usage guide](docs/USAGE.md).
