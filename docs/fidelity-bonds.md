@@ -283,7 +283,7 @@ is highlighted with a prefix `fbonds-mpk-`.
 This master public key can be used to create a watch-only wallet using
 `wallet-tool.py`.
 
-    $ python3 wallet-tool.py createwatchonly fbonds-mpk-tpubDDCbCPdf5wJVGYWB4mZr3E3Lys4NBcEKysrrUrLfhG6sekmrvs6KZNe4i5p5z3FyfwRmKMqB9NWEcEUiTS4LwqfrKPQzhKj6aLihu2EejaU
+    $ python3 wallet-tool.py createfbwatchonly fbonds-mpk-tpubDDCbCPdf5wJVGYWB4mZr3E3Lys4NBcEKysrrUrLfhG6sekmrvs6KZNe4i5p5z3FyfwRmKMqB9NWEcEUiTS4LwqfrKPQzhKj6aLihu2EejaU
     Input wallet file name (default: watchonly.jmdat): watchfidelity.jmdat
     Enter wallet file encryption passphrase: 
     Reenter wallet file encryption passphrase: 
