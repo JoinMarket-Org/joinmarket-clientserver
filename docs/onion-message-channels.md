@@ -59,6 +59,7 @@ onion_serving_port = 8080
 # but NOT TO BE USED by non-directory nodes (which is you, unless
 # you know otherwise!), as it will greatly degrade your privacy.
 # (note the default is no value, don't replace it with "").
+# Use tor-managed: prefix to use Tor-managed hidden services.
 hidden_service_dir =
 #
 # This is a comma separated list (comma can be omitted if only one item).
@@ -155,9 +156,11 @@ Add a non-empty `hidden_service_dir` entry to your `[MESSAGING:onion]` with a di
 
 The hostname for your onion service will not change and will be stored permanently in that directory.
 
-The point to understand is: Joinmarket's `jmbase.JMHiddenService` will, if configured with a non-empty `hidden_service_dir`
-field, actually start an *independent* instance of Tor specifically for serving this, under the current user.
-(our Tor interface library `txtorcon` needs read access to the Tor HS dir, so it's troublesome to do this another way).
+There are two ways to configure a persistent hidden service:
+
+1. **txtorcon-managed** (default when `hidden_service_dir` is set to a path): Joinmarket's `jmbase.JMHiddenService` will manage the hidden service via the Tor control port. This requires control port access and will start an *independent* instance of Tor specifically for serving this, under the current user. (our Tor interface library `txtorcon` needs read access to the Tor HS dir, so it's troublesome to do this another way).
+
+2. **Tor-managed** (when `hidden_service_dir` is prefixed with `tor-managed:`): Tor manages the hidden service via its `torrc` configuration file. JoinMarket reads the hostname from the `hostname` file in the specified directory. This mode does not require Tor control port access. See [Tor configuration documentation](./tor.md) for setup instructions.
 
 #### Question: How to configure the `directory-nodes` list in our `joinmarket.cfg` for this directory node bot?
 
