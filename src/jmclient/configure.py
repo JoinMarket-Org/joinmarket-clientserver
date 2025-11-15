@@ -368,6 +368,13 @@ bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 # where x > 1. It is a real number (so written as a decimal).
 bond_value_exponent = 1.3
 
+# Maximum probability for a single maker to be included in a transaction. A value smaller
+# than 1 for tx_max_expected_probability constrains the probability of abnormally large
+# makers to be included in a transaction, by capping the value of their bonds as required
+# to reach this probability target.
+
+tx_max_expected_probability = 1.0
+
 ##############################
 # THE FOLLOWING SETTINGS ARE REQUIRED TO DEFEND AGAINST SNOOPERS.
 # DON'T ALTER THEM UNLESS YOU UNDERSTAND THE IMPLICATIONS.
