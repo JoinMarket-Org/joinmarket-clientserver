@@ -2,29 +2,47 @@
 # in bitcoin (p2wsh) but not exposed in python-bitcointx:
 import hashlib
 import json
+
 # note, only used for non-cryptographic randomness:
 import random
 from math import ceil
 from typing import List, Optional, Tuple, Union
 
-from bitcointx.core import (CMutableTransaction, CTxInWitness,
-                            CMutableOutPoint, CMutableTxIn, CTransaction,
-                            CMutableTxOut, CTxIn, CTxOut, ValidationError,
-                            CBitcoinTransaction)
+from bitcointx.core import (
+    CMutableTransaction,
+    CTxInWitness,
+    CMutableOutPoint,
+    CMutableTxIn,
+    CTransaction,
+    CMutableTxOut,
+    CTxIn,
+    CTxOut,
+    ValidationError,
+    CBitcoinTransaction,
+)
 from bitcointx.core.script import *
-from bitcointx.wallet import (P2WPKHCoinAddress, CCoinAddress, P2PKHCoinAddress,
-                              CCoinAddressError)
-from bitcointx.core.scripteval import (VerifyScript, SCRIPT_VERIFY_WITNESS,
-                                       SCRIPT_VERIFY_P2SH,
-                                       SCRIPT_VERIFY_STRICTENC,
-                                       SIGVERSION_WITNESS_V0)
+from bitcointx.wallet import (
+    P2WPKHCoinAddress,
+    CCoinAddress,
+    P2PKHCoinAddress,
+    CCoinAddressError,
+)
+from bitcointx.core.scripteval import (
+    VerifyScript,
+    SCRIPT_VERIFY_WITNESS,
+    SCRIPT_VERIFY_P2SH,
+    SCRIPT_VERIFY_STRICTENC,
+    SIGVERSION_WITNESS_V0,
+)
 
 from jmbase import bintohex, utxo_to_utxostr
 from jmbitcoin.secp256k1_main import *
 
 
-def human_readable_transaction(tx: CTransaction, jsonified: bool = True) -> str:
-    """ Given a CTransaction object, output a human
+def human_readable_transaction(
+    tx: CTransaction, jsonified: bool = True
+) -> str:
+    """Given a CTransaction object, output a human
     readable json-formatted string (suitable for terminal
     output or large GUI textbox display) containing
     all details of that transaction.
@@ -34,9 +52,9 @@ def human_readable_transaction(tx: CTransaction, jsonified: bool = True) -> str:
     assert isinstance(tx, CTransaction)
     outdict = {}
     outdict["hex"] = bintohex(tx.serialize())
-    outdict["inputs"]=[]
-    outdict["outputs"]=[]
-    outdict["txid"]= bintohex(tx.GetTxid()[::-1])
+    outdict["inputs"] = []
+    outdict["outputs"] = []
+    outdict["txid"] = bintohex(tx.GetTxid()[::-1])
     outdict["nLockTime"] = tx.nLockTime
     outdict["nVersion"] = tx.nVersion
     for i, inp in enumerate(tx.vin):
@@ -52,16 +70,19 @@ def human_readable_transaction(tx: CTransaction, jsonified: bool = True) -> str:
         return outdict
     return json.dumps(outdict, indent=4)
 
-def human_readable_input(txinput: CTxIn,
-                         txinput_witness: Optional[CTxInWitness]) -> dict:
-    """ Pass objects of type CTxIn and CTxInWitness (or None)
+
+def human_readable_input(
+    txinput: CTxIn, txinput_witness: Optional[CTxInWitness]
+) -> dict:
+    """Pass objects of type CTxIn and CTxInWitness (or None)
     and a dict of human-readable entries for this input
     is returned.
     """
     assert isinstance(txinput, CTxIn)
     outdict = {}
-    success, u = utxo_to_utxostr((txinput.prevout.hash[::-1],
-                                  txinput.prevout.n))
+    success, u = utxo_to_utxostr(
+        (txinput.prevout.hash[::-1], txinput.prevout.n)
+    )
     assert success
     outdict["outpoint"] = u
     outdict["scriptSig"] = bintohex(txinput.scriptSig)
@@ -69,11 +90,13 @@ def human_readable_input(txinput: CTxIn,
 
     if txinput_witness:
         outdict["witness"] = bintohex(
-            txinput_witness.scriptWitness.serialize())
+            txinput_witness.scriptWitness.serialize()
+        )
     return outdict
 
+
 def human_readable_output(txoutput: CTxOut) -> dict:
-    """ Returns a dict of human-readable entries
+    """Returns a dict of human-readable entries
     for this output.
     """
     assert isinstance(txoutput, CTxOut)
@@ -84,8 +107,9 @@ def human_readable_output(txoutput: CTxOut) -> dict:
         addr = CCoinAddress.from_scriptPubKey(txoutput.scriptPubKey)
         outdict["address"] = str(addr)
     except CCoinAddressError:
-        pass # non standard script
+        pass  # non standard script
     return outdict
+
 
 def there_is_one_segwit_input(input_types: List[str]) -> bool:
     # note that we need separate input types for
@@ -96,7 +120,10 @@ def there_is_one_segwit_input(input_types: List[str]) -> bool:
     # note that there is no support yet for paying *from* p2tr.
     return any(y in ["p2sh-p2wpkh", "p2wpkh", "p2wsh"] for y in input_types)
 
-def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
+
+def estimate_tx_size(
+    ins: List[str], outs: List[str]
+) -> Union[int, Tuple[int]]:
     '''Estimate transaction size.
     Both arguments `ins` and `outs` must be lists of script types,
     and they must be present in the keys of the dicts `inmults`,
@@ -134,10 +161,12 @@ def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
     # we should fix this soon, since it is desirable to be able to support
     # coinjoins with counterparties sending taproot, but note, JM coinjoins
     # do not allow non-standard (usually v0 segwit) inputs, anyway.
-    inmults = {"p2wsh": {"w": 1 + 72 + 43, "nw": 41},
-               "p2wpkh": {"w": 108, "nw": 41},
-               "p2sh-p2wpkh": {"w": 108, "nw": 64},
-               "p2pkh": {"w": 0, "nw": 148}}
+    inmults = {
+        "p2wsh": {"w": 1 + 72 + 43, "nw": 41},
+        "p2wpkh": {"w": 108, "nw": 41},
+        "p2sh-p2wpkh": {"w": 108, "nw": 64},
+        "p2pkh": {"w": 0, "nw": 148},
+    }
 
     # Notes: in outputs, there is only 1 'scripthash'
     # type for either segwit/nonsegwit (hence "p2sh-p2wpkh"
@@ -148,14 +177,16 @@ def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
     # note also there is no need to distinguish witness
     # here, outputs are always entirely nonwitness.
     # p2tr is also 32 byte hash with x01 instead of x00 version.
-    outmults = {"p2wsh": 43,
-               "p2wpkh": 31,
-               "p2sh-p2wpkh": 32,
-               "p2pkh": 34,
-               "p2tr": 43}
+    outmults = {
+        "p2wsh": 43,
+        "p2wpkh": 31,
+        "p2sh-p2wpkh": 32,
+        "p2pkh": 34,
+        "p2tr": 43,
+    }
 
     # nVersion, nLockTime, nins, nouts:
-    nwsize =  4 + 4 + 2
+    nwsize = 4 + 4 + 2
     wsize = 0
     tx_is_segwit = there_is_one_segwit_input(ins)
     if tx_is_segwit:
@@ -165,19 +196,22 @@ def estimate_tx_size(ins: List[str], outs: List[str]) -> Union[int, Tuple[int]]:
     for i in ins:
         if i not in inmults:
             raise NotImplementedError(
-            f"Script type not supported for transaction size estimation: {i}")
+                f"Script type not supported for transaction size estimation: {i}"
+            )
         inmult = inmults[i]
         nwsize += inmult["nw"]
         wsize += inmult["w"]
     for o in outs:
         if o not in outmults:
             raise NotImplementedError(
-            f"Script type not supported for transaction size estimation: {o}")
+                f"Script type not supported for transaction size estimation: {o}"
+            )
         nwsize += outmults[o]
 
     if not tx_is_segwit:
         return nwsize
     return (wsize, nwsize)
+
 
 def tx_vsize(tx: CTransaction) -> int:
     """
@@ -186,16 +220,19 @@ def tx_vsize(tx: CTransaction) -> int:
     raw_tx_size = len(tx.serialize())
     witness_size = len(tx.wit.serialize())
     non_witness_size = raw_tx_size - witness_size
-    return ceil(non_witness_size + .25 * witness_size)
+    return ceil(non_witness_size + 0.25 * witness_size)
 
-def pubkey_to_p2pkh_script(pub: bytes,
-                           require_compressed: bool = False) -> CScript:
+
+def pubkey_to_p2pkh_script(
+    pub: bytes, require_compressed: bool = False
+) -> CScript:
     """
     Given a pubkey in bytes, return a CScript
     representing the corresponding pay-to-pubkey-hash
     scriptPubKey.
     """
     return P2PKHCoinAddress.from_pubkey(pub).to_scriptPubKey()
+
 
 def pubkey_to_p2wpkh_script(pub: bytes) -> CScript:
     """
@@ -204,6 +241,7 @@ def pubkey_to_p2wpkh_script(pub: bytes) -> CScript:
     scriptPubKey.
     """
     return P2WPKHCoinAddress.from_pubkey(pub).to_scriptPubKey()
+
 
 def pubkey_to_p2sh_p2wpkh_script(pub: bytes) -> CScript:
     """
@@ -215,13 +253,18 @@ def pubkey_to_p2sh_p2wpkh_script(pub: bytes) -> CScript:
         raise Exception("Invalid pubkey")
     return pubkey_to_p2wpkh_script(pub).to_p2sh_scriptPubKey()
 
-def redeem_script_to_p2wsh_script(redeem_script: Union[bytes, CScript]) -> CScript:
-    """ Given redeem script of type CScript (or bytes)
+
+def redeem_script_to_p2wsh_script(
+    redeem_script: Union[bytes, CScript],
+) -> CScript:
+    """Given redeem script of type CScript (or bytes)
     returns the corresponding segwit v0 scriptPubKey as
     for the case pay-to-witness-scripthash.
     """
     return standard_witness_v0_scriptpubkey(
-        hashlib.sha256(redeem_script).digest())
+        hashlib.sha256(redeem_script).digest()
+    )
+
 
 def mk_freeze_script(pub: bytes, locktime: int) -> CScript:
     """
@@ -234,11 +277,13 @@ def mk_freeze_script(pub: bytes, locktime: int) -> CScript:
         raise TypeError("pubkey must be in bytes")
     if not is_valid_pubkey(pub, require_compressed=True):
         raise ValueError("not a valid public key")
-    return CScript([locktime, OP_CHECKLOCKTIMEVERIFY, OP_DROP, pub,
-                    OP_CHECKSIG])
+    return CScript(
+        [locktime, OP_CHECKLOCKTIMEVERIFY, OP_DROP, pub, OP_CHECKSIG]
+    )
+
 
 def mk_burn_script(data: bytes) -> CScript:
-    """ For a given bytestring (data),
+    """For a given bytestring (data),
     returns a scriptPubKey which is an OP_RETURN
     of that data.
     """
@@ -246,12 +291,15 @@ def mk_burn_script(data: bytes) -> CScript:
         raise TypeError("data must be in bytes")
     return CScript([OP_RETURN, data])
 
-def sign(tx: CMutableTransaction,
-         i: int,
-         priv: bytes,
-         hashcode: SIGHASH_Type = SIGHASH_ALL,
-         amount: Optional[int] = None,
-         native: bool = False) -> Tuple[Optional[bytes], str]:
+
+def sign(
+    tx: CMutableTransaction,
+    i: int,
+    priv: bytes,
+    hashcode: SIGHASH_Type = SIGHASH_ALL,
+    amount: Optional[int] = None,
+    native: bool = False,
+) -> Tuple[Optional[bytes], str]:
     """
     Given a transaction tx of type CMutableTransaction, an input index i,
     and a raw privkey in bytes, updates the CMutableTransaction to contain
@@ -279,14 +327,17 @@ def sign(tx: CMutableTransaction,
         input_scriptPubKey = pubkey_to_p2pkh_script(pub)
         sighash = SignatureHash(input_scriptPubKey, tx, i, hashcode)
         try:
-            sig = ecdsa_raw_sign(sighash, priv, rawmsg=True) + bytes([hashcode])
+            sig = ecdsa_raw_sign(sighash, priv, rawmsg=True) + bytes(
+                [hashcode]
+            )
         except Exception as e:
             return return_err(e)
         tx.vin[i].scriptSig = CScript([sig, pub])
         # Verify the signature worked.
         try:
-            VerifyScript(tx.vin[i].scriptSig,
-                        input_scriptPubKey, tx, i, flags=flags)
+            VerifyScript(
+                tx.vin[i].scriptSig, input_scriptPubKey, tx, i, flags=flags
+            )
         except Exception as e:
             return return_err(e)
         return sig, "signing succeeded"
@@ -306,14 +357,23 @@ def sign(tx: CMutableTransaction,
             input_scriptPubKey = pubkey_to_p2wpkh_script(pub)
             # only created for convenience access to scriptCode:
             input_address = P2WPKHCoinAddress.from_scriptPubKey(
-                input_scriptPubKey)
+                input_scriptPubKey
+            )
             # function name is misleading here; redeemScript only applies to p2sh.
             scriptCode = input_address.to_redeemScript()
 
-        sighash = SignatureHash(scriptCode, tx, i, hashcode, amount=amount,
-                                sigversion=SIGVERSION_WITNESS_V0)
+        sighash = SignatureHash(
+            scriptCode,
+            tx,
+            i,
+            hashcode,
+            amount=amount,
+            sigversion=SIGVERSION_WITNESS_V0,
+        )
         try:
-            sig = ecdsa_raw_sign(sighash, priv, rawmsg=True) + bytes([hashcode])
+            sig = ecdsa_raw_sign(sighash, priv, rawmsg=True) + bytes(
+                [hashcode]
+            )
         except Exception as e:
             return return_err(e)
         if not native:
@@ -328,18 +388,28 @@ def sign(tx: CMutableTransaction,
         tx.wit.vtxinwit[i] = ctxwitness
         # Verify the signature worked.
         try:
-            VerifyScript(tx.vin[i].scriptSig, input_scriptPubKey, tx, i,
-                     flags=flags, amount=amount, witness=tx.wit.vtxinwit[i].scriptWitness)
+            VerifyScript(
+                tx.vin[i].scriptSig,
+                input_scriptPubKey,
+                tx,
+                i,
+                flags=flags,
+                amount=amount,
+                witness=tx.wit.vtxinwit[i].scriptWitness,
+            )
         except ValidationError as e:
             return return_err(e)
 
         return sig, "signing succeeded"
 
-def mktx(ins: List[Tuple[bytes, int]],
-         outs: List[dict],
-         version: int = 1,
-         locktime: int = 0) -> CMutableTransaction:
-    """ Given a list of input tuples (txid(bytes), n(int)),
+
+def mktx(
+    ins: List[Tuple[bytes, int]],
+    outs: List[dict],
+    version: int = 1,
+    locktime: int = 0,
+) -> CMutableTransaction:
+    """Given a list of input tuples (txid(bytes), n(int)),
     and a list of outputs which are dicts with
     keys "address" (value should be *str* not CCoinAddress) (
     or alternately "script" (for nonstandard outputs, value
@@ -356,9 +426,9 @@ def mktx(ins: List[Tuple[bytes, int]],
     # Tx creators wishing to use rbf will need to set it explicitly outside
     # of this function.
     if locktime != 0:
-        sequence = 0xffffffff - 1
+        sequence = 0xFFFFFFFF - 1
     else:
-        sequence = 0xffffffff
+        sequence = 0xFFFFFFFF
     for i in ins:
         outpoint = CMutableOutPoint((i[0][::-1]), i[1])
         inp = CMutableTxIn(prevout=outpoint, nSequence=sequence)
@@ -374,11 +444,14 @@ def mktx(ins: List[Tuple[bytes, int]],
         vout.append(out)
     return CMutableTransaction(vin, vout, nLockTime=locktime, nVersion=version)
 
-def make_shuffled_tx(ins: List[Tuple[bytes, int]],
-                     outs: List[dict],
-                     version: int = 1,
-                     locktime: int = 0) -> CMutableTransaction:
-    """ Simple wrapper to ensure transaction
+
+def make_shuffled_tx(
+    ins: List[Tuple[bytes, int]],
+    outs: List[dict],
+    version: int = 1,
+    locktime: int = 0,
+) -> CMutableTransaction:
+    """Simple wrapper to ensure transaction
     inputs and outputs are randomly ordered.
     NB: This mutates ordering of `ins` and `outs`.
     """
@@ -386,26 +459,38 @@ def make_shuffled_tx(ins: List[Tuple[bytes, int]],
     random.shuffle(outs)
     return mktx(ins, outs, version=version, locktime=locktime)
 
-def verify_tx_input(tx: CTransaction,
-                    i: int,
-                    scriptSig: CScript,
-                    scriptPubKey: CScript,
-                    amount: Optional[int] = None,
-                    witness: Optional[CScriptWitness] = None) -> bool:
+
+def verify_tx_input(
+    tx: CTransaction,
+    i: int,
+    scriptSig: CScript,
+    scriptPubKey: CScript,
+    amount: Optional[int] = None,
+    witness: Optional[CScriptWitness] = None,
+) -> bool:
     flags = set([SCRIPT_VERIFY_STRICTENC])
     if witness:
         # https://github.com/Simplexum/python-bitcointx/blob/648ad8f45ff853bf9923c6498bfa0648b3d7bcbd/bitcointx/core/scripteval.py#L1250-L1252
         flags.add(SCRIPT_VERIFY_P2SH)
         flags.add(SCRIPT_VERIFY_WITNESS)
     try:
-        VerifyScript(scriptSig, scriptPubKey, tx, i,
-                 flags=flags, amount=amount, witness=witness)
+        VerifyScript(
+            scriptSig,
+            scriptPubKey,
+            tx,
+            i,
+            flags=flags,
+            amount=amount,
+            witness=witness,
+        )
     except ValidationError as e:
         return False
     return True
 
-def extract_witness(tx: CTransaction,
-                    i: int) -> Tuple[Optional[Tuple[CTxInWitness, ...]], str]:
+
+def extract_witness(
+    tx: CTransaction, i: int
+) -> Tuple[Optional[Tuple[CTxInWitness, ...]], str]:
     """Given `tx` of type CTransaction, extract,
     as a list of objects of type CScript, which constitute the
     witness at the index i, followed by "success".
@@ -423,9 +508,11 @@ def extract_witness(tx: CTransaction,
     witness = tx.wit.vtxinwit[i]
     return (witness, "success")
 
-def extract_pubkey_from_witness(tx: CTransaction,
-                                i: int) -> Tuple[Optional[CScriptWitness], str]:
-    """ Extract the pubkey used to sign at index i,
+
+def extract_pubkey_from_witness(
+    tx: CTransaction, i: int
+) -> Tuple[Optional[CScriptWitness], str]:
+    """Extract the pubkey used to sign at index i,
     in CTransaction tx, assuming it is of type p2wpkh
     (including wrapped segwit version).
     Returns (pubkey, "success") or (None, "errmsg").
@@ -441,14 +528,15 @@ def extract_pubkey_from_witness(tx: CTransaction,
             return None, "invalid pubkey in witness"
         return sWitness[1], "success"
 
+
 def get_equal_outs(tx: CTransaction) -> Optional[List[CTxOut]]:
-    """ If 2 or more transaction outputs have the same
+    """If 2 or more transaction outputs have the same
     bitcoin value, return then as a list of CTxOuts.
     If there is not exactly one equal output size, return False.
     """
     retval = []
     l = [x.nValue for x in tx.vout]
-    eos = [i for i in l if l.count(i)>=2]
+    eos = [i for i in l if l.count(i) >= 2]
     if len(eos) > 0:
         eos = set(eos)
         if len(eos) > 1:
@@ -459,10 +547,13 @@ def get_equal_outs(tx: CTransaction) -> Optional[List[CTxOut]]:
     assert len(retval) > 1
     return retval
 
-def is_jm_tx(tx: CBitcoinTransaction,
-             min_cj_amount: int = 75000,
-             min_participants: int = 3) -> Union[Tuple[bool, None], Tuple[int, int]]:
-    """ Identify Joinmarket-patterned transactions.
+
+def is_jm_tx(
+    tx: CBitcoinTransaction,
+    min_cj_amount: int = 75000,
+    min_participants: int = 3,
+) -> Union[Tuple[bool, None], Tuple[int, int]]:
+    """Identify Joinmarket-patterned transactions.
     TODO: this should be in another module.
     Given a CBitcoinTransaction tx, check:
     nins >= number of coinjoin outs (equal sized)
@@ -480,11 +571,12 @@ def is_jm_tx(tx: CBitcoinTransaction,
     (False, None) for non-matches
     (coinjoin amount, number of participants) for matches.
     """
+
     def assumed_cj_out_num(nout):
-        """Return the value ceil(nout/2)
-        """
-        x = nout//2
-        if nout %2: return x+1
+        """Return the value ceil(nout/2)"""
+        x = nout // 2
+        if nout % 2:
+            return x + 1
         return x
 
     def most_common_value(x):

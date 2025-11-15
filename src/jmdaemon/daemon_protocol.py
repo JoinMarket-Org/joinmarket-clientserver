@@ -2,24 +2,45 @@
 
 from .message_channel import MessageChannelCollection
 from .orderbookwatch import OrderbookWatch
-from .enc_wrapper import (as_init_encryption, init_keypair, init_pubkey,
-                          NaclError)
-from .protocol import (COMMAND_PREFIX, ORDER_KEYS, NICK_HASH_LENGTH,
-                       NICK_MAX_ENCODED, JM_VERSION, JOINMARKET_NICK_HEADER,
-                       COMMITMENT_PREFIXES)
+from .enc_wrapper import (
+    as_init_encryption,
+    init_keypair,
+    init_pubkey,
+    NaclError,
+)
+from .protocol import (
+    COMMAND_PREFIX,
+    ORDER_KEYS,
+    NICK_HASH_LENGTH,
+    NICK_MAX_ENCODED,
+    JM_VERSION,
+    JOINMARKET_NICK_HEADER,
+    COMMITMENT_PREFIXES,
+)
 
 from .irc import IRCMessageChannel
 from .onionmc import OnionMessageChannel
-from jmbase import (is_hs_uri, get_tor_agent, JMHiddenService,
-                    get_nontor_agent, BytesProducer, wrapped_urlparse,
-                    bdict_sdict_convert, JMHTTPResource)
+from jmbase import (
+    is_hs_uri,
+    get_tor_agent,
+    JMHiddenService,
+    get_nontor_agent,
+    BytesProducer,
+    wrapped_urlparse,
+    bdict_sdict_convert,
+    JMHTTPResource,
+)
 from jmbase.commands import *
 from twisted.protocols import amp
 from twisted.internet import reactor, ssl, task
 from twisted.internet.protocol import ServerFactory
-from twisted.internet.error import (ConnectionLost, ConnectionAborted,
-                                    ConnectionClosed, ConnectionDone,
-                                    ConnectionRefusedError)
+from twisted.internet.error import (
+    ConnectionLost,
+    ConnectionAborted,
+    ConnectionClosed,
+    ConnectionDone,
+    ConnectionRefusedError,
+)
 from twisted.web.http_headers import Headers
 from twisted.web.client import ResponseFailed, readBody
 from twisted.web import server
@@ -51,13 +72,16 @@ inbound callbacks trigger in the DaemonProtocol
 object.
 """
 
+
 def maker_only(func):
     @wraps(func)
     def func_wrapper(inst, *args, **kwargs):
         if inst.role == "MAKER":
             return func(inst, *args, **kwargs)
         return None
+
     return func_wrapper
+
 
 def taker_only(func):
     @wraps(func)
@@ -65,13 +89,18 @@ def taker_only(func):
         if inst.role == "TAKER":
             return func(inst, *args, **kwargs)
         return None
+
     return func_wrapper
+
 
 # the location of the file
 blacklist_location = None
+
+
 def set_blacklist_location(location):
     global blacklist_location
     blacklist_location = location
+
 
 def check_utxo_blacklist(commitment, persist=False):
     """Compare a given commitment with the persisted blacklist log file,
@@ -81,11 +110,13 @@ def check_utxo_blacklist(commitment, persist=False):
     else return True.
     If flagged, persist the usage of this commitment to the above file.
     """
-    #TODO format error checking?
+    # TODO format error checking?
     fname = blacklist_location
     if os.path.isfile(fname):
         with open(fname, "rb") as f:
-            blacklisted_commitments = [x.decode('ascii').strip() for x in f.readlines()]
+            blacklisted_commitments = [
+                x.decode('ascii').strip() for x in f.readlines()
+            ]
     else:
         blacklisted_commitments = []
     if commitment in blacklisted_commitments:
@@ -95,18 +126,19 @@ def check_utxo_blacklist(commitment, persist=False):
         with open(fname, "wb") as f:
             f.write('\n'.join(blacklisted_commitments).encode('ascii'))
             f.flush()
-    #If the commitment is new and we are *not* persisting, nothing to do
-    #(we only add it to the list on sending io_auth, which represents actual
-    #usage).
+    # If the commitment is new and we are *not* persisting, nothing to do
+    # (we only add it to the list on sending io_auth, which represents actual
+    # usage).
     return True
+
 
 class JMProtocolError(Exception):
     pass
 
-class BIP78ReceiverResource(JMHTTPResource):
 
+class BIP78ReceiverResource(JMHTTPResource):
     def __init__(self, info_callback, shutdown_callback, post_request_handler):
-        """ The POST request handling callback has function signature:
+        """The POST request handling callback has function signature:
         args: (request-body-content-in-bytes,)
         returns: (errormsg, errcode, httpcode, response-in-bytes)
         If the request was successful, errormsg should be true and response
@@ -115,8 +147,9 @@ class BIP78ReceiverResource(JMHTTPResource):
         self.post_request_handler = post_request_handler
         super().__init__(info_callback, shutdown_callback)
 
-    def bip78_error(self, request, error_meaning,
-                    error_code="unavailable", http_code=400):
+    def bip78_error(
+        self, request, error_meaning, error_code="unavailable", http_code=400
+    ):
         """
         See https://github.com/bitcoin/bips/blob/master/bip-0078.mediawiki#receivers-well-known-errors
 
@@ -124,21 +157,28 @@ class BIP78ReceiverResource(JMHTTPResource):
         """
         request.setResponseCode(http_code)
         request.setHeader(b"content-type", b"text/html; charset=utf-8")
-        print("Returning an error: " + str(
-            error_code) + ": " + str(error_meaning))
+        print(
+            "Returning an error: "
+            + str(error_code)
+            + ": "
+            + str(error_meaning)
+        )
         if error_code in ["original-psbt-rejected", "version-unsupported"]:
             # if there is a negotiation failure in the first step, we cannot
             # know whether the sender client sent a valid non-payjoin or not,
             # hence the warning below is somewhat ambiguous:
-            print("Negotiation failure. Payment has not yet been made,"
-                     " check wallet.")
+            print(
+                "Negotiation failure. Payment has not yet been made,"
+                " check wallet."
+            )
             # shutdown now but wait until response is sent.
             task.deferLater(reactor, 2.0, self.end_failure)
-        return json.dumps({"errorCode": error_code,
-                           "message": error_meaning}).encode("utf-8")
+        return json.dumps(
+            {"errorCode": error_code, "message": error_meaning}
+        ).encode("utf-8")
 
     def render_POST(self, request):
-        """ The sender will use POST to send the initial
+        """The sender will use POST to send the initial
         payment transaction.
         """
         print("The server got this POST request: ")
@@ -153,11 +193,17 @@ class BIP78ReceiverResource(JMHTTPResource):
         # defer logging of raw request content:
         proposed_tx = request.content
         if not isinstance(proposed_tx, BytesIO):
-            return self.bip78_error(request, "invalid psbt format",
-                                    "original-psbt-rejected")
+            return self.bip78_error(
+                request, "invalid psbt format", "original-psbt-rejected"
+            )
         payment_psbt_base64 = proposed_tx.read().decode("utf-8")
-        reactor.callLater(0.0, self.post_request_handler, request,
-                      payment_psbt_base64, sender_parameters)
+        reactor.callLater(
+            0.0,
+            self.post_request_handler,
+            request,
+            payment_psbt_base64,
+            sender_parameters,
+        )
         return server.NOT_DONE_YET
 
     def end_failure(self):
@@ -166,13 +212,13 @@ class BIP78ReceiverResource(JMHTTPResource):
 
 
 class HTTPPassThrough(amp.AMP):
-    """ This class supports passing through
+    """This class supports passing through
     requests over HTTPS or over a socks proxy to a remote
     onion service, or multiple.
     """
 
     def on_INIT(self, netconfig):
-        """ The network config must be passed in json
+        """The network config must be passed in json
         and contains these fields:
         socks5_host
         socks5_proxy
@@ -184,8 +230,9 @@ class HTTPPassThrough(amp.AMP):
         self.socks5_host = netconfig["socks5_host"]
         self.socks5_port = int(netconfig["socks5_port"])
         self.servers = [a for a in netconfig["servers"] if a != ""]
-        self.tls_whitelist = [a for a in netconfig["tls_whitelist"].split(
-            ",") if a != ""]
+        self.tls_whitelist = [
+            a for a in netconfig["tls_whitelist"].split(",") if a != ""
+        ]
 
     def getAgentDestination(self, server, params=None):
         tor_url_data = is_hs_uri(server)
@@ -211,7 +258,7 @@ class HTTPPassThrough(amp.AMP):
         return Headers({"Content-Type": ["text/plain"]})
 
     def getRequest(self, server, success_callback, url=None, headers=None):
-        """ Make GET request to server server, if response received OK,
+        """Make GET request to server server, if response received OK,
         passed to success_callback, which must have function signature
         (response, server).
         """
@@ -224,38 +271,58 @@ class HTTPPassThrough(amp.AMP):
         headers = self.getDefaultHeaders() if not headers else headers
         d = agent.request(b"GET", destination_url, headers)
         d.addCallback(success_callback, server)
+
         # note that the errback (here "noResponse") is *not* triggered
         # by a server rejection (which is accompanied by a non-200
         # status code returned), but by failure to communicate.
         def noResponse(failure):
-            failure.trap(ResponseFailed, ConnectionRefusedError,
-                         HostUnreachableError, ConnectionLost)
+            failure.trap(
+                ResponseFailed,
+                ConnectionRefusedError,
+                HostUnreachableError,
+                ConnectionLost,
+            )
             log.msg(failure.value)
+
         d.addErrback(noResponse)
 
-    def postRequest(self, body, server, success_callback,
-                    url=None, params=None, headers=None):
-        """ Pass body of post request as string, will be encoded here.
-        """
-        agent, destination_url = self.getAgentDestination(server,
-                                                    params=params)
+    def postRequest(
+        self,
+        body,
+        server,
+        success_callback,
+        url=None,
+        params=None,
+        headers=None,
+    ):
+        """Pass body of post request as string, will be encoded here."""
+        agent, destination_url = self.getAgentDestination(
+            server, params=params
+        )
         if url:
             destination_url = destination_url + url
         body = BytesProducer(body.encode("utf-8"))
         headers = self.getDefaultHeaders() if not headers else headers
-        d = agent.request(b"POST", destination_url,
-            headers, bodyProducer=body)
+        d = agent.request(b"POST", destination_url, headers, bodyProducer=body)
         d.addCallback(success_callback, server)
+
         # note that the errback (here "noResponse") is *not* triggered
         # by a server rejection (which is accompanied by a non-200
         # status code returned), but by failure to communicate.
         def noResponse(failure):
-            failure.trap(ResponseFailed, ConnectionRefusedError,
-                         HostUnreachableError, ConnectionLost)
+            failure.trap(
+                ResponseFailed,
+                ConnectionRefusedError,
+                HostUnreachableError,
+                ConnectionLost,
+            )
             log.msg(failure.value)
-            self.callRemote(BIP78SenderReceiveError,
-                            errormsg="failure to connect",
-                            errorcode=10000)
+            self.callRemote(
+                BIP78SenderReceiveError,
+                errormsg="failure to connect",
+                errorcode=10000,
+            )
+
         d.addErrback(noResponse)
 
     def checkClientResponse(self, response):
@@ -263,17 +330,18 @@ class HTTPPassThrough(amp.AMP):
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop() #pragma: no cover
+            reactor.stop()  # pragma: no cover
 
     def defaultErrback(self, failure):
-        """TODO better network error handling.
-        """
-        failure.trap(ConnectionAborted, ConnectionClosed,
-                     ConnectionDone, ConnectionLost)
+        """TODO better network error handling."""
+        failure.trap(
+            ConnectionAborted, ConnectionClosed, ConnectionDone, ConnectionLost
+        )
 
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
         d.addErrback(self.defaultErrback)
+
 
 class BIP78ServerProtocol(HTTPPassThrough):
     @BIP78ReceiverInit.responder
@@ -281,20 +349,24 @@ class BIP78ServerProtocol(HTTPPassThrough):
         self.serving_port = int(netconfig["port"])
         self.tor_control_host = netconfig["tor_control_host"]
         self.tor_control_port = int(netconfig["tor_control_port"])
-        self.onion_serving_host=netconfig["onion_serving_host"]
-        self.onion_serving_port=int(netconfig["onion_serving_port"])
-        self.bip78_rr = BIP78ReceiverResource(self.info_callback,
-                                              self.shutdown_callback,
-                                              self.post_request_handler)
-        self.hs = JMHiddenService(self.bip78_rr,
-                                  self.info_callback,
-                                  self.setup_error_callback,
-                                  self.onion_hostname_callback,
-                                  self.tor_control_host,
-                                  self.tor_control_port,
-                                  self.onion_serving_host,
-                                  self.onion_serving_port,
-                                  shutdown_callback=self.shutdown_callback)
+        self.onion_serving_host = netconfig["onion_serving_host"]
+        self.onion_serving_port = int(netconfig["onion_serving_port"])
+        self.bip78_rr = BIP78ReceiverResource(
+            self.info_callback,
+            self.shutdown_callback,
+            self.post_request_handler,
+        )
+        self.hs = JMHiddenService(
+            self.bip78_rr,
+            self.info_callback,
+            self.setup_error_callback,
+            self.onion_hostname_callback,
+            self.tor_control_host,
+            self.tor_control_port,
+            self.onion_serving_host,
+            self.onion_serving_port,
+            shutdown_callback=self.shutdown_callback,
+        )
         # this call will start bringing up the HS; when it's finished,
         # it will fire the `onion_hostname_callback`, or if it fails,
         # it'll fire the `setup_error_callback`.
@@ -302,8 +374,7 @@ class BIP78ServerProtocol(HTTPPassThrough):
         return {"accepted": True}
 
     def setup_error_callback(self, errormsg):
-        d = self.callRemote(BIP78ReceiverOnionSetupFailed,
-                            reason=errormsg)
+        d = self.callRemote(BIP78ReceiverOnionSetupFailed, reason=errormsg)
         self.defaultCallbacks(d)
 
     def shutdown_callback(self):
@@ -311,7 +382,7 @@ class BIP78ServerProtocol(HTTPPassThrough):
         self.defaultCallbacks(d)
 
     def info_callback(self, msg):
-        """ Informational messages are all passed
+        """Informational messages are all passed
         to the client. TODO makes sense to log locally
         too, in case daemon is isolated?.
         """
@@ -319,36 +390,38 @@ class BIP78ServerProtocol(HTTPPassThrough):
         self.defaultCallbacks(d)
 
     def onion_hostname_callback(self, hostname):
-        """ On successful start of HS, we pass hostname
+        """On successful start of HS, we pass hostname
         to client, who can use this to build the full URI.
         """
-        d = self.callRemote(BIP78ReceiverUp,
-                            hostname=hostname)
+        d = self.callRemote(BIP78ReceiverUp, hostname=hostname)
         self.defaultCallbacks(d)
 
     def post_request_handler(self, request, body, params):
-        """ Fired when a sender has sent a POST request
+        """Fired when a sender has sent a POST request
         to our hidden service. Argument `body` should be a base64
         string and params should be a dict.
         """
         self.post_request = request
-        d = self.callRemote(BIP78ReceiverOriginalPSBT, body=body,
-                            params=bdict_sdict_convert(params))
+        d = self.callRemote(
+            BIP78ReceiverOriginalPSBT,
+            body=body,
+            params=bdict_sdict_convert(params),
+        )
         self.defaultCallbacks(d)
 
     @BIP78ReceiverSendProposal.responder
     def on_BIP78_RECEIVER_SEND_PROPOSAL(self, psbt):
         content = psbt.encode("utf-8")
-        self.post_request.setHeader(b"content-length",
-                        ("%d" % len(content)))
+        self.post_request.setHeader(b"content-length", ("%d" % len(content)))
         self.post_request.write(content)
         self.post_request.finish()
         return {"accepted": True}
 
     @BIP78ReceiverSendError.responder
     def on_BIP78_RECEIVER_SEND_ERROR(self, errormsg, errorcode):
-        self.post_request.write(self.bip78_rr.bip78_error(
-            self.post_request, errormsg, errorcode))
+        self.post_request.write(
+            self.bip78_rr.bip78_error(self.post_request, errormsg, errorcode)
+        )
         self.post_request.finish()
         return {"accepted": True}
 
@@ -361,10 +434,13 @@ class BIP78ServerProtocol(HTTPPassThrough):
 
     @BIP78SenderOriginalPSBT.responder
     def on_BIP78_SENDER_ORIGINAL_PSBT(self, body, params):
-        self.postRequest(body, self.servers[0],
-                         self.bip78_receiver_response,
-                         params=params,
-                         headers=Headers({"Content-Type": ["text/plain"]}))
+        self.postRequest(
+            body,
+            self.servers[0],
+            self.bip78_receiver_response,
+            params=params,
+            headers=Headers({"Content-Type": ["text/plain"]}),
+        )
         return {"accepted": True}
 
     def bip78_receiver_response(self, response, server):
@@ -377,21 +453,24 @@ class BIP78ServerProtocol(HTTPPassThrough):
         d.addCallback(self.process_receiver_psbt)
 
     def process_receiver_errormsg(self, response, errorcode):
-        d = self.callRemote(BIP78SenderReceiveError,
-                            errormsg=response.decode("utf-8"),
-                            errorcode=errorcode)
+        d = self.callRemote(
+            BIP78SenderReceiveError,
+            errormsg=response.decode("utf-8"),
+            errorcode=errorcode,
+        )
         self.defaultCallbacks(d)
 
     def process_receiver_psbt(self, response):
-        d = self.callRemote(BIP78SenderReceiveProposal,
-                            psbt=response.decode("utf-8"))
+        d = self.callRemote(
+            BIP78SenderReceiveProposal, psbt=response.decode("utf-8")
+        )
         self.defaultCallbacks(d)
 
-class SNICKERDaemonServerProtocol(HTTPPassThrough):
 
+class SNICKERDaemonServerProtocol(HTTPPassThrough):
     @SNICKERProposerPostProposals.responder
     def on_SNICKER_PROPOSER_POST_PROPOSALS(self, proposals, server):
-        """ Receives a list of proposals to be posted to a specific
+        """Receives a list of proposals to be posted to a specific
         server.
         """
         self.postRequest(proposals, server, self.receive_proposals_response)
@@ -401,8 +480,9 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
         d = readBody(response)
         if int(response.code) != 200:
             log.msg("Server returned error code: " + str(response.code))
-            d = self.callRemote(SNICKERServerError, server=server,
-                                               errorcode=response.code)
+            d = self.callRemote(
+                SNICKERServerError, server=server, errorcode=response.code
+            )
             self.defaultCallbacks(d)
             return
         d.addCallback(self.process_proposals_response_from_server, server)
@@ -428,14 +508,13 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
         return {'accepted': True}
 
     def receive_proposals_from_server(self, response, server):
-        """ Parses the response from one server.
-        """
+        """Parses the response from one server."""
         # if the response code is not 200 OK, we must let the client
         # know that this server is not responding as expected.
         if int(response.code) != 200:
-            d = self.callRemote(SNICKERServerError,
-                                server=server,
-                                errorcode = response.code)
+            d = self.callRemote(
+                SNICKERServerError, server=server, errorcode=response.code
+            )
             self.defaultCallbacks(d)
             return
         d = readBody(response)
@@ -443,8 +522,7 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
 
     @SNICKERRequestPowTarget.responder
     def on_SNICKER_REQUEST_POW_TARGET(self, server):
-        self.getRequest(server, self.receive_pow_target,
-                        url=b"/target")
+        self.getRequest(server, self.receive_pow_target, url=b"/target")
         return {"accepted": True}
 
     def receive_pow_target(self, response, server):
@@ -452,32 +530,38 @@ class SNICKERDaemonServerProtocol(HTTPPassThrough):
         d.addCallback(self.process_pow_target, server)
 
     def process_pow_target(self, response_body, server):
-        d = self.callRemote(SNICKERReceivePowTarget,
-                            server=server,
-                            targetbits=int(response_body.decode("utf-8")))
+        d = self.callRemote(
+            SNICKERReceivePowTarget,
+            server=server,
+            targetbits=int(response_body.decode("utf-8")),
+        )
         self.defaultCallbacks(d)
 
     def process_proposals_from_server(self, response, server):
-        d = self.callRemote(SNICKERReceiverProposals,
-                            proposals=response.decode("utf-8"),
-                            server=server)
+        d = self.callRemote(
+            SNICKERReceiverProposals,
+            proposals=response.decode("utf-8"),
+            server=server,
+        )
         self.defaultCallbacks(d)
 
     def process_proposals_response_from_server(self, response_body, server):
-        d = self.callRemote(SNICKERProposalsServerResponse,
-                            response=response_body.decode("utf-8"),
-                            server=server)
+        d = self.callRemote(
+            SNICKERProposalsServerResponse,
+            response=response_body.decode("utf-8"),
+            server=server,
+        )
         self.defaultCallbacks(d)
 
-class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
+class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     def __init__(self, factory):
         self.factory = factory
         self.jm_state = 0
         self.restart_mc_required = False
         self.chan_configs = None
         self.mcc = None
-        #Default role is TAKER; must be overriden to MAKER in JMSetup message.
+        # Default role is TAKER; must be overriden to MAKER in JMSetup message.
         self.role = "TAKER"
         self.crypto_boxes = {}
         self.sig_lock = threading.Lock()
@@ -491,21 +575,29 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         is considered criticial.
         """
         if 'accepted' not in response or not response['accepted']:
-            reactor.stop() #pragma: no cover
+            reactor.stop()  # pragma: no cover
 
     def defaultErrback(self, failure):
-        """TODO better network error handling.
-        """
-        failure.trap(ConnectionAborted, ConnectionClosed,
-                     ConnectionDone, ConnectionLost)
+        """TODO better network error handling."""
+        failure.trap(
+            ConnectionAborted, ConnectionClosed, ConnectionDone, ConnectionLost
+        )
 
     def defaultCallbacks(self, d):
         d.addCallback(self.checkClientResponse)
         d.addErrback(self.defaultErrback)
 
     @JMInit.responder
-    def on_JM_INIT(self, bcsource, network, chan_configs, minmakers,
-                   maker_timeout_sec, dust_threshold, blacklist_location):
+    def on_JM_INIT(
+        self,
+        bcsource,
+        network,
+        chan_configs,
+        minmakers,
+        maker_timeout_sec,
+        dust_threshold,
+        blacklist_location,
+    ):
         """Reads in required configuration from client for a new
         session; feeds back joinmarket messaging protocol constants
         (required for nick creation).
@@ -516,15 +608,17 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.minmakers = minmakers
         set_blacklist_location(blacklist_location)
         self.dust_threshold = int(dust_threshold)
-        #(bitcoin) network only referenced in channel name construction
+        # (bitcoin) network only referenced in channel name construction
         self.network = network
         if chan_configs == self.chan_configs:
             self.restart_mc_required = False
-            log.msg("New init received did not require a new message channel"
-                    " setup.")
+            log.msg(
+                "New init received did not require a new message channel"
+                " setup."
+            )
         else:
             if self.chan_configs:
-                #close the existing connections
+                # close the existing connections
                 self.mc_shutdown()
             self.chan_configs = chan_configs
             self.restart_mc_required = True
@@ -534,27 +628,34 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                     mcs.append(OnionMessageChannel(c, daemon=self))
                 else:
                     # default is IRC; TODO allow others
-                    mcs.append(IRCMessageChannel(c,
-                                                 daemon=self,
-                                                 realname='btcint=' + bcsource))
+                    mcs.append(
+                        IRCMessageChannel(
+                            c, daemon=self, realname='btcint=' + bcsource
+                        )
+                    )
             self.mcc = MessageChannelCollection(mcs)
             OrderbookWatch.set_msgchan(self, self.mcc)
-            #register taker-specific msgchan callbacks here
-            self.mcc.register_taker_callbacks(self.on_error, self.on_pubkey,
-                                              self.on_ioauth, self.on_sig)
-            self.mcc.register_maker_callbacks(self.on_orderbook_requested,
-                                              self.on_order_fill,
-                                              self.on_seen_auth,
-                                              self.on_seen_tx,
-                                              self.on_push_tx,
-                                              self.on_commitment_seen,
-                                              self.on_commitment_transferred)
+            # register taker-specific msgchan callbacks here
+            self.mcc.register_taker_callbacks(
+                self.on_error, self.on_pubkey, self.on_ioauth, self.on_sig
+            )
+            self.mcc.register_maker_callbacks(
+                self.on_orderbook_requested,
+                self.on_order_fill,
+                self.on_seen_auth,
+                self.on_seen_tx,
+                self.on_push_tx,
+                self.on_commitment_seen,
+                self.on_commitment_transferred,
+            )
             self.mcc.set_daemon(self)
-        d = self.callRemote(JMInitProto,
-                            nick_hash_length=NICK_HASH_LENGTH,
-                            nick_max_encoded=NICK_MAX_ENCODED,
-                            joinmarket_nick_header=JOINMARKET_NICK_HEADER,
-                            joinmarket_version=JM_VERSION)
+        d = self.callRemote(
+            JMInitProto,
+            nick_hash_length=NICK_HASH_LENGTH,
+            nick_max_encoded=NICK_MAX_ENCODED,
+            joinmarket_nick_header=JOINMARKET_NICK_HEADER,
+            joinmarket_version=JM_VERSION,
+        )
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -575,10 +676,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.kp = init_keypair()
         d = self.callRemote(JMSetupDone)
         self.defaultCallbacks(d)
-        #Request orderbook here, on explicit setup request from client,
-        #assumes messagechannels are in "up" state. Orders are read
-        #in the callback on_order_seen in OrderbookWatch.
-        #TODO: pubmsg should not (usually?) fire if already up from previous run.
+        # Request orderbook here, on explicit setup request from client,
+        # assumes messagechannels are in "up" state. Orders are read
+        # in the callback on_order_seen in OrderbookWatch.
+        # TODO: pubmsg should not (usually?) fire if already up from previous run.
         if self.role == "TAKER":
             self.mcc.pubmsg(COMMAND_PREFIX + "orderbook")
         elif self.role == "MAKER":
@@ -622,10 +723,17 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         fidelitybonds = [fb for fb in fbond_rows]
         string_fidelitybonds = json.dumps(fidelitybonds)
 
-        log.msg("About to send orderbook (size=" + str(len(self.orderbook))
-            + " with fidelity bonds (size=" + str(len(fidelitybonds)))
-        d = self.callRemote(JMOffers, orderbook=string_orderbook,
-            fidelitybonds=string_fidelitybonds)
+        log.msg(
+            "About to send orderbook (size="
+            + str(len(self.orderbook))
+            + " with fidelity bonds (size="
+            + str(len(fidelitybonds))
+        )
+        d = self.callRemote(
+            JMOffers,
+            orderbook=string_orderbook,
+            fidelitybonds=string_fidelitybonds,
+        )
         self.defaultCallbacks(d)
         return {'accepted': True}
 
@@ -639,12 +747,18 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.cjamount = amount
         self.commitment = commitment
         self.revelation = revelation
-        #Reset utxo data to null for this new transaction
+        # Reset utxo data to null for this new transaction
         self.ioauth_data = {}
         self.active_orders = filled_offers
         for nick, offer_dict in self.active_orders.items():
-            offer_fill_msg = " ".join([str(offer_dict["oid"]), str(amount),
-                self.kp.hex_pk().decode('ascii'), str(commitment)])
+            offer_fill_msg = " ".join(
+                [
+                    str(offer_dict["oid"]),
+                    str(amount),
+                    self.kp.hex_pk().decode('ascii'),
+                    str(commitment),
+                ]
+            )
             self.mcc.prepare_privmsg(nick, "fill", offer_fill_msg)
         reactor.callLater(self.maker_timeout_sec, self.completeStage1)
         self.jm_state = 2
@@ -691,7 +805,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         return {"accepted": True}
 
     @JMIOAuth.responder
-    def on_JM_IOAUTH(self, nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig):
+    def on_JM_IOAUTH(
+        self, nick, utxolist, pubkey, cjaddr, changeaddr, pubkeysig
+    ):
         """Daemon constructs full !ioauth message to be sent on message
         channel based on data from Maker. Relevant data (utxos, addresses)
         are stored in the active_orders dict keyed by the nick of the Taker.
@@ -700,20 +816,23 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             return
         if nick not in self.active_orders:
             return
-        #completed population of order/offer object
+        # completed population of order/offer object
         self.active_orders[nick]["cjaddr"] = cjaddr
         self.active_orders[nick]["changeaddr"] = changeaddr
         self.active_orders[nick]["utxos"] = utxolist
-        msg = str(",".join(utxolist)) + " " + " ".join(
-            [pubkey, cjaddr, changeaddr, pubkeysig])
+        msg = (
+            str(",".join(utxolist))
+            + " "
+            + " ".join([pubkey, cjaddr, changeaddr, pubkeysig])
+        )
         self.mcc.prepare_privmsg(nick, "ioauth", msg)
-        #In case of *blacklisted (ie already used) commitments, we already
-        #broadcasted them on receipt; in case of valid, and now used commitments,
-        #we broadcast them here, and not early - to avoid accidentally
-        #blacklisting commitments that are broadcast between makers in real time
-        #for the same transaction.
+        # In case of *blacklisted (ie already used) commitments, we already
+        # broadcasted them on receipt; in case of valid, and now used commitments,
+        # we broadcast them here, and not early - to avoid accidentally
+        # blacklisting commitments that are broadcast between makers in real time
+        # for the same transaction.
         self.transfer_commitment(self.active_orders[nick]["commit"])
-        #now persist the fact that the commitment is actually used.
+        # now persist the fact that the commitment is actually used.
         check_utxo_blacklist(self.active_orders[nick]["commit"], persist=True)
         return {"accepted": True}
 
@@ -732,25 +851,26 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     """
 
     def on_welcome(self):
-        """Fired when channel indicated state readiness
-        """
+        """Fired when channel indicated state readiness"""
         d = self.callRemote(JMUp)
         self.defaultCallbacks(d)
 
     @maker_only
     def on_orderbook_requested(self, nick, mc=None):
-        """Dealt with by daemon, assuming offerlist is up to date
-        """
+        """Dealt with by daemon, assuming offerlist is up to date"""
         if self.use_fidelity_bond:
             taker_nick = nick
             maker_nick = self.mcc.nick
-            d = self.callRemote(JMFidelityBondProofRequest,
+            d = self.callRemote(
+                JMFidelityBondProofRequest,
                 takernick=taker_nick,
-                makernick=maker_nick)
+                makernick=maker_nick,
+            )
             self.defaultCallbacks(d)
         else:
-            self.mcc.announce_orders(self.offerlist, nick, fidelity_bond_proof_msg=None,
-                new_mc=mc)
+            self.mcc.announce_orders(
+                self.offerlist, nick, fidelity_bond_proof_msg=None, new_mc=mc
+            )
 
     @maker_only
     def on_order_fill(self, nick, oid, amount, taker_pk, commit):
@@ -769,16 +889,19 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if nick in self.active_orders:
             log.msg("Restarting transaction for nick: " + nick)
         if not commit[0] in COMMITMENT_PREFIXES:
-            self.mcc.send_error(nick,
-                                "Unsupported commitment type: " + str(commit[0]))
+            self.mcc.send_error(
+                nick, "Unsupported commitment type: " + str(commit[0])
+            )
             return
         scommit = commit[1:]
         if not check_utxo_blacklist(scommit):
             log.msg("Taker utxo commitment is blacklisted, rejecting.")
-            self.mcc.send_error(nick, "Commitment is blacklisted: " + str(scommit))
-            #Note that broadcast is happening here to reflect an already
-            #consumed commitment; it can also be broadcast separately (earlier) on
-            #valid usage
+            self.mcc.send_error(
+                nick, "Commitment is blacklisted: " + str(scommit)
+            )
+            # Note that broadcast is happening here to reflect an already
+            # consumed commitment; it can also be broadcast separately (earlier) on
+            # valid usage
             self.transfer_commitment(scommit)
             return
         offer_s = [o for o in self.offerlist if o['oid'] == oid]
@@ -789,7 +912,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if amount < offer['minsize'] or amount > offer['maxsize']:
             self.mcc.send_error(nick, 'amount out of range')
             return
-        #prepare a pubkey for this valid transaction
+        # prepare a pubkey for this valid transaction
         kp = init_keypair()
         try:
             crypto_box = as_init_encryption(kp, init_pubkey(taker_pk))
@@ -797,14 +920,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             log.msg("Unable to set up cryptobox with counterparty: " + repr(e))
             self.mcc.send_error(nick, "Invalid nacl pubkey: " + taker_pk)
             return
-        #Note this sets the *whole* dict, old entries (e.g. changeaddr)
-        #are removed, so we can't have a conflict between old and new
-        #versions of active_orders[nick]
-        self.active_orders[nick] = {"crypto_box": crypto_box,
-                                        "kp": kp,
-                                        "offer": offer,
-                                        "amount": amount,
-                                        "commit": scommit}
+        # Note this sets the *whole* dict, old entries (e.g. changeaddr)
+        # are removed, so we can't have a conflict between old and new
+        # versions of active_orders[nick]
+        self.active_orders[nick] = {
+            "crypto_box": crypto_box,
+            "kp": kp,
+            "offer": offer,
+            "amount": amount,
+            "commit": scommit,
+        }
         self.mcc.prepare_privmsg(nick, "pubkey", kp.hex_pk().decode('ascii'))
 
     @maker_only
@@ -817,14 +942,16 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if nick not in self.active_orders:
             return
         ao = self.active_orders[nick]
-        #ask the client to validate the commitment and prepare the utxo data
-        d = self.callRemote(JMAuthReceived,
-                            nick=nick,
-                            offer=ao["offer"],
-                            commitment=ao["commit"],
-                            revelation=commitment_revelation,
-                            amount=ao["amount"],
-                            kphex=ao["kp"].hex_pk().decode('ascii'))
+        # ask the client to validate the commitment and prepare the utxo data
+        d = self.callRemote(
+            JMAuthReceived,
+            nick=nick,
+            offer=ao["offer"],
+            commitment=ao["commit"],
+            revelation=commitment_revelation,
+            amount=ao["amount"],
+            kphex=ao["kp"].hex_pk().decode('ascii'),
+        )
         self.defaultCallbacks(d)
 
     @maker_only
@@ -832,10 +959,13 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """Triggered when we see a commitment for blacklisting
         appear in the public pit channel.
         """
-        #just add if necessary, ignore return value.
+        # just add if necessary, ignore return value.
         check_utxo_blacklist(commitment, persist=True)
-        log.msg("Received commitment broadcast by other maker: " + str(
-            commitment) + ", now blacklisted.")
+        log.msg(
+            "Received commitment broadcast by other maker: "
+            + str(commitment)
+            + ", now blacklisted."
+        )
 
     @maker_only
     def on_commitment_transferred(self, nick, commitment):
@@ -848,8 +978,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
 
     @maker_only
     def on_push_tx(self, nick, tx):
-        """Broadcast unquestioningly
-        """
+        """Broadcast unquestioningly"""
         d = self.callRemote(JMTXBroadcast, tx=tx)
         self.defaultCallbacks(d)
 
@@ -860,8 +989,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         if nick not in self.active_orders:
             return
-        #we send a copy of the entire "active_orders" entry except the cryptobox,
-        #so make a temporary copy
+        # we send a copy of the entire "active_orders" entry except the cryptobox,
+        # so make a temporary copy
         ao = copy.deepcopy(self.active_orders[nick])
         del ao["crypto_box"]
         del ao["kp"]
@@ -877,8 +1006,10 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             log.msg("Counterparty not part of this transaction. Ignoring")
             return
         try:
-            self.crypto_boxes[nick] = [maker_pk, as_init_encryption(
-                self.kp, init_pubkey(maker_pk))]
+            self.crypto_boxes[nick] = [
+                maker_pk,
+                as_init_encryption(self.kp, init_pubkey(maker_pk)),
+            ]
         except NaclError as e:
             print("Unable to setup crypto box with " + nick + ": " + repr(e))
             self.mcc.send_error(nick, "invalid nacl pubkey: " + maker_pk)
@@ -886,8 +1017,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         self.mcc.prepare_privmsg(nick, "auth", str(self.revelation))
 
     @taker_only
-    def on_ioauth(self, nick, utxo_list, auth_pub, cj_addr, change_addr,
-                  btc_sig):
+    def on_ioauth(
+        self, nick, utxo_list, auth_pub, cj_addr, change_addr, btc_sig
+    ):
         """Passes through to Taker the information from counterparties once
         they've all been received; note that we must also pass back the maker_pk
         so it can be verified against the btc-sigs for anti-MITM
@@ -895,16 +1027,21 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         if nick not in self.active_orders.keys():
             print("Got an unexpected ioauth from nick: " + str(nick))
             return
-        self.ioauth_data[nick] = [utxo_list, auth_pub, cj_addr, change_addr,
-                                  btc_sig, self.crypto_boxes[nick][0]]
+        self.ioauth_data[nick] = [
+            utxo_list,
+            auth_pub,
+            cj_addr,
+            change_addr,
+            btc_sig,
+            self.crypto_boxes[nick][0],
+        ]
         if self.ioauth_data.keys() == self.active_orders.keys():
-            #Finish early if we got all
+            # Finish early if we got all
             self.respondToIoauths(True)
 
     @taker_only
     def on_sig(self, nick, sig):
-        """Pass signature through to Taker.
-        """
+        """Pass signature through to Taker."""
         d = self.callRemote(JMSigReceived, nick=nick, sig=sig)
         self.defaultCallbacks(d)
 
@@ -924,26 +1061,31 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         message syntax.
         """
         with self.sig_lock:
-            d = self.callRemote(JMRequestMsgSig,
-                                nick=str(nick),
-                                cmd=str(cmd),
-                                msg=str(msg),
-                                msg_to_be_signed=str(msg_to_be_signed),
-                                hostid=str(hostid))
+            d = self.callRemote(
+                JMRequestMsgSig,
+                nick=str(nick),
+                cmd=str(cmd),
+                msg=str(msg),
+                msg_to_be_signed=str(msg_to_be_signed),
+                hostid=str(hostid),
+            )
             self.defaultCallbacks(d)
 
-    def request_signature_verify(self, msg, fullmsg, sig, pubkey, nick, hashlen,
-                                 max_encoded, hostid):
+    def request_signature_verify(
+        self, msg, fullmsg, sig, pubkey, nick, hashlen, max_encoded, hostid
+    ):
         with self.sig_lock:
-            d = self.callRemote(JMRequestMsgSigVerify,
-                                msg=msg,
-                                fullmsg=fullmsg,
-                                sig=sig,
-                                pubkey=pubkey,
-                                nick=nick,
-                                hashlen=hashlen,
-                                max_encoded=max_encoded,
-                                hostid=hostid)
+            d = self.callRemote(
+                JMRequestMsgSigVerify,
+                msg=msg,
+                fullmsg=fullmsg,
+                sig=sig,
+                pubkey=pubkey,
+                nick=nick,
+                hashlen=hashlen,
+                max_encoded=max_encoded,
+                hostid=hostid,
+            )
             self.defaultCallbacks(d)
 
     def init_connections(self, nick):
@@ -958,8 +1100,8 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
             self.mcc.run()
             self.restart_mc_required = False
         else:
-            #if we are not restarting the MC,
-            #we must simulate the on_welcome message:
+            # if we are not restarting the MC,
+            # we must simulate the on_welcome message:
             self.on_welcome()
 
     def transfer_commitment(self, commit):
@@ -967,13 +1109,13 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         other maker.
         """
         crow = self.db.execute(
-                        'SELECT DISTINCT counterparty FROM orderbook ORDER BY ' +
-                        'RANDOM() LIMIT 1;'
-                    ).fetchone()
+            'SELECT DISTINCT counterparty FROM orderbook ORDER BY '
+            + 'RANDOM() LIMIT 1;'
+        ).fetchone()
         if crow is None:
             return
         counterparty = crow['counterparty']
-        #TODO de-hardcode hp2
+        # TODO de-hardcode hp2
         log.msg("Sending commitment to: " + str(counterparty))
         self.mcc.prepare_privmsg(counterparty, 'hp2', commit)
 
@@ -989,24 +1131,25 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         comments below).
         """
         if self.jm_state != 2:
-            #this can be called a second time on timeout, in which case we
-            #do nothing
+            # this can be called a second time on timeout, in which case we
+            # do nothing
             return
         self.jm_state = 3
         if not accepted:
-            #use ioauth data field to return the list of non-responsive makers
-            nonresponders = [x for x in self.active_orders
-                             if x not in self.ioauth_data]
+            # use ioauth data field to return the list of non-responsive makers
+            nonresponders = [
+                x for x in self.active_orders if x not in self.ioauth_data
+            ]
         ioauth_data = self.ioauth_data if accepted else nonresponders
-        d = self.callRemote(JMFillResponse,
-                            success=accepted,
-                            ioauth_data=ioauth_data)
+        d = self.callRemote(
+            JMFillResponse, success=accepted, ioauth_data=ioauth_data
+        )
         if not accepted:
-            #Client simply accepts failure TODO
+            # Client simply accepts failure TODO
             self.defaultCallbacks(d)
         else:
-            #Act differently if *we* provided utxos, but
-            #client does not accept for some reason
+            # Act differently if *we* provided utxos, but
+            # client does not accept for some reason
             d.addCallback(self.checkUtxosAccepted)
             d.addErrback(self.defaultErrback)
 
@@ -1021,9 +1164,9 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
     def checkUtxosAccepted(self, accepted):
         if not accepted:
             log.msg("Taker rejected utxos provided; resetting.")
-            #TODO create re-set function to start again
+            # TODO create re-set function to start again
         else:
-            #only update state if client accepted
+            # only update state if client accepted
             self.jm_state = 4
 
     def get_crypto_box_from_nick(self, nick):
@@ -1032,12 +1175,18 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """
         if nick in self.crypto_boxes and self.crypto_boxes[nick] != None:
             return self.crypto_boxes[nick][1]
-        elif nick in self.active_orders and self.active_orders[nick] != None \
-             and "crypto_box" in self.active_orders[nick]:
+        elif (
+            nick in self.active_orders
+            and self.active_orders[nick] != None
+            and "crypto_box" in self.active_orders[nick]
+        ):
             return self.active_orders[nick]["crypto_box"]
         else:
-            log.msg('something wrong, no crypto object, nick=' + nick +
-                      ', message will be dropped')
+            log.msg(
+                'something wrong, no crypto object, nick='
+                + nick
+                + ', message will be dropped'
+            )
             return None
 
     def mc_shutdown(self):
@@ -1052,19 +1201,25 @@ class JMDaemonServerProtocolFactory(ServerFactory):
     def buildProtocol(self, addr):
         return JMDaemonServerProtocol(self)
 
+
 class SNICKERDaemonServerProtocolFactory(ServerFactory):
     protocol = SNICKERDaemonServerProtocol
 
+
 class BIP78ServerProtocolFactory(ServerFactory):
     protocol = BIP78ServerProtocol
+
 
 def start_daemon(host, port, factory, usessl=False, sslkey=None, sslcert=None):
     if usessl:
         assert sslkey
         assert sslcert
         serverconn = reactor.listenSSL(
-            port, factory, ssl.DefaultOpenSSLContextFactory(sslkey, sslcert),
-            interface=host)
+            port,
+            factory,
+            ssl.DefaultOpenSSLContextFactory(sslkey, sslcert),
+            interface=host,
+        )
     else:
         serverconn = reactor.listenTCP(port, factory, interface=host)
     return serverconn

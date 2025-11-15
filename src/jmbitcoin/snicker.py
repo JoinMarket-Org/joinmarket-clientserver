@@ -16,8 +16,9 @@ SNICKER_MAGIC_BYTES = b'SNICKER'
 # Flags may be added in future versions
 SNICKER_FLAG_NONE = b"\x00"
 
+
 def snicker_pubkey_tweak(pub, tweak):
-    """ use secp256k1 library to perform tweak.
+    """use secp256k1 library to perform tweak.
     Both `pub` and `tweak` are expected as byte strings
     (33 and 32 bytes respectively).
     Return value is also a 33 byte string serialization
@@ -28,8 +29,9 @@ def snicker_pubkey_tweak(pub, tweak):
     tweak_pub = CKey(tweak, compressed=True).pub
     return add_pubkeys([base_pub, tweak_pub])
 
+
 def snicker_privkey_tweak(priv, tweak):
-    """ use secp256k1 library to perform tweak.
+    """use secp256k1 library to perform tweak.
     Both `priv` and `tweak` are expected as byte strings
     (32 or 33 and 32 bytes respectively).
     Return value isa 33 byte string serialization
@@ -43,8 +45,9 @@ def snicker_privkey_tweak(priv, tweak):
     assert tweak[-1] == 1
     return add_privkeys(priv, tweak)
 
+
 def verify_snicker_output(tx, pub, tweak, spk_type="p2wpkh"):
-    """ A convenience function to check that one output address in a transaction
+    """A convenience function to check that one output address in a transaction
     is a SNICKER-type tweak of an existing key. Returns the index of the output
     for which this is True (and there must be only 1), and the derived spk,
     or -1 and None if it is not found exactly once.
@@ -54,10 +57,12 @@ def verify_snicker_output(tx, pub, tweak, spk_type="p2wpkh"):
     expected_destination_pub = snicker_pubkey_tweak(pub, tweak)
     if spk_type == "p2wpkh":
         expected_destination_spk = pubkey_to_p2wpkh_script(
-            expected_destination_pub)
+            expected_destination_pub
+        )
     elif spk_type == "p2sh-p2wpkh":
         expected_destination_spk = pubkey_to_p2sh_p2wpkh_script(
-            expected_destination_pub)
+            expected_destination_pub
+        )
     else:
         assert False, "JM SNICKER only supports p2sh/p2wpkh"
     found = 0
@@ -69,10 +74,17 @@ def verify_snicker_output(tx, pub, tweak, spk_type="p2wpkh"):
         return -1, None
     return found_index, expected_destination_spk
 
-def construct_snicker_outputs(proposer_input_amount, receiver_input_amount,
-                              receiver_addr, proposer_addr, change_addr,
-                              network_fee, net_transfer):
-    """ This is abstracted from full SNICKER transaction proposal (see
+
+def construct_snicker_outputs(
+    proposer_input_amount,
+    receiver_input_amount,
+    receiver_addr,
+    proposer_addr,
+    change_addr,
+    network_fee,
+    net_transfer,
+):
+    """This is abstracted from full SNICKER transaction proposal (see
     `jmclient.wallet.SNICKERWalletMixin`) construction, as it is also useful
     for making fake SNICKERs.
     total_input_amount (int) : value of sum of inputs in sats
@@ -92,18 +104,18 @@ def construct_snicker_outputs(proposer_input_amount, receiver_input_amount,
     proposer_output_amount = total_output_amount - receiver_output_amount
     change_output_amount = total_output_amount - 2 * receiver_output_amount
     # callers should only request sane values:
-    assert all([x>0 for x in [receiver_output_amount, change_output_amount]])
+    assert all([x > 0 for x in [receiver_output_amount, change_output_amount]])
 
     # now we must construct the three outputs with correct output amounts.
     outputs = [{"address": receiver_addr, "value": receiver_output_amount}]
     outputs.append({"address": proposer_addr, "value": receiver_output_amount})
-    outputs.append({"address": change_addr,
-                    "value": change_output_amount})
+    outputs.append({"address": change_addr, "value": change_output_amount})
 
     return outputs
 
+
 def is_snicker_tx(tx, snicker_version=bytes([1])):
-    """ Returns True if the CTransaction object `tx`
+    """Returns True if the CTransaction object `tx`
     fits the pattern of a SNICKER coinjoin of type
     defined in `snicker_version`, or False otherwise.
     """
@@ -111,8 +123,9 @@ def is_snicker_tx(tx, snicker_version=bytes([1])):
         raise NotImplementedError("Only v1 SNICKER currently implemented.")
     return is_snicker_v1_tx(tx)
 
-def is_snicker_v1_tx(tx):
-    """ We expect:
+
+def is_snicker_v1_tx(tx):  # noqa: C901
+    """We expect:
     * 2 equal outputs, same script type, pubkey hash variant.
     * 1 other output (0 is negligible probability hence ignored - if it
       was included it would create a lot of false positives).
@@ -132,7 +145,7 @@ def is_snicker_v1_tx(tx):
     if len(tx.vout) != 3:
         return False
     for vi in tx.vin:
-        if vi.nSequence != 0xffffffff:
+        if vi.nSequence != 0xFFFFFFFF:
             return False
     # identify if there are two equal sized outs
     c = Counter([vo.nValue for vo in tx.vout])
@@ -157,13 +170,18 @@ def is_snicker_v1_tx(tx):
             if not matched_spk:
                 try:
                     matched_spk = btc.CCoinAddress.from_scriptPubKey(
-                        vo.scriptPubKey).get_scriptPubKey_type()
+                        vo.scriptPubKey
+                    ).get_scriptPubKey_type()
                 except CCoinAddressError:
                     return False
             else:
                 try:
-                    if not btc.CCoinAddress.from_scriptPubKey(
-                        vo.scriptPubKey).get_scriptPubKey_type() == matched_spk:
+                    if (
+                        not btc.CCoinAddress.from_scriptPubKey(
+                            vo.scriptPubKey
+                        ).get_scriptPubKey_type()
+                        == matched_spk
+                    ):
                         return False
                 except CCoinAddressError:
                     return False

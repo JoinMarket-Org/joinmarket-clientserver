@@ -3,10 +3,18 @@ import abc
 import base64
 import threading
 from twisted.internet import reactor
-from jmdaemon import encrypt_encode, decode_decrypt, COMMAND_PREFIX,\
-    NICK_HASH_LENGTH, NICK_MAX_ENCODED, plaintext_commands,\
-    encrypted_commands, commitment_broadcast_list, offername_list,\
-    fidelity_bond_cmd_list
+from jmdaemon import (
+    encrypt_encode,
+    decode_decrypt,
+    COMMAND_PREFIX,
+    NICK_HASH_LENGTH,
+    NICK_MAX_ENCODED,
+    plaintext_commands,
+    encrypted_commands,
+    commitment_broadcast_list,
+    offername_list,
+    fidelity_bond_cmd_list,
+)
 from jmbase.support import get_log
 from jmbase import hextobin
 from functools import wraps
@@ -19,8 +27,8 @@ class CJPeerError(Exception):
 
 
 class MChannelThread(threading.Thread):
-    """Class used only in testing.
-    """
+    """Class used only in testing."""
+
     def __init__(self, mc):
         threading.Thread.__init__(self, name='MCThread')
         self.daemon = True
@@ -40,7 +48,7 @@ class MessageChannelCollection(object):
     "locked" to the channel on which they are initiated,
     although bear in mind they need not be the same for
     both sides of the conversation.
-    In the current joinmarket protocol, this "lock" 
+    In the current joinmarket protocol, this "lock"
     is set at the time of the !reloffer (etc) privmsg or
     pubmsg from the maker.
     Note that MessageChannel implementations must support
@@ -63,25 +71,25 @@ class MessageChannelCollection(object):
                 return func(inst, *args, **kwargs)
             else:
                 for mc in inst.available_channels():
-                    #nicks_seen[mc] guaranteed to exist
-                    #from constructor
+                    # nicks_seen[mc] guaranteed to exist
+                    # from constructor
                     if cp in inst.nicks_seen[mc]:
                         log.debug("Dynamic switch nick: " + cp)
                         inst.active_channels[cp] = mc
-                        #early return on first success;
-                        #means that we assume that if we have
-                        #ever seen a message from this counterparty
-                        #on one messagechannel which is currently active,
-                        #we assume it's still
-                        #available. Of course, this is optimistic,
-                        #but still much better to do this than to
-                        #immediately give up when any one connection
-                        #is broken.
+                        # early return on first success;
+                        # means that we assume that if we have
+                        # ever seen a message from this counterparty
+                        # on one messagechannel which is currently active,
+                        # we assume it's still
+                        # available. Of course, this is optimistic,
+                        # but still much better to do this than to
+                        # immediately give up when any one connection
+                        # is broken.
                         return func(inst, *args, **kwargs)
-                #Failure to send is a critical error for a transaction,
-                #but should not kill the bot. So, we don't raise an
-                #exception, but rather allow sending to continue, which
-                #should usually result in tx completion just timing out.
+                # Failure to send is a critical error for a transaction,
+                # but should not kill the bot. So, we don't raise an
+                # exception, but rather allow sending to continue, which
+                # should usually result in tx completion just timing out.
                 log.warn("Couldn't find a route to send privmsg")
                 log.warn("For counterparty: " + str(cp))
 
@@ -89,33 +97,33 @@ class MessageChannelCollection(object):
 
     def __init__(self, mchannels):
         self.mchannels = mchannels
-        #To keep track of chosen channels
-        #for private messaging counterparties.
+        # To keep track of chosen channels
+        # for private messaging counterparties.
         self.active_channels = {}
-        #To keep track of message channel status;
-        #0: not started 1: started 2: failed/broken/inactive
+        # To keep track of message channel status;
+        # 0: not started 1: started 2: failed/broken/inactive
         self.mc_status = dict([(x, 0) for x in self.mchannels])
-        #To keep track of counterparties having at least once
-        #made their presence known on a channel
+        # To keep track of counterparties having at least once
+        # made their presence known on a channel
         self.nicks_seen = {}
         for mc in self.mchannels:
             self.nicks_seen[mc] = set()
-            #callback to mark nicks as seen when they privmsg
+            # callback to mark nicks as seen when they privmsg
             mc.on_privmsg_trigger = self.on_privmsg
-        #keep track of whether we want to deliberately
-        #shut down the connections
+        # keep track of whether we want to deliberately
+        # shut down the connections
         self.give_up = False
-        #only allow on_welcome() to fire once.
+        # only allow on_welcome() to fire once.
         self.welcomed = False
-        #control access
+        # control access
         self.mc_lock = threading.Lock()
-        self.nick=None
+        self.nick = None
         self.on_welcome_announce_id = None
 
     def set_nick(self, nick):
         if nick != self.nick:
             self.nick = nick
-            #protocol level var:
+            # protocol level var:
             nickname = self.nick
             for mc in self.mchannels:
                 mc.set_nick(self.nick)
@@ -140,19 +148,25 @@ class MessageChannelCollection(object):
             for peer in [x for x in ac if ac[x] == mc]:
                 for mc2 in self.available_channels():
                     if peer in self.nicks_seen[mc2]:
-                        log.debug("Dynamically switching: " + peer + " to: " + \
-                                  str(mc2.hostid))
+                        log.debug(
+                            "Dynamically switching: "
+                            + peer
+                            + " to: "
+                            + str(mc2.hostid)
+                        )
                         self.active_channels[peer] = mc2
                         break
-            #Remove all entries for the newly unavailable channel
-            self.active_channels = dict([(a, ac[a]) for a in ac if ac[a] != mc])
+            # Remove all entries for the newly unavailable channel
+            self.active_channels = dict(
+                [(a, ac[a]) for a in ac if ac[a] != mc]
+            )
 
     def set_daemon(self, daemon):
         self.daemon = daemon
         for mc in self.mchannels:
             mc.daemon = daemon
 
-    def add_channel(self, mchannel): #pragma: no cover
+    def add_channel(self, mchannel):  # pragma: no cover
         """TODO Not currently in use,
         may be some issues with intialization.
         """
@@ -174,8 +188,8 @@ class MessageChannelCollection(object):
         for mc in self.mchannels:
             mc.run()
 
-    #UNCONDITIONAL PUBLIC/BROADCAST: use all message
-    #channels for these functions.
+    # UNCONDITIONAL PUBLIC/BROADCAST: use all message
+    # channels for these functions.
 
     def shutdown(self):
         """Stop the main loop of the message channel,
@@ -205,13 +219,13 @@ class MessageChannelCollection(object):
         for mc in self.available_channels():
             mc.request_orderbook()
 
-    #END PUBLIC/BROADCAST SECTION
+    # END PUBLIC/BROADCAST SECTION
 
     def get_encryption_box(self, cmd, nick):
         """Establish whether the message is to be
         encrypted/decrypted based on the command string.
         If so, retrieve the appropriate crypto_box object
-        and return. """
+        and return."""
         if cmd in plaintext_commands:
             return None, False
         else:
@@ -223,29 +237,36 @@ class MessageChannelCollection(object):
         box, encrypt = self.get_encryption_box(cmd, nick)
         if encrypt:
             if not box:
-                log.debug('error, dont have encryption box object for ' + nick +
-                          ', dropping message')
+                log.debug(
+                    'error, dont have encryption box object for '
+                    + nick
+                    + ', dropping message'
+                )
                 return
             message = encrypt_encode(message.encode('ascii'), box)
 
-        #Anti-replay measure: append the message channel identifier
-        #to the signature; this prevents cross-channel replay but NOT
-        #same-channel replay (in case of snooper after dropped connection
-        #on this channel).
+        # Anti-replay measure: append the message channel identifier
+        # to the signature; this prevents cross-channel replay but NOT
+        # same-channel replay (in case of snooper after dropped connection
+        # on this channel).
         if mc is None:
             if nick in self.active_channels:
                 hostid = self.active_channels[nick].hostid
             else:
-                log.info("Failed to send message to: " + str(nick) + \
-                              "; cannot find on any message channel.")
+                log.info(
+                    "Failed to send message to: "
+                    + str(nick)
+                    + "; cannot find on any message channel."
+                )
                 return
         else:
             hostid = mc.hostid
 
         msg_to_be_signed = message + str(hostid)
 
-        self.daemon.request_signed_message(nick, cmd, message, msg_to_be_signed,
-                                           hostid)
+        self.daemon.request_signed_message(
+            nick, cmd, message, msg_to_be_signed, hostid
+        )
 
     def privmsg(self, nick, cmd, message, mc=None):
         """Send a message to a specific counterparty,
@@ -254,20 +275,26 @@ class MessageChannelCollection(object):
         """
         if mc is not None:
             if mc not in self.available_channels():
-                #second chance: is mc a hostid corresponding to an active channel?
-                matching_channels = [x
-                                     for x in self.available_channels()
-                                     if mc == x.hostid]
-                if len(matching_channels) != 1: #pragma: no cover
-                    #this can happen if a m-channel goes down shortly before a message
-                    #is supposed to be sent. There used to be an exception raise.
-                    #to prevent a crash (especially in makers), we just inform
-                    #the user about it for now
-                    log.error("Tried to communicate on this message channel but "
-                              "failed: " + str(mc))
-                    log.error("You might have to comment out this message channel "
-                              "in joinmarket.cfg and restart.")
-                    log.error("No action needed for makers / yield generators!")
+                # second chance: is mc a hostid corresponding to an active channel?
+                matching_channels = [
+                    x for x in self.available_channels() if mc == x.hostid
+                ]
+                if len(matching_channels) != 1:  # pragma: no cover
+                    # this can happen if a m-channel goes down shortly before a message
+                    # is supposed to be sent. There used to be an exception raise.
+                    # to prevent a crash (especially in makers), we just inform
+                    # the user about it for now
+                    log.error(
+                        "Tried to communicate on this message channel but "
+                        "failed: " + str(mc)
+                    )
+                    log.error(
+                        "You might have to comment out this message channel "
+                        "in joinmarket.cfg and restart."
+                    )
+                    log.error(
+                        "No action needed for makers / yield generators!"
+                    )
                     # todo: add logic to continue on other available mc
                     # mind comment in on_order_seen_trigger() when implementing
                     return
@@ -281,11 +308,16 @@ class MessageChannelCollection(object):
             self.active_channels[nick].privmsg(nick, cmd, message)
             return
         else:
-            log.info("Failed to send message to: " + str(nick) + \
-                          "; cannot find on any message channel.")
+            log.info(
+                "Failed to send message to: "
+                + str(nick)
+                + "; cannot find on any message channel."
+            )
             return
 
-    def announce_orders(self, orderlist, nick, fidelity_bond_proof_msg, new_mc):
+    def announce_orders(
+        self, orderlist, nick, fidelity_bond_proof_msg, new_mc
+    ):
         """Send orders defined in list orderlist either
         to the shared public channel (pit), on all
         message channels, if nick=None,
@@ -296,26 +328,35 @@ class MessageChannelCollection(object):
         order_keys = ['oid', 'minsize', 'maxsize', 'txfee', 'cjfee']
         orderlines = []
         for order in orderlist:
-            orderlines.append(COMMAND_PREFIX + order['ordertype'] + \
-                    ' ' + ' '.join([str(order[k]) for k in order_keys]))
+            orderlines.append(
+                COMMAND_PREFIX
+                + order['ordertype']
+                + ' '
+                + ' '.join([str(order[k]) for k in order_keys])
+            )
         if new_mc is not None and new_mc not in self.available_channels():
             log.info(
-                "Tried to announce orders on an unavailable message channel.")
+                "Tried to announce orders on an unavailable message channel."
+            )
             return
         if nick is None:
             assert fidelity_bond_proof_msg is None
             for mc in self.available_channels():
                 mc.announce_orders(orderlines)
         else:
-            #we are sending to one cp, so privmsg
-            #in order to use privmsg, we must set "cmd" to be the first command
-            #in the first orderline, and the rest are treated like a message.
+            # we are sending to one cp, so privmsg
+            # in order to use privmsg, we must set "cmd" to be the first command
+            # in the first orderline, and the rest are treated like a message.
             cmd = orderlist[0]['ordertype']
             msg = ' '.join(orderlines[0].split(' ')[1:])
             msg += ''.join(orderlines[1:])
             if fidelity_bond_proof_msg:
-                msg += (COMMAND_PREFIX + fidelity_bond_cmd_list[0] + " " +
-                        fidelity_bond_proof_msg)
+                msg += (
+                    COMMAND_PREFIX
+                    + fidelity_bond_cmd_list[0]
+                    + " "
+                    + fidelity_bond_proof_msg
+                )
             if new_mc:
                 self.prepare_privmsg(nick, cmd, msg, mc=new_mc)
             else:
@@ -324,7 +365,9 @@ class MessageChannelCollection(object):
                         self.prepare_privmsg(nick, cmd, msg, mc=mc)
 
     # Taker callbacks
-    def fill_orders(self, nick_order_dict, cj_amount, taker_pubkey, commitment):
+    def fill_orders(
+        self, nick_order_dict, cj_amount, taker_pubkey, commitment
+    ):
         """
         The orders dict does not contain information
         about which message channel the counterparty bots are active
@@ -338,23 +381,26 @@ class MessageChannelCollection(object):
         it was last seen active on.
         """
         for mc in self.available_channels():
-            filtered_nick_order_dict = {k: v
-                                        for k, v in nick_order_dict.items()
-                                        if mc == self.active_channels[k]}
-            mc.fill_orders(filtered_nick_order_dict, cj_amount, taker_pubkey,
-                           commitment)
+            filtered_nick_order_dict = {
+                k: v
+                for k, v in nick_order_dict.items()
+                if mc == self.active_channels[k]
+            }
+            mc.fill_orders(
+                filtered_nick_order_dict, cj_amount, taker_pubkey, commitment
+            )
 
     @check_privmsg
     def send_error(self, nick, errormsg):
-        #TODO this might need to support non-active nicks
+        # TODO this might need to support non-active nicks
         log.info('error<%s> : %s' % (nick, errormsg))
         self.prepare_privmsg(nick, "error", errormsg)
 
     @check_privmsg
     def push_tx(self, nick, tx):
-        #TODO supporting sending to arbitrary nicks
-        #adds quite a bit of complexity, not supported
-        #initially; will fail if nick is not part of TX
+        # TODO supporting sending to arbitrary nicks
+        # adds quite a bit of complexity, not supported
+        # initially; will fail if nick is not part of TX
         txb64 = base64.b64encode(tx).decode('ascii')
         self.prepare_privmsg(nick, "push", txb64)
 
@@ -365,11 +411,13 @@ class MessageChannelCollection(object):
         tx_nick_sets = {}
         for nick in nick_list:
             if nick not in self.active_channels:
-                #This could be a fatal error for a transaction,
-                #but might not be for the bot (tx recreation etc.)
-                #TODO look for another channel via nicks_seen.
-                #Rare case so not a high priority.
-                log.info("Cannot send transaction to nick, not active: " + nick)
+                # This could be a fatal error for a transaction,
+                # but might not be for the bot (tx recreation etc.)
+                # TODO look for another channel via nicks_seen.
+                # Rare case so not a high priority.
+                log.info(
+                    "Cannot send transaction to nick, not active: " + nick
+                )
                 return
             if self.active_channels[nick] not in tx_nick_sets:
                 tx_nick_sets[self.active_channels[nick]] = [nick]
@@ -383,14 +431,12 @@ class MessageChannelCollection(object):
         for nick in nick_list:
             self.prepare_privmsg(nick, "tx", txb64, mc=mc)
 
-    #CALLBACKS REGISTRATION SECTION
+    # CALLBACKS REGISTRATION SECTION
 
     # taker commands
-    def register_taker_callbacks(self,
-                                 on_error=None,
-                                 on_pubkey=None,
-                                 on_ioauth=None,
-                                 on_sig=None):
+    def register_taker_callbacks(
+        self, on_error=None, on_pubkey=None, on_ioauth=None, on_sig=None
+    ):
         for mc in self.mchannels:
             mc.register_taker_callbacks(on_error, on_pubkey, on_ioauth, on_sig)
 
@@ -409,9 +455,15 @@ class MessageChannelCollection(object):
         self.mc_status[mc] = 2
         self.flush_nicks()
         # construct a readable nicks seen:
-        readablens = dict([(k.hostid, self.nicks_seen[k]) for k in self.nicks_seen])
-        log.debug("On disconnect fired, nicks_seen is now: " + str(
-            readablens) + " " + mc.hostid)
+        readablens = dict(
+            [(k.hostid, self.nicks_seen[k]) for k in self.nicks_seen]
+        )
+        log.debug(
+            "On disconnect fired, nicks_seen is now: "
+            + str(readablens)
+            + " "
+            + mc.hostid
+        )
         if not any([x == 1 for x in self.mc_status.values()]):
             if self.on_disconnect:
                 self.on_disconnect()
@@ -426,23 +478,28 @@ class MessageChannelCollection(object):
         message channel child threads.
         """
         with self.mc_lock:
-            #This trigger indicates successful login
-            #so we update status; this also triggers on reconnection.
+            # This trigger indicates successful login
+            # so we update status; this also triggers on reconnection.
             self.mc_status[mc] = 1
             if self.welcomed:
                 return
 
-            #Startup sequence:
-            #Since this trigger was called, at least one mchan is ready.
-            #This way broadcasts orders or requests ONCE to ALL mchans
-            #which are actually available.
+            # Startup sequence:
+            # Since this trigger was called, at least one mchan is ready.
+            # This way broadcasts orders or requests ONCE to ALL mchans
+            # which are actually available.
 
             # Any mchans not ready yet? Wait up to 60s for them.
             if any([x == 0 for x in self.mc_status.values()]):
-                log.info("Could not connect to *ALL* servers yet, waiting " +
-                          "up to 60 more seconds.")
+                log.info(
+                    "Could not connect to *ALL* servers yet, waiting "
+                    + "up to 60 more seconds."
+                )
                 if (not self.on_welcome_announce_id) and self.on_welcome:
-                    self.on_welcome_announce_id = reactor.callLater(60, self.on_welcome_setup_finished,)
+                    self.on_welcome_announce_id = reactor.callLater(
+                        60,
+                        self.on_welcome_setup_finished,
+                    )
             else:
                 log.info("All message channels connected, starting execution.")
                 if self.on_welcome_announce_id:
@@ -466,45 +523,52 @@ class MessageChannelCollection(object):
         just call on_nick_leave (which currently does nothing).
         """
 
-        #mark the nick as 'unseen' on that channel
+        # mark the nick as 'unseen' on that channel
         self.unsee_nick(nick, mc)
         if nick not in self.active_channels:
             if self.on_nick_leave:
                 self.on_nick_leave(nick)
         elif self.active_channels[nick] == mc:
             del self.active_channels[nick]
-            #Attempt to dynamically switch channels
-            #Is the nick available on another channel?
+            # Attempt to dynamically switch channels
+            # Is the nick available on another channel?
             other_channels = [x for x in self.available_channels() if x != mc]
             if len(other_channels) == 0:
                 log.debug(
-                    "Cannot reconnect to dropped nick, no connections available.")
+                    "Cannot reconnect to dropped nick, no connections available."
+                )
                 if self.on_nick_leave:
                     self.on_nick_leave(nick)
                 return
             for oc in other_channels:
                 if nick in self.nicks_seen[oc]:
-                    log.debug("Found a new channel, setting to: " + nick + \
-                              "," + str(oc.serverport))
+                    log.debug(
+                        "Found a new channel, setting to: "
+                        + nick
+                        + ","
+                        + str(oc.serverport)
+                    )
                     self.active_channels[nick] = oc
-                    #Note we don't call on_nick_leave in this case
+                    # Note we don't call on_nick_leave in this case
                     return
-            #If loop completed without success, we failed to find
-            #this counterparty anywhere else
+            # If loop completed without success, we failed to find
+            # this counterparty anywhere else
             log.debug("Nick: " + nick + " has left.")
             if self.on_nick_leave:
                 self.on_nick_leave(nick)
-        #The remaining case is if the channel that the
-        #nick has left is not the one we're currently using.
+        # The remaining case is if the channel that the
+        # nick has left is not the one we're currently using.
         return
 
-    def register_channel_callbacks(self,
-                                   on_welcome=None,
-                                   on_set_topic=None,
-                                   on_connect=None,
-                                   on_disconnect=None,
-                                   on_nick_leave=None,
-                                   on_nick_change=None):
+    def register_channel_callbacks(
+        self,
+        on_welcome=None,
+        on_set_topic=None,
+        on_connect=None,
+        on_disconnect=None,
+        on_nick_leave=None,
+        on_nick_change=None,
+    ):
         """Special cases:
         on_welcome: we maintain it
         in this class, since we only want to trigger arrival
@@ -530,9 +594,14 @@ class MessageChannelCollection(object):
         self.on_nick_change = on_nick_change
         for mc in self.mchannels:
             mc.register_channel_callbacks(
-                self.on_welcome_trigger, on_set_topic, self.on_connect_trigger,
-                self.on_disconnect_trigger, self.on_nick_leave_trigger,
-                self.on_nick_change_trigger, self.see_nick)
+                self.on_welcome_trigger,
+                on_set_topic,
+                self.on_connect_trigger,
+                self.on_disconnect_trigger,
+                self.on_nick_leave_trigger,
+                self.on_nick_change_trigger,
+                self.see_nick,
+            )
 
     def on_nick_change_trigger(self, new_nick):
         """If any underlying messagechannel object fails to register
@@ -544,8 +613,9 @@ class MessageChannelCollection(object):
         if self.on_nick_change:
             self.on_nick_change(new_nick)
 
-    def on_order_seen_trigger(self, mc, counterparty, oid, ordertype, minsize,
-                              maxsize, txfee, cjfee):
+    def on_order_seen_trigger(
+        self, mc, counterparty, oid, ordertype, minsize, maxsize, txfee, cjfee
+    ):
         """This is the entry point into private messaging.
         Hence, it fixes for the rest of the conversation, which
         message channel the bots are going to communicate over
@@ -556,21 +626,24 @@ class MessageChannelCollection(object):
         so it will simply end up setting the active channel to the last one
         that arrives.
         """
-        #Note that the counterparty will be added to the set for *each*
-        #message channel where it has published an order (priv or pub),
-        #so that we can hope to contact it at any one of those mcs.
+        # Note that the counterparty will be added to the set for *each*
+        # message channel where it has published an order (priv or pub),
+        # so that we can hope to contact it at any one of those mcs.
         self.nicks_seen[mc].add(counterparty)
 
         self.active_channels[counterparty] = mc
         if self.on_order_seen:
-            self.on_order_seen(counterparty, oid, ordertype, minsize, maxsize,
-                               txfee, cjfee)
+            self.on_order_seen(
+                counterparty, oid, ordertype, minsize, maxsize, txfee, cjfee
+            )
 
     # orderbook watcher commands
-    def register_orderbookwatch_callbacks(self,
-                                          on_order_seen=None,
-                                          on_order_cancel=None,
-                                          on_fidelity_bond_seen=None):
+    def register_orderbookwatch_callbacks(
+        self,
+        on_order_seen=None,
+        on_order_cancel=None,
+        on_fidelity_bond_seen=None,
+    ):
         """Special cases:
         on_order_seen: use it as a trigger for presence of nick.
         on_order_cancel: what happens if cancel/modify in one place
@@ -578,8 +651,11 @@ class MessageChannelCollection(object):
         """
         self.on_order_seen = on_order_seen
         for mc in self.mchannels:
-            mc.register_orderbookwatch_callbacks(self.on_order_seen_trigger,
-                                     on_order_cancel, on_fidelity_bond_seen)
+            mc.register_orderbookwatch_callbacks(
+                self.on_order_seen_trigger,
+                on_order_cancel,
+                on_fidelity_bond_seen,
+            )
 
     def on_orderbook_requested_trigger(self, nick, mc):
         """Update nicks_seen state to reflect presence of
@@ -590,14 +666,16 @@ class MessageChannelCollection(object):
             self.on_orderbook_requested(nick, mc)
 
     # maker commands
-    def register_maker_callbacks(self,
-                                 on_orderbook_requested=None,
-                                 on_order_fill=None,
-                                 on_seen_auth=None,
-                                 on_seen_tx=None,
-                                 on_push_tx=None,
-                                 on_commitment_seen=None,
-                                 on_commitment_transferred=None):
+    def register_maker_callbacks(
+        self,
+        on_orderbook_requested=None,
+        on_order_fill=None,
+        on_seen_auth=None,
+        on_seen_tx=None,
+        on_push_tx=None,
+        on_commitment_seen=None,
+        on_commitment_transferred=None,
+    ):
         """Special cases:
         on_orderbook_requested must trigger addition to the nicks_seen
         database, so that makers can know that a taker is in principle
@@ -605,10 +683,15 @@ class MessageChannelCollection(object):
         """
         self.on_orderbook_requested = on_orderbook_requested
         for mc in self.mchannels:
-            mc.register_maker_callbacks(self.on_orderbook_requested_trigger,
-                                        on_order_fill, on_seen_auth, on_seen_tx,
-                                        on_push_tx, on_commitment_seen,
-                                        on_commitment_transferred)
+            mc.register_maker_callbacks(
+                self.on_orderbook_requested_trigger,
+                on_order_fill,
+                on_seen_auth,
+                on_seen_tx,
+                on_push_tx,
+                on_commitment_seen,
+                on_commitment_transferred,
+            )
 
     def on_verified_privmsg(self, nick, message, hostid):
         """Called from daemon when message was successfully verified,
@@ -616,8 +699,10 @@ class MessageChannelCollection(object):
         """
         matched_channels = [x for x in self.mchannels if hostid == x.hostid]
         if len(matched_channels) != 1:
-            log.warn("Channel on which privmsg was received is now inactive; "
-                     "continuing to process this message")
+            log.warn(
+                "Channel on which privmsg was received is now inactive; "
+                "continuing to process this message"
+            )
         mc = matched_channels[0]
         mc.on_verified_privmsg(nick, message)
 
@@ -628,8 +713,8 @@ class MessageChannelCollection(object):
         """
         if mchan in self.available_channels():
             self.see_nick(nick, mchan)
-        #Should not be reached; but in weird case that the channel
-        #is not available, there is nothing to do.
+        # Should not be reached; but in weird case that the channel
+        # is not available, there is nothing to do.
 
 
 class MessageChannel(object):
@@ -671,12 +756,12 @@ class MessageChannel(object):
 
     """THIS SECTION MUST BE IMPLEMENTED BY SUBCLASSES"""
 
-    #In addition to the below functions, the implementation
-    #must also call the callback function self.on_set_topic
-    #to relay the public channel topic at startup.
+    # In addition to the below functions, the implementation
+    # must also call the callback function self.on_set_topic
+    # to relay the public channel topic at startup.
 
-    #Also, the implementation constructor (__init__) must
-    #provide login credentials specific to itself as arguments.
+    # Also, the implementation constructor (__init__) must
+    # provide login credentials specific to itself as arguments.
 
     @abc.abstractmethod
     def run(self):
@@ -718,52 +803,56 @@ class MessageChannel(object):
         self.given_nick = nick
         self.nick = self.given_nick
 
-    def register_channel_callbacks(self,
-                                   on_welcome=None,
-                                   on_set_topic=None,
-                                   on_connect=None,
-                                   on_disconnect=None,
-                                   on_nick_leave=None,
-                                   on_nick_change=None,
-                                   on_pubmsg_trigger=None):
+    def register_channel_callbacks(
+        self,
+        on_welcome=None,
+        on_set_topic=None,
+        on_connect=None,
+        on_disconnect=None,
+        on_nick_leave=None,
+        on_nick_change=None,
+        on_pubmsg_trigger=None,
+    ):
         self.on_welcome = on_welcome
         self.on_set_topic = on_set_topic
         self.on_connect = on_connect
         self.on_disconnect = on_disconnect
         self.on_nick_leave = on_nick_leave
         self.on_nick_change = on_nick_change
-        #Fire to MCcollection to mark nicks as "seen"
+        # Fire to MCcollection to mark nicks as "seen"
         self.on_pubmsg_trigger = on_pubmsg_trigger
 
     # orderbook watcher commands
-    def register_orderbookwatch_callbacks(self,
-                                          on_order_seen=None,
-                                          on_order_cancel=None,
-                                          on_fidelity_bond_seen=None):
+    def register_orderbookwatch_callbacks(
+        self,
+        on_order_seen=None,
+        on_order_cancel=None,
+        on_fidelity_bond_seen=None,
+    ):
         self.on_order_seen = on_order_seen
         self.on_order_cancel = on_order_cancel
         self.on_fidelity_bond_seen = on_fidelity_bond_seen
 
     # taker commands
-    def register_taker_callbacks(self,
-                                 on_error=None,
-                                 on_pubkey=None,
-                                 on_ioauth=None,
-                                 on_sig=None):
+    def register_taker_callbacks(
+        self, on_error=None, on_pubkey=None, on_ioauth=None, on_sig=None
+    ):
         self.on_error = on_error
         self.on_pubkey = on_pubkey
         self.on_ioauth = on_ioauth
         self.on_sig = on_sig
 
     # maker commands
-    def register_maker_callbacks(self,
-                                 on_orderbook_requested=None,
-                                 on_order_fill=None,
-                                 on_seen_auth=None,
-                                 on_seen_tx=None,
-                                 on_push_tx=None,
-                                 on_commitment_seen=None,
-                                 on_commitment_transferred=None):
+    def register_maker_callbacks(
+        self,
+        on_orderbook_requested=None,
+        on_order_fill=None,
+        on_seen_auth=None,
+        on_seen_tx=None,
+        on_push_tx=None,
+        on_commitment_seen=None,
+        on_commitment_transferred=None,
+    ):
         self.on_orderbook_requested = on_orderbook_requested
         self.on_order_fill = on_order_fill
         self.on_seen_auth = on_seen_auth
@@ -786,13 +875,23 @@ class MessageChannel(object):
                 txfee = _chunks[4]
                 cjfee = _chunks[5]
                 if self.on_order_seen:
-                    self.on_order_seen(self, counterparty, oid, ordertype,
-                                       minsize, maxsize, txfee, cjfee)
+                    self.on_order_seen(
+                        self,
+                        counterparty,
+                        oid,
+                        ordertype,
+                        minsize,
+                        maxsize,
+                        txfee,
+                        cjfee,
+                    )
             except IndexError as e:
                 log.debug(e)
-                log.debug('index error parsing chunks, possibly malformed '
-                          'offer by other party. No user action required. '
-                          'Triggered by: ' + str(nick))
+                log.debug(
+                    'index error parsing chunks, possibly malformed '
+                    'offer by other party. No user action required. '
+                    'Triggered by: ' + str(nick)
+                )
                 # TODO what now? just ignore iirc
             finally:
                 return True
@@ -810,14 +909,18 @@ class MessageChannel(object):
                 commitment = _chunks[1]
                 if private:
                     if self.on_commitment_transferred:
-                        self.on_commitment_transferred(counterparty, commitment)
+                        self.on_commitment_transferred(
+                            counterparty, commitment
+                        )
                 else:
                     if self.on_commitment_seen:
                         self.on_commitment_seen(counterparty, commitment)
             except Exception as e:
                 log.debug(e)
-                log.debug('Error parsing chunks, possibly malformed'
-                          'commitment by other party. No user action required.')
+                log.debug(
+                    'Error parsing chunks, possibly malformed'
+                    'commitment by other party. No user action required.'
+                )
                 log.debug("the chunks were: " + str(_chunks))
             finally:
                 return True
@@ -828,12 +931,16 @@ class MessageChannel(object):
             try:
                 fidelity_bond_proof_msg = _chunks[1]
                 if self.on_fidelity_bond_seen:
-                    self.on_fidelity_bond_seen(nick, _chunks[0], fidelity_bond_proof_msg)
+                    self.on_fidelity_bond_seen(
+                        nick, _chunks[0], fidelity_bond_proof_msg
+                    )
             except IndexError as e:
                 log.debug(e)
-                log.debug('index error parsing chunks, possibly malformed '
-                          'offer by other party. No user action required. '
-                          'Triggered by: ' + str(nick))
+                log.debug(
+                    'index error parsing chunks, possibly malformed '
+                    'offer by other party. No user action required. '
+                    'Triggered by: ' + str(nick)
+                )
             finally:
                 return True
         return False
@@ -847,44 +954,53 @@ class MessageChannel(object):
         self.pubmsg(COMMAND_PREFIX + 'orderbook')
 
     # Taker callbacks
-    def fill_orders(self, nick_order_dict, cj_amount, taker_pubkey, commitment):
+    def fill_orders(
+        self, nick_order_dict, cj_amount, taker_pubkey, commitment
+    ):
         for c, order in nick_order_dict.items():
             msg = str(order['oid']) + ' ' + str(cj_amount) + ' ' + taker_pubkey
             msg += ' ' + commitment
             self.privmsg(c, 'fill', msg)
 
     def push_tx(self, nick, tx):
-        #Note: not currently used; will require prepare_privmsg call so
-        #not in this class (see send_error)
+        # Note: not currently used; will require prepare_privmsg call so
+        # not in this class (see send_error)
         txb64 = base64.b64encode(tx).decode('ascii')
         self.privmsg(nick, 'push', txb64)
 
     def send_error(self, nick, errormsg):
-        #Note: currently only used for tests; MCC send_error requires
-        #prepare_privmsg call for signature.
+        # Note: currently only used for tests; MCC send_error requires
+        # prepare_privmsg call for signature.
         log.info('error<%s> : %s' % (nick, errormsg))
         self.privmsg(nick, 'error', errormsg)
 
     def pubmsg(self, message):
         log.debug('>>pubmsg ' + message)
-        #Currently there is no joinmarket protocol logic here;
-        #just pass-through.
+        # Currently there is no joinmarket protocol logic here;
+        # just pass-through.
         self._pubmsg(message)
 
     def privmsg(self, nick, cmd, message):
-        log.debug('>>privmsg on %s: ' % (self.hostid) + 'nick=' + nick + ' cmd='
-                  + cmd + ' msg=' + message)
-        #forward to the implementation class (use single _ for polymrphsm to work)
+        log.debug(
+            '>>privmsg on %s: ' % (self.hostid)
+            + 'nick='
+            + nick
+            + ' cmd='
+            + cmd
+            + ' msg='
+            + message
+        )
+        # forward to the implementation class (use single _ for polymrphsm to work)
         self._privmsg(nick, cmd, message)
 
     def on_pubmsg(self, nick, message):
-        #Even illegal messages mark a nick as "seen"
+        # Even illegal messages mark a nick as "seen"
         if self.on_pubmsg_trigger:
             self.on_pubmsg_trigger(nick, self)
         if message[0] != COMMAND_PREFIX:
             return
         commands = message[1:].split(COMMAND_PREFIX)
-        #DOS vector: repeated !orderbook requests, see #298.
+        # DOS vector: repeated !orderbook requests, see #298.
         if commands.count('orderbook') > 1:
             return
         for command in commands:
@@ -905,18 +1021,18 @@ class MessageChannel(object):
             elif _chunks[0] == 'orderbook':
                 if self.on_orderbook_requested:
                     self.on_orderbook_requested(nick, self)
-            else: #pragma: no cover
+            else:  # pragma: no cover
                 # TODO this is for testing/debugging, should be removed, see taker.py
                 if hasattr(self, 'debug_on_pubmsg_cmd'):
                     self.debug_on_pubmsg_cmd(nick, _chunks)
 
     def on_privmsg(self, nick, message):
         """handles the case when a private message is received"""
-        #Aberrant short messages should be handled by subclasses
-        #in _privmsg, but this constitutes a sanity check. Note that
-        #messages which use an encrypted_command but present no
-        #ciphertext will be rejected with the ValueError on decryption.
-        #Other ill formatted messages will be caught in the try block.
+        # Aberrant short messages should be handled by subclasses
+        # in _privmsg, but this constitutes a sanity check. Note that
+        # messages which use an encrypted_command but present no
+        # ciphertext will be rejected with the ValueError on decryption.
+        # Other ill formatted messages will be caught in the try block.
         if len(message) < 2:
             return
         if message[0] != COMMAND_PREFIX:
@@ -927,13 +1043,13 @@ class MessageChannel(object):
             log.debug('cmd not in cmd_list, line="' + message + '"')
             return
         badsigmsg = "Sig not properly appended to privmsg, ignoring"
-        #Verify nick ownership
+        # Verify nick ownership
         try:
             pub, sig = message[1:].split(' ')[-2:]
         except Exception:
             log.debug(badsigmsg)
             return
-        #reconstruct original message without cmd
+        # reconstruct original message without cmd
         rawmessage = ' '.join(message[1:].split(' ')[1:-2])
         # can happen if not enough fields for command, (stuff), pub, sig:
         if len(rawmessage) == 0:
@@ -950,37 +1066,51 @@ class MessageChannel(object):
             log.debug(badsigmsg)
             return
         self.daemon.request_signature_verify(
-            rawmessage + str(self.hostid), message, sig, pub, nick,
-            NICK_HASH_LENGTH, NICK_MAX_ENCODED, str(self.hostid))
+            rawmessage + str(self.hostid),
+            message,
+            sig,
+            pub,
+            nick,
+            NICK_HASH_LENGTH,
+            NICK_MAX_ENCODED,
+            str(self.hostid),
+        )
 
-    def on_verified_privmsg(self, nick, message):
-        #Marks the nick as active on this channel; note *only* if verified.
-        #Otherwise squatter/attacker can persuade us to send privmsgs to him.
+    def on_verified_privmsg(self, nick, message):  # noqa: C901
+        # Marks the nick as active on this channel; note *only* if verified.
+        # Otherwise squatter/attacker can persuade us to send privmsgs to him.
         if self.on_privmsg_trigger:
             self.on_privmsg_trigger(nick, self)
-        #strip sig from message for processing, having verified
+        # strip sig from message for processing, having verified
         message = " ".join(message[1:].split(" ")[:-2])
         for command in message.split(COMMAND_PREFIX):
             _chunks = command.split(" ")
 
-            #Decrypt if necessary
+            # Decrypt if necessary
             if _chunks[0] in encrypted_commands:
-                box, encrypt = self.daemon.mcc.get_encryption_box(_chunks[0],
-                                                                  nick)
+                box, encrypt = self.daemon.mcc.get_encryption_box(
+                    _chunks[0], nick
+                )
                 if encrypt:
                     if not box:
-                        log.debug('error, dont have encryption box object for '
-                                  + nick + ', dropping message')
+                        log.debug(
+                            'error, dont have encryption box object for '
+                            + nick
+                            + ', dropping message'
+                        )
                         return
                     # need to decrypt everything after the command string
                     to_decrypt = ''.join(_chunks[1:])
                     try:
-                        decrypted = decode_decrypt(to_decrypt, box).decode('ascii')
+                        decrypted = decode_decrypt(to_decrypt, box).decode(
+                            'ascii'
+                        )
                     except Exception as e:
-                        log.debug('Error when decrypting, skipping: ' +
-                                  repr(e))
+                        log.debug(
+                            'Error when decrypting, skipping: ' + repr(e)
+                        )
                         return
-                    #rebuild the chunks array as if it had been plaintext
+                    # rebuild the chunks array as if it had been plaintext
                     _chunks = [_chunks[0]] + decrypted.split(" ")
 
             # looks like a very similar pattern for all of these
@@ -1009,8 +1139,14 @@ class MessageChannel(object):
                     change_addr = _chunks[4]
                     btc_sig = _chunks[5]
                     if self.on_ioauth:
-                        self.on_ioauth(nick, utxo_list, auth_pub, cj_addr,
-                                       change_addr, btc_sig)
+                        self.on_ioauth(
+                            nick,
+                            utxo_list,
+                            auth_pub,
+                            cj_addr,
+                            change_addr,
+                            btc_sig,
+                        )
                 elif _chunks[0] == 'sig':
                     sig = _chunks[1]
                     if self.on_sig:
@@ -1034,8 +1170,8 @@ class MessageChannel(object):
                     if self.on_order_fill:
                         self.on_order_fill(nick, oid, amount, taker_pk, commit)
                 elif _chunks[0] == 'auth':
-                    #Note index error logically impossible, would have thrown
-                    #in sig check (zero message after cmd not allowed)
+                    # Note index error logically impossible, would have thrown
+                    # in sig check (zero message after cmd not allowed)
                     cr = _chunks[1]
                     if self.on_seen_auth:
                         self.on_seen_auth(nick, cr)

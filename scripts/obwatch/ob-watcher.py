@@ -495,7 +495,7 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
 
         return heading2, mainbody
 
-    def create_orderbook_table(self, btc_unit: str, rel_unit: str) -> Tuple[int, str]:
+    def create_orderbook_table(self, btc_unit: str, rel_unit: str) -> Tuple[int, str]:  # noqa: C901
         result = ''
         try:
             self.taker.dblock.acquire(True)

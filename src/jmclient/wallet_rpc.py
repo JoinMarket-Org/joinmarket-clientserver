@@ -10,25 +10,52 @@ from klein import Klein
 import pprint
 
 from jmbitcoin import human_readable_transaction
-from jmclient import Taker, jm_single, \
-    JMClientProtocolFactory, start_reactor, \
-    WalletService, get_wallet_path, direct_send, \
-    open_test_wallet_maybe, wallet_display, SegwitLegacyWallet, \
-    SegwitWallet, get_daemon_serving_params, YieldGeneratorService, \
-    create_wallet, get_max_cj_fee_values, \
-    StorageError, StoragePasswordError, JmwalletdWebSocketServerFactory, \
-    JmwalletdWebSocketServerProtocol, RetryableStorageError, \
-    SegwitWalletFidelityBonds, wallet_gettimelockaddress, \
-    NotEnoughFundsException, get_tumble_log, get_tumble_schedule, \
-    get_schedule, get_tumbler_parser, schedule_to_text, \
-    tumbler_filter_orders_callback, tumbler_taker_finished_update, \
-    validate_address, FidelityBondMixin, BaseWallet, WalletError, \
-    ScheduleGenerationErrorNoFunds, BIP39WalletMixin, auth, wallet_signmessage
+from jmclient import (
+    Taker,
+    jm_single,
+    JMClientProtocolFactory,
+    start_reactor,
+    WalletService,
+    get_wallet_path,
+    direct_send,
+    open_test_wallet_maybe,
+    wallet_display,
+    SegwitLegacyWallet,
+    SegwitWallet,
+    get_daemon_serving_params,
+    YieldGeneratorService,
+    create_wallet,
+    get_max_cj_fee_values,
+    StorageError,
+    StoragePasswordError,
+    JmwalletdWebSocketServerFactory,
+    JmwalletdWebSocketServerProtocol,
+    RetryableStorageError,
+    SegwitWalletFidelityBonds,
+    wallet_gettimelockaddress,
+    NotEnoughFundsException,
+    get_tumble_log,
+    get_tumble_schedule,
+    get_schedule,
+    get_tumbler_parser,
+    schedule_to_text,
+    tumbler_filter_orders_callback,
+    tumbler_taker_finished_update,
+    validate_address,
+    FidelityBondMixin,
+    BaseWallet,
+    WalletError,
+    ScheduleGenerationErrorNoFunds,
+    BIP39WalletMixin,
+    auth,
+    wallet_signmessage,
+)
 from jmbase.support import get_log, utxostr_to_utxo, JM_CORE_VERSION
 
 jlog = get_log()
 
 api_version_string = "/api/v1"
+
 
 # for debugging; twisted.web.server.Request objects do not easily serialize:
 def print_req(request):
@@ -40,49 +67,62 @@ def print_req(request):
     print(request.content)
     print(list(request.requestHeaders.getAllRawHeaders()))
 
+
 class AuthorizationError(Exception):
     pass
+
 
 class InvalidCredentials(AuthorizationError):
     pass
 
+
 class InvalidToken(AuthorizationError):
     pass
+
 
 class InsufficientScope(AuthorizationError):
     pass
 
+
 class NoWalletFound(Exception):
     pass
+
 
 class InvalidRequestFormat(Exception):
     pass
 
+
 class BackendNotReady(Exception):
     pass
+
 
 # error class for actions which are inconsistent with
 # current state
 class ActionNotAllowed(Exception):
     pass
 
+
 # error class for services which are only
 # started once:
 class ServiceAlreadyStarted(Exception):
     pass
 
+
 # for the special case of the wallet service:
 class WalletAlreadyUnlocked(Exception):
     pass
+
 
 # in wallet creation, if the file exists:
 class WalletAlreadyExists(Exception):
     pass
 
+
 # if the file cannot be created or opened
 # due to existing lock:
 class LockExists(Exception):
     pass
+
 
 # some actions require configuration variables
 # to proceed (related to fees, in particular);
@@ -91,23 +131,28 @@ class LockExists(Exception):
 class ConfigNotPresent(Exception):
     pass
 
+
 class ServiceNotStarted(Exception):
     pass
+
 
 # raised when a requested transaction did
 # not successfully broadcast.
 class TransactionFailed(Exception):
     pass
 
+
 # raised when we tried to start a Maker,
 # but the wallet was empty/not enough.
 class NotEnoughCoinsForMaker(Exception):
     pass
 
+
 # raised when we tried to start the tumbler,
 # but the wallet was empty/not enough.
 class NotEnoughCoinsForTumbler(Exception):
     pass
+
 
 # raised when we cannot read data from our
 # yigen-statement csv file:
@@ -120,8 +165,11 @@ def get_ssl_context(cert_directory):
     TODO:
     Currently just hardcoded for tests.
     """
-    return ssl.DefaultOpenSSLContextFactory(os.path.join(cert_directory, "key.pem"),
-                                            os.path.join(cert_directory, "cert.pem"))
+    return ssl.DefaultOpenSSLContextFactory(
+        os.path.join(cert_directory, "key.pem"),
+        os.path.join(cert_directory, "cert.pem"),
+    )
+
 
 def make_jmwalletd_response(request, status=200, **kwargs):
     """
@@ -136,17 +184,20 @@ def make_jmwalletd_response(request, status=200, **kwargs):
     request.setResponseCode(status)
     return json.dumps(kwargs)
 
+
 CJ_TAKER_RUNNING, CJ_MAKER_RUNNING, CJ_NOT_RUNNING = range(3)
 
+
 class JMWalletDaemon(Service):
-    """ This class functions as an HTTP/TLS server,
+    """This class functions as an HTTP/TLS server,
     with access control, allowing a single client(user)
     to control functioning of encapsulated Joinmarket services.
     """
 
     app = Klein()
+
     def __init__(self, port, wss_port, tls=True):
-        """ Port is the port to serve this daemon
+        """Port is the port to serve this daemon
         (using HTTP/TLS).
         wss_factory is a twisted protocol factory for the
         websocket connections for clients to subscribe to updates.
@@ -188,14 +239,15 @@ class JMWalletDaemon(Service):
         self.tumbler_options = None
         self.tumble_log = None
         # save settings we might temporary change runtime
-        self.default_policy_tx_fees = jm_single().config.get("POLICY",
-                                                             "tx_fees")
+        self.default_policy_tx_fees = jm_single().config.get(
+            "POLICY", "tx_fees"
+        )
 
     def get_client_factory(self):
         return JMClientProtocolFactory(self.taker)
 
     def activate_coinjoin_state(self, state):
-        """ To be set when a maker or taker
+        """To be set when a maker or taker
         operation is initialized; they cannot
         both operate at once, nor can we run repeated
         instances of either (hence 'activate' rather than 'set').
@@ -227,7 +279,7 @@ class JMWalletDaemon(Service):
         return False
 
     def startService(self):
-        """ Encapsulates start up actions.
+        """Encapsulates start up actions.
         Here starting the TLS server.
         """
         super().startService()
@@ -235,27 +287,30 @@ class JMWalletDaemon(Service):
         # wallet service, since the client must actively request
         # that with the appropriate credential (password).
         # initialise the web socket service for subscriptions
-        self.wss_factory = JmwalletdWebSocketServerFactory(self.wss_url, self.token)
+        self.wss_factory = JmwalletdWebSocketServerFactory(
+            self.wss_url, self.token
+        )
         self.wss_factory.protocol = JmwalletdWebSocketServerProtocol
         if self.tls:
             cf = get_ssl_context(os.path.join(jm_single().datadir, "ssl"))
-            listener_rpc = reactor.listenSSL(self.port, Site(
-                self.app.resource()), contextFactory=cf)
+            listener_rpc = reactor.listenSSL(
+                self.port, Site(self.app.resource()), contextFactory=cf
+            )
             listener_ws = listenWS(self.wss_factory, contextFactory=cf)
         else:
-            listener_rpc = reactor.listenTCP(self.port, Site(
-                self.app.resource()))
+            listener_rpc = reactor.listenTCP(
+                self.port, Site(self.app.resource())
+            )
             listener_ws = listenWS(self.wss_factory, contextFactory=None)
         return (listener_rpc, listener_ws)
 
     def stopService(self):
-        """ Top-level service (JMWalletDaemon itself) shutdown.
-        """
+        """Top-level service (JMWalletDaemon itself) shutdown."""
         self.stopSubServices()
         super().stopService()
 
     def stopSubServices(self):
-        """ This:
+        """This:
         - shuts down the wallet service, and deletes its name.
         - removes the currently valid auth token.
         - shuts down any other running sub-services, such as yieldgenerator.
@@ -290,8 +345,7 @@ class JMWalletDaemon(Service):
         return
 
     def err(self, request, message):
-        """ Return errors in a standard format.
-        """
+        """Return errors in a standard format."""
         request.setHeader('Content-Type', 'application/json')
         return json.dumps({"message": message})
 
@@ -308,7 +362,9 @@ class JMWalletDaemon(Service):
     @app.handle_errors(InvalidToken)
     def invalid_token(self, request, failure):
         request.setResponseCode(401)
-        return self.auth_err(request, "invalid_token", failure.getErrorMessage())
+        return self.auth_err(
+            request, "invalid_token", failure.getErrorMessage()
+        )
 
     @app.handle_errors(InsufficientScope)
     def insufficient_scope(self, request, failure):
@@ -353,20 +409,23 @@ class JMWalletDaemon(Service):
     @app.handle_errors(LockExists)
     def lock_exists(self, request, failure):
         request.setResponseCode(409)
-        return self.err(request,
-                    "Wallet cannot be created/opened, it is locked.")
+        return self.err(
+            request, "Wallet cannot be created/opened, it is locked."
+        )
 
     @app.handle_errors(ConfigNotPresent)
     def config_not_present(self, request, failure):
         request.setResponseCode(409)
-        return self.err(request,
-            "Action cannot be performed, config vars are not set.")
+        return self.err(
+            request, "Action cannot be performed, config vars are not set."
+        )
 
     @app.handle_errors(ServiceNotStarted)
     def service_not_started(self, request, failure):
         request.setResponseCode(401)
-        return self.err(request,
-                "Service cannot be stopped as it is not running.")
+        return self.err(
+            request, "Service cannot be stopped as it is not running."
+        )
 
     @app.handle_errors(TransactionFailed)
     def transaction_failed(self, request, failure):
@@ -384,7 +443,9 @@ class JMWalletDaemon(Service):
     def not_enough_coins_tumbler(self, request, failure):
         # as above, 409 may not be ideal
         request.setResponseCode(409)
-        return self.err(request, "Tumbler could not start, no confirmed coins.")
+        return self.err(
+            request, "Tumbler could not start, no confirmed coins."
+        )
 
     @app.handle_errors(YieldGeneratorDataUnreadable)
     def yieldgenerator_report_unavailable(self, request, failure):
@@ -408,14 +469,14 @@ class JMWalletDaemon(Service):
             raise InvalidToken(
                 "The access token provided is revoked, malformed, or invalid for other reasons."
             )
-    
+
     def check_cookie_if_present(self, request):
         auth_header = request.getHeader('Authorization')
         if auth_header is not None:
             self.check_cookie(request)
 
     def get_POST_body(self, request, required_keys, optional_keys=None):
-        """ given a request object, retrieve values corresponding
+        """given a request object, retrieve values corresponding
         to keys in a dict, assuming they were encoded using JSON.
         If *any* of the required_keys are not present or required_keys
         and optional_keys clash, return False, else returns a dict of those
@@ -424,12 +485,13 @@ class JMWalletDaemon(Service):
         assert isinstance(request.content, BytesIO)
         # we swallow any formatting failure here:
         try:
-            json_data = json.loads(request.content.read().decode(
-                "utf-8"))
+            json_data = json.loads(request.content.read().decode("utf-8"))
             required_body = {k: json_data[k] for k in required_keys}
 
             if optional_keys is not None:
-                optional_body = {k: json_data[k] for k in optional_keys if k in json_data}
+                optional_body = {
+                    k: json_data[k] for k in optional_keys if k in json_data
+                }
 
                 for key in optional_body:
                     if not key in required_body:
@@ -456,8 +518,10 @@ class JMWalletDaemon(Service):
 
         return parsed_tumbler_options
 
-    def initialize_wallet_service(self, request, wallet, wallet_name, **kwargs):
-        """ Called only when the wallet has loaded correctly, so
+    def initialize_wallet_service(
+        self, request, wallet, wallet_name, **kwargs
+    ):
+        """Called only when the wallet has loaded correctly, so
         authorization is passed, so set cookie for this wallet
         (currently THE wallet, daemon does not yet support multiple).
         This is maintained for 30 minutes currently, or until the user
@@ -475,6 +539,7 @@ class JMWalletDaemon(Service):
             self.stopSubServices()
 
         self.services["wallet"] = WalletService(wallet)
+
         # restart callback needed, otherwise wallet creation will
         # automatically lead to shutdown.
         # TODO: this means that it's possible, in non-standard usage
@@ -482,7 +547,10 @@ class JMWalletDaemon(Service):
         # balances; there are various approaches to passing warnings
         # or requesting rescans, none are implemented yet.
         def dummy_restart_callback(msg):
-            jlog.warn("Ignoring rescan request from backend wallet service: " + msg)
+            jlog.warn(
+                "Ignoring rescan request from backend wallet service: " + msg
+            )
+
         self.services["wallet"].add_restart_callback(dummy_restart_callback)
         self.active_session = True
         self.wss_factory.active_session = True
@@ -490,7 +558,8 @@ class JMWalletDaemon(Service):
         # Add wallet_name to token scope
         self.token.add_to_scope(wallet_name)
         self.services["wallet"].register_callbacks(
-            [self.wss_factory.sendTxNotification], None)
+            [self.wss_factory.sendTxNotification], None
+        )
         self.services["wallet"].startService()
         # now that the WalletService instance is active and ready to
         # respond to requests, we return the status to the client:
@@ -514,16 +583,28 @@ class JMWalletDaemon(Service):
         if not self.tumbler_options:
             # We were doing a single coinjoin -- stop taker.
             self.stop_taker(res)
-            jm_single().config.set("POLICY", "tx_fees",
-                                   self.default_policy_tx_fees)
+            jm_single().config.set(
+                "POLICY", "tx_fees", self.default_policy_tx_fees
+            )
         else:
             # We're running the tumbler.
             assert self.tumble_log is not None
 
-            logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
+            logsdir = os.path.join(
+                os.path.dirname(jm_single().config_location), "logs"
+            )
             sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
 
-            tumbler_taker_finished_update(self.taker, sfile, self.tumble_log, self.tumbler_options, res, fromtx, waittime, txdetails)
+            tumbler_taker_finished_update(
+                self.taker,
+                sfile,
+                self.tumble_log,
+                self.tumbler_options,
+                res,
+                fromtx,
+                waittime,
+                txdetails,
+            )
 
             if not fromtx:
                 # The tumbling schedule's final transaction is done.
@@ -531,7 +612,9 @@ class JMWalletDaemon(Service):
                 self.tumbler_options = None
             elif fromtx != "unconfirmed":
                 # A non-final transaction in the tumbling schedule is done -- continue schedule after wait time.
-                reactor.callLater(waittime*60, self.clientfactory.getClient().clientStart)
+                reactor.callLater(
+                    waittime * 60, self.clientfactory.getClient().clientStart
+                )
 
     def stop_taker(self, res):
         self.taker = None
@@ -559,15 +642,17 @@ class JMWalletDaemon(Service):
                 jlog.warn("Failed to shut down connection: " + repr(e))
             self.coinjoin_connection = None
 
-    def filter_orders_callback(self,orderfees, cjamount):
-        """ Currently we rely on the user's fee limit choices
+    def filter_orders_callback(self, orderfees, cjamount):
+        """Currently we rely on the user's fee limit choices
         and don't allow them to inspect the offers before acceptance.
         TODO: two phase response to client.
         """
         return True
 
     def filter_orders_callback_tumbler(self, orders_fees, cjamount):
-        return tumbler_filter_orders_callback(orders_fees, cjamount, self.taker)
+        return tumbler_filter_orders_callback(
+            orders_fees, cjamount, self.taker
+        )
 
     def check_daemon_ready(self):
         # daemon must be up before coinjoins start.
@@ -587,7 +672,7 @@ class JMWalletDaemon(Service):
             raise InvalidRequestFormat()
 
     def get_wallet_name_from_req(self, walletname: str) -> str:
-        """ use the config's data location combined with the json
+        """use the config's data location combined with the json
         data from the request to construct the wallet path
         """
         wallet_root_path = os.path.join(jm_single().datadir, "wallets")
@@ -604,18 +689,24 @@ class JMWalletDaemon(Service):
         request.setHeader("Access-Control-Allow-Methods", "POST")
 
     with app.subroute(api_version_string) as app:
+
         @app.route('/token', methods=['POST'])
         def refresh(self, request):
             self.check_cookie(request, verify_exp=False)
 
             def _mkerr(err, description=""):
                 return make_jmwalletd_response(
-                    request, status=400, message=err, error_description=description
+                    request,
+                    status=400,
+                    message=err,
+                    error_description=description,
                 )
 
             try:
                 assert isinstance(request.content, BytesIO)
-                post_body = self.get_POST_body(request, ["grant_type", "refresh_token"])
+                post_body = self.get_POST_body(
+                    request, ["grant_type", "refresh_token"]
+                )
                 grant_type = post_body["grant_type"]
                 if grant_type not in {"refresh_token"}:
                     return _mkerr(
@@ -666,12 +757,19 @@ class JMWalletDaemon(Service):
                 jlog.warn("called displaywallet with wrong wallet")
                 raise InvalidRequestFormat()
             else:
-                walletinfo = wallet_display(self.services["wallet"], False, jsonified=True)
-                return make_jmwalletd_response(request, walletname=walletname, walletinfo=walletinfo)
+                walletinfo = wallet_display(
+                    self.services["wallet"], False, jsonified=True
+                )
+                return make_jmwalletd_response(
+                    request, walletname=walletname, walletinfo=walletinfo
+                )
 
-        @app.route('/wallet/<string:walletname>/rescanblockchain/<int:blockheight>', methods=['GET'])
+        @app.route(
+            '/wallet/<string:walletname>/rescanblockchain/<int:blockheight>',
+            methods=['GET'],
+        )
         def rescanblockchain(self, request, walletname, blockheight):
-            """ This route lets the user trigger the rescan action in the backend.
+            """This route lets the user trigger the rescan action in the backend.
             Note that it technically "shouldn't" require a wallet to be loaded,
             but since we hide all blockchain access behind the wallet service,
             it currently *does* require this.
@@ -683,7 +781,9 @@ class JMWalletDaemon(Service):
             print_req(request)
             self.check_cookie(request)
             if not self.services["wallet"]:
-                jlog.warn("rescanblockchain called, but no wallet service active.")
+                jlog.warn(
+                    "rescanblockchain called, but no wallet service active."
+                )
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
                 jlog.warn("called rescanblockchain with wrong wallet")
@@ -692,46 +792,54 @@ class JMWalletDaemon(Service):
                 self.services["wallet"].rescanblockchain(blockheight)
                 return make_jmwalletd_response(request, walletname=walletname)
 
-        @app.route('/wallet/<string:walletname>/getrescaninfo', methods=['GET'])
+        @app.route(
+            '/wallet/<string:walletname>/getrescaninfo', methods=['GET']
+        )
         def getrescaninfo(self, request, walletname):
-            """ This route lets the user get the current rescan status.
-            """
+            """This route lets the user get the current rescan status."""
             print_req(request)
             self.check_cookie(request)
             if not self.services["wallet"]:
-                jlog.warn("getrescaninfo called, but no wallet service active.")
+                jlog.warn(
+                    "getrescaninfo called, but no wallet service active."
+                )
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
                 jlog.warn("called getrescaninfo with wrong wallet")
                 raise InvalidRequestFormat()
             else:
-                rescanning, progress = \
-                    self.services["wallet"].get_backend_wallet_rescan_status()
+                rescanning, progress = self.services[
+                    "wallet"
+                ].get_backend_wallet_rescan_status()
                 if rescanning:
-                    return make_jmwalletd_response(request,
-                        walletname=walletname, rescanning=rescanning,
-                        progress=progress)
+                    return make_jmwalletd_response(
+                        request,
+                        walletname=walletname,
+                        rescanning=rescanning,
+                        progress=progress,
+                    )
                 else:
-                    return make_jmwalletd_response(request,
-                        walletname=walletname, rescanning=rescanning)
+                    return make_jmwalletd_response(
+                        request, walletname=walletname, rescanning=rescanning
+                    )
 
         @app.route('/getinfo', methods=['GET'])
         def version(self, request):
-            """ This route sends information about the backend, including
+            """This route sends information about the backend, including
             the running version of Joinmarket,
             back to the client. It does *not* pay attention to any state,
             including authentication tokens.
             """
-            return make_jmwalletd_response(request,version=JM_CORE_VERSION)
+            return make_jmwalletd_response(request, version=JM_CORE_VERSION)
 
         @app.route('/session', methods=['GET'])
         def session(self, request):
-            """ This route functions as a heartbeat, and communicates
+            """This route functions as a heartbeat, and communicates
             to the client what the current status of the wallet
             and services is. TODO: add more data to send to client.
             """
-            #validate auth header if provided
-            #this lets caller know if cookie is invalid or outdated
+            # validate auth header if provided
+            # this lets caller know if cookie is invalid or outdated
             self.check_cookie_if_present(request)
 
             maker_running = self.coinjoin_state == CJ_MAKER_RUNNING
@@ -749,20 +857,31 @@ class JMWalletDaemon(Service):
 
             if self.services["wallet"]:
                 if self.services["wallet"].isRunning():
-                    rescanning, _ = self.services["wallet"].get_backend_wallet_rescan_status()
+                    rescanning, _ = self.services[
+                        "wallet"
+                    ].get_backend_wallet_rescan_status()
                     wallet_name = self.wallet_name
                     # At this point if an `auth_header` is present, it has been checked
                     # by the call to `check_cookie_if_present` above.
                     auth_header = request.getHeader('Authorization')
                     if auth_header is not None:
-                        block_height = self.services["wallet"].current_blockheight
+                        block_height = self.services[
+                            "wallet"
+                        ].current_blockheight
 
-                        if self.coinjoin_state == CJ_TAKER_RUNNING and \
-                           self.tumbler_options is not None:
-                                if self.taker is not None and not self.taker.aborted:
-                                    schedule = self.taker.schedule
+                        if (
+                            self.coinjoin_state == CJ_TAKER_RUNNING
+                            and self.tumbler_options is not None
+                        ):
+                            if (
+                                self.taker is not None
+                                and not self.taker.aborted
+                            ):
+                                schedule = self.taker.schedule
                         elif maker_running:
-                            offer_list = self.services["maker"].yieldgen.offerlist
+                            offer_list = self.services[
+                                "maker"
+                            ].yieldgen.offerlist
                             # maker's nick is useful for tracking; so we only report
                             # it if authed and maker running:
                             if jm_single().nickname is not None:
@@ -786,16 +905,18 @@ class JMWalletDaemon(Service):
                 block_height=block_height,
             )
 
-        @app.route('/wallet/<string:walletname>/taker/direct-send', methods=['POST'])
+        @app.route(
+            '/wallet/<string:walletname>/taker/direct-send', methods=['POST']
+        )
         def directsend(self, request, walletname):
-            """ Use the contents of the POST body to do a direct send from
+            """Use the contents of the POST body to do a direct send from
             the active wallet at the chosen mixdepth.
             """
             self.check_cookie(request)
             assert isinstance(request.content, BytesIO)
-            payment_info_json = self.get_POST_body(request, ["mixdepth", "amount_sats",
-                                                             "destination"],
-                                                            ["txfee"])
+            payment_info_json = self.get_POST_body(
+                request, ["mixdepth", "amount_sats", "destination"], ["txfee"]
+            )
             if not payment_info_json:
                 raise InvalidRequestFormat()
             if not self.services["wallet"]:
@@ -812,49 +933,61 @@ class JMWalletDaemon(Service):
 
             if "txfee" in payment_info_json:
                 if int(payment_info_json["txfee"]) > 0:
-                    jm_single().config.set("POLICY", "tx_fees",
-                                           str(payment_info_json["txfee"]))
+                    jm_single().config.set(
+                        "POLICY", "tx_fees", str(payment_info_json["txfee"])
+                    )
                 else:
                     raise InvalidRequestFormat()
 
             try:
-                tx = direct_send(self.services["wallet"],
-                        int(payment_info_json["mixdepth"]),
-                        [(
+                tx = direct_send(
+                    self.services["wallet"],
+                    int(payment_info_json["mixdepth"]),
+                    [
+                        (
                             payment_info_json["destination"],
-                            int(payment_info_json["amount_sats"])
-                        )],
-                        return_transaction=True, answeryes=True)
-                jm_single().config.set("POLICY", "tx_fees",
-                                       self.default_policy_tx_fees)
+                            int(payment_info_json["amount_sats"]),
+                        )
+                    ],
+                    return_transaction=True,
+                    answeryes=True,
+                )
+                jm_single().config.set(
+                    "POLICY", "tx_fees", self.default_policy_tx_fees
+                )
             except AssertionError:
-                jm_single().config.set("POLICY", "tx_fees",
-                                       self.default_policy_tx_fees)
+                jm_single().config.set(
+                    "POLICY", "tx_fees", self.default_policy_tx_fees
+                )
                 raise InvalidRequestFormat()
             except NotEnoughFundsException as e:
-                jm_single().config.set("POLICY", "tx_fees",
-                                       self.default_policy_tx_fees)
+                jm_single().config.set(
+                    "POLICY", "tx_fees", self.default_policy_tx_fees
+                )
                 raise TransactionFailed(repr(e))
             except Exception:
-                jm_single().config.set("POLICY", "tx_fees",
-                                       self.default_policy_tx_fees)
+                jm_single().config.set(
+                    "POLICY", "tx_fees", self.default_policy_tx_fees
+                )
                 raise
             if not tx:
                 # this should not really happen; not a coinjoin
                 # so tx should go through.
                 raise TransactionFailed()
-            return make_jmwalletd_response(request,
-                            txinfo=human_readable_transaction(tx, False))
+            return make_jmwalletd_response(
+                request, txinfo=human_readable_transaction(tx, False)
+            )
 
         @app.route('/wallet/<string:walletname>/maker/start', methods=['POST'])
         def start_maker(self, request, walletname):
-            """ Use the configuration in the POST body to start the yield generator:
-            """
+            """Use the configuration in the POST body to start the yield generator:"""
             print_req(request)
             self.check_cookie(request)
             assert isinstance(request.content, BytesIO)
-            config_json = self.get_POST_body(request, ["txfee", "cjfee_a", "cjfee_r",
-                                                       "ordertype", "minsize"])
+            config_json = self.get_POST_body(
+                request,
+                ["txfee", "cjfee_a", "cjfee_r", "ordertype", "minsize"],
+            )
             if not config_json:
                 raise InvalidRequestFormat()
             if not self.services["wallet"]:
@@ -865,7 +998,7 @@ class JMWalletDaemon(Service):
             dhost, dport = self.check_daemon_ready()
 
             for key, val in config_json.items():
-                if(key == 'cjfee_r' or key == 'ordertype'):
+                if key == 'cjfee_r' or key == 'ordertype':
                     pass
                 else:
                     try:
@@ -878,20 +1011,36 @@ class JMWalletDaemon(Service):
             config_json["cjfee_factor"] = None
             config_json["size_factor"] = None
 
-            self.services["maker"] = YieldGeneratorService(self.services["wallet"],
-                                    dhost, dport,
-                                    [config_json[x] for x in ["txfee", "cjfee_a",
-                                    "cjfee_r", "ordertype", "minsize",
-                                    "txfee_factor", "cjfee_factor","size_factor"]])
+            self.services["maker"] = YieldGeneratorService(
+                self.services["wallet"],
+                dhost,
+                dport,
+                [
+                    config_json[x]
+                    for x in [
+                        "txfee",
+                        "cjfee_a",
+                        "cjfee_r",
+                        "ordertype",
+                        "minsize",
+                        "txfee_factor",
+                        "cjfee_factor",
+                        "size_factor",
+                    ]
+                ],
+            )
+
             # make sure that our state here is consistent with any unexpected
             # shutdown of the maker (such as from a invalid minsize causing startup
             # to fail):
             def cleanup():
                 self.activate_coinjoin_state(CJ_NOT_RUNNING)
+
             def setup_set_coinjoin_state():
                 # note this returns False if we cannot update the state.
                 if not self.activate_coinjoin_state(CJ_MAKER_RUNNING):
                     raise ServiceAlreadyStarted()
+
             # don't even start up the service if there aren't any coins
             # to offer:
             def setup_sanitycheck_balance():
@@ -901,8 +1050,9 @@ class JMWalletDaemon(Service):
                 # note: an edge case of dusty amounts is lost here; it will get
                 # picked up by Maker.try_to_create_my_orders().
                 gbbm = self.services["wallet"].get_balance_by_mixdepth(
-                    verbose=False, minconfs=1)
-                if len(gbbm) == 0 or all([v==0 for v in gbbm.values()]):
+                    verbose=False, minconfs=1
+                )
+                if len(gbbm) == 0 or all([v == 0 for v in gbbm.values()]):
                     # note: this raise will prevent the setup
                     # of the service (and therefore the startup) from
                     # proceeding:
@@ -912,8 +1062,11 @@ class JMWalletDaemon(Service):
                 # here early, as above, to avoid the maker service starting.
                 utxos = self.services["wallet"].get_all_utxos()
                 # remove any TL type:
-                utxos = [u for u in utxos.values() if not \
-                         FidelityBondMixin.is_timelocked_path(u["path"])]
+                utxos = [
+                    u
+                    for u in utxos.values()
+                    if not FidelityBondMixin.is_timelocked_path(u["path"])
+                ]
                 # Note that only the following check is required since we
                 # already checked that balance is non-zero.
                 if len(utxos) == 0:
@@ -938,25 +1091,31 @@ class JMWalletDaemon(Service):
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
-            if not self.services["maker"] or not self.coinjoin_state == \
-               CJ_MAKER_RUNNING:
+            if (
+                not self.services["maker"]
+                or not self.coinjoin_state == CJ_MAKER_RUNNING
+            ):
                 raise ServiceNotStarted()
             self.services["maker"].stopService()
             return make_jmwalletd_response(request, status=202)
 
         def get_json_yigen_report(self):
-            """ Returns a json object whose contents are:
+            """Returns a json object whose contents are:
             a list of strings, each string is a comma separated record of
             a coinjoin event, directly read from yigen-statement.csv without
             further processing.
             """
             try:
                 datadir = os.path.join(jm_single().datadir, "logs")
-                with open(os.path.join(datadir, "yigen-statement.csv"), "r") as f:
+                with open(
+                    os.path.join(datadir, "yigen-statement.csv"), "r"
+                ) as f:
                     yigen_data = f.readlines()
                 return yigen_data
             except Exception as e:
-                jlog.warn("Yigen report failed to find file: {}".format(repr(e)))
+                jlog.warn(
+                    "Yigen report failed to find file: {}".format(repr(e))
+                )
                 raise YieldGeneratorDataUnreadable()
 
         @app.route('/wallet/yieldgen/report', methods=['GET'])
@@ -993,8 +1152,9 @@ class JMWalletDaemon(Service):
                 # state on future unlock.
                 self.stopSubServices()
                 already_locked = False
-            return make_jmwalletd_response(request, walletname=walletname,
-                                           already_locked=already_locked)
+            return make_jmwalletd_response(
+                request, walletname=walletname, already_locked=already_locked
+            )
 
         @app.route('/wallet/create', methods=["POST"])
         def createwallet(self, request):
@@ -1004,17 +1164,21 @@ class JMWalletDaemon(Service):
             # refuse to process the request:
             if self.services["wallet"]:
                 raise WalletAlreadyUnlocked()
-            request_data = self.get_POST_body(request,
-                            ["walletname", "password", "wallettype"])
+            request_data = self.get_POST_body(
+                request, ["walletname", "password", "wallettype"]
+            )
             if not request_data:
                 raise InvalidRequestFormat()
             wallet_cls = self.get_wallet_cls_from_type(
-                request_data["wallettype"])
+                request_data["wallettype"]
+            )
             try:
-                wallet = create_wallet(self.get_wallet_name_from_req(
-                    request_data["walletname"]),
+                wallet = create_wallet(
+                    self.get_wallet_name_from_req(request_data["walletname"]),
                     request_data["password"].encode("ascii"),
-                    4, wallet_cls=wallet_cls)
+                    4,
+                    wallet_cls=wallet_cls,
+                )
                 # extension not yet supported in RPC create; TODO
                 seed, extension = wallet.get_mnemonic_words()
             except RetryableStorageError:
@@ -1023,9 +1187,9 @@ class JMWalletDaemon(Service):
                 raise WalletAlreadyExists()
             # finally, after the wallet is successfully created, we should
             # start the wallet service, then return info to the caller:
-            return self.initialize_wallet_service(request, wallet,
-                                        request_data["walletname"],
-                                        seedphrase=seed)
+            return self.initialize_wallet_service(
+                request, wallet, request_data["walletname"], seedphrase=seed
+            )
 
         @app.route('/wallet/recover', methods=["POST"])
         def recoverwallet(self, request):
@@ -1035,13 +1199,14 @@ class JMWalletDaemon(Service):
             # refuse to process the request:
             if self.services["wallet"]:
                 raise WalletAlreadyUnlocked()
-            request_data = self.get_POST_body(request,
-                            ["walletname", "password",
-                             "wallettype", "seedphrase"])
+            request_data = self.get_POST_body(
+                request, ["walletname", "password", "wallettype", "seedphrase"]
+            )
             if not request_data:
                 raise InvalidRequestFormat()
             wallet_cls = self.get_wallet_cls_from_type(
-                request_data["wallettype"])
+                request_data["wallettype"]
+            )
             seedphrase = request_data["seedphrase"]
             seedphrase = seedphrase.strip()
             if not seedphrase:
@@ -1052,23 +1217,29 @@ class JMWalletDaemon(Service):
                 # should only occur if the seedphrase is not valid BIP39:
                 raise InvalidRequestFormat()
             try:
-                wallet = create_wallet(self.get_wallet_name_from_req(
-                    request_data["walletname"]),
+                wallet = create_wallet(
+                    self.get_wallet_name_from_req(request_data["walletname"]),
                     request_data["password"].encode("ascii"),
-                    4, wallet_cls=wallet_cls, entropy=entropy)
+                    4,
+                    wallet_cls=wallet_cls,
+                    entropy=entropy,
+                )
             except RetryableStorageError:
                 raise LockExists()
             except StorageError:
                 raise WalletAlreadyExists()
             # finally, after the wallet is successfully created, we should
             # start the wallet service, then return info to the caller:
-            return self.initialize_wallet_service(request, wallet,
-                                        request_data["walletname"],
-                                        seedphrase=seedphrase)
+            return self.initialize_wallet_service(
+                request,
+                wallet,
+                request_data["walletname"],
+                seedphrase=seedphrase,
+            )
 
         @app.route('/wallet/<string:walletname>/unlock', methods=['POST'])
         def unlockwallet(self, request, walletname):
-            """ If a user succeeds in authenticating and opening a
+            """If a user succeeds in authenticating and opening a
             wallet, we start the corresponding wallet service.
             Notice that in the case the user fails for any reason,
             then any existing wallet service, and corresponding token,
@@ -1096,10 +1267,13 @@ class JMWalletDaemon(Service):
                 try:
                     # returned wallet object is ditched:
                     open_test_wallet_maybe(
-                        wallet_path, walletname, 4,
+                        wallet_path,
+                        walletname,
+                        4,
                         password=password.encode("utf-8"),
                         ask_for_password=False,
-                        read_only=True)
+                        read_only=True,
+                    )
                 except StoragePasswordError:
                     # actually effects authentication
                     raise InvalidCredentials()
@@ -1115,16 +1289,19 @@ class JMWalletDaemon(Service):
                     request,
                     walletname=self.wallet_name,
                     **self.token.issue(),
-                    )
+                )
 
             # This is a different wallet than the one currently open;
             # try to open it, then initialize the service(s):
             try:
                 wallet = open_test_wallet_maybe(
-                        wallet_path, walletname, 4,
-                        password=password.encode("utf-8"),
-                        ask_for_password=False,
-                        gap_limit = jm_single().config.getint("POLICY", "gaplimit"))
+                    wallet_path,
+                    walletname,
+                    4,
+                    password=password.encode("utf-8"),
+                    ask_for_password=False,
+                    gap_limit=jm_single().config.getint("POLICY", "gaplimit"),
+                )
             except StoragePasswordError:
                 raise InvalidCredentials()
             except RetryableStorageError:
@@ -1138,7 +1315,7 @@ class JMWalletDaemon(Service):
                 raise NoWalletFound()
             return self.initialize_wallet_service(request, wallet, walletname)
 
-        #This route should return list of current wallets created.
+        # This route should return list of current wallets created.
         @app.route('/wallet/all', methods=['GET'])
         def listwallets(self, request):
             wallet_dir = os.path.join(jm_single().datadir, 'wallets')
@@ -1154,8 +1331,11 @@ class JMWalletDaemon(Service):
                 wallets = [w for w in wallets if w.endswith("jmdat")]
             return make_jmwalletd_response(request, wallets=wallets)
 
-        #route to get external address for deposit
-        @app.route('/wallet/<string:walletname>/address/new/<string:mixdepth>', methods=['GET'])
+        # route to get external address for deposit
+        @app.route(
+            '/wallet/<string:walletname>/address/new/<string:mixdepth>',
+            methods=['GET'],
+        )
         def getaddress(self, request, walletname, mixdepth):
             self.check_cookie(request)
             if not self.services["wallet"]:
@@ -1169,7 +1349,10 @@ class JMWalletDaemon(Service):
             address = self.services["wallet"].get_external_addr(mixdepth)
             return make_jmwalletd_response(request, address=address)
 
-        @app.route('/wallet/<string:walletname>/address/timelock/new/<string:lockdate>', methods=['GET'])
+        @app.route(
+            '/wallet/<string:walletname>/address/timelock/new/<string:lockdate>',
+            methods=['GET'],
+        )
         def gettimelockaddress(self, request, walletname, lockdate):
             self.check_cookie(request)
             if not self.services["wallet"]:
@@ -1178,7 +1361,8 @@ class JMWalletDaemon(Service):
                 raise InvalidRequestFormat()
             try:
                 timelockaddress = wallet_gettimelockaddress(
-                    self.services["wallet"].wallet, lockdate)
+                    self.services["wallet"].wallet, lockdate
+                )
             except Exception:
                 raise InvalidRequestFormat()
             if timelockaddress == "":
@@ -1187,7 +1371,7 @@ class JMWalletDaemon(Service):
 
         @app.route('/wallet/<string:walletname>/configget', methods=["POST"])
         def configget(self, request, walletname):
-            """ Note that this requires authentication but is not wallet-specific.
+            """Note that this requires authentication but is not wallet-specific.
             Note also that return values are always strings.
             """
             self.check_cookie(request)
@@ -1199,8 +1383,9 @@ class JMWalletDaemon(Service):
             if not config_json:
                 raise InvalidRequestFormat()
             try:
-                val = jm_single().config.get(config_json["section"],
-                                             config_json["field"])
+                val = jm_single().config.get(
+                    config_json["section"], config_json["field"]
+                )
             except:
                 # assuming failure here is a badly formed section/field:
                 raise ConfigNotPresent()
@@ -1208,7 +1393,7 @@ class JMWalletDaemon(Service):
 
         @app.route('/wallet/<string:walletname>/configset', methods=["POST"])
         def configset(self, request, walletname):
-            """ Note that this requires authentication but is not wallet-specific.
+            """Note that this requires authentication but is not wallet-specific.
             Note also that supplied values must always be strings.
             """
             self.check_cookie(request)
@@ -1216,12 +1401,17 @@ class JMWalletDaemon(Service):
             # walletname but the right token, something has gone very wrong:
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
-            config_json = self.get_POST_body(request, ["section", "field", "value"])
+            config_json = self.get_POST_body(
+                request, ["section", "field", "value"]
+            )
             if not config_json:
                 raise InvalidRequestFormat()
             try:
-                jm_single().config.set(config_json["section"],
-                            config_json["field"], config_json["value"])
+                jm_single().config.set(
+                    config_json["section"],
+                    config_json["field"],
+                    config_json["value"],
+                )
                 if config_json["section"] == "POLICY":
                     if config_json["field"] == "tx_fees":
                         self.default_policy_tx_fees = config_json["value"]
@@ -1232,7 +1422,7 @@ class JMWalletDaemon(Service):
 
         @app.route('/wallet/<string:walletname>/freeze', methods=["POST"])
         def freeze(self, request, walletname):
-            """ Freeze (true) or unfreeze (false), for spending a specified utxo
+            """Freeze (true) or unfreeze (false), for spending a specified utxo
             in this wallet. Note that this is persisted in the wallet file,
             so the status survives across sessions. Note that re-application of
             the same state is allowed and does not alter the 200 OK return.
@@ -1240,7 +1430,9 @@ class JMWalletDaemon(Service):
             self.check_cookie(request)
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
-            freeze_json = self.get_POST_body(request, ["utxo-string", "freeze"])
+            freeze_json = self.get_POST_body(
+                request, ["utxo-string", "freeze"]
+            )
             if not freeze_json:
                 raise InvalidRequestFormat()
             to_disable = freeze_json["freeze"]
@@ -1269,8 +1461,8 @@ class JMWalletDaemon(Service):
                 res.append(v)
             return res
 
-        #route to list utxos
-        @app.route('/wallet/<string:walletname>/utxos',methods=['GET'])
+        # route to list utxos
+        @app.route('/wallet/<string:walletname>/utxos', methods=['GET'])
         def listutxos(self, request, walletname):
             self.check_cookie(request)
             if not self.services["wallet"]:
@@ -1279,7 +1471,9 @@ class JMWalletDaemon(Service):
                 raise InvalidRequestFormat()
             # note: the output of `showutxos` is already a string for CLI;
             # but we return json:
-            utxos = json.loads(wallet_showutxos(self.services["wallet"], False))
+            utxos = json.loads(
+                wallet_showutxos(self.services["wallet"], False)
+            )
             utxos_response = self.get_listutxos_response(utxos)
             return make_jmwalletd_response(request, utxos=utxos_response)
 
@@ -1299,35 +1493,45 @@ class JMWalletDaemon(Service):
             self.taker_finished(False)
             return make_jmwalletd_response(request, status=202)
 
-        #route to start a coinjoin transaction
-        @app.route('/wallet/<string:walletname>/taker/coinjoin', methods=['POST'])
+        # route to start a coinjoin transaction
+        @app.route(
+            '/wallet/<string:walletname>/taker/coinjoin', methods=['POST']
+        )
         def docoinjoin(self, request, walletname):
             self.check_cookie(request)
             if not self.services["wallet"]:
                 raise NoWalletFound()
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
-            request_data = self.get_POST_body(request,
-                                              ["mixdepth", "amount_sats",
-                                               "counterparties",
-                                               "destination"],
-                                              ["txfee"])
-            if not request_data or \
-               ("txfee" in request_data and int(request_data["txfee"]) <= 0):
+            request_data = self.get_POST_body(
+                request,
+                ["mixdepth", "amount_sats", "counterparties", "destination"],
+                ["txfee"],
+            )
+            if not request_data or (
+                "txfee" in request_data and int(request_data["txfee"]) <= 0
+            ):
                 raise InvalidRequestFormat()
-            #see file scripts/sample-schedule-for-testnet for schedule format
+            # see file scripts/sample-schedule-for-testnet for schedule format
             waittime = 0
-            rounding= 16
-            completion_flag= 0
+            rounding = 16
+            completion_flag = 0
             # A schedule is a list of lists, here we have only one item
             try:
-                schedule = [[int(request_data["mixdepth"]),
-                             int(request_data["amount_sats"]),
-                             int(request_data["counterparties"]),
-                             request_data["destination"], waittime,
-                             rounding, completion_flag]]
+                schedule = [
+                    [
+                        int(request_data["mixdepth"]),
+                        int(request_data["amount_sats"]),
+                        int(request_data["counterparties"]),
+                        request_data["destination"],
+                        waittime,
+                        rounding,
+                        completion_flag,
+                    ]
+                ]
             except ValueError:
                 raise InvalidRequestFormat()
+
             # Instantiate a Taker.
             # `order_chooser` is whatever is default for Taker.
             # max_cj_fee is to be set based on config values.
@@ -1338,20 +1542,29 @@ class JMWalletDaemon(Service):
             # why no defaults).
             def dummy_user_callback(rel, abs):
                 raise ConfigNotPresent()
-            max_cj_fee= get_max_cj_fee_values(jm_single().config,
-                        None, user_callback=dummy_user_callback)
+
+            max_cj_fee = get_max_cj_fee_values(
+                jm_single().config, None, user_callback=dummy_user_callback
+            )
             # Before actual start, update our coinjoin state:
             if not self.activate_coinjoin_state(CJ_TAKER_RUNNING):
                 raise ServiceAlreadyStarted()
 
             if "txfee" in request_data:
-                jm_single().config.set("POLICY", "tx_fees",
-                                       str(request_data["txfee"]))
+                jm_single().config.set(
+                    "POLICY", "tx_fees", str(request_data["txfee"])
+                )
 
-            self.taker = Taker(self.services["wallet"], schedule,
-                               max_cj_fee = max_cj_fee,
-                               callbacks=(self.filter_orders_callback,
-                                          None, self.taker_finished))
+            self.taker = Taker(
+                self.services["wallet"],
+                schedule,
+                max_cj_fee=max_cj_fee,
+                callbacks=(
+                    self.filter_orders_callback,
+                    None,
+                    self.taker_finished,
+                ),
+            )
             # TODO ; this makes use of a pre-existing hack to allow
             # selectively disabling the stallMonitor function that checks
             # if transactions went through or not; here we want to cleanly
@@ -1361,8 +1574,9 @@ class JMWalletDaemon(Service):
 
             dhost, dport = self.check_daemon_ready()
 
-            _, self.coinjoin_connection = start_reactor(dhost, dport,
-                                self.clientfactory, rs=False)
+            _, self.coinjoin_connection = start_reactor(
+                dhost, dport, self.clientfactory, rs=False
+            )
             return make_jmwalletd_response(request, status=202)
 
         @app.route('/wallet/<walletname>/getseed', methods=['GET'])
@@ -1384,21 +1598,34 @@ class JMWalletDaemon(Service):
                 raise InvalidRequestFormat()
 
             request_data = self.get_POST_body(request, ["hd_path", "message"])
-            result = wallet_signmessage(self.services["wallet"],
-                request_data["hd_path"], request_data["message"],
-                out_str=False)
+            result = wallet_signmessage(
+                self.services["wallet"],
+                request_data["hd_path"],
+                request_data["message"],
+                out_str=False,
+            )
             if type(result) == str:
-                return make_jmwalletd_response(request, status=400,
-                    message=result)
+                return make_jmwalletd_response(
+                    request, status=400, message=result
+                )
             else:
-                return make_jmwalletd_response(request,
-                    signature=result[0], message=result[1], address=result[2])
+                return make_jmwalletd_response(
+                    request,
+                    signature=result[0],
+                    message=result[1],
+                    address=result[2],
+                )
 
-        @app.route('/wallet/<string:walletname>/taker/schedule', methods=['POST'])
+        @app.route(
+            '/wallet/<string:walletname>/taker/schedule', methods=['POST']
+        )
         def start_tumbler(self, request, walletname):
             self.check_cookie(request)
 
-            if self.coinjoin_state is not CJ_NOT_RUNNING or self.tumbler_options is not None:
+            if (
+                self.coinjoin_state is not CJ_NOT_RUNNING
+                or self.tumbler_options is not None
+            ):
                 # Tumbler, taker, or maker seems to be running already.
                 return make_jmwalletd_response(request, status=409)
 
@@ -1413,8 +1640,9 @@ class JMWalletDaemon(Service):
             (options, args) = get_tumbler_parser().parse_args([])
             tumbler_options = vars(options)
 
-            request_data = self.get_POST_body(request, ["destination_addresses"],
-                                  ["tumbler_options"])
+            request_data = self.get_POST_body(
+                request, ["destination_addresses"], ["tumbler_options"]
+            )
             if not request_data:
                 raise InvalidRequestFormat()
 
@@ -1425,8 +1653,11 @@ class JMWalletDaemon(Service):
                     raise InvalidRequestFormat()
 
             if "tumbler_options" in request_data:
-                requested_tumbler_options = self.parse_tumbler_options_from_json(
-                    request_data["tumbler_options"])
+                requested_tumbler_options = (
+                    self.parse_tumbler_options_from_json(
+                        request_data["tumbler_options"]
+                    )
+                )
 
                 for k in tumbler_options:
                     if k in requested_tumbler_options:
@@ -1437,9 +1668,9 @@ class JMWalletDaemon(Service):
             def dummy_user_callback(rel, abs):
                 raise ConfigNotPresent()
 
-            max_cj_fee = get_max_cj_fee_values(jm_single().config,
-                                               None,
-                                               user_callback=dummy_user_callback)
+            max_cj_fee = get_max_cj_fee_values(
+                jm_single().config, None, user_callback=dummy_user_callback
+            )
 
             jm_single().mincjamount = tumbler_options['mincjamount']
 
@@ -1447,14 +1678,17 @@ class JMWalletDaemon(Service):
 
             # Always generates a new schedule. No restart support for now.
             try:
-                schedule = get_tumble_schedule(tumbler_options,
-                                           destaddrs,
-                                           self.services["wallet"].get_balance_by_mixdepth())
+                schedule = get_tumble_schedule(
+                    tumbler_options,
+                    destaddrs,
+                    self.services["wallet"].get_balance_by_mixdepth(),
+                )
             except ScheduleGenerationErrorNoFunds:
                 raise NotEnoughCoinsForTumbler()
 
-            logsdir = os.path.join(os.path.dirname(jm_single().config_location),
-                                   "logs")
+            logsdir = os.path.join(
+                os.path.dirname(jm_single().config_location), "logs"
+            )
             sfile = os.path.join(logsdir, tumbler_options['schedulefile'])
             with open(sfile, "wb") as f:
                 f.write(schedule_to_text(schedule))
@@ -1478,25 +1712,33 @@ class JMWalletDaemon(Service):
 
             self.tumbler_options = tumbler_options
 
-            self.taker = Taker(self.services["wallet"],
-                               schedule,
-                               max_cj_fee=max_cj_fee,
-                               order_chooser=self.tumbler_options['order_choose_fn'],
-                               callbacks=(self.filter_orders_callback_tumbler, None,
-                                          self.taker_finished),
-                               tdestaddrs=destaddrs)
+            self.taker = Taker(
+                self.services["wallet"],
+                schedule,
+                max_cj_fee=max_cj_fee,
+                order_chooser=self.tumbler_options['order_choose_fn'],
+                callbacks=(
+                    self.filter_orders_callback_tumbler,
+                    None,
+                    self.taker_finished,
+                ),
+                tdestaddrs=destaddrs,
+            )
             self.clientfactory = self.get_client_factory()
 
             dhost, dport = self.check_daemon_ready()
 
-            _, self.coinjoin_connection = start_reactor(dhost,
-                                                        dport,
-                                                        self.clientfactory,
-                                                        rs=False)
+            _, self.coinjoin_connection = start_reactor(
+                dhost, dport, self.clientfactory, rs=False
+            )
 
-            return make_jmwalletd_response(request, status=202, schedule=schedule)
+            return make_jmwalletd_response(
+                request, status=202, schedule=schedule
+            )
 
-        @app.route('/wallet/<string:walletname>/taker/schedule', methods=['GET'])
+        @app.route(
+            '/wallet/<string:walletname>/taker/schedule', methods=['GET']
+        )
         def get_tumbler_schedule(self, request, walletname):
             self.check_cookie(request)
 
@@ -1505,10 +1747,15 @@ class JMWalletDaemon(Service):
             if not self.wallet_name == walletname:
                 raise InvalidRequestFormat()
 
-            if not self.tumbler_options or not self.coinjoin_state == CJ_TAKER_RUNNING:
+            if (
+                not self.tumbler_options
+                or not self.coinjoin_state == CJ_TAKER_RUNNING
+            ):
                 return make_jmwalletd_response(request, status=404)
 
-            logsdir = os.path.join(os.path.dirname(jm_single().config_location), "logs")
+            logsdir = os.path.join(
+                os.path.dirname(jm_single().config_location), "logs"
+            )
             sfile = os.path.join(logsdir, self.tumbler_options['schedulefile'])
             res, schedule = get_schedule(sfile)
 
