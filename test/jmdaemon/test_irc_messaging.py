@@ -4,6 +4,7 @@
 import time
 from twisted.trial import unittest
 from twisted.internet import reactor, task
+from twisted.internet.error import AlreadyCancelled
 from jmdaemon import IRCMessageChannel, MessageChannelCollection
 #needed for test framework
 from jmclient import (load_test_config, get_mchannels, jm_single)
@@ -118,13 +119,20 @@ class TrialIRC(unittest.TestCase):
         dm2, mc2, mcc2 = getmc("irc_receiver")
         mcc.run()
         mcc2.run()
-        def cb(m):
-            #don't try to reconnect
-            m.give_up = True
-            m.tcp_connector.disconnect()
-        self.addCleanup(cb, mc)
-        self.addCleanup(cb, mc2)
-        #test_junk_messages()
+        self.mcc = mcc
+        self.mcc2 = mcc2
+        def cancel_delayed_calls():
+            for dc in reactor.getDelayedCalls():
+                try:
+                    dc.cancel()
+                except AlreadyCancelled:
+                    pass
+        self.addCleanup(cancel_delayed_calls)
+        def shutdown_mcs():
+            self.mcc.shutdown()
+            self.mcc2.shutdown()
+        self.addCleanup(shutdown_mcs)
+        # test_junk_messages()
         print("Got here")
 
     def test_waiter(self):
