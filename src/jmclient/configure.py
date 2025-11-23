@@ -1,5 +1,4 @@
 import atexit
-import io
 import logging
 import os
 import re
@@ -91,8 +90,10 @@ required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
                     'POLICY': ['absurd_fee_per_kb', 'taker_utxo_retries',
                                'taker_utxo_age', 'taker_utxo_amtpercent']}
 
-_DEFAULT_INTEREST_RATE = "0.015"
+_ENV_VAR_PREFIX = "JM_"
+_SECTIONS_WITH_SUBSECTIONS = {"MESSAGING"}
 
+_DEFAULT_INTEREST_RATE = "0.015"
 _DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.125"
 
 defaultconfig = \
@@ -673,9 +674,29 @@ def _remove_unwanted_default_settings(config: ConfigParser) -> None:
         if section.startswith('MESSAGING:'):
             config.remove_section(section)
 
-def load_program_config(config_path: str = "", bs: Optional[str] = None,
-                        plugin_services: List[JMPluginService] = []) -> None:
-    global_singleton.config.read_file(io.StringIO(defaultconfig))
+
+def override(config: Optional[ConfigParser]) -> Optional[ConfigParser]:
+    if not any(key.startswith(_ENV_VAR_PREFIX) for key in os.environ.keys()):
+        return config
+    if not config:
+        config = ConfigParser(strict=False)
+        config.read_string(defaultconfig)
+    for key, value in os.environ.items():
+        if key.startswith(_ENV_VAR_PREFIX):
+            key = key.removeprefix(_ENV_VAR_PREFIX)
+            section, key = key.split("_", 1)
+            if section in _SECTIONS_WITH_SUBSECTIONS:
+                sub, key = key.split("_", 1)
+                section = f"{section}:{sub.lower()}"
+            key = key.lower()
+            if not config.has_section(section):
+                config.add_section(section)
+            log.info(f"Overriding [{section}] {key}={value}")
+            config.set(section, key, value)
+    return config
+
+
+def _set_paths(config_path: str = "") -> None:
     if not config_path:
         config_path = lookup_appdata_folder(global_singleton.APPNAME)
     # we set the global home directory, but keep the config_path variable
@@ -692,29 +713,51 @@ def load_program_config(config_path: str = "", bs: Optional[str] = None,
     if not os.path.exists(os.path.join(global_singleton.datadir, "cmtdata")):
         os.makedirs(os.path.join(global_singleton.datadir, "cmtdata"))
     global_singleton.config_location = os.path.join(
-        global_singleton.datadir, global_singleton.config_location)
+        global_singleton.datadir, global_singleton.config_location
+    )
 
-    _remove_unwanted_default_settings(global_singleton.config)
+
+def read_config_file() -> Optional[ConfigParser]:
+    config = ConfigParser(strict=False)
+    config.read_string(defaultconfig)
+    _remove_unwanted_default_settings(config)
     try:
-        loadedFiles = global_singleton.config.read(
-            [global_singleton.config_location])
+        loaded = config.read([global_singleton.config_location])
     except UnicodeDecodeError:
-        jmprint("Error loading `joinmarket.cfg`, invalid file format.",
-            "info")
+        jmprint("Error loading `joinmarket.cfg`, invalid file format.", "info")
         sys.exit(EXIT_FAILURE)
+    return config if len(loaded) == 1 else None
+
+
+def write_config_file(config: str = defaultconfig) -> bool:
+    with open(global_singleton.config_location, "w") as configfile:
+        configfile.write(config)
+
+
+def load_program_config(
+    config_path: str = "",
+    bs: Optional[str] = None,
+    plugin_services: List[JMPluginService] = [],
+) -> None:
+    _set_paths(config_path)
+    config = read_config_file()
+    config = override(config)
+    # Create default config file if not found and no overrides
+    if not config:
+        write_config_file()
+        jmprint(
+            "Created a new `joinmarket.cfg`. Please review and adopt the "
+            "settings and restart joinmarket.",
+            "info",
+        )
+        sys.exit(EXIT_FAILURE)
+    global_singleton.config = config
 
     # Hack required for bitcoin-rpc-no-history and probably others
     # (historicaly electrum); must be able to enforce a different blockchain
     # interface even in default/new load.
     if bs:
         global_singleton.config.set("BLOCKCHAIN", "blockchain_source", bs)
-    # Create default config file if not found
-    if len(loadedFiles) != 1:
-        with open(global_singleton.config_location, "w") as configfile:
-            configfile.write(defaultconfig)
-        jmprint("Created a new `joinmarket.cfg`. Please review and adopt the "
-              "settings and restart joinmarket.", "info")
-        sys.exit(EXIT_FAILURE)
 
     loglevel = global_singleton.config.get("LOGGING", "console_log_level")
     try:
