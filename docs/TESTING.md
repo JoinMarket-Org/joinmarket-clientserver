@@ -1,5 +1,22 @@
 ### Test instructions (for developers):
 
+#### Quick start: Running tests with Docker
+
+The easiest way to run the full test suite is using Docker Compose, which handles all dependencies automatically:
+
+    docker compose run --rm test
+
+This will:
+
+* Build a Docker image with all dependencies (Python, Bitcoin Core 29.2, miniircd)
+* Run the complete test suite in an isolated environment
+* Automatically download and set up miniircd
+* No need to install bitcoind or other dependencies on your host machine
+
+For development, the Docker setup mounts the `src`, `scripts`, and `test` directories, so you can make changes locally and re-run tests without rebuilding the image.
+
+#### Manual setup
+
 Work in your `jmvenv` virtual environment as for all Joinmarket work. Make sure to have [bitcoind](https://bitcoin.org/en/full-node) 28.1 or newer installed. Also need miniircd installed to the root (i.e. in your `joinmarket-clientserver` directory):
 
     (jmvenv)$ cd /path/to/joinmarket-clientserver
