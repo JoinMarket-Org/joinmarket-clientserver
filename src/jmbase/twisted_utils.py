@@ -137,6 +137,7 @@ class JMHiddenService(object):
                  tor_control_port, serving_host, serving_port,
                  virtual_port=None,
                  shutdown_callback=None,
+                 tor_control_password=None,
                  hidden_service_dir=""):
         if isinstance(proto_factory_or_resource, Resource):
             # TODO bad naming, in this case it doesn't start
@@ -158,6 +159,7 @@ class JMHiddenService(object):
             self.virtual_port = virtual_port
         self.tor_control_host = tor_control_host
         self.tor_control_port = tor_control_port
+        self.tor_control_password = tor_control_password
         # note that defaults only exist in jmclient
         # config object, so no default here:
         self.serving_host = serving_host
@@ -183,7 +185,10 @@ class JMHiddenService(object):
             else:
                 control_endpoint = TCP4ClientEndpoint(reactor,
                                 self.tor_control_host, self.tor_control_port)
-            d = txtorcon.connect(reactor, control_endpoint)
+            if self.tor_control_password is None:
+                d = txtorcon.connect(reactor, control_endpoint)
+            else:
+                d = txtorcon.connect(reactor, control_endpoint, password_function=lambda : self.tor_control_password)
             d.addCallback(self.create_onion_ep)
             d.addErrback(self.setup_failed)
             # TODO: add errbacks to the next two calls in

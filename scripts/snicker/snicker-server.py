@@ -302,11 +302,16 @@ class SNICKERServerManager(object):
         if not self.local_port:
             control_host = jm_single().config.get("PAYJOIN", "tor_control_host")
             control_port = int(jm_single().config.get("PAYJOIN", "tor_control_port"))
+            control_pass = jm_single().config.get("PAYJOIN", "tor_control_password")
             if str(control_host).startswith('unix:'):
                 control_endpoint = UNIXClientEndpoint(reactor, control_host[5:])
             else:
                 control_endpoint = TCP4ClientEndpoint(reactor, control_host, control_port)
-            d = txtorcon.connect(reactor, control_endpoint)
+
+            if control_pass is None or len(str(control_pass)) == 0:
+                d = txtorcon.connect(reactor, control_endpoint)
+            else:
+                d = txtorcon.connect(reactor, control_endpoint, password_function=lambda : control_pass)
             d.addCallback(self.create_onion_ep)
             d.addErrback(self.setup_failed)
         else:

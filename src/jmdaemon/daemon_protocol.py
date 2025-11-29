@@ -281,6 +281,7 @@ class BIP78ServerProtocol(HTTPPassThrough):
         self.serving_port = int(netconfig["port"])
         self.tor_control_host = netconfig["tor_control_host"]
         self.tor_control_port = int(netconfig["tor_control_port"])
+        self.tor_control_password = netconfig.get("tor_control_password")
         self.onion_serving_host=netconfig["onion_serving_host"]
         self.onion_serving_port=int(netconfig["onion_serving_port"])
         self.bip78_rr = BIP78ReceiverResource(self.info_callback,
@@ -294,6 +295,7 @@ class BIP78ServerProtocol(HTTPPassThrough):
                                   self.tor_control_port,
                                   self.onion_serving_host,
                                   self.onion_serving_port,
+                                  tor_control_password=self.tor_control_password,
                                   shutdown_callback=self.shutdown_callback)
         # this call will start bringing up the HS; when it's finished,
         # it will fire the `onion_hostname_callback`, or if it fails,
