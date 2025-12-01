@@ -83,3 +83,37 @@ sudo service tor start
 ```
 
 Once this is done, you should be able to start the yieldgenerator successfully.
+
+#### Tor-managed hidden services
+
+As an alternative to using the Tor control port, you can configure Tor to manage the hidden service directly via its configuration file (`torrc`). This approach is useful when:
+
+- You want Tor to fully manage the hidden service lifecycle
+- You don't want to grant control port access to JoinMarket
+- You're running Tor as a system service and prefer centralized configuration
+
+To use this mode:
+
+1. Configure the hidden service in Tor's `torrc` file (typically `/etc/tor/torrc`):
+
+   ```ini
+   HiddenServiceDir /var/lib/tor/joinmarket_hidden_service
+   HiddenServicePort 5222 127.0.0.1:8080
+   ```
+
+2. Set appropriate permissions
+3. Restart To
+4. Configure JoinMarket to use the Tor-managed service by setting `hidden_service_dir` in your `joinmarket.cfg`:
+
+   ```ini
+   hidden_service_dir = tor-managed:/var/lib/tor/joinmarket_hidden_service
+   ```
+
+   Note the `tor-managed:` prefix, which tells JoinMarket to read the hostname from the `hostname` file in that directory rather than managing the service via the control port.
+
+##### Important notes
+
+- The directory path in `hidden_service_dir` must match exactly what's configured in `torrc`
+- JoinMarket will read the hostname from the `hostname` file; make sure Tor has created it
+- No control port configuration is needed for this mode (though you may still need it for other features)
+- The hidden service directory must be readable by the user running JoinMarket (or the `hostname` file at minimum)
