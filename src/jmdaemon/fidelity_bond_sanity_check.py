@@ -1,5 +1,5 @@
-
 import base64
+
 
 def fidelity_bond_sanity_check(proof):
     try:
@@ -9,4 +9,3 @@ def fidelity_bond_sanity_check(proof):
     except Exception:
         return False
     return True
-

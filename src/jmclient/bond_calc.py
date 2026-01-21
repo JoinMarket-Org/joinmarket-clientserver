@@ -1,6 +1,7 @@
 """
 Utilities to calculate fidelity bonds values and statistics.
 """
+
 from bisect import bisect_left
 from datetime import datetime
 from typing import Optional, Dict, Any, Mapping, Tuple, List, Sequence
@@ -36,12 +37,14 @@ def get_next_locktime(dt: datetime) -> datetime:
     return datetime(year, month, 1)
 
 
-def get_bond_values(amount: int,
-                    months: int,
-                    confirm_time: Optional[float] = None,
-                    interest: Optional[float] = None,
-                    exponent: Optional[float] = None,
-                    orderbook: Optional[Mapping[str, Any]] = None) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+def get_bond_values(
+    amount: int,
+    months: int,
+    confirm_time: Optional[float] = None,
+    interest: Optional[float] = None,
+    exponent: Optional[float] = None,
+    orderbook: Optional[Mapping[str, Any]] = None,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     """
     Conveniently generate values [and statistics] for multiple possible fidelity bonds.
 
@@ -92,8 +95,7 @@ def get_bond_values(amount: int,
             current_time,
             interest,
         )
-        result = {"locktime": locktime.timestamp(),
-                  "value": fb_value}
+        result = {"locktime": locktime.timestamp(), "value": fb_value}
         if orderbook:
             result["weight"] = fb_value / (bonds_sum + fb_value)
             result["percentile"] = 100 - bisect_left(percentiles, fb_value)

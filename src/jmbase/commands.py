@@ -3,8 +3,15 @@ Commands defining client-server (daemon)
 messaging protocol (*not* Joinmarket p2p protocol).
 Used for AMP asynchronous messages.
 """
-from twisted.protocols.amp import Boolean, Command, Integer, Unicode, ListOf,\
-    String
+
+from twisted.protocols.amp import (
+    Boolean,
+    Command,
+    Integer,
+    Unicode,
+    ListOf,
+    String,
+)
 from .bigstring import BigUnicode
 from .arguments import JsonEncodable
 
@@ -12,9 +19,11 @@ from .arguments import JsonEncodable
 class DaemonNotReady(Exception):
     pass
 
+
 class JMCommand(Command):
-    #a default response type
+    # a default response type
     response = [(b'accepted', Boolean())]
+
 
 """COMMANDS FROM CLIENT TO DAEMON
 =================================
@@ -23,129 +32,169 @@ class JMCommand(Command):
 """Messages used by both MAKER and TAKER
 """
 
+
 class JMInit(JMCommand):
     """Communicates the client's required setup
     configuration.
     Blockchain source is communicated only as a naming
     tag for messagechannels (for IRC, 'realname' field).
     """
-    arguments = [(b'bcsource', Unicode()),
-                 (b'network', Unicode()),
-                 (b'chan_configs', JsonEncodable()),
-                 (b'minmakers', Integer()),
-                 (b'maker_timeout_sec', Integer()),
-                 (b'dust_threshold', Integer()),
-                 (b'blacklist_location', Unicode())]
+
+    arguments = [
+        (b'bcsource', Unicode()),
+        (b'network', Unicode()),
+        (b'chan_configs', JsonEncodable()),
+        (b'minmakers', Integer()),
+        (b'maker_timeout_sec', Integer()),
+        (b'dust_threshold', Integer()),
+        (b'blacklist_location', Unicode()),
+    ]
     errors = {DaemonNotReady: b'daemon is not ready'}
+
 
 class JMStartMC(JMCommand):
     """Will restart message channel connections if config
     has changed; otherwise will only change nym/nick on MCs.
     """
+
     arguments = [(b'nick', Unicode())]
+
 
 class JMSetup(JMCommand):
     """Communicates which of "MAKER" or "TAKER"
     roles are to be taken by this client; for MAKER
     role, passes initial offers for announcement (for TAKER, this data is "none")
     """
-    arguments = [(b'role', Unicode()),
-                 (b'initdata', JsonEncodable()),
-                 (b'use_fidelity_bond', Boolean())]
+
+    arguments = [
+        (b'role', Unicode()),
+        (b'initdata', JsonEncodable()),
+        (b'use_fidelity_bond', Boolean()),
+    ]
+
 
 class JMMsgSignature(JMCommand):
     """A response to a request for a bitcoin signature
     on a message-channel layer message from the daemon
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'cmd', Unicode()),
-                 (b'msg_to_return', Unicode()),
-                 (b'hostid', Unicode())]
+
+    arguments = [
+        (b'nick', Unicode()),
+        (b'cmd', Unicode()),
+        (b'msg_to_return', Unicode()),
+        (b'hostid', Unicode()),
+    ]
+
 
 class JMMsgSignatureVerify(JMCommand):
     """A response to a request to verify the bitcoin signature
     of a message-channel layer message from the daemon
     """
-    arguments = [(b'verif_result', Boolean()),
-                 (b'nick', Unicode()),
-                 (b'fullmsg', Unicode()),
-                 (b'hostid', Unicode())]
+
+    arguments = [
+        (b'verif_result', Boolean()),
+        (b'nick', Unicode()),
+        (b'fullmsg', Unicode()),
+        (b'hostid', Unicode()),
+    ]
+
 
 class JMShutdown(JMCommand):
-    """ Requests shutdown of the current
+    """Requests shutdown of the current
     message channel connections (to be used
     when the client is shutting down).
     """
+
     arguments = []
+
 
 """TAKER specific commands
 """
 
+
 class JMRequestOffers(JMCommand):
-    """Get orderbook from daemon
-    """
+    """Get orderbook from daemon"""
+
     arguments = []
 
+
 class JMFill(JMCommand):
-    """Fill an offer/order
-    """
-    arguments = [(b'amount', Integer()),
-                 (b'commitment', Unicode()),
-                 (b'revelation', Unicode()),
-                 (b'filled_offers', JsonEncodable())]
+    """Fill an offer/order"""
+
+    arguments = [
+        (b'amount', Integer()),
+        (b'commitment', Unicode()),
+        (b'revelation', Unicode()),
+        (b'filled_offers', JsonEncodable()),
+    ]
+
 
 class JMMakeTx(JMCommand):
     """Send a hex encoded raw bitcoin transaction
     to a set of counterparties
     """
-    arguments = [(b'nick_list', ListOf(Unicode())),
-                 (b'tx', String())]
+
+    arguments = [(b'nick_list', ListOf(Unicode())), (b'tx', String())]
+
 
 class JMPushTx(JMCommand):
     """Pass a raw hex transaction to a specific
     counterparty (maker) for pushing (anonymity feature in JM)
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'tx', String())]
+
+    arguments = [(b'nick', Unicode()), (b'tx', String())]
+
 
 """MAKER specific commands
 """
+
 
 class JMAnnounceOffers(JMCommand):
     """Send list (actually dict) of offers
     to the daemon, along with new announcement
     and cancellation lists (deltas).
     """
-    arguments = [(b'to_announce', JsonEncodable()),
-                 (b'to_cancel', JsonEncodable()),
-                 (b'offerlist', JsonEncodable())]
+
+    arguments = [
+        (b'to_announce', JsonEncodable()),
+        (b'to_cancel', JsonEncodable()),
+        (b'offerlist', JsonEncodable()),
+    ]
+
 
 class JMFidelityBondProof(JMCommand):
     """Send requested fidelity bond proof message"""
-    arguments = [(b'nick', Unicode()),
-                 (b'proof', Unicode())]
+
+    arguments = [(b'nick', Unicode()), (b'proof', Unicode())]
+
 
 class JMIOAuth(JMCommand):
     """Send contents of !ioauth message after
     verifying Taker's auth message
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'utxolist', JsonEncodable()),
-                 (b'pubkey', Unicode()),
-                 (b'cjaddr', Unicode()),
-                 (b'changeaddr', Unicode()),
-                 (b'pubkeysig', Unicode())]
+
+    arguments = [
+        (b'nick', Unicode()),
+        (b'utxolist', JsonEncodable()),
+        (b'pubkey', Unicode()),
+        (b'cjaddr', Unicode()),
+        (b'changeaddr', Unicode()),
+        (b'pubkeysig', Unicode()),
+    ]
+
 
 class JMTXSigs(JMCommand):
     """Send signatures on the bitcoin transaction
     sent by TAKER
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'sigs', ListOf(Unicode()))]
+
+    arguments = [(b'nick', Unicode()), (b'sigs', ListOf(Unicode()))]
+
 
 """COMMANDS FROM DAEMON TO CLIENT
 =================================
 """
+
 
 class JMInitProto(JMCommand):
     """Pass to the client the messaging protocol parameters
@@ -154,75 +203,98 @@ class JMInitProto(JMCommand):
     (that key being controlled by the client; the daemon knows nothing
     about bitcoin).
     """
-    arguments = [(b'nick_hash_length', Integer()),
-                 (b'nick_max_encoded', Integer()),
-                 (b'joinmarket_nick_header', Unicode()),
-                 (b'joinmarket_version', Integer())]
+
+    arguments = [
+        (b'nick_hash_length', Integer()),
+        (b'nick_max_encoded', Integer()),
+        (b'joinmarket_nick_header', Unicode()),
+        (b'joinmarket_version', Integer()),
+    ]
+
 
 class JMUp(JMCommand):
-    """Used to signal readiness of message channels to client.
-    """
+    """Used to signal readiness of message channels to client."""
+
     arguments = []
+
 
 class JMSetupDone(JMCommand):
     """Used to signal that initial setup action
     has been taken (e.g. !orderbook call).
     """
+
     arguments = []
+
 
 class JMRequestMsgSig(JMCommand):
     """Request the client to sign a message-channel
     layer message with the bitcoin key for the nick
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'cmd', Unicode()),
-                 (b'msg', Unicode()),
-                 (b'msg_to_be_signed', Unicode()),
-                 (b'hostid', Unicode())]
+
+    arguments = [
+        (b'nick', Unicode()),
+        (b'cmd', Unicode()),
+        (b'msg', Unicode()),
+        (b'msg_to_be_signed', Unicode()),
+        (b'hostid', Unicode()),
+    ]
+
 
 class JMRequestMsgSigVerify(JMCommand):
     """Request the client to verify a counterparty's
     message-channel layer message against the provided nick
     """
-    arguments = [(b'msg', Unicode()),
-                 (b'fullmsg', Unicode()),
-                 (b'sig', Unicode()),
-                 (b'pubkey', Unicode()),
-                 (b'nick', Unicode()),
-                 (b'hashlen', Integer()),
-                 (b'max_encoded', Integer()),
-                 (b'hostid', Unicode())]
+
+    arguments = [
+        (b'msg', Unicode()),
+        (b'fullmsg', Unicode()),
+        (b'sig', Unicode()),
+        (b'pubkey', Unicode()),
+        (b'nick', Unicode()),
+        (b'hashlen', Integer()),
+        (b'max_encoded', Integer()),
+        (b'hostid', Unicode()),
+    ]
+
 
 """ TAKER-specific commands
 """
+
 
 class JMOffers(JMCommand):
     """Return the entire contents of the
     orderbook to TAKER, as a json-ified dict.
     """
-    arguments = [(b'orderbook', BigUnicode()),
-                 (b'fidelitybonds', BigUnicode())]
+
+    arguments = [
+        (b'orderbook', BigUnicode()),
+        (b'fidelitybonds', BigUnicode()),
+    ]
+
 
 class JMFillResponse(JMCommand):
-    """Returns ioauth data from MAKER if successful.
-    """
-    arguments = [(b'success', Boolean()),
-                 (b'ioauth_data', JsonEncodable())]
+    """Returns ioauth data from MAKER if successful."""
+
+    arguments = [(b'success', Boolean()), (b'ioauth_data', JsonEncodable())]
+
 
 class JMSigReceived(JMCommand):
     """Returns an individual bitcoin transaction signature
     from a MAKER
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'sig', Unicode())]
+
+    arguments = [(b'nick', Unicode()), (b'sig', Unicode())]
+
 
 """MAKER-specific commands
 """
 
+
 class JMFidelityBondProofRequest(JMCommand):
     """MAKER wants to announce a fidelity bond proof message"""
-    arguments = [(b'takernick', Unicode()),
-                 (b'makernick', Unicode())]
+
+    arguments = [(b'takernick', Unicode()), (b'makernick', Unicode())]
+
 
 class JMAuthReceived(JMCommand):
     """Return the commitment and revelation
@@ -230,81 +302,101 @@ class JMAuthReceived(JMCommand):
     allowing the MAKER to verify against btc library
     before setting up encryption and continuing.
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'offer', JsonEncodable()),
-                 (b'commitment', Unicode()),
-                 (b'revelation', JsonEncodable()),
-                 (b'amount', Integer()),
-                 (b'kphex', Unicode())]
+
+    arguments = [
+        (b'nick', Unicode()),
+        (b'offer', JsonEncodable()),
+        (b'commitment', Unicode()),
+        (b'revelation', JsonEncodable()),
+        (b'amount', Integer()),
+        (b'kphex', Unicode()),
+    ]
+
 
 class JMTXReceived(JMCommand):
     """Send back transaction template provided
     by TAKER, along with offerdata to verify fees.
     """
-    arguments = [(b'nick', Unicode()),
-                 (b'tx', String()),
-                 (b'offer', JsonEncodable())]
+
+    arguments = [
+        (b'nick', Unicode()),
+        (b'tx', String()),
+        (b'offer', JsonEncodable()),
+    ]
+
 
 class JMTXBroadcast(JMCommand):
-    """ Accept a bitcoin transaction
+    """Accept a bitcoin transaction
     sent over the wire by a counterparty
     and relay it to the client for network
     broadcast.
     """
+
     arguments = [(b'tx', String())]
+
 
 """SNICKER related commands.
 """
 
+
 class SNICKERReceiverInit(JMCommand):
-    """ Initialization data for a SNICKER service.
+    """Initialization data for a SNICKER service.
     See documentation of `netconfig` in
     jmdaemon.HTTPPassThrough.on_INIT
     """
+
     arguments = [(b'netconfig', JsonEncodable())]
 
+
 class SNICKERProposerInit(JMCommand):
-    """ As for receiver.
-    """
+    """As for receiver."""
+
     arguments = [(b'netconfig', JsonEncodable())]
+
 
 class SNICKERReceiverUp(JMCommand):
     arguments = []
 
+
 class SNICKERProposerUp(JMCommand):
     arguments = []
+
 
 class SNICKERReceiverGetProposals(JMCommand):
     arguments = []
 
+
 class SNICKERReceiverProposals(JMCommand):
-    """ Sends the retrieved proposal list from
+    """Sends the retrieved proposal list from
     a specific server, from daemon back to client.
     """
-    arguments = [(b'proposals', BigUnicode()),
-                 (b'server', Unicode())]
+
+    arguments = [(b'proposals', BigUnicode()), (b'server', Unicode())]
+
 
 class SNICKERProposerPostProposals(JMCommand):
-    """ Sends a list of proposals to be uploaded
+    """Sends a list of proposals to be uploaded
     to a server.
     """
-    arguments = [(b'proposals', BigUnicode()),
-                 (b'server', Unicode())]
+
+    arguments = [(b'proposals', BigUnicode()), (b'server', Unicode())]
+
 
 class SNICKERProposalsServerResponse(JMCommand):
-    arguments = [(b'response', Unicode()),
-                 (b'server', Unicode())]
+    arguments = [(b'response', Unicode()), (b'server', Unicode())]
+
 
 class SNICKERServerError(JMCommand):
-    arguments = [(b'server', Unicode()),
-                 (b'errorcode', Integer())]
+    arguments = [(b'server', Unicode()), (b'errorcode', Integer())]
+
 
 class SNICKERRequestPowTarget(JMCommand):
     arguments = [(b'server', Unicode())]
 
+
 class SNICKERReceivePowTarget(JMCommand):
-    arguments = [(b'server', Unicode()),
-                 (b'targetbits', Integer())]
+    arguments = [(b'server', Unicode()), (b'targetbits', Integer())]
+
 
 """ Payjoin-related commands
 """
@@ -312,92 +404,113 @@ class SNICKERReceivePowTarget(JMCommand):
 """ Sender-specific commands.
 """
 
+
 class BIP78SenderInit(JMCommand):
-    """ Initialization data for a BIP78 service.
+    """Initialization data for a BIP78 service.
     See documentation of `netconfig` in
     jmdaemon.HTTPPassThrough.on_INIT
     """
+
     arguments = [(b'netconfig', JsonEncodable())]
+
 
 class BIP78SenderUp(JMCommand):
     arguments = []
 
+
 class BIP78SenderOriginalPSBT(JMCommand):
-    """ Sends the payjoin url and the original
+    """Sends the payjoin url and the original
     payment PSBT, base64 encoded,
     from the client to the daemon,
     to be sent as an http request to the receiver.
     """
-    arguments = [(b'body', BigUnicode()),
-                 (b'params', JsonEncodable())]
+
+    arguments = [(b'body', BigUnicode()), (b'params', JsonEncodable())]
+
 
 class BIP78SenderReceiveProposal(JMCommand):
-    """ Sends the payjoin proposal PSBT, received
+    """Sends the payjoin proposal PSBT, received
     from the BIP78 Receiver, from the daemon to the client.
     """
+
     arguments = [(b'psbt', BigUnicode())]
 
+
 class BIP78SenderReceiveError(JMCommand):
-    """ Sends a message from daemon to client
+    """Sends a message from daemon to client
     indicating that the BIP78 receiver did not
     accept the request, or there was a network error.
     """
-    arguments = [(b'errormsg', Unicode()),
-                 (b'errorcode', Integer())]
+
+    arguments = [(b'errormsg', Unicode()), (b'errorcode', Integer())]
+
 
 """ Receiver-specific commands
 """
 
+
 class BIP78ReceiverInit(JMCommand):
-    """ Initialization data for a BIP78 hidden service.
-    """
+    """Initialization data for a BIP78 hidden service."""
+
     arguments = [(b'netconfig', JsonEncodable())]
 
+
 class BIP78ReceiverUp(JMCommand):
-    """ Returns onion hostname to client when
+    """Returns onion hostname to client when
     the hidden service has been brought up, indicating
     readiness.
     """
+
     arguments = [(b'hostname', Unicode())]
 
+
 class BIP78ReceiverOriginalPSBT(JMCommand):
-    """ Sends the sender's original
+    """Sends the sender's original
     payment PSBT, base64 encoded, and the request
     parameters in the url, from the daemon to the client.
     """
-    arguments = [(b'body', BigUnicode()),
-                 (b'params', JsonEncodable())]
+
+    arguments = [(b'body', BigUnicode()), (b'params', JsonEncodable())]
+
 
 class BIP78ReceiverSendProposal(JMCommand):
-    """ Receives a payjoin proposal PSBT from
+    """Receives a payjoin proposal PSBT from
     the client, sent to the daemon.
     """
+
     arguments = [(b'psbt', BigUnicode())]
 
+
 class BIP78ReceiverSendError(JMCommand):
-    """ Sends a message from client to daemon
+    """Sends a message from client to daemon
     indicating that the BIP78 receiver did not
     accept the request, to be forwarded to the sender.
     """
-    arguments = [(b'errormsg', Unicode()),
-                 (b'errorcode', Unicode())]
+
+    arguments = [(b'errormsg', Unicode()), (b'errorcode', Unicode())]
+
 
 class BIP78ReceiverHiddenServiceShutdown(JMCommand):
-    """ Sends a message from the daemon to the
+    """Sends a message from the daemon to the
     client when the hidden service has shut down.
     """
+
     arguments = []
 
+
 class BIP78ReceiverOnionSetupFailed(JMCommand):
-    """ Sends a message from the daemon to the
+    """Sends a message from the daemon to the
     client when the hidden service setup failed
     for the given reason.
     """
+
     arguments = [(b'reason', Unicode())]
 
+
 class BIP78InfoMsg(JMCommand):
-    """ Sends an info message to the client
+    """Sends an info message to the client
     from the daemon about current status at
     network level.
     """
+
     arguments = [(b'infomsg', Unicode())]

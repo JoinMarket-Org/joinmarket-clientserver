@@ -11,9 +11,18 @@ from signal import SIGINT
 from typing import Any, List, Optional, Tuple
 
 import jmbitcoin as btc
-from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
-                            set_logging_level, jmprint, set_logging_color,
-                            JM_APP_NAME, lookup_appdata_folder, EXIT_FAILURE)
+from jmbase.support import (
+    get_log,
+    joinmarket_alert,
+    core_alert,
+    debug_silence,
+    set_logging_level,
+    jmprint,
+    set_logging_color,
+    JM_APP_NAME,
+    lookup_appdata_folder,
+    EXIT_FAILURE,
+)
 from jmclient.jsonrpc import JsonRpc
 from jmclient.podle import set_commitment_file
 
@@ -43,12 +52,17 @@ class AttributeDict(object):
         if name == 'nickname' and value != self.currentnick:
             self.currentnick = value
             logFormatter = logging.Formatter(
-                ('%(asctime)s [%(threadName)-12.12s] '
-                 '[%(levelname)-5.5s]  %(message)s'))
-            logsdir = os.path.join(os.path.dirname(
-                global_singleton.config_location), "logs")
+                (
+                    '%(asctime)s [%(threadName)-12.12s] '
+                    '[%(levelname)-5.5s]  %(message)s'
+                )
+            )
+            logsdir = os.path.join(
+                os.path.dirname(global_singleton.config_location), "logs"
+            )
             fileHandler = logging.FileHandler(
-                logsdir + '/{}.log'.format(value))
+                logsdir + '/{}.log'.format(value)
+            )
             fileHandler.setFormatter(logFormatter)
             log.addHandler(fileHandler)
 
@@ -75,9 +89,9 @@ global_singleton.core_alert = core_alert
 global_singleton.joinmarket_alert = joinmarket_alert
 global_singleton.debug_silence = debug_silence
 global_singleton.config = ConfigParser(strict=False)
-#This is reset to a full path after load_program_config call
+# This is reset to a full path after load_program_config call
 global_singleton.config_location = 'joinmarket.cfg'
-#as above
+# as above
 global_singleton.commit_file_location = 'cmtdata/commitments.json'
 global_singleton.wait_for_commitments = 0
 
@@ -85,17 +99,24 @@ global_singleton.wait_for_commitments = 0
 def jm_single() -> AttributeDict:
     return global_singleton
 
+
 # FIXME: Add rpc_* options here in the future!
-required_options = {'BLOCKCHAIN': ['blockchain_source', 'network'],
-                    'MESSAGING': ['host', 'channel', 'port'],
-                    'POLICY': ['absurd_fee_per_kb', 'taker_utxo_retries',
-                               'taker_utxo_age', 'taker_utxo_amtpercent']}
+required_options = {
+    'BLOCKCHAIN': ['blockchain_source', 'network'],
+    'MESSAGING': ['host', 'channel', 'port'],
+    'POLICY': [
+        'absurd_fee_per_kb',
+        'taker_utxo_retries',
+        'taker_utxo_age',
+        'taker_utxo_amtpercent',
+    ],
+}
 
 _DEFAULT_INTEREST_RATE = "0.015"
 
 _DEFAULT_BONDLESS_MAKERS_ALLOWANCE = "0.125"
 
-defaultconfig = \
+defaultconfig = (
     """
 [DAEMON]
 # set to 1 to run the daemon service within this process;
@@ -353,7 +374,9 @@ max_sats_freeze_reuse = -1
 # See also:
 # https://gist.github.com/chris-belcher/87ebbcbb639686057a389acb9ab3e25b#determining-interest-rate-r
 # Set as a real number, i.e. 1 = 100% and 0.01 = 1%
-interest_rate = """ + _DEFAULT_INTEREST_RATE + """
+interest_rate = """
+    + _DEFAULT_INTEREST_RATE
+    + """
 
 # Some makers run their bots to mix their funds not just to earn money
 # So to improve privacy very slightly takers dont always choose a maker based
@@ -361,7 +384,9 @@ interest_rate = """ + _DEFAULT_INTEREST_RATE + """
 # randomly without taking into account fidelity bonds
 # This parameter sets how many makers on average will be chosen regardless of bonds
 # A real number, i.e. 1 = 100%, 0.125 = 1/8 = 1 in every 8 makers on average will be bondless
-bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
+bondless_makers_allowance = """
+    + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE
+    + """
 
 # To (strongly) disincentivize Sybil behaviour, the value assessment of the bond
 # is based on the (time value of the bond)^x where x is the bond_value_exponent here,
@@ -506,11 +531,13 @@ servers = cn5lfwvrswicuxn3gjsxoved6l2gu5hdvwy5l3ev7kg6j7lbji2k7hqd.onion,
 # How many minutes between each polling event to each server above:
 polling_interval_minutes = 60
 """
+)
 
-#This allows use of the jmclient package with a
-#configuration set by an external caller; not to be used
-#in conjuction with calls to load_program_config.
-def set_config(cfg: ConfigParser, bcint = None) -> None:
+
+# This allows use of the jmclient package with a
+# configuration set by an external caller; not to be used
+# in conjuction with calls to load_program_config.
+def set_config(cfg: ConfigParser, bcint=None) -> None:
     global_singleton.config = cfg
     if bcint:
         global_singleton.bc_interface = bcint
@@ -520,21 +547,37 @@ def get_mchannels(mode: str = "TAKER") -> list:
     SECTION_NAME = 'MESSAGING'
     # FIXME: remove in future release
     if jm_single().config.has_section(SECTION_NAME):
-        log.warning("Old IRC configuration detected. Please adopt your "
-                    "joinmarket.cfg as documented in 'docs/config-irc-"
-                    "update.md'. Support for the old setting will be removed "
-                    "in a future version.")
+        log.warning(
+            "Old IRC configuration detected. Please adopt your "
+            "joinmarket.cfg as documented in 'docs/config-irc-"
+            "update.md'. Support for the old setting will be removed "
+            "in a future version."
+        )
         return _get_irc_mchannels_old()
 
     SECTION_NAME += ':'
 
-    irc_fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
-              ("socks5", str), ("socks5_host", str), ("socks5_port", int)]
-    onion_fields = [("type", str), ("directory_nodes", str), ("regtest_count", str),
-                    ("socks5_host", str), ("socks5_port", int),
-                    ("tor_control_host", str), ("tor_control_port", int),
-                    ("onion_serving_host", str), ("onion_serving_port", int),
-                    ("hidden_service_dir", str)]
+    irc_fields = [
+        ("host", str),
+        ("port", int),
+        ("channel", str),
+        ("usessl", str),
+        ("socks5", str),
+        ("socks5_host", str),
+        ("socks5_port", int),
+    ]
+    onion_fields = [
+        ("type", str),
+        ("directory_nodes", str),
+        ("regtest_count", str),
+        ("socks5_host", str),
+        ("socks5_port", int),
+        ("tor_control_host", str),
+        ("tor_control_port", int),
+        ("onion_serving_host", str),
+        ("onion_serving_port", int),
+        ("hidden_service_dir", str),
+    ]
 
     def get_irc_section(s):
         server_data = {}
@@ -544,8 +587,12 @@ def get_mchannels(mode: str = "TAKER") -> list:
         except NoOptionError:
             server_data["socks5"] = "false"
         if server_data["socks5"].lower() == 'true':
-            server_data["socks5_host"] = jm_single().config.get(s, "socks5_host")
-            server_data["socks5_port"] = jm_single().config.get(s, "socks5_port")
+            server_data["socks5_host"] = jm_single().config.get(
+                s, "socks5_host"
+            )
+            server_data["socks5_port"] = jm_single().config.get(
+                s, "socks5_port"
+            )
 
         for option, otype in irc_fields:
             val = jm_single().config.get(s, option)
@@ -587,9 +634,17 @@ def get_mchannels(mode: str = "TAKER") -> list:
     assert len(onion_sections) < 2
     return irc_sections + onion_sections
 
+
 def _get_irc_mchannels_old() -> list:
-    fields = [("host", str), ("port", int), ("channel", str), ("usessl", str),
-              ("socks5", str), ("socks5_host", str), ("socks5_port", str)]
+    fields = [
+        ("host", str),
+        ("port", int),
+        ("channel", str),
+        ("usessl", str),
+        ("socks5", str),
+        ("socks5_host", str),
+        ("socks5_port", str),
+    ]
     configdata = {}
     for f, t in fields:
         vals = jm_single().config.get("MESSAGING", f).split(",")
@@ -605,23 +660,26 @@ def _get_irc_mchannels_old() -> list:
         configs.append(newconfig)
     return configs
 
+
 class JMPluginService(object):
-    """ Allows us to configure on-startup
+    """Allows us to configure on-startup
     any additional service (such as SNICKER).
     For now only covers logging.
     """
+
     def __init__(self, name: str, requires_logging: bool = True) -> None:
         self.name = name
         self.requires_logging = requires_logging
 
     def start_plugin_logging(self, wallet: str) -> None:
-        """ This requires the name of the active wallet
+        """This requires the name of the active wallet
         to set the logfile; TODO other plugin services may
         need a different setup.
         """
         self.wallet = wallet
-        self.logfilename = "{}-{}.log".format(self.name,
-                            self.wallet.get_wallet_name())
+        self.logfilename = "{}-{}.log".format(
+            self.name, self.wallet.get_wallet_name()
+        )
         self.start_logging()
 
     def set_log_dir(self, logdirname: str) -> None:
@@ -629,16 +687,23 @@ class JMPluginService(object):
 
     def start_logging(self) -> None:
         logFormatter = logging.Formatter(
-            ('%(asctime)s [%(levelname)-5.5s] {} - %(message)s'.format(
-                self.name)))
+            (
+                '%(asctime)s [%(levelname)-5.5s] {} - %(message)s'.format(
+                    self.name
+                )
+            )
+        )
         fileHandler = logging.FileHandler(
-            self.logdirname + '/{}'.format(self.logfilename))
+            self.logdirname + '/{}'.format(self.logfilename)
+        )
         fileHandler.setFormatter(logFormatter)
         get_log().addHandler(fileHandler)
+
 
 def get_network() -> str:
     """Returns network name"""
     return global_singleton.config.get("BLOCKCHAIN", "network")
+
 
 def validate_address(addr: str) -> Tuple[bool, str]:
     try:
@@ -655,26 +720,43 @@ def validate_address(addr: str) -> Tuple[bool, str]:
         return False, repr(e)
     return True, "address validated"
 
+
 _BURN_DESTINATION = "BURN"
+
 
 def is_burn_destination(destination: str) -> bool:
     return destination == _BURN_DESTINATION
 
+
 def get_interest_rate() -> float:
-    return float(global_singleton.config.get('POLICY', 'interest_rate',
-        fallback=_DEFAULT_INTEREST_RATE))
+    return float(
+        global_singleton.config.get(
+            'POLICY', 'interest_rate', fallback=_DEFAULT_INTEREST_RATE
+        )
+    )
+
 
 def get_bondless_makers_allowance() -> float:
-    return float(global_singleton.config.get('POLICY', 'bondless_makers_allowance',
-        fallback=_DEFAULT_BONDLESS_MAKERS_ALLOWANCE))
+    return float(
+        global_singleton.config.get(
+            'POLICY',
+            'bondless_makers_allowance',
+            fallback=_DEFAULT_BONDLESS_MAKERS_ALLOWANCE,
+        )
+    )
+
 
 def _remove_unwanted_default_settings(config: ConfigParser) -> None:
     for section in config.sections():
         if section.startswith('MESSAGING:'):
             config.remove_section(section)
 
-def load_program_config(config_path: str = "", bs: Optional[str] = None,
-                        plugin_services: List[JMPluginService] = []) -> None:
+
+def load_program_config(  # noqa: C901
+    config_path: str = "",
+    bs: Optional[str] = None,
+    plugin_services: List[JMPluginService] = [],
+) -> None:
     global_singleton.config.read_file(io.StringIO(defaultconfig))
     if not config_path:
         config_path = lookup_appdata_folder(global_singleton.APPNAME)
@@ -692,15 +774,16 @@ def load_program_config(config_path: str = "", bs: Optional[str] = None,
     if not os.path.exists(os.path.join(global_singleton.datadir, "cmtdata")):
         os.makedirs(os.path.join(global_singleton.datadir, "cmtdata"))
     global_singleton.config_location = os.path.join(
-        global_singleton.datadir, global_singleton.config_location)
+        global_singleton.datadir, global_singleton.config_location
+    )
 
     _remove_unwanted_default_settings(global_singleton.config)
     try:
         loadedFiles = global_singleton.config.read(
-            [global_singleton.config_location])
+            [global_singleton.config_location]
+        )
     except UnicodeDecodeError:
-        jmprint("Error loading `joinmarket.cfg`, invalid file format.",
-            "info")
+        jmprint("Error loading `joinmarket.cfg`, invalid file format.", "info")
         sys.exit(EXIT_FAILURE)
 
     # Hack required for bitcoin-rpc-no-history and probably others
@@ -712,16 +795,21 @@ def load_program_config(config_path: str = "", bs: Optional[str] = None,
     if len(loadedFiles) != 1:
         with open(global_singleton.config_location, "w") as configfile:
             configfile.write(defaultconfig)
-        jmprint("Created a new `joinmarket.cfg`. Please review and adopt the "
-              "settings and restart joinmarket.", "info")
+        jmprint(
+            "Created a new `joinmarket.cfg`. Please review and adopt the "
+            "settings and restart joinmarket.",
+            "info",
+        )
         sys.exit(EXIT_FAILURE)
 
     loglevel = global_singleton.config.get("LOGGING", "console_log_level")
     try:
         set_logging_level(loglevel)
     except:
-        jmprint("Failed to set logging level, must be DEBUG, INFO, WARNING, ERROR",
-                "error")
+        jmprint(
+            "Failed to set logging level, must be DEBUG, INFO, WARNING, ERROR",
+            "error",
+        )
 
     # Logs to the console are color-coded if user chooses (file is unaffected)
     if global_singleton.config.get("LOGGING", "color") == "true":
@@ -731,38 +819,52 @@ def load_program_config(config_path: str = "", bs: Optional[str] = None,
 
     try:
         global_singleton.maker_timeout_sec = global_singleton.config.getint(
-            'TIMEOUT', 'maker_timeout_sec')
-    except NoOptionError: #pragma: no cover
-        log.debug('TIMEOUT/maker_timeout_sec not found in .cfg file, '
-                  'using default value')
+            'TIMEOUT', 'maker_timeout_sec'
+        )
+    except NoOptionError:  # pragma: no cover
+        log.debug(
+            'TIMEOUT/maker_timeout_sec not found in .cfg file, '
+            'using default value'
+        )
 
     # configure the interface to the blockchain on startup
     global_singleton.bc_interface = get_blockchain_interface_instance(
-        global_singleton.config)
+        global_singleton.config
+    )
 
     # set the location of the commitments file; for non-mainnet a different
     # file is used to avoid conflict
     try:
         global_singleton.commit_file_location = global_singleton.config.get(
-            "POLICY", "commit_file_location")
-    except NoOptionError: #pragma: no cover
+            "POLICY", "commit_file_location"
+        )
+    except NoOptionError:  # pragma: no cover
         if get_network() == "mainnet":
-            log.debug("No commitment file location in config, using default "
-                  "location cmtdata/commitments.json")
+            log.debug(
+                "No commitment file location in config, using default "
+                "location cmtdata/commitments.json"
+            )
     if get_network() != "mainnet":
         # no need to be flexible for tests; note this is used
         # for regtest, signet and testnet3
-        global_singleton.commit_file_location = "cmtdata/" + get_network() + \
-            "_commitments.json"
-    set_commitment_file(os.path.join(config_path,
-                                         global_singleton.commit_file_location))
+        global_singleton.commit_file_location = (
+            "cmtdata/" + get_network() + "_commitments.json"
+        )
+    set_commitment_file(
+        os.path.join(config_path, global_singleton.commit_file_location)
+    )
 
-    if global_singleton.config.get("POLICY", "commitment_list_location") == ".":
+    if (
+        global_singleton.config.get("POLICY", "commitment_list_location")
+        == "."
+    ):
         # Exceptional case as explained in comment in joinmarket.cfg:
         global_singleton.commitment_list_location = "."
     else:
-        global_singleton.commitment_list_location = os.path.join(config_path,
-        global_singleton.config.get("POLICY", "commitment_list_location"))
+        global_singleton.commitment_list_location = os.path.join(
+            config_path,
+            global_singleton.config.get("POLICY", "commitment_list_location"),
+        )
 
     for p in plugin_services:
         # for now, at this config level, the only significance
@@ -770,9 +872,11 @@ def load_program_config(config_path: str = "", bs: Optional[str] = None,
         # We require that a section exists in the config file,
         # and that it has enabled=true:
         assert isinstance(p, JMPluginService)
-        if not (global_singleton.config.has_section(p.name) and \
-                global_singleton.config.has_option(p.name, "enabled") and \
-                global_singleton.config.get(p.name, "enabled") == "true"):
+        if not (
+            global_singleton.config.has_section(p.name)
+            and global_singleton.config.has_option(p.name, "enabled")
+            and global_singleton.config.get(p.name, "enabled") == "true"
+        ):
             break
         if p.requires_logging:
             # make sure the environment can accept a logfile by
@@ -780,16 +884,21 @@ def load_program_config(config_path: str = "", bs: Optional[str] = None,
             # and setting that in the plugin object; the plugin
             # itself will switch on its own logging when ready,
             # attaching a filehandler to the global log.
-            plogsdir = os.path.join(os.path.dirname(
-                global_singleton.config_location), "logs", p.name)
+            plogsdir = os.path.join(
+                os.path.dirname(global_singleton.config_location),
+                "logs",
+                p.name,
+            )
             if not os.path.exists(plogsdir):
                 os.makedirs(plogsdir)
             p.set_log_dir(plogsdir)
+
 
 def gracefully_kill_subprocess(p) -> None:
     # See https://stackoverflow.com/questions/43274476/is-there-a-way-to-check-if-a-subprocess-is-still-running
     if p.poll() is None:
         p.send_signal(SIGINT)
+
 
 def check_and_start_tor() -> None:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -802,23 +911,25 @@ def check_and_start_tor() -> None:
     if not os.path.exists(tor_bin):
         log.info("Can't find our custom tor.")
         return
-    command = [tor_bin, "-f", os.path.join(sys.prefix,
-        "etc", "tor", "torrc")]
+    command = [tor_bin, "-f", os.path.join(sys.prefix, "etc", "tor", "torrc")]
     # output messages from tor if loglevel is debug, they might be useful
     if global_singleton.config.get("LOGGING", "console_log_level") == "DEBUG":
         tor_stdout = sys.stdout
     else:
         tor_stdout = open(os.devnull, 'w')
-    tor_subprocess = subprocess.Popen(command, stdout=tor_stdout,
-        stderr=subprocess.STDOUT, close_fds=True)
+    tor_subprocess = subprocess.Popen(
+        command, stdout=tor_stdout, stderr=subprocess.STDOUT, close_fds=True
+    )
     atexit.register(gracefully_kill_subprocess, tor_subprocess)
     log.debug("Started Tor subprocess with pid " + str(tor_subprocess.pid))
+
 
 def load_test_config(**kwargs) -> None:
     if "config_path" not in kwargs:
         load_program_config(config_path=".", **kwargs)
     else:
         load_program_config(**kwargs)
+
 
 ##########################################################
 ## Returns a tuple (rpc_user: String, rpc_pass: String) ##
@@ -841,18 +952,24 @@ def _get_bitcoin_rpc_credentials(_config: ConfigParser) -> Tuple[str, str]:
         rpc_user = _config.get("BLOCKCHAIN", "rpc_user")
         rpc_password = _config.get("BLOCKCHAIN", "rpc_password")
         if not (rpc_user and rpc_password):
-            raise ValueError("Invalid RPC auth credentials `rpc_user` and `rpc_password`")
+            raise ValueError(
+                "Invalid RPC auth credentials `rpc_user` and `rpc_password`"
+            )
         return rpc_user, rpc_password
+
 
 def get_blockchain_interface_instance(_config: ConfigParser):
     # todo: refactor joinmarket module to get rid of loops
     # importing here is necessary to avoid import loops
-    from jmclient.blockchaininterface import BitcoinCoreInterface, \
-        RegtestBitcoinCoreInterface, \
-        BitcoinCoreNoHistoryInterface
+    from jmclient.blockchaininterface import (
+        BitcoinCoreInterface,
+        RegtestBitcoinCoreInterface,
+        BitcoinCoreNoHistoryInterface,
+    )
+
     source = _config.get("BLOCKCHAIN", "blockchain_source")
     network = get_network()
-    testnet = (network == 'testnet' or network == 'signet')
+    testnet = network == 'testnet' or network == 'signet'
 
     if source in ('bitcoin-rpc', 'regtest', 'bitcoin-rpc-no-history'):
         rpc_host = _config.get("BLOCKCHAIN", "rpc_host")
@@ -871,20 +988,19 @@ def get_blockchain_interface_instance(_config: ConfigParser):
         rpc_user, rpc_password = _get_bitcoin_rpc_credentials(_config)
         rpc_wallet_file = _config.get("BLOCKCHAIN", "rpc_wallet_file")
         rpc = JsonRpc(rpc_host, rpc_port, rpc_user, rpc_password)
-        if source == 'bitcoin-rpc': #pragma: no cover
-            bc_interface = BitcoinCoreInterface(rpc, network,
-                rpc_wallet_file)
+        if source == 'bitcoin-rpc':  # pragma: no cover
+            bc_interface = BitcoinCoreInterface(rpc, network, rpc_wallet_file)
             if testnet:
                 btc.select_chain_params("bitcoin/testnet")
             else:
                 btc.select_chain_params("bitcoin")
         elif source == 'regtest':
-            bc_interface = RegtestBitcoinCoreInterface(rpc,
-                rpc_wallet_file)
+            bc_interface = RegtestBitcoinCoreInterface(rpc, rpc_wallet_file)
             btc.select_chain_params("bitcoin/regtest")
         elif source == "bitcoin-rpc-no-history":
-            bc_interface = BitcoinCoreNoHistoryInterface(rpc, network,
-                rpc_wallet_file)
+            bc_interface = BitcoinCoreNoHistoryInterface(
+                rpc, network, rpc_wallet_file
+            )
             if testnet or network == "regtest":
                 # in tests, for bech32 regtest addresses, for bc-no-history,
                 # this will have to be reset manually:
@@ -899,8 +1015,9 @@ def get_blockchain_interface_instance(_config: ConfigParser):
         raise ValueError("Invalid blockchain source")
     return bc_interface
 
+
 def update_persist_config(section: str, name: str, value: Any) -> bool:
-    """ Unfortunately we cannot persist an updated config
+    """Unfortunately we cannot persist an updated config
     while preserving the full set of comments with ConfigParser's
     model (the 'set no-value settings' doesn't cut it).
     Hence if we want to update and persist, we must manually
@@ -915,7 +1032,7 @@ def update_persist_config(section: str, name: str, value: Any) -> bool:
     or True if it was found and edited+saved as intended.
     """
 
-    m_line  = re.compile(r"^\s*" + name + r"\s*" + "=", re.IGNORECASE)
+    m_line = re.compile(r"^\s*" + name + r"\s*" + "=", re.IGNORECASE)
     m_section = re.compile(r"\[\s*" + section + r"\s*\]", re.IGNORECASE)
 
     # Find the single line containing the specified value; only accept
@@ -928,7 +1045,7 @@ def update_persist_config(section: str, name: str, value: Any) -> bool:
     match_found = False
     with open(jm_single().config_location, "r") as f:
         for line in f.readlines():
-            newline  = line
+            newline = line
             # ignore comment lines
             if line.strip().startswith("#"):
                 newlines.append(line)
@@ -938,10 +1055,13 @@ def update_persist_config(section: str, name: str, value: Any) -> bool:
                 # get the section name from the match
                 sectionname = regexp_match_section.group().strip("[]").strip()
             regexp_match = m_line.search(line)
-            if regexp_match and sectionname and sectionname.upper(
-                ) == section.upper():
+            if (
+                regexp_match
+                and sectionname
+                and sectionname.upper() == section.upper()
+            ):
                 # We have the right line; change it
-                newline = name + " = " + str(value)+"\n"
+                newline = name + " = " + str(value) + "\n"
                 match_found = True
             newlines.append(newline)
     # If it wasn't found, do nothing but return an error
@@ -953,21 +1073,27 @@ def update_persist_config(section: str, name: str, value: Any) -> bool:
         f.writelines([x.encode("utf-8") for x in newlines])
     return True
 
+
 def is_segwit_mode() -> bool:
     return jm_single().config.get('POLICY', 'segwit') != 'false'
+
 
 def is_native_segwit_mode() -> bool:
     if not is_segwit_mode():
         return False
     return jm_single().config.get('POLICY', 'native') != 'false'
 
+
 def process_shutdown(mode: str = "command-line") -> None:
-    if mode=="command-line":
+    if mode == "command-line":
         from twisted.internet import reactor
+
         for dc in reactor.getDelayedCalls():
             dc.cancel()
         reactor.stop()
 
+
 def process_startup() -> None:
     from twisted.internet import reactor
+
     reactor.run()

@@ -20,7 +20,7 @@ from jmbase.support import get_log, jmprint, EXIT_SUCCESS, \
 
 log = get_log()
 
-def main():
+def main():  # noqa: C901
     (options, args) = get_tumbler_parser().parse_args()
     options_org = options
     options = vars(options)

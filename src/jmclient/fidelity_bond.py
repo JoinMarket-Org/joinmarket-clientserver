@@ -4,6 +4,7 @@ import json
 from jmbitcoin import ecdsa_sign, ecdsa_verify
 import binascii
 
+
 def assert_is_utxo(utxo):
     assert len(utxo) == 2
     assert isinstance(utxo[0], bytes)
@@ -13,14 +14,34 @@ def assert_is_utxo(utxo):
 
 
 def get_cert_msg(cert_pub, cert_expiry):
-    return b'fidelity-bond-cert|' + cert_pub + b'|' + str(cert_expiry).encode('ascii')
+    return (
+        b'fidelity-bond-cert|'
+        + cert_pub
+        + b'|'
+        + str(cert_expiry).encode('ascii')
+    )
+
 
 def get_ascii_cert_msg(cert_pub, cert_expiry):
-    return b'fidelity-bond-cert|' + binascii.hexlify(cert_pub) + b'|' + str(cert_expiry).encode('ascii')
+    return (
+        b'fidelity-bond-cert|'
+        + binascii.hexlify(cert_pub)
+        + b'|'
+        + str(cert_expiry).encode('ascii')
+    )
+
 
 class FidelityBond:
-    def __init__(self, utxo, utxo_pubkey, locktime, cert_expiry,
-                 cert_privkey, cert_pubkey, cert_signature):
+    def __init__(
+        self,
+        utxo,
+        utxo_pubkey,
+        locktime,
+        cert_expiry,
+        cert_privkey,
+        cert_pubkey,
+        cert_signature,
+    ):
         assert_is_utxo(utxo)
         assert isinstance(utxo_pubkey, bytes)
         assert isinstance(locktime, int)
@@ -38,19 +59,28 @@ class FidelityBond:
 
     def create_proof(self, maker_nick, taker_nick):
         return FidelityBondProof(
-            maker_nick, taker_nick, self.cert_pubkey, self.cert_expiry,
-            self.cert_signature, self.utxo, self.utxo_pubkey, self.locktime)
-
-    def serialize(self):
-        return json.dumps([
+            maker_nick,
+            taker_nick,
+            self.cert_pubkey,
+            self.cert_expiry,
+            self.cert_signature,
             self.utxo,
             self.utxo_pubkey,
             self.locktime,
-            self.cert_expiry,
-            self.cert_privkey,
-            self.cert_pubkey,
-            self.cert_signature,
-        ])
+        )
+
+    def serialize(self):
+        return json.dumps(
+            [
+                self.utxo,
+                self.utxo_pubkey,
+                self.locktime,
+                self.cert_expiry,
+                self.cert_privkey,
+                self.cert_pubkey,
+                self.cert_signature,
+            ]
+        )
 
     @classmethod
     def deserialize(cls, data):
@@ -62,8 +92,17 @@ class FidelityBondProof:
     # 72       + 72       + 33          + 2           + 33          + 32   + 4    + 4 = 252 bytes
     SER_STUCT_FMT = '<72s72s33sH33s32sII'
 
-    def __init__(self, maker_nick, taker_nick, cert_pub, cert_expiry,
-                 cert_sig, utxo, utxo_pub, locktime):
+    def __init__(
+        self,
+        maker_nick,
+        taker_nick,
+        cert_pub,
+        cert_expiry,
+        cert_sig,
+        utxo,
+        utxo_pub,
+        locktime,
+    ):
         assert isinstance(maker_nick, str)
         assert isinstance(taker_nick, str)
         assert isinstance(cert_pub, bytes)
@@ -102,7 +141,7 @@ class FidelityBondProof:
             self.utxo_pub,
             self.utxo[0],
             self.utxo[1],
-            self.locktime
+            self.locktime,
         )
         return base64.b64encode(fidelity_bond_data).decode('ascii')
 
@@ -122,21 +161,33 @@ class FidelityBondProof:
 
         unpacked_data = struct.unpack(cls.SER_STUCT_FMT, decoded_data)
         try:
-            signature = unpacked_data[0][unpacked_data[0].index(b'\x30'):]
-            cert_sig = unpacked_data[1][unpacked_data[1].index(b'\x30'):]
+            signature = unpacked_data[0][unpacked_data[0].index(b'\x30') :]
+            cert_sig = unpacked_data[1][unpacked_data[1].index(b'\x30') :]
         except ValueError:
-            #raised if index() doesnt find the position
+            # raised if index() doesnt find the position
             raise ValueError("der signature header not found")
-        proof = cls(maker_nick, taker_nick, unpacked_data[2], unpacked_data[3],
-                    cert_sig, (unpacked_data[5], unpacked_data[6]),
-                    unpacked_data[4], unpacked_data[7])
+        proof = cls(
+            maker_nick,
+            taker_nick,
+            unpacked_data[2],
+            unpacked_data[3],
+            cert_sig,
+            (unpacked_data[5], unpacked_data[6]),
+            unpacked_data[4],
+            unpacked_data[7],
+        )
         cert_msg = get_cert_msg(proof.cert_pub, proof.cert_expiry)
         ascii_cert_msg = get_ascii_cert_msg(proof.cert_pub, proof.cert_expiry)
 
-        if not cls._verify_signature(proof.nick_msg, signature, proof.cert_pub):
+        if not cls._verify_signature(
+            proof.nick_msg, signature, proof.cert_pub
+        ):
             raise ValueError("nick sig does not verify")
-        if not cls._verify_signature(cert_msg, proof.cert_sig, proof.utxo_pub) and\
-            not cls._verify_signature(ascii_cert_msg, proof.cert_sig, proof.utxo_pub):
+        if not cls._verify_signature(
+            cert_msg, proof.cert_sig, proof.utxo_pub
+        ) and not cls._verify_signature(
+            ascii_cert_msg, proof.cert_sig, proof.utxo_pub
+        ):
             raise ValueError("cert sig does not verify")
 
         return proof
