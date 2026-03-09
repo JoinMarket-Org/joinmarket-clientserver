@@ -833,10 +833,13 @@ components:
             type: string
             example: wallet.jmdat
     YieldGenReportResponse:
-      type: array
-      items:
-        type: string
-        example: "2021/10/26 16:40:21,133986791,1,200000000,2680,2680,0.08,"
+      type: object
+      properties:
+        yigen_data:
+          type: array
+          items:
+            type: string
+            example: "2021/10/26 16:40:21,133986791,1,200000000,2680,2680,0.08,"
     GetinfoResponse:
       type: object
       required:
