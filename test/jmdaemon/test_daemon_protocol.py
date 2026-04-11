@@ -326,3 +326,73 @@ class TestJMDaemonProtoInit(unittest.TestCase):
     def _called_by_deffered(self):
         global end_early
         end_early = False
+
+def test_check_utxo_blacklist_case_and_whitespace(tmp_path):
+    """Regression test: a commitment that has already been used must not
+      be accepted again, regardless of hex-digit case or surrounding
+      whitespace (well; the line protocol doesn't allow whitespace in or around,
+      but, why not be strict).
+      We're gong to test canonicalize_commitment_str and check_utxo_blacklist.
+    """
+    from jmdaemon.daemon_protocol import (check_utxo_blacklist,
+                                            canonicalize_commitment_str,
+                                            set_blacklist_location,
+                                            blacklist_location)
+
+    old_blacklist_location = blacklist_location
+    try:
+        # Fresh, isolated commitmentlist file per test run, courtesy of the
+        # pytest tmp_path fixture.
+        commitmentlist = tmp_path / "commitmentlist"
+        set_blacklist_location(str(commitmentlist))
+
+        # A plausible 32-byte (64 hex char) commitment.
+        lc = "deadbeef" * 8
+        uc = lc.upper()
+        mixed = "DeAdBeEf" * 8
+        padded = "  " + lc + "\n"
+
+        # First use: accepted, and persisted to disk.
+        assert check_utxo_blacklist(lc, persist=True) is True
+        assert commitmentlist.is_file()
+
+        # Exact reuse: rejected.
+        assert check_utxo_blacklist(lc) is False
+
+        # Case-variant reuse: must also be rejected. This is the regression
+        # the fix targets — before the fix these returned True.
+        assert check_utxo_blacklist(uc) is False
+        assert check_utxo_blacklist(mixed) is False
+
+        # Whitespace-variant reuse: also rejected.
+        assert check_utxo_blacklist(padded) is False
+
+        # A genuinely new commitment is still accepted.
+        other = "cafebabe" * 8
+        assert check_utxo_blacklist(other) is True
+
+        # Malformed input is rejected outright.
+        assert canonicalize_commitment_str("not-a-hex-string!") is False
+        assert check_utxo_blacklist("not-a-hex-string!") == "invalid_format"
+        assert canonicalize_commitment_str("abc") is False
+        assert check_utxo_blacklist("abc") == "invalid_format"  # odd length; not even valid hex
+
+        # As explained elsewhere, whitespace inside the commitment is not actually
+        # possible, but it's sensible to check the effect in case the protocol is different.
+        # The current effect is to treat it as valid hex and canonicalize it.
+        # Hence if the corresponding canonical form has been used, we should get False,
+        # and otherwise True.
+        assert check_utxo_blacklist("dead beef" * 8) is False
+        assert check_utxo_blacklist("de ad be ef" * 8) is False
+        assert check_utxo_blacklist("de ad be ef" * 7 + "cafe babe") is True
+
+        # Legacy-on-disk path: simulate a pre-fix commitmentlist that was
+        # written in uppercase (e.g. from an !hp2 broadcast that arrived in
+        # uppercase under the old code). A canonical lowercase query must
+        # still detect the reuse after the fix normalizes entries on read.
+        legacy = tmp_path / "legacy_commitmentlist"
+        legacy.write_bytes(("F00DF00D" * 8 + "\n").encode("ascii"))
+        set_blacklist_location(str(legacy))
+        assert check_utxo_blacklist("f00df00d" * 8) is False
+    finally:
+          set_blacklist_location(old_blacklist_location)
