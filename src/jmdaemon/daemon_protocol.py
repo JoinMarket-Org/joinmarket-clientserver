@@ -73,24 +73,42 @@ def set_blacklist_location(location):
     global blacklist_location
     blacklist_location = location
 
+def canonicalize_commitment_str(commitment):
+    # Worthy of note: an actually valid commitment
+    # has a specific length, but that's not at issue here:
+    # if the commitment isn't valid, it can't be reused.
+    # This makes sure of a 1-1 mapping between a valid commitment
+    # byte string and its hex representation.
+    try:
+        commitment = bytes.fromhex(commitment).hex()
+    except ValueError:
+        return False
+    return commitment
+
 def check_utxo_blacklist(commitment, persist=False):
     """Compare a given commitment with the persisted blacklist log file,
     which is hardcoded to this directory and name 'commitmentlist' (no
     security or privacy issue here).
-    If the commitment has been used before, return False (disallowed),
+    If the commitment is not of a valid format, return "invalid_format"; if
+    it has been used before, return False (disallowed),
     else return True.
     If flagged, persist the usage of this commitment to the above file.
     """
-    #TODO format error checking?
+    # Fix DOS potential: should check what is given as a value, not as a string;
+    # but since it's passed as a string, the format must be canonical:
+    commitment = canonicalize_commitment_str(commitment)
+    if not commitment:
+        return "invalid_format"
     fname = blacklist_location
     if os.path.isfile(fname):
         with open(fname, "rb") as f:
-            blacklisted_commitments = [x.decode('ascii').strip() for x in f.readlines()]
+            blacklisted_commitments = [x.decode('ascii').strip().lower() for x in f.readlines()]
     else:
         blacklisted_commitments = []
     if commitment in blacklisted_commitments:
         return False
     elif persist:
+        # persisted commitments guaranteed to be canonical format
         blacklisted_commitments += [commitment]
         with open(fname, "wb") as f:
             f.write('\n'.join(blacklisted_commitments).encode('ascii'))
@@ -712,6 +730,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         #we broadcast them here, and not early - to avoid accidentally
         #blacklisting commitments that are broadcast between makers in real time
         #for the same transaction.
+        #We don't need validity check here; we already did it.
         self.transfer_commitment(self.active_orders[nick]["commit"])
         #now persist the fact that the commitment is actually used.
         check_utxo_blacklist(self.active_orders[nick]["commit"], persist=True)
@@ -773,7 +792,11 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
                                 "Unsupported commitment type: " + str(commit[0]))
             return
         scommit = commit[1:]
-        if not check_utxo_blacklist(scommit):
+        blacklist_check = check_utxo_blacklist(scommit)
+        if blacklist_check == "invalid_format":
+            # Bad behaviour; ignore; don't forward it.
+            return
+        if not blacklist_check:
             log.msg("Taker utxo commitment is blacklisted, rejecting.")
             self.mcc.send_error(nick, "Commitment is blacklisted: " + str(scommit))
             #Note that broadcast is happening here to reflect an already
@@ -832,7 +855,7 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """Triggered when we see a commitment for blacklisting
         appear in the public pit channel.
         """
-        #just add if necessary, ignore return value.
+        #just add if necessary and valid, ignore return value.
         check_utxo_blacklist(commitment, persist=True)
         log.msg("Received commitment broadcast by other maker: " + str(
             commitment) + ", now blacklisted.")
@@ -842,8 +865,17 @@ class JMDaemonServerProtocol(amp.AMP, OrderbookWatch):
         """Triggered when a privmsg is received from another maker
         with a commitment to announce in public (obfuscation of source).
         We simply post it in public (not affected by whether we ourselves
-        are *accepting* commitment broadcasts.
+        are *accepting* commitment broadcasts).
+        There is no issue of malicious format in transfer: the only purpose
+        of transfer is to give more possibility of blocking, not accepting.
+        DOS risk would not be addressed by restricting format.
+        However, as a kind of 'politeness', we are not going to pubmsg
+        invalid-format commitments, in case other participants have old code
+        that is not checking format (in short, why not).
         """
+        commitment = canonicalize_commitment_str(commitment)
+        if not commitment:
+            return
         self.mcc.pubmsg("!hp2 " + commitment)
 
     @maker_only
