@@ -12,7 +12,7 @@ from typing import Callable, List, Optional
 import urllib.parse as urlparse
 
 # JoinMarket version
-JM_CORE_VERSION = '0.9.12dev'
+JM_CORE_VERSION = '0.9.12'
 
 # global Joinmarket constants
 JM_WALLET_NAME_PREFIX = "joinmarket-wallet-"
