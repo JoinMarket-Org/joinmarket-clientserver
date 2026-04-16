@@ -89,13 +89,15 @@ def cjfee_display(cjfee: Union[Decimal, float, int],
                   btc_unit: str,
                   rel_unit: str) -> str:
     if order['ordertype'] in ['swabsoffer', 'sw0absoffer']:
-        val = sat_to_unit(cjfee, html.unescape(btc_unit))
-        if btc_unit == "BTC":
-            return "%.8f" % val
-        else:
-            return str(val)
+        # Display absolute fee in satoshis with commas
+        return f"{int(cjfee):,} sats"
     elif order['ordertype'] in ['reloffer', 'swreloffer', 'sw0reloffer']:
-        return str(Decimal(cjfee) * Decimal(rel_unit_to_factor[rel_unit])) + rel_unit
+        # For relative fee, keep using percentage but format with commas if needed
+        rel_fee = Decimal(cjfee) * Decimal(rel_unit_to_factor[rel_unit])
+        if rel_fee >= 1000:
+            return f"{int(rel_fee):,}{rel_unit}"
+        else:
+            return f"{rel_fee}{rel_unit}"
 
 
 def order_str(s, order, btc_unit, rel_unit):
@@ -103,12 +105,21 @@ def order_str(s, order, btc_unit, rel_unit):
 
 
 def bond_value_to_str(bond_value: Decimal, btc_unit: str) -> str:
-    if btc_unit == "BTC":
-        return "%.16f" % bond_value
-    elif btc_unit == "mBTC":
-        return "%.10f" % bond_value
-    else:
-        return str(bond_value)
+    # Convert to integer and format with commas
+    try:
+        # Convert to satoshis if needed (multiply by 10^8 if in BTC)
+        if btc_unit == "BTC":
+            satoshis = int(bond_value * 100000000)
+        elif btc_unit == "mBTC":
+            satoshis = int(bond_value * 100000)
+        elif btc_unit == "&#956;BTC":
+            satoshis = int(bond_value * 100)
+        else:
+            satoshis = int(bond_value)
+        
+        return f"{satoshis:,} sats"
+    except (ValueError, TypeError):
+        return str(bond_value) + " sats"
 
 
 def create_offerbook_table_heading(btc_unit, rel_unit):
@@ -119,10 +130,10 @@ def create_offerbook_table_heading(btc_unit, rel_unit):
                 col.format('counterparty', 'Counterparty'),
                 col.format('oid', 'Order ID'),
                 col.format('cjfee', 'Fee'),
-                col.format('txfee', 'Miner Fee Contribution / ' + btc_unit),
-                col.format('minsize', 'Minimum Size / ' + btc_unit),
-                col.format('maxsize', 'Maximum Size / ' + btc_unit),
-                col.format('bondvalue', 'Bond value / ' + btc_unit + '<sup>' + bond_exponent + '</sup>')
+                col.format('txfee', 'Miner Fee Contribution (sats)'),
+                col.format('minsize', 'Minimum Size (sats)'),
+                col.format('maxsize', 'Maximum Size (sats)'),
+                col.format('bondvalue', 'Bond value (sats)')
             ]) + ' </tr>'
     return tableheading
 
@@ -141,20 +152,8 @@ def create_bonds_table_heading(btc_unit):
     return tableheading
 
 def create_choose_units_form(selected_btc, selected_rel):
-    choose_units_form = (
-        '<form method="get" action="">' +
-        '<select name="btcunit" onchange="this.form.submit();">' +
-        ''.join(('<option>' + u + ' </option>' for u in sorted_units)) +
-        '</select><select name="relunit" onchange="this.form.submit();">' +
-        ''.join(('<option>' + u + ' </option>' for u in sorted_rel_units)) +
-        '</select></form>')
-    choose_units_form = choose_units_form.replace(
-            '<option>' + selected_btc,
-            '<option selected="selected">' + selected_btc)
-    choose_units_form = choose_units_form.replace(
-            '<option>' + selected_rel,
-            '<option selected="selected">' + selected_rel)
-    return choose_units_form
+    # Simplified form that just displays a message that all values are in satoshis
+    return '<div style="font-family: monospace; margin: 10px 0;">All values displayed in satoshis (sats) with comma formatting</div>'
 
 def get_fidelity_bond_data(taker):
     with taker.dblock:
@@ -553,11 +552,8 @@ class OrderbookPageRequestHeader(http.server.SimpleHTTPRequestHandler):
                         html.unescape(btc_unit))
 
         def _okd_satoshi_to_unit(sat, order, btc_unit, rel_unit):
-            val = sat_to_unit(sat, html.unescape(btc_unit))
-            if btc_unit == "BTC":
-                return "%.8f" % val
-            else:
-                return str(val)
+            # Always display in satoshis with commas
+            return f"{int(sat):,} sats"
 
         order_keys_display = (('ordertype', ordertype_display),
                               ('counterparty', do_nothing),
