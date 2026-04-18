@@ -8,7 +8,7 @@ import subprocess
 import sys
 from configparser import ConfigParser, NoOptionError
 from signal import SIGINT
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Set, Tuple
 
 import jmbitcoin as btc
 from jmbase.support import (get_log, joinmarket_alert, core_alert, debug_silence,
@@ -363,6 +363,10 @@ interest_rate = """ + _DEFAULT_INTEREST_RATE + """
 # A real number, i.e. 1 = 100%, 0.125 = 1/8 = 1 in every 8 makers on average will be bondless
 bondless_makers_allowance = """ + _DEFAULT_BONDLESS_MAKERS_ALLOWANCE + """
 
+# Allow blocking/ignoring makers by ID. These makers will not be included in taker coinjoins.
+# Takes a list separated by commas.
+# banned_maker_ids = J5Abcdefgh2,J5Ijklmnop3
+
 # To (strongly) disincentivize Sybil behaviour, the value assessment of the bond
 # is based on the (time value of the bond)^x where x is the bond_value_exponent here,
 # where x > 1. It is a real number (so written as a decimal).
@@ -667,6 +671,12 @@ def get_interest_rate() -> float:
 def get_bondless_makers_allowance() -> float:
     return float(global_singleton.config.get('POLICY', 'bondless_makers_allowance',
         fallback=_DEFAULT_BONDLESS_MAKERS_ALLOWANCE))
+
+def get_banned_maker_ids() -> Set[str]:
+    value = global_singleton.config.get('POLICY', 'banned_maker_ids', fallback='')
+    if value == '':
+      return set()
+    return set(value.split(','))
 
 def _remove_unwanted_default_settings(config: ConfigParser) -> None:
     for section in config.sections():
