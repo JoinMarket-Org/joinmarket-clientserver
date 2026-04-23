@@ -172,6 +172,7 @@ onion_serving_port = 8080
 # but NOT TO BE USED by non-directory nodes (which is you, unless
 # you know otherwise!), as it will greatly degrade your privacy.
 # (note the default is no value, don't replace it with "").
+# Use tor-managed: prefix to use Tor-managed hidden services.
 hidden_service_dir =
 #
 # This is a comma separated list (comma can be omitted if only one item).

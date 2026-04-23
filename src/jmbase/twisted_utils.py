@@ -1,13 +1,17 @@
+import os
 
-from zope.interface import implementer
-from twisted.internet.error import ReactorNotRunning
-from twisted.internet import reactor, defer
-from twisted.internet.endpoints import (TCP4ClientEndpoint,
-                        UNIXClientEndpoint, serverFromString)
-from twisted.web.client import Agent, BrowserLikePolicyForHTTPS
 import txtorcon
+from twisted.internet import defer, reactor
+from twisted.internet.endpoints import (
+    TCP4ClientEndpoint,
+    UNIXClientEndpoint,
+    serverFromString,
+)
+from twisted.internet.error import ReactorNotRunning
+from twisted.web.client import Agent, BrowserLikePolicyForHTTPS
+from txtorcon import TorConfig, TorControlProtocol
 from txtorcon.web import tor_agent
-from txtorcon import TorControlProtocol, TorConfig
+from zope.interface import implementer
 
 _custom_stop_reactor_is_set = False
 custom_stop_reactor = None
@@ -170,37 +174,41 @@ class JMHiddenService(object):
         # an ephemeral HS on the global or pre-existing tor.
         self.hidden_service_dir = hidden_service_dir
 
+        self.tor_connection = None
+
     def start_tor(self):
         """ This function executes the workflow
         of starting the hidden service and returning its hostname
         """
-        self.info_callback("Attempting to start onion service on port: {} "
-                           "...".format(self.virtual_port))
+        self.info_callback(
+            f"Attempting to start onion service on port: {self.virtual_port} ..."
+        )
+
+        # Check if using Tor-managed mode (via torrc, not control port)
+        if self.hidden_service_dir.startswith("tor-managed:"):
+            self.start_tor_managed_onion()
+            return
+
+        # Ephemeral or txtorcon-managed hidden service (via control port)
+        if str(self.tor_control_host).startswith("unix:"):
+            control_endpoint = UNIXClientEndpoint(reactor, self.tor_control_host[5:])
+        else:
+            control_endpoint = TCP4ClientEndpoint(
+                reactor, self.tor_control_host, self.tor_control_port
+            )
+        d = txtorcon.connect(reactor, control_endpoint)
+
         if self.hidden_service_dir == "":
-            if str(self.tor_control_host).startswith('unix:'):
-                control_endpoint = UNIXClientEndpoint(reactor,
-                                        self.tor_control_host[5:])
-            else:
-                control_endpoint = TCP4ClientEndpoint(reactor,
-                                self.tor_control_host, self.tor_control_port)
-            d = txtorcon.connect(reactor, control_endpoint)
+            # Ephemeral hidden service (no persistence)
             d.addCallback(self.create_onion_ep)
             d.addErrback(self.setup_failed)
-            # TODO: add errbacks to the next two calls in
-            # the chain:
             d.addCallback(self.onion_listen)
             d.addCallback(self.print_host)
         else:
-            ep = "onion:" + str(self.virtual_port) + ":localPort="
-            ep += str(self.serving_port)
-            # endpoints.TCPHiddenServiceEndpoint creates version 2 by
-            # default for backwards compat (err, txtorcon needs to update that ...)
-            ep += ":version=3"
-            ep += ":hiddenServiceDir="+self.hidden_service_dir
-            onion_endpoint = serverFromString(reactor, ep)
-            d = onion_endpoint.listen(self.proto_factory)
+            # txtorcon-managed filesystem hidden service
+            d.addCallback(self.create_filesystem_onion_ep)
+            d.addErrback(self.setup_failed)
             d.addCallback(self.print_host_filesystem)
-
 
     def setup_failed(self, arg):
         # Note that actions based on this failure are deferred to callers:
@@ -208,10 +216,44 @@ class JMHiddenService(object):
 
     def create_onion_ep(self, t):
         self.tor_connection = t
-        portmap_string = config_to_hs_ports(self.virtual_port,
-                                self.serving_host, self.serving_port)
+        portmap_string = config_to_hs_ports(
+            self.virtual_port, self.serving_host, self.serving_port
+        )
         return t.create_onion_service(
-            ports=[portmap_string], private_key=txtorcon.DISCARD)
+            ports=[portmap_string], private_key=txtorcon.DISCARD
+        )
+
+    def create_filesystem_onion_ep(self, t):
+        """Create a persistent hidden service using txtorcon's filesystem support.
+        Requires local Tor control port access.
+        """
+        self.tor_connection = t
+        ep = "onion:" + str(self.virtual_port) + ":localPort="
+        ep += str(self.serving_port)
+        ep += ":version=3"
+        ep += ":hiddenServiceDir=" + self.hidden_service_dir
+        onion_endpoint = serverFromString(reactor, ep)
+        return onion_endpoint.listen(self.proto_factory)
+
+    def start_tor_managed_onion(self) -> None:
+        """
+        For Tor-managed hidden services: read hostname, start listening.
+        No control port connection needed.
+        """
+        hs_dir = self.hidden_service_dir.removeprefix("tor-managed:")
+        hostname_file = os.path.join(hs_dir, "hostname")
+
+        if not os.path.exists(hostname_file):
+            self.error_callback(f"Hostname file {hostname_file} does not exist")
+            return
+
+        try:
+            with open(hostname_file, "r") as f:
+                hostname = f.read().strip()
+            self.info_callback(f"Using Tor-managed hidden service: {hostname}")
+            self.onion_hostname_callback(hostname)
+        except Exception as e:
+            self.error_callback(f"Failed to read {hostname_file}: {e}")
 
     def onion_listen(self, onion):
         # 'onion' arg is the created EphemeralOnionService object;
@@ -240,10 +282,12 @@ class JMHiddenService(object):
         self.onion_hostname_callback(self.onion.hostname)
 
     def shutdown(self):
-        self.tor_connection.protocol.transport.loseConnection()
+        if self.tor_connection:
+            self.tor_connection.protocol.transport.loseConnection()
         self.info_callback("Hidden service shutdown complete")
         if self.shutdown_callback:
             self.shutdown_callback()
+
 
 class JMHTTPResource(Resource):
     """ Object acting as HTTP serving resource
