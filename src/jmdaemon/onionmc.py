@@ -4,6 +4,7 @@ from jmbase import get_log,  JM_APP_NAME, JMHiddenService, stop_reactor
 import json
 import copy
 import random
+import time
 from typing import Callable, Union, Tuple, List
 from twisted.internet import reactor, task, protocol
 from twisted.protocols import basic
@@ -24,6 +25,13 @@ ONION_VIRTUAL_PORT = 5222
 # How many seconds to wait before treating an onion
 # as unreachable
 CONNECT_TO_ONION_TIMEOUT = 60
+
+# Rate limiting for inbound messages per connection.
+# If a peer sends more than ONION_MSG_RATE_LIMIT messages
+# within ONION_MSG_RATE_INTERVAL seconds, the connection
+# is dropped to protect against message flooding DoS attacks.
+ONION_MSG_RATE_LIMIT = 45
+ONION_MSG_RATE_INTERVAL = 15
 
 def location_tuple_to_str(t: Tuple[str, int]) -> str:
     return f"{t[0]}:{t[1]}"
@@ -162,6 +170,8 @@ class OnionLineProtocol(basic.LineReceiver):
     MAX_LENGTH = 40000
 
     def connectionMade(self):
+        self.msg_count = 0
+        self.msg_count_reset_time = time.monotonic()
         self.factory.register_connection(self)
         basic.LineReceiver.connectionMade(self)
 
@@ -170,6 +180,17 @@ class OnionLineProtocol(basic.LineReceiver):
         basic.LineReceiver.connectionLost(self, reason)
 
     def lineReceived(self, line: bytes) -> None:
+        now = time.monotonic()
+        if now - self.msg_count_reset_time >= ONION_MSG_RATE_INTERVAL:
+            self.msg_count = 0
+            self.msg_count_reset_time = now
+        self.msg_count += 1
+        if self.msg_count > ONION_MSG_RATE_LIMIT:
+            log.info("Rate limit exceeded by peer {}, "
+                     "dropping connection.".format(
+                         network_addr_to_string(self.transport.getPeer())))
+            self.transport.loseConnection()
+            return
         try:
             msg = OnionCustomMessage.from_string_decode(line)
         except OnionCustomMessageDecodingError:
@@ -824,7 +845,7 @@ class OnionMessageChannel(MessageChannel):
             try:
                 peer_sendable = self.get_directory_for_nick(nick)
             except OnionDirectoryPeerNotFound:
-                log.warn("Failed to send privmsg because no "
+                log.debug("Failed to send privmsg because no "
                 "directory peer is connected.")
                 return
         self._send(peer_sendable, encoded_privmsg)
@@ -978,6 +999,13 @@ class OnionMessageChannel(MessageChannel):
         # ignore non-JM messages:
         if msgtype not in JM_MESSAGE_TYPES.values():
             log.debug("Invalid message type, ignoring: {}".format(msgtype))
+            return
+
+        # Require that non-directory peers have completed a handshake
+        # before we process their JM messages. This prevents
+        # unauthenticated peers from triggering orderbook responses
+        # and other expensive operations.
+        if not peer.directory and peer.status() != PEER_STATUS_HANDSHAKED:
             return
 
         # real JM message; should be: from_nick, to_nick, cmd, message
