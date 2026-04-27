@@ -1,5 +1,7 @@
 ![Release workflow status](https://github.com/JoinMarket-Org/joinmarket-clientserver/actions/workflows/unittests.yml/badge.svg)
 
+**THIS REPOSITORY IS NOW ARCHIVED. It is not recommended for use, though the releases are still available. See the latest release notes.**
+
 # joinmarket-clientserver
 
 JoinMarket is software to create a special kind of bitcoin transaction called a CoinJoin transaction. Its aim is to improve the confidentiality and privacy of bitcoin transactions.
