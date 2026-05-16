@@ -3,6 +3,7 @@ import re
 import subprocess
 from shlex import split
 from time import sleep
+from twisted.internet import reactor
 from typing import Any, Tuple
 
 import pytest
@@ -172,3 +173,19 @@ def setup_regtest_bitcoind(pytestconfig):
     local_command(stop_cmd)
     # note, it is better to clean out ~/.bitcoin/regtest but too
     # dangerous to automate it here perhaps
+
+
+@pytest.fixture(autouse=True)
+def reset_reactor_state(request):
+    """Reset reactor _startedBefore flag after twisted.trial tests.
+
+    twisted.trial stops the reactor after each test, which marks it as
+    _startedBefore=True, preventing subsequent tests from running the reactor.
+    This fixture resets the flag to allow other tests to use the reactor.
+    """
+
+    def reset_flag():
+        if hasattr(reactor, "_startedBefore") and reactor._startedBefore:
+            if not reactor.running:
+                reactor._startedBefore = False
+    request.addfinalizer(reset_flag)

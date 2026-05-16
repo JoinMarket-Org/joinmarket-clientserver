@@ -8,7 +8,7 @@ from typing import Callable, Union, Tuple, List
 from twisted.internet import reactor, task, protocol
 from twisted.protocols import basic
 from twisted.application.internet import ClientService
-from twisted.internet.endpoints import TCP4ClientEndpoint
+from twisted.internet.endpoints import serverFromString, TCP4ClientEndpoint
 from twisted.internet.address import IPv4Address, IPv6Address
 from txtorcon.socks import (TorSocksEndpoint, HostUnreachableError,
                             SocksError, GeneralServerFailureError)
@@ -697,9 +697,12 @@ class OnionMessageChannel(MessageChannel):
                 # it'll fire the `setup_error_callback`.
                 self.hs.start_tor()
 
-                # This will serve as our unique identifier, indicating
-                # that we are ready to communicate (in both directions) over Tor.
-                self.onion_hostname = None
+                # For tor-managed services, the hostname is set synchronously by start_tor()
+                # For ephemeral services, we need to wait for the callback
+                if not self.hidden_service_dir.startswith("tor-managed:"):
+                    # This will serve as our unique identifier, indicating
+                    # that we are ready to communicate (in both directions) over Tor.
+                    self.onion_hostname = None
         else:
             # dummy 'hostname' to indicate we can start running immediately:
             self.onion_hostname = NOT_SERVING_ONION_HOSTNAME
@@ -884,7 +887,7 @@ class OnionMessageChannel(MessageChannel):
         if self.genesis_node:
             # we are a directory and we have no directory peers;
             # just start.
-            self.on_welcome(self)
+            self._start_listener()
             return
         # the remaining code is only executed by non-directories:
         for p in self.peers:
@@ -900,6 +903,13 @@ class OnionMessageChannel(MessageChannel):
         self.wait_for_directories_loop = task.LoopingCall(
             self.wait_for_directories)
         self.wait_for_directories_loop.start(2.0)
+
+    def _start_listener(self) -> None:
+        serverstring = f"tcp:{self.onion_serving_port}:interface={self.onion_serving_host}"
+        onion_endpoint = serverFromString(reactor, serverstring)
+        d = onion_endpoint.listen(self.proto_factory)
+        d.addCallback(self.on_welcome)
+        d.addErrback(lambda f: self.setup_error_callback(f"Listen failed: {f}"))
 
     def handshake_as_client(self, peer: OnionPeer) -> None:
         assert peer.status() == PEER_STATUS_CONNECTED
@@ -1461,7 +1471,8 @@ class OnionMessageChannel(MessageChannel):
         # Note that even if the preceding (max) 50 seconds failed to
         # connect all our configured dps, we will keep trying and they
         # can still be used.
-        if not self.on_welcome_sent:
+        # For genesis nodes, on_welcome is called after the listener starts
+        if not self.on_welcome_sent and not self.genesis_node:
             self.on_welcome(self)
             self.on_welcome_sent = True
             self.wait_for_directories_loop.stop()
