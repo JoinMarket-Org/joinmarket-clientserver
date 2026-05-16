@@ -67,6 +67,9 @@ gui = [
     "joinmarket[services]",
     "joinmarket[jmqtui]",
 ]
+matplotlib = [
+    "matplotlib==3.10.6",
+]
 
 [project.urls]
 repository = "https://github.com/JoinMarket-Org/joinmarket-clientserver.git"

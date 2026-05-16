@@ -422,6 +422,9 @@ joinmarket_install ()
     if [[ ${with_qt} == "1" ]]; then
         reqs='gui'
     fi
+    if [[ ${with_mpl} == "1" ]]; then
+        reqs+=',matplotlib'
+    fi
     if [[ ${develop} == "1" ]]; then
         reqs+=',test'
     fi
@@ -478,6 +481,9 @@ parse_flags ()
             --with-local-tor)
                 build_local_tor='1'
                 ;;
+            --with-matplotlib)
+                with_mpl='1'
+                ;;
             --with-qt)
                 with_qt='1'
                 ;;
@@ -485,6 +491,7 @@ parse_flags ()
                 with_qt='0'
                 ;;
             --docker-install)
+                with_mpl="${with_mpl:-${WITH_MATPLOTLIB}}"
                 with_sudo='0'
                 with_jmvenv='0'
                 ;;
@@ -507,6 +514,7 @@ Options:
 --no-gpg-validation         disable GPG key validation for dependencies
 --python, -p                python version (only python3 versions are supported)
 --with-local-tor            build Tor locally and autostart when needed
+--with-matplotlib           install matplotlib for graph rendering
 --with-qt                   build the Qt GUI
 --without-qt                don't build the Qt GUI
 "
@@ -569,6 +577,7 @@ main ()
     no_gpg_validation=''
     use_os_deps_check='1'
     use_secp_check='1'
+    with_mpl=''
     with_qt=''
     with_jmvenv='1'
     with_sudo='1'
