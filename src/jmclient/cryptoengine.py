@@ -17,11 +17,13 @@ from .configure import get_network, jm_single
 TYPE_P2PKH, TYPE_P2SH_P2WPKH, TYPE_P2WPKH, TYPE_P2SH_M_N, TYPE_TIMELOCK_P2WSH, \
     TYPE_SEGWIT_WALLET_FIDELITY_BONDS, TYPE_WATCHONLY_FIDELITY_BONDS, \
     TYPE_WATCHONLY_TIMELOCK_P2WSH, TYPE_WATCHONLY_P2WPKH, TYPE_P2WSH, TYPE_P2TR = range(11)
-NET_MAINNET, NET_TESTNET, NET_SIGNET = range(3)
+NET_MAINNET, NET_TESTNET, NET_SIGNET, NET_TESTNET4 = range(4)
 NET_MAP = {'mainnet': NET_MAINNET, 'testnet': NET_TESTNET,
-    'signet': NET_SIGNET}
-WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef', 'signet': b'\xef'}
-BIP44_COIN_MAP = {'mainnet': 2**31, 'testnet': 2**31 + 1, 'signet': 2**31 + 1}
+           'signet': NET_SIGNET, 'testnet4': NET_TESTNET4}
+WIF_PREFIX_MAP = {'mainnet': b'\x80', 'testnet': b'\xef', 'signet': b'\xef',
+                  'testnet4': b'\xef'}
+BIP44_COIN_MAP = {'mainnet': 2**31, 'testnet': 2**31 + 1, 'signet': 2**31 + 1,
+                  'testnet4': 2**31 + 1}
 
 BIP32_PUB_PREFIX = "xpub"
 BIP49_PUB_PREFIX = "ypub"
