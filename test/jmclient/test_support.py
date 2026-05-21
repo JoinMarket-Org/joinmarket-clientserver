@@ -76,7 +76,7 @@ def test_choose_orders():
     #test the fidelity bond one
     for i, o in enumerate(orderbook):
         o["fidelity_bond_value"] = i+1
-    orders_fees = choose_orders(orderbook, 100000000, 3, fidelity_bond_weighted_order_choose)
+    orders_fees = choose_orders(orderbook, 100000000, 3, fidelity_bond_weighted_order_choose, tx_max_expected_probability=0.75)
     assert len(orders_fees[0]) == 3
     #test sweep
     result, cjamount, total_fee = choose_sweep_orders(orderbook, 50000000,
