@@ -5,9 +5,6 @@
 	<head>
 		<title>PAGETITLE</title>
 		<link href="vendor/bootstrap.min.css" rel="stylesheet">
-        <script src="vendor/jquery-3.5.1.slim.min.js"></script>
-        <script src="vendor/sorttable.js"></script>
-
 		<style>
 			body {
 			  padding-top: 50px;
@@ -28,50 +25,12 @@
 				padding: 5px;
 			}
 			.tftable {font-size:12px;color:#fbfbfb;border-width: 1px;border-color: #686767;border-collapse: collapse;margin: 10px auto;}
-			.tftable th {font-size:12px;background-color:#171515;border-width: 1px;padding: 8px;border-style: solid;border-color: #686767;text-align:center;}
+			.tftable th {font-size:12px;background-color:#171515;border-width: 1px;padding: 8px;border-style: solid;border-color: #686767;text-align:center;cursor:pointer;}
 			.tftable tr {background-color:#2f2f2f;}
 			.tftable td {font-size:12px;border-width: 1px;padding: 8px;border-style: solid;border-color: #686767;}
 			.tftable tr:hover {background-color:#171515;}
 			.tftable tr.selected {background-color:#171515;}
 		</style>
-
-
-                <script>
-
-                  function myboolean(value) {
-                    return !(value=="false" || value=="" || value==null);
-                  }
-                  function getOrderKey(tr) {
-                    var row = $(tr).find("td");
-                    if(row.length==0){ return null; }
-                    return $(row[1]).text().replace(/_*$/g,"")+"/"+$(row[2]).text();
-                  }
-
-                  var selected;
-                  $(document).ready(function(){
-                    var rows = $("table.tftable tr");
-                    var i;
-                    /*for(i=1 ; i<rows.length ; i++){
-                      $($(rows[i]).find("td")[1]).css( "background-color", "red" );
-                    }*/
-                    for(i=1 ; i<rows.length ; i++) {
-                      var key = getOrderKey(rows[i]);
-                        if(key!=null && myboolean(localStorage.getItem(key))){
-                          $(rows[i]).addClass("selected");
-                        }
-                    }
-
-
-                  $(".tftable tr").click(function(){
-                    $(this).toggleClass("selected");
-                    var element = getOrderKey(this);
-                    // toggle:
-                    localStorage.setItem(element,String(!myboolean(localStorage.getItem(element))));
-                  });
-
-                  });
-                  </script>
-		
 	</head>
 
 
@@ -103,5 +62,37 @@
 			<br>
 		</div>
 	</body>
+	<script src="vendor/sorttable.js"></script>
+	<script>
+		function myboolean(value) {
+		  return !(value === "false" || value === "" || value === null);
+		}
 
+		function getOrderKey(tr) {
+		  const row = tr.getElementsByTagName('td');
+		  if (row.length === 0) { return null; }
+		  return row[1].textContent.replace(/_*$/g, "") + "/" + row[2].textContent;
+		}
+
+		document.addEventListener('DOMContentLoaded', function() {
+
+		  const rows = document.querySelectorAll('table.tftable tr');
+		  for (let i = 1; i < rows.length; i++) {
+		    const key = getOrderKey(rows[i]);
+		    if (key !== null && myboolean(localStorage.getItem(key))) {
+		      rows[i].classList.add("selected");
+		    }
+		  }
+
+		  document.querySelectorAll('.tftable tr').forEach(row => {
+		    row.addEventListener('click', function() {
+		      this.classList.toggle('selected');
+		      const element = getOrderKey(this);
+		      // toggle:
+		      localStorage.setItem(element, String(!myboolean(localStorage.getItem(element))));
+		    });
+		  });
+
+		});
+	</script>
 </html>
