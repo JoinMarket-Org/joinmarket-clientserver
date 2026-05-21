@@ -604,8 +604,6 @@ main ()
         fi
         # shellcheck source=/dev/null
         source "${jm_root}/bin/activate"
-    else
-        upgrade_setuptools
     fi
     if [[ ${build_local_tor} == "1" ]]; then
         if ! tor_deps_install; then
