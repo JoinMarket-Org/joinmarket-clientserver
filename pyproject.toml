@@ -27,7 +27,7 @@ jmclient = [
     "fastbencode==0.3.6",
     "klein==20.6.0",
     "mnemonic==0.20",
-    "pyjwt==2.4.0",
+    "pyjwt==2.15.0",
     "werkzeug==2.2.3",
 ]
 jmdaemon = [
