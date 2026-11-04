@@ -1,6 +1,13 @@
 ![Release workflow status](https://github.com/JoinMarket-Org/joinmarket-clientserver/actions/workflows/unittests.yml/badge.svg)
 
-**THIS REPOSITORY IS NOW ARCHIVED. It is not recommended for use, though the releases are still available. See the latest release notes.**
+**THIS REPOSITORY IS NOW ARCHIVED. DO NOT USE THIS CODE; there are both major and minor vulnerabilities that have not and will not be patched. This one is the most important we are aware of:**
+
+> [!CAUTION]
+> **SECURITY WARNING: DO NOT USE THIS SOFTWARE TO SEND PAYJOIN PAYMENTS. YOU CAN LOSE ALL THE FUNDS IN THE PAYMENT.**
+>
+> Every release that includes PayJoin (v0.7.0 through v0.9.12) has a vulnerability in *sending* a PayJoin (BIP78) payment. This means paying a BIP21 URI that contains a `pj=` parameter, either with `sendpayment.py` or through the "PayJoin" option in JoinMarket-Qt. When you send, the software doesn't check the signature-hash type that the receiver sets on your inputs. A malicious receiver can therefore get your wallet to sign in a way that doesn't commit to the transaction's outputs. They can then redirect **the full value of the coins you spent**, not just the payment amount, to themselves.
+>
+> This will not be fixed, because the repository is archived. If you still run this software despite the risks, for example for recovering a wallet or fidelity bond, **do not send PayJoin payments with it.** If you have done so in the past and the payment confirmed as expected, that payment wasn't affected.
 
 # joinmarket-clientserver
 

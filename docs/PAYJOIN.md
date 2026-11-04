@@ -1,3 +1,6 @@
+> [!CAUTION]
+> **SECURITY WARNING: DO NOT SEND PAYJOIN PAYMENTS WITH THIS SOFTWARE. A malicious receiver can steal the full value of the coins you spend.** This affects every release (v0.7.0 through v0.9.12) and will not be fixed. See the warning at the top of the [README](../README.md).
+
 ### PayJoin (aka P2EP) user guide.
 
 (You've installed using the `install.sh` or similar as per instructions in the README before
